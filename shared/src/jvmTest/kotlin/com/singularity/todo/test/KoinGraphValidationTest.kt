@@ -111,7 +111,8 @@ class KoinGraphValidationTest {
 
         // ─── Pomodoro ──────────────────────────────────────────────────
         single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
-        factory<PomodoroTimer> { JvmPomodoroTimer() }
+        single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
+        factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get()) }
 
         // ─── Reminders ─────────────────────────────────────────────────
         single<ReminderScheduler> { JvmReminderScheduler() }

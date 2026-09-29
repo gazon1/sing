@@ -14,6 +14,11 @@ package com.singularity.todo.core.ui
  * title ("Buy milk", "Café run", "Profile & sync") can never produce a tag that
  * a UI-automation selector cannot address.
  */
+// The one flat namespace for every automation tag is the point of this object: a
+// tag must be findable from a Compose call site, a unit test, and a Maestro flow
+// without any of them learning a sub-object path. Splitting it to satisfy the
+// function-count rule would break every existing call site and flow for no gain.
+@Suppress("TooManyFunctions")
 object TestTags {
 
     // ─── Auth ────────────────────────────────────────────────────────────────
@@ -62,6 +67,7 @@ object TestTags {
     const val TASK_EDITOR_TITLE_INPUT = "task_editor_title_input"
     const val TASK_EDITOR_SAVE = "task_editor_save"
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
+    const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
 
     /** Due-date row in the task editor attribute list. */
     const val TASK_EDITOR_DUE_ROW = "task_editor_due_row"
@@ -109,6 +115,7 @@ object TestTags {
 
     // ─── Tags ───────────────────────────────────────────────────────────────
     const val TAGS_LIST = "tags_list"
+    const val TAGS_FAB = "tags_fab"
 
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
@@ -137,6 +144,8 @@ object TestTags {
     const val SEARCH_INPUT = "search_input"
 
     // ─── Projects ───────────────────────────────────────────────────────────
+
+    /** Quick-add task field on the project detail screen. */
     const val PROJECT_DETAIL_QUICK_ADD = "project_detail_quick_add"
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"

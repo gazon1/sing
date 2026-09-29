@@ -1199,7 +1199,9 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override fun observeAll(): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.userId == uid && it.deletedAt == null } }
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && it.archivedAt == null && it.deletedAt == null }
+            }
         }
 
     override fun observe(
@@ -1266,7 +1268,11 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override fun watchPinned(): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.userId == uid && it.isPinned && it.deletedAt == null } }
+            store.state.map { list ->
+                list.values.filter {
+                    it.userId == uid && it.isPinned && it.archivedAt == null && it.deletedAt == null
+                }
+            }
         }
 
     override fun watchArchived(): Flow<List<com.singularity.todo.feature.notes.Note>> =
@@ -1280,7 +1286,8 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter {
-                    it.userId == uid && it.parentNoteId == null && !it.isFolder && it.deletedAt == null
+                    it.userId == uid && it.parentNoteId == null && !it.isFolder &&
+                        it.archivedAt == null && it.deletedAt == null
                 }
             }
         }
@@ -1294,7 +1301,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 // never returns. The fake is the test double, not a better spec —
                 // whether note search *should* cover bodies is a product question.
                 list.values.filter { note ->
-                    note.userId == uid && note.deletedAt == null &&
+                    note.userId == uid && note.archivedAt == null && note.deletedAt == null &&
                         note.title.contains(query, ignoreCase = true)
                 }
             }

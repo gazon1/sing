@@ -11,8 +11,11 @@ import com.singularity.todo.feature.notes.NoteSortOrder
 sealed interface NotesIntent : MviIntent {
     data class Delete(val id: NoteId) : NotesIntent
     data class TogglePin(val id: NoteId) : NotesIntent
+    data class Archive(val id: NoteId) : NotesIntent
+    data class Unarchive(val id: NoteId) : NotesIntent
     data class SetFilter(val filter: NoteFilter) : NotesIntent
     data class SetSortOrder(val order: NoteSortOrder) : NotesIntent
+    data class SearchQueryChanged(val query: String) : NotesIntent
     data class EnterSelection(val id: NoteId) : NotesIntent
     data class ToggleSelection(val id: NoteId) : NotesIntent
     data object ExitSelection : NotesIntent

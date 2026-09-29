@@ -33,4 +33,15 @@ sealed interface BackupIntent : MviIntent {
 
     /** Restore settings from a JSON snapshot previously produced by [ExportSettingsSnapshot]. */
     data class ImportSettingsSnapshot(val json: String) : BackupIntent
+
+    /**
+     * Import settings from a file the user picked, identified by path or `content://` URI.
+     *
+     * The read is the ViewModel's job, not the screen's: on Android the picker hands
+     * back a SAF URI that only a `ContentResolver` can open, and a Composable has no
+     * business holding one. [BackupViewModel] routes the path through
+     * [com.singularity.todo.core.files.FileSourceFactory], which already knows both
+     * forms, and emits [ImportSettingsSnapshot] once the bytes are decoded.
+     */
+    data class ImportSettingsFrom(val sourcePath: String) : BackupIntent
 }

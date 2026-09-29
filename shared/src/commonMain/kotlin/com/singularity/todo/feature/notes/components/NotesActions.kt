@@ -22,11 +22,14 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
 
     fun onDelete(id: NoteId) = dispatch(NotesIntent.Delete(id))
     fun onTogglePin(id: NoteId) = dispatch(NotesIntent.TogglePin(id))
+    fun onArchive(id: NoteId) = dispatch(NotesIntent.Archive(id))
+    fun onUnarchive(id: NoteId) = dispatch(NotesIntent.Unarchive(id))
 
     // ── List control ──────────────────────────────────────────────────────────
 
     fun onSetFilter(filter: NoteFilter) = dispatch(NotesIntent.SetFilter(filter))
     fun onSetSortOrder(order: NoteSortOrder) = dispatch(NotesIntent.SetSortOrder(order))
+    fun onSearchQueryChange(query: String) = dispatch(NotesIntent.SearchQueryChanged(query))
 
     // ── Selection mode ─────────────────────────────────────────────────────────
 

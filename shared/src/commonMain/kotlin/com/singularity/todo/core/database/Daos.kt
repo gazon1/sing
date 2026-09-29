@@ -314,12 +314,12 @@ interface TaskDao {
 @Dao
 interface NoteDao {
     @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC",
+        "SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC",
     )
     fun watchAll(userId: String): Flow<List<NoteEntity>>
 
     @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND is_pinned = 1 AND deleted_at IS NULL ORDER BY pinned_at DESC",
+        "SELECT * FROM notes WHERE user_id = :userId AND is_pinned = 1 AND archived_at IS NULL AND deleted_at IS NULL ORDER BY pinned_at DESC",
     )
     fun watchPinned(userId: String): Flow<List<NoteEntity>>
 
@@ -329,12 +329,12 @@ interface NoteDao {
     fun watchArchived(userId: String): Flow<List<NoteEntity>>
 
     @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND parent_note_id IS NULL AND is_folder = 0 AND deleted_at IS NULL ORDER BY sort_order ASC, updated_at DESC",
+        "SELECT * FROM notes WHERE user_id = :userId AND parent_note_id IS NULL AND is_folder = 0 AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, updated_at DESC",
     )
     fun watchRootNotes(userId: String): Flow<List<NoteEntity>>
 
     @Query(
-        "SELECT * FROM notes WHERE parent_note_id = :parentId AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
+        "SELECT * FROM notes WHERE parent_note_id = :parentId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
     )
     fun watchChildren(parentId: String): Flow<List<NoteEntity>>
 
@@ -345,12 +345,12 @@ interface NoteDao {
     suspend fun getByIdForUser(id: String, userId: String): NoteEntity?
 
     @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
+        "SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
     )
     fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>>
 
     @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
+        "SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
     )
     suspend fun searchByTitle(userId: String, q: String): List<NoteEntity>
 

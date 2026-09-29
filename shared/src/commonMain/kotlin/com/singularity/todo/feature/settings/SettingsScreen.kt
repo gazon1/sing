@@ -2,8 +2,6 @@ package com.singularity.todo.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +11,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
@@ -47,7 +47,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
@@ -64,6 +67,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
+import com.singularity.todo.feature.tags.TagsIntent
 import com.singularity.todo.feature.tags.TagsScreen
 import com.singularity.todo.feature.tags.TagsUiState
 import com.singularity.todo.feature.tags.TagsViewModel
@@ -197,7 +201,11 @@ private fun SettingsContent(
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
                         val tagsState by tagsVm.state.collectAsState()
-                        TagsScreen(state = tagsState, onDelete = tagsVm::delete)
+                        TagsScreen(
+                            state = tagsState,
+                            onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
+                            onDelete = tagsVm::delete,
+                        )
                     }
 
                     SettingsTab.TagGroups -> {
@@ -226,19 +234,32 @@ private fun SettingsContent(
 private fun BackupScreenWrapper(onBack: () -> Unit) {
     val backupVm: BackupViewModel = koinViewModel()
     val backupState by backupVm.state.collectAsState()
+
+    // The restore / settings-import flows need the *path* the user picked, not just the
+    // fact that they picked. `rememberAppFilePicker` hands the path straight to the
+    // intent, so the launcher callback and the VM stay in step with no intermediate state.
+    val pickBackup = rememberAppFilePicker(FilePickPurpose.Backup) { picked ->
+        val path = picked?.path ?: return@rememberAppFilePicker
+        backupVm.onIntent(BackupIntent.Restore(path))
+    }
+    val pickSettings = rememberAppFilePicker(FilePickPurpose.SettingsJson) { picked ->
+        val source = picked?.path ?: return@rememberAppFilePicker
+        backupVm.onIntent(BackupIntent.ImportSettingsFrom(source))
+    }
+    val sharePort: SharePort = koinInject()
+
     BackupScreen(
         state = backupState,
         events = backupVm.events,
         onBack = onBack,
         onCreateBackup = { backupVm.onIntent(BackupIntent.CreateBackup) },
-        onSelectRestoreFile = { /* Platform shell provides file picker on Android */ },
+        onSelectRestoreFile = pickBackup,
         onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
         onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
         onPush = { id -> backupVm.onIntent(BackupIntent.Push(id)) },
-        // Settings snapshot — platform shell handles file picking / sharing
         onExportSettings = { backupVm.onIntent(BackupIntent.ExportSettingsSnapshot) },
-        onSelectSettingsFile = { /* shell opens file picker → calls BackupIntent.ImportSettingsSnapshot */ },
-        onShareSettingsJson = { /* shell shows share sheet with JSON */ },
+        onSelectSettingsFile = pickSettings,
+        onShareSettingsJson = { json -> sharePort.shareText("Singularity settings", json) },
         onImportSettings = { json -> backupVm.onIntent(BackupIntent.ImportSettingsSnapshot(json)) },
     )
 }
@@ -326,7 +347,7 @@ private fun AiStatusBadge(aiTestResult: AiTestResult, modifier: Modifier = Modif
 
 private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
     SettingsTab.Tags to {
-        TagsScreen(state = TagsUiState.Empty, onDelete = {})
+        TagsScreen(state = TagsUiState.Empty, onCreate = { _, _ -> }, onDelete = {})
     },
     SettingsTab.TagGroups to {
         TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})

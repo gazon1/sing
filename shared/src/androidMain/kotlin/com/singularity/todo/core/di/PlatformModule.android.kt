@@ -10,9 +10,13 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileRevealer
+import com.singularity.todo.core.files.AndroidFileSourceFactory
 import com.singularity.todo.core.files.AndroidFileSystem
+import com.singularity.todo.core.files.AndroidSharePort
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
@@ -168,6 +172,10 @@ actual fun platformModule(): Module = module {
 
     single<FileRevealer> { AndroidFileRevealer(get()) }
 
+    single<SharePort> { AndroidSharePort(get()) }
+
+    single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
+
     single<BackupCodec> { AndroidBackupCodec() }
 
     single<String> { get<Context>().filesDir.absolutePath + "/backups" }
@@ -202,8 +210,8 @@ actual fun platformModule(): Module = module {
     // Desktop worked. The JVM module binds the interface — mirror that.
     single<PomodoroTaskListProvider> { AndroidPomodoroTaskListProvider(get(), MainScope()) }
     // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
-    // point gets its own instance with the shared MainScope.
-    factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), MainScope()) }
+    // point gets its own instance with the CoroutineScope from coreModule.
+    factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), get()) }
 
     // ─── Calendar Sync ────────────────────────────────────────────────
 

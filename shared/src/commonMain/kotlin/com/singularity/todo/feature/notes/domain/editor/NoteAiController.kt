@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.notes.domain.editor
 
+import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
 import com.singularity.todo.feature.ai.tools.RewriteTone
 import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.NoteAiAction
@@ -44,7 +45,7 @@ class NoteAiController(
     @Suppress("UNCHECKED_CAST")
     suspend fun run(action: NoteAiAction, title: String, html: String): Result<Any> = when (action) {
         NoteAiAction.Improve -> {
-            val fn = improveNote ?: return Result.failure(IllegalStateException("ImproveNoteUseCase not available"))
+            val fn = improveNote ?: return Result.failure(IllegalStateException(AI_NOT_CONFIGURED))
             fn(title, html).fold(
                 onSuccess = { Result.success(it as Any) },
                 onFailure = { Result.failure(it) },
@@ -52,7 +53,7 @@ class NoteAiController(
         }
 
         NoteAiAction.Summarize -> {
-            val fn = summarizeNote ?: return Result.failure(IllegalStateException("SummarizeNoteUseCase not available"))
+            val fn = summarizeNote ?: return Result.failure(IllegalStateException(AI_NOT_CONFIGURED))
             fn(title, html).fold(
                 onSuccess = { Result.success(SummarizeResult.Ok(it) as Any) },
                 onFailure = { Result.failure(it) },
@@ -61,7 +62,7 @@ class NoteAiController(
 
         NoteAiAction.ExtractActions -> {
             val fn = extractActions ?: return Result.failure(
-                IllegalStateException("ExtractActionsUseCase not available"),
+                IllegalStateException(AI_NOT_CONFIGURED),
             )
             fn(title, html).fold(
                 onSuccess = { Result.success(ExtractActionsResult.Ok(it) as Any) },
@@ -70,7 +71,7 @@ class NoteAiController(
         }
 
         NoteAiAction.RewriteOneLiner, NoteAiAction.RewriteTldr, NoteAiAction.RewriteStructured -> {
-            val fn = rewriteNote ?: return Result.failure(IllegalStateException("RewriteNoteUseCase not available"))
+            val fn = rewriteNote ?: return Result.failure(IllegalStateException(AI_NOT_CONFIGURED))
             val tone = when (action) {
                 NoteAiAction.RewriteOneLiner -> RewriteTone.OneLiner.name
                 NoteAiAction.RewriteTldr -> RewriteTone.Tldr.name
@@ -84,7 +85,7 @@ class NoteAiController(
         }
 
         NoteAiAction.SuggestTags -> {
-            val fn = suggestTags ?: return Result.failure(IllegalStateException("SuggestTagsUseCase not available"))
+            val fn = suggestTags ?: return Result.failure(IllegalStateException(AI_NOT_CONFIGURED))
             fn(title, html).fold(
                 onSuccess = { Result.success(SuggestTagsResult.Ok(it) as Any) },
                 onFailure = { Result.failure(it) },

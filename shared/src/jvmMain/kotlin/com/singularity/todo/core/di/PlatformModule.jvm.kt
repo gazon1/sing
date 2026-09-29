@@ -10,9 +10,13 @@ import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileRevealer
+import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
+import com.singularity.todo.core.files.JvmSharePort
+import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
@@ -113,6 +117,10 @@ actual fun platformModule(): Module = module {
 
     single<FileRevealer> { JvmFileRevealer() }
 
+    single<FileSourceFactory> { JvmFileSourceFactory() }
+
+    single<SharePort> { JvmSharePort() }
+
     single<BackupCodec> { JvmBackupCodec() }
 
     single<String> { userHome + "/.singularity-todo/backups" }
@@ -120,7 +128,15 @@ actual fun platformModule(): Module = module {
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
     single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
-    factory<PomodoroTimer> { JvmPomodoroTimer() }
+    single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
+    factory<PomodoroTimer> {
+        JvmPomodoroTimer(
+            get(),
+            get(),
+            get(),
+            com.singularity.todo.core.coroutines.createBackgroundScope(),
+        )
+    }
 
     // ─── Reminder Scheduler ────────────────────────────────────────────
 

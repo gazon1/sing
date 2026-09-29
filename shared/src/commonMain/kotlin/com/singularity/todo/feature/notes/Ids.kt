@@ -197,6 +197,7 @@ data class NotesListState(
     val dailyNotes: List<Note> = emptyList(),
     val filter: NoteFilter = NoteFilter.All,
     val sortOrder: NoteSortOrder = NoteSortOrder.UpdatedDesc,
+    val searchQuery: String = "",
     val selectedIds: Set<NoteId> = emptySet(),
     val isSelectionMode: Boolean = false,
 ) {

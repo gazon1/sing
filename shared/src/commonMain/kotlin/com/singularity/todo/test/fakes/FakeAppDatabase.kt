@@ -442,12 +442,12 @@ private class FakeTaskDao(
 private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEntity>>) : NoteDao {
 
     override fun watchAll(userId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.userId == userId && n.deletedAt == null }
+        it.values.filter { n -> n.userId == userId && n.archivedAt == null && n.deletedAt == null }
             .sortedWith(compareBy({ !it.isPinned }, { it.sortOrder }, { -it.updatedAt }))
     }
 
     override fun watchPinned(userId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.userId == userId && n.isPinned && n.deletedAt == null }
+        it.values.filter { n -> n.userId == userId && n.isPinned && n.archivedAt == null && n.deletedAt == null }
             .sortedByDescending { it.pinnedAt }
     }
 
@@ -459,7 +459,7 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override fun watchRootNotes(userId: String): Flow<List<NoteEntity>> = store.map {
         it.values.filter { n ->
             n.userId == userId && n.parentNoteId == null && !n.isFolder &&
-                n.deletedAt == null
+                n.archivedAt == null && n.deletedAt == null
         }
             .sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt }))
     }
@@ -471,13 +471,14 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         store.value.values.find { it.id == id && it.userId == userId }
 
     override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.parentNoteId == parentId && n.deletedAt == null }
+        it.values.filter { n -> n.parentNoteId == parentId && n.archivedAt == null && n.deletedAt == null }
             .sortedWith(compareBy({ it.sortOrder }, { it.title }))
     }
 
     override fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>> = store.map { map ->
         map.values.filter { n ->
-            n.userId == userId && n.deletedAt == null && n.title.contains(q, ignoreCase = true)
+            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
+                n.title.contains(q, ignoreCase = true)
         }.sortedByDescending { it.updatedAt }.take(20)
     }
 

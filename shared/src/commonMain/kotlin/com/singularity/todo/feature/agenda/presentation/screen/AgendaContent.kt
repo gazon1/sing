@@ -29,10 +29,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.TestTags
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -280,7 +280,7 @@ private fun AgendaTaskRow(
     }
 
     SwipeableTaskRow(
-        onDelete = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+        onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
         secondaryClickModifier = rightClickModifier,
         content = {
             TaskRowFlat(

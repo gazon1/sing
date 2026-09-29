@@ -234,7 +234,7 @@ fun BackupScreen(
                     items(state.backups, key = { it.id.value }) { backup ->
                         BackupListItem(
                             backup = backup,
-                            onRestore = { /* parent handles */ },
+                            onRestore = { onRestore(backup.path) },
                             onPush = { onPush(backup.id) },
                             onDelete = { onDelete(backup.id) },
                         )

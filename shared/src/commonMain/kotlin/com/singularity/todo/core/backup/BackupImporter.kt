@@ -6,7 +6,7 @@ import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TaskDao
-import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
@@ -20,15 +20,15 @@ class BackupImporter(
     private val attachmentStorage: AttachmentStorage,
     private val codec: BackupCodec,
     private val clock: Clock,
-    private val fs: FileSystem,
+    private val createFileSource: FileSourceFactory,
 ) {
     private val json = StableJson
 
     suspend fun import(options: ImportOptions): Result<RestoreResult> = runCatching {
         val now = clock.now().toEpochMilliseconds()
 
-        // 1. Read zip
-        val read = codec.import(options.sourcePath, fs).getOrThrow()
+        // 1. Read zip — use FileSource so content:// URIs from SAF work on Android
+        val read = codec.importFromSource(createFileSource(options.sourcePath)).getOrThrow()
 
         // 2. Validate manifest
         val manifest: BackupManifest = json.decodeFromString(

@@ -30,3 +30,14 @@ interface TextGenPort {
      */
     suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>>
 }
+
+/**
+ * Shown when an AI action is invoked but no provider is wired for the platform.
+ *
+ * Deliberately does NOT name a platform. The use cases are `null` on Android because
+ * `aiToolsModule()` binds an error stub there — but they are equally null in a JVM test
+ * or a Desktop build whose key was never configured. "AI not available on Android" told
+ * a Desktop user running the same build something false; the honest statement is that
+ * the provider is not configured, which is also the actionable one.
+ */
+const val AI_NOT_CONFIGURED = "AI provider is not configured"
