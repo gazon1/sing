@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.notes.domain
 
 import com.singularity.todo.feature.notes.Note

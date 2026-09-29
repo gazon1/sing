@@ -71,7 +71,7 @@ fun agendaModule(): Module = module {
         SavedAgendaViewModel(
             deps = SavedAgendaDeps(
                 repo = get(),
-                clock = Clock.System,
+                clock = get<Clock>(),
                 log = Logger.withTag("SavedAgenda"),
             ),
             mode = mode,

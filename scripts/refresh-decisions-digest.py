@@ -12,6 +12,7 @@ from pathlib import Path
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1500
+MAX_ITEMS_PER_TAG = 15  # per tag section cap to keep digest readable
 
 
 def main() -> None:
@@ -140,11 +141,18 @@ def main() -> None:
         out.append(f"### `{tag}`")
         out.append("")
         seen: set[tuple[str, str]] = set()
-        for b, s in sorted(per_tag[tag]):
+        items = sorted(per_tag[tag])
+        shown = 0
+        for b, s in items:
             key = (b.lower(), s)
             if key not in seen:
                 seen.add(key)
-                out.append(f"- {b}")
+                if shown < MAX_ITEMS_PER_TAG:
+                    out.append(f"- {b}")
+                    shown += 1
+        total = len(seen)
+        if total > MAX_ITEMS_PER_TAG:
+            out.append(f"- _... and {total - MAX_ITEMS_PER_TAG} more items_")
         out.append("")
 
     out.append("## Open / Deferred")

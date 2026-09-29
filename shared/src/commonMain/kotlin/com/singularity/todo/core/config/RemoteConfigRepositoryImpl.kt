@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.core.config
 
 import co.touchlab.kermit.Logger

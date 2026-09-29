@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.agenda.data
 
 import com.singularity.todo.core.database.AgendaViewDao

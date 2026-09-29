@@ -40,10 +40,7 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPale
 @OptIn(ExperimentalLayoutApi::class)
 @Suppress("FunctionSignature")
 @Composable
-fun AddTagDialog(
-    onConfirm: (name: String, color: Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun AddTagDialog(onConfirm: (name: String, color: Int) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var selectedColor by remember { mutableIntStateOf(ProjectColorPalette.all.first()) }
 

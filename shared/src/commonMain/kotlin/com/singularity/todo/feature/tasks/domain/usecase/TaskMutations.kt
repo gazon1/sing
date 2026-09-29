@@ -15,14 +15,14 @@ class TaskMutationsUseCase(private val repo: TaskRepository) {
     suspend fun bulkComplete(ids: List<TaskId>): Result<Unit> = runCatching {
         // Atomic: fail-fast if any ID doesn't exist, before mutating anything.
         ids.forEach { id ->
-            if (!repo.exists(id)) throw IllegalArgumentException("Task $id not found")
+            if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
         }
         ids.forEach { repo.toggleComplete(it).getOrThrow() }
     }
 
     suspend fun bulkDelete(ids: List<TaskId>): Result<Unit> = runCatching {
         ids.forEach { id ->
-            if (!repo.exists(id)) throw IllegalArgumentException("Task $id not found")
+            if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
         }
         ids.forEach { repo.softDelete(it).getOrThrow() }
     }

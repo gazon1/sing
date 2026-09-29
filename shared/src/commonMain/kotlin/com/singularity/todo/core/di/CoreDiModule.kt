@@ -207,7 +207,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
-    factory<IdGenerator> { UlidIdGenerator }
+    single<IdGenerator> { UlidIdGenerator }
 
     single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 

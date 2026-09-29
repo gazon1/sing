@@ -8,6 +8,7 @@ import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toIsoOrNull
 import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
+import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.serialization.StableJson
@@ -102,7 +103,7 @@ class TaskRepositoryImpl(
 
     override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
         val today = LocalDate.fromEpochDays(
-            clock.now().toEpochMilliseconds() / (24 * 60 * 60 * 1000),
+            clock.now().toEpochMilliseconds() / TimeConstants.MILLIS_PER_DAY,
         ).toString()
 
         val entityFlow: Flow<List<TaskEntity>> = when (filter) {

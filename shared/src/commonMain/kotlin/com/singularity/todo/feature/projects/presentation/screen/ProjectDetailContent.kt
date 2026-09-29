@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.projects.presentation.screen
 
 import androidx.compose.foundation.background

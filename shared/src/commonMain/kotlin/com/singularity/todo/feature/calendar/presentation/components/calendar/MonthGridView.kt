@@ -27,8 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
@@ -191,8 +191,11 @@ private fun MonthDayCell(
         modifier = modifier
             .testTag(
                 TestTags.calendarDay(
-                    "${date.year}-${date.monthNumber.toString().padStart(2, '0')}-${date.dayOfMonth.toString().padStart(2, '0')}"
-                )
+                    "${date.year}-${date.monthNumber.toString().padStart(
+                        2,
+                        '0',
+                    )}-${date.dayOfMonth.toString().padStart(2, '0')}",
+                ),
             )
             .border(width = 0.5.dp, color = palette.divider)
             .let { box ->

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.statistics
 
+import com.singularity.todo.core.platform.TimeConstants
 import java.time.Instant
 import java.time.ZoneId
 
@@ -23,14 +24,14 @@ internal fun computeStatistics(
     nowEpochMs: Long,
     rangeDays: Int = 7,
 ): StatisticsSnapshot {
-    val cutoffEpoch = nowEpochMs - (rangeDays * 24 * 60 * 60 * 1000L)
+    val cutoffEpoch = nowEpochMs - (rangeDays * TimeConstants.MILLIS_PER_DAY)
     val recentCompleted = completedTasks.filter { it.second >= cutoffEpoch }
     val recentOverdue = overdueTasks.filter { it.second < nowEpochMs }
 
     // Group by day
     val perDayMap = mutableMapOf<String, Int>()
     for (i in 0 until rangeDays) {
-        val dayMs = nowEpochMs - (i * 24 * 60 * 60 * 1000L)
+        val dayMs = nowEpochMs - (i * TimeConstants.MILLIS_PER_DAY)
         val day = Instant.ofEpochMilli(dayMs)
             .atZone(ZoneId.systemDefault())
             .toLocalDate().toString()

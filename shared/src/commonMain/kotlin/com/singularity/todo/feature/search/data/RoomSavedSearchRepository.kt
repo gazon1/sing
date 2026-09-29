@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.search.data
 
 import com.singularity.todo.core.database.SavedSearchDao

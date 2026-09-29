@@ -5,8 +5,6 @@ import com.singularity.todo.feature.notes.domain.editor.NoteEditorState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotSame
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -168,10 +166,10 @@ class DirtyTrackingTest {
     @Test
     fun `NoteEditorState operations on Empty do not crash`() {
         val state = NoteEditorState()
-        state.updateTitle("t")      // must not throw
+        state.updateTitle("t") // must not throw
         state.updateHtml("<p>h</p>") // must not throw
         state.applyImprove("t", "<p>h</p>") // must not throw
-        state.markSaved()           // must not throw
+        state.markSaved() // must not throw
         assertTrue(state.state.value is EditorState.Empty)
     }
 

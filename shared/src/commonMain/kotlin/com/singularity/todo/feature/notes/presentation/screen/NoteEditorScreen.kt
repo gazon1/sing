@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -62,7 +64,6 @@ import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import org.koin.compose.viewmodel.koinViewModel
-import kotlin.time.Duration.Companion.milliseconds
 
 // ─── Link overlay types ─────────────────────────────────────────────────────────
 
@@ -94,7 +95,7 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
             .filterIsInstance<NotesUiEvent.SavedPulse>()
             .collect {
                 savedVisible = true
-                kotlinx.coroutines.delay(1500.milliseconds)
+                kotlinx.coroutines.delay(com.singularity.todo.core.platform.TimeConstants.AutoSaveDebounceMs)
                 savedVisible = false
             }
     }

@@ -294,11 +294,7 @@ private fun AttachmentsSection(attachments: List<Attachment>) {
 
 @Suppress("FunctionSignature")
 @Composable
-private fun ExtraSectionCard(
-    icon: @Composable () -> Unit,
-    label: String,
-    content: @Composable () -> Unit,
-) {
+private fun ExtraSectionCard(icon: @Composable () -> Unit, label: String, content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),

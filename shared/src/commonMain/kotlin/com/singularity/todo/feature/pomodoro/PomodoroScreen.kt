@@ -179,8 +179,11 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 modifier = Modifier
                     .size(72.dp)
                     .testTag(
-                        if (state.isRunning) TestTags.Pomodoro.PAUSE_BUTTON
-                        else TestTags.Pomodoro.PLAY_BUTTON
+                        if (state.isRunning) {
+                            TestTags.Pomodoro.PAUSE_BUTTON
+                        } else {
+                            TestTags.Pomodoro.PLAY_BUTTON
+                        },
                     ),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = phaseColor,
@@ -335,8 +338,11 @@ private fun PomodoroContentPreview(
                 modifier = Modifier
                     .size(72.dp)
                     .testTag(
-                        if (pomodoroState.isRunning) TestTags.Pomodoro.PAUSE_BUTTON
-                        else TestTags.Pomodoro.PLAY_BUTTON
+                        if (pomodoroState.isRunning) {
+                            TestTags.Pomodoro.PAUSE_BUTTON
+                        } else {
+                            TestTags.Pomodoro.PLAY_BUTTON
+                        },
                     ),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = phaseColor,

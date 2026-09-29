@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.core.observability
 
 import com.singularity.todo.test.fakes.FakeAppDatabase

@@ -235,10 +235,10 @@ if [[ ${#UNKNOWN[@]} -eq 0 ]]; then
     echo "All $(echo "$IDS" | wc -l) id selectors are known."
     exit 0
 else
-    echo "Unknown id: selectors (${#UNKNOWN[@]}) — add to TestTags.kt or LEGACY_RAW in this script:"
+    echo "Unknown id: selectors (${#UNKNOWN[@]}) — add to TestTags.kt or the skip-list above:"
     printf '  - %s\n' "${UNKNOWN[@]}"
     echo ""
     echo "If the id is a new testTag, add it to TestTags.kt as a const val or dynamic function."
-    echo "If it is a legacy raw string, add it to the LEGACY_RAW array or the skip-list above."
+    echo "If it is a legacy raw string, add it to the skip-list (lines 116-225) or LEGACY_RAW array."
     exit 1
 fi

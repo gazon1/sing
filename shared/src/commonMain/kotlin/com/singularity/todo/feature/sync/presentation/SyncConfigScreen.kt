@@ -106,9 +106,10 @@ fun SyncConfigScreen(
             },
         )
 
-        if (state.lastSyncedAt != null) {
+        val lastSynced = state.lastSyncedAt
+        if (lastSynced != null) {
             Text(
-                text = "Last synced: ${formatTimestamp(state.lastSyncedAt!!)}",
+                text = "Last synced: ${formatTimestamp(lastSynced)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -212,9 +213,10 @@ fun SyncConfigScreen(
 
         // ─── Error banner (backup for callers not using snackbar) ──────────
 
-        if (state.errorMessage != null) {
+        val errorMsg = state.errorMessage
+        if (errorMsg != null) {
             Text(
-                text = state.errorMessage!!,
+                text = errorMsg,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.fillMaxWidth(),
