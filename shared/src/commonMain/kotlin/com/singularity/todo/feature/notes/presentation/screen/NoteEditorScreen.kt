@@ -122,7 +122,7 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
         events = viewModel.events,
         mapper = { it.toNotification() },
         onNavigateBack = { navigator.back() },
-        modifier = Modifier.testTag("note_editor_notification_host"),
+        modifier = Modifier.testTag(TestTags.NOTE_EDITOR_NOTIFICATION_HOST),
     )
 }
 

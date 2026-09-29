@@ -28,7 +28,9 @@ object TestTags {
     // ─── Navigation ──────────────────────────────────────────────────────────
     const val NAV_MENU_BUTTON = "nav_menu_button"
     const val MENU_SHEET = "menu_sheet"
-    const val DESKTOP_SIDEBAR = "desktop_sidebar"
+
+    /** Dynamic tag of the form `settings_tab_<slug>`. */
+    fun settingsTab(name: String) = "settings_tab_${slug(name)}"
 
     /** Dynamic tag of the form `nav_tab_<slug>`. */
     fun navTab(title: String) = "nav_tab_${slug(title)}"
@@ -39,8 +41,6 @@ object TestTags {
     // ─── Tasks ───────────────────────────────────────────────────────────────
     const val TASKS_LIST = "tasks_list"
     const val TASKS_FAB = "tasks_fab"
-    const val TASKS_FILTER_CHIPS = "tasks_filter_chips"
-    const val TASKS_SEARCH_BAR = "tasks_search_bar"
 
     /** Dynamic tag of the form `task_item_<slug>`. */
     fun taskItem(title: String) = "task_item_${slug(title)}"
@@ -50,27 +50,13 @@ object TestTags {
 
     // ─── Task Editor ─────────────────────────────────────────────────────────
     const val TASK_EDITOR_TITLE_INPUT = "task_editor_title_input"
-    const val TASK_EDITOR_DESCRIPTION_INPUT = "task_editor_description_input"
-    const val TASK_EDITOR_DUE_DATE = "task_editor_due_date"
-    const val TASK_EDITOR_DUE_TIME = "task_editor_due_time"
-    const val TASK_EDITOR_REMINDER = "task_editor_reminder"
-    const val TASK_EDITOR_CHECKLIST = "task_editor_checklist"
-    const val TASK_EDITOR_CHECKLIST_ADD_INPUT = "task_editor_checklist_add_input"
-    const val TASK_EDITOR_CHECKLIST_ADD_BUTTON = "task_editor_checklist_add_button"
-    const val TASK_EDITOR_ATTACHMENTS = "task_editor_attachments"
-    const val TASK_EDITOR_ADD_ATTACHMENT = "task_editor_add_attachment"
     const val TASK_EDITOR_SAVE = "task_editor_save"
-    const val TASK_EDITOR_DELETE = "task_editor_delete"
-    const val TASK_EDITOR_ERROR = "task_editor_error"
-    const val TASK_EDITOR_NOTIFICATION_HOST = "task_editor_notification_host"
 
     // ─── Tags ───────────────────────────────────────────────────────────────
     const val TAGS_LIST = "tags_list"
-    const val TAGS_FAB = "tags_fab"
 
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
-    const val NOTES_FAB = "notes_fab"
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
 
     /**
@@ -95,14 +81,15 @@ object TestTags {
     const val NOTE_EDITOR_TITLE_INPUT = "note_editor_title_input"
     const val NOTE_EDITOR_BODY = "note_editor_body"
     const val NOTE_EDITOR_SAVE = "note_editor_save"
-    const val NOTE_EDITOR_DELETE = "note_editor_delete"
-    const val NOTE_EDITOR_MARKDOWN_TOOLBAR = "note_editor_markdown_toolbar"
+    const val NOTE_EDITOR_NOTIFICATION_HOST = "note_editor_notification_host"
 
     // ─── Note Preview ────────────────────────────────────────────────────────
     const val NOTES_BACKLINKS_BUTTON = "notes_backlinks_button"
 
+    // ─── Search ─────────────────────────────────────────────────────────────
+    const val SEARCH_INPUT = "search_input"
+
     // ─── Projects ───────────────────────────────────────────────────────────
-    const val PROJECT_DETAIL_TOP_BAR = "project_detail_top_bar"
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"
     const val PROJECT_EDITOR_SAVE = "project_editor_save"

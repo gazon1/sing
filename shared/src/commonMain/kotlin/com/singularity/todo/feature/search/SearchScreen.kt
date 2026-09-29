@@ -30,9 +30,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -121,7 +123,8 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 onValueChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag(TestTags.SEARCH_INPUT),
                 placeholder = { Text("Search tasks, notes, projects...") },
                 leadingIcon = { Icon(Icons.Filled.Search, null) },
                 singleLine = true,

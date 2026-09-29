@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
@@ -255,7 +257,8 @@ private fun SettingsNavRail(
             Column(
                 modifier = Modifier.clickable(role = Role.Tab) { onSelect(tab) }
                     .semantics { selected = isSelected }
-                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                    .padding(vertical = 12.dp, horizontal = 8.dp)
+                    .testTag(TestTags.settingsTab(tab.name)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(
