@@ -37,10 +37,12 @@ class AndroidNotifier(private val context: Context) {
      *               launch PendingIntent and read by [MainActivity] to navigate to the correct view.
      */
     fun post(tag: String, title: String, body: String, viewId: String?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val denied = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+            if (denied) return
         }
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (viewId != null) {

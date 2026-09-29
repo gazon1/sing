@@ -45,13 +45,14 @@ actual fun rememberNotificationPermissionRequester(): NotificationPermissionRequ
     }
 }
 
-private fun checkPermission(context: Context): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+private fun checkPermission(context: Context): Boolean = when {
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
         ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.POST_NOTIFICATIONS,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    } else {
+
+    else -> {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.areNotificationsEnabled()
     }

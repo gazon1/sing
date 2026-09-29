@@ -8,10 +8,9 @@ import androidx.compose.runtime.Composable
  */
 @Composable
 actual fun rememberNotificationPermissionRequester(): NotificationPermissionRequester {
-    return object : NotificationPermissionRequester {
+    val noOp = object : NotificationPermissionRequester {
         override val hasPermissions: Boolean get() = true
-        override fun requestPermissions() {
-            // No-op on JVM.
-        }
+        override fun requestPermissions() = Unit
     }
+    return noOp
 }
