@@ -401,6 +401,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - ZCode подключается через `mcpServers.singularity-todo` в настройках
 - _... and 19 more items_
 
+### `mr`
+
+- New Konsist rule will catch future unscoped reads at PR level
+- `TaskRepositoryImpl` now correctly scopes dependency reads to the current user
+- `getBlockingTaskIdsForUser` required a new DAO method (schema unchanged — Room migration not needed, the cross-ref table has no userId column)
+
 ### `multi-profile`
 
 - 4 ADR entries created + DIGEST.md refreshed
@@ -819,7 +825,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_10 entries need attention._
+_11 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -831,6 +837,7 @@ _10 entries need attention._
 - `2026-09-29-check-tags-sh-allow-patterns-dead-code` — **open** — 
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-30-post-mr-1-findings` — **open** — MR-1 Quick Wins — Post-MR-1 Findings
+- `2026-09-30-repository-read-isolation` — **open** — MR-2 Repository Read-Path Isolation
 
 ## Recently superseded
 
@@ -1162,6 +1169,7 @@ _10 entries need attention._
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
+- `2026-09-30-repository-read-isolation` — mr, architecture, repository
 - `2026-09-30-tech-debt-quick-wins` — tech-debt, mr-1, quick-wins, detekt, ktlint, kotlin
 
 ## Active entries
@@ -1487,5 +1495,6 @@ _10 entries need attention._
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
+- `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
 - `2026-09-30-tech-debt-quick-wins` — MR-1: Quick Wins — механический техдолг batch
 
