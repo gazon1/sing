@@ -9,7 +9,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -93,9 +92,9 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     private val autosaveDebounceMs: Long = 500L,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<DraftUiState<D>, I, E>(
-        initialState = DraftUiState(draft = initialDraft),
-        scope = scope,
-    ) {
+    initialState = DraftUiState(draft = initialDraft),
+    scope = scope,
+) {
 
     private val draftState = DraftState(initialDraft)
 
@@ -184,7 +183,8 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Default is identity equality. Override for draft types that wrap an entity ID.
      * Example: `current.id == incoming.id` for a NoteDraft that wraps a [Note].
      */
-    protected open fun sameEntity(current: D, incoming: D): Boolean = current == incoming
+    protected open fun sameEntity(current: D, incoming: D): Boolean =
+        current == incoming
 
     /** Override to return a human-readable validation error, or null if valid. */
     protected abstract fun validate(draft: D): String?
