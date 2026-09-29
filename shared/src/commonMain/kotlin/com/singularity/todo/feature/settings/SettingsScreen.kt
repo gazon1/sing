@@ -64,6 +64,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
+import com.singularity.todo.feature.tags.TagsIntent
 import com.singularity.todo.feature.tags.TagsScreen
 import com.singularity.todo.feature.tags.TagsUiState
 import com.singularity.todo.feature.tags.TagsViewModel
@@ -197,7 +198,11 @@ private fun SettingsContent(
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
                         val tagsState by tagsVm.state.collectAsState()
-                        TagsScreen(state = tagsState, onDelete = tagsVm::delete)
+                        TagsScreen(
+                            state = tagsState,
+                            onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
+                            onDelete = tagsVm::delete,
+                        )
                     }
 
                     SettingsTab.TagGroups -> {
@@ -326,7 +331,7 @@ private fun AiStatusBadge(aiTestResult: AiTestResult, modifier: Modifier = Modif
 
 private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
     SettingsTab.Tags to {
-        TagsScreen(state = TagsUiState.Empty, onDelete = {})
+        TagsScreen(state = TagsUiState.Empty, onCreate = { _, _ -> }, onDelete = {})
     },
     SettingsTab.TagGroups to {
         TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})

@@ -107,6 +107,7 @@ object TestTags {
 
     // ─── Tags ───────────────────────────────────────────────────────────────
     const val TAGS_LIST = "tags_list"
+    const val TAGS_FAB = "tags_fab"
 
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"

@@ -2,9 +2,12 @@ package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -21,6 +24,7 @@ sealed interface TagsUiState {
 // --- Intent ---
 
 sealed interface TagsIntent : MviIntent {
+    data class Create(val name: String, val color: Int) : TagsIntent
     data class Delete(val id: TagId) : TagsIntent
 }
 
@@ -43,6 +47,8 @@ sealed interface TagsUiEvent : MviEvent {
  */
 class TagsViewModel(
     private val tagRepo: TagsRepository,
+    private val createTag: CreateTagUseCase,
+    private val currentUser: ProfileAwareCurrentUser,
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
         initialState = TagsUiState.Loading,
@@ -68,6 +74,7 @@ class TagsViewModel(
 
     override fun onIntent(intent: TagsIntent) {
         when (intent) {
+            is TagsIntent.Create -> scope.launch { create(intent.name, intent.color) }
             is TagsIntent.Delete -> scope.launch { delete(intent.id) }
         }
     }
@@ -78,5 +85,12 @@ class TagsViewModel(
      */
     fun delete(id: TagId) = emitError("Delete failed", TagsUiEvent::ShowError) {
         tagRepo.delete(id)
+    }
+
+    private suspend fun create(name: String, color: Int) {
+        val userId: UserId = currentUser.scopedUserId.value
+        emitError("Create tag failed", TagsUiEvent::ShowError) {
+            createTag(CreateTagInput(name = name, color = color, userId = userId))
+        }
     }
 }
