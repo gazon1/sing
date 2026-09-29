@@ -42,6 +42,8 @@ fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate>
 }.distinctUntilChanged()
 
 /** Returns today's [LocalDate] in [zone]. */
+// NoDirectClockSystemRule exemption: this is the intentional single call site.
+// If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
 internal fun todayAt(zone: TimeZone): LocalDate = Clock.System.now()
     .toLocalDateTime(zone).date
 
