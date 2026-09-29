@@ -1,0 +1,16 @@
+# Empty state: Inbox with no tasks.
+appId: com.singularity.todo
+name: negative-empty-inbox
+tags:
+  - regression
+  - negative
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible: "No tasks"
+    timeout: 8000
+# The FAB stays available — an empty list is where you add the first task.
+- assertVisible:
+    id: tasks_fab

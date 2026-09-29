@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
  * Creates the app-level [Nav3State] used by [Navigator].
  *
  * Platform-specific implementations:
- * - **Android:** uses `SavedStateConfiguration` via [appNavSavedStateConfig] so each tab's
+ * - **Android:** uses `SavedStateConfiguration` via [navSavedStateConfig()] so each tab's
  *   back-stack survives process death and configuration changes. Callers use
  *   `rememberNavBackStack(savedStateConfig, key)`.
  * - **JVM Desktop:** uses [rememberInMemoryNavBackStack] — a plain `remember { NavBackStack(key) }`.

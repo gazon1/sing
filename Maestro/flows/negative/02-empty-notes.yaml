@@ -1,0 +1,22 @@
+# Empty state: the notes list with nothing in it.
+appId: com.singularity.todo
+name: negative-empty-notes
+tags:
+  - regression
+  - negative
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_notes
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible: "No notes yet"
+    timeout: 8000
+# The quick-add field is the only way in, and it is present on the empty state.
+- assertVisible:
+    id: notes_quick_add_input

@@ -27,7 +27,7 @@ import kotlinx.serialization.Serializable
  * `docs/decisions/2026-09-29-single-sealed-navkey-root.md`.
  *
  * Every route is now a leaf (or a sealed sub-hierarchy) of this one root, which
- * removes the special case entirely: [appNavSavedStateConfig] registers the whole
+ * removes the special case entirely: [navSavedStateConfig()] registers the whole
  * app with a single `subclassesOfSealed` call, and needs no runtime type check.
  *
  * Kotlin requires a sealed hierarchy to live in one package, which is why every

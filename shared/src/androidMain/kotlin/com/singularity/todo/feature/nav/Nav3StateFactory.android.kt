@@ -8,12 +8,12 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.appNavSavedStateConfig
+import com.singularity.todo.feature.nav.navSavedStateConfig
 
 /**
  * Android implementation of [rememberNav3State].
  *
- * Uses [appNavSavedStateConfig] to construct a [SavedStateConfiguration] that registers every
+ * Uses [navSavedStateConfig()] to construct a [SavedStateConfiguration] that registers every
  * [AppDestination] concrete subtype at the [NavKey] polymorphic level. This enables
  * `rememberNavBackStack` to serialize the back stack across process death and configuration
  * changes via the standard Compose saved-state mechanism.
@@ -37,7 +37,7 @@ actual fun rememberNav3State(): Nav3State {
         mutableStateOf(startRoute)
     }
 
-    val savedStateConfig = appNavSavedStateConfig
+    val savedStateConfig = navSavedStateConfig()
 
     val backStacks = topLevelRoutes.associateWith { key ->
         rememberNavBackStack(savedStateConfig, key)

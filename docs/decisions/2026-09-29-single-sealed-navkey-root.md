@@ -68,6 +68,12 @@ keys from its own hierarchy, so registering the whole app costs one sealed walk 
 startup and removes any chance of a graph's route hierarchy drifting out of the
 config.
 
+> **Superseded in part (2026-09-29):** the shared `SavedStateConfiguration` this ADR
+> introduced was itself a regression — it made every graph share one saved-state
+> payload, and rotation silently dropped the nested screen. The sealed root is
+> still right; the configuration must be per-graph. See
+> [2026-09-29-saved-state-config-must-be-per-graph.md](2026-09-29-saved-state-config-must-be-per-graph.md).
+
 ## Consequences
 
 - A new route must extend `AppNavKey`, not `NavKey`. Declaring against `NavKey`

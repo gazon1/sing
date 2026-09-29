@@ -898,6 +898,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`rememberNavBackStackTyped<T>`** from `2026-09-16-nav3-type-asymmetry-adr.md` is still
 - **`topLevelRoute` is not persisted**, so a cold launch always restores the start tab rather
 - 8 new files (nav package under projects feature) + 2 new ADR records.
+- A future change that re-shares the configuration will show up as
 - A new route must extend `AppNavKey`, not `NavKey`. Declaring against `NavKey`
 - Additional level of indirection for new developers: "where am I?"
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters.
@@ -907,8 +908,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops.
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells.
 - Keep the shell fallback destination (`AndroidShellNav3`, `DesktopShellNav3`) in sync with
+- Rotation and process-death restore keep the nested screen again; verified on
 - Route types live in `com.singularity.todo.feature.nav`, not beside the screen
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`.
+- `NavKeyRegistrationTest` guards the other half: a route added outside
 - `NavSavedStateConfigTest` now names `Settings` and `Search` explicitly and holds
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android.
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods.
@@ -1732,6 +1735,7 @@ _8 entries need attention._
 - `2026-09-29-notes-and-calendar-unreachable-controls` — notes, calendar, ui, gap
 - `2026-09-29-pomodoro-exact-alarm-crash` — pomodoro, android, crash, permissions
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
+- `2026-09-29-saved-state-config-must-be-per-graph` — nav3, android, regression, serialization
 - `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
@@ -2048,6 +2052,7 @@ _8 entries need attention._
 - `2026-09-29-notes-and-calendar-unreachable-controls` — Notes row actions and Calendar header controls are unreachable from the UI
 - `2026-09-29-pomodoro-exact-alarm-crash` — Starting a Pomodoro crashed the app — exact-alarm permission was neither declared nor guarded
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
+- `2026-09-29-saved-state-config-must-be-per-graph` — One SavedStateConfiguration per graph — a shared one silently dropped nested screens
 - `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
