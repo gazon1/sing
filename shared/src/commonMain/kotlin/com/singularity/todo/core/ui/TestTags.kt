@@ -50,9 +50,6 @@ object TestTags {
     /** Dynamic: menu_<slug> — keyed by the *label* the user sees, not the destination. */
     fun menuItem(label: String) = "menu_${slug(label)}"
 
-    /** Dynamic tag of the form `sheet_item_<slug>` — a row in a context-menu bottom sheet. */
-    fun sheetItem(label: String) = "sheet_item_${slug(label)}"
-
     // ─── Tasks ───────────────────────────────────────────────────────────────
     const val TASKS_LIST = "tasks_list"
     const val TASKS_FAB = "tasks_fab"
@@ -72,38 +69,48 @@ object TestTags {
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
     const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
 
+    /** Due-date row in the task editor attribute list. */
+    const val TASK_EDITOR_DUE_ROW = "task_editor_due_row"
+
+    /** Priority row in the task editor attribute list. */
+    const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
+
+    /** Priority options in the priority picker dialog. */
+    const val PRIORITY_OPTION_HIGH = "priority_option_high"
+    const val PRIORITY_OPTION_MEDIUM = "priority_option_medium"
+    const val PRIORITY_OPTION_LOW = "priority_option_low"
+    const val PRIORITY_OPTION_NONE = "priority_option_none"
+
     // ─── Agenda ────────────────────────────────────────────────────────────
-
-    /** Top-bar action opening the saved-agenda-views list. */
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
-
-    /** Top-bar action saving the current agenda definition as a new view. */
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
-
-    /** Dynamic tag of the form `saved_agenda_card_<slug>` — a row in the views list. */
-    fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
-
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
     const val SAVED_AGENDA_NAME_INPUT = "saved_agenda_name_input"
     const val SAVED_AGENDA_SAVE_BUTTON = "saved_agenda_save_button"
     const val SAVED_AGENDA_DELETE_BUTTON = "saved_agenda_delete_button"
 
+    /** Dynamic tag of the form `saved_agenda_card_<slug>`. */
+    fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
+
+    /** Agenda section header, e.g. "Today", "No Date". */
+    fun agendaSection(name: String) = "agenda_section_${slug(name)}"
+
     // ─── Pomodoro ───────────────────────────────────────────────────────────
-    const val POMODORO_PHASE_LABEL = "pomodoro_phase_label"
-    const val POMODORO_TIMER_LABEL = "pomodoro_timer_label"
-    const val POMODORO_CYCLE_LABEL = "pomodoro_cycle_label"
-    const val POMODORO_STOP_BUTTON = "pomodoro_stop_button"
 
-    /**
-     * Play/pause is one control whose meaning depends on [PomodoroState.isRunning],
-     * so it is a single tag rather than a play/pause pair — a flow asserts the
-     * icon via the rendered phase/timer instead.
-     */
-    const val POMODORO_PLAY_PAUSE_BUTTON = "pomodoro_play_pause_button"
-    const val POMODORO_SKIP_BUTTON = "pomodoro_skip_button"
+    object Pomodoro {
+        const val PHASE_LABEL = "pomodoro_phase_label"
+        const val TIMER_LABEL = "pomodoro_timer_label"
+        const val CYCLE_LABEL = "pomodoro_cycle_label"
+        const val STOP_BUTTON = "pomodoro_stop_button"
+        const val SKIP_BUTTON = "pomodoro_skip_button"
+        /** Play icon — shown when the timer is paused. */
+        const val PLAY_BUTTON = "pomodoro_play_button"
+        /** Pause icon — shown when the timer is running. */
+        const val PAUSE_BUTTON = "pomodoro_pause_button"
+    }
 
-    /** Dynamic tag of the form `pomodoro_task_chip_<slug>` — a focus-task chip. */
+    /** Dynamic tag of the form `pomodoro_task_chip_<slug>`. */
     fun pomodoroTaskChip(title: String) = "pomodoro_task_chip_${slug(title)}"
 
     // ─── Tags ───────────────────────────────────────────────────────────────
@@ -116,19 +123,11 @@ object TestTags {
 
     /**
      * Dynamic tag of the form `note_item_<slug>`, keyed by note id.
-     *
-     * Identity-based: correct for tests that already hold a [com.singularity.todo.feature.notes.domain.model.NoteId]
-     * (see `desktopApp`'s `NotesScreenTest`). A ULID is not knowable in advance, so UI
-     * automation that has just created a note cannot use this — see [noteItemByTitle].
      */
     fun noteItem(id: String) = "note_item_${slug(id)}"
 
     /**
      * Dynamic tag of the form `note_item_by_title_<slug>`, keyed by the visible title.
-     *
-     * This is the addressable one for end-to-end automation, which knows the title it
-     * typed but never the generated id. Empty titles produce a bare
-     * `note_item_by_title_` prefix, so a flow should create a titled note.
      */
     fun noteItemByTitle(title: String) = "note_item_by_title_${slug(title)}"
 
@@ -157,13 +156,97 @@ object TestTags {
     /** Dynamic tag of the form `project_card_<slug>`. */
     fun projectCard(name: String) = "project_card_${slug(name)}"
 
+    // ─── Settings ──────────────────────────────────────────────────────────
+
+    object Settings {
+        /** The Dark Theme toggle row's outer Row (clickable, semantic Role.Switch). */
+        const val DARK_THEME_SWITCH = "settings_dark_theme_switch"
+
+        /**
+         * Content-visible marker for a Settings tab's main content area.
+         * Use after tapping `settings_tab_<slug>` to assert the tab rendered.
+         */
+        fun content(tab: String) = "settings_content_${slug(tab)}"
+    }
+
+    // ─── Dialog ──────────────────────────────────────────────────────────────
+
+    /**
+     * Dialog buttons shared across `ConfirmActionDialog`, `TaskEditorDiscardDialog`,
+     * and other AlertDialog-based components.
+     */
+    object Dialog {
+        /** Positive / destructive confirmation ("Delete", "Discard", "OK"). */
+        const val CONFIRM = "dialog_confirm"
+        /** Cancel / dismiss ("Cancel", "Keep editing"). */
+        const val DISMISS = "dialog_dismiss"
+        /** The title of a dialog (e.g. "Discard changes?", "Delete view?"). */
+        fun title(key: String) = "dialog_title_${slug(key)}"
+    }
+
+    /**
+     * App-owned date-picker sheet buttons (the Material3 DatePicker has no testTags
+     * on its internal day cells or navigation controls).
+     */
+    object DatePicker {
+        const val OK = "dialog_date_picker_ok"
+        const val CANCEL = "dialog_date_picker_cancel"
+        const val CLEAR = "dialog_date_picker_clear"
+    }
+
+    // ─── Editor Overflow menu ─────────────────────────────────────────────
+
+    /**
+     * Actions in the task detail / task editor overflow menu (three-dot menu).
+     * These are distinct from [TaskContextMenuSheet] which is the long-press bottom sheet.
+     */
+    object EditorOverflow {
+        const val ARCHIVE = "overflow_archive"
+        const val DELETE = "overflow_delete"
+        const val RESTORE = "overflow_restore"
+        const val PIN = "overflow_pin"
+        const val UNPIN = "overflow_unpin"
+    }
+
+    // ─── Long-press context menu sheet ─────────────────────────────────────
+
+    /**
+     * Dynamic tag of the form `task_action_<slug>` — a row in the long-press
+     * bottom sheet ([TaskContextMenuSheet]).
+     *
+     * Actions are sourced from the [TaskAction] domain enum so that the sheet
+     * and the editor overflow menu share a single identifier namespace.
+     */
+    fun taskAction(action: String) = "task_action_${slug(action)}"
+
+    // ─── Snackbar / transient UI ───────────────────────────────────────────
+
+    /** The "Saved" [ResultDialog] shown after a save in editors and the saved-agenda screen. */
+    const val SNACKBAR_SAVED = "snackbar_saved"
+
     // ─── Backup ─────────────────────────────────────────────────────────────
     const val BACKUP_TOP_BAR_BACK = "backup_top_bar_back"
+    const val BACKUP_CREATE_BUTTON = "backup_create_button"
+    const val BACKUP_RESTORE_BUTTON = "backup_restore_button"
+    const val BACKUP_EXPORT_SETTINGS = "backup_export_settings"
+    const val BACKUP_IMPORT_SETTINGS = "backup_import_settings"
+
+    // ─── Profile ────────────────────────────────────────────────────────────
+    const val PROFILE_CREATE_BUTTON = "profile_create_button"
+    const val PROFILE_ITEM_PREFIX = "profile_item_"
+
+    fun profileItem(name: String) = "${PROFILE_ITEM_PREFIX}${slug(name)}"
 
     // ─── AI ─────────────────────────────────────────────────────────────────
-
-    /** Dynamic tag of the form `genui_<slug>`. */
     fun genUi(name: String) = "genui_${slug(name)}"
+
+    // ─── Calendar ──────────────────────────────────────────────────────────
+
+    /**
+     * A day cell in the calendar month grid, tagged by ISO local date.
+     * Format: `calendar_day_2026_09_15`.
+     */
+    fun calendarDay(isoDate: String) = "calendar_day_${isoDate.replace("-", "_")}"
 }
 
 /**
@@ -193,4 +276,5 @@ internal fun slug(input: String): String = buildString {
             pendingSeparator = true
         }
     }
+    if (isEmpty()) append("untitled")
 }

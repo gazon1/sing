@@ -4,6 +4,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.TestTags
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -33,6 +34,9 @@ fun DatePickerSheet(initialDate: LocalDate?, onDateSelected: (LocalDate?) -> Uni
                     onDateSelected(date)
                     onDismiss()
                 },
+                testTagConfirm = TestTags.DatePicker.OK,
+                testTagCancel = TestTags.DatePicker.CANCEL,
+                testTagClear = TestTags.DatePicker.CLEAR,
             ),
         ) {
             DatePicker(state = datePickerState)

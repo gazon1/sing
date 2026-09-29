@@ -44,9 +44,9 @@ class SlugTest {
     }
 
     @Test
-    fun `empty input yields empty slug`() {
-        assertEquals("", slug(""))
-        assertEquals("", slug("   "))
+    fun `empty or blank input yields untitled`() {
+        assertEquals("untitled", slug(""))
+        assertEquals("untitled", slug("   "))
     }
 
     @Test
@@ -69,5 +69,81 @@ class SlugTest {
         // the destination title would collapse them into one duplicate tag.
         assertEquals("menu_profile_sync", TestTags.menuItem("Profile & sync"))
         assertEquals("menu_settings", TestTags.menuItem("Settings"))
+    }
+
+    @Test
+    fun `settings tags use the Settings object`() {
+        assertEquals("settings_dark_theme_switch", TestTags.Settings.DARK_THEME_SWITCH)
+        assertEquals("settings_content_interface", TestTags.Settings.content("Interface"))
+        assertEquals("settings_content_work_schedule", TestTags.Settings.content("Work Schedule"))
+    }
+
+    @Test
+    fun `dialog tags use the Dialog object`() {
+        assertEquals("dialog_confirm", TestTags.Dialog.CONFIRM)
+        assertEquals("dialog_dismiss", TestTags.Dialog.DISMISS)
+        assertEquals("dialog_title_discard_changes", TestTags.Dialog.title("Discard changes?"))
+        assertEquals("dialog_date_picker_ok", TestTags.DatePicker.OK)
+        assertEquals("dialog_date_picker_cancel", TestTags.DatePicker.CANCEL)
+        assertEquals("dialog_date_picker_clear", TestTags.DatePicker.CLEAR)
+    }
+
+    @Test
+    fun `editor overflow tags use the EditorOverflow object`() {
+        assertEquals("overflow_archive", TestTags.EditorOverflow.ARCHIVE)
+        assertEquals("overflow_delete", TestTags.EditorOverflow.DELETE)
+        assertEquals("overflow_restore", TestTags.EditorOverflow.RESTORE)
+        assertEquals("overflow_pin", TestTags.EditorOverflow.PIN)
+        assertEquals("overflow_unpin", TestTags.EditorOverflow.UNPIN)
+    }
+
+    @Test
+    fun `task actions use the taskAction function`() {
+        assertEquals("task_action_archive", TestTags.taskAction("Archive"))
+        assertEquals("task_action_mark_as_completed", TestTags.taskAction("Mark as completed"))
+        assertEquals("task_action_open", TestTags.taskAction("Open"))
+    }
+
+    @Test
+    fun `agenda section tags use the agendaSection function`() {
+        assertEquals("agenda_section_no_date", TestTags.agendaSection("No Date"))
+        assertEquals("agenda_section_today", TestTags.agendaSection("Today"))
+        assertEquals("agenda_section_upcoming", TestTags.agendaSection("Upcoming"))
+    }
+
+    @Test
+    fun `calendar day tags use the calendarDay function`() {
+        assertEquals("calendar_day_2026_09_15", TestTags.calendarDay("2026-09-15"))
+        assertEquals("calendar_day_2026_01_01", TestTags.calendarDay("2026-01-01"))
+    }
+
+    @Test
+    fun `pomodoro tags use the Pomodoro object`() {
+        assertEquals("pomodoro_phase_label", TestTags.Pomodoro.PHASE_LABEL)
+        assertEquals("pomodoro_play_button", TestTags.Pomodoro.PLAY_BUTTON)
+        assertEquals("pomodoro_pause_button", TestTags.Pomodoro.PAUSE_BUTTON)
+        assertEquals("pomodoro_timer_label", TestTags.Pomodoro.TIMER_LABEL)
+        assertEquals("pomodoro_cycle_label", TestTags.Pomodoro.CYCLE_LABEL)
+        assertEquals("pomodoro_stop_button", TestTags.Pomodoro.STOP_BUTTON)
+        assertEquals("pomodoro_skip_button", TestTags.Pomodoro.SKIP_BUTTON)
+    }
+
+    @Test
+    fun `snackbar saved tag is a constant`() {
+        assertEquals("snackbar_saved", TestTags.SNACKBAR_SAVED)
+    }
+
+    @Test
+    fun `task editor row tags are constants`() {
+        assertEquals("task_editor_due_row", TestTags.TASK_EDITOR_DUE_ROW)
+        assertEquals("task_editor_priority_row", TestTags.TASK_EDITOR_PRIORITY_ROW)
+    }
+
+    @Test
+    fun `priority options are constants`() {
+        assertEquals("priority_option_high", TestTags.PRIORITY_OPTION_HIGH)
+        assertEquals("priority_option_medium", TestTags.PRIORITY_OPTION_MEDIUM)
+        assertEquals("priority_option_low", TestTags.PRIORITY_OPTION_LOW)
+        assertEquals("priority_option_none", TestTags.PRIORITY_OPTION_NONE)
     }
 }

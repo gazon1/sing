@@ -5,5 +5,21 @@
 # in isolation with `maestro test <file>`.
 #
 # Selector source of truth: shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt
+#
+# Canonical tags (used in flow `tags:` headers):
+#   smoke        — minimal regression suite, run on every PR
+#   regression   — guards a specific fixed bug
+#   known-bug    — tracks a confirmed bug; failure is expected
+#   persistence  — tests data survives process restart
+#   sync         — tests offline/sync behaviour
+#   agenda       — agenda feature area
+#   tasks        — tasks feature area
+#   notes        — notes feature area
+#   pomodoro     — pomodoro feature area
+#   settings     — settings feature area
+#   calendar     — calendar feature area
+#   archive      — archive feature area
+#   profile      — profile feature area
+#   projects     — projects feature area
 appId: com.singularity.todo
 name: Singularity Todo

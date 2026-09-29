@@ -8,8 +8,7 @@
 # named task create it inline.
 #
 # ASCII title: Maestro's `inputText` cannot type non-ASCII on Android.
-#
-# Requires: launch-clean
+# This helper runs launch-clean internally.
 appId: com.singularity.todo
 name: seed-task
 ---

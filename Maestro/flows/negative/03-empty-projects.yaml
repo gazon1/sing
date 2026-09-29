@@ -1,0 +1,13 @@
+# Empty state: the Plans tab with no projects.
+appId: com.singularity.todo
+name: negative-empty-projects
+tags:
+  - regression
+  - negative
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_plans
+- extendedWaitUntil:
+    visible: "No projects yet"
+    timeout: 8000

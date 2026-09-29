@@ -1,0 +1,24 @@
+# Lifecycle: data survives a process kill and a plain relaunch.
+#
+# The distinguishing detail is that this relaunch does NOT clear state, so the
+# row can only be there if it was persisted — an in-memory list would be gone.
+appId: com.singularity.todo
+name: lifecycle-kill-restart-persist
+tags:
+  - regression
+  - lifecycle
+---
+- runFlow: ../../helpers/seed-task.yaml
+- stopApp
+- launchApp:
+    appId: com.singularity.todo
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 10000

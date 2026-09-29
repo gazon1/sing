@@ -10,15 +10,16 @@ tags:
   - calendar
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
 - tapOn:
     id: nav_tab_calendar
 - extendedWaitUntil:
-    visible: "September 2026"
+    visible: ${output.monthTitle}
     timeout: 8000
 - tapOn:
     text: "15"
 - extendedWaitUntil:
-    visible: "September 15, 2026"
+    visible: ${output.day15Title}
     timeout: 8000
 # The mode control followed the navigation into the single-day view.
 - assertVisible: "Day"

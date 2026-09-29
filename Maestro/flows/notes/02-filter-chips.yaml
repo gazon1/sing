@@ -47,9 +47,6 @@ tags:
 - tapOn:
     id: note_editor_save
 - back
-- tapOn:
-    id: note_editor_save
-- back
 # All: both notes.
 - extendedWaitUntil:
     visible:

@@ -1,0 +1,34 @@
+# Empty states on the Search screen: idle prompt, then no results.
+appId: com.singularity.todo
+name: negative-empty-search
+tags:
+  - regression
+  - negative
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_search
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 8000
+# Nothing typed yet -> a prompt, not a blank screen.
+- assertVisible: "Enter a search query"
+# A query that cannot match -> an explicit no-results state.
+- tapOn:
+    id: search_input
+- inputText: "zzzznomatchzzzz"
+- extendedWaitUntil:
+    visible: "No results found"
+    timeout: 8000

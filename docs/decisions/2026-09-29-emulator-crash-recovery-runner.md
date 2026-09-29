@@ -94,6 +94,29 @@ Recovery is the correct layer for an intermittent host failure. It also makes
 the suite honest: a flow is only retried when the *device* died, so a real
 selector failure is still reported instead of being hidden by a retry.
 
+## Mitigation experiments (2026-09-29, all negative)
+
+After shipping the runner, five further hypotheses were tested so the record
+shows what does *not* work, not just what does:
+
+| Hypothesis | Experiment | Result |
+|---|---|---|
+| Crash is uptime-triggered | Fresh boot, idle 26.7 min | Survived — refuted |
+| Trigger is tap/screenshot/rotation churn | 120-iteration adb churn (taps, screencaps, sheets, editor, rotation) | Survived — refuted |
+| Trigger is hierarchy dumping (maestro's core op) | 40-iteration churn with `uiautomator dump` every step (~120 dumps) | Survived — refuted |
+| Metrics/crash-reporter threads are the cause | A/B: 2 smoke passes default vs 2 with `-no-metrics -crash-report-mode disabled` | Identical: 1 crash in 2 passes both arms — refuted |
+| `ANDROID_EMULATOR_FEATURES=-GlAsyncSwap` avoids the buggy path | Boot log check | Flag does not take — `GlAsyncSwap` still resolved; attempt also left a broken-adbd instance |
+
+Established instead: adb-level activity of any shape does not kill the
+emulator; every observed death happened under **Maestro's** interaction
+(driver instrumentation, not plain adb). The trigger therefore lives in the
+maestro-driver ↔ emulator path, which is outside this repo's control — the
+recovery layer is the correct and final mitigation on our side.
+
+Measured crash rate with the shipped runner: ~1 device loss per 2-3 smoke
+passes (0.4/pass), each costing a single flow. `MAESTRO_MAX_RETRIES` default
+raised 1 → 2 so a pass can absorb two losses.
+
 ## Verification
 
 - `ensure-emulator.sh` on a live device returns the serial in 0.02 s.

@@ -274,12 +274,17 @@ no-real-delay-in-test:
     active: true
 
 # ---------------------------------------------------------------------------
-# PR 3.3 — custom rules promoted to error (all at 0 violations after PR 2.x):
-# no-runblocking, no-viewmodel-scope, mvi-viewmodel (4 rules), no-real-delay-in-test.
+# PR3 custom rules promoted to error (all at 0 violations after PR 2.x):
+# no-runblocking, no-direct-clock-system, no-viewmodel-scope,
+# mvi-viewmodel (4 rules), no-real-delay-in-test.
 # Promotion verified with daemon-free detekt run (see 2026-09-26-epic2-retro-findings R1).
 
 no-runblocking:
   NoRunBlocking:
+    active: true
+
+no-direct-clock-system:
+  NoDirectClockSystem:
     active: true
 
 no-viewmodel-scope:

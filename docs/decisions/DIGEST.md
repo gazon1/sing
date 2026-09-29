@@ -702,8 +702,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`.editorconfig` may rewrap existing code** on first `detektFormat` run. Expect a large diff; consider a separate "format" commit before merging.
 - **`ignoreFailures = true`** means violations are reported but never block builds. To enforce violations: set `ignoreFailures = false` in both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` once baselines are settled. **TODO: tracked in issue tracker — promote after baselines are clean (est. post-format PR).**
 - **detekt 2.0.0-alpha.3 vs Kotlin 2.3.21**: this version was chosen because stable 1.23.8 was compiled against Kotlin 2.0.21 and throws "detekt was compiled with Kotlin 2.0.21 but is currently running with 2.3.21". Upgrade to stable 2.x once released.
+- A comment in `Clock.kt` and `CoreDiModule.kt` should reference `NoDirectClockSystemRule` so that developers moving code are warned.
+- A future improvement: define `Clock.System` usage in a single `core/platform/Clock.kt` internal object and exempt only that object's direct references, rather than exempting the entire file.
 - All 7 custom rule sets now produce findings when violations exist
 - Both rules are in **warning mode** — they do not fail the build
+- If `todayAt` or the DI binding moves to a different file, this rule must be updated alongside it. Treat it as a linked refactoring pair.
 - Promotion to error: after baseline is reduced in a follow-up PR
 - The activation checklist in `singularity-todo-detekt-rules-authoring` gains a fourth
 - The check is deliberately narrow. It validates the registry's internal consistency; it
@@ -822,11 +825,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `maestro`
 
+- A future refactor could wire `LEGACY_RAW` into the loop to eliminate the duplication, but the ROI is near zero.
 - A new `Maestro/helpers/seed-archived-task.yaml` helper is created in PR-2
 - All `AlertDialog`-based buttons in `core/ui/components/` must eventually
 - All `ModalBottomSheet` item rows should carry `sheet_item_<slug>`.
 - If a future debug-seed API is added (approach 3), both seeder helpers become
+- The arrays must be manually kept in sync with the skip-list if a new legacy ID is added. This is low risk: both are trivially grep-able.
 - The helper is tagged `helpers` (never run standalone).
+- The script's output message ("add to TestTags.kt or LEGACY_RAW") is slightly misleading — LEGACY_RAW is checked only by human review, not by the code. The message should be updated to say "add to TestTags.kt or the skip-list" if the arrays are kept as documentation-only and not wired in.
 - When writing a new Maestro flow that hits a dialog/sheet without a testTag,
 - `11-archive-restore-smoke.yaml` is updated to `runFlow:
 - `Maestro/TAGS.md` is the authoritative list of missing testTags; it is
@@ -902,6 +908,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`rememberNavBackStackTyped<T>`** from `2026-09-16-nav3-type-asymmetry-adr.md` is still
 - **`topLevelRoute` is not persisted**, so a cold launch always restores the start tab rather
 - 8 new files (nav package under projects feature) + 2 new ADR records.
+- A future change that re-shares the configuration will show up as
 - A new route must extend `AppNavKey`, not `NavKey`. Declaring against `NavKey`
 - Additional level of indirection for new developers: "where am I?"
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters.
@@ -911,8 +918,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Cross-feature navigation between projects and tasks uses type-safe `AppDestination` hops.
 - Feature isolation: `ProjectsNavGraph` is self-contained and could be ported to iOS or other shells.
 - Keep the shell fallback destination (`AndroidShellNav3`, `DesktopShellNav3`) in sync with
+- Rotation and process-death restore keep the nested screen again; verified on
 - Route types live in `com.singularity.todo.feature.nav`, not beside the screen
 - Screens that need `@Preview` use `TasksPreviewWrapper { ... }` which provides a `PreviewTasksNavigator` via `LocalTasksNavigator`.
+- `NavKeyRegistrationTest` guards the other half: a route added outside
 - `NavSavedStateConfigTest` now names `Settings` and `Search` explicitly and holds
 - `ProjectDetailViewModel(projectId)` and `ProjectEditorViewModel(projectId)` now have correct per-entry VM scoping on Android.
 - `TaskDetailIntent` no longer has `NavigateToProject` / `NavigateToTask` routing intents — those are now navigator methods.
@@ -1407,7 +1416,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_8 entries need attention._
+_9 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -1416,6 +1425,7 @@ _8 entries need attention._
 - `2026-09-26-deferred-r25-r30` — **deferred** — Deferred Backlog Items R25–R30
 - `2026-09-26-notes-clean-architecture-r21` — **deferred** — R21: Notes Clean Architecture — deferred
 - `2026-09-28-setup-hooks-broken-githooks-path` — **open** — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — **open** — 
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
 
 ## Recently superseded
@@ -1727,16 +1737,22 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 - `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
+- `2026-09-29-check-tags-legacy-raw-dead-code` — maestro, testing, tech-debt
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — _untagged_
 - `2026-09-29-destroyed-but-not-deleted-callbacks` — backup, agenda, ui, gap, seam
 - `2026-09-29-editor-row-onclick-noop-default` — ui, tasks, android
 - `2026-09-29-emulator-crash-recovery-runner` — emulator, android, maestro, tooling
 - `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
+- `2026-09-29-kotlinx-datetime-androidapp-missing` — _untagged_
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
+- `2026-09-29-maestro-date-js-host-clock` — maestro, test-infrastructure
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
 - `2026-09-29-missing-koin-dao-bindings` — koin, di, crash
+- `2026-09-29-no-direct-clock-system-exemptions` — detekt, architecture, tech-debt
 - `2026-09-29-notes-and-calendar-unreachable-controls` — notes, calendar, ui, gap
 - `2026-09-29-pomodoro-exact-alarm-crash` — pomodoro, android, crash, permissions
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
+- `2026-09-29-saved-state-config-must-be-per-graph` — nav3, android, regression, serialization
 - `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
@@ -2044,16 +2060,22 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
+- `2026-09-29-check-tags-legacy-raw-dead-code` — check-tags.sh LEGACY_RAW and ALLOW_PATTERNS are documentation-only
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — _(no title)_
 - `2026-09-29-destroyed-but-not-deleted-callbacks` — A control wired to a no-op reads as working; three of them shipped
 - `2026-09-29-editor-row-onclick-noop-default` — Editor rows did nothing — onClick defaulted to a no-op lambda
 - `2026-09-29-emulator-crash-recovery-runner` — Emulator gfxstream crash — the IME mitigation is insufficient, recover instead of prevent
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
+- `2026-09-29-kotlinx-datetime-androidapp-missing` — _(no title)_
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
+- `2026-09-29-maestro-date-js-host-clock` — maestro-date-js-host-clock
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
 - `2026-09-29-missing-koin-dao-bindings` — Three Room DAOs were never bound in Koin
+- `2026-09-29-no-direct-clock-system-exemptions` — NoDirectClockSystemRule exemptions are fragile string comparisons
 - `2026-09-29-notes-and-calendar-unreachable-controls` — Notes row actions and Calendar header controls are unreachable from the UI
 - `2026-09-29-pomodoro-exact-alarm-crash` — Starting a Pomodoro crashed the app — exact-alarm permission was neither declared nor guarded
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
+- `2026-09-29-saved-state-config-must-be-per-graph` — One SavedStateConfiguration per graph — a shared one silently dropped nested screens
 - `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive

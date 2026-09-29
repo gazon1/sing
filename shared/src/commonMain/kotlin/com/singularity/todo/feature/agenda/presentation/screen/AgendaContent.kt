@@ -235,7 +235,8 @@ private fun AgendaSectionHeader(name: String, badge: Int?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag(TestTags.agendaSection(name)),
     ) {
         val label = if (badge != null && badge > 0) "$name  ·  $badge" else name
         Text(

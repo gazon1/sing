@@ -1,0 +1,29 @@
+# Empty state: the Tags tab of Settings with no tags.
+#
+# `tags_list` is applied to the list container but does not surface in the
+# accessibility tree when the list is empty (the container collapses), so the
+# message is asserted instead.
+appId: com.singularity.todo
+name: negative-empty-tags
+tags:
+  - regression
+  - negative
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- tapOn:
+    id: menu_profile_sync
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+- tapOn:
+    id: settings_tab_tags
+- extendedWaitUntil:
+    visible: "No tags yet"
+    timeout: 8000

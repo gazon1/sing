@@ -11,7 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Scaffold для picker-sheet-ов с actions-строкой.
@@ -34,6 +36,11 @@ fun SheetScaffold(
     }
 }
 
+/**
+ * @param testTagConfirm Optional testTag for the confirm button. When null, no testTag is applied.
+ * @param testTagCancel Optional testTag for the cancel button.
+ * @param testTagClear Optional testTag for the clear button.
+ */
 data class SheetActions(
     val onClear: (() -> Unit)? = null,
     val onCancel: () -> Unit,
@@ -41,6 +48,9 @@ data class SheetActions(
     val confirmLabel: String = "OK",
     val cancelLabel: String = "Cancel",
     val clearLabel: String = "Clear",
+    val testTagConfirm: String? = null,
+    val testTagCancel: String? = null,
+    val testTagClear: String? = null,
 )
 
 @Composable
@@ -50,13 +60,22 @@ private fun SheetActionsRow(actions: SheetActions) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         if (actions.onClear != null) {
-            TextButton(onClick = actions.onClear) { Text(actions.clearLabel) }
+            TextButton(
+                onClick = actions.onClear,
+                modifier = actions.testTagClear?.let { Modifier.testTag(it) } ?: Modifier,
+            ) { Text(actions.clearLabel) }
         } else {
             Spacer(Modifier)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = actions.onCancel) { Text(actions.cancelLabel) }
-            TextButton(onClick = actions.onConfirm) { Text(actions.confirmLabel) }
+            TextButton(
+                onClick = actions.onCancel,
+                modifier = actions.testTagCancel?.let { Modifier.testTag(it) } ?: Modifier,
+            ) { Text(actions.cancelLabel) }
+            TextButton(
+                onClick = actions.onConfirm,
+                modifier = actions.testTagConfirm?.let { Modifier.testTag(it) } ?: Modifier,
+            ) { Text(actions.confirmLabel) }
         }
     }
 }

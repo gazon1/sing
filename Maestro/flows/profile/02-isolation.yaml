@@ -1,0 +1,96 @@
+# Profile: tasks are isolated per profile — data in one profile is invisible in another.
+#
+# Covers: create a second profile -> seed a task into it -> switch to default profile ->
+# verify the seeded task is not visible -> switch back and verify it is.
+#
+# Profile isolation is the core data boundary; this is the regression guard for a bug where
+# all profiles shared the same Room database namespace.
+appId: com.singularity.todo
+name: profile-isolation
+tags:
+  - profile
+---
+# 1. Ensure we are on the default profile with an empty inbox.
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 5000
+
+# 2. Open the Profiles screen and create a second profile.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_profiles
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_profiles
+- extendedWaitUntil:
+    visible:
+      id: profile_create_button
+    timeout: 5000
+- tapOn:
+    id: profile_create_button
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 5000
+- inputText: "Work"
+- tapOn:
+    id: dialog_confirm
+- extendedWaitUntil:
+    visible:
+      id: profile_item_work
+    timeout: 5000
+
+# 3. Seed a task into the Work profile.
+- openLink: "todo-debug://seed?task=WorkTask&profile=Work"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_work_task
+    timeout: 8000
+
+# 4. Switch back to the Personal (default) profile.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_profiles
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_profiles
+- extendedWaitUntil:
+    visible:
+      id: profile_item_personal
+    timeout: 5000
+- tapOn:
+    id: profile_item_personal
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 5000
+
+# 5. Verify the Work task is NOT visible in Personal.
+- tapOn:
+    id: nav_tab_inbox
+- assertNotVisible:
+    id: task_item_work_task

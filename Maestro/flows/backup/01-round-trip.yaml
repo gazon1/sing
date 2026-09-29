@@ -1,0 +1,120 @@
+# Backup: a task survives a create-backup / clear-data / restore-backup round trip.
+#
+# Covers: seed task -> Settings -> Backup -> Create backup -> clear app data ->
+# Restore from backup -> task is back.
+#
+# Backup/restore in this app is a local file round-trip; the test proves the task
+# survives a full data wipe and restore without corruption.
+appId: com.singularity.todo
+name: backup-round-trip
+tags:
+  - backup
+---
+# 1. Seed a task while online.
+- runFlow: ../../helpers/seed.yaml
+  env:
+    QUERY: "task=BackupRoundTripTask&due=today"
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_backup_round_trip_task
+    timeout: 8000
+
+# 2. Open Settings and navigate to Backup.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 5000
+- swipe:
+    start: 105, 1600
+    end: 105, 800
+- tapOn:
+    id: settings_tab_backup
+- extendedWaitUntil:
+    visible:
+      id: backup_create_button
+    timeout: 5000
+
+# 3. Create a backup. The dialog is system-owned so no testTag on its confirm.
+- tapOn:
+    id: backup_create_button
+- extendedWaitUntil:
+    visible:
+      text: "Backup created successfully"
+    timeout: 15000
+
+# 4. Clear app data (wiping all tasks).
+- stopApp
+- clearState:
+    appId: com.singularity.todo
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# 5. The task must be gone.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_backup_round_trip_task
+    timeout: 5000
+
+# 6. Restore from backup.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 5000
+- swipe:
+    start: 105, 1600
+    end: 105, 800
+- tapOn:
+    id: settings_tab_backup
+- extendedWaitUntil:
+    visible:
+      id: backup_restore_button
+    timeout: 5000
+- tapOn:
+    id: backup_restore_button
+- extendedWaitUntil:
+    visible:
+      text: "Restore completed"
+    timeout: 30000
+
+# 7. Task is back.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_backup_round_trip_task
+    timeout: 8000

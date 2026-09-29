@@ -25,8 +25,10 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Reusable bottom sheet wrapper for the Task Editor.
@@ -107,12 +109,18 @@ fun TaskEditorDiscardDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
         title = { Text("Discard changes?") },
         text = { Text("You have unsaved changes. Are you sure you want to discard them?") },
         confirmButton = {
-            TextButton(onClick = onDiscard) {
+            TextButton(
+                onClick = onDiscard,
+                modifier = Modifier.testTag(TestTags.Dialog.CONFIRM),
+            ) {
                 Text("Discard", color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TestTags.Dialog.DISMISS),
+            ) {
                 Text("Cancel")
             }
         },

@@ -3,28 +3,24 @@
 # The app is local-first — Room is the source of truth and the sync engine is a
 # background concern — so this asserts the user's data survives being offline,
 # not that a server round-trip happened.
+#
+# Uses seed.yaml to create the task while offline.
 appId: com.singularity.todo
-name: sync-create-offline
+name: sync-offline-create-survives-reconnect
+onFlowComplete:
+  - setAirplaneMode: disabled
 tags:
   - regression
   - sync
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - setAirplaneMode: enabled
-# Create a task while offline.
-- tapOn:
-    id: tasks_fab
+# Create a task while offline via deep-link.
+- openLink: "todo-debug://seed?task=Offline%20task"
 - extendedWaitUntil:
     visible:
-      id: task_editor_title_input
+      id: nav_tab_today
     timeout: 8000
-- tapOn:
-    id: task_editor_title_input
-- inputText: "Offline task"
-- assertVisible: "Offline task"
-- hideKeyboard
-- tapOn:
-    id: task_editor_save
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:

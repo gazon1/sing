@@ -1,0 +1,24 @@
+# Opens a menu sheet item by its testTag id, then waits for a destination screen.
+#
+# Usage:
+#   env:
+#     ITEM_ID: "menu_archive"
+#     DEST_ID: "archive_list"
+#
+# ITEM_ID  — the testTag of the menu item to tap (e.g. menu_archive, menu_settings)
+# DEST_ID  — the testTag of the screen/element that appears after tapping
+#
+# This helper assumes the menu sheet is already open. Use after openLink or menu tap.
+appId: com.singularity.todo
+name: open-menu-item
+---
+# Scroll the menu sheet until the target item is visible
+- scrollUntilVisible:
+    id: ${ITEM_ID}
+    scrollDirection: DOWN
+- tapOn:
+    id: ${ITEM_ID}
+- extendedWaitUntil:
+    visible:
+      id: ${DEST_ID}
+    timeout: 5000
