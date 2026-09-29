@@ -124,7 +124,15 @@ actual fun platformModule(): Module = module {
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
     single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
-    factory<PomodoroTimer> { JvmPomodoroTimer() }
+    single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
+    factory<PomodoroTimer> {
+        JvmPomodoroTimer(
+            get(),
+            get(),
+            get(),
+            com.singularity.todo.core.coroutines.createBackgroundScope(),
+        )
+    }
 
     // ─── Reminder Scheduler ────────────────────────────────────────────
 

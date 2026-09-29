@@ -1,39 +1,116 @@
+@file:Suppress("NoRealDelayInTest")
+
 package com.singularity.todo.feature.pomodoro
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 /**
- * JVM stub implementation of [PomodoroTimer].
+ * JVM implementation of [PomodoroTimer].
  *
- * The Pomodoro timer requires Android-specific APIs (AlarmManager, notification channels),
- * so this is a no-op placeholder. The timer UI will show a static state and the
- * start/pause/stop buttons will have no effect.
+ * Uses an injected [CoroutineScope] for the timer loop — mirrors the [AndroidPomodoroTimer]
+ * pattern but without OS-level alarms (AlarmManager is Android-only).
+ *
+ * ## Canonical VM pattern
+ * Uses injected [CoroutineScope] for testability. Consumers obtain an instance via Koin.
  */
-class JvmPomodoroTimer : PomodoroTimer {
-    override val config: PomodoroConfig = PomodoroConfig()
+class JvmPomodoroTimer(
+    private val clock: Clock,
+    private val taskListProvider: PomodoroTaskListProvider,
+    override val config: PomodoroConfig,
+    private val scope: CoroutineScope,
+) : PomodoroTimer {
 
-    private val _state = MutableStateFlow(PomodoroState())
+    private val _state = MutableStateFlow(initialState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
+    private var tickerJob: Job? = null
+
     override fun start(taskId: String?) {
-        // No-op on JVM
+        if (_state.value.isRunning) return
+        val now = clock.now().toEpochMilliseconds()
+        val dur = config.phaseSecondsOf(_state.value.phase)
+        _state.value = _state.value.copy(
+            isRunning = true,
+            taskId = taskId,
+            remainingSeconds = dur,
+            phaseDurationSeconds = dur,
+            phaseStartedAtEpochMs = now,
+        )
+        startTicker()
     }
 
     override fun pause() {
-        // No-op on JVM
+        tickerJob?.cancel()
+        val now = clock.now().toEpochMilliseconds()
+        val remaining = recomputeRemaining(_state.value, now)
+        _state.value = _state.value.copy(
+            isRunning = false,
+            remainingSeconds = remaining,
+            phaseStartedAtEpochMs = null,
+        )
     }
 
     override fun resume() {
-        // No-op on JVM
+        val s = _state.value
+        if (s.isRunning || s.phaseStartedAtEpochMs != null || s.remainingSeconds <= 0) return
+        // Reconstruct phaseStartedAtEpochMs from remaining time
+        val now = clock.now().toEpochMilliseconds()
+        val startedAt = now - (s.phaseDurationSeconds - s.remainingSeconds) * 1000L
+        _state.value = s.copy(isRunning = true, phaseStartedAtEpochMs = startedAt)
+        startTicker()
     }
 
     override fun stop() {
-        // No-op on JVM
+        tickerJob?.cancel()
+        _state.value = initialState()
     }
 
     override fun skip() {
-        // No-op on JVM
+        tickerJob?.cancel()
+        onPhaseComplete()
     }
+
+    private fun startTicker() {
+        tickerJob?.cancel()
+        tickerJob = scope.launch {
+            while (_state.value.isRunning) {
+                delay(1000)
+                val now = clock.now().toEpochMilliseconds()
+                val remaining = recomputeRemaining(_state.value, now)
+                if (remaining <= 0) {
+                    _state.value = _state.value.copy(remainingSeconds = 0)
+                    onPhaseComplete()
+                    break
+                }
+                _state.value = _state.value.copy(remainingSeconds = remaining)
+            }
+        }
+    }
+
+    private fun onPhaseComplete() {
+        _state.value = _state.value.copy(isRunning = false, phaseStartedAtEpochMs = null)
+        _state.value = nextPhase(_state.value, config)
+    }
+
+    private fun initialState() = PomodoroState(
+        remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+        phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+    )
+}
+
+/**
+ * Recomputes remaining seconds from phase start time.
+ * Mirrors [AndroidPomodoroTimer.recomputeRemaining].
+ */
+private fun recomputeRemaining(state: PomodoroState, nowEpochMs: Long): Int {
+    val startedAt = state.phaseStartedAtEpochMs ?: return state.remainingSeconds
+    val elapsed = ((nowEpochMs - startedAt) / 1000).toInt()
+    return (state.phaseDurationSeconds - elapsed).coerceAtLeast(0)
 }
