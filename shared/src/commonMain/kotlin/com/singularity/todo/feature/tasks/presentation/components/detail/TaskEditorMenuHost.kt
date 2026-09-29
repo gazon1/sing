@@ -5,6 +5,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Hosts the overflow [DropdownMenu] for [TaskEditorContent].
@@ -30,6 +32,7 @@ fun TaskEditorMenuHost(
                         item.onClick()
                         onDismiss()
                     },
+                    modifier = Modifier.testTag(TestTags.taskAction(item.label)),
                 )
             }
         }
