@@ -25,7 +25,7 @@ import kotlin.test.assertTrue
  *    `Maestro/flows/smoke/12-settings-cycle-tabs-smoke.yaml`.
  *
  * Both are now structurally impossible: every route is a leaf of the single sealed
- * [AppNavKey] root, and one shared [appNavSavedStateConfig] registers all of them.
+ * [AppNavKey] root, and one shared [navSavedStateConfig()] registers all of them.
  * These tests hold that property in place.
  *
  * They run on JVM; the crashes were Android-only because only Android evaluates the
@@ -36,7 +36,7 @@ class NavSavedStateConfigTest {
     @Test
     fun `shared configuration builds`() {
         // The single call every NavGraph now uses. Building it is what used to throw.
-        appNavSavedStateConfig
+        navSavedStateConfig()
     }
 
     @Test

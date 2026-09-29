@@ -13,7 +13,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
-import com.singularity.todo.feature.nav.appNavSavedStateConfig
+import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
 
@@ -26,14 +26,14 @@ import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScre
  * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin bug where
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
- * Persistence: uses [appNavSavedStateConfig] so the back stack survives process death.
+ * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
  */
 @Composable
 actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist. It is constant
     // across process death — only the NavBackStack content is serialized.
-    val savedStateConfig = appNavSavedStateConfig
+    val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)

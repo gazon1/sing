@@ -14,7 +14,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.CalendarRoute
-import com.singularity.todo.feature.nav.appNavSavedStateConfig
+import com.singularity.todo.feature.nav.navSavedStateConfig
 
 /**
  * Android implementation of [CalendarNavGraph].
@@ -25,11 +25,11 @@ import com.singularity.todo.feature.nav.appNavSavedStateConfig
  * Uses [rememberViewModelStoreNavEntryDecorator] to fix the Koin scoping bug where
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
- * Persistence: uses [appNavSavedStateConfig] so the back stack survives process death.
+ * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
  */
 @Composable
 actual fun CalendarNavGraph(start: CalendarRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
-    val savedStateConfig = appNavSavedStateConfig
+    val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
     val backStack: NavBackStack<CalendarRoute> = rememberNavBackStack(savedStateConfig, start)

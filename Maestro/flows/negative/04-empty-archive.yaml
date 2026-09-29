@@ -1,0 +1,24 @@
+# Empty state: the Archive screen with nothing archived.
+appId: com.singularity.todo
+name: negative-empty-archive
+tags:
+  - regression
+  - negative
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_profile_sync
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_archive
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_archive
+- extendedWaitUntil:
+    visible: "Archive is empty"
+    timeout: 8000

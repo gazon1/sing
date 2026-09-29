@@ -10,32 +10,34 @@ import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclassesOfSealed
 
 /**
- * The app's single [SavedStateConfiguration].
+ * Builds a [SavedStateConfiguration] for one NavGraph.
  *
- * Navigation 3 restores a back stack by deserializing its keys polymorphically
- * under [NavKey], so the serializers module has to know every concrete route.
- * [AppNavKey] is the one sealed root holding all of them and `subclassesOfSealed`
- * walks it — which is why this is one call with no per-graph registration and no
- * runtime type inspection.
+ * **One instance per graph, not a shared val.** [SavedStateConfiguration] carries
+ * the saved-state payload of the graph that uses it, so sharing a single instance
+ * across the outer graph and every nested graph lets them overwrite each other's
+ * entries. The symptom is easy to misread: rotation restores the agenda but
+ * silently drops the nested screen that was on top, so the app looks like it
+ * "reset" rather than like a serialization failure. Found by
+ * `Maestro/flows/lifecycle/03-rotate-in-editor.yaml`, which passes on the
+ * pre-refactor build and failed after.
  *
- * Sharing one configuration across every NavGraph is deliberate. A nested graph
- * only ever holds keys from its own hierarchy, but registering the whole app costs
- * a single sealed walk and removes a whole class of bug: a route declared outside
- * [AppNavKey] is invisible to `subclassesOfSealed`, and its screen throws the
- * moment it opens. `Settings` and `Search` did exactly that.
- * See `docs/decisions/2026-09-29-single-sealed-navkey-root.md`.
+ * The *registration* is deliberately common, and that part is what fixes the
+ * crash this function used to have: all routes hang off [AppNavKey], so one
+ * `subclassesOfSealed` call covers every graph — including the lone
+ * `@Serializable data object` routes (`Settings`, `Search`), which
+ * `subclassesOfSealed` rejects when handed a non-sealed root. That rejection is
+ * what killed the process the first time either screen was opened. See
+ * `docs/decisions/2026-09-29-single-sealed-navkey-root.md`.
  *
- * **On JVM Desktop** this configuration is never consulted — `LocalSaveableStateRegistry`
- * resolves to `null` there (the `savedstate-compose-desktop` artifact is deliberately
- * empty) — so NavGraphs use [rememberInMemoryNavBackStack] instead, which carries no
- * serializer overhead and has no process-death state to restore.
+ * **On JVM Desktop** this is never used — `LocalSaveableStateRegistry` resolves
+ * to `null` there, and NavGraphs use [rememberInMemoryNavBackStack] instead.
  *
  * **Type asymmetry.** [rememberInMemoryNavBackStack] is `reified` and returns a
- * `NavBackStack<T>`; Android's `rememberNavBackStack(config, start)` is not `reified`
- * and returns `NavBackStack<NavKey>`, so Android NavGraphs need an `as NavBackStack<T>`
- * cast. See `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md`.
+ * `NavBackStack<T>`; Android's `rememberNavBackStack(config, start)` is not
+ * `reified` and returns `NavBackStack<NavKey>`, so Android NavGraphs need an
+ * `as NavBackStack<T>` cast. See `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md`.
  */
-internal val appNavSavedStateConfig: SavedStateConfiguration = SavedStateConfiguration {
+internal fun navSavedStateConfig(): SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
             subclassesOfSealed(AppNavKey.serializer())
@@ -50,8 +52,8 @@ internal val appNavSavedStateConfig: SavedStateConfiguration = SavedStateConfigu
  * The returned back stack is observable (`MutableList` + `StateObject`) and plugs
  * directly into `NavDisplay`.
  *
- * **When to use on JVM:** replace `rememberNavBackStack(appNavSavedStateConfig, start)`
- * with this. On Android, keep `rememberNavBackStack(appNavSavedStateConfig, start)`.
+ * **When to use on JVM:** replace `rememberNavBackStack(navSavedStateConfig(), start)`
+ * with this. On Android, keep `rememberNavBackStack(navSavedStateConfig(), start)`.
  *
  * @param start the initial top-level route key for this back stack.
  */

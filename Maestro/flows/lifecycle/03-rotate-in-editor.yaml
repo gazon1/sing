@@ -1,0 +1,26 @@
+# Lifecycle: rotating while the task editor is open keeps it usable.
+appId: com.singularity.todo
+name: lifecycle-rotate-in-editor
+tags:
+  - regression
+  - lifecycle
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 8000
+- setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd:
+    timeout: 2000
+# Still the editor, and the title survived the configuration change.
+- assertVisible:
+    id: task_editor_title_input
+- assertVisible: "Buy milk"
+- setOrientation: PORTRAIT
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible:
+    id: task_editor_title_input
