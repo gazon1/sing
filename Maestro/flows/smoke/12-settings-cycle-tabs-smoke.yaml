@@ -1,0 +1,45 @@
+# Smoke: open Settings from the menu and cycle through all 11 tabs without crash.
+#
+# Covers: menu sheet -> Settings entry -> SettingsNavRail (11 tabs).
+appId: com.singularity.todo
+name: smoke-settings-cycle-tabs
+tags:
+  - smoke
+  - settings
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_Interface
+    timeout: 5000
+# Cycle all 11 tabs in order — a crash or hang on any tab fails the flow.
+- tapOn:
+    id: settings_tab_Interface
+- tapOn:
+    id: settings_tab_Agenda
+- tapOn:
+    id: settings_tab_Notifications
+- tapOn:
+    id: settings_tab_AIProvider
+- tapOn:
+    id: settings_tab_WorkSchedule
+- tapOn:
+    id: settings_tab_Calendar
+- tapOn:
+    id: settings_tab_Tags
+- tapOn:
+    id: settings_tab_TagGroups
+- tapOn:
+    id: settings_tab_Files
+- tapOn:
+    id: settings_tab_Backup
+- tapOn:
+    id: settings_tab_Account

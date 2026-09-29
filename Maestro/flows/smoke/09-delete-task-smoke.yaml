@@ -1,0 +1,39 @@
+# Smoke: delete a task via its detail screen and confirm the dialog.
+#
+# Covers: task detail open -> More menu -> Delete -> Confirm -> task gone from list.
+appId: com.singularity.todo
+name: smoke-delete-task
+tags:
+  - smoke
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# Assert the title carried into the editor (proves we opened *this* task).
+- assertVisible: "Buy milk"
+# Tap the More menu button (MoreVert, contentDescription = "Меню").
+- tapOn:
+    content-desc: "Меню"
+- extendedWaitUntil:
+    visible:
+      text: "Удалить"
+    timeout: 5000
+- tapOn:
+    text: "Удалить"
+# Confirm deletion dialog.
+- extendedWaitUntil:
+    visible:
+      text: "Удалить"
+    timeout: 5000
+- tapOn:
+    text: "Удалить"
+# Task should be gone from the list.
+- extendedWaitUntil:
+    gone:
+      id: task_item_buy_milk
+    timeout: 5000

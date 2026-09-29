@@ -1,0 +1,34 @@
+# Smoke: complete a task (checkbox), then archive it via long-press context menu.
+#
+# After completion the task stays in the list (visually completed, checked).
+# Long-press on the row opens the context menu where Archive is available.
+appId: com.singularity.todo
+name: smoke-archive-task
+tags:
+  - smoke
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+# Complete the task.
+- tapOn:
+    id: task_checkbox_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_checkbox_buy_milk
+      checked: true
+    timeout: 5000
+# The completed row stays visible; long-press opens the context menu.
+- longPressOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      text: "Удалить"
+    timeout: 5000
+# Archive is the first item in the menu (per TaskEditorMenuItem order).
+- tapOn:
+    text: "Архивировать"
+# After archiving, the row disappears from the active list.
+- extendedWaitUntil:
+    gone:
+      id: task_item_buy_milk
+    timeout: 5000
