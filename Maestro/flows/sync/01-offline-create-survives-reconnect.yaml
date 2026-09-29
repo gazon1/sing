@@ -4,7 +4,9 @@
 # background concern — so this asserts the user's data survives being offline,
 # not that a server round-trip happened.
 appId: com.singularity.todo
-name: sync-create-offline
+name: sync-offline-create-survives-reconnect
+onFlowComplete:
+  - setAirplaneMode: disabled
 tags:
   - regression
   - sync

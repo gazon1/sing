@@ -1730,6 +1730,7 @@ _8 entries need attention._
 - `2026-09-29-emulator-crash-recovery-runner` — emulator, android, maestro, tooling
 - `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
+- `2026-09-29-maestro-date-js-host-clock` — maestro, test-infrastructure
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
 - `2026-09-29-missing-koin-dao-bindings` — koin, di, crash
 - `2026-09-29-notes-and-calendar-unreachable-controls` — notes, calendar, ui, gap
@@ -2047,6 +2048,7 @@ _8 entries need attention._
 - `2026-09-29-emulator-crash-recovery-runner` — Emulator gfxstream crash — the IME mitigation is insufficient, recover instead of prevent
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
+- `2026-09-29-maestro-date-js-host-clock` — maestro-date-js-host-clock
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
 - `2026-09-29-missing-koin-dao-bindings` — Three Room DAOs were never bound in Koin
 - `2026-09-29-notes-and-calendar-unreachable-controls` — Notes row actions and Calendar header controls are unreachable from the UI

@@ -4,7 +4,7 @@
 #
 # Delete is immediate and reversible: the screen emits `UndoDelete` and shows a
 # "Task deleted" snackbar rather than a confirmation dialog, so this flow asserts
-# the row is gone on return. The undo path is covered separately.
+# the row is gone on return.
 appId: com.singularity.todo
 name: smoke-delete-task
 tags:
