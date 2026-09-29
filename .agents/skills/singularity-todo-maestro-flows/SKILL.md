@@ -195,6 +195,42 @@ by a flow failing on it:
 - After `inputText`, assert the field's value before tapping save, so a dropped
   keystroke fails at the real cause.
 
+## Recon before writing a flow — the probe trick
+
+Do not write a flow against selectors you inferred from the source. Drive the
+screen first and read what is actually there. The cheapest way is a **probe
+flow**: navigate to the screen, then assert something that cannot exist. The
+assertion fails, and Maestro captures the view hierarchy at exactly that
+moment.
+
+```yaml
+appId: com.singularity.todo
+name: probe-thing
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_pomodoro
+- assertVisible:
+    id: zzz_nonexistent_probe      # fails on purpose, dumping the hierarchy
+```
+
+```bash
+maestro test Maestro/flows/<sub>/<probe-name>.yaml
+D=~/.maestro/tests/$(ls -1 ~/.maestro/tests | tail -1)          # names sort chronologically
+f=$(find "$D" -path "*hierarchy*" -name "*.json" | tail -1)
+grep -o '"resource-id" : "[^"]*"' "$f" | sort -u
+grep -o '"text" : "[^"]*"' "$f" | sort -u
+```
+
+This is how the selectors in this suite were chosen, and it is what caught the
+rows that turned out to be dead taps and the screens with no affordance. Guessed
+selectors produced three wrong flows in a row before the probe habit stuck; the
+flow *failing on a selector that should exist* is far more often "the APK
+predates the tag" or "this row does nothing" than a bug in the selector.
+
+Delete the probe once the real flow replaces it — probes are scaffolding, and a
+stale one left in the tree is noise.
+
 ## Debugging a failure
 
 1. **Crash or assertion?** `adb -s emulator-5554 logcat -d -b crash | grep -A30

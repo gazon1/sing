@@ -213,7 +213,12 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 `feature-scaffold` · `test-helpers` · `nav3-nested-graphs` · `nav3-savedstate` · `koin-di` ·
 `ai-tool` · `mcp-server` · `sync` · `room-migration` · `quality-tools` (detekt/ktlint/kover) ·
 `clean-architecture-audit` · `worktree-isolation` · `code-review-pr-workflow` ·
-`decisions-workflow`.
+`decisions-workflow` · `maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
+
+> **Фича «готова», но ничего не делает** — самый частый дефект проекта: код
+> компилируется, покрыт тестами и **не вызывается никем**. Проверка:
+> `scripts/find-unwired-surfaces.py`. Подробности — скилл
+> `singularity-todo-unwired-surface-audit`.
 
 **Удалённые skill-ы** (информация в `docs/decisions/`): ~~`koin-suspend-bridge~~
 `2026-09-05-koin-suspend-bridge.md` · ~~`ai-provider-settings~~

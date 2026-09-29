@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-93 skills: 80 project-specific, 13 generic/meta.
+94 skills: 81 project-specific, 13 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -50,7 +50,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 468 | LLM token usage tracking pattern for Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 237 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 273 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 202 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-mcp-server` | 424 | MCP server pattern for Singularity Todo KMP. |
@@ -88,6 +88,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-testable-vm` | 434 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
+| `singularity-todo-unwired-surface-audit` | 109 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
 | `singularity-todo-vm-intent-pattern` | 286 | The house ViewModel pattern for this project: sealed Intent + single onIntent dispatcher, routing vs domain intent separation, _latestTask cache, and when to use (or skip) a pure reducer. |
 | `singularity-todo-vm-lifecycle-addcloseable` | 218 | Migrate a ViewModel from manual 'override fun onCleared() { scope.cancel() }' to AutoCloseableCoroutineScope + ViewModel.addCloseable() (lifecycle 2.8+). |
 | `singularity-todo-vm-migration-playbook` | 355 | Step-by-step playbook for migrating an existing ViewModel from stateIn/combine/scopeOverride to the canonical scope-as-default-param pattern. |
