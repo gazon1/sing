@@ -315,7 +315,10 @@ fun TaskEditorContent(
             pin = null,
             dependencies = RowCallbacks(
                 onChange = { onSetDependencies?.invoke(it) },
-                onClick = {},
+                // onClick stays null so the row falls back to opening its own
+                // dependencies sheet. Passing `{}` here would count as "supplied" and
+                // suppress that fallback, leaving the row inert — see RowCallbacks KDoc.
+                onClick = null,
                 onClear = null,
             ),
             checklist = null,

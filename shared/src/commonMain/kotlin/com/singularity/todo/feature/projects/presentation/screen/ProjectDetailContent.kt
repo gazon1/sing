@@ -68,6 +68,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -242,7 +243,12 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         dueDate = c.ui.project.dueDate,
                         isArchived = c.ui.project.isDeleted,
                         childProjects = c.ui.childProjects,
-                        reminderOffset = null,
+                        // The stored value is a raw minute count; ReminderOffset is the
+                        // fixed set the picker offers, so a stored offset that no longer
+                        // matches a member (offset list changed) reads as "no selection"
+                        // rather than inventing a value the picker cannot show.
+                        reminderOffset = content?.ui?.reminderOffsetMinutes
+                            ?.let { m -> ReminderOffset.entries.firstOrNull { it.minutes == m } },
                         onUpdateColor = { actions.onUpdateColor(it) },
                         onUpdateIcon = { actions.onUpdateIcon(it) },
                         onUpdateParent = { actions.onUpdateParent(it) },
@@ -251,7 +257,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         onUpdateDescription = { actions.onUpdateDescription(it) },
                         onDelete = { actions.onDelete() },
                         onToggleArchive = { actions.onToggleArchive() },
-                        onSetReminder = { /* TODO: wire once project-reminder domain is implemented */ },
+                        onSetReminder = { offset -> actions.onSetReminder(offset.minutes) },
                         onNavigateToChild = { id -> actions.onNavigateToChild(id) },
                     )
                 },
@@ -422,6 +428,12 @@ private fun ProjectBodySection(
                     TaskCard(
                         task = task,
                         onClick = { nav.openTask(task.id) },
+                        // onAiClick intentionally omitted: every TaskAiAction
+                        // mutates immediately (refine overwrites the title,
+                        // decompose creates real subtasks) with no preview or
+                        // undo. A list row is the wrong place to trigger that —
+                        // the user opened the row's detail to edit it. See ADR
+                        // 2026-09-30-card-level-ai-actions-deferred.
                         actions = TaskCardActions(
                             onPin = { actions.onPin(task.id) },
                             onDelete = { actions.onDeleteTask(task.id) },

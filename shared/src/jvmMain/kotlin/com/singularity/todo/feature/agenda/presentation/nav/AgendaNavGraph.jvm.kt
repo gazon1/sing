@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.ui.menu.ContextMenuHost
 import com.singularity.todo.core.ui.menu.ContextMenuOpenState
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
@@ -17,6 +18,7 @@ import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
 import com.singularity.todo.feature.tasks.presentation.contextmenu.TaskMenuActions
 import com.singularity.todo.feature.tasks.presentation.contextmenu.buildTaskContextMenu
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import org.koin.compose.koinInject
 
 /**
  * JVM Desktop implementation of [AgendaNavGraph].
@@ -47,6 +49,10 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
         (AgendaIntent) -> Unit,
     ) -> Unit =
         { taskUi, offset, onDismiss, onIntent ->
+            // Share is a platform action, so the port is resolved here rather than
+            // pushed through the ViewModel. Keyed on the task because the shared text
+            // is the task's own title and description.
+            val sharePort: SharePort = koinInject()
             val menuActions = remember(taskUi) {
                 TaskMenuActions(
                     onTogglePin = { onIntent(AgendaIntent.TaskPinClicked(taskUi.id)) },
@@ -54,6 +60,11 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
                     onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(taskUi.id)) },
                     onToggleExpand = { onIntent(AgendaIntent.TaskExpandClicked(taskUi.id)) },
                     onAiAction = { /* AI actions deferred — requires AgendaDeps extension */ },
+                    // Archive and Delete are the same write here (softDelete); both
+                    // items stay because the list and the archive screen each name
+                    // that write in the user's own vocabulary.
+                    onArchive = { onIntent(AgendaIntent.TaskDeleteClicked(taskUi.id)) },
+                    onShare = { sharePort.shareText(taskUi.title, taskUi.title) },
                     onDismiss = onDismiss,
                 )
             }

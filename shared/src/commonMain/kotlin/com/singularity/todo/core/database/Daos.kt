@@ -619,6 +619,43 @@ interface ReminderDao {
 }
 
 @Dao
+interface ProjectReminderDao {
+    @Query("SELECT * FROM project_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
+    fun watchAll(userId: String): Flow<List<ProjectReminderEntity>>
+
+    @Query("SELECT * FROM project_reminders WHERE project_id = :projectId AND user_id = :userId ORDER BY fire_at ASC")
+    fun watchByProject(projectId: String, userId: String): Flow<List<ProjectReminderEntity>>
+
+    @Query("SELECT * FROM project_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at ASC")
+    fun getDueBefore(now: Long, userId: String): Flow<List<ProjectReminderEntity>>
+
+    @Query(
+        "SELECT * FROM project_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at DESC LIMIT :limit",
+    )
+    fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<ProjectReminderEntity>>
+
+    @Upsert
+    suspend fun upsert(reminder: ProjectReminderEntity)
+
+    @Query("DELETE FROM project_reminders WHERE id = :id AND user_id = :userId")
+    suspend fun delete(id: String, userId: String)
+
+    @Query("DELETE FROM project_reminders WHERE project_id = :projectId AND user_id = :userId")
+    suspend fun deleteByProject(projectId: String, userId: String)
+
+    @Query("SELECT * FROM project_reminders WHERE id = :id AND user_id = :userId")
+    suspend fun getById(id: String, userId: String): ProjectReminderEntity?
+
+    @Query("SELECT * FROM project_reminders WHERE id = :id AND user_id = :userId")
+    fun watchByIdForUser(id: String, userId: String): Flow<ProjectReminderEntity?>
+
+    @Query(
+        "UPDATE project_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
+    )
+    suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
+}
+
+@Dao
 interface ChecklistDao {
     @Query("SELECT * FROM checklist_items WHERE task_id = :taskId ORDER BY sort_order ASC")
     fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>>

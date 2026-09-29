@@ -98,16 +98,24 @@ fun TaskChip(
     }
 }
 
-/** "+N more" label that expands hidden tasks in a day cell. */
+/**
+ * "+N more" label for tasks a cell had to hide.
+ *
+ * [onClick] is nullable because the two callers want different things. A month cell
+ * routes it to the day view, which is where the full list lives. The all-day cell of
+ * the time-grid view has nowhere to route to — the user is already looking at that
+ * day — so it renders the count as plain text rather than as a control that does
+ * nothing.
+ */
 @Composable
-fun MoreTasksLabel(count: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun MoreTasksLabel(count: Int, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
     val palette = LocalCalendarPalette.current
     Text(
         text = "+$count more",
         color = palette.textMuted,
         fontSize = 12.sp,
         modifier = modifier
-            .clickable { onClick() }
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }

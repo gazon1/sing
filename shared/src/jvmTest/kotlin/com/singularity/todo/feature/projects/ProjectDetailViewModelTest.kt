@@ -20,6 +20,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
+import com.singularity.todo.test.fakes.FakeProjectRemindersRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.atStartOfDayIn
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -78,8 +80,13 @@ class ProjectDetailViewModelTest {
     )
     private val fakeProfileRepo = FakeProfileRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
+    private val fakeProjectReminders = FakeProjectRemindersRepository()
 
-    private fun createVm(scope: CoroutineScope, taskRepo: TaskRepository = fakeTaskRepo): ProjectDetailViewModel {
+    private fun createVm(
+        scope: CoroutineScope,
+        taskRepo: TaskRepository = fakeTaskRepo,
+        fakeProjectReminders: FakeProjectRemindersRepository = this.fakeProjectReminders,
+    ): ProjectDetailViewModel {
         val vm = ProjectDetailViewModel(
             projectId = ProjectId("p1"),
             projectRepo = fakeProjectsRepo,
@@ -88,6 +95,7 @@ class ProjectDetailViewModelTest {
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock.System),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock.System),
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock.System, fakeCurrentUser),
+            projectReminders = fakeProjectReminders,
             clock = Clock.System,
             log = Logger,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
@@ -243,5 +251,88 @@ class ProjectDetailViewModelTest {
             counting.projectFilterSubscriptions,
             "a project field write restarted the task stream subscription",
         )
+    }
+    // ─── Project reminder ──────────────────────────────────────────────────────
+
+    /**
+     * The reminder is authored as an offset from the due date and stored as an
+     * absolute instant. If the two drift apart the picker shows a different value
+     * than the user chose, so the round trip is asserted explicitly.
+     */
+    @Test
+    fun `setReminder stores fireAt as dueDate minus the chosen offset`() = runTest {
+        val project = seedProject().copy(dueDate = kotlinx.datetime.LocalDate(2026, 10, 15))
+        fakeProjectsRepo.seed(project)
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.SetReminder(60))
+        advanceUntilIdle()
+        runCurrent()
+
+        val stored = fakeProjectReminders.all().single()
+        val dueMillis = project.dueDate!!
+            .atStartOfDayIn(kotlinx.datetime.TimeZone.currentSystemDefault())
+            .toEpochMilliseconds()
+        assertEquals(
+            dueMillis - 60 * 60_000L,
+            stored.fireAt,
+            "the stored instant must be the due date less the chosen offset",
+        )
+    }
+
+    @Test
+    fun `setting a reminder twice updates in place instead of stacking rows`() = runTest {
+        fakeProjectsRepo.seed(seedProject().copy(dueDate = kotlinx.datetime.LocalDate(2026, 10, 15)))
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.SetReminder(15))
+        advanceUntilIdle()
+        runCurrent()
+        vm.onIntent(ProjectDetailIntent.Domain.SetReminder(1440))
+        advanceUntilIdle()
+        runCurrent()
+
+        assertEquals(1, fakeProjectReminders.all().size, "re-picking must reuse the existing reminder row")
+    }
+
+    @Test
+    fun `a null offset removes the reminder`() = runTest {
+        fakeProjectsRepo.seed(seedProject().copy(dueDate = kotlinx.datetime.LocalDate(2026, 10, 15)))
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.SetReminder(60))
+        advanceUntilIdle()
+        runCurrent()
+        assertEquals(1, fakeProjectReminders.all().size)
+
+        vm.onIntent(ProjectDetailIntent.Domain.SetReminder(null))
+        advanceUntilIdle()
+        runCurrent()
+        assertTrue(fakeProjectReminders.all().isEmpty(), "clearing the reminder must delete the row")
+    }
+
+    /**
+     * A reminder is anchored to a due date. With no due date there is nothing to
+     * anchor to, and silently storing a reminder the user cannot reason about would
+     * be worse than refusing.
+     */
+    @Test
+    fun `a reminder on a project with no due date is rejected, not silently dropped`() = runTest {
+        seedProject()
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.SetReminder(60))
+        advanceUntilIdle()
+        runCurrent()
+
+        assertTrue(fakeProjectReminders.all().isEmpty(), "no due date means no reminder is stored")
     }
 }

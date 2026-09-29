@@ -42,6 +42,16 @@ sealed interface ProjectDetailIntent : MviIntent {
 
         data object ToggleHideCompleted : Domain
 
+        /**
+         * Set or clear the project's reminder.
+         *
+         * [offsetMinutes] is minutes before the project due date, or null to remove the
+         * reminder. The due date is the anchor because a project reminder exists to
+         * fire when the project is due — an absolute instant would silently go stale
+         * the moment the due date is edited.
+         */
+        data class SetReminder(val offsetMinutes: Int?) : Domain
+
         // ── Inline edits (debounced in VM) ────────────────────────────────
 
         data class UpdateName(val name: String) : Domain

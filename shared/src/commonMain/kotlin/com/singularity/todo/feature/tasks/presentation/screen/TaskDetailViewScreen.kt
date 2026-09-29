@@ -71,8 +71,15 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
         mapper = { event: TaskDetailUiEvent ->
             when (event) {
                 is TaskDetailUiEvent.Saved -> Notification.Text(event.message, null)
+
                 is TaskDetailUiEvent.Error -> Notification.Error(event.message)
-                is TaskDetailUiEvent.UndoDelete -> Notification.Text("Task deleted", null)
+
+                is TaskDetailUiEvent.UndoDelete -> Notification.Undo(
+                    title = "Task deleted",
+                    actionLabel = "Undo",
+                    onAction = { vm.onIntent(TaskDetailIntent.Domain.Restore) },
+                )
+
                 TaskDetailUiEvent.NavigateBack -> Notification.NavigateBack
             }
         },
@@ -294,11 +301,7 @@ private fun AttachmentsSection(attachments: List<Attachment>) {
 
 @Suppress("FunctionSignature")
 @Composable
-private fun ExtraSectionCard(
-    icon: @Composable () -> Unit,
-    label: String,
-    content: @Composable () -> Unit,
-) {
+private fun ExtraSectionCard(icon: @Composable () -> Unit, label: String, content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),

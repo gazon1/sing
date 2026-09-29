@@ -12,9 +12,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +65,8 @@ private fun TagGroupList(groups: List<TagGroup>, modifier: Modifier = Modifier, 
 
 @Composable
 private fun TagGroupCard(group: TagGroup, onDelete: () -> Unit) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -68,5 +80,35 @@ private fun TagGroupCard(group: TagGroup, onDelete: () -> Unit) {
         Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
             Text(":${group.name}:", style = MaterialTheme.typography.bodyLarge)
         }
+        IconButton(onClick = { showDeleteConfirm = true }) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Delete tag group",
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+
+    // Deleting a group detaches it from every tag that referenced it, so a single tap
+    // on the row is too small a target for the whole gesture — confirm first.
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete tag group?") },
+            text = { Text("Tags in this group will be ungrouped. The tags themselves are kept.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete()
+                    },
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            },
+        )
     }
 }

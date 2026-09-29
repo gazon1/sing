@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.notes.presentation.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +35,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -271,6 +270,15 @@ fun NotePreviewScreenContent(
 
 // ─── Meta Chips ───────────────────────────────────────────────────────────────
 
+/**
+ * Read-only metadata strip: when the note was last touched, and its size.
+ *
+ * These are facts about the note, not actions, so they render as [MetaLabel] rather
+ * than as a Chip. Chip is a clickable control by definition and Material draws it with
+ * a pressed/ripple affordance; using one for inert text tells the user there is
+ * something behind it. The old `SuggestionChip(onClick = {})` did exactly that, on all
+ * three of these.
+ */
 @Composable
 private fun MetaChipsRow(note: Note, modifier: Modifier = Modifier) {
     Row(
@@ -278,48 +286,30 @@ private fun MetaChipsRow(note: Note, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (note.updatedAt != note.createdAt) {
-            SuggestionChip(
-                onClick = {},
-                label = {
-                    Text(
-                        formatRelativeShort(note.updatedAt),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            )
+            MetaLabel(formatRelativeShort(note.updatedAt))
         }
         if (note.wordCount > 0) {
-            SuggestionChip(
-                onClick = {},
-                label = {
-                    Text(
-                        "${note.wordCount} words",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            )
+            MetaLabel("${note.wordCount} words")
         }
         if (note.charCount > 0) {
-            SuggestionChip(
-                onClick = {},
-                label = {
-                    Text(
-                        "${note.charCount} chars",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            )
+            MetaLabel("${note.charCount} chars")
         }
     }
+}
+
+@Composable
+private fun MetaLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
 }
 
 // ─── Backlinks Sheet ───────────────────────────────────────────────────────────

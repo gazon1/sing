@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +14,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -161,22 +161,25 @@ private fun PinButton(isPinned: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Chip shown on tasks that are sub-tasks (have a parentTaskId). */
+/**
+ * Marker for tasks that are sub-tasks (have a parentTaskId).
+ *
+ * A plain label, not an [AssistChip]: a chip is a control with a ripple and a pressed
+ * state, and this is a static badge. The previous `AssistChip(onClick = {})` was
+ * tappable and inert — tapping the badge did nothing at all.
+ */
 @Composable
 private fun SubtaskChip(modifier: Modifier = Modifier) {
-    AssistChip(
-        onClick = {},
-        label = {
-            Text(
-                text = "Sub-task",
-                style = MaterialTheme.typography.labelSmall,
+    Text(
+        text = "Sub-task",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = modifier
+            .background(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.extraSmall,
             )
-        },
-        modifier = modifier,
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ),
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 

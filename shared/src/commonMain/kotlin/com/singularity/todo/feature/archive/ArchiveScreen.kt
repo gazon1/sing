@@ -73,6 +73,12 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel()) {
                                             ),
                                         )
                                     },
+                                    // onAiClick intentionally omitted: every TaskAiAction
+                                    // mutates immediately (refine overwrites the title,
+                                    // decompose creates real subtasks) with no preview or
+                                    // undo. A list row is the wrong place to trigger that —
+                                    // the user opened the row's detail to edit it. See ADR
+                                    // 2026-09-30-card-level-ai-actions-deferred.
                                     actions = TaskCardActions(),
                                 )
                             }
@@ -129,6 +135,12 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                                 TaskCard(
                                     task = task,
                                     onClick = {},
+                                    // onAiClick intentionally omitted: every TaskAiAction
+                                    // mutates immediately (refine overwrites the title,
+                                    // decompose creates real subtasks) with no preview or
+                                    // undo. A list row is the wrong place to trigger that —
+                                    // the user opened the row's detail to edit it. See ADR
+                                    // 2026-09-30-card-level-ai-actions-deferred.
                                     actions = TaskCardActions(),
                                 )
                             }

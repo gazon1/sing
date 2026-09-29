@@ -43,6 +43,9 @@ import com.singularity.todo.feature.profile.ProfileRepository
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.reminders.ProjectReminder
+import com.singularity.todo.feature.reminders.ProjectReminderId
+import com.singularity.todo.feature.reminders.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
@@ -720,6 +723,92 @@ class FakeChecklistRepository : ChecklistRepository {
 }
 
 // ─── ReminderRepository ──────────────────────────────────────────────────────
+
+open class FakeProjectRemindersRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+) : ProjectRemindersRepository {
+    internal val reminders = MutableStateFlow<Map<String, ProjectReminder>>(emptyMap())
+
+    fun seed(vararg items: ProjectReminder) {
+        reminders.value = items.associateBy { it.id.value }
+    }
+
+    /** Every reminder currently stored — convenience for assertions. */
+    fun all(): List<ProjectReminder> = reminders.value.values.toList()
+
+    var upsertOverride: Result<Unit>? = null
+    var deleteByProjectOverride: Result<Unit>? = null
+    var markFiredOverride: Result<Unit>? = null
+
+    override fun observeAll(): Flow<List<ProjectReminder>> = currentUser.observeForCurrentUser { uid ->
+        reminders.map { m -> m.values.filter { it.userId == uid }.sortedBy { it.fireAt } }
+    }
+
+    override fun watchByProject(projectId: ProjectId): Flow<List<ProjectReminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { m ->
+                m.values.filter { it.projectId == projectId && it.userId == uid }.sortedBy { it.fireAt }
+            }
+        }
+
+    override fun observe(id: ProjectReminderId): Flow<ProjectReminder?> = currentUser.observeForCurrentUser { uid ->
+        reminders.map { m -> m.values.firstOrNull { it.id == id && it.userId == uid } }
+    }
+
+    override suspend fun get(id: ProjectReminderId): ProjectReminder? {
+        val uid = currentUser.scopedUserId.value
+        return reminders.value.values.firstOrNull { it.id == id && it.userId == uid }
+    }
+
+    open override suspend fun upsert(reminder: ProjectReminder): Result<Unit> {
+        upsertOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            // Mirrors the real impl: the owner is re-stamped, never taken from the caller.
+            reminders.value += (reminder.id.value to reminder.copy(userId = uid))
+        }
+    }
+
+    override suspend fun delete(id: ProjectReminderId): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        reminders.value = reminders.value - (id.value)
+    }
+
+    override suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit> = runCatching {
+        reminders.value = reminders.value - (id.value)
+    }
+
+    override suspend fun deleteByProject(projectId: ProjectId): Result<Unit> {
+        deleteByProjectOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            reminders.value = reminders.value.filterValues { it.projectId != projectId || it.userId != uid }
+        }
+    }
+
+    override fun watchDueBefore(nowEpochMs: Long): Flow<List<ProjectReminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { m -> m.values.filter { it.userId == uid && it.fireAt <= nowEpochMs } }
+        }
+
+    override fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<ProjectReminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { m ->
+                m.values.filter { it.userId == uid && it.fireAt <= nowEpochMs }
+                    .sortedByDescending { it.fireAt }
+                    .take(limit)
+            }
+        }
+
+    override suspend fun markFired(reminderId: ProjectReminderId, lastFiredAt: Long): Result<Unit> {
+        markFiredOverride?.let { return it }
+        return runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = reminders.value[reminderId.value] ?: return@runCatching
+            reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
+        }
+    }
+}
 
 open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
     ReminderRepository {

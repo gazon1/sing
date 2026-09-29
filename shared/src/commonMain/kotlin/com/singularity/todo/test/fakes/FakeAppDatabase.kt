@@ -19,6 +19,8 @@ import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.ProjectReminderDao
+import com.singularity.todo.core.database.ProjectReminderEntity
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.SavedSearchEntity
@@ -65,6 +67,7 @@ class FakeAppDatabase : AppDatabase() {
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
             emptyMap(),
         )
+    private val _projectReminders = MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>(emptyMap())
     private val _checklist = MutableStateFlow<Map<String, ChecklistItemEntity>>(emptyMap())
     private val _llmUsage = MutableStateFlow<Map<String, LlmUsageEntity>>(emptyMap())
     private val _profiles = MutableStateFlow<Map<String, ProfileEntity>>(emptyMap())
@@ -83,6 +86,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
+    override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
     override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist)
     override fun llmUsageDao(): LlmUsageDao = FakeLlmUsageDao(_llmUsage)
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
@@ -106,6 +110,7 @@ class FakeAppDatabase : AppDatabase() {
         _outbox.value = emptyMap()
         _attachments.value = emptyMap()
         _reminders.value = emptyMap()
+        _projectReminders.value = emptyMap()
         _checklist.value = emptyMap()
         _llmUsage.value = emptyMap()
         _profiles.value = emptyMap()
@@ -813,6 +818,58 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
 }
 
 // ─── ReminderDao ──────────────────────────────────────────────────────────────
+
+private class FakeProjectReminderDao(
+    private val store: MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>,
+) : ProjectReminderDao {
+    override fun watchAll(userId: String): Flow<List<ProjectReminderEntity>> =
+        store.map { it.values.filter { r -> r.userId == userId }.sortedBy { it.fireAt } }
+
+    override fun watchByProject(projectId: String, userId: String): Flow<List<ProjectReminderEntity>> = store.map {
+        it.values.filter { r -> r.projectId == projectId && r.userId == userId }.sortedBy { r -> r.fireAt }
+    }
+
+    override fun getDueBefore(now: Long, userId: String): Flow<List<ProjectReminderEntity>> =
+        store.map { it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> r.fireAt } }
+
+    override fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<ProjectReminderEntity>> =
+        store.map {
+            it.values.filter { r -> r.fireAt <= now && r.userId == userId }
+                .sortedByDescending { r -> r.fireAt }
+                .take(limit)
+        }
+
+    override suspend fun upsert(reminder: ProjectReminderEntity) {
+        store.update { it + ((reminder.userId to reminder.id) to reminder) }
+    }
+
+    override suspend fun delete(id: String, userId: String) {
+        store.update { it - (userId to id) }
+    }
+
+    override suspend fun deleteByProject(projectId: String, userId: String) {
+        store.update { m -> m.filterValues { !(it.projectId == projectId && it.userId == userId) } }
+    }
+
+    override suspend fun getById(id: String, userId: String): ProjectReminderEntity? = store.value[(userId to id)]
+
+    override fun watchByIdForUser(id: String, userId: String): Flow<ProjectReminderEntity?> =
+        store.map { it[userId to id] }
+
+    override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
+        store.update { m ->
+            m[(userId to id)]?.let { e ->
+                m + (
+                    (userId to id) to e.copy(
+                        lastFiredAt = lastFiredAt,
+                        updatedAt = updatedAt,
+                    )
+                )
+            }
+                ?: m
+        }
+    }
+}
 
 private class FakeReminderDao(
     private val store:

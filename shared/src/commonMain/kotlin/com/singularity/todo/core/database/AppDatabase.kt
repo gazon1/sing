@@ -32,6 +32,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         RemoteConfigEntity::class,
         AttachmentEntity::class,
         TaskReminderEntity::class,
+        ProjectReminderEntity::class,
         ChecklistItemEntity::class,
         LlmUsageEntity::class,
         ProfileEntity::class,
@@ -42,7 +43,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         TagGroupEntity::class,
         ProjectInheritedTagGroupCrossRef::class,
     ],
-    version = 22,
+    version = 23,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -61,6 +62,8 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 19, to = 20, spec = Migration19To20::class),
         AutoMigration(from = 20, to = 21, spec = Migration20To21::class),
         AutoMigration(from = 21, to = 22, spec = Migration21To22::class),
+        // 22→23 adds the project_reminders table only — purely additive, so Room needs
+        // no spec and generates the CREATE TABLE itself.
     ],
     exportSchema = true,
 )
@@ -75,6 +78,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao
     abstract fun reminderDao(): ReminderDao
+    abstract fun projectReminderDao(): ProjectReminderDao
     abstract fun checklistDao(): ChecklistDao
     abstract fun llmUsageDao(): LlmUsageDao
     abstract fun profileDao(): ProfileDao

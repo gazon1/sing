@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.search.presentation.nav
 
+import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -33,6 +35,17 @@ open class SearchNavigator(protected val onExitGraph: (AppDestination?) -> Unit)
      */
     open fun openProject(projectId: ProjectId) {
         onExitGraph(AppDestination.ProjectDetail(projectId.value))
+    }
+
+    /**
+     * Open the agenda filtered to a tag.
+     *
+     * A tag has no detail screen of its own — a tag *is* a filter over tasks — so this
+     * routes into the agenda graph at [AgendaStartRoute.Tag] rather than inventing a
+     * destination that would have nothing to render.
+     */
+    open fun openTag(tagId: TagId) {
+        onExitGraph(AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId.value)))
     }
 
     /**

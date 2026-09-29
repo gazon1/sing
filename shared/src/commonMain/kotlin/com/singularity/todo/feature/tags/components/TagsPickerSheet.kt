@@ -35,11 +35,7 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionSignature")
 @Composable
-fun TagsPickerSheet(
-    selectedIds: List<TagId>,
-    onSelect: (List<TagId>) -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun TagsPickerSheet(selectedIds: List<TagId>, onSelect: (List<TagId>) -> Unit, onDismiss: () -> Unit) {
     val tagsRepo: TagsRepository = koinInject()
     val allTags by tagsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -100,11 +96,7 @@ fun TagsPickerSheet(
 
 @Suppress("FunctionSignature")
 @Composable
-private fun TagItem(
-    tag: Tag,
-    isSelected: Boolean,
-    onToggle: () -> Unit,
-) {
+private fun TagItem(tag: Tag, isSelected: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

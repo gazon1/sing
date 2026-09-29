@@ -58,7 +58,7 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
         }
 
         // ── 3. Move to today ────────────────────────────────────────────────────
-        item(id = "move_today", label = "Move to today") {
+        item(id = "move_today", label = "Move to today", enabled = false) {
             // Unwired: add `onSetDueDate: ((LocalDate?) -> Unit)?` to TaskMenuActions, then
             // `updateTask(id) { copy(dueDate = today) }` at the call site. No use case —
             // PassThroughUseCase forbids one over a single `copy`.
@@ -66,13 +66,13 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
         }
 
         // ── 4. Move to tomorrow ────────────────────────────────────────────────
-        item(id = "move_tomorrow", label = "Move to tomorrow") {
+        item(id = "move_tomorrow", label = "Move to tomorrow", enabled = false) {
             // Unwired: as `move_today`, with dueDate = tomorrow.
             actions.onDismiss()
         }
 
         // ── 5. Move to next week ────────────────────────────────────────────────
-        item(id = "move_next_week", label = "Move to next week") {
+        item(id = "move_next_week", label = "Move to next week", enabled = false) {
             // Unwired: as `move_today`, with dueDate = next Monday.
             actions.onDismiss()
         }
@@ -82,7 +82,7 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
             id = "move_to_project",
             label = "Move to project",
             children = buildMenuNodes {
-                item(id = "move_project_none", label = "No project") {
+                item(id = "move_project_none", label = "No project", enabled = false) {
                     // Unwired: `onSetProject: ((ProjectId?) -> Unit)?` on TaskMenuActions; null clears
                     // the project.
                     actions.onDismiss()
@@ -120,7 +120,7 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
         )
 
         // ── 9. Add label ───────────────────────────────────────────────────────
-        item(id = "add_label", label = "Add label") {
+        item(id = "add_label", label = "Add label", enabled = false) {
             // Unwired: tags are a separate repository from the task. `onAddTag: ((String) -> Unit)?`
             // on TaskMenuActions; the screen resolves the tag and calls TagsRepository.
             actions.onDismiss()
@@ -249,24 +249,30 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
         divider()
 
         // ── 19. Print ──────────────────────────────────────────────────────────
-        item(id = "print", label = "Print") {
-            // Unwired, and a platform action rather than a domain one: `onPrint: (() -> Unit)?`
-            // on TaskMenuActions, implemented with the platform print API. No use case.
-            actions.onDismiss()
+        item(id = "print", label = "Print", enabled = false) {
+            // Disabled, not merely unwired: neither target has a print API behind it
+            // (AwtPrintService / PrintManager are not implemented), so there is nothing
+            // for a callback to call. Rendering it enabled would be a button that
+            // closes the menu and prints nothing.
         }
 
         // ── 20. Archive ────────────────────────────────────────────────────────
-        item(id = "archive", label = "Archive") {
-            // Unwired: `onArchive: (() -> Unit)?` on TaskMenuActions. The repository call
-            // already exists (`taskRepo.archiveCompletedTasks` / the soft-delete path added
-            // in 2026-09-27-write-layer-soundness); only the callback is missing. This
-            // marker previously named an ArchiveTaskUseCase that is not needed at all.
+        item(
+            id = "archive",
+            label = "Archive",
+            enabled = actions.onArchive != null,
+        ) {
+            actions.onArchive?.invoke()
+            actions.onDismiss()
         }
 
         // ── 21. Share ─────────────────────────────────────────────────────────
-        item(id = "share", label = "Share") {
-            // Unwired, and a platform action: `onShare: (() -> Unit)?` on TaskMenuActions,
-            // implemented with the system share sheet. No use case.
+        item(
+            id = "share",
+            label = "Share",
+            enabled = actions.onShare != null,
+        ) {
+            actions.onShare?.invoke()
             actions.onDismiss()
         }
     }

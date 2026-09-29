@@ -13,8 +13,6 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,13 +65,9 @@ fun CalendarTopBar(
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.width(4.dp))
-        Icon(
-            Icons.Default.MoreHoriz,
-            contentDescription = "More",
-            tint = palette.textMuted,
-            modifier = Modifier.size(18.dp),
-        )
+        // The "More" affordance that used to sit here was removed: it opened nothing
+        // and there is no overflow menu behind it. See ADR
+        // 2026-09-30-dead-affordances-removed.
 
         Spacer(Modifier.weight(1f))
 
@@ -120,18 +114,7 @@ fun CalendarTopBar(
                 .clickable { onIntent(CalendarIntent.GoNext) },
         )
 
-        Spacer(Modifier.width(12.dp))
-        Icon(
-            Icons.Default.FilterList,
-            contentDescription = "Filter",
-            tint = palette.textSecondary,
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = "Filter",
-            color = palette.textSecondary,
-            fontSize = 14.sp,
-        )
+        // The "Filter" icon + label that used to close the bar were removed for the
+        // same reason: no filter state, no filter sheet, no filtering in the query.
     }
 }

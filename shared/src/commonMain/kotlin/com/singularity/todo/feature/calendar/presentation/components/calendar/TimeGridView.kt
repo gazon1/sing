@@ -168,7 +168,10 @@ private fun AllDayCell(
             )
         }
         if (overflow > 0) {
-            MoreTasksLabel(count = overflow, onClick = {})
+            // No action: this is the all-day cell of a day the user is already
+            // viewing, so "open the day" would be a no-op. Plain text beats a
+            // control that does nothing.
+            MoreTasksLabel(count = overflow, onClick = null)
         }
     }
 }

@@ -468,16 +468,21 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path.
 - Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`.
 - The `init` assertion catches missing entries at class load time with a clear message.
+- The `key` for the reordered list is `"${section.name}#${section.order}#$index"`,
+- The move logic lives in the screen (a two-line `toMutableList()` + `add`/`removeAt`)
 - `AgendaEngine MR1` полностью завершён
 - `BackTopAppBar` now has `containerColor = surface` by default — all 6 existing callers benefit automatically.
 - `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text.
 - `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`.
 - `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites.
+- `ReorderableSectionList` is dead code that compiles and is covered by nothing. It is a
 - `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers.
+- `SavedAgendaIntent.SectionsReordered` is now reachable; reordering a saved agenda's
 - `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support).
 - `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model.
 - `SavedAgendaViewModel` and `SavedAgendaListViewModel` are the only callers of `SavedAgendaView` construction.
 - `SavedAgendaView` companion object has no factory functions; VMs use inline `copy()`.
+- `SectionEditorCard` gained four parameters (`canMoveUp`, `canMoveDown`, `onMoveUp`,
 - `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`.
 - `SelectorSerializer` is now in its own file, improving build isolation.
 - `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits.
@@ -618,15 +623,20 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Full filter panel with Project / Tags / Priority / Status.
 - Future developers understand which fields are stubbed vs. populated
 - Horizontal swipe between dates.
+- If calendar filtering is built later, the affordances go back — as real controls
 - Locale-aware first day of week.
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - None
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
+- The `AgendaStartRoute`/`CalendarIntent` audit should be repeated for other features:
+- The calendar top bar is visually shorter. No functional loss, because nothing it lost
 - Theme switching now correctly recomposes the calendar palette
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
+- `FilterRow`, `ImageVector` and several icon imports became dead and were removed.
 - `LocalCalendarPalette` isolates calendar theming without breaking `MaterialTheme`.
+- `MoreTasksLabel`'s signature changed to `onClick: (() -> Unit)?`. It is an internal
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)
 - `deadlineDate` badge rendering in month grid.
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
@@ -1093,6 +1103,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive:** No more leaked coroutine scopes — the scheduler now respects lifecycle boundaries.
 - **Positive:** The `last_fired_at` column is available for future analytics (e.g., "last reminded at").
 - **Positive:** `scheduleAt` failures are gracefully handled — a single failed notification does not crash the loop.
+- **The alarm is scheduled, not fired.** The data model, persistence and UI are wired,
+- A project with **no due date** cannot have a reminder — there is nothing to anchor to.
+- New entity, DAO, repository port + Room impl, `FakeProjectRemindersRepository` and a
+- Re-picking an offset **updates in place**: the handler reuses the existing id rather
+- Schema 23. Migration is additive and needs no spec; Room generated and validated it.
+- `ProjectDetailViewModel` gained a `ProjectRemindersRepository` dependency, so its test
+- `reminderOffsetMinutes` is stored on `ProjectDetailUi` as a raw minute count. When the
 
 ### `repository`
 
@@ -1226,10 +1243,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A task may have zero, one, or many dependencies.
 - Cycle detection is deferred — cycles are rare and the cost of a DFS on every `setDependencies` call is non-trivial for large task graphs.
 - Deadline indicator rendering in `UpcomingBadges`.
+- If card-level AI is wanted later, the prerequisite is a preview-and-confirm step —
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Self-dependency is validated in the MCP tool and silently ignored by the join-table upsert (PRIMARY KEY prevents the duplicate).
 - Single narrow Room query (`watchByDate`) reused for the new use case.
+- Task AI remains reachable exactly where it was made reachable (PR-1.6): the task
+- The four call sites are now commented rather than silently omitted, so the next
 - Week navigation via swipe on `DaySwitcherRow`.
 - Week-start locale handling is isolated and can be made configurable later.
 - `@Serializable` на `TaskStatus` — нужен для kotlinx.serialization AgendaDefinition (saved views в будущем).
@@ -1757,6 +1777,10 @@ _9 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
+- `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
+- `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
+- `2026-09-30-project-reminder-own-table` — reminders, projects, database, migration, room
+- `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 
 ## Active entries
 
@@ -2080,4 +2104,8 @@ _9 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
+- `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
+- `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
+- `2026-09-30-project-reminder-own-table` — Project reminders get their own table rather than a nullable task_id
+- `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 
