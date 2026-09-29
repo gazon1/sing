@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
@@ -128,7 +129,7 @@ class ProjectsViewModel(
                     onSuccess = { it },
                     onFailure = { "Error: ${it.toMessage()}" },
                 )
-                ?: "AI not available on Android"
+                ?: AI_NOT_CONFIGURED
             emit(ProjectsUiEvent.ProjectReviewResult(result))
         }
     }

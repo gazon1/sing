@@ -1,12 +1,22 @@
 package com.singularity.todo.feature.projects.presentation.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -30,6 +40,7 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectCard
 import com.singularity.todo.feature.projects.presentation.components.ProjectCardActions
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
+import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsIntent
@@ -42,13 +53,27 @@ fun ProjectsScreen() {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectsViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val content = state as? ProjectsUiState.Content
+    val searchQuery = content?.searchQuery.orEmpty()
+    val sortOrder = content?.sortOrder ?: ProjectSortOrder.Name
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Projects") }) },
+        topBar = {
+            Column {
+                TopAppBar(title = { Text("Projects") })
+                ProjectSearchAndSortRow(
+                    query = searchQuery,
+                    sortOrder = sortOrder,
+                    onQueryChange = { viewModel.onIntent(ProjectsIntent.SetSearchQuery(it)) },
+                    onSortOrderChange = { viewModel.onIntent(ProjectsIntent.SetSortOrder(it)) },
+                )
+            }
+        },
     ) { padding ->
         ProjectsContent(
             state = state,
             modifier = Modifier.padding(padding),
+            searchQuery = searchQuery,
             onNavigateToProject = { id -> nav.openDetail(ProjectId.fromString(id)) },
             onCreateProject = { nav.openEditor(null) },
             onDelete = { id -> viewModel.onIntent(ProjectsIntent.Delete(id)) },
@@ -63,6 +88,62 @@ fun ProjectsScreen() {
     )
 }
 
+/**
+ * Project name filter + sort chips.
+ *
+ * Both read from [ProjectsUiState.Content] rather than owning local state, so the
+ * ViewModel stays the single source of truth: the chips highlight the order the list
+ * is actually rendered in, not the one last tapped.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProjectSearchAndSortRow(
+    query: String,
+    sortOrder: ProjectSortOrder,
+    onQueryChange: (String) -> Unit,
+    onSortOrderChange: (ProjectSortOrder) -> Unit,
+) {
+    Column {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            placeholder = { Text("Search projects") },
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ProjectSortOrder.entries.forEach { order ->
+                FilterChip(
+                    selected = sortOrder == order,
+                    onClick = { onSortOrderChange(order) },
+                    label = { Text(order.label) },
+                )
+            }
+        }
+    }
+}
+
+private val ProjectSortOrder.label: String
+    get() = when (this) {
+        ProjectSortOrder.Name -> "Name"
+        ProjectSortOrder.Color -> "Color"
+    }
+
 private fun ProjectsUiEvent.toNotification(): Notification = when (this) {
     is ProjectsUiEvent.ProjectReviewResult -> Notification.Text(title = "Project Review", text = text)
     is ProjectsUiEvent.Error -> Notification.Error(message)
@@ -72,6 +153,7 @@ private fun ProjectsUiEvent.toNotification(): Notification = when (this) {
 private fun ProjectsContent(
     state: ProjectsUiState,
     modifier: Modifier = Modifier,
+    searchQuery: String = "",
     onNavigateToProject: (String) -> Unit,
     onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
@@ -80,7 +162,12 @@ private fun ProjectsContent(
     when (state) {
         is ProjectsUiState.Loading -> LoadingIndicator(modifier = modifier)
 
-        is ProjectsUiState.Empty -> EmptyState(title = "No projects yet", modifier = modifier)
+        // A search that matched nothing is not the same as having no projects —
+        // "No projects yet" would push the user to create one they do not need.
+        is ProjectsUiState.Empty -> EmptyState(
+            title = if (searchQuery.isBlank()) "No projects yet" else "No projects match \"$searchQuery\"",
+            modifier = modifier,
+        )
 
         is ProjectsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
 
