@@ -24,6 +24,9 @@ dependencies {
     // Koin
     implementation(libs.koin.android)
 
+    // DateTime — required because shared uses kotlinx.datetime.LocalDate in Task models
+    implementation(libs.kotlinx.datetime)
+
     // Play In-App Updates
     implementation(libs.play.app.update)
     implementation(libs.play.app.update.ktx)
