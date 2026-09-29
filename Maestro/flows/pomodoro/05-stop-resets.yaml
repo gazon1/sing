@@ -26,6 +26,7 @@ tags:
 - tapOn:
     id: pomodoro_stop_button
 - extendedWaitUntil:
-    visible: "Work"
+    visible:
+      id: pomodoro_play_button
     timeout: 8000
 - assertNotVisible: "Focus: Buy milk"

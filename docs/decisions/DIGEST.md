@@ -1406,7 +1406,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_8 entries need attention._
+_9 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -1415,6 +1415,7 @@ _8 entries need attention._
 - `2026-09-26-deferred-r25-r30` — **deferred** — Deferred Backlog Items R25–R30
 - `2026-09-26-notes-clean-architecture-r21` — **deferred** — R21: Notes Clean Architecture — deferred
 - `2026-09-28-setup-hooks-broken-githooks-path` — **open** — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — **open** — 
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
 
 ## Recently superseded
@@ -1726,9 +1727,11 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — _untagged_
 - `2026-09-28-task-detail-slot-refactor` — viewmodel, mvi, tasks, refactor, bugfix
 - `2026-09-29-archive-has-no-restore-ui` — ui, tasks, gap
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — _untagged_
 - `2026-09-29-editor-row-onclick-noop-default` — ui, tasks, android
 - `2026-09-29-emulator-crash-recovery-runner` — emulator, android, maestro, tooling
 - `2026-09-29-emulator-launch-recipe` — emulator, android, tooling
+- `2026-09-29-kotlinx-datetime-androidapp-missing` — _untagged_
 - `2026-09-29-maestro-archive-seed-strategy` — maestro, testing
 - `2026-09-29-maestro-date-js-host-clock` — maestro, test-infrastructure
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — maestro, testing, ui
@@ -2044,9 +2047,11 @@ _8 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — _(no title)_
 - `2026-09-29-editor-row-onclick-noop-default` — Editor rows did nothing — onClick defaulted to a no-op lambda
 - `2026-09-29-emulator-crash-recovery-runner` — Emulator gfxstream crash — the IME mitigation is insufficient, recover instead of prevent
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
+- `2026-09-29-kotlinx-datetime-androidapp-missing` — _(no title)_
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-date-js-host-clock` — maestro-date-js-host-clock
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag

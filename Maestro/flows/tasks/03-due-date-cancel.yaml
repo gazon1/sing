@@ -16,14 +16,14 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 - tapOn:
-    text: "Добавить дату"
+    id: task_editor_due_row
 - extendedWaitUntil:
     visible: "Select date"
     timeout: 8000
 - tapOn:
     text: ".* 1, 20[0-9][0-9]"
 - tapOn:
-    text: "Cancel"
+    id: dialog_date_picker_cancel
 - extendedWaitUntil:
     visible: "Добавить дату"
     timeout: 8000

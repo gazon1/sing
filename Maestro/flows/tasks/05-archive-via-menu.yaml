@@ -1,0 +1,62 @@
+# Smoke: long-press opens context menu (not editor), archive acts on the task.
+#
+# Merged from:
+#   smoke/10-archive-task-smoke.yaml  — complete → archive via long-press menu
+#   smoke/13-task-context-menu-smoke.yaml — long-press opens sheet, not editor
+#
+# Covers:
+#   1. Long-press opens context menu sheet (not task editor)
+#   2. Sheet shows Archive, Open, Mark as completed actions
+#   3. Completing then archiving removes the task from the list
+appId: com.singularity.todo
+name: tasks-archive-via-menu
+tags:
+  - smoke
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+
+# Long-press the row — the sheet opens instead of the editor.
+- longPressOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_context_menu_sheet
+    timeout: 8000
+
+# The editor must NOT be behind it: that was the old (broken) behaviour.
+- assertNotVisible:
+    id: task_editor_title_input
+
+# The sheet shows the expected action items.
+- assertVisible:
+    id: task_action_archive
+- assertVisible:
+    id: task_action_open
+- assertVisible:
+    id: task_action_mark_completed
+
+# Complete it first — archiving is a lifecycle action on done work.
+- tapOn:
+    id: task_checkbox_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_checkbox_buy_milk
+      checked: true
+    timeout: 5000
+
+# Long-press again to re-open the context menu.
+- longPressOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_context_menu_sheet
+    timeout: 8000
+
+# Archive via the context menu.
+- tapOn:
+    id: task_action_archive
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_buy_milk
+    timeout: 8000

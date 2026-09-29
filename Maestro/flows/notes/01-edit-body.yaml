@@ -42,6 +42,26 @@ tags:
 - hideKeyboard
 - tapOn:
     id: note_editor_save
+# Reload to verify the body survives a full process restart.
+- runFlow: ../../helpers/relaunch.yaml
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_notes
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 8000
+- tapOn:
+    text: "Meeting notes"
+- extendedWaitUntil:
+    visible:
+      id: note_editor_body
+    timeout: 8000
 - back
 # Back to the preview, where the body is rendered.
 - extendedWaitUntil:

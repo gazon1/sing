@@ -25,10 +25,10 @@ tags:
     id: task_editor_more_menu
 - extendedWaitUntil:
     visible:
-      text: "Удалить"
+      id: overflow_delete
     timeout: 5000
 - tapOn:
-    text: "Удалить"
+    id: overflow_delete
 - back
 - extendedWaitUntil:
     visible:
