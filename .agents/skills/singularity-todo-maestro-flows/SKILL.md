@@ -108,6 +108,9 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 | `launch-clean.yaml` | `launchApp` with `clearState: true`, waits 8s for `nav_tab_today` |
 | `seed-task.yaml` | Creates "Buy milk" on Today and asserts `task_item_buy_milk` |
 
+A flow that fails right after the first one in a batch run has usually lost the
+device, not its selectors — check `adb devices` before debugging the flow.
+
 Start from `launch-clean` unless the flow needs pre-existing data. `seed-task`
 hardcodes its title on purpose — see the comment in the file. Make new flows
 self-seeding (create their own fixture) rather than inheriting state from an
@@ -118,16 +121,21 @@ earlier flow — see `docs/decisions/2026-09-29-maestro-archive-seed-strategy.md
 These are behaviours a flow author would otherwise guess wrong; each was learned
 by a flow failing on it:
 
-- **Long-press on an agenda row opens the editor**, not a context menu. The
-  archive/delete actions live in the task detail's overflow menu
-  (`task_editor_more_menu`).
+- **Long-press on an agenda row opens a context-menu bottom sheet**
+  (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
+  Mark as completed/uncompleted, Pin/Unpin, Archive. Use
+  `longPressOn: id: task_item_<slug>` then `tapOn: id: sheet_item_Archive`.
+  Before the fix long-press fell through to the click handler and opened the
+  editor — see `docs/decisions/2026-09-29-task-longpress-menu-and-archive-restore.md`.
+- **The detail overflow menu is state-dependent.** An active task shows
+  Архивировать / Удалить; an archived (trashed) task shows Восстановить alone.
+  A flow that archives and then expects Удалить will not find it.
 - **Delete is immediate and reversible** — a "Task deleted" undo snackbar, no
   confirmation dialog. The flow asserts the row is gone after `back`, and the
   undo path is a separate concern.
-- **Archiving is a one-way door** — no restore UI exists yet
-  (`TaskDetailIntent.Domain.Restore` is modelled but unwired). See
-  `docs/decisions/2026-09-29-archive-has-no-restore-ui.md`. Do not write a flow
-  step that expects "Восстановить".
+- **Archive -> restore round trip works**: archive via the context menu, open the
+  task from the Archive screen, overflow menu -> Восстановить, the screen pops
+  back and the task reappears in Inbox.
 - **An undated task lands in Inbox, not Today** — `create-task` taps to Inbox to
   find its row.
 - Menu-sheet items below the fold (`menu_settings`, `menu_archive`) need

@@ -1,13 +1,11 @@
-# Smoke: an archived task is listed in the Archive screen.
+# Smoke: archive a task, then restore it.
 #
-# Covers: archive a task -> Menu -> Archive -> the row is there.
+# Covers: archive via the detail overflow menu -> Menu -> Archive screen -> open
+# the archived task -> Восстановить -> task back in Inbox.
 #
-# Note: there is deliberately no restore assertion. The app has no restore UI —
-# `TaskDetailIntent.Domain.Restore` exists in the model but is not wired to any
-# screen, and the Archive screen offers only "archive all completed". Archiving is
-# currently a one-way door. Tracked in
-# docs/decisions/2026-09-29-archive-has-no-restore-ui.md. This flow will need a
-# restore step once that gap is closed.
+# The fixture is created in this flow rather than inherited from
+# 10-archive-task-smoke, so the flow is runnable on its own. See
+# docs/decisions/2026-09-29-maestro-archive-seed-strategy.md.
 appId: com.singularity.todo
 name: smoke-archive-restore
 tags:
@@ -53,4 +51,31 @@ tags:
     visible:
       id: task_item_buy_milk
     timeout: 8000
-- assertVisible: "Buy milk"
+# Restore: the archived row opens the same detail screen, whose overflow menu now
+# offers Восстановить (the menu is gated on the task's trashed state).
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    id: task_editor_more_menu
+- extendedWaitUntil:
+    visible:
+      text: "Восстановить"
+    timeout: 5000
+- tapOn:
+    text: "Восстановить"
+# The screen pops back to the Archive list, where the restored task is gone.
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_buy_milk
+    timeout: 8000
+# And the task is back in the active list.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000

@@ -45,6 +45,7 @@ class TaskLifecycleSlot(
             TaskDetailIntent.Domain.Delete -> delete()
             TaskDetailIntent.Domain.Archive -> archive()
             TaskDetailIntent.Domain.Restore -> restore()
+            TaskDetailIntent.Domain.Unarchive -> unarchive()
         }
     }
 
@@ -76,6 +77,22 @@ class TaskLifecycleSlot(
             .onSuccess {
                 _state.update { it.copy(recentlyDeleted = null) }
                 onSaved("Task restored")
+            }
+            .onFailure { onError("Restore failed") }
+    }
+
+    /**
+     * Un-trashes the task this screen is open on — the action behind "Восстановить"
+     * when the detail screen was reached from the Archive screen. Unlike [restore]
+     * there is no recently-deleted snapshot to consult: the write targets
+     * [taskFlow]'s task directly, and success pops back to the list it came from.
+     */
+    private fun unarchive() = scope.launch {
+        val task = taskFlow.value ?: return@launch
+        deps.taskRepo.restore(task.id)
+            .onSuccess {
+                onSaved("Task restored")
+                onNavigateBack()
             }
             .onFailure { onError("Restore failed") }
     }

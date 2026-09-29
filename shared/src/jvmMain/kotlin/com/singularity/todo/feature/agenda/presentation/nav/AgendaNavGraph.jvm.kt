@@ -40,7 +40,7 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
     // Uses platform desktop colors (TaskListColors) via the ContextMenuHost implementation.
     // The [onIntent] parameter is passed through AgendaScreen → AgendaContent so that
     // menu actions (pin, delete, expand, AI) can dispatch domain intents.
-    val desktopContextMenuHost: @Composable (
+    val contextMenuHost: @Composable (
         TaskUi,
         androidx.compose.ui.unit.DpOffset,
         () -> Unit,
@@ -81,19 +81,19 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
             onBack = { onExitGraph(null) },
             entryProvider = entryProvider {
                 entry<AgendaStartRoute.Inbox> {
-                    AgendaNavContent(route = it, desktopContextMenuHost = desktopContextMenuHost)
+                    AgendaNavContent(route = it, contextMenuHost = contextMenuHost)
                 }
                 entry<AgendaStartRoute.Today> {
-                    AgendaNavContent(route = it, desktopContextMenuHost = desktopContextMenuHost)
+                    AgendaNavContent(route = it, contextMenuHost = contextMenuHost)
                 }
                 entry<AgendaStartRoute.Upcoming> {
-                    AgendaNavContent(route = it, desktopContextMenuHost = desktopContextMenuHost)
+                    AgendaNavContent(route = it, contextMenuHost = contextMenuHost)
                 }
                 entry<AgendaStartRoute.Project> { r ->
-                    AgendaNavContent(route = r, desktopContextMenuHost = desktopContextMenuHost)
+                    AgendaNavContent(route = r, contextMenuHost = contextMenuHost)
                 }
                 entry<AgendaStartRoute.Tag> { r ->
-                    AgendaNavContent(route = r, desktopContextMenuHost = desktopContextMenuHost)
+                    AgendaNavContent(route = r, contextMenuHost = contextMenuHost)
                 }
                 entry<AgendaStartRoute.SavedAgendaList> {
                     AgendaNavContent(route = it)

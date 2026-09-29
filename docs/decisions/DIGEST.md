@@ -1282,7 +1282,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Существующие тесты** использующие `TasksViewModel`, `NotesViewModel` и т.д. — `_events.emit(UiEvent.ShowDialog(...))` нужно обновить на `TasksUiEvent.AiResult(...)`
 - Archiving remains destructive from the user's point of view. Until restore
 - Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets.
+- Sheet rows carry `sheet_item_<label>` tags (`TestTags.sheetItem`) so UI
+- The detail overflow menu is state-dependent — a flow that archives and then
 - The eleven tab tags are lower-case, because `TestTags.settingsTab()` routes
+- The swipe-to-delete on `SwipeableTaskRow` still dispatches
+- `AgendaContent`'s menu slot is `contextMenuHost`; both platform graphs must
 - `AppDestination` пополнился `Notes` (уже был), логика FAB его задействует.
 - `AppShell` — minor change: добавлен `FabAction` parameter.
 - `ConfirmActionDialog` replaces inline `AlertDialog` in any future confirm-dialog use case.
@@ -1297,6 +1301,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `SectionTemplate` data class and `SectionTemplates` list removed from `SavedAgendaScreen`. If templates need to be reused elsewhere, promote them to a shared location.
 - `SettingsNavRail` is scrollable. A flow that reaches a lower tab must scroll the
 - `TagsScreen` больше не принимает callback — экран не подключён к навигации (menu destination `Tags` отсутствует в `AppDestination`).
+- `TaskRowFlat` takes `onLongClick`; the agenda wires it, other callers get
 
 ### `ui-components`
 
@@ -1707,6 +1712,7 @@ _8 entries need attention._
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — _untagged_
 - `2026-09-29-settings-rail-not-scrollable` — ui, settings, android
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
+- `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 
 ## Active entries
 
@@ -2017,4 +2023,5 @@ _8 entries need attention._
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-29-settings-rail-not-scrollable` — Settings nav rail was not scrollable — Backup and Account were unreachable
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
+- `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 

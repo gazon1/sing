@@ -117,16 +117,9 @@ fun TaskDetailViewScreen(taskId: TaskId) {
                     checklist = null,
                     attachments = null,
                     bottomBar = null,
-                    menuItems = listOf(
-                        TaskEditorMenuItem(
-                            label = "Архивировать",
-                            onClick = { vm.onIntent(TaskDetailIntent.Domain.Archive) },
-                        ),
-                        TaskEditorMenuItem(
-                            label = "Удалить",
-                            onClick = { vm.onIntent(TaskDetailIntent.Domain.Delete) },
-                        ),
-                    ),
+                    menuItems = buildDetailMenuItems(isTrashed = ui.task.isTrashed) { intent ->
+                        vm.onIntent(intent)
+                    },
                 )
 
                 TaskEditorContent(
@@ -147,6 +140,37 @@ private fun LoadingState() {
     ) {
         CircularProgressIndicator()
     }
+}
+
+/**
+ * Overflow-menu items for the detail screen, gated on the task's lifecycle state.
+ *
+ * An active task offers Архивировать / Удалить. An archived (trashed) task offers
+ * Восстановить instead — "Архивировать" on an already-archived task would be a
+ * silent no-op re-delete, and without the restore item the Archive screen is a
+ * one-way door.
+ */
+private fun buildDetailMenuItems(
+    isTrashed: Boolean,
+    onIntent: (TaskDetailIntent.Domain) -> Unit,
+): List<TaskEditorMenuItem> = if (isTrashed) {
+    listOf(
+        TaskEditorMenuItem(
+            label = "Восстановить",
+            onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
+        ),
+    )
+} else {
+    listOf(
+        TaskEditorMenuItem(
+            label = "Архивировать",
+            onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
+        ),
+        TaskEditorMenuItem(
+            label = "Удалить",
+            onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
+        ),
+    )
 }
 
 @Composable

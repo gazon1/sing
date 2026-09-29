@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.list
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +33,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
  * [showDivider] позволяет выключить линию для последней строки (или вручную,
  * если снаружи уже отрисован свой разделитель).
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TaskRowFlat(
     task: TaskUi,
@@ -41,6 +42,12 @@ fun TaskRowFlat(
     modifier: Modifier = Modifier,
     indentLevel: Int = 0,
     showDivider: Boolean = true,
+    /**
+     * Long-press handler — opens the task's context menu on touch devices.
+     * Null (default) keeps plain click behaviour; desktop uses
+     * [secondaryClickModifier] for its right-click menu instead.
+     */
+    onLongClick: (() -> Unit)? = null,
     /**
      * Modifier for secondary (right) click handling.
      *
@@ -74,10 +81,11 @@ fun TaskRowFlat(
             task = task,
             onToggleCompleted = onToggleCompleted,
             modifier = Modifier
-                .clickable(
+                .combinedClickable(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = onClick,
+                    onLongClick = onLongClick,
                 )
                 .then(secondaryClickModifier)
                 .padding(vertical = TaskListSpacing.Md + TaskListSpacing.Xs, horizontal = TaskListSpacing.Lg),

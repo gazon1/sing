@@ -119,6 +119,14 @@ sealed interface TaskDetailIntent : MviIntent {
         /** Restore the last soft-deleted task. */
         data object Restore : Domain, TaskLifecycleIntent
 
+        /**
+         * Restore the currently open archived (trashed) task — clears [Task.archivedAt]
+         * so the task returns to the active lists. Distinct from [Restore]: that one
+         * replays a delete that just happened on this screen (undo), this one un-trashes
+         * a task opened from the Archive screen, where no delete happened here.
+         */
+        data object Unarchive : Domain, TaskLifecycleIntent
+
         // ── Pin ─────────────────────────────────────────────────────────────
 
         data object TogglePinned : Domain, TaskEntityIntent

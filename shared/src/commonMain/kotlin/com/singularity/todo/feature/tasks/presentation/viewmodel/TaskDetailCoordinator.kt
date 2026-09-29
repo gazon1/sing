@@ -193,6 +193,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.Delete,
             is TaskDetailIntent.Domain.Archive,
             is TaskDetailIntent.Domain.Restore,
+            is TaskDetailIntent.Domain.Unarchive,
             -> lifecycle.onIntent(intent)
 
             is TaskDetailIntent.Domain.RunAiAction -> ai.onIntent(intent)

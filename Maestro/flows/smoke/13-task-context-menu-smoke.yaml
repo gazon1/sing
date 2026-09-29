@@ -1,0 +1,37 @@
+# Smoke: long-press a task row opens the context menu, and Archive acts on it.
+#
+# Covers: long-press on the agenda row -> context-menu bottom sheet -> Archive
+# -> row leaves the list.
+#
+# Before the fix a long-press fell through to the plain click handler and opened
+# the task editor, so the only route to Archive was the detail overflow menu.
+appId: com.singularity.todo
+name: smoke-task-context-menu
+tags:
+  - smoke
+  - tasks
+---
+- runFlow: ../../helpers/seed-task.yaml
+# Long-press the row — the sheet opens instead of the editor.
+- longPressOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_context_menu_sheet
+    timeout: 8000
+# The editor must NOT be behind it: that was the old (broken) behaviour.
+- assertNotVisible:
+    id: task_editor_title_input
+- assertVisible:
+    id: sheet_item_Archive
+- assertVisible:
+    id: sheet_item_Open
+- assertVisible:
+    id: sheet_item_Mark_as_completed
+# Act on the menu.
+- tapOn:
+    id: sheet_item_Archive
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_buy_milk
+    timeout: 8000

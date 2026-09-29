@@ -38,7 +38,8 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | TaskTitleRow |
 | `TASK_EDITOR_SAVE` | `task_editor_save` | TaskSaveBar |
-| `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | TaskDetailTopBar overflow (Архивировать / Удалить) |
+| `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | TaskDetailTopBar overflow |
+| `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | Long-press context menu sheet (Android) |
 
 ### Tags
 | Constant | Value | Where |
@@ -122,6 +123,7 @@ use the expanded string directly).
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
+| `sheetItem("Archive")` | `"Archive"` | `sheet_item_archive` | Context-menu sheet rows |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
 
 ## Raw-string tags (NOT via TestTags.kt — avoid where possible)
@@ -162,6 +164,8 @@ that needs one of these, add the testTag first (PR-0 phase for that screen).
 - Tags: FAB
 - Dialog buttons (Confirm/Delete/Cancel/Save): no testTag — use `text:` with
   the visible button label for now
+- The detail overflow menu's own items (Архивировать / Удалить / Восстановить)
+  are `text:`-selected: the overflow button is tagged, its rows are not.
 
 ## slug() behaviour
 

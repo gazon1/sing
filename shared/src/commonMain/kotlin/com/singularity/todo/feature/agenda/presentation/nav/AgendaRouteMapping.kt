@@ -25,13 +25,13 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
  * ```
  *
  * @param route        The route to build content for. Must be the receiver of the `entry { }` lambda.
- * @param desktopContextMenuHost Optional context menu host passed to [AgendaScreen].
+ * @param contextMenuHost Optional context menu host passed to [AgendaScreen].
  *        Defaults to no-op. On Desktop/JVM this is the real desktop context menu.
  */
 @Composable
 fun AgendaNavContent(
     route: AgendaStartRoute,
-    desktopContextMenuHost: @Composable (
+    contextMenuHost: @Composable (
         taskUi: TaskUi,
         offset: DpOffset,
         onDismiss: () -> Unit,
@@ -41,27 +41,27 @@ fun AgendaNavContent(
     when (route) {
         is AgendaStartRoute.Inbox -> AgendaScreen(
             definition = AgendaPresets.Inbox,
-            desktopContextMenuHost = desktopContextMenuHost,
+            contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.Today -> AgendaScreen(
             definition = AgendaPresets.Today,
-            desktopContextMenuHost = desktopContextMenuHost,
+            contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.Upcoming -> AgendaScreen(
             definition = AgendaPresets.Upcoming,
-            desktopContextMenuHost = desktopContextMenuHost,
+            contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.Project -> AgendaScreen(
             definition = AgendaPresets.byProject(route.id),
-            desktopContextMenuHost = desktopContextMenuHost,
+            contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.Tag -> AgendaScreen(
             definition = AgendaPresets.byTag(route.id),
-            desktopContextMenuHost = desktopContextMenuHost,
+            contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.SavedAgendaList -> SavedAgendaListScreen()

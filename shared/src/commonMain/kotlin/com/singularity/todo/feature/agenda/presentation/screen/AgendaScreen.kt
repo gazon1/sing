@@ -24,16 +24,16 @@ import org.koin.core.parameter.parametersOf
  *
  * @param definition The [AgendaDefinition] to evaluate and display.
  * @param modifier Compose modifier for the screen container.
- * @param desktopContextMenuHost Slot for the desktop (JVM) context menu. On Android
- *        this is a no-op. On Desktop it is provided by the platform-specific
+ * @param contextMenuHost Slot for the task context menu: JVM right-click popup or
+ *        Android long-press bottom sheet. Provided by the platform-specific
  *        [AgendaNavGraph][com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph]
- *        implementation.
+ *        implementation; defaults to a no-op (previews).
  */
 @Composable
 fun AgendaScreen(
     definition: AgendaDefinition,
     modifier: Modifier = Modifier,
-    desktopContextMenuHost: @Composable (
+    contextMenuHost: @Composable (
         taskUi: TaskUi,
         offset: androidx.compose.ui.unit.DpOffset,
         onDismiss: () -> Unit,
@@ -73,7 +73,7 @@ fun AgendaScreen(
             seedStore.setSeed(definition)
             navigator.openSavedAgendaCreate(definition)
         },
-        desktopContextMenuHost = desktopContextMenuHost,
+        contextMenuHost = contextMenuHost,
         modifier = modifier,
     )
 }

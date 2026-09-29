@@ -38,9 +38,15 @@ object TestTags {
     /** Dynamic: menu_<slug> — keyed by the *label* the user sees, not the destination. */
     fun menuItem(label: String) = "menu_${slug(label)}"
 
+    /** Dynamic tag of the form `sheet_item_<slug>` — a row in a context-menu bottom sheet. */
+    fun sheetItem(label: String) = "sheet_item_${slug(label)}"
+
     // ─── Tasks ───────────────────────────────────────────────────────────────
     const val TASKS_LIST = "tasks_list"
     const val TASKS_FAB = "tasks_fab"
+
+    /** Root container of the long-press context-menu sheet on a task row. */
+    const val TASK_CONTEXT_MENU_SHEET = "task_context_menu_sheet"
 
     /** Dynamic tag of the form `task_item_<slug>`. */
     fun taskItem(title: String) = "task_item_${slug(title)}"

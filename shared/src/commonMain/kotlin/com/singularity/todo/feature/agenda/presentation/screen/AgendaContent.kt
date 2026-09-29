@@ -55,17 +55,17 @@ import kotlinx.datetime.plus
  * Stateless — receives [AgendaUiState] and emits [AgendaIntent] via [onIntent].
  * Used by [AgendaScreen] (production) and preview.
  *
- * The [desktopContextMenuHost] slot is the desktop (JVM) context menu renderer.
- * On Android it is a no-op (default). On Desktop it is provided by the
+ * The [contextMenuHost] slot renders the task context menu — the JVM popup for
+ * right-click, an Android bottom sheet for long-press. Both are provided by the
  * platform-specific [AgendaNavGraph][com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph]
- * implementation and includes the actual [com.singularity.todo.core.ui.menu.ContextMenuHost].
+ * implementations; the default is a no-op (previews).
  *
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
  * @param onIntent Called when the user performs an action.
  * @param onSavedViewsClick Called when the user taps the saved views action.
  * @param onSaveCurrentClick Called when the user taps the save-current-agenda action.
- * @param desktopContextMenuHost Slot for the desktop context menu renderer.
+ * @param contextMenuHost Slot for the task context menu renderer.
  * @param modifier Compose modifier.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,7 +76,7 @@ fun AgendaContent(
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onSaveCurrentClick: (() -> Unit)? = null,
-    desktopContextMenuHost: @Composable (
+    contextMenuHost: @Composable (
         taskUi: TaskUi,
         offset: DpOffset,
         onDismiss: () -> Unit,
@@ -181,11 +181,11 @@ fun AgendaContent(
         }
     }
 
-    // Render the desktop context menu (no-op on Android).
+    // Render the task context menu — JVM popup (right-click) or Android sheet (long-press).
     val task = contextMenuTask
     val offset = contextMenuOffset
     if (task != null && offset != null) {
-        desktopContextMenuHost(task, offset, ::dismissContextMenu, onIntent)
+        contextMenuHost(task, offset, ::dismissContextMenu, onIntent)
     }
 }
 
@@ -278,6 +278,9 @@ private fun AgendaTaskRow(
                 task = taskUi,
                 onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
                 onClick = { onIntent(AgendaIntent.TaskClicked(task.id)) },
+                // Long-press opens the context menu on touch devices; the offset is
+                // meaningless for a bottom sheet, so the renderer anchors it to the row.
+                onLongClick = { onOpenContextMenu(taskUi, DpOffset.Zero) },
                 showDivider = true,
             )
         },
