@@ -305,6 +305,18 @@ private fun SavedAgendaContent(
                             SectionEditorCard(
                                 section = section,
                                 index = index,
+                                canMoveUp = index > 0,
+                                canMoveDown = index < state.draft.sections.lastIndex,
+                                onMoveUp = {
+                                    val moved = state.draft.sections.toMutableList()
+                                    moved.add(index - 1, moved.removeAt(index))
+                                    onIntent(SavedAgendaIntent.SectionsReordered(moved))
+                                },
+                                onMoveDown = {
+                                    val moved = state.draft.sections.toMutableList()
+                                    moved.add(index + 1, moved.removeAt(index))
+                                    onIntent(SavedAgendaIntent.SectionsReordered(moved))
+                                },
                                 onDelete = { onIntent(SavedAgendaIntent.SectionRemoved(index)) },
                             )
                         }

@@ -468,16 +468,21 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Process death during Create: seed lost, returns to list. Acceptable — Create is not critical path.
 - Selector composition uses `selector { allOf(...); not(...) }` style instead of `Selector.AllOf(listOf(...))`.
 - The `init` assertion catches missing entries at class load time with a clear message.
+- The `key` for the reordered list is `"${section.name}#${section.order}#$index"`,
+- The move logic lives in the screen (a two-line `toMutableList()` + `add`/`removeAt`)
 - `AgendaEngine MR1` полностью завершён
 - `BackTopAppBar` now has `containerColor = surface` by default — all 6 existing callers benefit automatically.
 - `DiscardChangesDialog` can be repurposed for any "are you sure?" confirmation (not just agenda) by passing custom text.
 - `ProfilePickerSheet` depends on `ProfileRepository.all()` — screens requiring profile context must inject `ProfileRepository`.
 - `ReorderableConfig` interface allows future swap to `sh.calvin.reorderable` without changing call sites.
+- `ReorderableSectionList` is dead code that compiles and is covered by nothing. It is a
 - `SavedAgendaEditViewModel` → `SavedAgendaViewModel` rename propagates to all callers.
+- `SavedAgendaIntent.SectionsReordered` is now reachable; reordering a saved agenda's
 - `SavedAgendaListScreen` keeps its FAB by using `Scaffold` directly (not `BackTopAppBar` which lacks FAB support).
 - `SavedAgendaSeedStore` is a global singleton — concurrent Create operations would race. Acceptable for current single-user model.
 - `SavedAgendaViewModel` and `SavedAgendaListViewModel` are the only callers of `SavedAgendaView` construction.
 - `SavedAgendaView` companion object has no factory functions; VMs use inline `copy()`.
+- `SectionEditorCard` gained four parameters (`canMoveUp`, `canMoveDown`, `onMoveUp`,
 - `SelectorBuilderTest` and `AgendaScopeSectionTest` added in `commonTest`.
 - `SelectorSerializer` is now in its own file, improving build isolation.
 - `TaskComputed.isOverdue` is the ONLY place `isOverdue` logic lives — `grep "dueDate < today"` returns 0 hits.
@@ -1767,6 +1772,7 @@ _9 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
+- `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 
 ## Active entries
 
@@ -2092,4 +2098,5 @@ _9 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
+- `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 
