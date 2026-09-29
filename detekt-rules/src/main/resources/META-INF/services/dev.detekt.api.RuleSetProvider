@@ -1,4 +1,5 @@
 com.singularity.todo.detekt.NoRunBlockingProvider
+com.singularity.todo.detekt.NoDirectClockSystemProvider
 com.singularity.todo.detekt.NoFactoryViewModelProvider
 com.singularity.todo.detekt.NoViewModelScopeInProductionProvider
 com.singularity.todo.detekt.NoRealDelayInTestRuleProvider
