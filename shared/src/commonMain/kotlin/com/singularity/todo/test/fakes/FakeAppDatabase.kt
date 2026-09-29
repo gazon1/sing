@@ -380,6 +380,15 @@ private class FakeTaskDao(
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
         depRefs.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
 
+    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        combine(depRefs, store) { refs, tasks ->
+            if (tasks[taskId]?.userId != userId) {
+                emptyList()
+            } else {
+                refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId }
+            }
+        }
+
     override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
         depRefs.update { existing ->
             if (existing.any { it.taskId == ref.taskId && it.dependsOnTaskId == ref.dependsOnTaskId }) {

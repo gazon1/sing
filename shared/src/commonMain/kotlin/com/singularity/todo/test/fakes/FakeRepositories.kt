@@ -270,6 +270,10 @@ internal class InMemoryTaskDao : TaskDao {
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
         _deps.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
 
+    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> = error(
+        "not implemented",
+    )
+
     override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
         _deps.update { current ->
             current.filter {

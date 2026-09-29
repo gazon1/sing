@@ -173,11 +173,15 @@ class TaskRepositoryImpl(
         )
     }
 
-    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
-        taskDao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
+        taskDao.getDependencyIdsForUser(taskId.value, uid.value)
+            .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+    }
 
-    override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
-        taskDao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+    override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
+        taskDao.getBlockingTaskIdsForUser(taskId.value, uid.value)
+            .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+    }
 
     override suspend fun create(item: Task): Result<Task> = runCatching {
         val currentUid = currentUser.scopedUserId.value

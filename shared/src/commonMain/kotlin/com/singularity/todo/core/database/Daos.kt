@@ -215,6 +215,18 @@ interface TaskDao {
     fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>>
 
     /**
+     * Scoped variant of [getBlockingTaskIdsForTask] — returns only task_ids owned by [userId].
+     */
+    @Query(
+        """
+        SELECT td.task_id FROM task_dependencies td
+        WHERE td.depends_on_task_id = :taskId
+        AND td.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>>
+
+    /**
      * Inserts a dependency cross-ref only when the owning task belongs to [userId].
      * Returns `Unit` — see [upsertTagCrossRefForUser] for why the rejected case
      * cannot report a count. The unscoped [upsertDependency] is kept solely for

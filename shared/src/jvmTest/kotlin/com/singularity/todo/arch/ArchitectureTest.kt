@@ -1,3 +1,5 @@
+@file:Suppress("VariableNaming", "PropertyName")
+
 package com.singularity.todo.arch
 
 import com.lemonappdev.konsist.api.Konsist
@@ -280,4 +282,54 @@ class ArchitectureTest {
                 "userId, which ambient-scoped repositories cannot express).",
         ) { it }
     }
+
+    /**
+     * Repository read methods must be user-scoped.
+     *
+     * This rule scans `*RepositoryImpl` files and checks that every DAO getter it calls
+     * either (a) has `user_id` in its SQL WHERE clause, or (b) is in [UNSCOPED_READ_ALLOWLIST].
+     *
+     * The allowlist covers methods that ARE safe because the caller already guarantees the
+     * taskId/task belongs to the current user — the cross-ref table itself has no userId
+     * column. Adding to this list requires an ADR.
+     */
+    @Test
+    fun `repository read methods are user-scoped`() {
+        val offenders = scope.files
+            .filter { file -> Regex("""class\s+\w+RepositoryImpl\b""").containsMatchIn(file.codeOnly()) }
+            .flatMap { file ->
+                val code = file.codeOnly()
+                queryFunctions(file)
+                    .filter { (_, _, sql) ->
+                        !Regex("""\b(UPDATE|DELETE|INSERT|REPLACE|UPSERT)\b""", RegexOption.IGNORE_CASE)
+                            .containsMatchIn(sql)
+                    }
+                    .filter { (dao, method, sql) ->
+                        "$dao.$method" !in UNSCOPED_READ_ALLOWLIST && "user_id" !in sql
+                    }
+                    .map { (dao, method, _) -> "${file.path}: $dao.$method() has no userId in SQL" }
+            }
+        assertNoOffenders(
+            offenders,
+            "repository read methods must scope by userId (SQL has user_id in WHERE, " +
+                "or DAO method is in UNSCOPED_READ_ALLOWLIST if safe by construction). " +
+                "Adding to the allowlist requires an ADR.",
+        ) { it }
+    }
+
+    /**
+     * Methods whose DAO calls are safe WITHOUT userId filtering.
+     * All are "safe by construction": the caller guarantees the entity belongs to the
+     * current user, so a cross-user leak is impossible.
+     *
+     * Adding an entry requires an ADR documenting why the call site guarantees safety.
+     */
+    private val UNSCOPED_READ_ALLOWLIST = setOf(
+        // task_dependencies cross-ref table has no user_id column; the task_id
+        // parameter comes from an already-scoped task list (the caller only works
+        // with tasks owned by the current profile).
+        "TaskDao.getDependencyIdsForTask",
+        "TaskDao.getDependencyIdsForUser",
+        "TaskDao.getBlockingTaskIdsForTask",
+    )
 }
