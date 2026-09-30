@@ -747,11 +747,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Tests use `testScope(backgroundScope)` to wrap the test dispatcher
 - The AI slot's five success paths are covered at the coordinator level rather than with five
 - `AutoCloseableCoroutineScope` companion factory creates a scope backed by `createBackgroundScope()`
+- `ProjectsFlowTest` больше не падает под нагрузкой: порядок объявления в
 - `TaskAiState.isRunning` is now actually reachable; the old `_aiRunning` was write-only.
 - `TaskDraftSlot.seed()` is public because seeding is a one-time initialisation, not a
 - `UpdateTaskUseCase.invoke(task)` is still deprecated for the stale-snapshot reason; migrating
 - `appearanceContributor = null` is explicit — the default is intentional, not accidental
-- `combineStates`' transform is non-suspending by design: a suspending repository write inside a
+- _... and 4 more items_
 
 ### `vm`
 
@@ -1148,6 +1149,7 @@ _21 entries need attention._
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 - `2026-09-30-tech-debt-quick-wins` — tech-debt, mr-1, quick-wins, detekt, ktlint, kotlin
 - `2026-09-30-test-infra-known-gaps` — testing, tech-debt, konsist, testtags, determinism
+- `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
 
 ## Active entries
 
@@ -1494,4 +1496,5 @@ _21 entries need attention._
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 - `2026-09-30-tech-debt-quick-wins` — MR-1: Quick Wins — механический техдолг batch
 - `2026-09-30-test-infra-known-gaps` — Test-infra ratchet: оставшиеся долги после MR-5
+- `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 

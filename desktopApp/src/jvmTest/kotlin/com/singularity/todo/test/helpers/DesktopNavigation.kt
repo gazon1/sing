@@ -158,6 +158,30 @@ fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction {
     return onNodeWithTag(tag)
 }
 
+/**
+ * Waits until no node with [tag] exists, then returns — the counterpart to
+ * [awaitTag] for asserting that something is *gone*.
+ *
+ * `assertDoesNotExist` checks once, right after Compose's auto-sync, which is
+ * not the same as "it is gone": navigation commits asynchronously (the outgoing
+ * screen stays composed until the incoming one's state resolves), so a one-shot
+ * check races the transition and fails intermittently under machine load. Use
+ * this whenever the thing being asserted absent is disappearing *because of*
+ * something the test just did.
+ *
+ * Do not use it to assert absence of something that was never there — that is a
+ * plain `assertDoesNotExist` and needs no waiting.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitTagGone(tag: String) {
+    waitUntil(
+        conditionDescription = "no node with testTag '$tag' remains",
+        timeoutMillis = TIMEOUT_MS,
+    ) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty()
+    }
+}
+
 private val TAG_PATTERN = Regex("""testTag=[^\s,\]]+""")
 
 /**

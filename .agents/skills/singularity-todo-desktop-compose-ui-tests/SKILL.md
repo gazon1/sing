@@ -47,6 +47,7 @@ Helpers in `test/helpers/`:
 | `assertCurrentTab(label)` | Asserts the drawer's `Selected` semantics |
 | `goBack()` | Pops the shell stack via the back arrow |
 | `awaitTag(tag)` | Waits for a node after an async write, then returns a handle |
+| `awaitTagGone(tag)` | Waits until a node is gone — for asserting a *disappearing* thing |
 | `seedTask(...)` / `seedBuyMilk()` | Writes a task through the repository |
 | `DesktopShell.TABS` / `.MENU_ENTRIES` | The drawer's labels |
 
@@ -67,6 +68,25 @@ the off-screen drawer entry. `assertCurrentTab` is the unambiguous form.
 
 **Wait after any write.** Saving is asynchronous; a click issued straight after a
 save lands before the row is in the tree. Use `awaitTag`.
+
+**Wait for arrival, and wait for departure.** Navigation commits asynchronously
+and screens gate their content on a `Loading` state: a destination's real
+affordance simply is not in the tree until its VM has data, and the outgoing
+screen stays composed until the incoming one resolves. So:
+
+- to assert a screen *arrived*, `awaitTag(...)` the affordance, then assert on it;
+- to assert something is *gone because of what you just did*, use
+  `awaitTagGone(...)` — `assertDoesNotExist` checks once after auto-sync and
+  races the transition, failing intermittently under machine load.
+
+`assertDoesNotExist` is still right when the node was never there. And a positive
+and a negative assertion on the same `when` branch in one composable (e.g.
+`PLAY_BUTTON` displayed, `PAUSE_BUTTON` not) are atomic — no waiting needed.
+
+This is not hypothetical: `ProjectsFlowTest.opening_a_project_reaches_its_detail_screen`
+was flaky at roughly 1 run in 2 for exactly this reason — it asserted
+`PROJECT_DETAIL_QUICK_ADD` (which only exists in the detail screen's `Content`
+state) immediately after clicking the card, then asserted the card was gone.
 
 **Seed fixtures through the repository, not the UI.** It keeps a flow's
 precondition independent of another flow's save path, so a failure localises.

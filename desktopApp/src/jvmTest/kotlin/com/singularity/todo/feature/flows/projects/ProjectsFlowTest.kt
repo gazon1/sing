@@ -11,6 +11,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
@@ -59,10 +60,16 @@ class ProjectsFlowTest {
 
         awaitTag(TestTags.projectCard("Project Alpha")).performClick()
 
-        // The detail screen's own affordance, plus the card list being gone. The
-        // project *name* is deliberately not asserted: it matches both the detail
-        // screen's top-bar title and the still-populated name field.
-        onNodeWithTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
-        onNodeWithTag(TestTags.projectCard("Project Alpha")).assertDoesNotExist()
+        // The quick-add field only exists in the detail screen's Content state:
+        // while the detail VM is Loading, the screen renders a LoadingIndicator
+        // instead. Waiting for the tag is therefore waiting for the data, which
+        // is what this assertion is actually about.
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+
+        // The project *name* is deliberately not asserted: it matches both the
+        // detail screen's top-bar title and the still-populated name field.
+        // The card must be gone, but the outgoing screen stays composed until the
+        // incoming one resolves, so this waits instead of checking once.
+        awaitTagGone(TestTags.projectCard("Project Alpha"))
     }
 }

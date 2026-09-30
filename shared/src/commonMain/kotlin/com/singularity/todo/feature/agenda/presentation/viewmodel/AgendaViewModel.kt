@@ -41,6 +41,17 @@ class AgendaViewModel(
         scope = scope,
     ) {
 
+    /**
+     * The definition being evaluated — stable reference.
+     *
+     * Declared before the `init` block because that block's coroutine reads it.
+     * Kotlin runs property initializers and `init` blocks in declaration order, so
+     * a property declared after such an `init` is still null when the coroutine
+     * body first runs. See `ProjectDetailViewModel.draftState` for the same
+     * hazard, where it did fire as an NPE.
+     */
+    val definition: AgendaDefinition = definition
+
     init {
         scope.launch {
             todayFlow().flatMapLatest { today ->
@@ -56,9 +67,6 @@ class AgendaViewModel(
                 .collect { loaded -> setState(loaded) }
         }
     }
-
-    /** The definition being evaluated — stable reference. */
-    val definition: AgendaDefinition = definition
 
     /** Title derived from the definition, for the Slot API. */
     val title: String get() = definition.title

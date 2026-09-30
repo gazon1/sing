@@ -109,6 +109,19 @@ class ProjectDetailViewModel(
      */
     private val reminderOffsetFlow = MutableStateFlow<Int?>(null)
 
+    /**
+     * Draft state — single source of truth for editable name/description.
+     *
+     * Declared before the `init` blocks that use it. Kotlin runs property
+     * initializers and `init` blocks in declaration order, so a property declared
+     * *after* such an `init` is still null while a coroutine launched from that
+     * `init` may already be running. Not a theoretical hazard: this ordering made
+     * `ProjectsFlowTest.opening_a_project_reaches_its_detail_screen` fail with an
+     * NPE roughly 1 run in 2, depending on whether the coroutine got dispatched
+     * before construction finished.
+     */
+    val draftState = ProjectDetailDraftState()
+
     init {
         // Single project observer: feeds [projectFlow] and seeds the editable draft.
         // All other streams derive from [projectFlow] instead of re-subscribing to the
@@ -241,9 +254,6 @@ class ProjectDetailViewModel(
 
     private val _lastEditedAt = MutableStateFlow<Instant?>(null)
     val lastEditedAt: StateFlow<Instant?> = _lastEditedAt
-
-    /** Draft state — single source of truth for editable name/description. */
-    val draftState = ProjectDetailDraftState()
 
     /** Debouncer for silent inline edits (name, description). */
     private val debouncer = Debouncer(scope, 300.milliseconds)

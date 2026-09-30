@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextReplacement
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
@@ -81,7 +82,11 @@ class CreateTaskFlowTest {
         onNodeWithContentDescription(DesktopShell.BACK).assertIsDisplayed()
         onNodeWithContentDescription(DesktopShell.BACK).performClick()
 
-        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertDoesNotExist()
+        // The pop is asynchronous: the editor stays composed until the shell has
+        // navigated back, so a one-shot "does not exist" right after the click
+        // races the transition and fails intermittently under machine load.
+        // The hamburger has no testTag, so wait on the editor leaving instead.
+        awaitTagGone(TestTags.TASK_EDITOR_TITLE_INPUT)
         onNodeWithContentDescription(DesktopShell.HAMBURGER).assertIsDisplayed()
     }
 
