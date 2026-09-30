@@ -81,3 +81,47 @@ never wired to a route, or the route was dropped.
 destination that exists but does not compose the screen. If no destination exists
 at all, decide whether sync configuration is a product feature that lost its
 entry point — that is a product call, not a refactor.
+
+---
+
+## saved-views-crud-flow-selects-a-snackbar-that-does-not-exist
+
+**Found in:** MR-2, while cross-checking the constants slated for deletion
+against their real consumers. Not a regression — a dormant red flow.
+
+**Symptom:** `Maestro/flows/agenda/03-saved-views-crud.yaml:31` waits on
+`id: snackbar_saved`. `SavedAgendaScreen` reports success through
+`NotificationHost` → `Notification.Text("Saved", null)` → `ResultDialog`, which
+is an **`AlertDialog`, not a snackbar**. `TestTags.SNACKBAR_SAVED` is applied by
+no composable anywhere in `shared/src`.
+
+So the flow waits for a UI that does not exist on that screen and the
+`extendedWaitUntil` must time out. The flow is tagged `regression`, not `smoke`,
+which is why the "10/10 smoke green" claim in `singularity-todo-maestro-flows`
+never covered it.
+
+**This invalidates the MR-2 plan item** that proposed deleting `SNACKBAR_SAVED` as
+dead. A live flow references it, and applying a tag is equally wrong: there is
+no snackbar to tag. The fix belongs in the flow, not in production code.
+
+**Try next:**
+
+1. Decide the intended contract. Either the screen should show a snackbar (a
+   one-shot toast for a background save is the better UX than a modal that must
+   be dismissed — and the flow's own comment says "it emits a 'Saved' snackbar
+   and stays, so the user can keep editing", which describes a toast, not a
+   dialog), or the flow should assert on the dialog. The comment suggests the
+   former was the intent and the dialog is the regression.
+2. If the snackbar is the intent: `NotificationHost` needs a text-notification
+   variant that routes to `SnackbarHost` instead of `ResultDialog`, and
+   `SNACKBAR_SAVED` gets applied there. That is a production change and needs
+   its own ADR.
+3. If the dialog is the intent: re-point the flow at `TestTags.Dialog.CONFIRM`
+   (which `ResultDialog`'s OK button does not currently tag either — see
+   `dialog-buttons-untagged` in the maestro skill) and drop `SNACKBAR_SAVED`.
+4. **Then sweep the other ~40 flows.** The check that found this is cheap —
+   resolve every `id:` in `Maestro/flows/**` and assert each one is produced by
+   some `Modifier.testTag` — and should become a script next to
+   `Maestro/scripts/check-tags.sh`, which validates *spelling* but not
+   *existence*. Every regression-tagged flow is a candidate for the same class
+   of rot.

@@ -53,25 +53,18 @@ class TestTagsWiringTest {
      * leave the same trap, just undocumented.
      */
     private val knownUnapplied = mapOf(
-        "TASK_EDITOR_DUE_ROW" to
-            "the due-date row in TaskEditorContent has no testTag; no flow selects it by id",
-        "TASK_EDITOR_PRIORITY_ROW" to
-            "the priority row in TaskEditorContent has no testTag; flows select it by label text",
-        "PRIORITY_OPTION_HIGH" to
-            "TaskEditorPrioritySheet rows have no per-row testTag; flows select by label",
-        "PRIORITY_OPTION_MEDIUM" to "same as PRIORITY_OPTION_HIGH",
-        "PRIORITY_OPTION_LOW" to "same as PRIORITY_OPTION_HIGH",
-        "PRIORITY_OPTION_NONE" to "same as PRIORITY_OPTION_HIGH",
         "TASKS_LIST" to
-            "the Android bottom-bar list tag has no JVM counterpart; desktop flows assert on rows",
+            "the Android bottom-bar list tag; the desktop shell has no bottom bar, " +
+            "so no JVM counterpart applies it",
         "ARCHIVE" to
-            "EditorOverflow.ARCHIVE — the overflow menu renders rows with " +
-            "TestTags.taskAction(label) instead, so this constant has no call site",
-        "PIN" to "EditorOverflow.PIN — same: the menu uses taskAction(label), Russian labels",
-        "UNPIN" to "EditorOverflow.UNPIN — same",
+            "EditorOverflow.ARCHIVE — the overflow menu renders rows through " +
+            "TestTags.taskAction(action), so this constant has no call site",
+        "PIN" to "EditorOverflow.PIN — same as ARCHIVE",
+        "UNPIN" to "EditorOverflow.UNPIN — same as ARCHIVE",
         "SNACKBAR_SAVED" to
-            "no screen applies it; the saved-agenda editor's \"Saved\" snackbar is " +
-            "asserted by text in the Maestro flow instead",
+            "referenced by Maestro/flows/agenda/03-saved-views-crud.yaml, which " +
+            "waits on a snackbar the screen never shows — see " +
+            "deferred-backlog.md#saved-views-crud-flow-selects-a-snackbar-that-does-not-exist",
     )
 
     @Test
