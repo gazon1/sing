@@ -159,6 +159,37 @@ fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction {
 }
 
 /**
+ * Waits until a node matching [matcher] exists, then returns a handle to it.
+ *
+ * Use this overload when the selector is not a testTag (e.g. `hasContentDescription(...)`,
+ * `hasText(...)`, `hasAnyAncestor(...)`). For testTag-based selectors prefer the
+ * string overload — it provides better error messages via [explainMissingTag].
+ *
+ * @param matcher The semantics matcher to wait for.
+ * @param timeoutMs Overrides the default [TIMEOUT_MS]. Pass [TIMEOUT_MS] to use
+ *                  the shared constant.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitTag(
+    matcher: SemanticsMatcher,
+    timeoutMs: Long = TIMEOUT_MS,
+): SemanticsNodeInteraction {
+    try {
+        waitUntil(
+            conditionDescription = "node matching '${matcher.description}' appears",
+            timeoutMillis = timeoutMs,
+        ) {
+            onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+        }
+    } catch (_: Throwable) {
+        throw AssertionError(
+            "Node matching '${matcher.description}' not found or not unique after ${timeoutMs} ms",
+        )
+    }
+    return onNode(matcher)
+}
+
+/**
  * Waits until no node with [tag] exists, then returns — the counterpart to
  * [awaitTag] for asserting that something is *gone*.
  *

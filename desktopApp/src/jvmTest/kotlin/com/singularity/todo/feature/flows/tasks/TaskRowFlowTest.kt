@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.TIMEOUT_MS
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.seedTask
@@ -70,7 +71,7 @@ class TaskRowFlowTest {
         // a click-counting smoke test.
         waitUntil(
             conditionDescription = "the checkbox reports checked",
-            timeoutMillis = 5_000,
+            timeoutMillis = TIMEOUT_MS,
         ) {
             onAllNodesWithTag(TestTags.taskCheckbox("Buy milk"))
                 .fetchSemanticsNodes()
