@@ -1,9 +1,16 @@
 ---
 name: singularity-todo-task-snapshot-testing
-description: Roborazzi snapshot testing for Compose Multiplatform — Maven coordinates, plugin setup, Compose capture API, CI integration, and known issues.
+description: "NOT ADOPTED — research notes only. Roborazzi snapshot testing for Compose Multiplatform (Maven coordinates, plugin setup, capture API, CI). The project does not use it; ADR 2026-09-30-roborazzi-not-built-superseded. Read before proposing snapshot tests."
 ---
 
 # Snapshot Testing for Compose Multiplatform with Roborazzi
+
+> **Not adopted by this project.** Roborazzi is not integrated: no plugin, no
+> `verifyRoborazzi` task, no baselines, and no entry in `libs.versions.toml`.
+> ADR `2026-09-08-roboazzi-snapshot-tests` was superseded by
+> `2026-09-30-roborazzi-not-built-superseded`. This skill is kept as research
+> for the day the topic returns — read the coordinates below as a starting
+> point to re-verify, not as current project configuration.
 
 This skill documents how to add pixel-diff snapshot tests to the project's `androidHostTest` source set using Roborazzi.
 

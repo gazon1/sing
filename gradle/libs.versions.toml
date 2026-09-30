@@ -102,7 +102,6 @@ junit-jupiter = "5.11.4"
 junit-jupiter-params = "5.11.4"
 junit-vintage-engine = "5.11.4"
 robolectric = "4.17-beta-4"
-roborazzi = "1.74.0"
 kotest-assertions = "5.9.1"
 konsist = "0.17.3"
 
@@ -227,7 +226,6 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 # Architecture tests (Konsist — source-level structural assertions, runs in :shared:jvmTest)
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
-roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-testExt" }
 # Kotest assertions — multiplatform, works alongside kotlin.test.
 # Use only matchers (shouldBe, shouldNotThrowAny, shouldContain) — NOT full Kotest spec styles.

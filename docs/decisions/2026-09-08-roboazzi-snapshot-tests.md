@@ -2,7 +2,8 @@
 title: "Snapshot tests via Roborazzi for all detail screen sections"
 date: 2026-09-08
 tags: [testing, snapshot, roborazzi, quality]
-status: accepted
+superseded-by: 2026-09-30-roborazzi-not-built-superseded
+status: superseded
 ---
 
 ## Context

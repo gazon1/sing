@@ -1,4 +1,7 @@
 ---
+title: Retro MR-0 + MR-1: Test Infrastructure Ratchet
+date: 2026-09-30
+status: accepted
 summary: MR-0+MR-1 retrospective — NoDate bisect findings, diagnostics infrastructure, 3 ADRs, 2 skills
 ---
 

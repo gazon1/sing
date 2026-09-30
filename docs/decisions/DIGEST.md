@@ -643,9 +643,9 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`.
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
-- 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
 - A test failure in CI now produces a directory path in the suppressed exceptions
 - A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
+- All 593 existing tests continue to pass
 - _... and 39 more items_
 
 ### `ui`
@@ -806,7 +806,6 @@ _21 entries need attention._
 - `2026-09-08-mcp-schema-and-profile-userid-fixes` — mcp, koog, schema, profiles, bugfix
 - `2026-09-08-mcp-server-health-audit` — mcp, audit, refactor, tests, dead-code
 - `2026-09-08-projects-ux-rework` — _untagged_
-- `2026-09-08-roboazzi-snapshot-tests` — testing, snapshot, roborazzi, quality
 - `2026-09-08-task-1-level-subtasks` — task-detail, subtasks, architecture
 - `2026-09-08-task-archive-restore-contract` — task-detail, archive, repository
 - `2026-09-08-task-detail-critical-fixes` — task-detail, critical-fix, ux
@@ -1108,6 +1107,7 @@ _21 entries need attention._
 - `2026-09-30-remove-nav2-deprecations` — mr, navigation, deprecation
 - `2026-09-30-repository-naming-and-package-convention` — mr, repository, naming-convention
 - `2026-09-30-repository-read-isolation` — mr, architecture, repository
+- `2026-09-30-roborazzi-not-built-superseded` — testing, snapshot, roborazzi, doc-hygiene
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 - `2026-09-30-similar-defects-inventory` — testing, audit, detekt, logging, fakes
 - `2026-09-30-tag-rename-and-validation` — mvi, compose, testing
@@ -1160,7 +1160,6 @@ _21 entries need attention._
 - `2026-09-08-mcp-schema-and-profile-userid-fixes` — MCP schema dialect bug + profile-aware userId defaults
 - `2026-09-08-mcp-server-health-audit` — MCP server health audit — dead code, missing tests, contract hazards
 - `2026-09-08-projects-ux-rework` — Projects UX Rework — TickTick-level Parity
-- `2026-09-08-roboazzi-snapshot-tests` — Snapshot tests via Roborazzi for all detail screen sections
 - `2026-09-08-task-1-level-subtasks` — Sub-task 1-level hierarchy (like projects)
 - `2026-09-08-task-archive-restore-contract` — Task archive vs delete: separate contracts via archiveAt
 - `2026-09-08-task-detail-critical-fixes` — TaskDetail critical fixes: TOCTOU race, Saved-spam, dead condition
@@ -1447,7 +1446,7 @@ _21 entries need attention._
 - `2026-09-30-file-logging-wired` — File logging is wired into both apps; export deferred
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
 - `2026-09-30-log-redaction-pattern-ordering` — Redaction patterns are order-dependent — specific before generic
-- `2026-09-30-mr-0-1-test-infra-ratchet-retro` — _(no title)_
+- `2026-09-30-mr-0-1-test-infra-ratchet-retro` — Retro MR-0 + MR-1: Test Infrastructure Ratchet
 - `2026-09-30-mvi-error-path-contract` — MVI error paths: a thrown exception is an error event, never a crashed coroutine
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — Nav3State: every tab needs rememberViewModelStoreNavEntryDecorator
 - `2026-09-30-nodate-root-cause` — NoDate bisect — the domain is sound; the break is above AgendaEvaluator
@@ -1462,6 +1461,7 @@ _21 entries need attention._
 - `2026-09-30-remove-nav2-deprecations` — MR-3 Nav2 Deprecation Removal
 - `2026-09-30-repository-naming-and-package-convention` — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
+- `2026-09-30-roborazzi-not-built-superseded` — Roborazzi snapshot tests — не реализовано, решение закрыто
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 - `2026-09-30-similar-defects-inventory` — Inventory of the 'declared but inert' defect class, after verification
 - `2026-09-30-tag-rename-and-validation` — Tag rename, and validation that create and update share
