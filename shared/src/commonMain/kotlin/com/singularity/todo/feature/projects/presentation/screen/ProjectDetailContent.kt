@@ -1,8 +1,3 @@
-// The composable reads the current time only to render relative "edited 5m ago"
-// labels; it performs no time-dependent state transition, so there is nothing to
-// inject or test. NoDirectClockSystem exemption, same shape as the other screens.
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.projects.presentation.screen
 
 import androidx.compose.foundation.background
@@ -103,13 +98,13 @@ import kotlin.time.Instant
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalTime::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
-    val clock: Clock = Clock.System
+    val clock: Clock = viewModel.clock
     val sheets = rememberDialogState<ActiveSheet>()
     var overflowMenuOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
