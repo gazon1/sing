@@ -75,11 +75,18 @@ object TestTags {
     /** Priority row in the task editor attribute list. */
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
-    /** Priority options in the priority picker dialog. */
+    /**
+     * Priority options in the priority picker dialog — one per [TaskPriority].
+     *
+     * The enum has five values including `Urgent`, and the sheet renders
+     * `TaskPriority.entries`, so all five are addressable here. A tag per option
+     * keeps a flow from selecting on `meta.label`, which is translated copy.
+     */
     const val PRIORITY_OPTION_HIGH = "priority_option_high"
     const val PRIORITY_OPTION_MEDIUM = "priority_option_medium"
     const val PRIORITY_OPTION_LOW = "priority_option_low"
     const val PRIORITY_OPTION_NONE = "priority_option_none"
+    const val PRIORITY_OPTION_URGENT = "priority_option_urgent"
 
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"

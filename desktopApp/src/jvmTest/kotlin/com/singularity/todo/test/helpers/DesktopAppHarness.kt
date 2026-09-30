@@ -2,6 +2,8 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.App
 import com.singularity.todo.core.di.coreLoggingModule
@@ -52,5 +54,28 @@ fun runDesktopAppTest(
     }
     initTestLogging()
     setContent { KoinIsolatedContext(app) { App(deeplinkViewId = null, deeplinkTaskId = null) } }
-    test(app.koin)
+    try {
+        test(app.koin)
+    } catch (t: Throwable) {
+        // Attach the semantics tree to the failure rather than printing it. A
+        // `println` lands in stdout and gets lost when only the XML report is
+        // read; a suppressed exception rides along with the stack trace in every
+        // runner, which is the difference between re-running with a flag and
+        // reading the report the run already produced.
+        t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
+        throw t
+    }
 }
+
+/**
+ * The current Compose semantics tree, or a note explaining why it could not be
+ * read.
+ *
+ * Uses the unmerged tree: the whole point of debugging a selector is to see the
+ * raw nodes before Compose folds them, and a merged tree hides exactly the
+ * duplicate `Text` that makes `onNodeWithText` fail on ambiguity.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun DesktopComposeUiTest.dumpSemantics(): String =
+    runCatching { onRoot(useUnmergedTree = true).printToString(maxDepth = 25) }
+        .getOrElse { "<semantics tree unavailable: ${it.message}>" }

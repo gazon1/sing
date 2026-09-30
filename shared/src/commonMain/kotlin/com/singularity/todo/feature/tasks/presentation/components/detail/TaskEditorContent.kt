@@ -32,10 +32,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -166,6 +168,7 @@ fun TaskEditorContent(
             // Priority attribute
             Row(
                 modifier = Modifier.fillMaxWidth()
+                    .testTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
                     .clickable(
                         onClick = onPriorityClick
                             ?: { sheets.show(TaskEditorSheet.Priority) },
@@ -210,6 +213,7 @@ fun TaskEditorContent(
                 val label = dueDateLabel(dueDate, dueTime)
                 Row(
                     modifier = Modifier.fillMaxWidth()
+                        .testTag(TestTags.TASK_EDITOR_DUE_ROW)
                         .clickable(
                             onClick = onDueDateClick
                                 ?: { sheets.show(TaskEditorSheet.Date) },
