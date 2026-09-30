@@ -109,6 +109,26 @@ cp ~/AndroidStudioProjects/singularity_cllone_kmp/gradle/wrapper/gradle-wrapper.
    ~/work/singularity-todo-techdebt-epic2/gradle/wrapper/
 ```
 
+## local.properties in worktree
+
+Worktrees do **not** inherit `local.properties` from the main checkout — it is gitignored and per-directory. If the Android SDK is not found:
+
+```
+SDK location not found. Define location with sdk.dir in the local.properties file
+```
+
+Copy from the main project:
+
+```bash
+cp ~/AndroidStudioProjects/singularity_cllone_kmp/local.properties \
+   ~/work/singularity-todo-techdebt-epic2/local.properties
+```
+
+Or create it manually:
+```properties
+sdk.dir=/home/max/Android/Sdk
+```
+
 ## When NOT to use worktrees
 
 - Quick hotfixes (1-2 file changes) — use main checkout
