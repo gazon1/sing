@@ -2,6 +2,7 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -60,7 +61,7 @@ class Nav3State internal constructor(
 
     /**
      * Converts all active back stacks into a flat list of [NavEntry] objects,
-     * decorated with [rememberSaveableStateHolderNavEntryDecorator] for state preservation.
+     * decorated with the ViewModelStore and SaveableStateHolder decorators.
      *
      * @param entryProvider A function that returns a [NavEntry] for each route key.
      */
@@ -72,18 +73,28 @@ class Nav3State internal constructor(
      * Converts all active back stacks into a flat list of [NavEntry] objects,
      * decorated with the provided [entryDecorators] for state preservation and ViewModel scoping.
      *
+     * [rememberViewModelStoreNavEntryDecorator] is always applied, before any caller-supplied
+     * decorators. Without it every entry resolves the *same* `LocalViewModelStoreOwner` — the
+     * window/activity — so `koinViewModel` hands the first-created instance to every subsequent
+     * screen. The agenda then kept evaluating the definition it was built with: switching to
+     * Inbox recomposed `AgendaScreen(AgendaPresets.Inbox)` but reused the boot-time
+     * `AgendaViewModel`, so no tab ever re-evaluated its own sections.
+     *
      * @param entryProvider A function that returns a [NavEntry] for each route key.
-     * @param entryDecorators Additional [NavEntryDecorator]s to apply (e.g. [rememberViewModelStoreNavEntryDecorator]).
+     * @param entryDecorators Additional [NavEntryDecorator]s to apply.
      */
     @Composable
     fun toDecoratedEntries(
         entryProvider: (AppDestination) -> NavEntry<AppDestination>,
         entryDecorators: List<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
     ): List<NavEntry<NavKey>> {
+        val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
         val decoratedEntries = backStacks.mapValues { (_, stack) ->
             val decorators = buildList {
+                add(viewModelStoreDecorator)
                 addAll(entryDecorators)
-                // Always include SaveableStateHolder for state preservation across tab swaps
+                // Always include SaveableStateHolder for state preservation across tab swaps.
+                // The ViewModelStore decorator requires it to provide SavedStateHandle.
                 add(rememberSaveableStateHolderNavEntryDecorator())
             }
             rememberDecoratedNavEntries(

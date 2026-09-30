@@ -12,7 +12,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
 
 /**
@@ -23,14 +25,15 @@ import org.junit.Test
  * while the desktop shell renders a plain `FloatingActionButton` carrying only
  * the `Add task` contentDescription.
  *
- * ## Why this stops at the editor
+ * ## The round trip
  *
- * The flow does **not** assert that the saved task appears in the agenda. It
- * does get created — `TaskRepository.observeAll()` reports it — but a task
- * created without a due date belongs to the Inbox preset's "No Date" bucket,
- * and this build renders no row for it. [TaskRowFlowTest] documents the gap and
- * pins the dated behaviour that is observable. Asserting the undated row here
- * would make this test red for a reason that has nothing to do with the editor.
+ * Most of this file covers the editor in isolation, but the last test carries a
+ * task all the way into the agenda. That was previously impossible: a task saved
+ * without a due date belongs to the Inbox preset's "No Date" bucket, and the tabs
+ * shared one `AgendaViewModel`, so no tab ever evaluated its own definition and the
+ * row could not appear anywhere. With that fixed, an undated task is the strongest
+ * available assertion — a stale ViewModel would render Today's sections instead and
+ * the "No Date" header would simply be missing. See [AgendaTabDefinitionFlowTest].
  */
 @OptIn(ExperimentalTestApi::class)
 class CreateTaskFlowTest {
@@ -80,5 +83,62 @@ class CreateTaskFlowTest {
 
         onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertDoesNotExist()
         onNodeWithContentDescription(DesktopShell.HAMBURGER).assertIsDisplayed()
+    }
+
+    /**
+     * Save, then find the task in the agenda.
+     *
+     * No due date is entered, so the task can only surface under Inbox's "No Date"
+     * section — a header that the Today preset does not define at all. That makes
+     * this the one assertion in the desktop suite that fails if the agenda ever
+     * falls back to a stale ViewModel again.
+     */
+    @Test
+    fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() = runDesktopAppTest {
+        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
+        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Call the dentist")
+        onNodeWithTag(TestTags.TASK_EDITOR_SAVE).performClick()
+
+        // Saving pops the editor back to the agenda, so the drawer is reachable
+        // again and no explicit goBack() is needed before changing tab.
+        tapTab("Inbox")
+
+        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
+        awaitTag(TestTags.taskItem("Call the dentist")).assertIsDisplayed()
+    }
+
+    /**
+     * Positive control: proves that a missing tag produces an actionable error
+     * listing the nearest available tags rather than a bare "not found" message.
+     *
+     * The explainer fires when `awaitTag` times out — the exception message contains
+     * the wanted tag and a sample of what tags were found.
+     *
+     * Run with:
+     * ```bash
+     * ./gradlew :desktopApp:test --tests '*CreateTaskFlowTest*a_missing_tag_emits_nearby_tags*'
+     * ```
+     * To also verify the failure bundle is written, add `--info` and grep for
+     * `FailureBundle\|diagnostics`.
+     */
+    @Test
+    fun a_missing_tag_emits_nearby_tags_in_the_failure_message() {
+        val thrown = runCatching {
+            runDesktopAppTest {
+                // A tag that definitely does not exist in any screen.
+                awaitTag("nonexistent-tag-for-positive-control").assertIsDisplayed()
+            }
+        }.exceptionOrNull()
+
+        // The harness re-throws after adding the bundle as suppressed.
+        val message = (thrown as? Throwable)?.message ?: ""
+
+        // Tag-explainer fires on timeout
+        assert(message.contains("nonexistent-tag-for-positive-control")) {
+            "Error message should name the wanted tag, got: $message"
+        }
+        assert(message.contains("Nearby tags:") || message.contains("All available tags")) {
+            "Error message should list nearby or available tags, got: $message"
+        }
     }
 }

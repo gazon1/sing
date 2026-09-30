@@ -30,6 +30,43 @@ private object PlainStdoutWriter : LogWriter() {
 }
 
 /**
+ * The current list of [LogWriter]s registered with the global Kermit [Logger].
+ *
+ * Initialised to [PlainStdoutWriter] when [initTestLogging] is called with
+ * [TEST_LOG_PROPERTY] set, and appended to by [installRingBuffer].  Both
+ * functions call [Logger.setLogWriters] with the full list so that calling one
+ * after the other does not discard the other's writers.
+ */
+private val kermitWriters = mutableListOf<LogWriter>()
+
+/**
+ * Installs [ringBuffer] into the global Kermit logger as an additional writer,
+ * retaining all writers previously registered by [initTestLogging].
+ *
+ * Called by [com.singularity.todo.test.helpers.testKermitModule] once per test
+ * before the test body runs. The buffer coexists with the stdout writer — verbose
+ * output goes to both the ring buffer (for the failure report) and stdout (for
+ * real-time CI log streaming).
+ *
+ * Idempotent per test: the same buffer instance is reset and reused for retries.
+ */
+fun installRingBuffer(ringBuffer: RingBufferLogWriter) {
+    kermitWriters.add(ringBuffer)
+    Logger.setLogWriters(*kermitWriters.toTypedArray())
+    Logger.setMinSeverity(Severity.Verbose)
+}
+
+/**
+ * Resets the writer list so the same JVM can run multiple [runDesktopAppTest]
+ * calls cleanly (each starts with a fresh writer set).
+ *
+ * Called automatically by [runDesktopAppTest] before installing any writers.
+ */
+internal fun resetKermitWriters() {
+    kermitWriters.clear()
+}
+
+/**
  * Routes Kermit to stdout at verbose severity for the duration of a test run.
  *
  * Kermit's JVM default already writes to stdout, so this is not about making the
@@ -55,6 +92,7 @@ private object PlainStdoutWriter : LogWriter() {
  */
 fun initTestLogging() {
     if (System.getProperty(TEST_LOG_PROPERTY) != "true") return
-    Logger.setLogWriters(PlainStdoutWriter)
+    kermitWriters.add(PlainStdoutWriter)
+    Logger.setLogWriters(*kermitWriters.toTypedArray())
     Logger.setMinSeverity(Severity.Verbose)
 }

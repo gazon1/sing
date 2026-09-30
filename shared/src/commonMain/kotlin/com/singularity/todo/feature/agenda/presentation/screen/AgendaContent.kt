@@ -217,7 +217,11 @@ private fun AgendaList(
 
             items(
                 items = section.tasks,
-                key = { it.task.id.value },
+                // Scoped to the section on purpose. Presets are supposed to be mutually
+                // exclusive via `Section.discard`, but a task that matches two buckets
+                // would otherwise repeat this id and take the whole list down with
+                // "Key ... was already used" — a crash, not a wrong-looking row.
+                key = { "${section.name}/${it.task.id.value}" },
             ) { rowItem ->
                 AgendaTaskRow(
                     rowItem = rowItem,

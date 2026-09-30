@@ -107,8 +107,10 @@ Reading a failure:
 
 | Message | Means | Do |
 |---|---|---|
+| Message | Means | Do |
+|---|---|---|
+| "Tag '…' is not in the semantics tree" | `awaitTag` timed out | The explainer lists nearby tags; dump the tree if you need the full picture |
 | "found N nodes that satisfy…" | Ambiguity — several nodes match | Narrow with a role, a tag, or a different assertion |
-| "could not find any node" | Selector wrong, or the value never arrived | Dump the tree; if it is there, fix the selector, if not, fix the data |
 | `ComposeTimeoutException` | Value never arrived | Check the data layer, not the selector |
 
 When the UI disagrees with the data, resolve the repository straight from the
@@ -125,14 +127,6 @@ is the expensive mistake.
 If a test passes alone but fails in the suite, suspect shared state before the
 selector — the usual culprit is a process-global mutation. See
 `debugging-investigation` for the wider playbook.
-
-## Known gap: undated tasks
-
-A task written through the repository is returned by
-`TaskRepository.observeAll()` while the agenda renders "No tasks", and stays
-empty across a tab switch that recreates the ViewModel. Dated tasks render
-normally. Until that is resolved, fixtures carry a due date and the create flow
-stops at the editor. See ADR `2026-09-30-desktop-compose-ui-flow-tests`.
 
 ## Adding a flow
 

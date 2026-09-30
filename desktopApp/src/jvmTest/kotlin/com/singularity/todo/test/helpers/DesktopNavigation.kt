@@ -8,6 +8,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -124,17 +125,40 @@ fun DesktopComposeUiTest.goBack() {
  * list re-emits from a Room flow — so a click issued straight after a save
  * button lands before the row is in the tree and fails with "could not find any
  * node". Use this instead of a bare `onNodeWithTag` after any write.
+ *
+ * On timeout, the error message includes a listing of the nearest available tags
+ * via [explainMissingTag], so the failure is actionable without consulting the
+ * full semantics dump.
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction {
-    waitUntil(
-        conditionDescription = "node with testTag '$tag' appears",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    val allTags = mutableListOf<String>()
+    try {
+        waitUntil(
+            conditionDescription = "node with testTag '$tag' appears",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            val found = onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            if (!found) {
+                // Collect all nodes on every poll cycle so the list is fresh when
+                // the timeout fires.
+                onAllNodesWithTag("*").fetchSemanticsNodes().forEach { node ->
+                    TAG_PATTERN.findAll(node.toString()).forEach { match ->
+                        allTags.add(match.value.removePrefix("testTag="))
+                    }
+                }
+            }
+            found
+        }
+    } catch (_: Throwable) {
+        // Tag-explainer fires on timeout
+        val explanation = explainMissingTag(allTags.distinct().sorted(), tag)
+        throw AssertionError(explanation)
     }
     return onNodeWithTag(tag)
 }
+
+private val TAG_PATTERN = Regex("""testTag=[^\s,\]]+""")
 
 /**
  * Opens the drawer (if still closed), activates [label], and waits for the sheet
@@ -157,4 +181,32 @@ fun DesktopComposeUiTest.tapTab(label: String) {
         timeoutMillis = TIMEOUT_MS,
     ) { !isDrawerOpen() }
     waitForIdle()
+}
+
+/**
+ * Produces a human-readable explanation of why a `testTag` was not found in the
+ * current semantics tree, and what tags are available.
+ *
+ * Used to enrich [AssertionError] messages from [awaitTag] so that a missing tag
+ * failure names the nearest available alternative rather than just the one that
+ * was not found.
+ *
+ * Pure: no Compose state, no I/O, fully deterministic.
+ *
+ * @param availableTags All `testTag` values present in the current semantics tree.
+ * @param wantedTag     The tag the test was looking for.
+ */
+fun explainMissingTag(availableTags: List<String>, wantedTag: String): String {
+    val nearby = availableTags
+        .filter { it.contains(wantedTag.take(4), ignoreCase = true) }
+        .take(3)
+    return buildString {
+        appendLine("Tag '$wantedTag' is not in the semantics tree.")
+        if (nearby.isNotEmpty()) {
+            appendLine("Nearby tags: ${nearby.joinToString { "'$it'" }}")
+        }
+        appendLine("All available tags (${availableTags.size} total):")
+        availableTags.take(20).forEach { appendLine("  $it") }
+        if (availableTags.size > 20) appendLine("  ... and ${availableTags.size - 20} more")
+    }
 }

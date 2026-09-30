@@ -20,29 +20,44 @@ import kotlinx.datetime.LocalDate
  */
 object AgendaPresets {
 
-    /** All active tasks, grouped by relative date bucket. */
+    /**
+     * All active tasks, grouped by relative date bucket.
+     *
+     * Sections are ordered narrowest-bucket-first and each one `discard`s what it
+     * matches, so a task lands in exactly one section: the most specific bucket that
+     * contains it. Without that, a task due today also matches "This Week" and
+     * "This Month" and is rendered three times — which crashed the agenda's
+     * `LazyColumn` on duplicate item keys, since `AgendaList` keys rows by task id
+     * alone. "This Month" is the final catch-all and deliberately does *not* discard;
+     * "No Date" sits after it but is disjoint (`dueDate == null`).
+     */
     val Inbox: AgendaDefinition = agenda("Inbox") {
-        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 0)
-        section("Yesterday", Selector.DateBucket(RelativeBucket.Yesterday), order = 1)
-        section("Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2)
-        section("This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3)
-        section("Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4)
+        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true)
+        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 0, discard = true)
+        section("Yesterday", Selector.DateBucket(RelativeBucket.Yesterday), order = 1, discard = true)
+        section("Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true)
+        section("This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, discard = true)
+        section("Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, discard = true)
         section("This Month", Selector.DateBucket(RelativeBucket.ThisMonth), order = 5)
         section("No Date", Selector.DateBucket(RelativeBucket.NoDate), order = 6)
-        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true)
     }
 
     /** Only today's tasks, with overdue shown at the top. */
     val Today: AgendaDefinition = agenda("Today") {
-        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0)
+        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true)
         section("Today", Selector.DateBucket(RelativeBucket.Today), order = 1)
     }
 
-    /** Upcoming tasks for the next 2 weeks, grouped by week. */
+    /**
+     * Upcoming tasks for the next 2 weeks, grouped by week.
+     *
+     * "This Week" and "Next Week" are disjoint ranges, so the last of them needs no
+     * `discard`; the narrower buckets above them do, for the same reason as [Inbox].
+     */
     val Upcoming: AgendaDefinition = agenda("Upcoming") {
         section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true)
-        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 1)
-        section("Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2)
+        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 1, discard = true)
+        section("Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true)
         section("This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3)
         section("Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4)
     }

@@ -168,6 +168,71 @@ class FakeAppDatabase : AppDatabase() {
     fun seedProjectTagGroups(items: List<ProjectInheritedTagGroupCrossRef>) {
         _projectTagGroups.value = items
     }
+
+    /**
+     * Returns a human-readable snapshot of all in-memory tables, for inclusion in
+     * [FailureBundle] reports when a test fails.
+     *
+     * Each table is prefixed with `--- <TableName> ---` and a row count, then the
+     * rows in insertion order.
+     */
+    fun dumpAll(): String = buildString {
+        appendLine("=== FakeAppDatabase snapshot ===")
+        appendLine()
+        appendLine("--- Tasks (${_tasks.value.size} rows) ---")
+        _tasks.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- TaskTags (${_taskTags.value.size} rows) ---")
+        _taskTags.value.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- TaskDependencies (${_taskDependencies.value.size} rows) ---")
+        _taskDependencies.value.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Notes (${_notes.value.size} rows) ---")
+        _notes.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Projects (${_projects.value.size} rows) ---")
+        _projects.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Tags (${_tags.value.size} rows) ---")
+        _tags.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- SyncOutbox (${_outbox.value.size} rows) ---")
+        _outbox.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Attachments (${_attachments.value.size} rows) ---")
+        _attachments.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Reminders (${_reminders.value.size} rows) ---")
+        _reminders.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- ProjectReminders (${_projectReminders.value.size} rows) ---")
+        _projectReminders.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Checklist (${_checklist.value.size} rows) ---")
+        _checklist.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- LlmUsage (${_llmUsage.value.size} rows) ---")
+        _llmUsage.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- Profiles (${_profiles.value.size} rows) ---")
+        _profiles.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- AgendaViews (${_agendaViews.value.size} rows) ---")
+        _agendaViews.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- RemoteConfigs (${_remoteConfigs.value.size} rows) ---")
+        _remoteConfigs.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- SavedSearches (${_savedSearches.value.size} rows) ---")
+        _savedSearches.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- TagGroups (${_tagGroups.value.size} rows) ---")
+        _tagGroups.value.values.forEach { appendLine(it) }
+        appendLine()
+        appendLine("--- ProjectTagGroups (${_projectTagGroups.value.size} rows) ---")
+        _projectTagGroups.value.forEach { appendLine(it) }
+    }
 }
 
 // ─── TaskDao ─────────────────────────────────────────────────────────────────

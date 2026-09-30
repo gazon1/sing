@@ -24,21 +24,16 @@ import org.junit.Test
  * a failure here localises to the row interaction rather than to the editor's
  * save path — which is its own flow ([CreateTaskFlowTest]).
  *
- * ## Open question: undated tasks do not render
+ * ## Why every fixture here carries a due date
  *
- * Every fixture here carries a due date, and that is deliberate. Seeding an
- * *undated* task and reading it back gives
- * `TaskRepository.observeAll() == [task]` while the agenda renders "No tasks",
- * and the task stays invisible across a full tab switch that recreates the
- * ViewModel. The same gap makes the create flow's assertion fail: the editor does
- * create the task, it just lands in a bucket this build does not surface.
- *
- * The Android suite asserts the opposite — `agenda/01-smart-lists.yaml` waits for
- * `"No Date  ·  1"` on the Inbox tab and is documented as green — so either the
- * desktop path differs or the gap is platform-independent and the Android flow
- * was written against a build that has since changed. Resolving that is a product
- * question rather than a harness one; until it is answered these flows pin the
- * behaviour that is actually observable.
+ * Not an accident, and no longer a limitation. An *undated* fixture is the one
+ * thing the Inbox and Today presets disagree on, which made it the canary for a bug
+ * that is now fixed and separately regression-tested: every NavEntry resolved the
+ * same ViewModelStoreOwner, so the tabs shared one `AgendaViewModel` and none of them
+ * evaluated its own definition. Asserting on due-today fixtures alone could never have
+ * caught it — every preset defines a "Today" section, so a stale ViewModel still
+ * passes. See [AgendaTabDefinitionFlowTest] for the undated and tomorrow-dated cases,
+ * which only a correctly-scoped ViewModel satisfies.
  */
 @OptIn(ExperimentalTestApi::class)
 class TaskRowFlowTest {

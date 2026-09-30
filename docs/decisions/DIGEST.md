@@ -117,7 +117,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All new pure functions are `internal` or `private` where possible.
 - Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth.
 - D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work.
-- _... and 31 more items_
+- _... and 35 more items_
 
 ### `ai`
 
@@ -442,7 +442,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`.
 - All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression.
 - All `@Preview` composables compile without composition-local crashes.
-- _... and 18 more items_
+- _... and 21 more items_
 
 ### `notes`
 
@@ -678,11 +678,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
+- A test failure in CI now produces a directory path in the suppressed exceptions
+- A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
 - All 593 existing tests continue to pass
 - All future tests that boot a platform (Robolectric, Android instrumented, screenshot) must be
-- All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
-- All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
-- _... and 24 more items_
+- _... and 28 more items_
 
 ### `ui`
 
@@ -1124,12 +1124,15 @@ _21 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
+- `2026-09-30-agenda-section-discard-missing` — agenda, domain-logic, agenda-presets, lazycolumn
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
 - `2026-09-30-desktop-compose-ui-flow-tests` — desktop, testing, compose, koin, ui-test
+- `2026-09-30-desktop-test-diagnostics` — testing, desktop-compose, koin, kermit, ui-tests
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — testing, ui, draft-mvi, testtags, debuggability
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
+- `2026-09-30-nav3-need-viewmodelstore-decorator` — navigation, nav3, koin, viewmodel, desktop-compose
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-2-findings` — mr-review, tech-debt
@@ -1465,12 +1468,15 @@ _21 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
+- `2026-09-30-agenda-section-discard-missing` — AgendaPresets: every narrow bucket section needs discard=true
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
 - `2026-09-30-desktop-compose-ui-flow-tests` — Desktop Compose UI tests mount the real App() with an in-memory platform module
+- `2026-09-30-desktop-test-diagnostics` — Desktop test diagnostics: per-test Kermit ring, FailureBundle, awaitTag explainer
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — A save that throws must be visible, and a declared testTag must be applied
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
+- `2026-09-30-nav3-need-viewmodelstore-decorator` — Nav3State: every tab needs rememberViewModelStoreNavEntryDecorator
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
