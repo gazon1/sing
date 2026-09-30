@@ -34,6 +34,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** check `grep -rn "OpenAIModels" shared/src/commonMain shared/src/jvmMain shared/src/androidMain --include="*.kt"` returns only comments in `KnownModels.kt`. Anything else is a regression. _(from `2026-09-05-koog-test-workarounds`)_
 - **Always** declare `ai.koog:http-client-okhttp` in **both** `androidMain.dependencies` and `jvmMain.dependencies`. _(from `2026-09-05-koog-both-platforms`)_
 - **Never** add capabilities to `KnownModels` unless a feature needs them — the simple form avoids the static init entirely. _(from `2026-09-05-koog-test-workarounds`)_
+- **Never** rely on an exception escaping a `catchTo`/`emitError` block to _(from `2026-09-30-mvi-error-path-contract`)_
 - **Always** mark every `NavKey` subtype that may appear in a stack as `@Serializable`. Without it, there is no `.serializer()` to pass to `subclass(...)`. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - **Always** provide a `serializersModule` that calls `polymorphic(NavKey::class) { subclass(...) }` for every concrete route type in the stack. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - **Never** write `SavedStateConfiguration { }` for any `rememberNavBackStack` call — the empty body silently falls back to `DEFAULT.serializersModule` and breaks the polymorphism contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
@@ -59,6 +60,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Never** allow a task with `parentTaskId != null` to become a parent — enforce in domain, not just UI. _(from `2026-09-08-task-1-level-subtasks`)_
 - **Never** leave `|| true` or other tautological conditions in UI conditionals. _(from `2026-09-08-task-detail-critical-fixes`)_
 - **Never** store more than one recently-deleted task in memory — the most recent overwrite. _(from `2026-09-08-task-restore-undo`)_
+- **Always** host a state-asserting ViewModel on the foreground `TestScope` _(from `2026-09-30-testscope-background-work-semantics`)_
 - **Always** inject `CoroutineDispatcher` into fakes that own a `CoroutineScope`. Use `StandardTestDispatcher(testScheduler)` in tests. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
 - **Always** keep `FakeClock` and `FakeIdGenerator` in `commonMain/test/fakes/` _(from `2026-09-18-testing-best-practices`)_
 - **Always** keep `TestVmContext` and `runAndWait` in `jvmTest/test/helpers/` _(from `2026-09-18-testing-best-practices`)_
@@ -71,6 +73,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Never** add Burst or kotlin-faker to the project. _(from `2026-09-25-test-helper-stack`)_
 - **Never** expose public mutable properties on domain objects — use `private set` + mutation methods. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
 - **Never** hardcode `Dispatchers.Default` or `Dispatchers.Unconfined` in production ViewModels. _(from `2026-09-25-testable-vm-dispatcher-clock`)_
+- **Never** trust a rejection test that has no passing sibling on the same _(from `2026-09-30-testscope-background-work-semantics`)_
 - **Never** use `Clock.System.now()` — inject `Clock` and use `FakeClock` in tests _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `UUID.randomUUID()` or `nextId()` directly — inject `IdGenerator` and use `SequenceIdGenerator` in tests _(from `2026-09-18-testing-best-practices`)_
 - **Never** use `assertTrue(true)` placeholders — delete or write real assertions _(from `2026-09-18-testing-best-practices`)_
@@ -99,9 +102,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
 - **Five commits land together** because they all touch the same orbit
 - **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
-- **JVM target**: `SyncEngine` still exists, but `SyncWorkScheduler` is `NoopSyncWorkScheduler` (no-op). No background sync on desktop.
-- **Negative**: Google Calendar API rate limits apply (handled by WorkManager back-off)
-- _... and 348 more items_
+- _... and 350 more items_
 
 ### `agenda`
 
@@ -115,9 +116,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 633 JVM tests pass after migration.
 - All 7 presets now use the canonical public DSL path.
 - All new pure functions are `internal` or `private` where possible.
-- Composite selectors (`AllOf`, `AnyOf`, `Not`) encode their children via `registrySnapshot.getValue(child.typeTag).encode(child)` — works for any nesting depth.
-- D5 (Settings tab + default view picker UI) and D7 (full notification→navigator deeplink wiring) are deferred — `SettingsRepository` storage is in place; UI wiring requires further settings-screen integration work.
-- _... and 35 more items_
+- _... and 40 more items_
 
 ### `ai`
 
@@ -147,9 +146,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Cross-feature imports are now compile-time errors if they bypass domain
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks
-- **`LocalNavBackStack` как публичный API** — позволяет экранам
-- **`String`-encoded `initialDueDate`** — заменён на
-- _... and 63 more items_
+- _... and 65 more items_
 
 ### `auth`
 
@@ -189,9 +186,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Nested nav3 graph keeps task-click navigation encapsulated.
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - None
-- Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
-- Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
-- _... and 15 more items_
+- _... and 17 more items_
 
 ### `cleanup`
 
@@ -240,9 +235,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Menu bar appears in OS-native window chrome on all three desktop platforms.
 - Not covered: Roborazzi snapshots on desktop, navigation lifecycle beyond what
 - Right-click context menu works again on task rows in the agenda.
-- The three pre-existing desktop tests were moved to
-- `AgendaDeps` extension for AI actions is the next step for AI menu items.
-- _... and 10 more items_
+- _... and 12 more items_
 
 ### `detekt`
 
@@ -256,9 +249,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All 7 custom rule sets now produce findings when violations exist
 - Both rules are in **warning mode** — they do not fail the build
 - If `todayAt` or the DI binding moves to a different file, this rule must be updated alongside it. Treat it as a linked refactoring pair.
-- Promotion to error: after baseline is reduced in a follow-up PR
-- The activation checklist in `singularity-todo-detekt-rules-authoring` gains a fourth
-- _... and 11 more items_
+- _... and 13 more items_
 
 ### `di`
 
@@ -314,9 +305,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`koinInject()` для репозиториев/сервисов остаётся** — не VM
 - **`koinViewModel()` для VM в Composable** — `koinInject()` для VM антипаттерн
 - **`singleOf` для репозиториев** — architectural limitation; сложные конструкторы не поддерживают constructor-reference форму
-- **`singularity-todo-vm-koin-scoping` skill** — создан как single source of truth
-- **`viewModel { Vm(get(), get(), ...) }`** — для VM с nullable dep + getOrNull() (TasksViewModel, ProjectsViewModel)
-- _... and 16 more items_
+- _... and 18 more items_
 
 ### `koog`
 
@@ -334,18 +323,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `logging`
 
+- **Order of `REDACTION_PATTERNS` is load-bearing.** Adding a new pattern
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`.
+- Android cannot flush on termination — `Application.onTerminate()` is never
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression).
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`.
-- No redaction layer added. Access tokens and profile IDs are not written to logs today. When they are, a `RedactingLogWriter` decorator must be added before this layer.
-- On Android, `logDirectory()` lazily resolves `Context` from Koin. The `Context` is available by the time the first log entry is written (after Koin starts), so this is safe.
+- Log files are local-only, so **a bug report from a user still cannot come
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected.
-- The `FileLogWriter` instance is **not** exposed via Koin — it is created inside `initLogging` and lives as a global. This is intentional: Kermit's `Logger` holds it, and we don't want DI to manage it.
-- `BuildConfig.DEBUG` requires `buildConfig = true` in `androidApp/build.gradle.kts`. No BuildConfig is available in `shared` jvm target.
-- `DebugInfo` uses `version: String` and `isDebug: Boolean` passed from the app entry point (Android: `BuildConfig`, JVM: Gradle property). No global `BuildConfig` in shared.
-- `LogExporter` **is** a Koin singleton (`single<LogExporter>`) so screens can `koinInject<LogExporter>()` for a "Send logs" button.
-- `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR.
-- `initLogging` must be called **before** `startKoin` (unchanged from previous behavior).
+- Redaction is best-effort, not a guarantee — a credential in an unrecognised
+- Release builds write the same `Warn`-and-above stream as debug builds.
+- The `log-writer` form is a heuristic, not a proof. A writer stored in a
+- _... and 9 more items_
 
 ### `maestro`
 
@@ -359,7 +347,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - The script's output message ("add to TestTags.kt or LEGACY_RAW") is slightly misleading — LEGACY_RAW is checked only by human review, not by the code. The message should be updated to say "add to TestTags.kt or the skip-list" if the arrays are kept as documentation-only and not wired in.
 - When writing a new Maestro flow that hits a dialog/sheet without a testTag,
 - `11-archive-restore-smoke.yaml` is updated to `runFlow:
-- `Maestro/TAGS.md` is the authoritative list of missing testTags; it is
+- _... and 1 more items_
 
 ### `mcp`
 
@@ -373,9 +361,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - MCP clients that validate `$schema` as a URI will no longer reject tool schemas.
 - One new e2e test in `mcp-server` (`McpToolRoundTripTest`).
 - One new unit test file in `mcp-server` (`KoogJsonSchemaBuilderTest`).
-- Process exit semantics change from "instant" to "on stdin EOF or session error". A passing test asserts the process stays alive ≥3s with empty stdin.
-- The `created` field is not currently consumed by any caller — it is there for future observability / logging use cases.
-- _... and 22 more items_
+- _... and 24 more items_
 
 ### `mr`
 
@@ -403,14 +389,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A detail-screen ViewModel that owns more than one repository observation should be a
 - A slot that is read-only and has no intent surface (the backlinks collector) is a plain
 - Any subclass relying on `error` persisting across unrelated edits will see it
+- Create now rejects what it used to accept. Names over 100 characters and
 - Do not add `StateStrategy.Atomic` or a `stateStrategy` parameter until a VM demonstrates a
 - Slot tests construct one slot and its own fakes. Share one test-dispatcher-backed
+- Tag renaming is reachable from Settings → Tags: the pencil on a card opens
 - The first `pushUiState()` is asynchronous, so `isSaveEnabled` / `isDirty` are
-- When a new detekt rule is added, follow the three-step activation checklist: ServiceLoader
-- `FeatureSlot.state` is a `StateFlow`, not a `Flow` — the coordinator must be able to read a
-- `MviViewModel.updateState(transform: (S) -> S)` is non-suspending and stays that way. Use
-- `NoCombineSideEffectRule` is active in `config/detekt/detekt.yml` and fails the build. A
-- _... and 3 more items_
+- _... and 11 more items_
 
 ### `nav3`
 
@@ -424,9 +408,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A new route must extend `AppNavKey`, not `NavKey`. Declaring against `NavKey`
 - Additional level of indirection for new developers: "where am I?"
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters.
-- All task feature screens (`TaskListScreen`, `TaskDetailViewScreen`, `TaskCreateScreen`) use `LocalTasksNavigator.current` for navigation — no callback parameters.
-- Android system back gesture is handled by `BackHandler` in `TasksNavGraph.android.kt`. JVM has no back handling.
-- _... and 17 more items_
+- _... and 19 more items_
 
 ### `navigation`
 
@@ -440,9 +422,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Per-tab backstacks** work as expected: open TaskDetail on Today, switch to Plans, switch back to Today → TaskDetail is restored.
 - **`NavDestination` (drawer enum)** remains for the desktop drawer's grouping by `NavGroup` — not removed, just no longer wired to mobile.
 - **`TasksScreen`** unchanged — it already takes `onNavigateToTask` / `onNavigateToCreateTask` callbacks; the per-tab sub-navigation state now lives in `TasksRoute` inside `AppNavHost` via `rememberSaveable`.
-- All Android NavGraph back stack declarations become `val backStack = rememberNavBackStackTyped(savedStateConfig, start)` — clean, typed, no suppression.
-- All `@Preview` composables compile without composition-local crashes.
-- _... and 21 more items_
+- _... and 23 more items_
 
 ### `notes`
 
@@ -456,9 +436,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Cross-screen state (e.g. "did the user just save a note") must flow through navigation callbacks, not shared VM state
 - DI in `NotesDiModule` uses explicit `viewModel { NoteEditor(...) }` lambda — never
 - Delete confirmation is handled in `NotePreview`, not buried in editor overflow menu
-- Each VM is small enough to understand fully (~60-150 lines)
-- Editor session state is released when user navigates away
-- _... and 38 more items_
+- _... and 40 more items_
 
 ### `pomodoro`
 
@@ -531,9 +509,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive:** Correct user scoping — reminders are always attributed to the signed-in user.
 - **Positive:** Duplicate recurring reminder fires are eliminated on app restart or after device wake.
 - **Positive:** Duplicate recurring reminder fires are prevented on device restart (via `lastFiredAt` guard).
-- **Positive:** Graceful shutdown via `stop()` — tests can now stop the scheduler cleanly.
-- **Positive:** No more leaked coroutine scopes — the scheduler now respects lifecycle boundaries.
-- _... and 9 more items_
+- _... and 11 more items_
 
 ### `repository`
 
@@ -547,9 +523,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - If a future use-case requires a true `SourceOfTruth` abstraction (e.g., migrating part of the data to a KV-store or SqlDelight), the decision to adopt Store or a custom `LocalStore<T>` interface can be revisited.
 - The old `UserScopedRepository<T, ID>` typealias is removed in the cleanup commit
 - Write pipeline is now formalised in `GenericUserScopedRepository` KDoc.
-- `AttachmentRepository.addUrlAttachment` and `saveFileAttachment` already resolved ambient `userId` internally — no change needed.
-- `ChecklistEditorViewModel` is constructed with `taskId` via Koin `parametersOf`. Any existing call site that used `bindToTask()` is broken by design — that method no longer exists. Verify no production call site calls `bindToTask()` before merging.
-- _... and 15 more items_
+- _... and 17 more items_
 
 ### `search`
 
@@ -589,9 +563,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No changes to the public repository interface — `Flow<T>` and `suspend fun set` signatures are identical.
 - Test suite (`SettingsViewModelTest`) updated to work with debounce bypass in test mode.
 - The `aiEphemeral` field in `SettingsUiState.Content` is kept for future migrations; do not rely on it as the primary read path for AI ephemeral state today.
-- When adding new AI-related state, add it to `SettingsSection.Ai` directly; do not introduce a parallel `EphemeralState.Ai` field.
-- `AiSettingsContributor` stays as a 1-argument class — `observe()` returns `Flow<SettingsSection.Ai>` (no `stateIn` wrapper) to avoid `CoroutineScope` requirements that break `DiGraphTest`.
-- _... and 16 more items_
+- _... and 18 more items_
 
 ### `sync`
 
@@ -605,9 +577,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Persistent `lastLsn` enables incremental pull — server sends only new events.
 - **Positive**: Simple, predictable push model; HLC provides causal ordering; outbox is durable (Room)
 - **Positive**: Supabase credentials never touch Room — `SecureStoragePort` is hardware-backed on both platforms.
-- **Positive**: UI can now observe sync state; `SyncRepository` gives a clean module boundary; `Result<T>` matches project conventions; Orgzly UX patterns adopted.
-- **Positive**: `DataStoreSyncPrefs` follows the exact same pattern as `DataStoreSessionStore` — consistent with project.
-- _... and 6 more items_
+- _... and 8 more items_
 
 ### `tags`
 
@@ -638,9 +608,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Self-dependency is validated in the MCP tool and silently ignored by the join-table upsert (PRIMARY KEY prevents the duplicate).
 - Single narrow Room query (`watchByDate`) reused for the new use case.
-- Task AI remains reachable exactly where it was made reachable (PR-1.6): the task
-- The four call sites are now commented rather than silently omitted, so the next
-- _... and 13 more items_
+- _... and 15 more items_
 
 ### `tech-debt`
 
@@ -654,9 +622,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Future feature work adds a section by declaring a contributor + one `bind`
 - If Settings grows actual cross-section coupling later, the split decision can
 - MR-2.2 note: `expect object Clock` remains for backward compatibility; production code should use `kotlinx.datetime.Clock` directly
-- No breaking changes to public API
-- `./check.sh` → green
-- _... and 3 more items_
+- _... and 5 more items_
 
 ### `technical-debt`
 
@@ -680,9 +646,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - 3 preview functions per component (default, empty, edge case) — consistent with `2026-09-06-compose-previews` skill.
 - A test failure in CI now produces a directory path in the suppressed exceptions
 - A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
-- All 593 existing tests continue to pass
-- All future tests that boot a platform (Robolectric, Android instrumented, screenshot) must be
-- _... and 32 more items_
+- _... and 39 more items_
 
 ### `ui`
 
@@ -696,9 +660,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Future picker sheets (ProjectPickerSheet, TagPickerSheet) should consider `ListPickerSheet` before implementing custom sheets.
 - Sheet rows carry `sheet_item_<label>` tags (`TestTags.sheetItem`) so UI
 - The Material3 date picker's day cells expose only a contentDescription
-- The detail overflow menu is state-dependent — a flow that archives and then
-- The eleven tab tags are lower-case, because `TestTags.settingsTab()` routes
-- _... and 17 more items_
+- _... and 19 more items_
 
 ### `ui-components`
 
@@ -750,9 +712,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - `ProjectsFlowTest` больше не падает под нагрузкой: порядок объявления в
 - `TaskAiState.isRunning` is now actually reachable; the old `_aiRunning` was write-only.
 - `TaskDraftSlot.seed()` is public because seeding is a one-time initialisation, not a
-- `UpdateTaskUseCase.invoke(task)` is still deprecated for the stale-snapshot reason; migrating
-- `appearanceContributor = null` is explicit — the default is intentional, not accidental
-- _... and 4 more items_
+- _... and 6 more items_
 
 ### `vm`
 
@@ -766,9 +726,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All new VMs in this codebase should prefer `with(intent) { ... }` for data class intents with ≥2 properties.
 - All other VMs use plain `MutableStateFlow`
 - Dead code removed — `TaskDetailMode` and the `Attachment` intent branch would have required maintenance with zero benefit.
-- Double-tap on Save creates exactly one entity (compareAndSet enforces single-writer).
-- Internal note/task links now navigate correctly.
-- _... and 12 more items_
+- _... and 14 more items_
 
 ## Open / Deferred
 
@@ -781,7 +739,7 @@ _21 entries need attention._
 - `2026-09-26-deferred-r25-r30` — **deferred** — Deferred Backlog Items R25–R30
 - `2026-09-26-notes-clean-architecture-r21` — **deferred** — R21: Notes Clean Architecture — deferred
 - `2026-09-28-setup-hooks-broken-githooks-path` — **open** — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
-- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — **open** — 
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — **open** — Context
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-30-dispatcher-listviewmodel-cost` — **open** — MR-6 Architectural Polish
 - `2026-09-30-god-vm-decomposition` — **open** — MR-5 God-VM Decomposition
@@ -801,8 +759,8 @@ _21 entries need attention._
 - `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-25
 - `2026-09-26-notes-clean-architecture-r21` — R21: Notes Clean Architecture — deferred
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
+- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
-- `2026-09-06-desktop-smoke-test-with-koin` — Desktop smoke test: Koin initialization pattern for Compose Multiplatform UI tests
 
 ## Index (slug -> tags)
 
@@ -971,7 +929,6 @@ _21 entries need attention._
 - `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-deprecation-tech-debt` — technical-debt, deprecation, tests
-- `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
 - `2026-09-23-genui-server-driven-ui` — _untagged_
 - `2026-09-23-ksp-missing-type-main-branch` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
@@ -1128,13 +1085,18 @@ _21 entries need attention._
 - `2026-09-30-agenda-section-discard-missing` — agenda, domain-logic, agenda-presets, lazycolumn
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
+- `2026-09-30-dead-code-deleted-and-oauth-kept` — logging, koin, kermit, debugging
 - `2026-09-30-desktop-compose-ui-flow-tests` — desktop, testing, compose, koin, ui-test
 - `2026-09-30-desktop-test-diagnostics` — testing, desktop-compose, koin, kermit, ui-tests
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — testing, ui, draft-mvi, testtags, debuggability
+- `2026-09-30-file-logging-wired` — logging, observability, android, jvm
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
+- `2026-09-30-log-redaction-pattern-ordering` — logging, koin, kermit, debugging
 - `2026-09-30-mr-0-1-test-infra-ratchet-retro` — _untagged_
+- `2026-09-30-mvi-error-path-contract` — mvi, testing
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — navigation, nav3, koin, viewmodel, desktop-compose
+- `2026-09-30-nodate-root-cause` — agenda, testing, debugging, bisect
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-2-findings` — mr-review, tech-debt
@@ -1147,8 +1109,11 @@ _21 entries need attention._
 - `2026-09-30-repository-naming-and-package-convention` — mr, repository, naming-convention
 - `2026-09-30-repository-read-isolation` — mr, architecture, repository
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
+- `2026-09-30-similar-defects-inventory` — testing, audit, detekt, logging, fakes
+- `2026-09-30-tag-rename-and-validation` — mvi, compose, testing
 - `2026-09-30-tech-debt-quick-wins` — tech-debt, mr-1, quick-wins, detekt, ktlint, kotlin
 - `2026-09-30-test-infra-known-gaps` — testing, tech-debt, konsist, testtags, determinism
+- `2026-09-30-testscope-background-work-semantics` — testing, vm
 - `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
 
 ## Active entries
@@ -1318,7 +1283,6 @@ _21 entries need attention._
 - `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — Dead currentUser and orphan VM cleanup
 - `2026-09-23-deprecation-tech-debt` — Accumulated deprecation warnings and pre-existing test failures
-- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-23-genui-server-driven-ui` — GenUI — Server-Driven UI via A2UI v0.9
 - `2026-09-23-ksp-missing-type-main-branch` — ADR: Pre-existing KSP Error in Main Branch
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
@@ -1453,12 +1417,12 @@ _21 entries need attention._
 - `2026-09-28-task-detail-slot-refactor` — TaskDetailViewModel — split into a coordinator and seven slots
 - `2026-09-29-archive-has-no-restore-ui` — Archiving is a one-way door — no restore UI exists
 - `2026-09-29-check-tags-legacy-raw-dead-code` — check-tags.sh LEGACY_RAW and ALLOW_PATTERNS are documentation-only
-- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — _(no title)_
+- `2026-09-29-check-tags-sh-allow-patterns-dead-code` — Context
 - `2026-09-29-destroyed-but-not-deleted-callbacks` — A control wired to a no-op reads as working; three of them shipped
 - `2026-09-29-editor-row-onclick-noop-default` — Editor rows did nothing — onClick defaulted to a no-op lambda
 - `2026-09-29-emulator-crash-recovery-runner` — Emulator gfxstream crash — the IME mitigation is insufficient, recover instead of prevent
 - `2026-09-29-emulator-launch-recipe` — Emulator launch recipe — windowed, hardware GPU, camera and audio off
-- `2026-09-29-kotlinx-datetime-androidapp-missing` — _(no title)_
+- `2026-09-29-kotlinx-datetime-androidapp-missing` — Context
 - `2026-09-29-maestro-archive-seed-strategy` — Archive seed strategy — session coupling in archive-restore flow
 - `2026-09-29-maestro-date-js-host-clock` — maestro-date-js-host-clock
 - `2026-09-29-maestro-dialog-buttons-no-testtag` — AlertDialog buttons use visible text instead of testTag
@@ -1475,13 +1439,18 @@ _21 entries need attention._
 - `2026-09-30-agenda-section-discard-missing` — AgendaPresets: every narrow bucket section needs discard=true
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
+- `2026-09-30-dead-code-deleted-and-oauth-kept` — MR-4 dead-code sweep: what was deleted, and three things that look deletable but are not
 - `2026-09-30-desktop-compose-ui-flow-tests` — Desktop Compose UI tests mount the real App() with an in-memory platform module
 - `2026-09-30-desktop-test-diagnostics` — Desktop test diagnostics: per-test Kermit ring, FailureBundle, awaitTag explainer
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — A save that throws must be visible, and a declared testTag must be applied
+- `2026-09-30-file-logging-wired` — File logging is wired into both apps; export deferred
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
+- `2026-09-30-log-redaction-pattern-ordering` — Redaction patterns are order-dependent — specific before generic
 - `2026-09-30-mr-0-1-test-infra-ratchet-retro` — _(no title)_
+- `2026-09-30-mvi-error-path-contract` — MVI error paths: a thrown exception is an error event, never a crashed coroutine
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — Nav3State: every tab needs rememberViewModelStoreNavEntryDecorator
+- `2026-09-30-nodate-root-cause` — NoDate bisect — the domain is sound; the break is above AgendaEvaluator
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
@@ -1494,7 +1463,10 @@ _21 entries need attention._
 - `2026-09-30-repository-naming-and-package-convention` — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
+- `2026-09-30-similar-defects-inventory` — Inventory of the 'declared but inert' defect class, after verification
+- `2026-09-30-tag-rename-and-validation` — Tag rename, and validation that create and update share
 - `2026-09-30-tech-debt-quick-wins` — MR-1: Quick Wins — механический техдолг batch
 - `2026-09-30-test-infra-known-gaps` — Test-infra ratchet: оставшиеся долги после MR-5
+- `2026-09-30-testscope-background-work-semantics` — runTest background work: advanceUntilIdle does not pump an idle foreground
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 

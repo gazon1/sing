@@ -51,7 +51,7 @@ class ProfileBootstrapper(
         val activated = if (activateName != null) {
             profiles[activateName]?.also { profile ->
                 repository.switchTo(profile.id)
-                logger.i { "ProfileBootstrapper: activated '$activateName' (${profile.id.value})" }
+                logger.i { "ProfileBootstrapper: activated profile (${profile.id.value})" }
             } ?: run {
                 logger.w { "ProfileBootstrapper: '$activateName' not found after seed" }
                 null

@@ -14,9 +14,14 @@ Shapes detected:
                       lambda defeats
   3. di-binding      — a Room DAO accessor with no `get<AppDatabase>()…`
                       binding in either PlatformModule
-  4. navigation     — a route type that no NavGraph entry or menu item reaches
+  4. log-writer     — a Kermit `LogWriter` subclass never registered via
+                      `Logger.setLogWriters(...)`, so it silently receives
+                      nothing. Added after MR-2 wired the logging subsystem
+                      and found `FileLogWriter` had zero call sites for its
+                      entire life.
+  5. navigation     — a route type that no NavGraph entry or menu item reaches
 
-Shape 4 is not checked here: reachable routes are a data question the Maestro
+Shape 5 is not checked here: reachable routes are a data question the Maestro
 suite answers better than a static scan.
 
 Usage:
@@ -56,6 +61,16 @@ NOOP_DEFAULT = re.compile(
 NOOP_FALLBACK_CONSUMER = re.compile(r"\b(\w*[Cc]lick\w*|\w*[Tt]oggle\w*|onOpen\w*)\s*\?:", re.M)
 DAO_ACCESSOR = re.compile(r"abstract fun (\w+)\(\)\s*:\s*(\w*Dao)\b")
 DAO_BINDING = re.compile(r"get<AppDatabase>\(\)\.(\w+)\(\)")
+# A Kermit LogWriter subclass. Must be a class *declaration* extending LogWriter,
+# not a mention of the type in a parameter or import — hence the requirement
+# that `LogWriter` appear in the supertype list position right after the name.
+LOG_WRITER_DECL = re.compile(
+    r"class\s+(\w+)\s*(?:<[^>]*>)?\s*(?:\([^)]*\)\s*)?:\s*LogWriter\s*\(",
+    re.S,
+)
+# `val fileWriter = FileLogWriter(dir)` — the alias shape both LogBootstrap files
+# use, since the JVM one needs the reference for its shutdown hook.
+WRITER_ALIAS = re.compile(r"val\s+(\w+)\s*=\s*([A-Z]\w*Writer)\s*\(")
 
 
 def strip_comments(text: str) -> str:
@@ -66,6 +81,35 @@ def strip_comments(text: str) -> str:
     lets an unwired screen look wired to a naive grep.
     """
     return LINE_COMMENT.sub("", BLOCK_COMMENT.sub("", text))
+
+
+SET_LOG_WRITERS = re.compile(r"setLogWriters\s*\(")
+
+
+def set_log_writers_args(text: str) -> list[str]:
+    """Return the full argument list of every ``Logger.setLogWriters(...)`` call.
+
+    A regex like ``setLogWriters\\s*\\(([^)]*)\\)`` is wrong here: the arguments
+    are themselves constructor calls, so ``[^)]*`` stops at the first ``)`` and
+    silently drops every argument after the first nested call. That is how
+    ``setLogWriters(RedactingLogWriter(ColorizedWriter()), RedactingLogWriter(fileWriter))``
+    reads as a single argument and reports a wired writer as unwired. Matching
+    the balanced parenthesis run is the only correct option.
+    """
+    args: list[str] = []
+    for m in SET_LOG_WRITERS.finditer(text):
+        depth = 0
+        start = m.end()
+        for i in range(start - 1, len(text)):
+            ch = text[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    args.append(text[start:i])
+                    break
+    return args
 
 
 def kotlin_files() -> list[pathlib.Path]:
@@ -136,6 +180,46 @@ def main() -> int:
                         f"{rel(path)}: {dao} via {accessor}() is not bound in any PlatformModule",
                     )
                 )
+
+    # 4. LogWriter subclasses that are never registered with Kermit.
+    # A writer that is not in a setLogWriters(...) call receives nothing at all:
+    # it compiles, it is a correct implementation, and it is silent. This is
+    # exactly how FileLogWriter survived from its introduction in 2026-09-23
+    # until MR-2 wired it in 2026-09-30.
+    #
+    # A writer can reach setLogWriters two ways, and both count as wired:
+    #   a) constructed inline —  setLogWriters(MyWriter(dir))
+    #   b) bound to a local val first — val w = MyWriter(dir); setLogWriters(w)
+    # (b) is the shape both LogBootstrap files use, so matching only (a) would
+    # report FileLogWriter itself as unwired.
+    registered: set[str] = set()
+    alias_to_writer: dict[str, str] = {}
+    for text in code.values():
+        alias_to_writer.update(WRITER_ALIAS.findall(text))
+    for text in code.values():
+        for call_args in set_log_writers_args(text):
+            for name in re.findall(r"\b([A-Z]\w*Writer)\b", call_args):
+                registered.add(name)
+            for alias in re.findall(r"\b(\w+)\b", call_args):
+                if alias in alias_to_writer:
+                    registered.add(alias_to_writer[alias])
+
+    for path, text in code.items():
+        # Test doubles exist precisely to be passed directly to the class under
+        # test, not to Kermit. Flagging them would be noise, not signal.
+        if re.search(r"src/\w*[tT]est/", str(path)):
+            continue
+        for m in LOG_WRITER_DECL.finditer(text):
+            name = m.group(1)
+            if name in registered:
+                continue
+            findings.append(
+                (
+                    "log-writer",
+                    f"{rel(path)}: {name} extends LogWriter but never reaches "
+                    "Logger.setLogWriters(...) — it will receive no output",
+                )
+            )
 
     if not findings:
         if not args.quiet:

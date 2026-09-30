@@ -244,9 +244,18 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Explicit save: validates, persists, checkpoints the draft, clears
      * autosave storage, calls [onSaved].
      * Guarded against concurrent calls (race condition prevention).
+     *
+     * **Not `open`, deliberately.** The failure handling below — the `catch`
+     * that turns a thrown [persist] into a visible error — is the whole point of
+     * this method, and an overridable one can be bypassed: a subclass that
+     * reimplemented `save()` would silently reintroduce the bug that
+     * `2026-09-30-draft-save-failure-and-testtag-honesty.md` fixed, because the
+     * protection lives in *this* body rather than in the type. An implementation
+     * that needs different behaviour overrides [persist] or [validate], which
+     * are still open and are the intended extension points.
      */
     @Suppress("TooGenericExceptionCaught") // a save must not lose the user's work silently
-    open fun save() {
+    fun save() {
         if (currentState.isSaving) return
         updateState { it.copy(isSaving = true) }
         vmScope.launch {

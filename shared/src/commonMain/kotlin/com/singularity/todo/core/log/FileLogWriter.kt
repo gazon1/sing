@@ -22,11 +22,14 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Clock
 import kotlin.time.Instant
 
+private const val TAG = "FileLogWriter"
+
 /**
  * A [LogWriter] that persists logs to rolling files under [logDirectory].
  *
- * - Rolls over at [fileSizeLimit] (default 20 MB) into up to [FILE_COUNT] files.
+ * - Rolls over at [fileSizeLimit] into up to [fileCount] files (default: 4 × 2 MB).
  * - File 0 is always the current one; older entries shift to file N+1 on rotation.
+ * - **Appends to `log.0`** on startup instead of rotating — no log loss between restarts.
  * - Thread-safe: all writes go through a single-threaded [CoroutineScope] on [Dispatchers.IO].
  * - Graceful shutdown: [beginShutdown] drains the buffer within [DRAIN_TIMEOUT_MS]
  *   before returning; constructor parameter [fileSystem] enables testing with in-memory FS.
@@ -40,16 +43,27 @@ import kotlin.time.Instant
 class FileLogWriter(
     val logDirectory: Path,
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
-    private val fileSizeLimit: Long = FILE_SIZE_LIMIT,
+    private val fileSizeLimit: Long = DEFAULT_FILE_SIZE_LIMIT,
+    private val fileCount: Int = DEFAULT_FILE_COUNT,
 ) : LogWriter() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
-    private val files = List(FILE_COUNT) { logDirectory.resolve("log.$it.txt") }
-    private var written = 0L
-    private var sink: BufferedSink = rotate()
+    private val files = List(fileCount) { logDirectory.resolve("log.$it.txt") }
+    private var written: Long
+    private var sink: BufferedSink
 
     @Volatile
     private var shuttingDown = false
+
+    init {
+        fileSystem.createDirectories(logDirectory)
+        val currentFile = files[0]
+        // Initialize counter from existing file size so rotation triggers at the
+        // correct byte boundary after a restart, not from 0.
+        written = fileSystem.metadataOrNull(currentFile)?.size ?: 0L
+        // Use appendingSink so restart does not truncate existing content.
+        sink = fileSystem.appendingSink(currentFile).buffer()
+    }
 
     override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
         val entry = formatEntry(Clock.System.now(), severity, tag, message, throwable)
@@ -75,30 +89,34 @@ class FileLogWriter(
     }
 
     private fun write(entry: String) {
-        sink.writeUtf8(entry)
-        sink.flush()
-        written += entry.utf8Size()
-        if (written >= fileSizeLimit) {
-            sink.close()
-            sink = rotate()
+        runCatching {
+            sink.writeUtf8(entry)
+            sink.flush()
+            written += entry.utf8Size()
+            if (written >= fileSizeLimit) {
+                sink.close()
+                sink = rotate()
+            }
+        }.onFailure { e ->
+            // Do not crash the app when disk is full — log the failure and continue.
+            co.touchlab.kermit.Logger.e(TAG) { "Failed to write log entry: ${e.message}" }
         }
     }
 
     private fun rotate(): BufferedSink {
-        fileSystem.createDirectories(logDirectory)
-        for (i in FILE_COUNT - 2 downTo 0) {
+        for (i in fileCount - 2 downTo 0) {
             if (fileSystem.exists(files[i])) {
                 fileSystem.delete(files[i + 1])
                 fileSystem.atomicMove(files[i], files[i + 1])
             }
         }
         written = 0
-        return fileSystem.sink(files[0]).buffer()
+        return fileSystem.appendingSink(files[0]).buffer()
     }
 
     private companion object {
-        const val FILE_SIZE_LIMIT = 20L * 1024 * 1024
-        const val FILE_COUNT = 10
+        const val DEFAULT_FILE_SIZE_LIMIT = 2L * 1024 * 1024
+        const val DEFAULT_FILE_COUNT = 4
         const val DRAIN_TIMEOUT_MS = 2_000L
 
         private const val MAX_TAG_LENGTH = 23

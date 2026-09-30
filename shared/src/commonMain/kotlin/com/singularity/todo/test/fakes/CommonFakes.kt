@@ -43,7 +43,7 @@ fun testTask(
     isPinned: Boolean = false,
     createdAt: Instant = Instant.fromEpochMilliseconds(0),
     updatedAt: Instant = Instant.fromEpochMilliseconds(0),
-    userId: UserId = UserId.anonymous,
+    userId: UserId = TestUsers.DEFAULT,
     overrides: Task.() -> Unit = {},
 ): Task = Task(
     id = id,
@@ -90,7 +90,7 @@ fun testNote(
     updatedAt: Instant = Instant.fromEpochMilliseconds(0),
     deletedAt: Instant? = null,
     archivedAt: Instant? = null,
-    userId: UserId = UserId.anonymous,
+    userId: UserId = TestUsers.DEFAULT,
     overrides: Note.() -> Unit = {},
 ): Note = Note(
     id = id,

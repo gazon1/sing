@@ -1,9 +1,9 @@
 ---
 title: maestro-date-js-host-clock
+date: 2026-09-29
 status: accepted
-authors: Singularity Developer
-created: 2026-09-29
 tags: [maestro, test-infrastructure]
+authors: Singularity Developer
 ---
 
 # Context

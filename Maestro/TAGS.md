@@ -50,6 +50,7 @@ non-alphanumeric characters with `_`.
 | `PRIORITY_OPTION_LOW` | `priority_option_low` | |
 | `PRIORITY_OPTION_MEDIUM` | `priority_option_medium` | |
 | `PRIORITY_OPTION_NONE` | `priority_option_none` | |
+| `PRIORITY_OPTION_URGENT` | `priority_option_urgent` | |
 | `TASKS_FAB` | `tasks_fab` | |
 | `TASKS_LIST` | `tasks_list` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |

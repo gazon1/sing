@@ -90,10 +90,31 @@ state) immediately after clicking the card, then asserted the card was gone.
 
 **Seed fixtures through the repository, not the UI.** It keeps a flow's
 precondition independent of another flow's save path, so a failure localises.
+`seedTask` reads the id from `ProfileAwareCurrentUser` rather than hardcoding
+one, because the write path re-stamps it and a hardcoded id would be stamped
+over anyway.
+
+**Every fake defaults to `TestUsers.DEFAULT`.** `testTask()`, `testNote()`,
+`FakeSettingsRepository` and `FakeProfileAwareCurrentUser` all resolve to the
+same id. If you add a fixture, default it to `TestUsers.DEFAULT` too — the
+defaults disagreed once (`anonymous` vs `test-user`) and nothing failed loudly,
+because the write path silently re-stamps. Multi-user tests pass both ids
+explicitly.
 
 **Use `androidx.compose.ui.test.v2.runDesktopComposeUiTest`.** The v1 overload is
 deprecated in Compose 1.12. v2 runs composition on a `StandardTestDispatcher`,
 which works fine against the app's `Dispatchers.Default` background scopes.
+
+**A tag ships with the flow that uses it, or not at all.** A constant in
+`TestTags.kt` that no composable applies is worse than a missing one: a flow
+written against it fails with a bare "could not find any node" and nothing points
+at the real problem. `TestTagsWiringTest` fails the build on an unapplied
+constant, and also fails on a *stale* allowlist entry — so when a tag becomes
+applied, removing it from the allowlist is enforced, not optional.
+
+**Do not build a tag from localized text.** `TestTags.taskAction(action)` takes
+a stable id, not the label. A label-derived tag breaks in every locale but the
+one it was written in.
 
 ## Two load-order facts that are easy to get wrong
 
@@ -110,18 +131,20 @@ which works fine against the app's `Dispatchers.Default` background scopes.
 
 ## Debugging
 
-Two switches, both opt-in and both forwarded into the test JVM by
-`desktopApp/build.gradle.kts`:
+**When a test fails**, `runDesktopAppTest` already attaches the semantics tree
+to the exception, so it rides along in the test report. Nothing to enable.
+
+**When a test passes but you want to see what is on screen**, two opt-in
+switches, both forwarded into the test JVM by `desktopApp/build.gradle.kts`:
 
 ```bash
 ./gradlew :desktopApp:test --tests '*MyFlowTest' -Dsingularity.ui.dumpTree=true
 ./gradlew :desktopApp:test --tests '*MyFlowTest' -Dsingularity.test.log=true
 ```
 
-The first prints the semantics tree between `=== SEMANTICS TREE ===` markers in
-`build/test-results/test/TEST-<class>.xml`. The second routes Kermit to stdout at
-verbose severity. **Dump the tree; never guess a selector** — guessing is the
-largest source of wasted turns here.
+The first prints the tree between `=== SEMANTICS TREE ===` markers; the second
+routes Kermit to stdout at verbose severity. **Dump the tree; never guess a
+selector** — guessing is the largest source of wasted turns here.
 
 Reading a failure:
 
@@ -147,6 +170,29 @@ is the expensive mistake.
 If a test passes alone but fails in the suite, suspect shared state before the
 selector — the usual culprit is a process-global mutation. See
 `debugging-investigation` for the wider playbook.
+
+## Known gap: undated tasks
+
+A task written through the repository is returned by
+`TaskRepository.observeAll()` while the agenda renders "No tasks", and stays
+empty across a tab switch that recreates the ViewModel. Dated tasks render
+normally.
+
+**The domain layer is exonerated** — `AgendaNoDateRegressionTest` is green, and
+`AgendaPresets.Inbox` does declare a "No Date" section. Steps 2–4 of the bisect
+(Fake⇄Room contract, the ViewModel `combine`, `scopedUserId`) are not done; see
+`deferred-backlog.md#nodate-steps-2-4` before writing a fixture around this.
+
+Until then: fixtures carry a due date, and the create flow stops at the editor.
+
+Two contracts worth knowing because the obvious reading is wrong:
+
+- `RelativeBucket.NoDate` maps to `DateRange(1970-01-01, 1970-01-01)`, but
+  `SelectorMatcher` special-cases it with a direct `task.dueDate == null` branch
+  and never uses the range. Reading the enum mapping sends you at the wrong layer.
+- **The Inbox preset does not filter by completion.** `watchActive` selects on
+  `archived_at IS NULL` only, so a completed task is still listed, badged
+  `Completed`. Only archiving removes a row.
 
 ## Adding a flow
 

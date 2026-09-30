@@ -1,8 +1,10 @@
 ---
+title: Context
+date: 2026-09-29
+status: closed
 description: androidApp lacked kotlinx.datetime on classpath — added, enabling LocalDate use
 owner: singularity-dev
 last_updated: 2026-09-29
-status: closed
 labels: android, build-configuration, datetime
 ---
 

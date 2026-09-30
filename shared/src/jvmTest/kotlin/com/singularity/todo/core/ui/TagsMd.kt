@@ -203,6 +203,8 @@ object TagsMd {
 
         "genUi" -> DynamicMeta(fnName, "AI", "whatsnew", "GenUI surfaces")
 
+        "tagRename" -> DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card")
+
         "taskAction" -> DynamicMeta(fnName, "Dialog", "Archive", "Long-press action rows")
 
         "Dialog.title" -> DynamicMeta(fnName, "Dialog", "discard", "Dialog title")

@@ -29,6 +29,8 @@ sealed interface TestIntent : MviIntent {
     data object FailingToState : TestIntent
     data object FailingToEvent : TestIntent
     data object FailingWithAppError : TestIntent
+    data object ThrowingToState : TestIntent
+    data object ThrowingToEvent : TestIntent
     data object Succeeding : TestIntent
 }
 
@@ -76,6 +78,20 @@ class VmUnderTest(private val testScope: CoroutineScope) :
             TestIntent.FailingWithAppError -> testScope.launch {
                 catchTo("unused label", { msg -> updateState { TestState.Error(msg) } }) {
                     Result.failure<Unit>(AppError.Validation("domain says no"))
+                }
+            }
+
+            // Throws instead of returning a failure — the shape a `require(...)` or
+            // `getOrThrow()` inside the block produces.
+            TestIntent.ThrowingToState -> testScope.launch {
+                catchTo("state route failed", { msg -> updateState { TestState.Error(msg) } }) {
+                    throw IllegalStateException("thrown inner")
+                }
+            }
+
+            TestIntent.ThrowingToEvent -> testScope.launch {
+                emitError("event route failed", VmEvent::Notify) {
+                    throw AppError.NotFound("thrown domain says missing")
                 }
             }
 
@@ -175,6 +191,35 @@ class MviViewModelTest {
         val state = vm.state.value
         assertTrue(state is TestState.Error, "expected Error, got $state")
         assertEquals("domain says no", state.message)
+    }
+
+    @Test
+    fun `catchTo converts a thrown exception into an error state instead of crashing the coroutine`() = runTest {
+        val vm = VmUnderTest(this)
+
+        vm.onIntent(TestIntent.ThrowingToState)
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertTrue(state is TestState.Error, "expected Error, got $state")
+        assertEquals("thrown inner", state.message)
+    }
+
+    @Test
+    fun `emitError converts a thrown AppError into an event instead of crashing the coroutine`() = runTest {
+        val vm = VmUnderTest(this)
+        val events = mutableListOf<VmEvent>()
+        val job = launch { vm.events.collect { events.add(it) } }
+        advanceUntilIdle()
+
+        vm.onIntent(TestIntent.ThrowingToEvent)
+        advanceUntilIdle()
+        job.cancel()
+
+        assertTrue(
+            events.any { it is VmEvent.Notify && it.msg == "thrown domain says missing" },
+            "expected the thrown AppError message in the event, got $events",
+        )
     }
 
     @Test

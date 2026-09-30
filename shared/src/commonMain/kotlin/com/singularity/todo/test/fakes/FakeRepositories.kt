@@ -73,7 +73,7 @@ import kotlin.time.Clock
 
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
-class FakeSettingsRepository(initialUserId: String = "test-user") : SettingsRepository {
+class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : SettingsRepository {
     // ── Per-section repositories ──────────────────────────────────────────────
 
     override val notifications: NotificationsSettingsRepository =
@@ -1747,7 +1747,7 @@ class FakeProfileRepository : ProfileRepository {
  *   all collectors. Defaults to [Dispatchers.Default].
  */
 fun FakeProfileAwareCurrentUser(
-    initialUserId: UserId = UserId("test-user"),
+    initialUserId: UserId = TestUsers.DEFAULT,
     profileRepository: ProfileRepository = FakeProfileRepository(),
     dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
 ): ProfileAwareCurrentUser {

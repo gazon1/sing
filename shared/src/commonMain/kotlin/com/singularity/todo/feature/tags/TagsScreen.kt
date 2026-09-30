@@ -13,8 +13,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,8 +45,10 @@ fun TagsScreen(
     modifier: Modifier = Modifier,
     onCreate: (name: String, color: Int) -> Unit,
     onDelete: (TagId) -> Unit,
+    onRename: (id: TagId, name: String, color: Int) -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    var tagBeingRenamed by remember { mutableStateOf<Tag?>(null) }
 
     StatefulContent(
         state = state.toContentState(),
@@ -55,6 +59,7 @@ fun TagsScreen(
             TagList(
                 tags = tags,
                 onDelete = onDelete,
+                onRename = { tag -> tagBeingRenamed = tag },
             )
             FloatingActionButton(
                 onClick = { showAddDialog = true },
@@ -77,25 +82,39 @@ fun TagsScreen(
             onDismiss = { showAddDialog = false },
         )
     }
+
+    tagBeingRenamed?.let { tag ->
+        AddTagDialog(
+            onConfirm = { name, color ->
+                onRename(tag.id, name, color)
+                tagBeingRenamed = null
+            },
+            onDismiss = { tagBeingRenamed = null },
+            title = "Rename Tag",
+            initialName = tag.name,
+            initialColor = tag.color,
+            confirmLabel = "Save",
+        )
+    }
 }
 
 private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)
 
 @Composable
-private fun TagList(tags: List<Tag>, onDelete: (TagId) -> Unit) {
+private fun TagList(tags: List<Tag>, onDelete: (TagId) -> Unit, onRename: (Tag) -> Unit) {
     LazyColumn(
         modifier = Modifier.testTag(TestTags.TAGS_LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(tags, key = { it.id.value }) { tag ->
-            TagCard(tag = tag, onDelete = { onDelete(tag.id) })
+            TagCard(tag = tag, onDelete = { onDelete(tag.id) }, onRename = { onRename(tag) })
         }
     }
 }
 
 @Composable
-fun TagCard(tag: Tag, onDelete: () -> Unit) {
+fun TagCard(tag: Tag, onDelete: () -> Unit, onRename: () -> Unit) {
     androidx.compose.material3.Card(
         modifier = Modifier.fillMaxWidth(),
         colors = androidx.compose.material3.CardDefaults.cardColors(
@@ -117,6 +136,16 @@ fun TagCard(tag: Tag, onDelete: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f).padding(start = 12.dp),
             )
+            IconButton(
+                onClick = onRename,
+                modifier = Modifier.testTag(TestTags.tagRename(tag.name)),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Rename ${tag.name}",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             DeleteActionButton(onClick = onDelete)
         }
     }
@@ -137,6 +166,7 @@ private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSur
         ),
         onCreate = { _, _ -> },
         onDelete = {},
+        onRename = { _, _, _ -> },
     )
 }
 
@@ -147,6 +177,7 @@ private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurfa
         state = TagsUiState.Empty,
         onCreate = { _, _ -> },
         onDelete = {},
+        onRename = { _, _, _ -> },
     )
 }
 
@@ -161,5 +192,6 @@ private fun TagsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface
         ),
         onCreate = { _, _ -> },
         onDelete = {},
+        onRename = { _, _, _ -> },
     )
 }

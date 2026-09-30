@@ -114,12 +114,22 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     /**
      * Runs [block] on [vmScope]; on `Result.failure` hands `toMessage(errorLabel)` to [onError].
      *
+     * A thrown exception is converted the same way — `require(...)`, `getOrThrow()`
+     * and throwing repository calls land in [onError] instead of propagating out of
+     * the coroutine. Before this guard, a throw escaped `vmScope.launch`: on Android
+     * that is an uncaught exception and kills the process; in tests it cancels a
+     * scope shared with the test host and silently freezes every collector on it
+     * (discovered when renaming a missing tag threw `AppError.NotFound`).
+     *
      * Use when the failure lands in state (`catchTo(label, { msg -> updateState { … } })`).
      * For the one-shot-event case prefer [emitError].
      */
     protected fun catchTo(errorLabel: String, onError: suspend (String) -> Unit, block: suspend () -> Result<*>): Job =
         vmScope.launch {
-            block().onFailure { onError(it.toMessage(errorLabel)) }
+            runCatching { block() }.fold(
+                onSuccess = { result -> result.onFailure { onError(it.toMessage(errorLabel)) } },
+                onFailure = { e -> onError(e.toMessage(errorLabel)) },
+            )
         }
 
     /** [catchTo] for the common case: a failure becomes a one-shot [E] built from the message. */

@@ -19,15 +19,22 @@ import org.junit.Test
  *
  * This is the desktop counterpart of `Maestro/flows/smoke/01-launch-today.yaml`
  * and the first test to fail if the app's startup chain breaks. It exists as a
- * deliberate checkpoint: ADR `2026-09-06-desktop-smoke-test-with-koin` recorded
+ * Deliberate checkpoint: ADR `2026-09-06-desktop-smoke-test-with-koin` recorded
  * that `NavBackStackEntry` lifecycle transitions crash the Compose test host, and
  * its smoke test was later removed, leaving the question open. Mounting the real
  * `App()` retires that risk for the whole flow suite.
  *
- * To see what is actually on screen while debugging a selector, re-run with
- * `-Dsingularity.ui.dumpTree=true`; the semantics tree is printed to stdout and
- * captured in the test report. Prefer that to guessing selectors from source —
- * see the probe habit in `singularity-todo-maestro-flows`.
+ * ## Two ways to see the tree, and they are not redundant
+ *
+ * *When a test fails*, `runDesktopAppTest` already attaches the semantics tree
+ * to the exception, so it rides along in the report — no flag needed.
+ *
+ * *When a test passes but you want to know what is on screen*, re-run with
+ * `-Dsingularity.ui.dumpTree=true` and this test prints it between
+ * `=== SEMANTICS TREE ===` markers.
+ *
+ * Prefer either to guessing a selector from source — see the probe habit in
+ * `singularity-todo-maestro-flows`.
  */
 @OptIn(ExperimentalTestApi::class)
 class DesktopAppBootTest {
