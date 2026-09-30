@@ -50,6 +50,7 @@ fun runDesktopAppTest(
             overrides,
         )
     }
+    initTestLogging()
     setContent { KoinIsolatedContext(app) { App(deeplinkViewId = null, deeplinkTaskId = null) } }
     test(app.koin)
 }

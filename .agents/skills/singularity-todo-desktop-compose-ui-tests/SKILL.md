@@ -88,19 +88,43 @@ which works fine against the app's `Dispatchers.Default` background scopes.
    only in a full-suite run, never when the test runs alone. `FakeAppDatabase`
    removes the need.
 
-## Debugging: read the tree, do not guess
+## Debugging
 
-Guessed selectors produce failing tests. Run with the dump flag:
+Two switches, both opt-in and both forwarded into the test JVM by
+`desktopApp/build.gradle.kts`:
 
 ```bash
-./gradlew :desktopApp:test --tests '*MyFlowTest' \
-  -Dsingularity.ui.dumpTree=true
+./gradlew :desktopApp:test --tests '*MyFlowTest' -Dsingularity.ui.dumpTree=true
+./gradlew :desktopApp:test --tests '*MyFlowTest' -Dsingularity.test.log=true
 ```
 
-`DesktopAppBootTest` honours it and prints the semantics tree into the test
-report. Otherwise assert on a node that cannot exist to force the dump. Read
-`desktopApp/build/test-results/test/TEST-<class>.xml` and look for
-`=== SEMANTICS TREE ===`.
+The first prints the semantics tree between `=== SEMANTICS TREE ===` markers in
+`build/test-results/test/TEST-<class>.xml`. The second routes Kermit to stdout at
+verbose severity. **Dump the tree; never guess a selector** — guessing is the
+largest source of wasted turns here.
+
+Reading a failure:
+
+| Message | Means | Do |
+|---|---|---|
+| "found N nodes that satisfy…" | Ambiguity — several nodes match | Narrow with a role, a tag, or a different assertion |
+| "could not find any node" | Selector wrong, or the value never arrived | Dump the tree; if it is there, fix the selector, if not, fix the data |
+| `ComposeTimeoutException` | Value never arrived | Check the data layer, not the selector |
+
+When the UI disagrees with the data, resolve the repository straight from the
+harness's `Koin` and ask it what it holds:
+
+```kotlin
+println(koin.get<TaskRepository>().observeAll().first())
+```
+
+"The repository returns it and the screen does not show it" is a different
+investigation from "the repository returns nothing", and guessing between them
+is the expensive mistake.
+
+If a test passes alone but fails in the suite, suspect shared state before the
+selector — the usual culprit is a process-global mutation. See
+`debugging-investigation` for the wider playbook.
 
 ## Known gap: undated tasks
 
@@ -121,6 +145,7 @@ stops at the editor. See ADR `2026-09-30-desktop-compose-ui-flow-tests`.
 
 ## See also
 
+- `debugging-investigation` — the test-failure debugging loop and its traps
 - `singularity-todo-maestro-flows` — the Android suite these mirror
 - `singularity-todo-koin-dsl` — Koin 4.x DSL
 - `singularity-todo-test-tag-strategy` — `@Tag("slow")` filtering

@@ -30,6 +30,8 @@ sourceSets {
             // ViewModel is the supertype of every VM under test; :shared declares
             // it as `implementation`, so it is not visible transitively.
             implementation(libs.androidx.lifecycle.viewmodel.compose)
+            // TestLogging installs a Kermit writer, for the same reason.
+            implementation(libs.kermit)
             implementation(libs.junit4)
             implementation(libs.junit.vintage.engine)
             implementation(libs.kotlin.test.junit5)
@@ -123,6 +125,17 @@ tasks.withType<Test>().configureEach {
             excludeTags("slow")
         }
     }
+    // Forward `-Dsingularity.*` from the Gradle CLI into the forked test JVM.
+    // A `-D` on the Gradle command line configures the daemon, not the test
+    // process, so opt-in test switches would otherwise be silently ignored —
+    // the flag parses fine and simply has no effect, which is worse than a
+    // hard failure. Read from System.getProperties rather than
+    // project.findProperty because the CLI form lands on the daemon first.
+    // The prefix keeps it to this project's switches.
+    System.getProperties().stringPropertyNames()
+        .filter { it.startsWith("singularity.") }
+        .forEach { key -> systemProperty(key, System.getProperty(key)) }
+
     // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
     // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
     // parallel test runs don't overwrite each other's dumps.

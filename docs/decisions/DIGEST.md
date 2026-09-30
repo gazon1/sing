@@ -682,7 +682,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All future tests that boot a platform (Robolectric, Android instrumented, screenshot) must be
 - All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
 - All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
-- _... and 20 more items_
+- _... and 24 more items_
 
 ### `ui`
 
@@ -1128,6 +1128,7 @@ _21 entries need attention._
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
 - `2026-09-30-desktop-compose-ui-flow-tests` — desktop, testing, compose, koin, ui-test
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
+- `2026-09-30-draft-save-failure-and-testtag-honesty` — testing, ui, draft-mvi, testtags, debuggability
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
@@ -1468,6 +1469,7 @@ _21 entries need attention._
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
 - `2026-09-30-desktop-compose-ui-flow-tests` — Desktop Compose UI tests mount the real App() with an in-memory platform module
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
+- `2026-09-30-draft-save-failure-and-testtag-honesty` — A save that throws must be visible, and a declared testTag must be applied
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
