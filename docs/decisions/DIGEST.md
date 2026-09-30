@@ -646,7 +646,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A test failure in CI now produces a directory path in the suppressed exceptions
 - A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
 - All 593 existing tests continue to pass
-- _... and 39 more items_
+- _... and 42 more items_
 
 ### `ui`
 
@@ -1115,6 +1115,7 @@ _21 entries need attention._
 - `2026-09-30-test-infra-known-gaps` — testing, tech-debt, konsist, testtags, determinism
 - `2026-09-30-testscope-background-work-semantics` — testing, vm
 - `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
+- `2026-10-01-agent-velocity-remaining-debt` — testing, tech-debt, agent-velocity, unwired-surface
 
 ## Active entries
 
@@ -1469,4 +1470,5 @@ _21 entries need attention._
 - `2026-09-30-test-infra-known-gaps` — Test-infra ratchet: оставшиеся долги после MR-5
 - `2026-09-30-testscope-background-work-semantics` — runTest background work: advanceUntilIdle does not pump an idle foreground
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
+- `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
 

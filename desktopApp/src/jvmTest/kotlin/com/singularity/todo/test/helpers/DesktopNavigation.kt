@@ -159,6 +159,37 @@ fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction {
 }
 
 /**
+ * Waits until at least one node with [tag] is actually on screen, then returns.
+ *
+ * For a node that exists in exactly one copy, `awaitTag` is enough. This is for
+ * pagers and lists that compose the same tag several times, some of them off
+ * screen: HorizontalPager keeps the neighbouring pages composed, so
+ * `onAllNodesWithTag(tag)[0]` is composition order, not what the user sees, and
+ * the ordering can flip with the calendar date (a month-edge day pads into the
+ * neighbouring page). "Some matching node is visible" is the assertion the test
+ * means; an index is an implementation detail.
+ *
+ * Visibility is a non-empty intersection of the node's bounds with the root's —
+ * the same thing `assertIsDisplayed` checks, applied per node instead of to one
+ * indexed pick.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitAnyDisplayed(tag: String) {
+    val rootBounds = onRoot(useUnmergedTree = false).fetchSemanticsNode().boundsInRoot
+    waitUntil(
+        conditionDescription = "some node with testTag '$tag' is on screen",
+        timeoutMillis = TIMEOUT_MS,
+    ) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().any { node ->
+            val b = node.boundsInRoot
+            b.width > 0f && b.height > 0f &&
+                b.left < rootBounds.right && b.right > rootBounds.left &&
+                b.top < rootBounds.bottom && b.bottom > rootBounds.top
+        }
+    }
+}
+
+/**
  * Waits until no node with [tag] exists, then returns — the counterpart to
  * [awaitTag] for asserting that something is *gone*.
  *

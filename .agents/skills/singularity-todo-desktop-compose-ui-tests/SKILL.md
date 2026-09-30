@@ -48,6 +48,7 @@ Helpers in `test/helpers/`:
 | `goBack()` | Pops the shell stack via the back arrow |
 | `awaitTag(tag)` | Waits for a node after an async write, then returns a handle |
 | `awaitTagGone(tag)` | Waits until a node is gone — for asserting a *disappearing* thing |
+| `awaitAnyDisplayed(tag)` | Waits until *some* matching node is on screen — for pagers where the tag is composed several times |
 | `tasks(koin)` | `TasksRobot`: `given(due, title)` / `givenUndated(title)` / `assertInAgenda` / `open` |
 | `seedTask(...)` / `seedBuyMilk()` | Writes a task through the repository |
 | `DesktopShell.TABS` / `.MENU_ENTRIES` | The drawer's labels |
@@ -80,7 +81,11 @@ screen stays composed until the incoming one resolves. So:
   `awaitTagGone(...)` — `assertDoesNotExist` checks once after auto-sync and
   races the transition, failing intermittently under machine load.
 
-`assertDoesNotExist` is still right when the node was never there. And a positive
+"`assertDoesNotExist` is still right when the node was never there. And never
+pick a node by index in a pager: `HorizontalPager` keeps neighbouring pages
+composed, so `[0]` is composition order, not what is on screen — a month-edge
+day pads into the neighbouring page and the ordering flips on the 1st of the
+month. Use `awaitAnyDisplayed`. And a positive
 and a negative assertion on the same `when` branch in one composable (e.g.
 `PLAY_BUTTON` displayed, `PAUSE_BUTTON` not) are atomic — no waiting needed.
 

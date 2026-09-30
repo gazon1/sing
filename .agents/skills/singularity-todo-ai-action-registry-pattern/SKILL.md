@@ -183,17 +183,15 @@ enum class NoteAiAction {
 }
 ```
 
-For tasks, the equivalent enum is in `feature/tasks/Ids.kt`:
+For tasks, the equivalent enum is in `feature/tasks/domain/model/TaskAi.kt`:
 
 ```kotlin
 enum class TaskAiAction {
-    Refine,
+    RefineTitle,
     GenerateDescription,
     GenerateChecklist,
     Decompose,
-    PickTime,
-    SmartRewrite,
-    ClusterTasks,
+    SuggestTime,
 }
 ```
 

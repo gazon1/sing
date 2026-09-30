@@ -25,7 +25,7 @@ internal fun bubbleLabel(role: BubbleRole): String = when (role) {
  * Single canonical chat-bubble renderer used by AI Chat screens.
  *
  * Replaces two near-identical implementations that previously lived in
- * `feature/ai/ChatScreen.kt` (Card + container colors) and
+ * `feature/ai/chat/ChatScreen.kt` (Card + container colors) and
  * `feature/ai/chat/ChatScreen.kt` (column with role label).
  */
 @Composable

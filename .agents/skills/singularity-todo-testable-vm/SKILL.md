@@ -374,10 +374,10 @@ All VMs in the project extend `MviViewModel` as of 2026-09-25:
 
 | VM | File | Notes |
 |---|---|---|
-| `TagsViewModel` | `feature/tags/presentation/viewmodel/TagsViewModel.kt` | PoC migration — MviViewModel |
-| `CalendarSyncViewModel` | `feature/calendar/presentation/viewmodel/CalendarSyncViewModel.kt` | Full MviViewModel migration |
+| `TagsViewModel` | `feature/tags/TagsViewModel.kt` | PoC migration — MviViewModel |
+| `CalendarSyncViewModel` | `feature/calendar_sync/presentation/CalendarSyncViewModel.kt` | Full MviViewModel migration |
 | `CalendarViewModel` | `feature/calendar/presentation/viewmodel/CalendarViewModel.kt` | Full MviViewModel migration |
-| `AuthViewModel` | `feature/auth/presentation/viewmodel/AuthViewModel.kt` | Full MviViewModel migration |
+| `AuthViewModel` | `feature/auth/AuthViewModel.kt` | Full MviViewModel migration |
 | `BackupViewModel` | `feature/backup/BackupViewModel.kt` | Full MviViewModel migration |
 | `TaskDetailViewModel` | `feature/tasks/presentation/viewmodel/TaskDetailViewModel.kt` | Full MviViewModel migration; dedicated cache collector |
 | `ProjectDetailViewModel` | `feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt` | Full MviViewModel migration; dedicated cache collector |
