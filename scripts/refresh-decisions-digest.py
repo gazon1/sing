@@ -12,7 +12,7 @@ from pathlib import Path
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1500
-MAX_ITEMS_PER_TAG = 14  # per tag section cap to keep digest readable
+MAX_ITEMS_PER_TAG = 13  # per tag section cap to keep digest readable
 
 
 def main() -> None:
