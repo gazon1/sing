@@ -264,3 +264,81 @@ plain Kotlin with no registration anywhere.
 is a reasonable starting skeleton. If no, delete the remaining 90 lines. A
 dead-code sweep should not make the product decision either way, which is why
 MR-4 stopped at the two symbols it was asked to remove.
+
+---
+
+## log-messages-need-a-user-content-sweep
+
+**Found in:** MR-3 retrospective. The redaction decorator catches credential
+shapes; it does not catch task titles, note bodies, or AI prompt fragments.
+
+**Symptom:** a repo-wide sweep of `log.{d,i,w,e} { "...$var..." }` for
+user-derived values has never been done. `ChatViewModel` (AI prompt fragment)
+and `ProfileBootstrapper`/`SyncBootstrapper` (profile name, entity id) were
+fixed individually; other call sites print whatever they were handed.
+
+**Try next:** one deliberate pass over `commonMain` log call sites,
+classifying each interpolated value as id (fine), technical metadata (fine) or
+user content (decision needed per site — drop, truncate, or accept). Record
+the classification so the next audit is a diff, not a re-derivation. The
+severity question rides along: in release, `Warn`+ still writes to the file.
+
+---
+
+## projects-flow-one-time-flake
+
+**Found in:** MR-5 final `./check.sh` — the only observation in five runs.
+
+**Symptom:** `ProjectsFlowTest` failed once with `NullPointerException` from
+`ProjectDetailViewModel.getDraftState()` returning null (draft state read
+before the init collector seeded it). Not reproducible: three `--rerun-tasks`
+runs with the change set, one full rerun at MR-4, and the final `check.sh` all
+pass. Suspected ordering interaction with `shared:jvmTest` sharing the daemon.
+
+**Already ruled out:** the change sets at both observation and rerun are
+tag-rename only — nothing touches projects or drafts.
+
+**Try next:** if it recurs, capture `--scan` per-test timing before touching
+code; the fix is probably an explicit `runCurrent()`/await in the flow test,
+not a product change. Do not chase it on one observation — but do not
+baseline it either: a draft-state NPE is a real crash shape on a device.
+
+---
+
+## find-unwired-surfaces-has-no-baseline
+
+**Found in:** MR-4, while wiring the script into the workflow.
+
+**Symptom:** the script exits 1 whenever anything is reported, and the one
+standing finding (`SyncConfigScreen`) is a known, documented product question.
+So the script can never gate a check, and "no new findings" is verified by
+reading output manually — which means it will not be.
+
+**Try next:** a small baseline file (like the docs-audit dead-ref baseline):
+known findings listed in `config/`, script subtracts them and exits 0; a new
+finding still exits 1. Then add it to `check.sh`. An hour of work, turns a
+manual ritual into a gate.
+
+---
+
+## digest-line-limit-pressure
+
+**Found in:** the post-epic docs pass. `DIGEST.md` sat at 1498/1500 lines.
+
+**Symptom:** the digest indexes every Consequences bullet and creates a
+section per tag, so it grows with every ADR while the limit is fixed. The
+next author who writes a verbose ADR gets a failed `docs-audit` with no
+obvious remedy and will either trim content (bad) or raise the limit (worse).
+
+**Partially done (2026-09-30):** `MAX_ITEMS_PER_TAG` lowered 12 → 10 — the
+digest is an index, the ADR body is one link away. That bought ~45 lines of
+headroom at 351 entries.
+
+**Try next, if the warning returns:**
+
+1. Cap the per-ADR bullet contribution the same way (first N bullets per slug,
+   then "_… and N more_").
+2. Only if that is insufficient, raise `MAX_DIGEST_LINES` with a comment
+   explaining why the index needs the room.
+3. Keep the existing discipline regardless: Consequences bullets are
+   consequences; only **Always/Never** rules belong in the Critical section.

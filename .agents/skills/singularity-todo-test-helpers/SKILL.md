@@ -47,6 +47,12 @@ fun example() = runTest {
 
 **Rule**: always wrap `this` (the `runTest` receiver) with `testScope(this)` before passing to a VM. Never pass `backgroundScope` as the VM's scope — reserve it for long-lived helper coroutines in the test infrastructure.
 
+**Why the backgroundScope ban is load-bearing** (verified and pinned by `TestScopeSemanticsTest`, ADR `2026-09-30-testscope-background-work-semantics`): `advanceUntilIdle()` drains the queue only while *foreground* work is pending. Coroutines on `backgroundScope` run only as a side effect of that pump, or under an explicit `runCurrent()`. A VM collecting on `backgroundScope` therefore never emits its first state under `advanceUntilIdle()` — every assertion reads the initial state, and **rejection tests keep passing against an implementation that does nothing** (a rename that "left the name unchanged" is indistinguishable from a rename that never ran). If a VM test must use `backgroundScope` (e.g. virtual-time debouncing, as in `DraftMviViewModelTest`), drive it with `runCurrent()` or a helper that suspends until the state matches.
+
+**Corollary — the vacuous-rejection trap**: every rejection test ("rename rejects a blank name") must be paired with a success test on the same code path. Alone, a rejection test cannot distinguish "correctly refused" from "never executed".
+
+**The helper already exists — use it.** `testScope(this)` creates the safe shape (foreground context under a child Job, so `close()` cancels the VM's collectors without cancelling `runTest`). Hand-rolling `AutoCloseableCoroutineScope(coroutineContext + Job(...))` duplicates it; hand-rolling `AutoCloseableCoroutineScope(coroutineContext)` without the child Job makes `close()` cancel the TestScope itself and fail `runTest` with `JobCancellationException`.
+
 ---
 
 ## `awaitState` — Virtual-Time Waiting

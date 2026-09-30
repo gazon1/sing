@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  *    supports automatic adding of subclasses of sealed types with standard
  *    serializers` the moment either screen opened. No test covered either route,
  *    which is why it shipped. Found by
- *    `Maestro/flows/smoke/12-settings-cycle-tabs-smoke.yaml`.
+ *    the settings-cycle smoke flow (now `Maestro/flows/smoke/02-menu-settings.yaml`).
  *
  * Both are now structurally impossible: every route is a leaf of the single sealed
  * [AppNavKey] root, and one shared [navSavedStateConfig()] registers all of them.

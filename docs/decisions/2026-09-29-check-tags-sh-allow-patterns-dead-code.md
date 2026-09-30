@@ -1,8 +1,10 @@
 ---
+title: Context
+date: 2026-09-29
+status: open
 description: check-tags.sh ALLOW_PATTERNS array is dead code; migrate validation to iterate it
 owner: singularity-dev
 last_updated: 2026-09-29
-status: open
 labels: maestro, test-automation, technical-debt
 ---
 

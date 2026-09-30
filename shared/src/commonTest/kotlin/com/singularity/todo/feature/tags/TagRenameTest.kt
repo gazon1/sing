@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
@@ -9,7 +10,6 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -41,12 +41,19 @@ private fun tag(id: String, name: String, color: Int = 0xFFE91E63.toInt()) = Tag
 /**
  * The ViewModel plus the scope it collects on.
  *
- * `TagsViewModel.init` collects `observeAll()` forever, so the scope has to be
- * cancelled before `runTest` finishes. The scope is built on the **foreground**
- * [TestScope] context and closed explicitly: `backgroundScope.coroutineContext`
- * is not advanced by `advanceUntilIdle()` here, so a ViewModel built on it
- * never emits its first state and every assertion reads `Loading` — which
- * makes a no-op implementation look like a passing rejection test.
+ * `TagsViewModel.init` collects `observeAll()` forever, so the scope is built
+ * on the **foreground** [TestScope] context under a child [Job] and closed
+ * explicitly at the end of each test.
+ *
+ * Why not `backgroundScope`: `advanceUntilIdle()` drains the queue only while
+ * **foreground** work is pending — coroutines queued on `backgroundScope` run
+ * only as a side effect of that pump. A ViewModel collecting on
+ * `backgroundScope` therefore never emits its first state here (the test body
+ * is otherwise idle), every assertion reads `Loading`, and — the dangerous
+ * part — rejection tests keep passing against an implementation that does
+ * nothing. `TestScopeSemanticsTest` in `com.singularity.todo.test` pins this
+ * behaviour; the alternative working shape is a helper that suspends until the
+ * state matches, which lets `runTest` pump the background work.
  */
 private class TagsHarness(val vm: TagsViewModel, private val scope: AutoCloseableCoroutineScope) : AutoCloseable {
     override fun close() = scope.close()
@@ -54,11 +61,10 @@ private class TagsHarness(val vm: TagsViewModel, private val scope: AutoCloseabl
 
 @OptIn(ExperimentalCoroutinesApi::class)
 private fun TestScope.newHarness(repo: FakeTagsRepository): TagsHarness {
-    // A child Job, so `close()` cancels the ViewModel's collector without
-    // cancelling the TestScope itself — closing a scope built directly on
-    // `coroutineContext` takes `runTest` down with it.
-    val job = Job(coroutineContext[Job])
-    val scope = AutoCloseableCoroutineScope(coroutineContext + job)
+    // The canonical helper does exactly this shape: foreground context under a
+    // child Job, so close() cancels the VM's collectors without taking runTest
+    // down with them.
+    val scope = testScope(this)
     val vm = TagsViewModel(
         tagRepo = repo,
         createTag = CreateTagUseCase(repo, FixedClock()),
@@ -217,10 +223,9 @@ class TagRenameTest {
         val h = newHarness(repo)
         advanceUntilIdle()
         val errors = mutableListOf<TagsUiEvent>()
-        // A child Job again — `backgroundScope` is not advanced by
-        // `advanceUntilIdle()` here, so the collector would never run.
-        val collectorJob = Job(coroutineContext[Job])
-        launch(coroutineContext + collectorJob) { h.vm.events.toList(errors) }
+        // `launch` on the TestScope itself is foreground work — advanced by
+        // advanceUntilIdle; runCurrent would work too.
+        val collector = launch { h.vm.events.toList(errors) }
         advanceUntilIdle()
 
         h.vm.onIntent(TagsIntent.Rename(TagId.fromString("tg-gone"), "ghost", 0xFF00FF00.toInt()))
@@ -229,7 +234,7 @@ class TagRenameTest {
         assertTrue(repo.get(TagId.fromString("tg-gone")) == null, "a missing tag must not be recreated")
         assertEquals(1, errors.size, "a missing tag must surface as ShowError, not a thrown exception")
         assertIs<TagsUiEvent.ShowError>(errors.single())
-        collectorJob.cancel()
+        collector.cancel()
         h.close()
     }
 }
