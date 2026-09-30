@@ -6,6 +6,8 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import okio.Path
+import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.gateModule
 import org.koin.core.context.startKoin
@@ -22,7 +24,11 @@ fun main() = singleWindowApplication(
     File("$dataDir/attachments").mkdirs()
     File("$dataDir/backups").mkdirs()
 
-    initLogging(System.getProperty("singularity.debug") == "true", version = appVersion().name)
+    initLogging(
+        isDebug = System.getProperty("singularity.debug") == "true",
+        version = appVersion().name,
+        logDirectory = System.getProperty("user.home")!!.toPath() / ".singularity-todo" / "logs",
+    )
     startKoin {
             modules(
                 platformModule(),

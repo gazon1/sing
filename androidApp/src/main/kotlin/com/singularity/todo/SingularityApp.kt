@@ -8,6 +8,7 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.gate.gateModule
@@ -60,7 +61,11 @@ class SingularityApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        initLogging(BuildConfig.DEBUG, version = appVersion().name)
+        initLogging(
+            isDebug = BuildConfig.DEBUG,
+            version = appVersion().name,
+            logDirectory = filesDir.absolutePath.toPath() / "logs",
+        )
         startKoin {
             androidContext(this@SingularityApp)
             modules(

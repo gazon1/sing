@@ -3,37 +3,49 @@ package com.singularity.todo.core.log
 import co.touchlab.kermit.Severity
 import okio.Buffer
 import okio.FileSystem
-import okio.Path
+import okio.Path.Companion.toPath
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-
-private fun Path.Companion.make(raw: String): Path {
-    val method = okio.Path::class.java.getMethod("get", String::class.java)
-    @Suppress("UNCHECKED_CAST")
-    return method.invoke(null, raw) as Path
-}
+import okio.Path as OkioPath
 
 @Tag("slow")
 class FileLogWriterTest {
 
     private val fs = FileSystem.SYSTEM
-    private val baseDir: Path = Path.make(System.getProperty("java.io.tmpdir")!!)
 
-    private fun testDir(name: String) = baseDir.resolve("file-log-writer-test").resolve(name)
+    @TempDir
+    lateinit var tempDir: Path
 
-    private fun newWriter(dir: Path) = FileLogWriter(dir, fs)
+    private fun okioPath(): OkioPath = tempDir.toString().toPath()
+
+    @Suppress("FunctionExpressionBody")
+    private fun newWriter(
+        dir: OkioPath = okioPath(),
+        fileSizeLimit: Long = 20L * 1024 * 1024,
+        fileCount: Int = 4,
+    ): FileLogWriter = FileLogWriter(dir, fs, fileSizeLimit, fileCount)
+
+    @AfterEach
+    fun cleanup() {
+        for (i in 0..3) {
+            val p = okioPath().resolve("log.$i.txt")
+            if (fs.exists(p)) fs.delete(p)
+        }
+    }
 
     @Test
     fun `writes formatted entry to file`() {
-        val dir = testDir("test1")
-        val writer = newWriter(dir)
+        val writer = newWriter()
         writer.log(Severity.Info, "hello world", "TestTag", null)
         writer.beginShutdown()
 
-        val content = readAll(dir.resolve("log.0.txt"))
+        val content = readAll(okioPath().resolve("log.0.txt"))
         assertContains(content, "hello world")
         assertContains(content, "TestTag")
         assertContains(content, "I") // INFO severity letter
@@ -41,70 +53,88 @@ class FileLogWriterTest {
 
     @Test
     fun `truncates tag to 23 characters`() {
-        val dir = testDir("test2")
+        val writer = newWriter()
         val longTag = "VeryLongClassNameThatExceedsTwentyThreeCharacters"
-        val writer = newWriter(dir)
         writer.log(Severity.Info, "msg", longTag, null)
         writer.beginShutdown()
 
-        val line = readFirstLine(dir.resolve("log.0.txt"))
+        val line = readFirstLine(okioPath().resolve("log.0.txt"))
         assertTrue(line.length > 20, "Tag line should be present: $line")
     }
 
     @Test
     fun `rotates files when size limit exceeded`() {
-        val dir = testDir("test3")
-        val smallWriter = FileLogWriter(dir, fs, fileSizeLimit = 100L)
-        repeat(50) { i ->
-            smallWriter.log(Severity.Info, "x".repeat(10), "Tag", null)
-        }
-        smallWriter.beginShutdown()
+        val writer = newWriter(fileSizeLimit = 100L, fileCount = 4)
+        repeat(50) { writer.log(Severity.Info, "x".repeat(10), "Tag", null) }
+        writer.beginShutdown()
 
-        assertTrue(fs.exists(dir.resolve("log.0.txt")), "log.0 should exist")
-        assertTrue(fs.exists(dir.resolve("log.1.txt")), "log.1 should exist after rotation")
+        assertTrue(fs.exists(okioPath().resolve("log.0.txt")), "log.0 should exist")
+        assertTrue(fs.exists(okioPath().resolve("log.1.txt")), "log.1 should exist after rotation")
     }
 
     @Test
     fun `beginShutdown waits for writes to complete`() {
-        val dir = testDir("test4")
-        val writer = newWriter(dir)
+        val writer = newWriter()
         writer.log(Severity.Info, "flush me", "Tag", null)
         writer.beginShutdown()
 
-        val content = readAll(dir.resolve("log.0.txt"))
+        val content = readAll(okioPath().resolve("log.0.txt"))
         assertContains(content, "flush me")
     }
 
     @Test
     fun `logFiles returns existing log files`() {
-        val dir = testDir("test5")
-        val writer = newWriter(dir)
+        val writer = newWriter()
         writer.log(Severity.Info, "a", "Tag", null)
         writer.beginShutdown()
 
         val files = writer.logFiles()
         assertFalse(files.isEmpty())
-        assertTrue(
-            files.all {
-                val name = it.name
-                name.startsWith("log.") && name.endsWith(".txt")
-            },
-        )
+        assertTrue(files.all { it.name.startsWith("log.") && it.name.endsWith(".txt") })
     }
 
-    private fun readAll(path: Path): String {
+    @Test
+    fun `appends to existing log across writer restarts`() {
+        val dir = okioPath()
+        val writer1 = newWriter(dir)
+        writer1.log(Severity.Info, "first", "Tag", null)
+        writer1.beginShutdown()
+
+        val writer2 = newWriter(dir)
+        writer2.log(Severity.Info, "second", "Tag", null)
+        writer2.beginShutdown()
+
+        val content = readAll(dir.resolve("log.0.txt"))
+        assertContains(content, "first")
+        assertContains(content, "second")
+        assertFalse(fs.exists(dir.resolve("log.1.txt")), "log.1 should not exist after restart")
+    }
+
+    @Test
+    fun `written counter resumes from existing file size on restart`() {
+        val dir = okioPath()
+        val writer1 = newWriter(dir, fileSizeLimit = 500L, fileCount = 4)
+        repeat(4) { writer1.log(Severity.Info, "x".repeat(10), "Tag", null) }
+        writer1.beginShutdown()
+
+        assertFalse(fs.exists(dir.resolve("log.1.txt")), "log.1 should not exist before second writer")
+
+        val writer2 = newWriter(dir, fileSizeLimit = 500L, fileCount = 4)
+        repeat(5) { writer2.log(Severity.Info, "y".repeat(10), "Tag", null) }
+        writer2.beginShutdown()
+
+        // With fix: counter resumes from file size → one rotation fires → log.1 created.
+        // Without fix: counter = 0 on restart → no rotation → log.1 not created.
+        assertTrue(fs.exists(dir.resolve("log.1.txt")), "log.1 should exist after one rotation")
+        assertFalse(fs.exists(dir.resolve("log.2.txt")), "log.2 should not exist — only one rotation")
+    }
+
+    private fun readAll(path: OkioPath): String {
         val buffer = Buffer()
-        fs.source(path).use { source ->
-            buffer.writeAll(source)
-        }
+        fs.source(path).use { source -> buffer.writeAll(source) }
         return buffer.readUtf8()
     }
 
-    private fun readFirstLine(path: Path): String {
-        val buffer = Buffer()
-        fs.source(path).use { source ->
-            buffer.writeAll(source)
-        }
-        return buffer.readUtf8().lines().first()
-    }
+    @Suppress("FunctionExpressionBody")
+    private fun readFirstLine(path: OkioPath): String = readAll(path).lines().first()
 }

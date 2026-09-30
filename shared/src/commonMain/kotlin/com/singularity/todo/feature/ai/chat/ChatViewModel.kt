@@ -71,7 +71,7 @@ class ChatViewModel(
                 }
             }
         }.onFailure { error ->
-            log.e(error) { "AI stream failed [msg=${text.take(50)}]" }
+            log.e(error) { "AI stream failed" }
             emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
         }
 

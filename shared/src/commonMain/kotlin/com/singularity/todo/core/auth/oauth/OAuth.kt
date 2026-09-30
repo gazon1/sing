@@ -2,9 +2,6 @@ package com.singularity.todo.core.auth.oauth
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import okio.Buffer
 
 /**
  * OAuth 2.0 configuration for an authorization code flow.
@@ -87,32 +84,3 @@ fun OAuthResult.toOAuthTokenData(refreshToken: String): OAuthTokenData = OAuthTo
     clientId = clientId ?: error("No client_id in OAuth result"),
     expiresAt = expiresIn?.let { System.currentTimeMillis() + it * 1000 } ?: 0L,
 )
-
-/** Standardized OAuth / token error string constants. */
-object TokenError {
-    const val REFRESH_FAILED = "Token refresh failed"
-    const val EXCHANGE_FAILED = "Token exchange failed"
-}
-
-/**
- * Encodes OAuth redirect state (nonce + redirect URI) into an opaque string
- * for use as the OAuth `state` parameter.
- *
- * Format: Base64URL( JSON { "n": nonce, "r": redirectUri } )
- */
-object RedirectState {
-    fun encode(nonce: String, redirectUri: String): String {
-        val json = JsonObject(
-            mapOf(
-                "n" to JsonPrimitive(nonce),
-                "r" to JsonPrimitive(redirectUri),
-            ),
-        )
-        val buffer = Buffer()
-        buffer.writeUtf8(json.toString())
-        return buffer.readByteString().base64()
-            .replace("+", "-")
-            .replace("/", "_")
-            .trimEnd('=')
-    }
-}

@@ -3,7 +3,6 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.coroutines.createBackgroundScope
-import com.singularity.todo.core.log.LoggerHolder
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
@@ -14,16 +13,14 @@ import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * Logging module — Kermit + KOIN integration.
+ * Logging module — Koin + Kermit integration.
  */
 fun coreLoggingModule(): Module = module {
     factory { Logger.withTag("App") }
-    singleOf(::LoggerHolder)
 }
 
 /**

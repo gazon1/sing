@@ -120,7 +120,7 @@ internal class SyncBootstrapper(
                             return ApplyOutcome.Applied
                         }
                     applyRemote(obj)
-                    log.d { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: applied" }
+                    log.d { "Pull event [${event.eventType}][lsn=${event.serverLsn}]: applied" }
                     ApplyOutcome.Applied
                 }
 
@@ -136,7 +136,7 @@ internal class SyncBootstrapper(
                     }
                     outcome.fold(
                         onSuccess = {
-                            log.d { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: deleted" }
+                            log.d { "Pull event [DELETED][lsn=${event.serverLsn}]: deleted" }
                         },
                         onFailure = {
                             log.e {

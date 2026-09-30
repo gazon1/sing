@@ -34,19 +34,36 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 
 /**
- * Dialog for creating a new tag.
- * Shows a name input field and a color picker.
+ * Dialog for creating or renaming a tag. Shows a name input and a colour picker.
+ *
+ * One dialog serves both flows rather than there being a near-identical
+ * `RenameTagDialog`. The only differences are the title, the confirm label and
+ * the initial values, so splitting them would guarantee the two drift.
+ *
+ * @param initialName pre-filled text field; empty for create.
+ * @param initialColor pre-selected swatch. Falls back to the first palette
+ *   entry when [initialColor] is 0 (transparent — not a valid stored tag).
+ * @param confirmLabel button caption — "Create" or "Save".
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Suppress("FunctionSignature")
 @Composable
-fun AddTagDialog(onConfirm: (name: String, color: Int) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableIntStateOf(ProjectColorPalette.all.first()) }
+fun AddTagDialog(
+    onConfirm: (name: String, color: Int) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = "New Tag",
+    initialName: String = "",
+    initialColor: Int = 0,
+    confirmLabel: String = "Create",
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var selectedColor by remember {
+        mutableIntStateOf(if (initialColor != 0) initialColor else ProjectColorPalette.all.first())
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New Tag") },
+        title = { Text(title) },
         text = {
             Column {
                 OutlinedTextField(
@@ -99,7 +116,7 @@ fun AddTagDialog(onConfirm: (name: String, color: Int) -> Unit, onDismiss: () ->
                 onClick = { onConfirm(name.trim(), selectedColor) },
                 enabled = name.isNotBlank(),
             ) {
-                Text("Create")
+                Text(confirmLabel)
             }
         },
         dismissButton = {

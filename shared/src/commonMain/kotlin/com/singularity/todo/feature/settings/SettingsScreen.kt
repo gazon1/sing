@@ -205,6 +205,7 @@ private fun SettingsContent(
                             state = tagsState,
                             onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
                             onDelete = tagsVm::delete,
+                            onRename = { id, name, color -> tagsVm.onIntent(TagsIntent.Rename(id, name, color)) },
                         )
                     }
 
@@ -347,7 +348,12 @@ private fun AiStatusBadge(aiTestResult: AiTestResult, modifier: Modifier = Modif
 
 private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
     SettingsTab.Tags to {
-        TagsScreen(state = TagsUiState.Empty, onCreate = { _, _ -> }, onDelete = {})
+        TagsScreen(
+            state = TagsUiState.Empty,
+            onCreate = { _, _ -> },
+            onDelete = {},
+            onRename = { _, _, _ -> },
+        )
     },
     SettingsTab.TagGroups to {
         TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})
