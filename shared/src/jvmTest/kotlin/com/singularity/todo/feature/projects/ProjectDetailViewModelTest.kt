@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.projects
 
 import co.touchlab.kermit.Logger
@@ -20,6 +18,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectRemindersRepository
@@ -39,7 +38,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Counts how many times the task stream for this project is subscribed.
@@ -58,13 +57,16 @@ private class CountingTaskRepository(private val delegate: TaskRepository) : Tas
     }
 }
 
+/** Fixed instant: this VM renders reminder dates, which depend on "today". */
+private val TEST_NOW: Instant = Instant.parse("2026-01-15T12:00:00Z")
+
 private fun testTaskIn(projectId: String, title: String): Task = Task(
     id = TaskId("t-$projectId-$title"),
     title = title,
     projectId = ProjectId(projectId),
     userId = UserId("test-user"),
-    createdAt = Clock.System.now(),
-    updatedAt = Clock.System.now(),
+    createdAt = TEST_NOW,
+    updatedAt = TEST_NOW,
 )
 
 /**
@@ -94,11 +96,11 @@ class ProjectDetailViewModelTest {
             projectRepo = fakeProjectsRepo,
             taskRepo = taskRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
-            updateProject = UpdateProjectUseCase(fakeProjectsRepo, Clock.System),
-            updateTask = UpdateTaskUseCase(fakeTaskRepo, Clock.System),
-            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, Clock.System, fakeCurrentUser),
+            updateProject = UpdateProjectUseCase(fakeProjectsRepo, FakeClock(TEST_NOW)),
+            updateTask = UpdateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW)),
+            createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW), fakeCurrentUser),
             projectReminders = fakeProjectReminders,
-            clock = Clock.System,
+            clock = FakeClock(TEST_NOW),
             log = Logger,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
@@ -114,8 +116,8 @@ class ProjectDetailViewModelTest {
             icon = null,
             parentId = null,
             isDeleted = false,
-            createdAt = Clock.System.now(),
-            updatedAt = Clock.System.now(),
+            createdAt = TEST_NOW,
+            updatedAt = TEST_NOW,
             userId = testUserId,
         )
         fakeProjectsRepo.seed(project)

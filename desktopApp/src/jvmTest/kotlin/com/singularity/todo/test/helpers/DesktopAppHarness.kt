@@ -17,18 +17,22 @@ import org.koin.dsl.module
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 /**
- * Captures the test-class simple name of the currently executing JUnit 4 test.
+ * Captures the test-class simple name of the currently executing test.
  *
- * Walks the current thread's stack trace looking for the first frame whose
- * class name ends with `Test` (excluding this harness itself and any framework
- * classes). Used to name the diagnostics output directory.
+ * Matching on "the class name contains Test" is not good enough: between the
+ * test body and the runner sit several framework frames that also contain it —
+ * Compose's synthetic `SkikoComposeUiTest$runTest$1$1$…` and kotlinx-coroutines'
+ * `TestDispatcher`. Picking any of those writes every failure in the suite into
+ * one directory, and under the parallel test executor the bundles overwrite
+ * each other.
+ *
+ * So the predicate is inverted: take the first frame that belongs to this
+ * project's own test code and is not the harness itself.
  */
 private fun currentTestClassSimpleName(): String {
     val frame = Thread.currentThread().stackTrace.firstOrNull { el ->
-        el.className.contains("Test") &&
-            !el.className.contains("Harness") &&
-            !el.className.contains("runDesktopComposeUiTest") &&
-            !el.className.contains("org.junit")
+        val name = el.className
+        name.startsWith("com.singularity.todo") && !name.contains("test.helpers")
     }
     return frame?.className?.substringAfterLast('.')?.removeSuffix("$") ?: "UnknownTest"
 }

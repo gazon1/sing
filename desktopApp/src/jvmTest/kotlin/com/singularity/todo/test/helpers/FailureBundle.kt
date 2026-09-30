@@ -3,6 +3,7 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import org.koin.core.Koin
 import java.awt.image.BufferedImage
@@ -118,12 +119,14 @@ data class FailureBundle(
                 ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
             }
 
-            // Database state — testPlatformModule() binds the concrete AppDatabase as
-            // FakeAppDatabase, so resolving by type works.
+            // Database state — testPlatformModule() binds the database under the
+            // `AppDatabase` interface, NOT under its implementation type, so this must
+            // resolve by the interface and cast. Resolving `getOrNull<FakeAppDatabase>()`
+            // always returned null and silently produced a placeholder file.
             runCatching {
-                val db = app.getOrNull<FakeAppDatabase>()
+                val db = app.getOrNull<AppDatabase>() as? FakeAppDatabase
                 writeFile(bundle.dbStateFile) {
-                    db?.dumpAll() ?: "<FakeAppDatabase not registered in test Koin graph>"
+                    db?.dumpAll() ?: "<no FakeAppDatabase in the test Koin graph>"
                 }
             }
 

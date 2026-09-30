@@ -1,11 +1,10 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -13,15 +12,22 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import kotlin.time.Clock
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModelTest {
 
     private val testUserId = UserId("test-user")
 
+    /**
+     * Statistics bucket by "today" and "last 7 days", so a real clock makes this
+     * suite depend on the day it runs. A fixed instant makes the window explicit:
+     * every task below lands inside the same 7-day range.
+     */
+    private val testNow: Instant = Instant.parse("2026-01-15T12:00:00Z")
+
     private fun task(id: String, completed: Boolean = false): Task {
-        val now = Clock.System.now()
+        val now = testNow
         return Task(
             id = TaskId.fromString(id),
             title = "Task $id",
@@ -35,7 +41,7 @@ class StatisticsViewModelTest {
     private fun TestScope.createVm(repo: FakeTaskRepository = FakeTaskRepository()): StatisticsViewModel =
         StatisticsViewModel(
             taskRepository = repo,
-            clock = Clock.System,
+            clock = FakeClock(testNow),
             scope = testScope(backgroundScope),
         )
 

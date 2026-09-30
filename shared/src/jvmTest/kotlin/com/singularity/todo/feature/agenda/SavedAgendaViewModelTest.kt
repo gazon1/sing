@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
@@ -19,6 +17,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScr
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,7 +31,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -53,7 +51,7 @@ class SavedAgendaViewModelTest {
     private val seedStore = SavedAgendaSeedStore()
 
     private fun createVm(mode: SavedAgendaScreenMode, scope: CoroutineScope) = SavedAgendaViewModel(
-        deps = SavedAgendaDeps(repo = fakeRepo, clock = Clock.System, log = Logger),
+        deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
         mode = mode,
         seedStore = seedStore,
         scope = AutoCloseableCoroutineScope(scope.coroutineContext),
@@ -119,8 +117,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "My View",
                 sectionsJson = """{"title":"My View","sections":[]}""",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
             ),
         )
 
@@ -155,8 +153,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "Original",
                 sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
             ),
         )
 
@@ -181,8 +179,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "Test",
                 sectionsJson = """{"title":"Test","sections":[{"name":"Today","order":0,"selector":{"type":"DateBucket","bucket":"Today"}}]}""",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
             ),
         )
 
@@ -206,8 +204,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "Original",
                 sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
             ),
         )
 
@@ -232,8 +230,8 @@ class SavedAgendaViewModelTest {
                 userId = UserId("test-user"),
                 name = "To Delete",
                 sectionsJson = """{"title":"To Delete","sections":[]}""",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
             ),
         )
 
@@ -424,3 +422,6 @@ class SavedAgendaViewModelTest {
         assertEquals(now, copy.updatedAt)
     }
 }
+
+/** Fixed instant so seeded views land on a stable date regardless of when the suite runs. */
+private val SAVED_AGENDA_NOW: Instant = Instant.parse("2026-01-15T12:00:00Z")

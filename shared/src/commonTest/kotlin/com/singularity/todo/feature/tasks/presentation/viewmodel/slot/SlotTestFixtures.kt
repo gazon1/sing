@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.auth.Session
@@ -20,6 +18,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeReminderRepository
@@ -29,7 +28,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.time.Clock
+import kotlin.time.Instant
+
+/** Fixed instant: slot VMs resolve due dates against "today". */
+private val SLOT_NOW: Instant = Instant.parse("2026-01-15T12:00:00Z")
 
 internal val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
     override fun current() = kotlinx.datetime.TimeZone.UTC
@@ -91,8 +93,8 @@ internal class SlotFakes {
 
     fun deps(): TaskDetailDeps = TaskDetailDeps(
         taskRepo = taskRepo,
-        updateTask = UpdateTaskUseCase(taskRepo, Clock.System),
-        createTask = CreateTaskUseCase(taskRepo, Clock.System, currentUser),
+        updateTask = UpdateTaskUseCase(taskRepo, FakeClock(SLOT_NOW)),
+        createTask = CreateTaskUseCase(taskRepo, FakeClock(SLOT_NOW), currentUser),
         projectsRepo = projectsRepo,
         tagsRepo = tagsRepo,
         checklistRepository = checklistRepo,
@@ -100,7 +102,7 @@ internal class SlotFakes {
         reminderScheduler = scheduler,
         attachmentsRepo = attachmentsRepo,
         timeZoneProvider = TEST_TZ,
-        clock = Clock.System,
+        clock = FakeClock(SLOT_NOW),
         completeRecurring = stubCompleteRecurring,
         debounceMs = 300L,
     )
@@ -110,7 +112,7 @@ internal class SlotFakes {
 
     private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
         repo = taskRepo,
-        clock = Clock.System,
+        clock = FakeClock(SLOT_NOW),
         timeZoneProvider = TEST_TZ,
         calculator = RecurrenceCalculator,
     ) {
@@ -135,8 +137,8 @@ internal fun task(id: String = "t1", title: String = "Test task"): Task = Task(
     id = TaskId(id),
     title = title,
     userId = TEST_USER,
-    createdAt = Clock.System.now(),
-    updatedAt = Clock.System.now(),
+    createdAt = SLOT_NOW,
+    updatedAt = SLOT_NOW,
 )
 
 /** Slot scopes run on the test dispatcher; collectors still need a real-time pump. */
@@ -148,7 +150,7 @@ internal fun tag(id: com.singularity.todo.feature.tags.TagId, name: String) = co
     id = id,
     name = name,
     color = 0xFF00FF00.toInt(),
-    createdAt = Clock.System.now(),
-    updatedAt = Clock.System.now(),
+    createdAt = SLOT_NOW,
+    updatedAt = SLOT_NOW,
     userId = TEST_USER,
 )
