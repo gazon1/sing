@@ -1,8 +1,10 @@
+@file:OptIn(ExperimentalTestApi::class)
+
 package com.singularity.todo.feature.notes
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
@@ -71,9 +73,8 @@ class NotesScreenTest {
         archivedAt = epoch,
     )
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
-    fun swipeable_note_card_shows_title() = runDesktopComposeUiTest {
+    fun swipeable_note_card_shows_title() = runIsolatedComposeTest {
         val note = sampleNote("n1", "Meeting Notes", "Discuss **Q4 goals** with the team")
 
         setContent {
@@ -92,9 +93,8 @@ class NotesScreenTest {
         onNodeWithTag(TestTags.noteItem("n1"), useUnmergedTree = true).assertExists()
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
-    fun folder_note_card_renders() = runDesktopComposeUiTest {
+    fun folder_note_card_renders() = runIsolatedComposeTest {
         val folderNote = sampleFolderNote("n2", "Work Folder")
 
         setContent {
@@ -113,9 +113,8 @@ class NotesScreenTest {
         onNodeWithTag(TestTags.noteItem("n2"), useUnmergedTree = true).assertExists()
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
-    fun archived_note_card_renders() = runDesktopComposeUiTest {
+    fun archived_note_card_renders() = runIsolatedComposeTest {
         val archivedNote = sampleArchivedNote("n3", "Old Note")
 
         setContent {

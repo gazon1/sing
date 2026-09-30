@@ -23,8 +23,9 @@ import kotlin.test.fail
  * post-mortem debugging significantly harder.
  *
  * This is not hypothetical. `NotesScreenTest` and `TagsRenameUiTest` were
- * confirmed to call `runDesktopComposeUiTest` directly; both were written before
- * `DesktopAppHarness` existed.
+ * confirmed to call `runDesktopComposeUiTest` directly during the ultron-ideas
+ * epic; both were written before `DesktopAppHarness` existed and have since been
+ * migrated to `IsolatedComposeTest`.
  *
  * ## The fix
  *
@@ -66,12 +67,6 @@ class DesktopTestHarnessEnforcementTest {
      * Format: `fileName` to `reason`.
      */
     private val allowedBypassFiles = mapOf(
-        "NotesScreenTest.kt" to
-            "migration to IsolatedComposeTest planned in phase 2 — " +
-            "pure presentational tests, no Koin needed",
-        "TagsRenameUiTest.kt" to
-            "migration to IsolatedComposeTest planned in phase 2 — " +
-            "pure presentational tests, no Koin needed",
         "MenuBarTest.kt" to
             "smoke tests: no real AWT Frame in test, harness would add " +
             "FailureBundle machinery with no actionable output. " +
