@@ -15,56 +15,24 @@ already performed. "Looks wrong" is not an entry.
 **Found in:** MR-1 (`feat/desktop-compose-ui-v2`), bisecting the open question in
 `2026-09-30-desktop-compose-ui-flow-tests.md`.
 
-**Symptom:** an undated task is written successfully — `observeAll()` returns
-it — while the desktop agenda renders "No tasks", and stays empty across a tab
-switch that recreates the ViewModel.
+**Status: RESOLVED.** See `2026-09-30-nodate-fix.md`.
 
-**Already ruled out:**
+**Root cause:** `ProfileAwareCurrentUser._scopedUserId` was initialized to
+`UserId.anonymous` before the `combine().collect` fired. In the test harness,
+`seedTask()` ran before the collector fired, getting `UserId.anonymous` and
+orphaning the task. In production the window is microseconds and harmless; in
+tests it was large enough to cause a visible failure.
 
-- *Wrong preset* — `AgendaPresets.Inbox` declares a "No Date" section; only
-  `Today` does not, and the failing test opened Inbox.
-- *Domain / matcher* — `AgendaNoDateRegressionTest` is green: an undated active
-  task lands in Inbox → No Date with the right badge, in exactly one section.
-- *The 1970 sentinel* — `RelativeBucket.NoDate` maps to
-  `DateRange(1970-01-01, 1970-01-01)`, but `SelectorMatcher` special-cases the
-  bucket with a direct `task.dueDate == null` branch and never uses the range.
-  Reading the enum mapping instead of the matcher is what sent the first
-  hypothesis at the wrong layer.
+**Fix:** Seed `_scopedUserId` synchronously from `currentUser.userId.value`
+and `profileRepository.activeProfileId.value` (both `StateFlow`, both already
+seeded). Also change `FakeAuthRepository` default from `UserId.anonymous` to
+`TestUsers.DEFAULT` so the fake is consistent.
 
-**Try next, in this order:**
-
-1. **Step 2 — Fake ⇄ Room contract.** Add to `FakeRepositoryFidelityTest` the
-   comparison that actually discriminates: `observeAll()` (the path that was
-   seen to work) against `observeByFilter(TaskFilter.All)` (the path
-   `AgendaViewModel` actually uses). Both run on `watchActive`, so they should
-   agree; if they do not, the break is in the repository or the DAO rather than
-   above it.
-2. **Step 3 — ViewModel.** `AgendaViewModel` combines `todayFlow()` with
-   `observeByFilter`. Drive it directly with `runCurrent()` (not
-   `advanceUntilIdle()`). Green 1–2 plus red 3 localises the break to that
-   combine.
-3. **Step 4 — uid.** Only if 1–3 are green and the desktop flow is still red.
-   The specific suspicion is `ProfileAwareCurrentUser.scopedUserId` being
-   `MutableStateFlow(UserId.anonymous)` updated from a collector — an `anonymous`
-   placeholder that a real value races, which is the same shape as the
-   "orphans anything written in that window" note in
-   `2026-09-30-desktop-compose-ui-flow-tests.md`. If confirmed, fix the source
-   (seed the value synchronously, or introduce `sealed UserScope { Resolving;
-   Ready(id) }`) — **not** a fallback StateFlow alongside the existing one, which
-   duplicates state. This affects Android cold start too, so it needs its own
-   ADR.
-
-**Do not** close this as "known issue" while the layers above the domain are
-unexonerated. The bisect's own rule: "everything green" is not a diagnosis, and
-the desktop symptom must be reproduced in a second full-suite run before it is
-attributed to the harness.
-
-**Product question, unanswered and cheap to settle:** does a task with a
-`startDate` but no `dueDate` count as "No Date"? Schema v16 added start/end
-dates and no ADR states the semantic. The rule currently lives twice —
-`Selector.DateBucket.NoDate` and `AgendaEvaluator.computeBadge` both test
-`dueDate == null` alone. Both should route through a single
-`TaskComputed.hasNoDate` so the answer can be given once.
+**Product question (still open):** does a task with `startDate` but no `dueDate`
+count as "No Date"? Schema v16 added start/end dates and no ADR states the
+semantic. The rule lives in two places — `Selector.DateBucket.NoDate` and
+`AgendaEvaluator.computeBadge` — and should route through a single
+`TaskComputed.hasNoDate`. Filed as a follow-up (not blocking).
 
 ---
 
