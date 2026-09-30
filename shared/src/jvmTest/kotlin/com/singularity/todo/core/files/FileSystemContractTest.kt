@@ -73,8 +73,13 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
     @Test
     fun `ensureDir is idempotent`() = runTest {
         val dir = "/tmp/contract-test-${System.nanoTime()}"
+        // Asserting after *both* calls is what makes this a test of idempotence
+        // rather than of "ensureDir creates a directory". Without the assertion
+        // it passed even if ensureDir were an empty function, because nothing in
+        // the test observed the result.
         sut.ensureDir(dir)
-        sut.ensureDir(dir) // no-op second call
+        sut.ensureDir(dir)
+        assertTrue(sut.exists(dir), "ensureDir did not leave the directory behind")
     }
 
     @Test

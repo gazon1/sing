@@ -78,7 +78,7 @@ when (sheet) {
 
 This replaces the pattern of one `remember { mutableStateOf<Sheet?>(null) }` per sheet, which is a well-known source of stale-cast bugs when casting `state as? Loaded`.
 
-See `singularity-todo-task-detail-ux` for the full `ActiveSheet` example in `feature/tasks/ActiveSheet.kt`.
+See `singularity-todo-task-detail-ux` for the full `ActiveSheet` example in `feature/projects/presentation/components/ActiveSheet.kt`.
 
 ## Inline Edit Pattern (Debounced)
 
@@ -187,7 +187,7 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 ## Worked Examples
 
 - **Task:** `feature/tasks/TaskDetailScreen.kt` + `TaskDetailViewModel.kt` (reference implementation)
-- **Project:** `feature/projects/ProjectDetailScreen.kt` (target after rework)
+- **Project:** `feature/projects/presentation/screen/ProjectDetailScreen.kt` (target after rework)
 
 ## Relationship to Other Skills
 

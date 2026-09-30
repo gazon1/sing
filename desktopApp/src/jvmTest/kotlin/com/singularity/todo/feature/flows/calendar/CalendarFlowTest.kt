@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.awaitAnyDisplayed
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.datetime.LocalDate
@@ -47,12 +48,17 @@ class CalendarFlowTest {
         tapTab("Calendar")
 
         // The month view is a pager that also composes the neighbouring months,
-        // and those pad with leading/trailing days — so a date near the end of
-        // the month (today, the 30th) legitimately matches two cells, one of them
-        // on the off-screen next-month page. Index 0 is the cell on screen.
+        // and those pad with leading/trailing days — so a date near *either*
+        // edge of the month matches two cells: the 30th pads into the next
+        // month's page, the 1st into the previous one. Which match is index 0
+        // follows the pager's composition order, not what is on screen, and
+        // silently flips over at midnight on the 1st — this test passed on
+        // September 30th and failed on October 1st for exactly that reason.
+        // The intent is "the day has an addressable, visible cell", so assert
+        // that some matching cell is on screen instead of pinning an index.
         val midMonth = LocalDate(today.year, today.month, 15)
-        onAllNodesWithTag(TestTags.calendarDay(midMonth.toString()))[0].assertIsDisplayed()
-        onAllNodesWithTag(TestTags.calendarDay(today.toString()))[0].assertIsDisplayed()
+        awaitAnyDisplayed(TestTags.calendarDay(midMonth.toString()))
+        awaitAnyDisplayed(TestTags.calendarDay(today.toString()))
     }
 
     @Test

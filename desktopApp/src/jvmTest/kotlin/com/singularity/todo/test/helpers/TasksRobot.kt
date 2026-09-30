@@ -60,7 +60,17 @@ class TasksRobot(
             dueDate = due,
             completed = completed,
         )
+        ++seeded
+        // The seed is the precondition, so verify it landed before any UI
+        // assertion can run. Without this, a failed flow reads as "the screen
+        // does not render the task" when the repository never received it —
+        // two different bugs with one useless message. This is the MR-2
+        // layer-assertion convention, applied at the only place every
+        // robot-based flow passes through.
+        assertSeeded(koin, expected = seeded)
     }
+
+    private var seeded = 0
 
     /**
      * An undated task, on purpose.
@@ -71,6 +81,7 @@ class TasksRobot(
      */
     suspend fun givenUndated(title: String = "Buy milk"): TasksRobot = apply {
         koin.seedTask(id = nextId(), title = title, dueDate = null)
+        assertSeeded(koin, expected = ++seeded)
     }
 
     /** Asserts the task is rendered in the agenda, waiting for the list to settle. */
