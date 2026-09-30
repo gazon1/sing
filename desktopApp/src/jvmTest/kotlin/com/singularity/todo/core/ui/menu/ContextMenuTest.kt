@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTestApi::class)
+
 package com.singularity.todo.core.ui.menu
 
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -27,7 +29,6 @@ class ContextMenuTest {
         item("delete", "Delete", danger = true) {}
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun context_menu_host_with_null_state_renders_nothing() = runDesktopComposeUiTest {
         setContent {
@@ -40,7 +41,6 @@ class ContextMenuTest {
         // null state = hidden; no UI rendered.
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun context_menu_host_with_open_state_does_not_crash() = runDesktopComposeUiTest {
         setContent {
@@ -53,7 +53,6 @@ class ContextMenuTest {
         // Smoke test: verifies no crash when menu is open.
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun context_menu_host_with_empty_entries_does_not_crash() = runDesktopComposeUiTest {
         setContent {
@@ -65,7 +64,6 @@ class ContextMenuTest {
         }
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun context_menu_host_with_nested_submenus_does_not_crash() = runDesktopComposeUiTest {
         val nested = buildMenuNodes {

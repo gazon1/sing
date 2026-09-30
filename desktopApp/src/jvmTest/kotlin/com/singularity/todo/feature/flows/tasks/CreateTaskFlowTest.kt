@@ -136,7 +136,7 @@ class CreateTaskFlowTest {
         }.exceptionOrNull()
 
         // The harness re-throws after adding the bundle as suppressed.
-        val message = (thrown as? Throwable)?.message ?: ""
+        val message = thrown?.message ?: ""
 
         // Tag-explainer fires on timeout
         assert(message.contains("nonexistent-tag-for-positive-control")) {
