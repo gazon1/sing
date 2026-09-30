@@ -129,7 +129,7 @@ AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
 ./gradlew :shared:jvmTest               # быстрая проверка
 ./gradlew :androidApp:assembleDebug     # полная Android сборка
 ./gradlew :desktopApp:run               # Desktop (headless: xvfb-run -a)
-./gradlew :desktopApp:jvmTest           # Desktop JVM UI test
+./gradlew :desktopApp:test              # Desktop Compose UI tests (задача `test`, не `jvmTest`)
 
 just lint              # detekt (shared + desktopApp), enforcing
 just detekt-fix        # auto-fix detekt + ktlint in-place
@@ -159,7 +159,7 @@ timestamps — `kotlin.time.Instant`; business errors → `isError:true`, intern
 
 **Android:** `mcp__android_emulator__android_{preflight,build_and_run,ui_status,screenshot,
 ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия,
-`android_logs` для крейшей. **Desktop:** `./gradlew :desktopApp:jvmTest` (быстро) или
+`android_logs` для крейшей. **Desktop:** `./gradlew :desktopApp:test` (быстро) или
 `xvfb-run -a ./gradlew :desktopApp:run`.
 
 **DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/`

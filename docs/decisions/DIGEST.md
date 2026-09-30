@@ -682,7 +682,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
 - All 593 existing tests continue to pass
 - All future tests that boot a platform (Robolectric, Android instrumented, screenshot) must be
-- _... and 28 more items_
+- _... and 32 more items_
 
 ### `ui`
 
@@ -1147,6 +1147,7 @@ _21 entries need attention._
 - `2026-09-30-repository-read-isolation` — mr, architecture, repository
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 - `2026-09-30-tech-debt-quick-wins` — tech-debt, mr-1, quick-wins, detekt, ktlint, kotlin
+- `2026-09-30-test-infra-known-gaps` — testing, tech-debt, konsist, testtags, determinism
 
 ## Active entries
 
@@ -1492,4 +1493,5 @@ _21 entries need attention._
 - `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 - `2026-09-30-tech-debt-quick-wins` — MR-1: Quick Wins — механический техдолг batch
+- `2026-09-30-test-infra-known-gaps` — Test-infra ratchet: оставшиеся долги после MR-5
 

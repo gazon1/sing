@@ -117,6 +117,17 @@ class ArchitectureTest {
         private val LAYER_ALLOWLIST = setOf("feature/tasks/domain/usecase/CreateTaskFromDraft.kt")
 
         /**
+         * Files allowed to reach the filesystem from commonMain.
+         *
+         * `AdrTools` is the MCP `write_adr` tool: its whole job is to write a markdown
+         * file into `docs/decisions/`. Routing that through the user-facing FileSystem
+         * port would put a documentation write on the app's data path, so the direct
+         * access is the design, not an oversight (ADR 2026-09-26-konsist-architecture-tests,
+         * debt entry).
+         */
+        private val FILE_API_ALLOWLIST = setOf("feature/ai/tools/AdrTools.kt")
+
+        /**
          * DAO mutations that are intentionally not user-scoped, keyed by
          * `"<DaoName>.<method>"`. Every entry is a deliberate decision recorded in
          * `docs/decisions/2026-09-27-write-layer-soundness.md`; adding one without
@@ -229,10 +240,35 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `commonMain does not import java io File`() {
+    fun `commonMain does not use JVM file APIs`() {
+        // AGENTS.md ban #5 is "no java.io.File — go through the FileSystem port".
+        // The ban is on reaching the disk from shared code, so it covers the whole
+        // family rather than one class: `java.nio.file.Files` and `kotlin.io.path.*`
+        // hit the same disk without the port and used to slip past the narrower check.
+        //
+        // `java.io.IOException` is deliberately NOT covered — it is an exception type,
+        // not filesystem access, and four stores legitimately catch it around a
+        // DataStore/prefs read.
+        val bannedPrefixes = listOf("java.nio.file.", "kotlin.io.path.")
+        val bannedExact = listOf(
+            "java.io.File",
+            "java.io.FileInputStream",
+            "java.io.FileOutputStream",
+            "java.io.RandomAccessFile",
+        )
         val offenders = scope.files
-            .filter { file -> file.importFqns().any { it == "java.io.File" } }
-        assertNoOffenders(offenders, "use the FileSystem port instead of java.io.File (AGENTS.md ban #5)") { it.path }
+            .filterNot { file -> FILE_API_ALLOWLIST.any { file.path.replace('\\', '/').endsWith(it) } }
+            .filter { file ->
+                file.importFqns().any { fqn ->
+                    fqn in bannedExact || bannedPrefixes.any { fqn.startsWith(it) }
+                }
+            }
+        assertNoOffenders(
+            offenders,
+            "commonMain must not touch the filesystem directly — use the FileSystem port " +
+                "(AGENTS.md ban #5). A test-only helper that reads source files belongs in " +
+                "a test source set, not in commonMain.",
+        ) { it.path }
     }
 
     @Test

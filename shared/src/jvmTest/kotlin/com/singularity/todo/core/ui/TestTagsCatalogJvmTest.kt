@@ -24,7 +24,8 @@ import kotlin.test.assertTrue
  *   are used.
  *
  * - **Golden** (`TAGS.md`): the generated section of `Maestro/TAGS.md` must match
- *   what [TestTagsCatalog] produces. Run with `-Dupdate.goldens=true` to regenerate.
+ *   what [TestTagsCatalog] produces. Regenerate with
+ *   `./gradlew :shared:jvmTest -PupdateGoldens=true`.
  */
 class TestTagsCatalogJvmTest {
 
@@ -126,15 +127,15 @@ class TestTagsCatalogJvmTest {
     // ─── Golden TAGS.md comparison ─────────────────────────────────────────────
 
     /**
-     * Verifies the generated section of `Maestro/TAGS.md` (between
-     * `<!-- GENERATED:BEGIN -->` and `<!-- GENERATED:END -->`) is in sync with
-     * what [TestTagsCatalog] reports.
+     * Verifies the generated section of `Maestro/TAGS.md` (between the two
+     * `GENERATED` marker lines) is in sync with what [TestTagsCatalog] reports.
      *
-     * Run with `-Dupdate.goldens=true` to rewrite the generated section when the
-     * change is intentional (adding a new tag or function):
+     * Rewrite the generated section when the change is intentional — a new tag, a
+     * new dynamic function, or a new `TagsMd` classification:
      * ```
-     * ./gradlew :shared:jvmTest --tests "TagsMdGoldenTest" -Dupdate.goldens=true
+     * ./gradlew :shared:jvmTest -PupdateGoldens=true
      * ```
+     * Then re-run without the flag; the test must pass on a clean checkout.
      */
     @Test
     fun `generated section of TAGS md matches TestTags`() {
