@@ -1132,6 +1132,7 @@ _21 entries need attention._
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — testing, ui, draft-mvi, testtags, debuggability
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
+- `2026-09-30-mr-0-1-test-infra-ratchet-retro` — _untagged_
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — navigation, nav3, koin, viewmodel, desktop-compose
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
@@ -1476,6 +1477,7 @@ _21 entries need attention._
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — A save that throws must be visible, and a declared testTag must be applied
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
+- `2026-09-30-mr-0-1-test-infra-ratchet-retro` — _(no title)_
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — Nav3State: every tab needs rememberViewModelStoreNavEntryDecorator
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
