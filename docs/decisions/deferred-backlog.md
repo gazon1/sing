@@ -125,3 +125,52 @@ no snackbar to tag. The fix belongs in the flow, not in production code.
    `Maestro/scripts/check-tags.sh`, which validates *spelling* but not
    *existence*. Every regression-tagged flow is a candidate for the same class
    of rot.
+
+---
+
+## file-log-writer-and-log-exporter-are-never-installed
+
+**Found in:** MR-3, while implementing the plan's "severity per writer" step —
+which turned out to have no writers to configure.
+
+**Symptom:** `LogBootstrap.kt`'s KDoc states that both platforms "add
+`FileLogWriter` for persistent rolling logs", and that severity filtering is
+global (`Verbose` debug / `Warn` release). Neither `actual fun initLogging`
+implements the first half. `desktopApp`/`androidApp`/`SingularityApp` never
+mention `FileLogWriter` or `LogExporter`; neither symbol has a single call site
+outside its own file and its test.
+
+So **the app writes no logs to disk at all**, while documenting that it does.
+`FileLogWriter` is fully built — rolling files, size limit, rotation, a
+single-threaded `Dispatchers.IO` writer — and `FileLogWriterTest` covers it.
+That is the exact shape `find-unwired-surfaces.py` exists to catch: implemented,
+tested, never invoked.
+
+**Why the script did not flag it:** the detector recognises four shapes only —
+`screen`, `default-noop`, `di-binding`, `navigation`. A fully-implemented class
+wired to nothing is not among them. This is a gap in the script, not an
+exemption.
+
+**Try next:**
+
+1. Decide whether persistent logging is a requirement. ADR
+   `2026-09-26-observability-production` describes an export path, so the
+   answer is probably yes — but confirm before wiring, because adding a writer
+   that writes 20 MB of rotating files on every device is a product decision
+   (retention, opt-out, battery) and not a refactor.
+2. If yes: add `FileLogWriter` to both `actual fun initLogging` bodies and
+   `LogExporter` to whatever surface is meant to hand logs off (a share
+   intent? a settings screen? — grep finds no caller, so the trigger point has
+   to be identified; it may itself be missing).
+3. If no: delete `FileLogWriter`, `LogExporter` and `FileLogWriterTest`, and fix
+   the KDoc on `LogBootstrap` that promises them. Carrying a tested but unused
+   subsystem is worse than not having it: the next reader assumes the logs are
+   there.
+4. Either way, **fix the KDoc** — it currently describes behaviour that does not
+   exist, which is how this was missed for as long as it was.
+5. Widening `find-unwired-surfaces.py` to a fifth shape — a `LogWriter`
+   subclass with no `setLogWriters` call — is a natural companion fix.
+
+**Related:** the plan's own §6 assumed "in release there is already a
+`FileLogWriter` + `LogExporter`" and built on it. That assumption was wrong,
+which is why the step produced a finding instead of a change.

@@ -106,6 +106,23 @@ empty-blocks:
 # ---------------------------------------------------------------------------
 exceptions:
   active: true
+  # A caught exception that is neither logged nor rethrown is the silent-failure
+  # shape: the code recovers, continues, and leaves no trace of the error. The
+  # repo has already been bitten by one of these — DraftMviViewModel.save()
+  # re-enabled the button after a thrown persist() and the user saw a save that
+  # did nothing, with no error state and no log.
+  #
+  # Allowed: the `allowedExceptionNameRegex` covers CancellationException,
+  # which must be rethrown rather than reported; a catch that rethrows is not a
+  # finding either, and the rule is deliberately not extended to the coroutines
+  # ruleset, whose heuristics produced more noise than signal when trialled.
+  SwallowedException:
+    active: true
+    ignoredExceptionTypes:
+      - 'InterruptedException'
+      - 'MalformedURLException'
+      - 'NumberFormatException'
+      - 'ParseException'
   TooGenericExceptionCaught:
     active: true
     excludes:
