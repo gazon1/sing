@@ -175,3 +175,53 @@ answer down while it is fresh.
 - Crashlytics access for crash reports
 - Profile ID of the affected user
 - Version number of the affected release
+
+---
+
+# Debugging a failing test
+
+The section above assumes a production incident. This one is for "the test is red
+and I do not know why" — where there are no logs, because the failure is inside
+the test JVM.
+
+## The loop that works
+
+1. **Read the assertion message before the source.** Compose failures are precise
+   once you have the node list: "found '2' nodes that satisfy…" means an
+   ambiguity, "could not find any node" means the selector is wrong, and a
+   timeout means the value never arrived. These need three different responses.
+2. **Dump the tree; never guess a selector.** Guessed selectors are the single
+   largest source of wasted turns. Every desktop flow honours
+   `-Dsingularity.ui.dumpTree=true`, and the semantics tree lands in
+   `build/test-results/test/TEST-*.xml` between `=== SEMANTICS TREE ===` markers.
+   Anything you "know" is on screen from reading source is a guess.
+3. **Turn on verbose logging.** `-Dsingularity.test.log=true` routes Kermit to
+   stdout at `Verbose`. Kermit's default already writes, but the default
+   severity hides `Logger.d`/`Logger.v`, which is where repository and ViewModel
+   tracing lives.
+4. **Bisect across the layer boundary.** When the UI disagrees with the data,
+   resolve the repository directly from the harness's `Koin` and ask it what it
+   holds. "The repository returns the task and the screen shows none" is a
+   completely different investigation from "the repository returns nothing", and
+   guessing between them wastes the most time.
+5. **Distinguish "did not happen" from "did not render".** A missing node is
+   ambiguous between the two. Check the data layer before touching selectors.
+
+## Traps
+
+- **`-D` on the Gradle CLI configures the daemon, not the test JVM.** Opt-in test
+  switches need explicit forwarding in the test task config
+  (`desktopApp/build.gradle.kts` forwards `singularity.*`). Without it the flag
+  parses cleanly and does nothing, which reads as "the switch is broken".
+- **A test that passes alone and fails in the suite is shared state, not a bad
+  selector.** Check for process-global mutation before re-reading the test.
+- **Koin duplicate definitions resolve last-wins.** If a fake in a test module
+  seems ignored, the production module was probably loaded *after* it.
+- **"Repository is empty" can mean the write was scoped to a different user.**
+  `ProfileAwareCurrentUser.scopedUserId` is not stable at startup — check what it
+  is at write time and at read time before concluding anything.
+- **A disabled button makes `performClick` a silent no-op.** If a click "does
+  nothing", assert the enabled state before blaming the handler.
+- **A `try`/`finally` with no `catch` swallows exceptions.** A control the user
+  pressed that quietly does nothing usually means a throw escaped into the
+  coroutine scope. Look for a `catch` first, at the call site that can throw.

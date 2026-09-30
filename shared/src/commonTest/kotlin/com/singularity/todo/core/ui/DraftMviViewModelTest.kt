@@ -234,6 +234,57 @@ class DraftMviViewModelTest {
         assertFalse(vm.state.value.isSaving)
     }
 
+    /**
+     * Regression guard for the silent-failure mode this test class could not
+     * previously express: `persist` is a `suspend` function that an
+     * implementation may satisfy by *throwing* rather than by returning
+     * `Either.Left`.
+     *
+     * `save()` had `try { ... } finally { ... }` with no `catch`, so such a throw
+     * cancelled the save coroutine, the `finally` re-enabled the button, and the
+     * user saw a save that silently did nothing — no error state, no snackbar,
+     * no log. It was found while driving the real desktop editor through Compose
+     * UI tests, where the only symptom was a task that never appeared.
+     */
+    @Test
+    fun `save surfaces a thrown persist exception as an error`() = testVm {
+        val vm = testVm(
+            initialDraft = TestDraft(title = "Hello"),
+            persistBlock = { throw IllegalStateException("driver exploded") },
+        )
+        advanceTimeBy(20L)
+        runCurrent()
+
+        vm.save()
+        advanceTimeBy(50L)
+        runCurrent()
+
+        // The failure has to be visible. Before the fix this was null and the
+        // coroutine was simply gone.
+        assertNotNull(
+            vm.state.value.error,
+            "a thrown persist() must surface an error instead of vanishing",
+        )
+        assertFalse(vm.state.value.isSaving, "the save button must be re-enabled")
+    }
+
+    @Test
+    fun `save surfaces a thrown validate exception as an error`() = testVm {
+        val vm = testVm(
+            initialDraft = TestDraft(title = "Hello"),
+            validateBlock = { throw IllegalStateException("validator exploded") },
+        )
+        advanceTimeBy(20L)
+        runCurrent()
+
+        vm.save()
+        advanceTimeBy(50L)
+        runCurrent()
+
+        assertNotNull(vm.state.value.error)
+        assertFalse(vm.state.value.isSaving)
+    }
+
     @Test
     fun `save surfaces validation error`() = testVm {
         val vm = testVm(

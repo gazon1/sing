@@ -2,7 +2,7 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator

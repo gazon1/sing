@@ -1,7 +1,7 @@
 package com.singularity.todo.core.ui.menu
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import org.junit.Test
 
 /**

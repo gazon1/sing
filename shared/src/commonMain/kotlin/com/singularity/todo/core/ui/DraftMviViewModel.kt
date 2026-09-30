@@ -5,6 +5,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.toMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.debounce
@@ -142,7 +143,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     private fun pushUiState(includeValidationError: Boolean = true) {
         val current = draftState.value
-        val validationError = validate(current)
+        val validationError = safeValidate(current)
         updateState { state ->
             state.copy(
                 draft = current,
@@ -188,6 +189,25 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     /** Override to return a human-readable validation error, or null if valid. */
     protected abstract fun validate(draft: D): String?
 
+    /**
+     * [validate] as the base class calls it: an implementation that throws
+     * degrades to a validation error instead of escaping.
+     *
+     * `validate` is invoked from two places — from [pushUiState] on every
+     * keystroke, and from `save()`. Both are reachable from `onIntent`, which the
+     * UI calls directly, so a throwing validator used to propagate out of a text
+     * change and take the composition down rather than mark the draft invalid.
+     */
+    @Suppress("TooGenericExceptionCaught") // the point is to catch *anything* an open fun throws
+    private fun safeValidate(draft: D): String? = try {
+        validate(draft)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        logger.e(e) { "validate failed: ${e.toMessage()}" }
+        e.toMessage("Validation failed")
+    }
+
     /** Persist the draft. Return [Either.Right] on success, [Either.Left] on failure. */
     protected abstract suspend fun persist(draft: D): Either<AppError, Unit>
 
@@ -225,13 +245,14 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * autosave storage, calls [onSaved].
      * Guarded against concurrent calls (race condition prevention).
      */
+    @Suppress("TooGenericExceptionCaught") // a save must not lose the user's work silently
     open fun save() {
         if (currentState.isSaving) return
         updateState { it.copy(isSaving = true) }
         vmScope.launch {
             try {
                 val currentDraft = draftState.value
-                val validationError = validate(currentDraft)
+                val validationError = safeValidate(currentDraft)
                 if (validationError != null) {
                     updateState { it.copy(error = validationError, isSaving = false) }
                     return@launch
@@ -250,6 +271,18 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                         onSaved()
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // `validate` and `persist` are open functions an implementation
+                // may satisfy by throwing rather than by returning Either.Left.
+                // Without this the throw cancelled the save coroutine, `finally`
+                // re-enabled the button, and the save failed silently — no error
+                // state, no snackbar, no log. That is how a Compose UI test for
+                // the task editor presented: every assertion on the editor was
+                // green and the saved task simply never appeared.
+                logger.e(e) { "save failed: ${e.toMessage()}" }
+                updateState { it.copy(error = e.toMessage("Save failed")) }
             } finally {
                 updateState { it.copy(isSaving = false) }
             }
