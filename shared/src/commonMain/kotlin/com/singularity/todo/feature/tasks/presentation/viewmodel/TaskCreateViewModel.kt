@@ -111,20 +111,7 @@ class TaskCreateViewModel(
 
             is TaskCreateIntent.SetStartTime -> updateDraft { it.copy(startTime = intent.time) }
 
-            is TaskCreateIntent.SetEndDate -> updateDraft {
-                val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
-                it.copy(endDate = option)
-            }
-
-            is TaskCreateIntent.SetEndTime -> updateDraft { it.copy(endTime = intent.time) }
-
-            is TaskCreateIntent.SetAccentColor -> updateDraft { it.copy(accentColor = intent.color) }
-
-            is TaskCreateIntent.SetEmoji -> updateDraft { it.copy(emoji = intent.emoji) }
-
             TaskCreateIntent.SaveClicked -> save()
-
-            TaskCreateIntent.DiscardChanges -> discard()
 
             TaskCreateIntent.DismissError -> dismissError()
         }

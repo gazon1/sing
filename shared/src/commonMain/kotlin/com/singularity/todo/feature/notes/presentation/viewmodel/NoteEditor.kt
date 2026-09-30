@@ -183,31 +183,12 @@ class NoteEditor(
             is NotesEditorIntent.EditBody -> updateDraft { it.copy(html = intent.html, isDirty = true) }
             NotesEditorIntent.SaveNow -> save()
             NotesEditorIntent.Close -> closeEditor()
-            NotesEditorIntent.ImproveNote -> improveNote()
             is NotesEditorIntent.RunAiAction -> runAiAction(intent.action)
             NotesEditorIntent.DismissError -> dismissError()
         }
     }
 
     // ─── AI actions via launchDraftEffect ───────────────────────────────────
-
-    private fun improveNote() {
-        if (!ai.isAvailable) return
-        launchDraftEffect(
-            key = "ai-improve",
-            operation = { current: Editing -> ai.improve(current.title, current.html) },
-            onResult = { before, result ->
-                if (result is Improved) {
-                    before.copy(title = result.title, html = result.body, isDirty = true)
-                } else {
-                    null
-                }
-            },
-            onEvent = { result ->
-                NotesUiEvent.AiResult(formatNoteAiResult(result))
-            },
-        )
-    }
 
     private fun runAiAction(action: NoteAiAction) {
         if (!ai.isActionAvailable(action)) return

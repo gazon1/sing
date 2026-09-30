@@ -69,7 +69,6 @@ class BackupViewModel(
 
     override fun onIntent(intent: BackupIntent) {
         when (intent) {
-            is BackupIntent.Export -> vmScope.launch { runExport(intent.destPath) }
             BackupIntent.CreateBackup -> vmScope.launch { runCreateBackup() }
             is BackupIntent.Restore -> vmScope.launch { runRestore(intent.sourcePath) }
             is BackupIntent.Delete -> vmScope.launch { runDelete(intent.id) }
@@ -80,7 +79,8 @@ class BackupViewModel(
         }
     }
 
-    private suspend fun runExport(destPath: String) {
+    private suspend fun runCreateBackup() {
+        val destPath = backupFileNamer.nextBackupName(clock.now().toEpochMilliseconds())
         updateState { it.copy(isWorking = true) }
         repository.export(
             exportOptions {
@@ -108,11 +108,6 @@ class BackupViewModel(
                 updateState { it.copy(isWorking = false) }
                 emit(Error(e.message ?: "Export failed"))
             }
-    }
-
-    private suspend fun runCreateBackup() {
-        val ts = clock.now().toEpochMilliseconds()
-        runExport(backupFileNamer.nextBackupName(ts))
     }
 
     private suspend fun runRestore(sourcePath: String) {

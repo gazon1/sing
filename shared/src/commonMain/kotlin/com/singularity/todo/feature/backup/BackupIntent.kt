@@ -13,9 +13,6 @@ import com.singularity.todo.core.ui.MviIntent
  */
 sealed interface BackupIntent : MviIntent {
 
-    /** Export to an explicit path. */
-    data class Export(val destPath: String) : BackupIntent
-
     /** Export to a timestamped default path derived from the clock. */
     data object CreateBackup : BackupIntent
 

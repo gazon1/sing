@@ -25,9 +25,6 @@ sealed interface NotesEditorIntent : MviIntent {
     /** Close the editor, discarding any unsaved changes. */
     data object Close : NotesEditorIntent
 
-    /** Improve the current note with AI. */
-    data object ImproveNote : NotesEditorIntent
-
     /** Run a specific AI action. */
     data class RunAiAction(val action: NoteAiAction) : NotesEditorIntent
 

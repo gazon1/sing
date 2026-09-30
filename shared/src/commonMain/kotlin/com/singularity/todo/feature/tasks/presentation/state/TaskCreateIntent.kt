@@ -17,12 +17,7 @@ sealed interface TaskCreateIntent : MviIntent {
     data object DueDateCleared : TaskCreateIntent
     data class SetStartDate(val date: LocalDate?) : TaskCreateIntent
     data class SetStartTime(val time: LocalTime?) : TaskCreateIntent
-    data class SetEndDate(val date: LocalDate?) : TaskCreateIntent
-    data class SetEndTime(val time: LocalTime?) : TaskCreateIntent
-    data class SetAccentColor(val color: Long?) : TaskCreateIntent
-    data class SetEmoji(val emoji: String?) : TaskCreateIntent
     data object SaveClicked : TaskCreateIntent
-    data object DiscardChanges : TaskCreateIntent
 
     /** Clear the current inline / snackbar error emitted via [TaskCreateUiState.error]. */
     data object DismissError : TaskCreateIntent
