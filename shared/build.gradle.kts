@@ -293,6 +293,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "commonMain.root",
         layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
     )
+    // Absolute path to desktopApp jvmTest sources for DesktopTestHarnessEnforcementTest.
+    systemProperty(
+        "desktopAppJvmTest.root",
+        layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
+    )
     // Enable TAGS.md golden regeneration:
     //   ./gradlew :shared:jvmTest -PupdateGoldens=true
     if (project.findProperty("updateGoldens")?.toString() == "true") {
