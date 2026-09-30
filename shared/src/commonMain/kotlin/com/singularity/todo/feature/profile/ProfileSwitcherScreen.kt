@@ -73,7 +73,11 @@ fun ProfileSwitcherScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileSwitcherContent(viewModel: ProfileSwitcherViewModel, modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
+private fun ProfileSwitcherContent(
+    viewModel: ProfileSwitcherViewModel,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
+) {
     val state by viewModel.state.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }

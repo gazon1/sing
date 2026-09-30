@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.core.log
 
 import co.touchlab.kermit.LogWriter

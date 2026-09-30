@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.Session

@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.auth.Session
@@ -43,6 +45,7 @@ class TagGroupReadIsolationTest {
     private fun repository(db: FakeAppDatabase) = TagGroupRepositoryImpl(
         tagGroupDao = db.tagGroupDao(),
         inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+        tagDao = db.tagDao(),
         clock = Clock.System,
         currentUser = FakeProfileAwareCurrentUser(
             authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),

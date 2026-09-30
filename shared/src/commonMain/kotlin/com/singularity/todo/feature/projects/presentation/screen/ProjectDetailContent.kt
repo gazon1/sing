@@ -1,3 +1,8 @@
+// The composable reads the current time only to render relative "edited 5m ago"
+// labels; it performs no time-dependent state transition, so there is nothing to
+// inject or test. NoDirectClockSystem exemption, same shape as the other screens.
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.projects.presentation.screen
 
 import androidx.compose.foundation.background

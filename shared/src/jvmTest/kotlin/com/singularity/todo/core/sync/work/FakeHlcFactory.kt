@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.core.sync.work
 
 import com.singularity.todo.core.auth.SessionStore

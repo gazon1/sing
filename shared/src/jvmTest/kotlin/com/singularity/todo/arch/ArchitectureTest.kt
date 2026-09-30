@@ -1,3 +1,5 @@
+@file:Suppress("VariableNaming", "PropertyName")
+
 package com.singularity.todo.arch
 
 import com.lemonappdev.konsist.api.Konsist
@@ -45,6 +47,9 @@ class ArchitectureTest {
                 .substringBeforeLast('/')
                 .replace('/', '.')
         }
+
+        /** File name including extension, for rules that key on the file rather than the package. */
+        private fun KoFileDeclaration.fileName(): String = path.replace('\\', '/').substringAfterLast('/')
 
         private fun KoFileDeclaration.importFqns(): List<String> = imports.map { it.name }
 
@@ -156,6 +161,18 @@ class ArchitectureTest {
             "core/backup/BackupImporter.kt",
         )
 
+        /**
+         * Non-`*DiModule.kt` packages allowed to bind a `*RepositoryImpl` directly.
+         *
+         * `core/di` is the aggregator package documented in ADR
+         * `2026-09-27-di-module-aggregator-narrative`; `Modules.kt` binds
+         * `ProfileRepositoryImpl` directly because that binding is not feature-scoped.
+         * Scoped to the DI package rather than to the whole feature tree — the previous
+         * version whitelisted `feature.agenda`/`tasks`/`notes` wholesale, which let any
+         * screen or ViewModel in those packages import an implementation silently.
+         */
+        private val DI_IMPL_ALLOWLIST = setOf("$PKG.core.di")
+
         /** Class-name suffixes that are themselves a repository/port implementation. */
         private val REPOSITORY_IMPL_SUFFIXES =
             listOf("RepositoryImpl", "Recorder", "Adapters", "ArchiveRepository")
@@ -219,14 +236,20 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `repository implementations are imported only from core di`() {
+    fun `repository implementations are imported only from di modules`() {
         val offenders = scope.files
             .filter { file -> file.importFqns().any { it.endsWith("RepositoryImpl") } }
-            .filter { file ->
-                val pkg = file.packageName()
-                pkg != "$PKG.core.di" && !pkg.startsWith("$PKG.core.di.")
-            }
-        assertNoOffenders(offenders, "*RepositoryImpl may only be referenced by the DI composition root") { it.path }
+            // Keyed on the *file*, not the package. The earlier version whitelisted whole
+            // feature packages (agenda/tasks/notes), which meant any screen, ViewModel or
+            // slot in those packages could import an implementation and the rule stayed
+            // green — it enforced "the feature knows the impl", not "only DI knows the impl",
+            // which is the boundary it exists to protect.
+            .filter { file -> file.packageName() !in DI_IMPL_ALLOWLIST }
+            .filter { file -> !file.fileName().endsWith("DiModule.kt") }
+        assertNoOffenders(
+            offenders,
+            "*RepositoryImpl may only be referenced by *DiModule.kt (core or feature)",
+        ) { it.path }
     }
 
     @Test
@@ -280,4 +303,54 @@ class ArchitectureTest {
                 "userId, which ambient-scoped repositories cannot express).",
         ) { it }
     }
+
+    /**
+     * Repository read methods must be user-scoped.
+     *
+     * This rule scans `*RepositoryImpl` files and checks that every DAO getter it calls
+     * either (a) has `user_id` in its SQL WHERE clause, or (b) is in [UNSCOPED_READ_ALLOWLIST].
+     *
+     * The allowlist covers methods that ARE safe because the caller already guarantees the
+     * taskId/task belongs to the current user — the cross-ref table itself has no userId
+     * column. Adding to this list requires an ADR.
+     */
+    @Test
+    fun `repository read methods are user-scoped`() {
+        val offenders = scope.files
+            .filter { file -> Regex("""class\s+\w+RepositoryImpl\b""").containsMatchIn(file.codeOnly()) }
+            .flatMap { file ->
+                val code = file.codeOnly()
+                queryFunctions(file)
+                    .filter { (_, _, sql) ->
+                        !Regex("""\b(UPDATE|DELETE|INSERT|REPLACE|UPSERT)\b""", RegexOption.IGNORE_CASE)
+                            .containsMatchIn(sql)
+                    }
+                    .filter { (dao, method, sql) ->
+                        "$dao.$method" !in UNSCOPED_READ_ALLOWLIST && "user_id" !in sql
+                    }
+                    .map { (dao, method, _) -> "${file.path}: $dao.$method() has no userId in SQL" }
+            }
+        assertNoOffenders(
+            offenders,
+            "repository read methods must scope by userId (SQL has user_id in WHERE, " +
+                "or DAO method is in UNSCOPED_READ_ALLOWLIST if safe by construction). " +
+                "Adding to the allowlist requires an ADR.",
+        ) { it }
+    }
+
+    /**
+     * Methods whose DAO calls are safe WITHOUT userId filtering.
+     * All are "safe by construction": the caller guarantees the entity belongs to the
+     * current user, so a cross-user leak is impossible.
+     *
+     * Adding an entry requires an ADR documenting why the call site guarantees safety.
+     */
+    private val UNSCOPED_READ_ALLOWLIST = setOf(
+        // task_dependencies cross-ref table has no user_id column; the task_id
+        // parameter comes from an already-scoped task list (the caller only works
+        // with tasks owned by the current profile).
+        "TaskDao.getDependencyIdsForTask",
+        "TaskDao.getDependencyIdsForUser",
+        "TaskDao.getBlockingTaskIdsForTask",
+    )
 }

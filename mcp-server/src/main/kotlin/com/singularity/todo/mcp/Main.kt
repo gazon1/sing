@@ -16,6 +16,7 @@ import io.ktor.utils.io.asSink
 import io.ktor.utils.io.asSource
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.streams.asByteWriteChannel
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
@@ -25,6 +26,8 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import java.io.File
 import java.io.OutputStreamWriter
+
+private val log = Logger.withTag("Main")
 
 /**
  * MCP server entry point for the Singularity Todo CLI.
@@ -48,7 +51,7 @@ import java.io.OutputStreamWriter
  *                                       └─ runBlocking { done.join() } — holds JVM up
  *                                          until the client closes stdin (EOF).
  *
- * Diagnostic logging goes to stderr; stdout is reserved for JSON-RPC frames.
+ * All diagnostic logging uses kermit [log]; stdout is reserved for JSON-RPC frames.
  */
 fun main(args: Array<String>): Unit = runBlocking {
     val profileId = args.parseProfileArg()
@@ -61,7 +64,7 @@ fun main(args: Array<String>): Unit = runBlocking {
     // under the AI Agent's UUID instead of Personal's.
     bootstrapProfiles(profileId)
 
-    System.err.println("singularity-todo MCP server started")
+    log.i { "singularity-todo MCP server started" }
 
     val server = buildServer()
     installShutdownHook(server)
@@ -89,8 +92,7 @@ private fun bootstrapKoin(profileId: String?): Boolean = try {
     }
     true
 } catch (e: Throwable) {
-    System.err.println("singularity-todo MCP server: Koin initialization failed: ${e.message}")
-    e.printStackTrace(System.err)
+    log.e(e) { "Koin initialization failed: ${e.message}" }
     writeJsonRpcError(code = -32000, message = "Koin initialization failed: ${e.message}")
     false
 }
@@ -103,8 +105,7 @@ private suspend fun verifyDatabase(): Boolean = try {
     GlobalContext.get().get<AppDatabase>().profileDao().count()
     true
 } catch (e: Throwable) {
-    System.err.println("singularity-todo MCP server: Database initialization failed: ${e.message}")
-    e.printStackTrace(System.err)
+    log.e(e) { "Database initialization failed: ${e.message}" }
     writeJsonRpcError(code = -32001, message = "Database initialization failed: ${e.message}")
     false
 }
@@ -148,7 +149,7 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
             )
         }
     } catch (e: Throwable) {
-        System.err.println("singularity-todo MCP server: profile bootstrap failed: ${e.message}")
+        log.e(e) { "Profile bootstrap failed: ${e.message}" }
         // Non-fatal: the rest of the server can still operate against the
         // personal/default profile.
     }
@@ -182,12 +183,12 @@ private fun retromigrateRowsToAgentScope(profileId: String, localUserId: String,
         // before/after by another route, but for the bootstrap we just trust
         // the operation succeeded if exit was 0.
         if (proc.exitValue() == 0) {
-            System.err.println("singularity-todo MCP server: retro-migrated rows to AI Agent scope ($dbPath)")
+            log.i { "Retro-migrated rows to AI Agent scope ($dbPath)" }
         } else {
-            System.err.println("singularity-todo MCP server: retro-migrate failed: $out")
+            log.w { "Retro-migrate failed: $out" }
         }
     } catch (e: Throwable) {
-        System.err.println("singularity-todo MCP server: sqlite3 unavailable for retro-migration: ${e.message}")
+        log.w { "sqlite3 unavailable for retro-migration: ${e.message}" }
     }
 }
 

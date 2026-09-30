@@ -1,16 +1,18 @@
-package com.singularity.todo.feature.search
+package com.singularity.todo.feature.search.data
 
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 
 class InternalLinkRepositoryImpl(
     private val noteDao: NoteDao,
     private val taskDao: TaskDao,
-    private val currentUser: com.singularity.todo.feature.profile.ProfileAwareCurrentUser,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : InternalLinkRepository {
 
     override suspend fun searchNotes(query: String): List<Note> {

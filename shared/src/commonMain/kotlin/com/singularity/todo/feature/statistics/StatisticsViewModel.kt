@@ -1,6 +1,9 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -42,13 +45,16 @@ class StatisticsViewModel(
                 .map { tasks ->
                     val nowMs = clock.now()
                         .toEpochMilliseconds()
-                    val completed = tasks.filter { it.completedAt != null }
-                        .map { it.id.value to it.completedAt!!.toEpochMilliseconds() }
-                    val overdue = tasks.filter { it.dueDate != null && it.completedAt == null }
-                        .map { task ->
-                            val dueEpoch = task.dueDate!!.toEpochDays() * 86_400_000L
-                            task.id.value to dueEpoch
+                    val completed = tasks.mapNotNull { task ->
+                        task.completedAt?.let { completedAt ->
+                            task.id.value to completedAt.toEpochMilliseconds()
                         }
+                    }
+                    val overdue = tasks.mapNotNull { task ->
+                        task.dueDate?.takeIf { task.completedAt == null }?.let { dueDate ->
+                            task.id.value to (dueDate.toEpochDays() * TimeConstants.MILLIS_PER_DAY)
+                        }
+                    }
                     StatisticsUiState(
                         snapshot = computeStatistics(completed, overdue, nowMs, 7),
                         loading = false,

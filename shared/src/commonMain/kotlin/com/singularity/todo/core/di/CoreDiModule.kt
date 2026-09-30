@@ -53,7 +53,7 @@ import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.ProjectRemindersRepositoryImpl
 import com.singularity.todo.feature.reminders.ReminderRepository
-import com.singularity.todo.feature.reminders.RoomReminderRepository
+import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.factoryOf
@@ -115,7 +115,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     factoryOf(::AttachmentStorage)
 
-    single<ReminderRepository> { RoomReminderRepository(get(), get(), get()) }
+    single<ReminderRepository> { ReminderRepositoryImpl(get(), get(), get()) }
     single<ProjectRemindersRepository> { ProjectRemindersRepositoryImpl(get(), get(), get()) }
 
     // ─── Ports ───────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
-    factory<IdGenerator> { UlidIdGenerator }
+    single<IdGenerator> { UlidIdGenerator }
 
     single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 

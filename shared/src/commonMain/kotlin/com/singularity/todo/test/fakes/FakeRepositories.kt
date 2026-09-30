@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.AuthRepository
@@ -270,6 +272,10 @@ internal class InMemoryTaskDao : TaskDao {
 
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
         _deps.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
+
+    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> = error(
+        "not implemented",
+    )
 
     override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
         _deps.update { current ->
@@ -1839,7 +1845,7 @@ private fun extractUserId(session: Session): UserId = when (session) {
 
 /**
  * Fake [SavedAgendaViewsRepository] backed by a reactive [MutableStateFlow].
- * Unlike the production [RoomSavedAgendaViewsRepository], this implementation
+ * Unlike the production [SavedAgendaViewsRepositoryImpl], this implementation
  * replays the current state on every subscription — suitable for unit tests.
  */
 class FakeSavedAgendaViewsRepository(

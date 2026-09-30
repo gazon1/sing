@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.agenda.data
 
 import com.singularity.todo.core.database.AgendaViewDao
@@ -15,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
-class RoomSavedAgendaViewsRepository(
+class SavedAgendaViewsRepositoryImpl(
     private val agendaViewDao: AgendaViewDao,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock = Clock.System,

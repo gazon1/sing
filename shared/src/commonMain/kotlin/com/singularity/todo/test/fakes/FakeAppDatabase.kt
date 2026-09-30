@@ -385,6 +385,15 @@ private class FakeTaskDao(
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
         depRefs.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
 
+    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        combine(depRefs, store) { refs, tasks ->
+            if (tasks[taskId]?.userId != userId) {
+                emptyList()
+            } else {
+                refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId }
+            }
+        }
+
     override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
         depRefs.update { existing ->
             if (existing.any { it.taskId == ref.taskId && it.dependsOnTaskId == ref.dependsOnTaskId }) {
@@ -717,6 +726,15 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
 
     override suspend fun listAllForUser(userId: String): List<TagEntity> =
         store.value.values.filter { it.userId == userId }
+
+    override suspend fun listByGroupForUser(groupId: String, userId: String): List<TagEntity> =
+        store.value.values.filter { it.groupId == groupId && it.userId == userId && it.deletedAt == null }
+
+    override suspend fun clearGroupForUser(groupId: String, ts: Long, userId: String): Int {
+        val members = listByGroupForUser(groupId, userId)
+        members.forEach { mutate(it.id) { tag -> tag.copy(groupId = null, updatedAt = ts) } }
+        return members.size
+    }
 
     private fun mutate(id: String, fn: (TagEntity) -> TagEntity) {
         store.update { current ->
@@ -1249,4 +1267,14 @@ private class FakeProjectInheritedTagGroupDao(
 
     /** No projects table in this fake, so ownership cannot be evaluated. */
     override suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean = true
+
+    /**
+     * Mirrors the real DAO minus the `projects.user_id` sub-select — this fake holds
+     * only the join rows, so a group id is removed from every project that has it.
+     */
+    override suspend fun deleteByGroupForUser(tagGroupId: String, userId: String): Int {
+        val before = store.value.count { it.tagGroupId == tagGroupId }
+        store.update { list -> list.filter { it.tagGroupId != tagGroupId } }
+        return before
+    }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.testScope

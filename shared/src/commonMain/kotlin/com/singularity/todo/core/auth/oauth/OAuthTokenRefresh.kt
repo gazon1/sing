@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.core.auth.oauth
 
 import kotlinx.io.IOException

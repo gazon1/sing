@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import androidx.compose.runtime.Stable
@@ -92,8 +94,8 @@ sealed interface SavedAgendaViewState {
         val isSaving: Boolean = false,
         val decodeError: Boolean = false,
     ) : SavedAgendaViewState {
-        val canSave: Boolean get() = draft.initialized && !isSaving && draft.name.isNotBlank() && draft.isDirty &&
-            !decodeError
+        val canSave: Boolean get() = draft.initialized && !isSaving &&
+            draft.name.isNotBlank() && draft.isDirty && !decodeError
     }
 
     data object NotFound : SavedAgendaViewState
@@ -236,7 +238,12 @@ class SavedAgendaViewModel(
             val now = deps.clock.now()
             when (mode) {
                 is SavedAgendaScreenMode.Edit -> {
-                    val updated = SavedAgendaViewFactory.update(current.view!!, nameToSave, sectionsJson, now)
+                    val updated = SavedAgendaViewFactory.update(
+                        current.view ?: error("view must not be null when canSave is true"),
+                        nameToSave,
+                        sectionsJson,
+                        now,
+                    )
                     deps.repo.upsert(updated)
                         .fold(
                             onSuccess = {

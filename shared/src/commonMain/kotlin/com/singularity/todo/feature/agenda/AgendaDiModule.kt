@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.feature.agenda.data.RoomSavedAgendaViewsRepository
+import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaDeps
@@ -35,7 +35,7 @@ import kotlin.time.Clock
 fun agendaModule(): Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<SavedAgendaViewsRepository> { RoomSavedAgendaViewsRepository(get(), get(), get()) }
+    single<SavedAgendaViewsRepository> { SavedAgendaViewsRepositoryImpl(get(), get(), get()) }
 
     // ─── Seed store for SavedAgenda Create ────────────────────────────────
 
@@ -71,7 +71,7 @@ fun agendaModule(): Module = module {
         SavedAgendaViewModel(
             deps = SavedAgendaDeps(
                 repo = get(),
-                clock = Clock.System,
+                clock = get<Clock>(),
                 log = Logger.withTag("SavedAgenda"),
             ),
             mode = mode,

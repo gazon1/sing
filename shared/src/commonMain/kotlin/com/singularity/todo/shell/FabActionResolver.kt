@@ -15,14 +15,11 @@ data class FabAction(val label: String, val onClick: () -> Unit)
 /**
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.
  *
- * Covers both:
- * - Modern [AppDestination.AgendaGraph] routes (Desktop shell)
- * - Deprecated [AppDestination.Inbox]/[AppDestination.Today] singletons (Android shell)
- *
- * The `@Suppress("DEPRECATION")` allows Android shell to continue using deprecated singletons
- * without compiler warnings, since those routes are still the primary navigation targets on Android.
+ * Covers modern [AppDestination.AgendaGraph] and [AppDestination.ProjectsGraph] routes.
+ * The deprecated singletons [AppDestination.Inbox]/[AppDestination.Today] were removed in MR-3
+ * (they were dead-code entry registrations that were never reached at runtime — the shell
+ * uses AgendaGraph routes instead).
  */
-@Suppress("DEPRECATION")
 internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination) -> Unit): FabAction? =
     when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
@@ -43,14 +40,6 @@ internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination
                 onClick = { navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor())) },
             )
         }
-
-        // ── Deprecated singletons (Android shell) ───────────────────────────────
-        AppDestination.Inbox,
-        AppDestination.Today,
-        -> FabAction(
-            label = "Add task",
-            onClick = { navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create)) },
-        )
 
         AppDestination.Plans -> FabAction(
             label = "Add project",

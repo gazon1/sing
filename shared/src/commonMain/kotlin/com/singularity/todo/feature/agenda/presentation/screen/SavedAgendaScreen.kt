@@ -89,7 +89,7 @@ fun SavedAgendaScreen(
     val mode: SavedAgendaScreenMode = if (viewId != null) {
         SavedAgendaScreenMode.Edit(viewId)
     } else {
-        SavedAgendaScreenMode.Create(seed!!)
+        SavedAgendaScreenMode.Create(seed ?: error("seed is required when creating a new saved agenda view"))
     }
 
     val viewModel: SavedAgendaViewModel = koinViewModel { parametersOf(mode) }

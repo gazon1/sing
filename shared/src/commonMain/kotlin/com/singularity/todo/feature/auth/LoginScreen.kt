@@ -88,10 +88,11 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             singleLine = true,
         )
 
-        if (errorMessage != null) {
+        val capturedError = errorMessage
+        if (capturedError != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = errorMessage!!,
+                text = capturedError,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),

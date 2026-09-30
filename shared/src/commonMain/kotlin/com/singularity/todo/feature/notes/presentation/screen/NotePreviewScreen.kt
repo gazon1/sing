@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.foundation.background
@@ -58,6 +60,7 @@ import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.LinkSchemes
@@ -429,9 +432,9 @@ private fun formatRelativeShort(updatedAt: Instant): String {
     val diffMs = now.toEpochMilliseconds() - updatedAt.toEpochMilliseconds()
     return when {
         diffMs < 60_000 -> "Just now"
-        diffMs < 3_600_000 -> "${diffMs / 60_000}m ago"
-        diffMs < 86_400_000 -> "${diffMs / 3_600_000}h ago"
-        else -> "${diffMs / 86_400_000}d ago"
+        diffMs < TimeConstants.MILLIS_PER_HOUR -> "${diffMs / 60_000}m ago"
+        diffMs < TimeConstants.MILLIS_PER_DAY -> "${diffMs / TimeConstants.MILLIS_PER_HOUR}h ago"
+        else -> "${diffMs / TimeConstants.MILLIS_PER_DAY}d ago"
     }
 }
 

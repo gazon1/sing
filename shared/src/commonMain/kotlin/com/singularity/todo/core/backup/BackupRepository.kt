@@ -1,13 +1,13 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Repository for local backup management and remote backup push/pull.
@@ -56,7 +56,7 @@ class BackupRepositoryImpl(
     override fun observeAll(): Flow<List<BackupMetadata>> = flow {
         while (currentCoroutineContext().isActive) {
             emit(scanBackups())
-            delay(5_000.milliseconds)
+            delay(TimeConstants.BackupRefreshIntervalMs)
         }
     }
 

@@ -1,3 +1,5 @@
+@file:Suppress("NoDirectClockSystem")
+
 package com.singularity.todo.core.observability
 
 import com.singularity.todo.core.database.DailyUsageRow
@@ -5,6 +7,7 @@ import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.ModelUsageRow
 import com.singularity.todo.core.database.ToolUsageRow
+import com.singularity.todo.core.platform.TimeConstants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
@@ -46,7 +49,7 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
         }
 
     fun observeByDay(profileId: String, days: Int = 30): Flow<List<DailyUsage>> {
-        val sinceEpochMs = clock.now().toEpochMilliseconds() - (days.toLong() * 86_400_000)
+        val sinceEpochMs = clock.now().toEpochMilliseconds() - (days.toLong() * TimeConstants.MILLIS_PER_DAY)
         return llmUsageDao.observeByDay(profileId, sinceEpochMs).map { rows ->
             rows.map { it.toDailyUsage() }
         }
@@ -61,7 +64,7 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
     }
 
     suspend fun prune(olderThanDays: Int = 90) {
-        val cutoff = clock.now().toEpochMilliseconds() - (olderThanDays.toLong() * 86_400_000)
+        val cutoff = clock.now().toEpochMilliseconds() - (olderThanDays.toLong() * TimeConstants.MILLIS_PER_DAY)
         llmUsageDao.pruneOlderThan(cutoff)
     }
 
