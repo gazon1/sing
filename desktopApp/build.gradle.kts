@@ -25,6 +25,8 @@ sourceSets {
             // tests mount the production App() inside. :shared declares koin-compose
             // as `implementation`, so it is not visible transitively here.
             implementation(libs.koin.compose)
+            // Date arithmetic in the calendar flows. Same reason as koin-compose.
+            implementation(libs.kotlinx.datetime)
             implementation(libs.junit4)
             implementation(libs.junit.vintage.engine)
             implementation(libs.kotlin.test.junit5)
@@ -100,7 +102,10 @@ detekt {
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     useJUnitPlatform {
-        // Jupiter parallel execution — see Phase 5 plan note in shared/build.gradle.kts.
+        // Desktop UI tests mount the whole production App(). The graph is built
+        // per test from testPlatformModule() — FakeAppDatabase plus inert ports —
+        // so no test reads or writes ~/.singularity-todo and no test mutates a
+        // process-global property, which is what made parallel execution safe.
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")
         systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")

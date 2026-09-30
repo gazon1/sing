@@ -4,9 +4,12 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 
 /** Generous upper bound; real transitions settle in well under a second. */
@@ -85,6 +88,25 @@ fun DesktopComposeUiTest.openDrawer() {
 fun DesktopComposeUiTest.assertCurrentTab(label: String) {
     onNode(drawerEntry(label))
         .assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
+}
+
+/**
+ * Waits until a node with [tag] exists, then returns a handle to it.
+ *
+ * Saving is asynchronous — the editor writes through a repository scope and the
+ * list re-emits from a Room flow — so a click issued straight after a save
+ * button lands before the row is in the tree and fails with "could not find any
+ * node". Use this instead of a bare `onNodeWithTag` after any write.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction {
+    waitUntil(
+        conditionDescription = "node with testTag '$tag' appears",
+        timeoutMillis = TIMEOUT_MS,
+    ) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }
+    return onNodeWithTag(tag)
 }
 
 /**
