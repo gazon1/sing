@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTestApi::class)
+
 package com.singularity.todo.feature.tags
 
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -12,7 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import org.junit.Test
@@ -28,7 +30,6 @@ import kotlin.time.Instant
  *
  * Run with: ./gradlew :desktopApp:test
  */
-@OptIn(ExperimentalTestApi::class)
 class TagsRenameUiTest {
 
     private val testUserId = UserId("test-user")
@@ -45,7 +46,7 @@ class TagsRenameUiTest {
 
     @Test
     fun `tapping the pencil opens the rename dialog pre-filled with the current name`() =
-        runDesktopComposeUiTest {
+        runIsolatedComposeTest {
             setContent {
                 TagsScreen(
                     state = TagsUiState.Content(listOf(sampleTag("tg1", "work"))),
@@ -64,7 +65,7 @@ class TagsRenameUiTest {
         }
 
     @Test
-    fun `saving a new name reports the rename and closes the dialog`() = runDesktopComposeUiTest {
+    fun `saving a new name reports the rename and closes the dialog`() = runIsolatedComposeTest {
         var renamedTo: String? = null
         var renamedId: TagId? = null
         setContent {
@@ -90,7 +91,7 @@ class TagsRenameUiTest {
     }
 
     @Test
-    fun `a rename whose name is blank cannot be saved`() = runDesktopComposeUiTest {
+    fun `a rename whose name is blank cannot be saved`() = runIsolatedComposeTest {
         var renameCalls = 0
         setContent {
             TagsScreen(
@@ -111,7 +112,7 @@ class TagsRenameUiTest {
     }
 
     @Test
-    fun `the create dialog still says Create and starts empty`() = runDesktopComposeUiTest {
+    fun `the create dialog still says Create and starts empty`() = runIsolatedComposeTest {
         setContent {
             TagsScreen(
                 state = TagsUiState.Content(listOf(sampleTag("tg1", "work"))),

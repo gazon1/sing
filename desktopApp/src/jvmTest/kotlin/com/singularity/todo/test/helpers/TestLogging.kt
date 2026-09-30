@@ -7,6 +7,36 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 /**
+ * ## Available `singularity.*` system properties for desktop UI tests
+ *
+ * All properties are forwarded from the Gradle CLI to the forked test JVM via
+ * `desktopApp/build.gradle.kts` — a `-D` flag on the Gradle command line is
+ * silently ignored.
+ *
+ * | Property | Default | Effect |
+ * |---|---|---|
+ * | `singularity.test.log` | `false` | Routes Kermit to stdout at `Verbose` severity. All `Logger` calls (including `Logger.d { }`) appear in the test output under `<system-out>`. |
+ * | `singularity.ui.dumpTree` | `false` | Prints the semantics tree wrapped in `=== SEMANTICS TREE START/END ===` markers before every assertion in `DesktopAppBootTest`. |
+ *
+ * Example — enable logging for one test class:
+ * ```bash
+ * ./gradlew :desktopApp:test --tests '*CreateTaskFlowTest' -Dsingularity.test.log=true
+ * ```
+ *
+ * Example — dump semantics tree for a failing boot test:
+ * ```bash
+ * ./gradlew :desktopApp:test --tests '*DesktopAppBootTest' -Dsingularity.ui.dumpTree=true
+ * ```
+ *
+ * Forwarding is configured in `desktopApp/build.gradle.kts`:
+ * ```kotlin
+ * System.getProperties().stringPropertyNames()
+ *     .filter { it.startsWith("singularity.") }
+ *     .forEach { key -> systemProperty(key, System.getProperty(key)) }
+ * ```
+ */
+
+/**
  * System property that turns verbose Kermit output on for a desktop UI test run.
  *
  * `-Dsingularity.test.log=true` — every `Logger` call from `:shared`, including
