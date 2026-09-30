@@ -334,18 +334,19 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `logging`
 
+- **Order of `REDACTION_PATTERNS` is load-bearing.** Adding a new pattern
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`.
+- Android cannot flush on termination — `Application.onTerminate()` is never
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression).
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`.
-- No redaction layer added. Access tokens and profile IDs are not written to logs today. When they are, a `RedactingLogWriter` decorator must be added before this layer.
-- On Android, `logDirectory()` lazily resolves `Context` from Koin. The `Context` is available by the time the first log entry is written (after Koin starts), so this is safe.
+- Log files are local-only, so **a bug report from a user still cannot come
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected.
-- The `FileLogWriter` instance is **not** exposed via Koin — it is created inside `initLogging` and lives as a global. This is intentional: Kermit's `Logger` holds it, and we don't want DI to manage it.
-- `BuildConfig.DEBUG` requires `buildConfig = true` in `androidApp/build.gradle.kts`. No BuildConfig is available in `shared` jvm target.
-- `DebugInfo` uses `version: String` and `isDebug: Boolean` passed from the app entry point (Android: `BuildConfig`, JVM: Gradle property). No global `BuildConfig` in shared.
-- `LogExporter` **is** a Koin singleton (`single<LogExporter>`) so screens can `koinInject<LogExporter>()` for a "Send logs" button.
-- `RefineTaskTool.kt:34-38` has identical try and catch branches (copy-paste bug) — not fixed in this PR.
-- `initLogging` must be called **before** `startKoin` (unchanged from previous behavior).
+- Redaction is best-effort, not a guarantee — a credential in an unrecognised
+- Release builds write the same `Warn`-and-above stream as debug builds.
+- The `log-writer` form is a heuristic, not a proof. A writer stored in a
+- The generic `[JWT]` pattern is the safety net for a token that appears in no
+- The throwable path rebuilds the exception with a redacted `message` and keeps
+- _... and 7 more items_
 
 ### `maestro`
 
@@ -403,14 +404,14 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A detail-screen ViewModel that owns more than one repository observation should be a
 - A slot that is read-only and has no intent surface (the backlinks collector) is a plain
 - Any subclass relying on `error` persisting across unrelated edits will see it
+- Create now rejects what it used to accept. Names over 100 characters and
 - Do not add `StateStrategy.Atomic` or a `stateStrategy` parameter until a VM demonstrates a
 - Slot tests construct one slot and its own fakes. Share one test-dispatcher-backed
+- Tag renaming is reachable from Settings → Tags: the pencil on a card opens
 - The first `pushUiState()` is asynchronous, so `isSaveEnabled` / `isDirty` are
+- The rename path is a read-then-write without a transaction. Two renames of
 - When a new detekt rule is added, follow the three-step activation checklist: ServiceLoader
-- `FeatureSlot.state` is a `StateFlow`, not a `Flow` — the coordinator must be able to read a
-- `MviViewModel.updateState(transform: (S) -> S)` is non-suspending and stays that way. Use
-- `NoCombineSideEffectRule` is active in `config/detekt/detekt.yml` and fails the build. A
-- _... and 3 more items_
+- _... and 8 more items_
 
 ### `nav3`
 
@@ -800,8 +801,8 @@ _21 entries need attention._
 - `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-25
 - `2026-09-26-notes-clean-architecture-r21` — R21: Notes Clean Architecture — deferred
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
+- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
-- `2026-09-06-desktop-smoke-test-with-koin` — Desktop smoke test: Koin initialization pattern for Compose Multiplatform UI tests
 
 ## Index (slug -> tags)
 
@@ -970,7 +971,6 @@ _21 entries need attention._
 - `2026-09-23-billing-abstractions` — billing, subscriptions, monetization
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — _untagged_
 - `2026-09-23-deprecation-tech-debt` — technical-debt, deprecation, tests
-- `2026-09-23-file-logging-and-exporter` — logging, observability, android, jvm
 - `2026-09-23-genui-server-driven-ui` — _untagged_
 - `2026-09-23-ksp-missing-type-main-branch` — _untagged_
 - `2026-09-23-mcp-bootstrap-result-pattern` — mcp, profile, concurrency, bootstrap
@@ -1126,10 +1126,13 @@ _21 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
+- `2026-09-30-dead-code-deleted-and-oauth-kept` — logging, koin, kermit, debugging
 - `2026-09-30-desktop-compose-ui-flow-tests` — desktop, testing, compose, koin, ui-test
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — testing, ui, draft-mvi, testtags, debuggability
+- `2026-09-30-file-logging-wired` — logging, observability, android, jvm
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
+- `2026-09-30-log-redaction-pattern-ordering` — logging, koin, kermit, debugging
 - `2026-09-30-nodate-root-cause` — agenda, testing, debugging, bisect
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
@@ -1144,6 +1147,7 @@ _21 entries need attention._
 - `2026-09-30-repository-read-isolation` — mr, architecture, repository
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
 - `2026-09-30-similar-defects-inventory` — testing, audit, detekt, logging, fakes
+- `2026-09-30-tag-rename-and-validation` — mvi, compose, testing
 - `2026-09-30-tech-debt-quick-wins` — tech-debt, mr-1, quick-wins, detekt, ktlint, kotlin
 
 ## Active entries
@@ -1313,7 +1317,6 @@ _21 entries need attention._
 - `2026-09-23-billing-abstractions` — Billing abstractions: SubscriptionProvider port + Noop implementation
 - `2026-09-23-dead-currentuser-and-orphan-vm-cleanup` — Dead currentUser and orphan VM cleanup
 - `2026-09-23-deprecation-tech-debt` — Accumulated deprecation warnings and pre-existing test failures
-- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 - `2026-09-23-genui-server-driven-ui` — GenUI — Server-Driven UI via A2UI v0.9
 - `2026-09-23-ksp-missing-type-main-branch` — ADR: Pre-existing KSP Error in Main Branch
 - `2026-09-23-mcp-bootstrap-result-pattern` — ProfileBootstrapper returns an immutable result carrier — eliminates MCP race
@@ -1469,10 +1472,13 @@ _21 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
+- `2026-09-30-dead-code-deleted-and-oauth-kept` — MR-4 dead-code sweep: what was deleted, and three things that look deletable but are not
 - `2026-09-30-desktop-compose-ui-flow-tests` — Desktop Compose UI tests mount the real App() with an in-memory platform module
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-draft-save-failure-and-testtag-honesty` — A save that throws must be visible, and a declared testTag must be applied
+- `2026-09-30-file-logging-wired` — File logging is wired into both apps; export deferred
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
+- `2026-09-30-log-redaction-pattern-ordering` — Redaction patterns are order-dependent — specific before generic
 - `2026-09-30-nodate-root-cause` — NoDate bisect — the domain is sound; the break is above AgendaEvaluator
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
@@ -1487,5 +1493,6 @@ _21 entries need attention._
 - `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
 - `2026-09-30-similar-defects-inventory` — Inventory of the 'declared but inert' defect class, after verification
+- `2026-09-30-tag-rename-and-validation` — Tag rename, and validation that create and update share
 - `2026-09-30-tech-debt-quick-wins` — MR-1: Quick Wins — механический техдолг batch
 

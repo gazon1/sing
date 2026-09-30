@@ -94,23 +94,18 @@ change that should move the database too.
 
 - `FileLogWriter` is now exercised in production on both platforms, which is
   what surfaced the append-on-restart and counter-resume defects fixed in
-  `2026-09-30-post-mr-1-findings`.
-- **Android cannot flush on termination.** `Application.onTerminate()` is
-  never called on a real device, so the buffer is only flushed on the next
-  write or when the process is killed without further writes. This is an
-  Android platform limitation with no fix; the KDoc on the writer says so.
-  JVM is fine — the shutdown hook covers normal exit.
-- **Release builds write the same `Warn`-and-above stream to disk as debug
-  builds.** Severity filtering was deliberately not changed: 48 call sites are
-  currently considered safe to ship, and narrowing the filter is a
-  use-case-by-use-case review, not a flag flip.
-- Log files are local-only. There is no user-facing way to reach them, which
-  means **a bug report from a user still cannot come with a log attached.**
-  That is the user-visible gap this defers; it is tracked in
-  `deferred-backlog.md`.
-- Any future `LogWriter` subclass must be registered in exactly one of the two
-  `LogBootstrap` files or it will silently never receive output. The
-  `find-unwired-surfaces.py` script gained a form for this in MR-4.
+  `2026-09-30-post-mr-1-findings`. Any future `LogWriter` subclass must be
+  registered in one of the two `LogBootstrap` files or it silently receives
+  nothing; `find-unwired-surfaces.py` gained a form for this in MR-4.
+- Android cannot flush on termination — `Application.onTerminate()` is never
+  called on a real device, so the buffer survives only until the next write.
+  JVM is fine; the shutdown hook covers normal exit.
+- Release builds write the same `Warn`-and-above stream as debug builds.
+  Severity filtering was deliberately not changed: 48 call sites are currently
+  considered safe to ship, and narrowing that is a per-call-site review.
+- Log files are local-only, so **a bug report from a user still cannot come
+  with a log attached.** That is the user-visible gap this defers; it is
+  tracked in `deferred-backlog.md` as `log-export-has-no-surface`.
 
 ## Links
 

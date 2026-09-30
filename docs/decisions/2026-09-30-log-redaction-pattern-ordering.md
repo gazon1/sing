@@ -2,7 +2,7 @@
 title: "Redaction patterns are order-dependent — specific before generic"
 date: 2026-09-30
 status: accepted
-tags: [logging, security, kermit]
+tags: [logging, koin, kermit, debugging]
 ---
 
 ## Context
@@ -88,37 +88,30 @@ received. There is no second copy of the patterns to keep in sync.
 - **Order of `REDACTION_PATTERNS` is load-bearing.** Adding a new pattern
   means deciding where it goes; appending to the end is only correct if the
   pattern cannot overlap with one already in the list. The KDoc says so.
-- **A JWT-shaped token is redacted as `[JWT]` when no context matches** — the
-  generic pattern is the safety net, so removing it would be a regression even
-  though each contextual pattern works on its own.
-- **Minimum-length thresholds were lowered** (JWT segments 10→3, bearer/anonKey
-  20→10, sk- 20→16) so that short but structurally valid tokens in tests and
-  in error paths are caught. The JWT pattern remains the backstop, so a real
-  token is redacted regardless of length.
-- **Redaction is best-effort, not a guarantee.** A credential logged in a
-  non-standard shape (e.g. a raw `anonKey` value with no `anonKey=` label and
-  a non-`eyJ` prefix) is not caught. The decorator is a second line of
-  defence; call sites must still avoid interpolating secrets — see below.
-- **The throwable path rebuilds the exception** with a redacted `message`,
-  keeping the original as `cause`. Stack frames are preserved, but the
-  original throwable object is still reachable via `cause`, so a delegate that
-  walks the cause chain would see unredacted text. The two delegates in use
-  (`platformLogWriter`, `FileLogWriter`) do not.
+- The generic `[JWT]` pattern is the safety net for a token that appears in no
+  recognised context; removing it would be a regression. Minimum-length
+  thresholds were lowered (JWT segments 10→3, bearer/anonKey 20→10, sk- 20→16)
+  so short but structurally valid tokens are still caught.
+- Redaction is best-effort, not a guarantee — a credential in an unrecognised
+  shape passes through. Call sites must still avoid interpolating secrets.
+- The throwable path rebuilds the exception with a redacted `message` and keeps
+  the original as `cause`, so a delegate that walks the cause chain would see
+  unredacted text. Neither delegate in use does.
 
 ## Open items (non-critical, not fixed here)
 
-- **`SyncBootstrapper` still logs `event.entityId` on error/skip paths**
+- `SyncBootstrapper` still logs `event.entityId` on error/skip paths
   (lines 98, 111, 118, 143, 151) while the `applied`/`deleted` debug lines
   no longer do. Entity ids are UUIDs, not credentials, so this is not a
   redaction gap — but the asymmetry is unintentional and should be settled
   deliberately: either log the id everywhere (it is genuinely the most useful
   field when diagnosing a failed apply) or nowhere.
-- **Other call sites may still interpolate user content into log messages.**
+- Other call sites may still interpolate user content into log messages.
   `RedactingLogWriter` catches the credential shapes it knows about; it does
   not catch task titles, note bodies, or AI prompt fragments. `ChatViewModel`
   was fixed in this MR; a repo-wide sweep of `log.{d,i,w,e} { "...$var..." }`
   for user-derived values has not been done.
-- **No severity filtering change.** `Warn` and above still deliver in release,
+- No severity filtering change. `Warn` and above still deliver in release,
   so all 48 currently-safe call sites ship to the file writer. Fine today,
   but it means "the log file is redacted" is a claim about *patterns*, not
   about *what call sites print*.

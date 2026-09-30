@@ -2,7 +2,7 @@
 title: "Tag rename, and validation that create and update share"
 date: 2026-09-30
 status: accepted
-tags: [tags, validation, mvi, testing]
+tags: [mvi, compose, testing]
 ---
 
 ## Context
@@ -66,7 +66,7 @@ test asserts the error surfaces as `TagsUiEvent.ShowError`.
 
 - Tag renaming is reachable from Settings → Tags: the pencil on a card opens
   the dialog pre-filled with the current name and colour, and Save writes it.
-- **Create now rejects what it used to accept.** Names over 100 characters and
+- Create now rejects what it used to accept. Names over 100 characters and
   transparent colours (`ARGB=0`) were previously written. If any exist in a
   user's database they are *not* re-validated — the rule applies to new writes
   only, and re-validating existing rows was deliberately not done.
@@ -82,12 +82,12 @@ test asserts the error surfaces as `TagsUiEvent.ShowError`.
 
 ## Open items (non-critical, not fixed here)
 
-- **No duplicate-name check.** Two tags can be called "work"; only the id
+- No duplicate-name check. Two tags can be called "work"; only the id
   distinguishes them. Acceptable for now, but a tag picker listing by name
   becomes ambiguous.
-- **The rename is not undoable.** Delete is confirmable and rename is not; a
+- The rename is not undoable. Delete is confirmable and rename is not; a
   mis-typed name overwrites the old one with no way back.
-- **Other write paths may still bypass `TagDomain`.** Sync applies remote
+- Other write paths may still bypass `TagDomain`. Sync applies remote
   events through `repo.upsert` and does not run these rules — deliberate,
   since rejecting a remote change would break replication, but it means the
   invariant is "locally created and locally renamed tags are valid", not

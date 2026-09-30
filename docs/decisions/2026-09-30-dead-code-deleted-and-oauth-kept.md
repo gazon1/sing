@@ -2,7 +2,7 @@
 title: "MR-4 dead-code sweep: what was deleted, and three things that look deletable but are not"
 date: 2026-09-30
 status: accepted
-tags: [tech-debt, dead-code, koin, observability]
+tags: [logging, koin, kermit, debugging]
 ---
 
 ## Context
@@ -64,13 +64,13 @@ Two things the first implementation of the check got wrong, both worth
 recording because they are the kind of bug that makes a linter worse than
 nothing:
 
-- **A naive `setLogWriters\s*\(([^)]*)\)` regex reads only the first
+- A naive `setLogWriters\s*\(([^)]*)\)` regex reads only the first
   argument.** The arguments are themselves constructor calls, so `[^)]*`
   stops at the `)` of `RedactingLogWriter(ColorizedWriter()` and every
   argument after it is invisible. The check then reported `FileLogWriter` —
   which *is* wired, via the second argument — as unwired. Fixed by matching
   the balanced parenthesis run in `set_log_writers_args()`.
-- **A writer can be registered through a local alias.** Both `LogBootstrap`
+- A writer can be registered through a local alias. Both `LogBootstrap`
   files do `val fileWriter = FileLogWriter(dir)` and then
   `setLogWriters(..., fileWriter)`, because the JVM one needs the reference
   for its shutdown hook. Matching only inline constructor calls misses this.
@@ -99,7 +99,7 @@ both this use case and, below, an entire file.
   implementations of the same interface in the same feature. Only one was
   bound. This is the most dangerous shape in the list — a reader would
   reasonably assume the class next to the interface is the one in use.
-- **`core/auth/oauth/OAuth.kt` is an entirely unwired file, not just the two
+- `core/auth/oauth/OAuth.kt` is an entirely unwired file, not just the two
   symbols the plan named.** `OAuthConfig`, `OAuthResult`, `OAuthTokenData`,
   and `toOAuthTokenData` have zero references outside the file — no VM, no
   repository, no test, no Koin binding. Only `TokenError` and

@@ -130,6 +130,21 @@ no snackbar to tag. The fix belongs in the flow, not in production code.
 
 ## file-log-writer-and-log-exporter-are-never-installed
 
+**Status: RESOLVED** by the logging epic (MR-1 … MR-5, 2026-09-30). The writer
+is installed on both platforms, `LogExporter` and `LoggerHolder` were deleted
+as dead ports, and the fifth script form (`log-writer`) now catches a
+`LogWriter` that never reaches `setLogWriters`. See
+`2026-09-30-file-logging-wired.md` and
+`2026-09-30-dead-code-deleted-and-oauth-kept.md`.
+
+What remains from this entry is item (1) of the original "try next" list, which
+was a product question rather than a refactor: **logs still have no way to
+leave the device.** See `log-export-has-no-surface` below.
+
+**Original entry follows.**
+
+---
+
 **Found in:** MR-3, while implementing the plan's "severity per writer" step —
 which turned out to have no writers to configure.
 
@@ -174,3 +189,78 @@ exemption.
 **Related:** the plan's own §6 assumed "in release there is already a
 `FileLogWriter` + `LogExporter`" and built on it. That assumption was wrong,
 which is why the step produced a finding instead of a change.
+
+---
+
+## log-export-has-no-surface
+
+**Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
+deleted instead of implemented.
+
+**Symptom:** file logging works on both platforms, so a developer can now read
+logs off a device — but a *user* cannot. There is no way to attach logs to a
+bug report, which is the reason `FileLogWriter` was originally wanted
+(`2026-09-23`).
+
+**Already ruled out:** not a wiring bug. `LogExporter` had no implementations
+and no consumers, so there was nothing to re-wire — the surface itself does
+not exist.
+
+**Try next, in this order:**
+
+1. Decide the trigger surface first. A "Share logs" row in Settings →
+   Developer/Debug is the obvious one; grep for what Settings already has
+   before assuming.
+2. Only then write the port. Android wants `ACTION_SEND` with a `FileProvider`
+   over the log directory; desktop wants a copy-to-timestamped-dir plus
+   clipboard. Two implementations, one interface — the shape
+   `2026-09-23` already specified and that was correctly not built speculatively.
+3. Re-check redaction at that point. `RedactingLogWriter` scrubs credentials
+   from what is *written*, and the same writers produce the file, so an export
+   carries the same guarantees — but an export leaves the device, so a
+   deliberate review of what the file contains is warranted before shipping
+   it.
+
+---
+
+## bulk-task-operations-have-no-ui
+
+**Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
+the deletion list and was **kept** — see the note below.
+
+**Symptom:** `bulkComplete(ids)` and `bulkDelete(ids)` are implemented, unit
+tested, and Koin-bound, but no ViewModel injects the use case. There is no
+multi-select in the task list, so the atomicity guarantee those methods exist
+to provide is never exercised in the running app.
+
+**Already ruled out:** not dead code. `2026-09-05-refactoring-summary` created
+the use case by collapsing five pass-through use cases, and
+`2026-09-07-dogfooding-followups` stripped it back while keeping exactly these
+two methods because they enforce fail-fast atomicity the repositories do not.
+Six tests cover it. Deleting it would have reverted a deliberate decision.
+
+**Try next:** this is a product gap, not a refactor. When multi-select lands,
+`TaskMutationsUseCase` is already the correct entry point — wire it rather
+than writing a second implementation beside it. Settle the design questions
+first (selection model, confirm step, partial-failure UX for a batch where
+some ids vanished).
+
+---
+
+## core-auth-oauth-is-entirely-unwired
+
+**Found in:** MR-4. The plan listed two dead symbols in
+`core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
+
+**Symptom:** `OAuthConfig`, `OAuthResult`, `OAuthTokenData` and
+`toOAuthTokenData` have zero references outside their own file — no ViewModel,
+no repository, no test, no Koin binding. `TokenError` and `RedirectState` were
+deleted in MR-4; the rest was left alone.
+
+**Already ruled out:** not reachable through reflection, DI or a route — it is
+plain Kotlin with no registration anywhere.
+
+**Try next:** decide whether Supabase OAuth is still planned. If yes, the file
+is a reasonable starting skeleton. If no, delete the remaining 90 lines. A
+dead-code sweep should not make the product decision either way, which is why
+MR-4 stopped at the two symbols it was asked to remove.
