@@ -682,7 +682,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All future tests that boot a platform (Robolectric, Android instrumented, screenshot) must be
 - All link-related string literals in the notes feature must use `LinkSchemes.NOTE_PREFIX` / `LinkSchemes.TASK_PREFIX`. No raw `"note://"` in `feature/notes/`.
 - All new tests that need to verify failure paths use `XxxOverride = Result.failure(...)` on the appropriate fake.
-- _... and 24 more items_
+- _... and 28 more items_
 
 ### `ui`
 
@@ -1143,6 +1143,7 @@ _21 entries need attention._
 - `2026-09-30-repository-naming-and-package-convention` — mr, repository, naming-convention
 - `2026-09-30-repository-read-isolation` — mr, architecture, repository
 - `2026-09-30-section-reorder-via-buttons` — agenda, ui, a11y, gap
+- `2026-09-30-similar-defects-inventory` — testing, audit, detekt, logging, fakes
 - `2026-09-30-tech-debt-quick-wins` — tech-debt, mr-1, quick-wins, detekt, ktlint, kotlin
 
 ## Active entries
@@ -1485,5 +1486,6 @@ _21 entries need attention._
 - `2026-09-30-repository-naming-and-package-convention` — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
 - `2026-09-30-section-reorder-via-buttons` — Section reordering ships as buttons, not the drag handle that was drawn
+- `2026-09-30-similar-defects-inventory` — Inventory of the 'declared but inert' defect class, after verification
 - `2026-09-30-tech-debt-quick-wins` — MR-1: Quick Wins — механический техдолг batch
 
