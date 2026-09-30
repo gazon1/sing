@@ -84,8 +84,10 @@ class AttachmentRepositoryImpl(
     }
 
     override suspend fun create(attachment: Attachment): Result<Attachment> = runCatching {
-        dao.upsert(attachment.toEntity())
-        attachment
+        // Stamp with the current user so a caller cannot inject attachments on behalf of another user.
+        val owned = attachment.copy(userId = currentUser.scopedUserId.value)
+        dao.upsert(owned.toEntity())
+        owned
     }
 
     override suspend fun delete(id: AttachmentId): Result<Unit> = runCatching {
