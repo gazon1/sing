@@ -230,19 +230,19 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `desktop`
 
+- **Open: undated tasks do not render in the agenda.** A task written through the
 - 23 of 28 context menu items are wired to `actions.onDismiss()` — future iterations wire the
+- 30 tests across seven flow suites plus the boot checkpoint, all green.
 - Agenda context menu: Pin, Delete, Expand, Complete are functional.
 - Desktop chrome is a 240 dp left rail, VSCode/JetBrains-style. Width is explicit, not derived from drawer measurements.
 - Every `NavDestination` entry has an `icon` field. When adding a new entry, pick an icon from `androidx.compose.material.icons.Filled` or `Icons.AutoMirrored.Filled`.
 - Hover delay (300ms) on submenus via `LaunchedEffect(isHovered) { delay(300); onOpenSubMenu() }`.
 - Menu bar appears in OS-native window chrome on all three desktop platforms.
-- Navigation interaction tests (click-to-navigate) are out of scope for this smoke test — they require handling NavBackStackEntry lifecycle in `runDesktopComposeUiTest`
+- Not covered: Roborazzi snapshots on desktop, navigation lifecycle beyond what
 - Right-click context menu works again on task rows in the agenda.
-- Smoke test now passes: `./gradlew :desktopApp:test` → BUILD SUCCESSFUL
+- The three pre-existing desktop tests were moved to
 - `AgendaDeps` extension for AI actions is the next step for AI menu items.
-- `ContextMenuOpenState` data class in `jvmMain/core/ui/menu/` holds the screen `DpOffset`.
-- `DesktopShellNav3.kt` owns `showAbout` state and `menuEntries` — natural location since
-- _... and 9 more items_
+- _... and 10 more items_
 
 ### `detekt`
 
@@ -801,6 +801,7 @@ _21 entries need attention._
 - `2026-09-26-notes-clean-architecture-r21` — R21: Notes Clean Architecture — deferred
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
+- `2026-09-06-desktop-smoke-test-with-koin` — Desktop smoke test: Koin initialization pattern for Compose Multiplatform UI tests
 
 ## Index (slug -> tags)
 
@@ -821,7 +822,6 @@ _21 entries need attention._
 - `2026-09-06-compose-multiplatform-1.12.0-bump` — compose, gradle, build
 - `2026-09-06-compose-previews` — compose, preview, ui
 - `2026-09-06-desktop-sidebar-replaces-permanent-drawer` — desktop, compose, ui, navigation
-- `2026-09-06-desktop-smoke-test-with-koin` — desktop, testing, compose, koin, ui-test
 - `2026-09-06-di-module-split` — di, koin, architecture
 - `2026-09-06-kermit-logging-setup` — logging, koin, kermit, debugging
 - `2026-09-06-koin-bridge-audit` — koin, di, coroutines
@@ -1126,6 +1126,7 @@ _21 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
+- `2026-09-30-desktop-compose-ui-flow-tests` — desktop, testing, compose, koin, ui-test
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
@@ -1161,7 +1162,6 @@ _21 entries need attention._
 - `2026-09-06-compose-multiplatform-1.12.0-bump` — Bump Compose Multiplatform plugin and libs to 1.12.0
 - `2026-09-06-compose-previews` — Add @Preview to all screens and widgets via shared PreviewSamples
 - `2026-09-06-desktop-sidebar-replaces-permanent-drawer` — Desktop: replace PermanentNavigationDrawer with explicit Row+Sidebar rail
-- `2026-09-06-desktop-smoke-test-with-koin` — Desktop smoke test: Koin initialization pattern for Compose Multiplatform UI tests
 - `2026-09-06-di-module-split` — DI module split: one monolith → 7 feature modules
 - `2026-09-06-kermit-logging-setup` — Kermit logging: Koin-injected Logger, per-class tags, ANSI colors on JVM
 - `2026-09-06-koin-bridge-audit` — Koin bridge audit: all usages correct, no raw runBlocking in module blocks
@@ -1466,6 +1466,7 @@ _21 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
+- `2026-09-30-desktop-compose-ui-flow-tests` — Desktop Compose UI tests mount the real App() with an in-memory platform module
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
