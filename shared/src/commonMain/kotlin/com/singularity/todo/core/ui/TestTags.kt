@@ -126,6 +126,9 @@ object TestTags {
     const val TAGS_LIST = "tags_list"
     const val TAGS_FAB = "tags_fab"
 
+    /** Dynamic tag of the form `tag_rename_<slug>` — the pencil on a tag card. */
+    fun tagRename(tagName: String) = "tag_rename_${slug(tagName)}"
+
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"

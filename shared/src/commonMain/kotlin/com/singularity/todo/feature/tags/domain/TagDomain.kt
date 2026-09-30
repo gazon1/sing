@@ -26,4 +26,15 @@ object TagDomain {
         color == 0 -> AppError.Validation("Color cannot be transparent (ARGB=0)")
         else -> null
     }
+
+    /**
+     * Runs every tag write-rule, returning the first violation.
+     *
+     * Create and update must agree on what a valid tag is — otherwise a value
+     * the create path rejects becomes reachable later through a rename. Both
+     * use cases call this, so the rule lives in exactly one place.
+     *
+     * @return null if valid, the first error otherwise.
+     */
+    fun validate(name: String, color: Int): AppError.Validation? = validateName(name) ?: validateColor(color)
 }
