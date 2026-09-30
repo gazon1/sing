@@ -125,134 +125,25 @@ class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val p
         when (c) {
             is Condition.HasText -> ctx.addText(c.text)
 
-            is Condition.HasStatus -> {
-                val status = c.status
-                ctx.addPostFilter { task ->
-                    when (status) {
-                        TaskStatus.Active -> task.completedAt == null
-                        TaskStatus.Completed -> task.completedAt != null
-                        TaskStatus.All -> true
-                    }
-                }
-            }
+            is Condition.HasStatus -> handleHasStatus(c, ctx)
 
-            is Condition.HasPriority -> {
-                ctx.addPostFilter { task -> task.priority == c.priority }
-            }
+            is Condition.HasPriority -> ctx.addPostFilter { task -> task.priority == c.priority }
 
-            is Condition.HasTag -> {
-                val entity = tagLookup.findByName(ctx.userId, c.tagName)
-                if (entity != null) {
-                    ctx.resolvedTagIds.add(entity.id)
-                    // Always add post-filter — DAO filter used when !hasNegation, else post-filter
-                    ctx.addPostFilter { task ->
-                        task.tags.any { it.value == entity.id }
-                    }
-                } else {
-                    ctx.unknownTagNames.add(c.tagName)
-                    // No tasks can match an unknown tag → always-fail filter
-                    ctx.addPostFilter { false }
-                }
-            }
+            is Condition.HasTag -> handleHasTag(c, ctx)
 
-            is Condition.HasAllTags -> {
-                val ids = mutableSetOf<String>()
-                for (tagName in c.tagNames) {
-                    val entity = tagLookup.findByName(ctx.userId, tagName)
-                    if (entity != null) {
-                        ids.add(entity.id)
-                    } else {
-                        ctx.unknownTagNames.add(tagName)
-                    }
-                }
-                if (ids.isNotEmpty()) {
-                    ctx.resolvedTagIds.addAll(ids)
-                    // Always add post-filter
-                    ctx.addPostFilter { task ->
-                        ids.all { id -> task.tags.any { it.value == id } }
-                    }
-                } else if (c.tagNames.isNotEmpty()) {
-                    // All tag names are unknown → no tasks can match
-                    ctx.addPostFilter { false }
-                }
-            }
+            is Condition.HasAllTags -> handleHasAllTags(c, ctx)
 
-            is Condition.InProject -> {
-                val entity = projectLookup.findByName(ctx.userId, c.name)
-                if (entity != null) {
-                    ctx.resolvedProjectId = entity.id
-                    // Always add post-filter
-                    ctx.addPostFilter { task -> task.projectId?.value == entity.id }
-                } else {
-                    ctx.unknownProjectNames.add(c.name)
-                    ctx.addPostFilter { false }
-                }
-            }
+            is Condition.InProject -> handleInProject(c, ctx)
 
-            is Condition.Due -> {
-                if (!c.interval.isNone) {
-                    val today = todayInSystemZone()
-                    val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
-                    val range = computeDateRange(c.relation, targetDate)
-                    if (range != null) {
-                        ctx.dateRange = range
-                    }
-                }
-                // Due date can't be expressed in DAO (only ByDateRange for scheduled date)
-                // Post-filter by exact date when interval is precise
-                if (!c.interval.isNone && c.relation == Relation.EQ) {
-                    val today = todayInSystemZone()
-                    val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
-                    ctx.addPostFilter { task ->
-                        task.dueDate == targetDate
-                    }
-                } else if (!c.interval.isNone) {
-                    val today = todayInSystemZone()
-                    val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
-                    ctx.addPostFilter { task ->
-                        val due = task.dueDate ?: return@addPostFilter false
-                        when (c.relation) {
-                            Relation.LT -> due < targetDate
-                            Relation.LE -> due <= targetDate
-                            Relation.GT -> due > targetDate
-                            Relation.GE -> due >= targetDate
-                            Relation.EQ -> due == targetDate
-                            Relation.NE -> due != targetDate
-                        }
-                    }
-                }
-            }
+            is Condition.Due -> handleDue(c, ctx)
 
-            is Condition.Scheduled -> {
-                // Scheduled date is not stored separately in our model — treat as dueDate
-                if (!c.interval.isNone) {
-                    val today = todayInSystemZone()
-                    val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
-                    ctx.addPostFilter { task ->
-                        val due = task.dueDate ?: return@addPostFilter false
-                        when (c.relation) {
-                            Relation.LT -> due < targetDate
-                            Relation.LE -> due <= targetDate
-                            Relation.GT -> due > targetDate
-                            Relation.GE -> due >= targetDate
-                            Relation.EQ -> due == targetDate
-                            Relation.NE -> due != targetDate
-                        }
-                    }
-                }
-            }
+            is Condition.Scheduled -> handleScheduled(c, ctx)
 
-            is Condition.HasDescription -> {
-                ctx.addPostFilter { task -> !task.description.isNullOrBlank() }
-            }
+            is Condition.HasDescription -> ctx.addPostFilter { task -> !task.description.isNullOrBlank() }
 
-            is Condition.IsPinned -> {
-                ctx.addPostFilter { task -> task.isPinned }
-            }
+            is Condition.IsPinned -> ctx.addPostFilter { task -> task.isPinned }
 
-            is Condition.IsArchived -> {
-                ctx.addPostFilter { task -> task.archivedAt != null }
-            }
+            is Condition.IsArchived -> ctx.addPostFilter { task -> task.archivedAt != null }
 
             is Condition.Not -> {
                 ctx.negationDepth++
@@ -267,13 +158,110 @@ class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val p
             }
 
             is Condition.Or -> {
-                // OR can't be expressed in DAO (DAO only has AND via multiple filters)
-                // → all parts go to post-filter; mark OR so we combine with ANY semantics
                 for (part in c.parts) {
                     resolveCondition(part, ctx)
                 }
                 ctx.isOrPostFilter = true
                 ctx.needsPostFilter = true
+            }
+        }
+    }
+
+    private suspend fun handleHasStatus(c: Condition.HasStatus, ctx: ResolveContext) {
+        val status = c.status
+        ctx.addPostFilter { task ->
+            when (status) {
+                TaskStatus.Active -> task.completedAt == null
+                TaskStatus.Completed -> task.completedAt != null
+                TaskStatus.All -> true
+            }
+        }
+    }
+
+    private suspend fun handleHasTag(c: Condition.HasTag, ctx: ResolveContext) {
+        val entity = tagLookup.findByName(ctx.userId, c.tagName)
+        if (entity != null) {
+            ctx.resolvedTagIds.add(entity.id)
+            ctx.addPostFilter { task -> task.tags.any { it.value == entity.id } }
+        } else {
+            ctx.unknownTagNames.add(c.tagName)
+            ctx.addPostFilter { false }
+        }
+    }
+
+    private suspend fun handleHasAllTags(c: Condition.HasAllTags, ctx: ResolveContext) {
+        val ids = mutableSetOf<String>()
+        for (tagName in c.tagNames) {
+            val entity = tagLookup.findByName(ctx.userId, tagName)
+            if (entity != null) {
+                ids.add(entity.id)
+            } else {
+                ctx.unknownTagNames.add(tagName)
+            }
+        }
+        if (ids.isNotEmpty()) {
+            ctx.resolvedTagIds.addAll(ids)
+            ctx.addPostFilter { task -> ids.all { id -> task.tags.any { it.value == id } } }
+        } else if (c.tagNames.isNotEmpty()) {
+            ctx.addPostFilter { false }
+        }
+    }
+
+    private suspend fun handleInProject(c: Condition.InProject, ctx: ResolveContext) {
+        val entity = projectLookup.findByName(ctx.userId, c.name)
+        if (entity != null) {
+            ctx.resolvedProjectId = entity.id
+            ctx.addPostFilter { task -> task.projectId?.value == entity.id }
+        } else {
+            ctx.unknownProjectNames.add(c.name)
+            ctx.addPostFilter { false }
+        }
+    }
+
+    private fun handleDue(c: Condition.Due, ctx: ResolveContext) {
+        if (!c.interval.isNone) {
+            val today = todayInSystemZone()
+            val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
+            val range = computeDateRange(c.relation, targetDate)
+            if (range != null) {
+                ctx.dateRange = range
+            }
+        }
+        if (!c.interval.isNone && c.relation == Relation.EQ) {
+            val today = todayInSystemZone()
+            val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
+            ctx.addPostFilter { task -> task.dueDate == targetDate }
+        } else if (!c.interval.isNone) {
+            val today = todayInSystemZone()
+            val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
+            ctx.addPostFilter { task ->
+                val due = task.dueDate ?: return@addPostFilter false
+                when (c.relation) {
+                    Relation.LT -> due < targetDate
+                    Relation.LE -> due <= targetDate
+                    Relation.GT -> due > targetDate
+                    Relation.GE -> due >= targetDate
+                    Relation.EQ -> due == targetDate
+                    Relation.NE -> due != targetDate
+                }
+            }
+        }
+    }
+
+    private fun handleScheduled(c: Condition.Scheduled, ctx: ResolveContext) {
+        if (!c.interval.isNone) {
+            val today = todayInSystemZone()
+            val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
+            ctx.addPostFilter { task ->
+                val due = task.dueDate ?: return@addPostFilter false
+                when (c.relation) {
+                    Relation.LT -> due < targetDate
+                    Relation.LE -> due <= targetDate
+                    Relation.GT -> due > targetDate
+                    Relation.GE -> due >= targetDate
+                    Relation.EQ -> due == targetDate
+                    Relation.NE -> due != targetDate
+                }
             }
         }
     }
