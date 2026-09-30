@@ -21,6 +21,10 @@ sourceSets {
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.koin.test)
             implementation(libs.koin.core)
+            // KoinContext — the per-test KoinApplication host the desktop flow
+            // tests mount the production App() inside. :shared declares koin-compose
+            // as `implementation`, so it is not visible transitively here.
+            implementation(libs.koin.compose)
             implementation(libs.junit4)
             implementation(libs.junit.vintage.engine)
             implementation(libs.kotlin.test.junit5)
