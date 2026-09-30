@@ -40,7 +40,6 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
     fun onOpenChildrenSheet() = block(ProjectDetailIntent.Routing.OpenChildrenSheet)
     fun onOpenDeleteSheet() = block(ProjectDetailIntent.Routing.OpenDeleteSheet)
     fun onOpenArchiveSheet() = block(ProjectDetailIntent.Routing.OpenArchiveSheet)
-    fun onOpenReminderSheet() = block(ProjectDetailIntent.Routing.OpenReminderSheet)
     fun onOpenAttachmentSheet() = block(ProjectDetailIntent.Routing.OpenAttachmentSheet)
     fun onNavigateToChild(projectId: ProjectId) = block(ProjectDetailIntent.Routing.NavigateToChild(projectId))
 

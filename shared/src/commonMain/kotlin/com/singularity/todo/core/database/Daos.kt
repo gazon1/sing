@@ -588,6 +588,28 @@ interface TagDao {
 
     @Query("SELECT * FROM tags WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagEntity>
+
+    /**
+     * Detaches every live tag from a group being soft-deleted.
+     *
+     * Without this the member tags keep a `group_id` pointing at a row the user can
+     * no longer see, and the tag renders as a member of a group that does not exist.
+     * Scoped to the owner; returns the number of tags released.
+     */
+    @Query(
+        """
+        UPDATE tags SET group_id = NULL, updated_at = :ts
+        WHERE group_id = :groupId AND user_id = :userId AND deleted_at IS NULL
+        """,
+    )
+    suspend fun clearGroupForUser(groupId: String, ts: Long, userId: String): Int
+
+    /**
+     * Live members of [groupId] for [userId], read before [clearGroupForUser] so the
+     * release can be pushed to sync — the tag rows changed, so the server must see it.
+     */
+    @Query("SELECT * FROM tags WHERE group_id = :groupId AND user_id = :userId AND deleted_at IS NULL")
+    suspend fun listByGroupForUser(groupId: String, userId: String): List<TagEntity>
 }
 
 @Dao
@@ -830,4 +852,22 @@ interface ProjectInheritedTagGroupDao {
      */
     @Query("SELECT EXISTS(SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)")
     suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean
+
+    /**
+     * Drops every inheritance row for a tag group being deleted, across all of
+     * [userId]'s projects. Scoped through `projects.user_id` because the join table
+     * itself carries no owner column.
+     *
+     * Without this the group id stays in `project_tag_groups` after the group is
+     * soft-deleted, and [watchByProject] keeps returning it — the project then
+     * resolves tags from a group the user deleted.
+     */
+    @Query(
+        """
+        DELETE FROM project_tag_groups
+        WHERE tag_group_id = :tagGroupId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteByGroupForUser(tagGroupId: String, userId: String): Int
 }

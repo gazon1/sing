@@ -792,7 +792,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_20 entries need attention._
+_21 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -805,6 +805,7 @@ _20 entries need attention._
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
 - `2026-09-30-dispatcher-listviewmodel-cost` — **open** — MR-6 Architectural Polish
 - `2026-09-30-god-vm-decomposition` — **open** — MR-5 God-VM Decomposition
+- `2026-09-30-post-epic-critical-fixes-and-backlog` — **open** — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — **open** — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — **open** — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
 - `2026-09-30-post-mr-3-findings` — **open** — Post-MR-3 findings — Nav2 deprecation removal
@@ -1146,6 +1147,7 @@ _20 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
+- `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-2-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-3-findings` — mr-post-review, nav2, tech-debt
@@ -1481,6 +1483,7 @@ _20 entries need attention._
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
+- `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
 - `2026-09-30-post-mr-3-findings` — Post-MR-3 findings — Nav2 deprecation removal

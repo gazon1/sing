@@ -28,7 +28,6 @@ sealed interface ProjectDetailIntent : MviIntent {
         data object OpenChildrenSheet : Routing
         data object OpenDeleteSheet : Routing
         data object OpenArchiveSheet : Routing
-        data object OpenReminderSheet : Routing
         data object OpenAttachmentSheet : Routing
         data class NavigateToChild(val projectId: com.singularity.todo.feature.projects.domain.model.ProjectId) :
             Routing

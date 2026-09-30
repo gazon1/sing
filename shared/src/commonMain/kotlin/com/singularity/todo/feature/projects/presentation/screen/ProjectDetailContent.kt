@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomAppBar
@@ -129,8 +128,6 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                 is ProjectDetailIntent.Routing.OpenDeleteSheet -> sheets.show(ActiveSheet.ConfirmDelete)
 
                 is ProjectDetailIntent.Routing.OpenArchiveSheet -> sheets.show(ActiveSheet.ConfirmArchive)
-
-                is ProjectDetailIntent.Routing.OpenReminderSheet -> sheets.show(ActiveSheet.PickReminder)
 
                 is ProjectDetailIntent.Routing.OpenAttachmentSheet -> sheets.show(ActiveSheet.AddAttachment)
 
@@ -244,7 +241,6 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         dueDate = c.ui.project.dueDate,
                         isArchived = c.ui.project.isDeleted,
                         childProjects = c.ui.childProjects,
-                        reminderOffset = null,
                         onUpdateColor = { actions.onUpdateColor(it) },
                         onUpdateIcon = { actions.onUpdateIcon(it) },
                         onUpdateParent = { actions.onUpdateParent(it) },
@@ -253,7 +249,6 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         onUpdateDescription = { actions.onUpdateDescription(it) },
                         onDelete = { actions.onDelete() },
                         onToggleArchive = { actions.onToggleArchive() },
-                        onSetReminder = { /* TODO: wire once project-reminder domain is implemented */ },
                         onNavigateToChild = { id -> actions.onNavigateToChild(id) },
                     )
                 },
@@ -445,7 +440,8 @@ private fun ProjectBodySection(
 @Composable
 private fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailActions) {
     BottomAppBar(modifier = Modifier.fillMaxWidth()) {
-        IconButton(onClick = actions::onOpenReminderSheet) { Icon(Icons.Filled.Notifications, "Remind") }
+        // No reminder button: Project has no reminder field and the project-reminder
+        // domain was removed, so the picker it opened discarded every selection.
         IconButton(onClick = actions::onOpenAttachmentSheet) { Icon(Icons.Filled.Folder, "Attach") }
         Spacer(Modifier.weight(1f))
         if (isArchived) {

@@ -33,13 +33,17 @@ fun tagsModule(): org.koin.core.module.Module = module {
         )
     }
 
+    // Named resolution: the repository takes three distinct DAOs, and the group
+    // delete writes through TagDao to release member tags. Positional get() would
+    // silently misbind if the constructor order ever changes.
     single<TagGroupRepository> {
         TagGroupRepositoryImpl(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
+            tagGroupDao = get(),
+            inheritedTagGroupDao = get(),
+            tagDao = get(),
+            clock = get(),
+            currentUser = get(),
+            syncRepository = get(),
         )
     }
 

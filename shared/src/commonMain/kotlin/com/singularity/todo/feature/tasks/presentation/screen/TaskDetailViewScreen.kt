@@ -46,6 +46,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
@@ -134,6 +135,17 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                             )
                             if (ui.attachments.isNotEmpty()) {
                                 AttachmentsSection(attachments = ui.attachments)
+                            }
+                            // Backlinks were collected into TaskDetailUi by
+                            // TaskBacklinksCollector but never rendered, so a task linked
+                            // from a note showed nothing at all.
+                            if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
+                                LinkedBacklinksCard(
+                                    linkedNotes = ui.linkedNotes,
+                                    linkedTasks = ui.linkedTasks,
+                                    onOpenNote = { navigator.openNote(it) },
+                                    onOpenTask = { navigator.openDetail(it) },
+                                )
                             }
                         }
                     },

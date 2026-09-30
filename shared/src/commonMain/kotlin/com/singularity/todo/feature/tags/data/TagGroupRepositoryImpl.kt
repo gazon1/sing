@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags.data
 
 import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.toEpochMillis
@@ -27,6 +28,7 @@ import kotlin.time.Clock
 class TagGroupRepositoryImpl(
     private val tagGroupDao: TagGroupDao,
     private val inheritedTagGroupDao: ProjectInheritedTagGroupDao,
+    private val tagDao: TagDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
@@ -93,8 +95,18 @@ class TagGroupRepositoryImpl(
         val ts = clock.now().toEpochMillis()
         val rows = tagGroupDao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "TagGroup $id not found or not owned by current user" }
-        // TODO: clear groupId on member tags (requires TagDao bulk update)
-        //
+
+        // Read the members *before* releasing them: their rows change, so each one
+        // has to be pushed to sync or the server keeps the tags in the dead group.
+        val releasedTags = tagDao.listByGroupForUser(id.value, uid.value)
+        tagDao.clearGroupForUser(id.value, ts, uid.value)
+        releasedTags.forEach { tag -> syncRepository.enqueue(tag.toTag()) }
+
+        // The join table has no deleted_at of its own and watchByProject does not
+        // filter deleted groups, so a leftover row would keep resolving this group
+        // into every project that inherited it.
+        inheritedTagGroupDao.deleteByGroupForUser(id.value, uid.value)
+
         // Push the *real* trashed group, not a placeholder. The previous form
         // built `name = ""`, `color = 0` on the assumption that the sync handler
         // only reads docType + syncId — but toJson() serialises the whole model,

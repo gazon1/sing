@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.runtime.Composable
-import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -93,15 +92,6 @@ fun ProjectDetailSheetsHost(
             onDismiss = onSheetDismiss,
         )
 
-        is ActiveSheet.PickReminder -> ReminderPickerSheet(
-            currentOffset = currentContent?.reminderOffset,
-            onSelect = { offset ->
-                currentContent?.onSetReminder?.invoke(offset)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
-
         is ActiveSheet.AddAttachment -> AttachmentPlaceholderSheet(
             onDismiss = onSheetDismiss,
         )
@@ -120,7 +110,6 @@ data class CurrentProjectContent(
     val dueDate: kotlinx.datetime.LocalDate?,
     val isArchived: Boolean,
     val childProjects: List<Project>,
-    val reminderOffset: ReminderOffset?,
     val onUpdateColor: ((Int) -> Unit)?,
     val onUpdateIcon: ((String?) -> Unit)?,
     val onUpdateParent: ((ProjectId?) -> Unit)?,
@@ -129,6 +118,5 @@ data class CurrentProjectContent(
     val onUpdateDescription: ((String?) -> Unit)?,
     val onDelete: (() -> Unit)?,
     val onToggleArchive: (() -> Unit)?,
-    val onSetReminder: ((ReminderOffset) -> Unit)?,
     val onNavigateToChild: ((ProjectId) -> Unit)?,
 )

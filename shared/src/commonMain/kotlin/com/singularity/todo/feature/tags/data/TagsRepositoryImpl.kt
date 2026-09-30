@@ -80,7 +80,8 @@ class TagsRepositoryImpl(
     }
 }
 
-private fun TagEntity.toTag(): Tag = Tag(
+/** Not private: [TagGroupRepositoryImpl] re-pushes released members on group delete. */
+internal fun TagEntity.toTag(): Tag = Tag(
     id = TagId.fromString(id),
     name = name,
     color = color,

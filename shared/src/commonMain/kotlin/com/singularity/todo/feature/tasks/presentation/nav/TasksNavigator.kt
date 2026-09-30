@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.nav
 import androidx.navigation3.runtime.NavBackStack
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -35,6 +36,17 @@ open class TasksNavigator(
      */
     open fun openProject(projectId: ProjectId) {
         onExitGraph(AppDestination.ProjectDetail(projectId.value))
+    }
+
+    /**
+     * Exit the nested graph and open a note preview in the notes graph.
+     *
+     * Used by [com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard]:
+     * a `task://` backlink is the only route from a task to the note that links to it,
+     * and the notes graph is not on this screen's back stack.
+     */
+    open fun openNote(noteId: NoteId) {
+        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(noteId.value)))
     }
 
     /**

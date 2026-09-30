@@ -48,6 +48,9 @@ class ArchitectureTest {
                 .replace('/', '.')
         }
 
+        /** File name including extension, for rules that key on the file rather than the package. */
+        private fun KoFileDeclaration.fileName(): String = path.replace('\\', '/').substringAfterLast('/')
+
         private fun KoFileDeclaration.importFqns(): List<String> = imports.map { it.name }
 
         /** Strips KDoc and line comments so prose about DAOs is not read as a call. */
@@ -158,6 +161,18 @@ class ArchitectureTest {
             "core/backup/BackupImporter.kt",
         )
 
+        /**
+         * Non-`*DiModule.kt` packages allowed to bind a `*RepositoryImpl` directly.
+         *
+         * `core/di` is the aggregator package documented in ADR
+         * `2026-09-27-di-module-aggregator-narrative`; `Modules.kt` binds
+         * `ProfileRepositoryImpl` directly because that binding is not feature-scoped.
+         * Scoped to the DI package rather than to the whole feature tree — the previous
+         * version whitelisted `feature.agenda`/`tasks`/`notes` wholesale, which let any
+         * screen or ViewModel in those packages import an implementation silently.
+         */
+        private val DI_IMPL_ALLOWLIST = setOf("$PKG.core.di")
+
         /** Class-name suffixes that are themselves a repository/port implementation. */
         private val REPOSITORY_IMPL_SUFFIXES =
             listOf("RepositoryImpl", "Recorder", "Adapters", "ArchiveRepository")
@@ -221,22 +236,19 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `repository implementations are imported only from core di`() {
+    fun `repository implementations are imported only from di modules`() {
         val offenders = scope.files
             .filter { file -> file.importFqns().any { it.endsWith("RepositoryImpl") } }
-            .filter { file ->
-                val pkg = file.packageName()
-                val isDiModule = pkg == "$PKG.core.di" || pkg.startsWith("$PKG.core.di.")
-                // Feature DI modules (e.g. AgendaDiModule, TasksDiModule) compose the graph
-                // and are allowed to import *RepositoryImpl from their own data/ subpackages.
-                val isFeatureDiModule = pkg == "$PKG.feature.agenda" ||
-                    pkg == "$PKG.feature.tasks" ||
-                    pkg == "$PKG.feature.notes"
-                !isDiModule && !isFeatureDiModule
-            }
+            // Keyed on the *file*, not the package. The earlier version whitelisted whole
+            // feature packages (agenda/tasks/notes), which meant any screen, ViewModel or
+            // slot in those packages could import an implementation and the rule stayed
+            // green — it enforced "the feature knows the impl", not "only DI knows the impl",
+            // which is the boundary it exists to protect.
+            .filter { file -> file.packageName() !in DI_IMPL_ALLOWLIST }
+            .filter { file -> !file.fileName().endsWith("DiModule.kt") }
         assertNoOffenders(
             offenders,
-            "*RepositoryImpl may only be referenced by core DI or feature DI modules",
+            "*RepositoryImpl may only be referenced by *DiModule.kt (core or feature)",
         ) { it.path }
     }
 
