@@ -44,7 +44,7 @@ import org.junit.Test
 class AgendaTabDefinitionFlowTest {
 
     @Test
-    fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest { koin ->
+    fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest(checkA11y = true) { koin ->
         koin.seedTask(id = "undated", title = "Call the dentist", dueDate = null)
 
         tapTab("Inbox")
@@ -55,7 +55,7 @@ class AgendaTabDefinitionFlowTest {
     }
 
     @Test
-    fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() = runDesktopAppTest { koin ->
+    fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() = runDesktopAppTest(checkA11y = true) { koin ->
         val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
         koin.seedTask(id = "tomorrow-task", title = "Send the invoice", dueDate = tomorrow)
 
@@ -71,7 +71,7 @@ class AgendaTabDefinitionFlowTest {
      * section name.
      */
     @Test
-    fun upcoming_does_not_render_the_inbox_no_date_section() = runDesktopAppTest { koin ->
+    fun upcoming_does_not_render_the_inbox_no_date_section() = runDesktopAppTest(checkA11y = true) { koin ->
         koin.seedTask(id = "undated", title = "Call the dentist", dueDate = null)
         val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
         koin.seedTask(id = "tomorrow-task", title = "Send the invoice", dueDate = tomorrow)

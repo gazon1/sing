@@ -37,7 +37,7 @@ class SetPriorityFlowTest {
     }
 
     @Test
-    fun the_priority_row_is_addressable_by_tag() = runDesktopAppTest { koin ->
+    fun the_priority_row_is_addressable_by_tag() = runDesktopAppTest(checkA11y = true) { koin ->
         koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
         openEditor("Buy milk")
 
@@ -45,7 +45,7 @@ class SetPriorityFlowTest {
     }
 
     @Test
-    fun choosing_high_updates_the_row_label() = runDesktopAppTest { koin ->
+    fun choosing_high_updates_the_row_label() = runDesktopAppTest(checkA11y = true) { koin ->
         koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
         openEditor("Buy milk")
 
@@ -59,7 +59,7 @@ class SetPriorityFlowTest {
     }
 
     @Test
-    fun every_priority_option_is_addressable() = runDesktopAppTest { koin ->
+    fun every_priority_option_is_addressable() = runDesktopAppTest(checkA11y = true) { koin ->
         koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
         openEditor("Buy milk")
         onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).performClick()

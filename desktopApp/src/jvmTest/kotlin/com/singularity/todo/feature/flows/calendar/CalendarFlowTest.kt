@@ -33,7 +33,7 @@ class CalendarFlowTest {
         "${today.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${today.year}"
 
     @Test
-    fun month_view_renders_the_current_month() = runDesktopAppTest {
+    fun month_view_renders_the_current_month() = runDesktopAppTest(checkA11y = true) {
         tapTab("Calendar")
 
         onNodeWithText(monthTitle).assertIsDisplayed()
@@ -43,7 +43,7 @@ class CalendarFlowTest {
     }
 
     @Test
-    fun every_day_of_the_month_has_an_addressable_cell() = runDesktopAppTest {
+    fun every_day_of_the_month_has_an_addressable_cell() = runDesktopAppTest(checkA11y = true) {
         tapTab("Calendar")
 
         // The month view is a pager that also composes the neighbouring months,
@@ -56,7 +56,7 @@ class CalendarFlowTest {
     }
 
     @Test
-    fun view_mode_switches_from_month_to_week() = runDesktopAppTest {
+    fun view_mode_switches_from_month_to_week() = runDesktopAppTest(checkA11y = true) {
         tapTab("Calendar")
         onNodeWithText("Month").assertIsDisplayed()
         onNodeWithText(monthTitle).assertIsDisplayed()

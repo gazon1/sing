@@ -48,6 +48,7 @@ Helpers in `test/helpers/`:
 | `goBack()` | Pops the shell stack via the back arrow |
 | `awaitTag(tag)` | Waits for a node after an async write, then returns a handle |
 | `awaitTagGone(tag)` | Waits until a node is gone — for asserting a *disappearing* thing |
+| `tasks(koin)` | `TasksRobot`: `given(due, title)` / `givenUndated(title)` / `assertInAgenda` / `open` |
 | `seedTask(...)` / `seedBuyMilk()` | Writes a task through the repository |
 | `DesktopShell.TABS` / `.MENU_ENTRIES` | The drawer's labels |
 
@@ -87,6 +88,20 @@ This is not hypothetical: `ProjectsFlowTest.opening_a_project_reaches_its_detail
 was flaky at roughly 1 run in 2 for exactly this reason — it asserted
 `PROJECT_DETAIL_QUICK_ADD` (which only exists in the detail screen's `Content`
 state) immediately after clicking the card, then asserted the card was gone.
+
+**Run `checkA11y` on every flow you touch.** `runDesktopAppTest(checkA11y = true)`
+fails when the merged semantics tree contains a clickable node that announces
+nothing — no text, no `contentDescription`, no `onClickLabel`, no `testTag`. The
+whole desktop flow suite currently passes with it on. Editable fields are exempt:
+a screen reader announces them as edit boxes, and their `OnClick` is the
+focus affordance Compose adds to every `TextField`, not an unnamed button.
+
+**Give `due` explicitly when seeding a task.** `tasks(koin).given(due = …)` has no
+default for `due` on purpose. The undated path is an open question, not a settled
+one (`2026-09-30-nodate-root-cause.md`), so a fixture that defaults to undated —
+or quietly to today — puts the test on ground that has not been decided. Ask for
+the undated case by name, `givenUndated(...)`, so `grep givenUndated` lists every
+test standing on it.
 
 **Seed fixtures through the repository, not the UI.** It keeps a flow's
 precondition independent of another flow's save path, so a failure localises.

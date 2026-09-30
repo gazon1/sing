@@ -297,7 +297,11 @@ private fun ProjectHeroSection(
             Box(
                 modifier = Modifier.size(
                     56.dp,
-                ).clip(CircleShape).background(Color(ui.project.color)).clickable(onClick = actions::onOpenColorSheet),
+                ).clip(CircleShape).background(Color(ui.project.color))
+                    .clickable(
+                        onClickLabel = "Change project icon and color",
+                        onClick = actions::onOpenColorSheet,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 val icon = ProjectIconRegistry.iconByKey(ui.project.icon) ?: Icons.Filled.Folder

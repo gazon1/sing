@@ -40,7 +40,7 @@ import org.junit.Test
 class CreateTaskFlowTest {
 
     @Test
-    fun the_fab_opens_the_task_editor() = runDesktopAppTest {
+    fun the_fab_opens_the_task_editor() = runDesktopAppTest(checkA11y = true) {
         onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
 
         onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertIsDisplayed()
@@ -48,7 +48,7 @@ class CreateTaskFlowTest {
     }
 
     @Test
-    fun save_stays_disabled_until_the_title_is_entered() = runDesktopAppTest {
+    fun save_stays_disabled_until_the_title_is_entered() = runDesktopAppTest(checkA11y = true) {
         onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
 
         // DraftMviViewModel derives this from validate(draft), which rejects a
@@ -59,7 +59,7 @@ class CreateTaskFlowTest {
     }
 
     @Test
-    fun typing_a_title_enables_save() = runDesktopAppTest {
+    fun typing_a_title_enables_save() = runDesktopAppTest(checkA11y = true) {
         onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
 
         onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Buy milk")
@@ -72,7 +72,7 @@ class CreateTaskFlowTest {
     }
 
     @Test
-    fun the_editor_can_be_left_with_the_shell_back_arrow() = runDesktopAppTest {
+    fun the_editor_can_be_left_with_the_shell_back_arrow() = runDesktopAppTest(checkA11y = true) {
         onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
         onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Buy milk")
 
@@ -99,7 +99,7 @@ class CreateTaskFlowTest {
      * falls back to a stale ViewModel again.
      */
     @Test
-    fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() = runDesktopAppTest {
+    fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() = runDesktopAppTest(checkA11y = true) {
         onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
         onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Call the dentist")
         onNodeWithTag(TestTags.TASK_EDITOR_SAVE).performClick()

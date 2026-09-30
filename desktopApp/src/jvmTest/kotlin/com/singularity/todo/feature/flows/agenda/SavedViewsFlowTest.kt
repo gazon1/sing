@@ -20,7 +20,7 @@ import org.junit.Test
 class SavedViewsFlowTest {
 
     @Test
-    fun the_saved_views_list_opens_and_reports_its_empty_state() = runDesktopAppTest {
+    fun the_saved_views_list_opens_and_reports_its_empty_state() = runDesktopAppTest(checkA11y = true) {
         onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
 
         onNodeWithText("Saved Views").assertIsDisplayed()
@@ -29,7 +29,7 @@ class SavedViewsFlowTest {
     }
 
     @Test
-    fun leaving_the_saved_views_list_returns_to_the_agenda() = runDesktopAppTest {
+    fun leaving_the_saved_views_list_returns_to_the_agenda() = runDesktopAppTest(checkA11y = true) {
         onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
         onNodeWithText("Saved Views").assertIsDisplayed()
 

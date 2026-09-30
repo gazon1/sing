@@ -42,7 +42,7 @@ class SetDueDateFlowTest {
      * would fail for a reason unrelated to the row.
      */
     @Test
-    fun a_dated_task_shows_its_date_instead_of_the_placeholder() = runDesktopAppTest { koin ->
+    fun a_dated_task_shows_its_date_instead_of_the_placeholder() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
         koin.seedTask(id = "due-today", title = "Buy milk", dueDate = today)
 

@@ -26,14 +26,14 @@ import org.junit.Test
 class NotesFlowTest {
 
     @Test
-    fun the_notes_list_opens_from_the_drawer() = runDesktopAppTest {
+    fun the_notes_list_opens_from_the_drawer() = runDesktopAppTest(checkA11y = true) {
         tapTab("Notes")
 
         onNodeWithTag(TestTags.NOTES_QUICK_ADD_INPUT).assertIsDisplayed()
     }
 
     @Test
-    fun an_empty_notes_list_offers_to_create_the_first_note() = runDesktopAppTest {
+    fun an_empty_notes_list_offers_to_create_the_first_note() = runDesktopAppTest(checkA11y = true) {
         tapTab("Notes")
 
         onNodeWithText("No notes yet").assertIsDisplayed()
@@ -41,7 +41,7 @@ class NotesFlowTest {
     }
 
     @Test
-    fun the_filter_chips_are_offered_on_the_notes_list() = runDesktopAppTest {
+    fun the_filter_chips_are_offered_on_the_notes_list() = runDesktopAppTest(checkA11y = true) {
         tapTab("Notes")
 
         // The chips carry no testTag on either platform, so they are selected by

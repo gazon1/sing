@@ -54,14 +54,22 @@ private fun currentTestClassSimpleName(): String {
  * which is how a test swaps a binding for a fake.
  *
  * On test failure, a [FailureBundle] is captured to `build/diagnostics/<TestClass>/`
- * containing the merged and unmerged semantics trees, a screenshot, the
- * FakeAppDatabase state, and the Kermit ring-buffer log. The bundle path is
- * appended as a suppressed exception so it appears in the CI test report.
+ * containing a screenshot, the FakeAppDatabase state and the Kermit ring-buffer
+ * log. The bundle path is appended as a suppressed exception so it appears in the
+ * CI test report, alongside the semantics tree.
+ *
+ * [checkA11y] runs an accessibility pass over the merged semantics tree after
+ * the test body succeeds, failing on clickable nodes that announce nothing. It
+ * is opt-in per flow: switching it on everywhere would surface the whole
+ * backlog at once, which is how these checks get abandoned. It lives here
+ * rather than in an `AfterEachCallback` because the scene is gone by the time a
+ * callback runs.
  */
 @OptIn(ExperimentalTestApi::class)
 fun runDesktopAppTest(
     overrides: Module = module {},
     attempt: Int = 1,
+    checkA11y: Boolean = false,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
     // Reset Kermit writer list and ring buffer before every test — each test
@@ -119,6 +127,25 @@ fun runDesktopAppTest(
         // reading the report the run already produced.
         t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
         throw t
+    }
+
+    // Runs only when the test body passed: a tree dumped mid-failure is already
+    // captured by the bundle above, and the a11y verdict on a broken scene would
+    // be noise. `awaitTagGone`-style waits the flow performed have already
+    // settled the scene by here.
+    if (checkA11y) {
+        val violations = A11yChecker(this).scan()
+        if (violations.isNotEmpty()) {
+            throw AssertionError(
+                buildString {
+                    appendLine("Accessibility: ${violations.size} clickable node(s) announce nothing.")
+                    appendLine("A screen reader has nothing to say for these; give each a text, a")
+                    appendLine("contentDescription, or (if it is a test-only affordance) a testTag.")
+                    violations.take(20).forEach(::appendLine)
+                    if (violations.size > 20) appendLine("  ... and ${violations.size - 20} more")
+                }.trimEnd(),
+            )
+        }
     }
 }
 

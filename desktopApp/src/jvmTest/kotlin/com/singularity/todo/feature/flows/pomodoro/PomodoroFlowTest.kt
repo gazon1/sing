@@ -29,7 +29,7 @@ import org.junit.Test
 class PomodoroFlowTest {
 
     @Test
-    fun timer_starts_paused_on_the_first_work_cycle() = runDesktopAppTest {
+    fun timer_starts_paused_on_the_first_work_cycle() = runDesktopAppTest(checkA11y = true) {
         tapTab("Pomodoro")
 
         onNodeWithTag(TestTags.Pomodoro.PHASE_LABEL).assertIsDisplayed()
@@ -45,7 +45,7 @@ class PomodoroFlowTest {
     }
 
     @Test
-    fun play_and_pause_swap_the_single_control() = runDesktopAppTest {
+    fun play_and_pause_swap_the_single_control() = runDesktopAppTest(checkA11y = true) {
         tapTab("Pomodoro")
         onNodeWithTag(TestTags.Pomodoro.PLAY_BUTTON).performClick()
 

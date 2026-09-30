@@ -28,7 +28,7 @@ import org.junit.Test
 class ProjectsFlowTest {
 
     @Test
-    fun plans_starts_empty() = runDesktopAppTest {
+    fun plans_starts_empty() = runDesktopAppTest(checkA11y = true) {
         tapTab("Plans")
 
         assertCurrentTab("Plans")
@@ -51,7 +51,7 @@ class ProjectsFlowTest {
     }
 
     @Test
-    fun opening_a_project_reaches_its_detail_screen() = runDesktopAppTest {
+    fun opening_a_project_reaches_its_detail_screen() = runDesktopAppTest(checkA11y = true) {
         tapTab("Plans")
         onNodeWithContentDescription(DesktopShell.FAB_ADD_PROJECT).performClick()
         onNodeWithTag(TestTags.PROJECT_EDITOR_NAME_INPUT)

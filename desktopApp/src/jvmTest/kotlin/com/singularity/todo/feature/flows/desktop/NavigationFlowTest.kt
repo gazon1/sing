@@ -27,7 +27,7 @@ import org.junit.Test
 class NavigationFlowTest {
 
     @Test
-    fun drawer_exposes_every_destination() = runDesktopAppTest {
+    fun drawer_exposes_every_destination() = runDesktopAppTest(checkA11y = true) {
         openDrawer()
 
         DesktopShell.TABS.forEach { label ->
@@ -39,7 +39,7 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun pomodoro_and_calendar_render_their_own_screens() = runDesktopAppTest {
+    fun pomodoro_and_calendar_render_their_own_screens() = runDesktopAppTest(checkA11y = true) {
         // The phase label is tagged, so this proves the Pomodoro VM produced state
         // rather than merely that the drawer entry was clicked.
         tapTab("Pomodoro")
@@ -52,7 +52,7 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun inbox_is_reachable_from_the_default_today_tab() = runDesktopAppTest {
+    fun inbox_is_reachable_from_the_default_today_tab() = runDesktopAppTest(checkA11y = true) {
         // Both agendas are empty on a fresh database and the title text is
         // ambiguous, so the drawer's own Selected semantics is what proves the
         // tab actually switched.
