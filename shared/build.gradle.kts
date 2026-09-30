@@ -293,6 +293,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "commonMain.root",
         layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
     )
+    // Enable TAGS.md golden regeneration:
+    //   ./gradlew :shared:jvmTest -PupdateGoldens=true
+    if (project.findProperty("updateGoldens")?.toString() == "true") {
+        systemProperty("update.goldens", "true")
+    }
 }
 
 dependencies {

@@ -1,119 +1,164 @@
 # Maestro TestTag Catalogue
 
-Auto-generated from `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt`.
+The **Static constants** and **Dynamic functions** tables below are generated from
+`shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt`. They sit
+between two marker lines (`GENERATED:BEGIN` / `GENERATED:END`, each alone on its
+own line) and are verified by
+`TestTagsCatalogJvmTest.generated section of TAGS md matches TestTags`.
+Regenerate them with:
+
+```bash
+./gradlew :shared:jvmTest -PupdateGoldens=true
+```
+
+Everything outside the markers is hand-maintained — including the
+"Missing testTags" list, which is *not* machine-checked.
+
 Every `id:` used in a Maestro flow must come from this catalogue or a dynamic
-function listed below. Do NOT use raw strings in flows.
+function listed below. Do NOT use raw strings in flows: that is enforced by
+`TestTagsCatalogJvmTest.no raw testTag strings outside TestTags and test sources`.
 
 Dynamic functions expand at runtime. Example: `TestTags.navTab("Today")` produces
 `nav_tab_today`. The slug algorithm (`slug()`) lowercases and replaces runs of
 non-alphanumeric characters with `_`.
 
+<!-- GENERATED:BEGIN -->
 ## Static constants
 
 ### Auth
 | Constant | Value | Where |
 |---|---|---|
-| `AUTH_EMAIL_INPUT` | `auth_email_input` | LoginScreen |
-| `AUTH_PASSWORD_INPUT` | `auth_password_input` | LoginScreen |
-| `AUTH_SIGN_IN_BUTTON` | `auth_sign_in_button` | LoginScreen |
-| `AUTH_TOGGLE_MODE_BUTTON` | `auth_toggle_mode_button` | LoginScreen |
-| `AUTH_CONTINUE_OFFLINE_BUTTON` | `auth_continue_offline_button` | LoginScreen |
-| `AUTH_ERROR_TEXT` | `auth_error_text` | LoginScreen |
-| `AUTH_LOADING` | `auth_loading` | LoginScreen |
+| `AUTH_CONTINUE_OFFLINE_BUTTON` | `auth_continue_offline_button` | |
+| `AUTH_EMAIL_INPUT` | `auth_email_input` | |
+| `AUTH_ERROR_TEXT` | `auth_error_text` | |
+| `AUTH_LOADING` | `auth_loading` | |
+| `AUTH_PASSWORD_INPUT` | `auth_password_input` | |
+| `AUTH_SIGN_IN_BUTTON` | `auth_sign_in_button` | |
+| `AUTH_TOGGLE_MODE_BUTTON` | `auth_toggle_mode_button` | |
 
 ### Navigation
 | Constant | Value | Where |
 |---|---|---|
-| `NAV_MENU_BUTTON` | `nav_menu_button` | AndroidShellNav3 (bottom bar) |
-| `MENU_SHEET` | `menu_sheet` | MenuBottomSheet |
+| `MENU_SHEET` | `menu_sheet` | |
+| `NAV_MENU_BUTTON` | `nav_menu_button` | |
+| `TOP_BAR_BACK_BUTTON` | `top_bar_back_button` | |
 
 ### Tasks
 | Constant | Value | Where |
 |---|---|---|
-| `TASKS_LIST` | `tasks_list` | Task list container |
-| `TASKS_FAB` | `tasks_fab` | ExtendedFloatingActionButton (shell) |
-
-### Task Editor
-| Constant | Value | Where |
-|---|---|---|
-| `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | TaskTitleRow |
-| `TASK_EDITOR_SAVE` | `task_editor_save` | TaskSaveBar |
-| `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | TaskDetailTopBar overflow |
-| `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | Long-press context menu sheet (Android) |
-
-### Pomodoro
-| Constant | Value | Where |
-|---|---|---|
-| `POMODORO_PHASE_LABEL` | `pomodoro_phase_label` | Phase name (Work / Short Break / Long Break) |
-| `POMODORO_TIMER_LABEL` | `pomodoro_timer_label` | mm:ss countdown |
-| `POMODORO_CYCLE_LABEL` | `pomodoro_cycle_label` | "Cycle N" |
-| `POMODORO_STOP_BUTTON` | `pomodoro_stop_button` | Stop |
-| `POMODORO_PLAY_PAUSE_BUTTON` | `pomodoro_play_pause_button` | One control, play or pause by state |
-| `POMODORO_SKIP_BUTTON` | `pomodoro_skip_button` | Skip to next phase |
+| `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
+| `PRIORITY_OPTION_LOW` | `priority_option_low` | |
+| `PRIORITY_OPTION_MEDIUM` | `priority_option_medium` | |
+| `PRIORITY_OPTION_NONE` | `priority_option_none` | |
+| `TASKS_FAB` | `tasks_fab` | |
+| `TASKS_LIST` | `tasks_list` | |
+| `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
+| `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
+| `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
+| `TASK_EDITOR_PRIORITY_ROW` | `task_editor_priority_row` | |
+| `TASK_EDITOR_SAVE` | `task_editor_save` | |
+| `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
-| `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | Top-bar bookmark |
-| `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | Top-bar bookmark-add |
-| `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | Saved Views list top bar |
-| `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | Saved Views FAB |
-| `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | View editor name field (pre-filled with the agenda title) |
-| `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | View editor save |
-| `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | View editor delete (edit mode only) |
+| `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
+| `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
+| `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | |
+| `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | |
+| `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | |
+| `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
+| `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | |
 
-### Projects
+### Pomodoro
 | Constant | Value | Where |
 |---|---|---|
-| `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | Quick-add task field on the project detail screen |
-
-### Shared chrome
-| Constant | Value | Where |
-|---|---|---|
-| `TOP_BAR_BACK_BUTTON` | `top_bar_back_button` | `BackTopAppBar` arrow — use this, not system back, on screens that guard unsaved drafts |
+| `Pomodoro.CYCLE_LABEL` | `pomodoro_cycle_label` | |
+| `Pomodoro.PAUSE_BUTTON` | `pomodoro_pause_button` | |
+| `Pomodoro.PHASE_LABEL` | `pomodoro_phase_label` | |
+| `Pomodoro.PLAY_BUTTON` | `pomodoro_play_button` | |
+| `Pomodoro.SKIP_BUTTON` | `pomodoro_skip_button` | |
+| `Pomodoro.STOP_BUTTON` | `pomodoro_stop_button` | |
+| `Pomodoro.TIMER_LABEL` | `pomodoro_timer_label` | |
 
 ### Tags
 | Constant | Value | Where |
 |---|---|---|
-| `TAGS_LIST` | `tags_list` | TagsScreen |
+| `TAGS_FAB` | `tags_fab` | |
+| `TAGS_LIST` | `tags_list` | |
 
 ### Notes
 | Constant | Value | Where |
 |---|---|---|
-| `NOTES_LIST` | `notes_list` | NotesListScreen |
-| `NOTES_QUICK_ADD_INPUT` | `notes_quick_add_input` | NotesListScreen quick-add field |
-
-### Note Editor
-| Constant | Value | Where |
-|---|---|---|
-| `NOTE_EDITOR_TITLE_INPUT` | `note_editor_title_input` | NoteEditorScreen |
-| `NOTE_EDITOR_BODY` | `note_editor_body` | NoteEditorScreen rich text |
-| `NOTE_EDITOR_SAVE` | `note_editor_save` | NoteEditorScreen save button |
-| `NOTE_EDITOR_NOTIFICATION_HOST` | `note_editor_notification_host` | NoteEditorScreen |
-
-### Note Preview
-| Constant | Value | Where |
-|---|---|---|
-| `NOTES_BACKLINKS_BUTTON` | `notes_backlinks_button` | NotePreviewScreen |
+| `NOTES_BACKLINKS_BUTTON` | `notes_backlinks_button` | |
+| `NOTES_LIST` | `notes_list` | |
+| `NOTES_QUICK_ADD_INPUT` | `notes_quick_add_input` | |
+| `NOTE_EDITOR_BODY` | `note_editor_body` | |
+| `NOTE_EDITOR_NOTIFICATION_HOST` | `note_editor_notification_host` | |
+| `NOTE_EDITOR_SAVE` | `note_editor_save` | |
+| `NOTE_EDITOR_TITLE_INPUT` | `note_editor_title_input` | |
 
 ### Search
 | Constant | Value | Where |
 |---|---|---|
-| `SEARCH_INPUT` | `search_input` | SearchScreen |
+| `SEARCH_INPUT` | `search_input` | |
 
 ### Projects
 | Constant | Value | Where |
 |---|---|---|
-| `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | ProjectEditorScreen |
-| `PROJECT_EDITOR_DESCRIPTION_INPUT` | `project_editor_description_input` | ProjectEditorScreen |
-| `PROJECT_EDITOR_SAVE` | `project_editor_save` | ProjectEditorScreen |
-| `PROJECT_EDITOR_BACK` | `project_editor_back` | ProjectEditorScreen |
-| `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | ProjectEditorScreen |
+| `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | |
+| `PROJECT_EDITOR_BACK` | `project_editor_back` | |
+| `PROJECT_EDITOR_DESCRIPTION_INPUT` | `project_editor_description_input` | |
+| `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
+| `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
+| `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+
+### Settings
+| Constant | Value | Where |
+|---|---|---|
+| `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
+
+### Dialog
+| Constant | Value | Where |
+|---|---|---|
+| `DatePicker.CANCEL` | `dialog_date_picker_cancel` | |
+| `DatePicker.CLEAR` | `dialog_date_picker_clear` | |
+| `DatePicker.OK` | `dialog_date_picker_ok` | |
+| `Dialog.CONFIRM` | `dialog_confirm` | |
+| `Dialog.DISMISS` | `dialog_dismiss` | |
+
+### Editor Overflow menu
+| Constant | Value | Where |
+|---|---|---|
+| `EditorOverflow.ARCHIVE` | `overflow_archive` | |
+| `EditorOverflow.DELETE` | `overflow_delete` | |
+| `EditorOverflow.PIN` | `overflow_pin` | |
+| `EditorOverflow.RESTORE` | `overflow_restore` | |
+| `EditorOverflow.UNPIN` | `overflow_unpin` | |
+
+### Snackbar / transient UI
+| Constant | Value | Where |
+|---|---|---|
+| `ARCHIVE_NOTIFICATION_HOST` | `archive_notification_host` | |
+| `CHAT_NOTIFICATION_HOST` | `chat_notification_host` | |
+| `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
+| `SNACKBAR_SAVED` | `snackbar_saved` | |
 
 ### Backup
 | Constant | Value | Where |
 |---|---|---|
-| `BACKUP_TOP_BAR_BACK` | `backup_top_bar_back` | BackupScreen |
+| `BACKUP_CREATE_BUTTON` | `backup_create_button` | |
+| `BACKUP_EXPORT_SETTINGS` | `backup_export_settings` | |
+| `BACKUP_IMPORT_SETTINGS` | `backup_import_settings` | |
+| `BACKUP_RESTORE_BUTTON` | `backup_restore_button` | |
+| `BACKUP_TOP_BAR_BACK` | `backup_top_bar_back` | |
+
+### Profile
+| Constant | Value | Where |
+|---|---|---|
+| `PROFILE_CREATE_BUTTON` | `profile_create_button` | |
+| `PROFILE_ITEM_PREFIX` | `profile_item_` | |
 
 ## Dynamic functions
 
@@ -124,81 +169,77 @@ use the expanded string directly).
 | Function | Input example | Expanded id | Used for |
 |---|---|---|---|
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
-| `navTab("Inbox")` | `"Inbox"` | `nav_tab_inbox` | Bottom nav tabs |
-| `navTab("Upcoming")` | `"Upcoming"` | `nav_tab_upcoming` | Bottom nav tabs |
-| `navTab("Plans")` | `"Plans"` | `nav_tab_plans` | Bottom nav tabs |
-| `navTab("Pomodoro")` | `"Pomodoro"` | `nav_tab_pomodoro` | Bottom nav tabs |
-| `navTab("Calendar")` | `"Calendar"` | `nav_tab_calendar` | Bottom nav tabs |
-| `menuItem("Settings")` | `"Settings"` | `menu_settings` | Menu bottom sheet items |
-| `menuItem("Profile & sync")` | `"Profile & sync"` | `menu_profile_sync` | Menu bottom sheet items |
-| `menuItem("Statistics")` | `"Statistics"` | `menu_statistics` | Menu bottom sheet items |
-| `menuItem("Notes")` | `"Notes"` | `menu_notes` | Menu bottom sheet items |
-| `menuItem("AI Chat")` | `"AI Chat"` | `menu_ai_chat` | Menu bottom sheet items |
-| `menuItem("Search")` | `"Search"` | `menu_search` | Menu bottom sheet items |
-| `menuItem("Archive")` | `"Archive"` | `menu_archive` | Menu bottom sheet items |
-| `menuItem("Profiles")` | `"Profiles"` | `menu_profiles` | Menu bottom sheet items |
-| `menuItem("Quick search")` | `"Quick search"` | `menu_quick_search` | Menu bottom sheet items |
+| `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
-| `settingsTab("Agenda")` | `SettingsTab.Agenda.name` | `settings_tab_agenda` | Settings nav rail tabs |
-| `settingsTab("Notifications")` | `SettingsTab.Notifications.name` | `settings_tab_notifications` | Settings nav rail tabs |
-| `settingsTab("AIProvider")` | `SettingsTab.AIProvider.name` | `settings_tab_aiprovider` | Settings nav rail tabs |
-| `settingsTab("WorkSchedule")` | `SettingsTab.WorkSchedule.name` | `settings_tab_workschedule` | Settings nav rail tabs |
-| `settingsTab("Calendar")` | `SettingsTab.Calendar.name` | `settings_tab_calendar` | Settings nav rail tabs |
-| `settingsTab("Tags")` | `SettingsTab.Tags.name` | `settings_tab_tags` | Settings nav rail tabs |
-| `settingsTab("TagGroups")` | `SettingsTab.TagGroups.name` | `settings_tab_taggroups` | Settings nav rail tabs |
-| `settingsTab("Files")` | `SettingsTab.Files.name` | `settings_tab_files` | Settings nav rail tabs |
-| `settingsTab("Backup")` | `SettingsTab.Backup.name` | `settings_tab_backup` | Settings nav rail tabs |
-| `settingsTab("Account")` | `SettingsTab.Account.name` | `settings_tab_account` | Settings nav rail tabs |
-| `taskItem("Buy milk")` | `"Buy milk"` | `task_item_buy_milk` | Task list rows |
+| `menuItem("Settings")` | `"Settings"` | `menu_settings` | Menu bottom sheet items |
 | `taskCheckbox("Buy milk")` | `"Buy milk"` | `task_checkbox_buy_milk` | Task checkboxes |
-| `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
+| `taskItem("Buy milk")` | `"Buy milk"` | `task_item_buy_milk` | Task list rows |
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
+| `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
+| `agendaSection("Today")` | `"Today"` | `agenda_section_today` | Agenda section headers |
+| `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
-| `sheetItem("Archive")` | `"Archive"` | `sheet_item_archive` | Context-menu sheet rows |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
+| `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |
+| `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
+| `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
+<!-- GENERATED:END -->
 
-## Raw-string tags (NOT via TestTags.kt — avoid where possible)
+## Raw-string tags (NOT via TestTags.kt)
 
-These are used directly in composables with hardcoded strings. Prefer adding
-them to `TestTags.kt` and using the constant instead when touching the file.
+**Empty, and enforced to stay that way.**
+`TestTagsCatalogJvmTest.no raw testTag strings outside TestTags and test sources`
+scans every production source set for `Modifier.testTag("literal")` and fails on
+any hit. A raw string is invisible to `TestTagsCatalog`, so the generated tables
+above would silently go stale.
 
-| Tag | File | Used for |
-|---|---|---|
-| `projects_notification_host` | `ProjectsScreen.kt` | Notification host |
-| `chat_notification_host` | `ChatScreen.kt` | Notification host |
-| `archive_notification_host` | `ArchiveScreen.kt` | Notification host |
+The three notification-host tags that used to be listed here
+(`projects_notification_host`, `chat_notification_host`, `archive_notification_host`)
+are now `TestTags` constants.
 
 ## Missing testTags (known gaps — do NOT use for new flows)
 
 These elements exist in the UI but have no stable testTag. When adding a flow
 that needs one of these, add the testTag first (PR-0 phase for that screen).
 
-- Task editor: priority card, due-date row, due-time row, reminder row,
-  checklist section, checklist add input, checklist add button, attachments section,
-  add attachment button, delete button, error message
+This list is hand-maintained and is **not** checked by the golden test — only the
+two generated tables are. Treat a stale entry here as a bug and fix it in the
+same change that adds or removes a tag.
+
+- Task editor: due-time row, reminder row, checklist section, checklist add
+  input, checklist add button, attachments section, add attachment button,
+  delete button, error message
 - Note editor: delete button, markdown toolbar
 - Project detail: top bar
-- Settings tabs: all 11 have `settings_tab_<name>`, lower-case. The rail is a
+- Settings tabs: all 11 have `settingsTab(<name>)`, lower-case. The rail is a
   scrollable 80dp column, so a flow must swipe it directly — `scrollUntilVisible`
   swipes the content pane, not the rail.
-- Search: none — `search_input` now exists
+- Search: none — `SEARCH_INPUT` exists
 - AI Chat: chat input, send button
-
-- Calendar: today button, prev/next, mini-calendar toggle and the day cells have
-  no testTag. The month header, the mode control ("Day"/"4 days"/"Week"/"Month")
-  and each day number are `text:`-selected instead; a day number is unique within
-  a single month grid, so a full-string match is unambiguous.
+- Calendar: today button, prev/next, mini-calendar toggle. The day cells *do* have
+  a tag — `calendarDay("2026-09-15")` expands to `calendar_day_2026_09_15` — but it
+  is a Kotlin function, so a Maestro flow must hard-code the expanded form. The
+  month header and the mode control ("Day"/"4 days"/"Week"/"Month") are
+  `text:`-selected.
 - Sync: auto-switch, interval slider, sync-now button
-- Backup: create button, restore button, export settings, import settings
-- Profile: create button, delete button, profile items
+- Profile: delete button
 - Statistics: last-7-days chart
 - Archive: archive-all button, restore button per row
-- Tags: FAB
-- Dialog buttons (Confirm/Delete/Cancel/Save): no testTag — use `text:` with
-  the visible button label for now
-- The detail overflow menu's own items (Архивировать / Удалить / Восстановить)
-  are `text:`-selected: the overflow button is tagged, its rows are not.
+
+Closed since this list was first written (tags now in `TestTags.kt`):
+
+- Task editor due row and priority row → `TASK_EDITOR_DUE_ROW` /
+  `TASK_EDITOR_PRIORITY_ROW`
+- Priority picker rows → `PRIORITY_OPTION_*`
+- Dialog buttons → `Dialog.CONFIRM` / `Dialog.DISMISS` / `Dialog.title(...)`
+- Date-picker sheet buttons → `DatePicker.OK` / `CANCEL` / `CLEAR`
+- Backup actions → `BACKUP_CREATE_BUTTON` / `BACKUP_RESTORE_BUTTON` /
+  `BACKUP_EXPORT_SETTINGS` / `BACKUP_IMPORT_SETTINGS`
+- Tags FAB → `TAGS_FAB`; profile creation → `PROFILE_CREATE_BUTTON`; profile rows
+  → `profileItem(name)`
+- Editor overflow items → `EditorOverflow.ARCHIVE` / `DELETE` / `RESTORE` / `PIN`
+  / `UNPIN`
 
 ## slug() behaviour
 

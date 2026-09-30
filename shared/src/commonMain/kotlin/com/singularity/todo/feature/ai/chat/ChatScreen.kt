@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.ChatInputBar
 import com.singularity.todo.core.ui.components.MessageBubble
@@ -67,7 +68,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     NotificationHost(
         events = vm.events,
         mapper = { it.toNotification() },
-        modifier = Modifier.testTag("chat_notification_host"),
+        modifier = Modifier.testTag(TestTags.CHAT_NOTIFICATION_HOST),
     )
 }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -118,7 +119,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
     NotificationHost(
         events = viewModel.events,
         mapper = { it.toNotification() },
-        modifier = Modifier.testTag("archive_notification_host"),
+        modifier = Modifier.testTag(TestTags.ARCHIVE_NOTIFICATION_HOST),
     )
 }
 

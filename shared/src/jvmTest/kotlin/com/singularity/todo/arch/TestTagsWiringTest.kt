@@ -67,6 +67,10 @@ class TestTagsWiringTest {
         "ARCHIVE" to
             "EditorOverflow.ARCHIVE — the overflow menu renders rows with " +
             "TestTags.taskAction(label) instead, so this constant has no call site",
+        "RESTORE" to "EditorOverflow.RESTORE — the overflow menu uses taskAction(label). " +
+            "This entry was invisible before the identifier-boundary fix: " +
+            "`SyncEventType.RESTORED` contains \".RESTORE\" as a substring, so the old " +
+            "`contains` check reported the constant as applied.",
         "PIN" to "EditorOverflow.PIN — same: the menu uses taskAction(label), Russian labels",
         "UNPIN" to "EditorOverflow.UNPIN — same",
         "SNACKBAR_SAVED" to
@@ -96,13 +100,7 @@ class TestTagsWiringTest {
             // A *_PREFIX constant is a building block for a generated tag
             // (PROFILE_ITEM_PREFIX feeds profileItem()), not a tag in itself.
             .filterNot { it.endsWith("_PREFIX") }
-            .filter { constant ->
-                sourceText.none { text ->
-                    text.contains("TestTags.$constant") ||
-                        // Nested groups, e.g. TestTags.Pomodoro.PHASE_LABEL.
-                        text.contains(".$constant")
-                }
-            }
+            .filter { constant -> sourceText.none { constant.isAppliedIn(it) } }
 
         val undocumented = unapplied.filterNot { it in knownUnapplied }
         if (undocumented.isNotEmpty()) {
@@ -127,6 +125,17 @@ class TestTagsWiringTest {
     /** `const val NAME = ...` declarations, including those nested in the groups. */
     private fun declaredConstants(): List<String> =
         CONST_DECL.findAll(testTagsFile.readText()).map { it.groupValues[1] }.toList()
+
+    /**
+     * Whether [source] references this constant as a whole identifier.
+     *
+     * The boundary matters: a plain `text.contains(".ARCHIVE")` also matches
+     * `.ARCHIVE_NOTIFICATION_HOST`, which made `EditorOverflow.ARCHIVE` look
+     * applied and hid it in `knownUnapplied`. Requiring a non-identifier
+     * character after the name keeps the two apart.
+     */
+    private fun String.isAppliedIn(source: String): Boolean =
+        Regex("""\b${Regex.escape(this)}\b""").containsMatchIn(source)
 
     private companion object {
         val CONST_DECL = Regex("""const val ([A-Z][A-Z0-9_]*)""")

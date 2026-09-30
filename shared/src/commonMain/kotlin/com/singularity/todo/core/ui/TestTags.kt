@@ -228,6 +228,16 @@ object TestTags {
     /** The "Saved" [ResultDialog] shown after a save in editors and the saved-agenda screen. */
     const val SNACKBAR_SAVED = "snackbar_saved"
 
+    // ─── Notification hosts ─────────────────────────────────────────────────
+    //
+    // These tag the invisible container a screen parks transient ResultDialogs in.
+    // They are not clickable and carry no visible text; the tag exists so a test
+    // can assert a dialog was (or was not) shown without matching its copy.
+
+    const val PROJECTS_NOTIFICATION_HOST = "projects_notification_host"
+    const val CHAT_NOTIFICATION_HOST = "chat_notification_host"
+    const val ARCHIVE_NOTIFICATION_HOST = "archive_notification_host"
+
     // ─── Backup ─────────────────────────────────────────────────────────────
     const val BACKUP_TOP_BAR_BACK = "backup_top_bar_back"
     const val BACKUP_CREATE_BUTTON = "backup_create_button"
