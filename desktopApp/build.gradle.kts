@@ -27,6 +27,9 @@ sourceSets {
             implementation(libs.koin.compose)
             // Date arithmetic in the calendar flows. Same reason as koin-compose.
             implementation(libs.kotlinx.datetime)
+            // ViewModel is the supertype of every VM under test; :shared declares
+            // it as `implementation`, so it is not visible transitively.
+            implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.junit4)
             implementation(libs.junit.vintage.engine)
             implementation(libs.kotlin.test.junit5)

@@ -3,6 +3,7 @@ package com.singularity.todo.test.helpers
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.database.AppDatabase
@@ -27,6 +28,7 @@ import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCalendarAppQueries
 import com.singularity.todo.test.fakes.FakeFileRevealer
 import org.koin.core.module.Module
@@ -86,6 +88,12 @@ fun testPlatformModule(): Module = module {
     single<DataStore<Preferences>> { testDataStore("user_settings_primary") }
 
     // ─── Ports that would otherwise touch the OS ────────────────────────────
+    // coreModule() binds the real SupabaseAuthRepository, whose session never
+    // resolves without a network call, so ProfileAwareCurrentUser yields no
+    // user id and every user-scoped write fails its ownership check.
+    // FakeAuthRepository reports Session.Anonymous, which AuthGuard treats as
+    // signed in and which gives the write path a user to scope to.
+    single<AuthRepository> { FakeAuthRepository() }
     single<RemoteConfigPort> { FakeRemoteConfigPort() }
     single<SecureStoragePort> { InMemorySecureStorage() }
     single<NotificationPort> { InertNotificationPort() }

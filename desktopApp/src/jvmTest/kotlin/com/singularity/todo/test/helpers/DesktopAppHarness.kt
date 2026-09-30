@@ -7,8 +7,9 @@ import com.singularity.todo.App
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.feature.gate.gateModule
-import org.koin.compose.KoinContext
+import org.koin.compose.KoinIsolatedContext
 import org.koin.core.Koin
+import org.koin.core.KoinApplication
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
@@ -32,17 +33,23 @@ private const val RELEASES_URL = "https://github.com/singularity-todo/singularit
 @OptIn(ExperimentalTestApi::class)
 fun runDesktopAppTest(
     overrides: Module = module {},
-    test: DesktopComposeUiTest.() -> Unit,
+    test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
-    val koin: Koin = koinApplication {
+    val app: KoinApplication = koinApplication {
         modules(
-            testPlatformModule(),
             coreLoggingModule(),
             *domainModule().toTypedArray(),
+            // Loaded after domainModule() on purpose. Koin resolves duplicate
+            // definitions last-wins, so coreModule()'s SupabaseAuthRepository
+            // would otherwise override the fake here — and its userId resolves
+            // from "anonymous" to a generated ULID a moment after startup, which
+            // orphans anything written in that window and makes the row invisible
+            // to every subsequent read.
+            testPlatformModule(),
             gateModule(RELEASES_URL),
             overrides,
         )
-    }.koin
-    setContent { KoinContext(koin) { App(deeplinkViewId = null, deeplinkTaskId = null) } }
-    test()
+    }
+    setContent { KoinIsolatedContext(app) { App(deeplinkViewId = null, deeplinkTaskId = null) } }
+    test(app.koin)
 }

@@ -91,6 +91,33 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) {
 }
 
 /**
+ * Pops the shell's navigation stack by clicking its back button.
+ *
+ * The shell's leading top-bar control is a hamburger or a back arrow depending on
+ * `canGoBack` — its contentDescription is [DesktopShell.HAMBURGER] or
+ * [DesktopShell.BACK] respectively. So after pushing a screen (a task editor, a
+ * project detail) the drawer cannot be opened from that control until the push is
+ * popped, and [openDrawer] would fail to find the hamburger.
+ *
+ * Saving a task or a note does **not** pop: the editor stays open with its save
+ * button still on screen, so a flow has to leave explicitly before it can change
+ * tab.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.goBack() {
+    onNodeWithContentDescription(DesktopShell.BACK).performClick()
+    waitUntil(
+        conditionDescription = "shell returns to a drawer-openable tab",
+        timeoutMillis = TIMEOUT_MS,
+    ) {
+        onAllNodes(hasContentDescription(DesktopShell.HAMBURGER))
+            .fetchSemanticsNodes()
+            .isNotEmpty()
+    }
+    waitForIdle()
+}
+
+/**
  * Waits until a node with [tag] exists, then returns a handle to it.
  *
  * Saving is asynchronous — the editor writes through a repository scope and the
