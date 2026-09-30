@@ -1,11 +1,17 @@
-package com.singularity.todo.feature.reminders
+@file:Suppress("TooManyFunctions")
+
+package com.singularity.todo.feature.reminders.data
 
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.toEpochMillis
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.reminders.Reminder
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.toEntity
+import com.singularity.todo.feature.reminders.toReminder
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -15,7 +21,7 @@ import kotlin.time.Clock
  * Room-backed implementation of [ReminderRepository].
  * Delegates all persistence to [ReminderDao]; this class only maps entities → domain.
  */
-class RoomReminderRepository(
+class ReminderRepositoryImpl(
     private val dao: ReminderDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,

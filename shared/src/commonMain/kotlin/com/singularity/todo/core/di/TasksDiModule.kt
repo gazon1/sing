@@ -6,10 +6,10 @@ import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.ChecklistRepository
-import com.singularity.todo.feature.checklist.RoomChecklistRepository
+import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
-import com.singularity.todo.feature.search.data.RoomSavedSearchRepository
+import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.DaoProjectLookup
 import com.singularity.todo.feature.search.query.DaoTagLookup
@@ -67,9 +67,9 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     singleOf(::TaskDaoArchiveRepository)
 
-    single<ChecklistRepository> { RoomChecklistRepository(get(), get(), get()) }
+    single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 
-    single<SavedSearchRepository> { RoomSavedSearchRepository(get(), get(), get()) }
+    single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get(), get()) }
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 

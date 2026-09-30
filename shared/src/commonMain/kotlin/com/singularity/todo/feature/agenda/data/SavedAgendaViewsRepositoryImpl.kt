@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
-class RoomSavedAgendaViewsRepository(
+class SavedAgendaViewsRepositoryImpl(
     private val agendaViewDao: AgendaViewDao,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock = Clock.System,

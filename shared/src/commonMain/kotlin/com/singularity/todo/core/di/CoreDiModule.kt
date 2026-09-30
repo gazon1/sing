@@ -51,7 +51,7 @@ import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ReminderRepository
-import com.singularity.todo.feature.reminders.RoomReminderRepository
+import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.factoryOf
@@ -113,7 +113,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     factoryOf(::AttachmentStorage)
 
-    single<ReminderRepository> { RoomReminderRepository(get(), get(), get()) }
+    single<ReminderRepository> { ReminderRepositoryImpl(get(), get(), get()) }
 
     // ─── Ports ───────────────────────────────────────────────────────────
 

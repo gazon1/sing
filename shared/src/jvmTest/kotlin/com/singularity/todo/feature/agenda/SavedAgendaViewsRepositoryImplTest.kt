@@ -2,7 +2,7 @@ package com.singularity.todo.feature.agenda
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.agenda.data.RoomSavedAgendaViewsRepository
+import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeAppDatabase
@@ -18,7 +18,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Tests for [RoomSavedAgendaViewsRepository] via [FakeAppDatabase].
+ * Tests for [SavedAgendaViewsRepositoryImpl] via [FakeAppDatabase].
  *
  * Verifies: observeAll, observe, upsert, delete, and the StableJson sections round-trip.
  */
@@ -30,7 +30,7 @@ class SavedAgendaViewsRepositoryImplTest {
             initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"),
         )
         val currentUser = FakeProfileAwareCurrentUser(authRepository = auth)
-        return RoomSavedAgendaViewsRepository(db.agendaViewDao(), currentUser)
+        return SavedAgendaViewsRepositoryImpl(db.agendaViewDao(), currentUser)
     }
 
     private fun makeView(

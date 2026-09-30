@@ -226,9 +226,18 @@ class ArchitectureTest {
             .filter { file -> file.importFqns().any { it.endsWith("RepositoryImpl") } }
             .filter { file ->
                 val pkg = file.packageName()
-                pkg != "$PKG.core.di" && !pkg.startsWith("$PKG.core.di.")
+                val isDiModule = pkg == "$PKG.core.di" || pkg.startsWith("$PKG.core.di.")
+                // Feature DI modules (e.g. AgendaDiModule, TasksDiModule) compose the graph
+                // and are allowed to import *RepositoryImpl from their own data/ subpackages.
+                val isFeatureDiModule = pkg == "$PKG.feature.agenda" ||
+                    pkg == "$PKG.feature.tasks" ||
+                    pkg == "$PKG.feature.notes"
+                !isDiModule && !isFeatureDiModule
             }
-        assertNoOffenders(offenders, "*RepositoryImpl may only be referenced by the DI composition root") { it.path }
+        assertNoOffenders(
+            offenders,
+            "*RepositoryImpl may only be referenced by core DI or feature DI modules",
+        ) { it.path }
     }
 
     @Test

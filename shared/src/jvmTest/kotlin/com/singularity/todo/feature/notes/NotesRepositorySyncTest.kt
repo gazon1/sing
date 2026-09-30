@@ -9,6 +9,7 @@ import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.CrossUserWriteException
 import com.singularity.todo.core.sync.FakeSyncRepository
+import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +26,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 /**
- * Sync-propagation contract for the real [RoomNotesRepository] against real
+ * Sync-propagation contract for the real [NotesRepositoryImpl] against real
  * SQLite.
  *
  * Notes carried the worst instance of the bypass class: 14 write methods reached
@@ -35,21 +36,21 @@ import kotlin.time.Clock
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
-class RoomNotesRepositorySyncTest {
+class NotesRepositorySyncTest {
 
     private val user = UserId("u1")
 
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
     private lateinit var sync: FakeSyncRepository
-    private lateinit var repo: RoomNotesRepository
+    private lateinit var repo: NotesRepositoryImpl
 
     @BeforeTest
     fun setUp() = runTest {
         tempDir = Files.createTempDirectory("singularity-notes-").toFile()
         db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
         sync = FakeSyncRepository(this)
-        repo = RoomNotesRepository(
+        repo = NotesRepositoryImpl(
             noteDao = db.noteDao(),
             clock = Clock.System,
             currentUser = FakeProfileAwareCurrentUser(

@@ -1756,7 +1756,7 @@ private fun extractUserId(session: Session): UserId = when (session) {
 
 /**
  * Fake [SavedAgendaViewsRepository] backed by a reactive [MutableStateFlow].
- * Unlike the production [RoomSavedAgendaViewsRepository], this implementation
+ * Unlike the production [SavedAgendaViewsRepositoryImpl], this implementation
  * replays the current state on every subscription — suitable for unit tests.
  */
 class FakeSavedAgendaViewsRepository(

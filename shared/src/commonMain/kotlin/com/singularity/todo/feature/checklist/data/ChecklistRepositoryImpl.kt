@@ -1,14 +1,17 @@
-package com.singularity.todo.feature.checklist
+package com.singularity.todo.feature.checklist.data
 
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
-class RoomChecklistRepository(
+class ChecklistRepositoryImpl(
     private val dao: ChecklistDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,

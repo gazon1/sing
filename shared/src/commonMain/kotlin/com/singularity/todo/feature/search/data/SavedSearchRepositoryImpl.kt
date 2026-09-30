@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
-class RoomSavedSearchRepository(
+class SavedSearchRepositoryImpl(
     private val savedSearchDao: SavedSearchDao,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock = Clock.System,
