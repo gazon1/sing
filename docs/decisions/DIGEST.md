@@ -792,7 +792,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_18 entries need attention._
+_20 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -803,12 +803,14 @@ _18 entries need attention._
 - `2026-09-28-setup-hooks-broken-githooks-path` — **open** — just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются
 - `2026-09-29-check-tags-sh-allow-patterns-dead-code` — **open** — 
 - `2026-09-29-remaining-problem-areas-after-maestro-mr` — **deferred** — Оставшиеся проблемные места после MR про Maestro UI-тесты
+- `2026-09-30-dispatcher-listviewmodel-cost` — **open** — MR-6 Architectural Polish
 - `2026-09-30-god-vm-decomposition` — **open** — MR-5 God-VM Decomposition
 - `2026-09-30-post-mr-1-findings` — **open** — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — **open** — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
 - `2026-09-30-post-mr-3-findings` — **open** — Post-MR-3 findings — Nav2 deprecation removal
 - `2026-09-30-post-mr-4-findings` — **open** — Post-MR-4 findings — Repository naming and package convention
 - `2026-09-30-post-mr-5-findings` — **open** — Post-MR-5 findings — God-VM Decomposition
+- `2026-09-30-post-mr-6-final-triage` — **open** — Post-MR-6 Final Triage — All Open Findings
 - `2026-09-30-remove-nav2-deprecations` — **open** — MR-3 Nav2 Deprecation Removal
 - `2026-09-30-repository-naming-and-package-convention` — **open** — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — **open** — MR-2 Repository Read-Path Isolation
@@ -1142,12 +1144,14 @@ _18 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — nav3, serialization, android, crash
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
+- `2026-09-30-dispatcher-listviewmodel-cost` — mr, coroutines, dispatchers, listviewmodel, cost-tracking
 - `2026-09-30-god-vm-decomposition` — mr, vm, long-method, tech-debt
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-2-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-3-findings` — mr-post-review, nav2, tech-debt
 - `2026-09-30-post-mr-4-findings` — mr-post-review, repository, tech-debt
 - `2026-09-30-post-mr-5-findings` — mr-post-review, vm, long-method, tech-debt
+- `2026-09-30-post-mr-6-final-triage` — mr-review, final-triage, tech-debt
 - `2026-09-30-remove-nav2-deprecations` — mr, navigation, deprecation
 - `2026-09-30-repository-naming-and-package-convention` — mr, repository, naming-convention
 - `2026-09-30-repository-read-isolation` — mr, architecture, repository
@@ -1475,12 +1479,14 @@ _18 entries need attention._
 - `2026-09-29-single-sealed-navkey-root` — One sealed NavKey root — Settings and Search crashed the app on open
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
+- `2026-09-30-dispatcher-listviewmodel-cost` — MR-6 Architectural Polish
 - `2026-09-30-god-vm-decomposition` — MR-5 God-VM Decomposition
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
 - `2026-09-30-post-mr-3-findings` — Post-MR-3 findings — Nav2 deprecation removal
 - `2026-09-30-post-mr-4-findings` — Post-MR-4 findings — Repository naming and package convention
 - `2026-09-30-post-mr-5-findings` — Post-MR-5 findings — God-VM Decomposition
+- `2026-09-30-post-mr-6-final-triage` — Post-MR-6 Final Triage — All Open Findings
 - `2026-09-30-remove-nav2-deprecations` — MR-3 Nav2 Deprecation Removal
 - `2026-09-30-repository-naming-and-package-convention` — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — MR-2 Repository Read-Path Isolation
