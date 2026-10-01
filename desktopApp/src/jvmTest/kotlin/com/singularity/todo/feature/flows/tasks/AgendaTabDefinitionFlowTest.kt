@@ -8,7 +8,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.seedTask
+import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.plus
@@ -45,7 +45,7 @@ class AgendaTabDefinitionFlowTest {
 
     @Test
     fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest(checkA11y = true) { koin ->
-        koin.seedTask(id = "undated", title = "Call the dentist", dueDate = null)
+        tasks(koin).givenUndated("Call the dentist")
 
         tapTab("Inbox")
         assertCurrentTab("Inbox")
@@ -57,7 +57,7 @@ class AgendaTabDefinitionFlowTest {
     @Test
     fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() = runDesktopAppTest(checkA11y = true) { koin ->
         val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
-        koin.seedTask(id = "tomorrow-task", title = "Send the invoice", dueDate = tomorrow)
+        tasks(koin).given(due = tomorrow, title = "Send the invoice")
 
         tapTab("Inbox")
 
@@ -72,9 +72,10 @@ class AgendaTabDefinitionFlowTest {
      */
     @Test
     fun upcoming_does_not_render_the_inbox_no_date_section() = runDesktopAppTest(checkA11y = true) { koin ->
-        koin.seedTask(id = "undated", title = "Call the dentist", dueDate = null)
         val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
-        koin.seedTask(id = "tomorrow-task", title = "Send the invoice", dueDate = tomorrow)
+        tasks(koin)
+            .givenUndated("Call the dentist")
+            .given(due = tomorrow, title = "Send the invoice")
 
         tapTab("Upcoming")
         assertCurrentTab("Upcoming")

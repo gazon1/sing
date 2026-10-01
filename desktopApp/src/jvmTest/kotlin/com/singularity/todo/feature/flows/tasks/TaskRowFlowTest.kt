@@ -13,7 +13,6 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.TIMEOUT_MS
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.seedTask
 import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
@@ -62,7 +61,7 @@ class TaskRowFlowTest {
 
     @Test
     fun toggling_the_checkbox_reports_the_task_completed() = runDesktopAppTest(checkA11y = true) { koin ->
-        koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
+        tasks(koin).given(due = todayInSystemZone())
 
         awaitTag(TestTags.taskCheckbox("Buy milk")).assertIsDisplayed()
         onNodeWithTag(TestTags.taskCheckbox("Buy milk")).performClick()

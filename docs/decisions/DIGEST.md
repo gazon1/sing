@@ -284,6 +284,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `gradle`
 
+- **CI gate (enforced):** `scripts/build-version-catalog-gate.py` runs as step `[0/5]` in `check.sh` and before `jvmTest` in CI. It scans all `*.gradle.kts` files outside `detekt-rules/` and `buildSrc/` for `group:artifact:version` literals and fails if any are found. First violation found by this gate was `androidx.compose.ui:ui-test-junit4:1.7.3` in `shared/build.gradle.kts` — replaced with `libs.compose.ui.test.junit4`.
 - **Catalog accessor shadowing (Gradle 9.x):** Library keys that start with a prefix that matches a version key (e.g., `jvm-test` when version key is `kotlin`, or `kotlinSerialization` when version key is `kotlin-serialization`) generate nested accessor classes that shadow the version accessor. Workaround: version alignment constants are defined in `gradle.properties` (`version.kotlin`, `version.kotlinSerialization`, `version.kotlinxCollectionsImmutable`) and used in `resolutionStrategy` via `project.property()` — this avoids the catalog entirely for version strings.
 - All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case.
 - Android SDK versions use `sdk-compile` / `sdk-min` / `sdk-target` keys (accessor: `libs.versions.sdk.compile` etc.). Keys starting with `android` are avoided because library aliases like `androidx-android-*` shadow the version accessor.
@@ -730,7 +731,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_21 entries need attention._
+_22 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -753,14 +754,15 @@ _21 entries need attention._
 - `2026-09-30-remove-nav2-deprecations` — **open** — MR-3 Nav2 Deprecation Removal
 - `2026-09-30-repository-naming-and-package-convention` — **open** — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — **open** — MR-2 Repository Read-Path Isolation
+- `2026-10-01-remaining-tech-debt` — **open** — Remaining tech debt — post-v4 audit
 
 ## Recently superseded
 
+- `2026-09-30-nodate-root-cause` — NoDate bisect — the domain is sound; the break is above AgendaEvaluator
 - `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-25
 - `2026-09-26-notes-clean-architecture-r21` — R21: Notes Clean Architecture — deferred
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
 - `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
-- `2026-09-16-nav3-shared-state-factory-and-local-app-navigator` — LocalAppNavigator + shared rememberNav3State factory
 
 ## Index (slug -> tags)
 
@@ -1095,7 +1097,7 @@ _21 entries need attention._
 - `2026-09-30-mr-0-1-test-infra-ratchet-retro` — _untagged_
 - `2026-09-30-mvi-error-path-contract` — mvi, testing
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — navigation, nav3, koin, viewmodel, desktop-compose
-- `2026-09-30-nodate-root-cause` — agenda, testing, debugging, bisect
+- `2026-09-30-nodate-fix` — agenda, testing, desktop, debugging
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — mr-review, tech-debt, cascade-delete, dead-ui, konsist
 - `2026-09-30-post-mr-1-findings` — mr-review, tech-debt
 - `2026-09-30-post-mr-2-findings` — mr-review, tech-debt
@@ -1118,6 +1120,11 @@ _21 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — testing, desktop, ui, helpers
 - `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
 - `2026-10-01-agent-velocity-remaining-debt` — testing, tech-debt, agent-velocity, unwired-surface
+- `2026-10-01-post-mr-2-findings` — audit, mr-2
+- `2026-10-01-post-mr-3-findings` — audit, mr-3
+- `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
+- `2026-10-01-remaining-tech-debt` — tech-debt, architecture, audit
+- `2026-10-01-tech-debt-reconciled` — tech-debt, reconciliation, plan-v4
 
 ## Active entries
 
@@ -1452,7 +1459,7 @@ _21 entries need attention._
 - `2026-09-30-mr-0-1-test-infra-ratchet-retro` — Retro MR-0 + MR-1: Test Infrastructure Ratchet
 - `2026-09-30-mvi-error-path-contract` — MVI error paths: a thrown exception is an error event, never a crashed coroutine
 - `2026-09-30-nav3-need-viewmodelstore-decorator` — Nav3State: every tab needs rememberViewModelStoreNavEntryDecorator
-- `2026-09-30-nodate-root-cause` — NoDate bisect — the domain is sound; the break is above AgendaEvaluator
+- `2026-09-30-nodate-fix` — NoDate fix — ProfileAwareCurrentUser race caused tasks to be invisible
 - `2026-09-30-post-epic-critical-fixes-and-backlog` — Post-Epic Critical Fixes and Remaining Backlog
 - `2026-09-30-post-mr-1-findings` — MR-1 Quick Wins — Post-MR-1 Findings
 - `2026-09-30-post-mr-2-findings` — MR-2 Repository Read-Path Isolation — Post-MR-2 Findings
@@ -1475,4 +1482,9 @@ _21 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
+- `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
+- `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
+- `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
+- `2026-10-01-remaining-tech-debt` — Remaining tech debt — post-v4 audit
+- `2026-10-01-tech-debt-reconciled` — Tech Debt Reconciled — v4 Plan
 

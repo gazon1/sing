@@ -10,7 +10,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.seedTask
+import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
 
@@ -38,7 +38,7 @@ class SetPriorityFlowTest {
 
     @Test
     fun the_priority_row_is_addressable_by_tag() = runDesktopAppTest(checkA11y = true) { koin ->
-        koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
+        tasks(koin).given(due = todayInSystemZone())
         openEditor("Buy milk")
 
         onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).assertIsDisplayed()
@@ -46,7 +46,7 @@ class SetPriorityFlowTest {
 
     @Test
     fun choosing_high_updates_the_row_label() = runDesktopAppTest(checkA11y = true) { koin ->
-        koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
+        tasks(koin).given(due = todayInSystemZone())
         openEditor("Buy milk")
 
         onNodeWithText("No priority").assertIsDisplayed()
@@ -60,7 +60,7 @@ class SetPriorityFlowTest {
 
     @Test
     fun every_priority_option_is_addressable() = runDesktopAppTest(checkA11y = true) { koin ->
-        koin.seedTask(id = "due-today", title = "Buy milk", dueDate = todayInSystemZone())
+        tasks(koin).given(due = todayInSystemZone())
         openEditor("Buy milk")
         onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).performClick()
 

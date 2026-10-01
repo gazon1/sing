@@ -9,7 +9,7 @@ import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.seedTask
+import com.singularity.todo.test.helpers.tasks
 import org.junit.Test
 
 /**
@@ -44,7 +44,7 @@ class SetDueDateFlowTest {
     @Test
     fun a_dated_task_shows_its_date_instead_of_the_placeholder() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
-        koin.seedTask(id = "due-today", title = "Buy milk", dueDate = today)
+        tasks(koin).given(due = today, title = "Buy milk")
 
         awaitTag(TestTags.taskItem("Buy milk")).performClick()
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)

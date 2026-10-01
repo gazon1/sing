@@ -33,6 +33,7 @@ During a Gradle health audit we found 42 issues in `libs.versions.toml` and rela
 
 - All TOML keys follow `kebab-case` naming convention. New entries must use kebab-case.
 - Before adding a new dependency, check if the library entry already exists in `libs.versions.toml`. Hardcoded `group:artifact:version` strings in `build.gradle.kts` are a code smell.
+- **CI gate (enforced):** `scripts/build-version-catalog-gate.py` runs as step `[0/5]` in `check.sh` and before `jvmTest` in CI. It scans all `*.gradle.kts` files outside `detekt-rules/` and `buildSrc/` for `group:artifact:version` literals and fails if any are found. First violation found by this gate was `androidx.compose.ui:ui-test-junit4:1.7.3` in `shared/build.gradle.kts` — replaced with `libs.compose.ui.test.junit4`.
 - `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module.
 - When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle.
 - Gradle deprecation warnings are now visible (`warning.mode=summary`). Warnings from AGP 9.x, Kotlin 2.3.x, and KMP 1.12.x should be reviewed periodically.
