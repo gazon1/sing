@@ -107,7 +107,7 @@ fun testPlatformModule(): Module = module {
     single<String> { tempRoot().resolve("backups").absolutePath }
     // Mirrors PlatformModule.jvm.kt — TaskTitleRow / ChecklistItemRow inject it
     // unconditionally, and a missing definition hangs the flow in failure capture.
-    single<Haptic> { createHaptic(Unit) }
+    single<Haptic> { createHaptic() }
 
     // ─── Schedulers ─────────────────────────────────────────────────────────
     // NoopCalendarSyncRepository / NoopCalendarProvider are JVM-ready production

@@ -118,7 +118,7 @@ actual fun platformModule(): Module = module {
 
     // NoOp on JVM — TaskTitleRow / ChecklistItemRow inject Haptic unconditionally,
     // so the definition must exist or task detail composition fails.
-    single<Haptic> { createHaptic(Unit) }
+    single<Haptic> { createHaptic() }
 
     single<FileSystem> { JvmFileSystem() }
 

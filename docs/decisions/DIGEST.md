@@ -102,7 +102,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
 - **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
-- _... and 365 more items_
+- _... and 373 more items_
 
 ### `agenda`
 
@@ -1129,11 +1129,14 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — testing, desktop, ui, helpers
 - `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
 - `2026-10-01-agent-velocity-remaining-debt` — testing, tech-debt, agent-velocity, unwired-surface
+- `2026-10-01-architectural-followups` — _untagged_
 - `2026-10-01-bulk-operations-use-case-unwired` — _untagged_
 - `2026-10-01-ci-quality-ratchet` — ci, testing, desktop-compose, diagnostics, retry
 - `2026-10-01-cluster-9-repository-package-moves` — _untagged_
+- `2026-10-01-desktop-nav-followup` — desktop, nav3, regression, mr-followup
 - `2026-10-01-maestro-flow-tag-contract` — testing, maestro, test-tags, ci-gates
 - `2026-10-01-nodate-regression-pinning` — testing, regression, nodate, agenda, task-repository
+- `2026-10-01-notes-task-logbook-substrate` — _untagged_
 - `2026-10-01-phase4-cleanup-findings` — _untagged_
 - `2026-10-01-post-mr-2-findings` — audit, mr-2
 - `2026-10-01-post-mr-3-findings` — audit, mr-3
@@ -1144,6 +1147,9 @@ _22 entries need attention._
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — test-coverage, desktop, maestro
 - `2026-10-01-test-infra-followups` — testing, tech-debt, maestro, testtags
 - `2026-10-01-test-infra-gaps` — testing, detekt, jvmtest, ci, configuration-cache
+- `2026-10-01-test-ratchet-findings` — test-coverage, architecture, mr-followup
+- `2026-10-01-typed-task-dependency-links` — _untagged_
+- `2026-10-02-desktop-haptic-missing-binding` — incident, desktop, di, testing
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
 ## Active entries
@@ -1502,11 +1508,14 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
+- `2026-10-01-architectural-followups` — _(no title)_
 - `2026-10-01-bulk-operations-use-case-unwired` — Bulk Operations Use Case — Unwired in ViewModel
 - `2026-10-01-ci-quality-ratchet` — CI quality ratchet: FailureBundle upload + PR-only test retry
 - `2026-10-01-cluster-9-repository-package-moves` — Cluster 9 — Repository Package Moves
+- `2026-10-01-desktop-nav-followup` — Desktop navigation follow-up: FAB hijack + tab-back regression
 - `2026-10-01-maestro-flow-tag-contract` — Maestro flow tag contract — JVM test gate
 - `2026-10-01-nodate-regression-pinning` — NoDate regression pinning: contract + VM tests
+- `2026-10-01-notes-task-logbook-substrate` — _(no title)_
 - `2026-10-01-phase4-cleanup-findings` — Phase 4 Post-Move Cleanup Findings
 - `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
 - `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
@@ -1517,5 +1526,8 @@ _22 entries need attention._
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — Phase 2 retro — ProfileSwitcher wiring, modal-drawer selector trap, pomodoro chip gap
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
 - `2026-10-01-test-infra-gaps` — Test infrastructure gaps found during quality-ratchet session
+- `2026-10-01-test-ratchet-findings` — Post-test-ratchet findings: structural gaps found during MR-10..14
+- `2026-10-01-typed-task-dependency-links` — _(no title)_
+- `2026-10-02-desktop-haptic-missing-binding` — _(no title)_
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 
