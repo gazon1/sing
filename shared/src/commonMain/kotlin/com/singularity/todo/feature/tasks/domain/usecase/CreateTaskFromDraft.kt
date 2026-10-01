@@ -7,7 +7,7 @@ import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
-import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
