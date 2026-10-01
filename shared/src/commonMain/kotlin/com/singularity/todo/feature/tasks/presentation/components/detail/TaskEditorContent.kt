@@ -29,8 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -86,6 +89,7 @@ import kotlinx.datetime.LocalTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskEditorContent(
+    taskId: String,
     titleDraft: String,
     onTitleChange: (String) -> Unit,
     isCompleted: Boolean,
@@ -146,6 +150,7 @@ fun TaskEditorContent(
         ) {
             // Title row
             TaskTitleRow(
+                taskId = taskId,
                 title = titleDraft,
                 isCompleted = isCompleted,
                 onTitleChange = onTitleChange,
@@ -367,6 +372,7 @@ private fun StartDateRow(
 @Composable
 fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, isCompleted: Boolean = false) {
     TaskEditorContent(
+        taskId = model.taskId?.value ?: "",
         titleDraft = model.titleDraft,
         onTitleChange = callbacks.onTitleChange,
         isCompleted = isCompleted,
@@ -403,5 +409,126 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
+    )
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+private fun priorityLabel(priority: TaskPriority): String = when (priority) {
+    TaskPriority.None -> "No priority"
+    TaskPriority.Low -> "Low priority"
+    TaskPriority.Medium -> "Medium priority"
+    TaskPriority.High -> "High priority"
+    TaskPriority.Urgent -> "Urgent"
+}
+
+private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
+    if (date == null) return "Добавить дату"
+    val dateStr = date.toString()
+    return if (time != null) {
+        "$dateStr ${
+            time.toString()
+                .take(5)
+        }"
+    } else {
+        dateStr
+    }
+}
+
+// ===== Preview =====
+
+@Preview
+@Composable
+private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    TaskEditorContent(
+        taskId = "",
+        titleDraft = "",
+        onTitleChange = {},
+        isCompleted = false,
+        onCheckToggle = {},
+        descriptionDraft = "",
+        onDescriptionChange = {},
+        priority = TaskPriority.None,
+        onPrioritySelect = {},
+        onPriorityClear = null,
+        dueDate = null,
+        dueTime = null,
+        onDueDateSelect = {},
+        onDueDateClear = null,
+        onDueTimeSelect = {},
+        dependsOn = emptySet(),
+        availableTasks = emptyList(),
+        extraSections = null,
+        onSetDependencies = null,
+        bottomBar = null,
+        menuItems = emptyList(),
+        onBack = {},
+    )
+}
+
+@Preview
+@Composable
+private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    val today = PreviewSamples.today
+    TaskEditorContent(
+        taskId = "",
+        titleDraft = "Buy groceries",
+        onTitleChange = {},
+        isCompleted = false,
+        onCheckToggle = {},
+        descriptionDraft = "Milk, eggs, bread",
+        onDescriptionChange = {},
+        priority = TaskPriority.High,
+        onPrioritySelect = {},
+        onPriorityClear = {},
+        dueDate = today,
+        dueTime = LocalTime(14, 30),
+        onDueDateSelect = {},
+        onDueDateClear = {},
+        onDueTimeSelect = {},
+        dependsOn = emptySet(),
+        availableTasks = emptyList(),
+        extraSections = null,
+        onSetDependencies = null,
+        bottomBar = null,
+        menuItems = listOf(
+            TaskEditorMenuItem("Archive") {},
+            TaskEditorMenuItem("Delete") {},
+        ),
+        onBack = {},
+    )
+}
+
+@Preview
+@Composable
+private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    val today = PreviewSamples.today
+    val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
+    TaskEditorContent(
+        taskId = "",
+        titleDraft = "Review PR",
+        onTitleChange = {},
+        isCompleted = false,
+        onCheckToggle = {},
+        descriptionDraft = "",
+        onDescriptionChange = {},
+        priority = TaskPriority.Urgent,
+        onPrioritySelect = {},
+        onPriorityClear = {},
+        dueDate = today,
+        dueTime = null,
+        onDueDateSelect = {},
+        onDueDateClear = {},
+        onDueTimeSelect = {},
+        dependsOn = setOf(sampleTask.id),
+        availableTasks = listOf(sampleTask),
+        extraSections = null,
+        onSetDependencies = {},
+        bottomBar = null,
+        menuItems = listOf(
+            TaskEditorMenuItem("Archive") {},
+            TaskEditorMenuItem("Delete") {},
+        ),
+        onBack = {},
     )
 }

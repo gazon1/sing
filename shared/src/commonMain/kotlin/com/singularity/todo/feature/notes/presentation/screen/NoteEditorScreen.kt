@@ -80,11 +80,11 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
     val navigator = LocalNotesNavigator.current
     val editorState by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(route.noteId) {
-        if (route.noteId != null) {
-            viewModel.onIntent(NotesEditorIntent.OpenNote(route.noteId.value))
-        } else {
-            viewModel.onIntent(NotesEditorIntent.CreateNote)
+    LaunchedEffect(route.noteId, route.taskId) {
+        when {
+            route.noteId != null -> viewModel.onIntent(NotesEditorIntent.OpenNote(route.noteId.value))
+            route.taskId != null -> viewModel.createNoteForTask(route.taskId)
+            else -> viewModel.onIntent(NotesEditorIntent.CreateNote)
         }
     }
 

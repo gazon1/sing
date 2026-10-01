@@ -16,8 +16,10 @@ import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
@@ -183,6 +185,20 @@ class TaskRepositoryImpl(
             .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
     }
 
+    override fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>> =
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.observeTypedDependenciesForUser(taskId.value, uid.value)
+                .map { rows ->
+                    rows.map { row ->
+                        TaskDependency(
+                            ownerTaskId = TaskId.fromString(row.taskId),
+                            dependencyTaskId = TaskId.fromString(row.dependsOnTaskId),
+                            verb = DependencyVerb.valueOf(row.verb),
+                        )
+                    }
+                }
+        }
+
     override suspend fun create(item: Task): Result<Task> = runCatching {
         val currentUid = currentUser.scopedUserId.value
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
@@ -330,10 +346,26 @@ class TaskRepositoryImpl(
         dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
         taskDao.clearDependenciesForUser(taskId.value, uid)
         deps.forEach { depId ->
-            taskDao.upsertDependencyForUser(taskId.value, depId.value, uid)
+            taskDao.upsertDependencyForUser(taskId.value, depId.value, DependencyVerb.BLOCKS.name, uid)
         }
         // Same as setTags: `dependsOn` is part of the synced payload.
         enqueueFresh(taskId)
+    }
+
+    override suspend fun setDependency(
+        from: TaskId,
+        to: TaskId,
+        verb: DependencyVerb,
+        enabled: Boolean,
+    ): Result<Unit> = runCatching {
+        val uid = currentUser.scopedUserId.value.value
+        require(taskDao.getByIdForUser(from.value, uid) != null) { "Task $from not found" }
+        if (enabled) {
+            taskDao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
+        } else {
+            taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
+        }
+        enqueueFresh(from)
     }
 }
 

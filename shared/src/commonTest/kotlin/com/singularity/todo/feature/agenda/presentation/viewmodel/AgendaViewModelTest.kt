@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 /**
@@ -88,6 +89,35 @@ class AgendaViewModelTest {
             // would spin forever before it could show its empty state.
             val state = assertIs<AgendaUiState.Loaded>(vm.state.value)
             assertEquals(emptyList(), state.sections.flatMap { it.tasks })
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    /**
+     * Regression: a task with `dueDate = null` that is seeded *before* VM construction
+     * must appear in the Loaded state. Before the fix in [ProfileAwareCurrentUser],
+     * `_scopedUserId` was seeded with `MutableStateFlow(UserId.anonymous)` (not yet
+     * resolved from the auth context), so the repository query ran with the anonymous
+     * user id and returned no results for the real seeded task.
+     */
+    @Test
+    fun `undated task seeded before VM construction is visible in Loaded sections`() = runTest {
+        val undated = task(id = "no-date-1", title = "Inbox me") // dueDate = null
+        fakeRepo.seed(undated) // seed BEFORE creating the VM
+
+        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
+        try {
+            val vm = createVm(vmScope)
+            runCurrent()
+
+            val state = assertIs<AgendaUiState.Loaded>(vm.state.value)
+            assertTrue(
+                state.sections.any { section ->
+                    section.tasks.any { it.task.id == undated.id }
+                },
+                "Undated task seeded before VM construction must reach the agenda's No Date section",
+            )
         } finally {
             vmScope.close()
         }

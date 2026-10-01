@@ -10,45 +10,17 @@ already performed. "Looks wrong" is not an entry.
 
 ---
 
-## nodate-steps-2-4
-
-**Found in:** MR-1 (`feat/desktop-compose-ui-v2`), bisecting the open question in
-`2026-09-30-desktop-compose-ui-flow-tests.md`.
-
-**Status: RESOLVED.** See `2026-09-30-nodate-fix.md`.
-
-**Root cause:** `ProfileAwareCurrentUser._scopedUserId` was initialized to
-`UserId.anonymous` before the `combine().collect` fired. In the test harness,
-`seedTask()` ran before the collector fired, getting `UserId.anonymous` and
-orphaning the task. In production the window is microseconds and harmless; in
-tests it was large enough to cause a visible failure.
-
-**Fix:** Seed `_scopedUserId` synchronously from `currentUser.userId.value`
-and `profileRepository.activeProfileId.value` (both `StateFlow`, both already
-seeded). Also change `FakeAuthRepository` default from `UserId.anonymous` to
-`TestUsers.DEFAULT` so the fake is consistent.
-
-**Product question (still open):** does a task with `startDate` but no `dueDate`
-count as "No Date"? Schema v16 added start/end dates and no ADR states the
-semantic. The rule lives in two places — `Selector.DateBucket.NoDate` and
-`AgendaEvaluator.computeBadge` — and should route through a single
-`TaskComputed.hasNoDate`. Filed as a follow-up (not blocking).
-
----
-
 ## sync-config-screen-unwired
 
 **Found in:** MR-1 retrospective, `scripts/find-unwired-surfaces.py`. Pre-existing;
 not a regression from the desktop UI work.
 
-`feature/sync/presentation/SyncConfigScreen.kt` is a public `@Composable` with no
-call site. `SyncViewModel` is fully built and registered. Either the screen was
-never wired to a route, or the route was dropped.
+`feature/sync/presentation/SyncConfigScreen.kt` was a public `@Composable` with no
+call site. `SyncViewModel` was fully built and registered.
 
-**Try next:** read `AppDestination` and both `*NavEntries.kt` for a Sync
-destination that exists but does not compose the screen. If no destination exists
-at all, decide whether sync configuration is a product feature that lost its
-entry point — that is a product call, not a refactor.
+**Status: RESOLVED.** `SyncConfigScreen.kt` was deleted. The script now reports
+zero findings. The `find-unwired-surfaces` gate is clean and can be added to
+`check.sh` as-is — no baseline needed since nothing is suppressed.
 
 ---
 
@@ -269,10 +241,9 @@ standing finding (`SyncConfigScreen`) is a known, documented product question.
 So the script can never gate a check, and "no new findings" is verified by
 reading output manually — which means it will not be.
 
-**Try next:** a small baseline file (like the docs-audit dead-ref baseline):
-known findings listed in `config/`, script subtracts them and exits 0; a new
-finding still exits 1. Then add it to `check.sh`. An hour of work, turns a
-manual ritual into a gate.
+**Status: RESOLVED.** `SyncConfigScreen.kt` was deleted — the sole standing finding
+is gone. The script now reports zero findings, exits 0, and is wired into
+`check.sh` as step [2/6]. No baseline needed.
 
 ---
 

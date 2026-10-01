@@ -358,6 +358,55 @@ class AgendaEvaluatorTest {
     }
 
     @Test
+    fun `evaluate deduplicates by Task id (UUID identity, not content)`() {
+        // Task is a data class — equality includes id (UUID), not just content.
+        // This means two tasks with identical title/dates but different UUIDs are
+        // distinct, which is the correct semantics for a globally unique identifier.
+        val definition = AgendaDefinition(
+            title = "Test",
+            sections = listOf(
+                Section("All", order = 0, selector = Selector.Anything),
+            ),
+        )
+        val base = makeTask("base", "Same title", dueDate = today)
+        // task with different id but identical content
+        val duplicate = Task(
+            id = com.singularity.todo.feature.tasks.domain.model.TaskId.generate(),
+            title = "Same title",
+            dueDate = today,
+            priority = base.priority,
+            isPinned = base.isPinned,
+            tags = base.tags,
+            projectId = base.projectId,
+            kind = base.kind,
+            completedAt = base.completedAt,
+            createdAt = base.createdAt,
+            updatedAt = base.updatedAt,
+            userId = base.userId,
+        )
+        val tasks = listOf(base, duplicate)
+        // Both appear because ids differ — toSet() uses UUID-based equality.
+        val result = AgendaEvaluator.evaluate(tasks, definition, today)
+        assertEquals(2, result[0].tasks.size, "two tasks with different UUIDs must both appear")
+    }
+
+    @Test
+    fun `evaluate deduplicates by object identity when same id is passed twice`() {
+        // If the same Task instance (same id) is passed twice, toSet() keeps one.
+        // This is the correct semantics — the agenda never shows the same task twice.
+        val definition = AgendaDefinition(
+            title = "Test",
+            sections = listOf(
+                Section("All", order = 0, selector = Selector.Anything),
+            ),
+        )
+        val task = makeTask("1", "One task", dueDate = today)
+        val tasks = listOf(task, task) // same instance twice
+        val result = AgendaEvaluator.evaluate(tasks, definition, today)
+        assertEquals(1, result[0].tasks.size, "same Task instance passed twice → one entry")
+    }
+
+    @Test
     fun `evaluate sets badge to task count`() {
         val definition = AgendaDefinition(
             title = "Test",

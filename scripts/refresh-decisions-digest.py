@@ -11,7 +11,7 @@ from pathlib import Path
 
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
-MAX_DIGEST_LINES = 1500
+MAX_DIGEST_LINES = 1550  # raised from 1500 to accommodate new quality-ratchet ADRs
 MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
 
 

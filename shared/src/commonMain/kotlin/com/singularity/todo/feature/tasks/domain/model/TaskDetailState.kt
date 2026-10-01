@@ -8,6 +8,7 @@ import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
@@ -34,6 +35,8 @@ data class TaskDetailDeps(
     val timeZoneProvider: TimeZoneProvider,
     val clock: Clock,
     val completeRecurring: CompleteRecurringTaskUseCase,
+    /** Notes repository — required for the task logbook. */
+    val notesRepo: NotesRepository,
     /** AI use cases — nullable so tests can omit them. */
     val refineTask: RefineTaskUseCase? = null,
     val generateDescription: GenerateDescriptionUseCase? = null,

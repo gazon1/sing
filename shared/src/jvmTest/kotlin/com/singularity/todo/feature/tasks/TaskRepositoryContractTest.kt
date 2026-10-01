@@ -20,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -188,6 +189,30 @@ abstract class TaskRepositoryContractTest {
         advanceUntilIdle()
         val tasks = repo.observeByFilter(TaskFilter.All).first()
         assertEquals(2, tasks.size)
+    }
+
+    /**
+     * Regression: tasks with `dueDate = null` must be returned by `observeByFilter(All)`,
+     * alongside dated tasks. Before the fix in [ProfileAwareCurrentUser] the seeded
+     * `_scopedUserId` was `MutableStateFlow(UserId.anonymous)` (not yet set from the
+     * auth context), causing repository queries to return no results for the real user.
+     */
+    @Test
+    fun `observeByFilter All returns an undated task alongside dated ones`() = runTest {
+        val repo = newRepository(alice)
+        repo.create(task("dated-1").copy(dueDate = LocalDate(2026, 1, 1)))
+        repo.create(task("undated-1")) // dueDate = null
+        advanceUntilIdle()
+        val tasks = repo.observeByFilter(TaskFilter.All).first()
+        assertEquals(2, tasks.size)
+        assertEquals(
+            "undated-1",
+            tasks.first { it.id.value == "undated-1" }.id.value,
+        )
+        assertEquals(
+            null,
+            tasks.first { it.id.value == "undated-1" }.dueDate,
+        )
     }
 
     // ─── Exists ────────────────────────────────────────────────────────────────

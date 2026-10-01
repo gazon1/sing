@@ -25,7 +25,17 @@ class Nav3State internal constructor(
     val startRoute: NavKey,
     private val topLevelRouteState: MutableState<NavKey>,
     private val backStacks: Map<NavKey, NavBackStack<NavKey>>,
+    initialPreviousTopLevelRoute: NavKey = startRoute,
 ) {
+    private var _previousTopLevelRoute: NavKey = initialPreviousTopLevelRoute
+
+    /** The previously active top-level route (before the last tab switch). */
+    val previousTopLevelRoute: NavKey get() = _previousTopLevelRoute
+
+    /** Sets the previous top-level route. Used by [Navigator.navigate] to track tab history. */
+    internal fun setPreviousTopLevelRoute(route: NavKey) {
+        _previousTopLevelRoute = route
+    }
     init {
         require(startRoute in backStacks) {
             "Nav3State: startRoute=$startRoute has no back stack. " +
@@ -139,20 +149,28 @@ class Navigator(private val state: Nav3State) {
      */
     fun navigate(route: NavKey) {
         if (route in state.topLevelRoutes) {
+            state.setPreviousTopLevelRoute(state.topLevelRoute)
             state.topLevelRoute = route
         } else {
             state.requireBackStackFor(state.topLevelRoute).add(route)
         }
     }
 
-    /** Go back in the current stack. If at the bottom, return to [state.startRoute]. */
+    /**
+     * Go back in the current stack.
+     *
+     * - If a nested screen is on top: pop it.
+     * - If at the tab root: return to the previously active tab ([previousTopLevelRoute]).
+     *   This prevents silent teleportation to [startRoute] when the user presses Back
+     *   at the root of a non-default tab (e.g., Upcoming).
+     */
     fun goBack() {
         val currentStack = state.requireBackStackFor(state.topLevelRoute)
         val currentRoute = currentStack.lastOrNull()
             ?: return
 
         if (currentRoute == state.topLevelRoute) {
-            state.topLevelRoute = state.startRoute
+            state.topLevelRoute = state.previousTopLevelRoute
         } else {
             currentStack.removeLastOrNull()
         }

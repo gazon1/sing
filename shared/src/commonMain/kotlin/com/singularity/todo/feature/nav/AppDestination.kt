@@ -259,6 +259,14 @@ sealed interface AppDestination : AppNavKey {
 
         @Serializable
         data class Preview(val noteId: String) : NotesStartRoute
+
+        /**
+         * Opens the note editor pre-attached to [taskId].
+         * A separate route (not [NotesRoute.Editor]) avoids the invalid state of
+         * passing both `noteId` and `taskId` to one editor instance.
+         */
+        @Serializable
+        data class EditorForTask(val taskId: String) : NotesStartRoute
     }
 
     /**

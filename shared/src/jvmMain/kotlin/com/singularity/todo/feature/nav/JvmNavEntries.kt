@@ -228,6 +228,11 @@ private fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (th
     is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(
         NoteId.fromString(noteId),
     )
+
+    is AppDestination.NotesStartRoute.EditorForTask -> NotesRoute.Editor(
+        noteId = null,
+        taskId = TaskId.fromString(taskId),
+    )
 }
 
 /** Converts [AppDestination.CalendarStartRoute] to the inner [CalendarRoute]. */

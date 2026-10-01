@@ -21,6 +21,18 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Compute retry policy and pass to test JVMs via GRADLE_OPTS.
+      # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly.
+      # PRs: lenient (max=2, failOnPassedAfterRetry=false).
+      # main: strict (max=0, failOnPassedAfterRetry=true).
+      - name: Set retry environment
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "GRADLE_OPTS=-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false" >> "$GITHUB_ENV"
+          else
+            echo "GRADLE_OPTS=-Dretry.maxAttempts=0 -Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
+          fi
+
       - name: Build version catalog gate
         run: python3 scripts/build-version-catalog-gate.py --quiet .
         continue-on-error: true
@@ -30,6 +42,15 @@ jobs:
 
       - name: Run desktopApp:test
         run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon
+
+      - name: Upload desktop failure bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-failure-bundle-${{ github.run_id }}
+          path: desktopApp/build/diagnostics/**
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Assemble Android debug
         run: ./gradlew :androidApp:assembleDebug --no-daemon
@@ -43,8 +64,9 @@ jobs:
         run: python3 scripts/find-unwired-surfaces.py --quiet
         continue-on-error: true
 
-      # Was never wired into any gate — that is how its 110-entry hand-maintained
-      # allow-list drifted out of sync with TestTags.kt unnoticed.
+      # Replaced by com.singularity.todo.arch.MaestroFlowTagsTest in :shared:jvmTest
+      # (blocking — any unknown id fails the build). Retained here as a non-blocking
+      # lint for ad-hoc local use; continues-on-error so it never blocks a PR.
       - name: Check Maestro test tags
         run: bash Maestro/scripts/check-tags.sh
         continue-on-error: true

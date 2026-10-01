@@ -93,6 +93,24 @@ class MyViewModel(
 
 Подробности: `singularity-todo-testable-vm`, `singularity-todo-vm-migration-playbook`.
 
+### Testing notes
+
+**`kotlin.test.assertTrue` does NOT accept a lambda as message.**
+Use `assertTrue(condition, "description")` — the lambda form is a JUnit/kotest idiom,
+not kotlin.test. The lambda will not compile or will silently ignore the message.
+
+**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule.**
+Detekt's rule resolves `kotlin.io.path` as a package wrapping stdlib extensions, not a
+wildcard import. Use explicit imports: `kotlin.io.path.exists`, `kotlin.io.path.readText`,
+`kotlin.io.path.isRegularFile`, `kotlin.io.path.extension`. The wildcard form will pass
+detekt silently.
+
+**Tests relying on `systemProperty` need `--rerun-tasks` after edits.**
+The Gradle configuration cache may return a stale compiled test class even after the
+source file changes, particularly when the system property value is used in the test
+logic. If a test with `System.getProperty(...)` gives a false green result after an
+edit, run `./gradlew :shared:compileTestKotlinJvm --rerun-tasks` and retry.
+
 ## expect/actual порты
 
 | Порт | commonMain | jvmMain | androidMain |

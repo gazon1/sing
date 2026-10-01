@@ -43,7 +43,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         TagGroupEntity::class,
         ProjectInheritedTagGroupCrossRef::class,
     ],
-    version = 23,
+    version = 25,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -64,6 +64,8 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 21, to = 22, spec = Migration21To22::class),
         // 22→23 adds the project_reminders table only — purely additive, so Room needs
         // no spec and generates the CREATE TABLE itself.
+        AutoMigration(from = 23, to = 24, spec = Migration23To24::class),
+        AutoMigration(from = 24, to = 25, spec = Migration24To25::class),
     ],
     exportSchema = true,
 )

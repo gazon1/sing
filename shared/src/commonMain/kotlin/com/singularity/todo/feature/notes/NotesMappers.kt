@@ -8,6 +8,7 @@ import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * Entity/domain mappers for notes.
@@ -34,6 +35,7 @@ internal fun NoteEntity.toNote(): Note = Note(
     wordCount = wordCount,
     charCount = charCount,
     outgoingLinks = outgoingLinks.parseLinksJson(),
+    taskId = taskId?.let { TaskId.fromString(it) },
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     deletedAt = deletedAt.toInstantOrNull(),
@@ -58,6 +60,7 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     wordCount = wordCount,
     charCount = charCount,
     outgoingLinks = outgoingLinks.toLinksJson(),
+    taskId = taskId?.value,
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     deletedAt = deletedAt?.toEpochMillisOrNull(),
