@@ -47,8 +47,12 @@ echo ""
 
 echo "=== Pre-push [$BRANCH] — full test suite ==="
 
-# Run all fast tests + detekt (slow tests are excluded — use CI for those)
+# Run all fast tests + detekt (slow tests are excluded — use CI for those).
+# :desktopApp:detekt belongs here, not just in check.sh: a NoDirectClockSystem
+# violation in TasksRobot reached main precisely because this hook only ran the
+# shared module's detekt, and check.sh is not something every push goes through.
 ./gradlew :shared:detekt \
+    :desktopApp:detekt \
     :shared:jvmTest \
     :desktopApp:test \
     :mcp-server:test \

@@ -12,7 +12,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.testTask
 import kotlinx.datetime.LocalDate
 import org.koin.core.Koin
-import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -94,20 +94,28 @@ class TasksRobot(
         dueDate: LocalDate?,
         completed: Boolean = false,
     ) {
+        // Seed timestamps come off a fixed epoch stepped by the sequence number,
+        // not the wall clock: two tasks seeded in one flow must have a stable
+        // relative order, and a flow's result must not depend on the hour it ran.
+        // Same convention as NotesScreenTest / TagsRenameUiTest.
+        val n = seq++
+        val at = SEED_EPOCH + n.seconds
         koin.get<TaskRepository>().upsert(
             testTask(
-                id = TaskId(nextId()),
+                id = TaskId("robot-task-$n"),
                 title = title,
                 dueDate = dueDate,
-                completedAt = if (completed) Instant.fromEpochMilliseconds(1_700_000_000_000) else null,
+                completedAt = if (completed) at else null,
                 userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = at,
+                updatedAt = at,
             ),
         )
     }
 
-    private fun nextId(): String = "robot-task-${seq++}"
+    private companion object {
+        val SEED_EPOCH = Instant.fromEpochMilliseconds(0)
+    }
 }
 
 /** Entry point: `tasks(koin)` inside a `runDesktopAppTest` body. */
