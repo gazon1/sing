@@ -22,6 +22,6 @@ tags:
 - assertVisible:
     id: pomodoro_stop_button
 - assertVisible:
-    id: pomodoro_play_pause_button
+    id: pomodoro_play_button
 - assertVisible:
     id: pomodoro_skip_button

@@ -4,14 +4,23 @@
 # the TestTags.kt registry.
 #
 # Every id used in a flow must either:
-#   1. Be a documented constant in TestTags.kt (e.g. `settings_dark_theme_switch`)
-#   2. Match a documented dynamic-pattern (e.g. `task_item_<slug>`, `nav_tab_<slug>`)
-#   3. Be explicitly allow-listed below (raw strings used before TestTags migration)
+#   1. Equal a `const val` literal declared in TestTags.kt
+#      (e.g. `settings_dark_theme_switch`)
+#   2. Start with the literal prefix of a TestTags.kt dynamic function
+#      (e.g. `nav_tab_<slug>` from `fun navTab(title) = "nav_tab_${slug(title)}"`)
+#   3. Appear in LEGACY_RAW below, for tags predating the TestTags migration
+#
+# The valid set is DERIVED FROM TestTags.kt at run time, never hand-maintained
+# here. The previous version carried a 110-entry `if [[ ]]` chain while
+# declaring TESTTAGS_FILE/ALLOW_PATTERNS/LEGACY_RAW without ever reading any of
+# them — the gate accepted whatever the chain said and could not notice a tag
+# being renamed in TestTags.kt. See docs/decisions/2026-10-02-tag-registry-single-source.md.
 #
 # Run from repo root:
 #   bash Maestro/scripts/check-tags.sh
 #
-# CI gate: exits 0 on success, 1 on unknown id.
+# Exit codes: 0 = all ids known, 1 = unknown id, 2 = registry unreadable
+#             (a vacuous green is worse than a red — see MIN_IDS below).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -19,49 +28,61 @@ YAML_DIR="$REPO_ROOT/Maestro/flows"
 HELPERS_DIR="$REPO_ROOT/Maestro/helpers"
 TESTTAGS_FILE="$REPO_ROOT/shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
 
+# If fewer ids are collected than this, the collector itself is broken and a
+# zero-violation result would be meaningless. Mirrors the positive control in
+# scripts/build-version-catalog-gate.py.
+MIN_IDS=20
+
+# Tags that exist in the UI but predate the TestTags.kt migration. Each one is
+# debt: either wire it to a TestTags constant or delete the flow that needs it.
+# Keep this list short — a growing list is the regression this script exists to
+# prevent.
+#
+# Currently empty: every id in every flow is derivable from TestTags.kt. The
+# three entries that used to live here (projects/chat/archive_notification_host)
+# turned out to be plain `const val`s, and the fourth
+# (pomodoro_play_pause_button) was a flow asserting a tag the UI never renders.
+# Add an entry only when a tag genuinely predates the migration.
+LEGACY_RAW=''
+
 # ── 1. Collect all id: selectors from all YAML files ────────────────────────
 #
 # Python handles multiline YAML values correctly where line-oriented grep fails.
 # A multiline `visible:\n    id: foo` produces one logical line from grep -o but
-# Python's split on ": " (colon-space) gives the correct token.
-IDS=$(python3 - "$YAML_DIR" "$HELPERS_DIR" <<'PYEOF'
-import sys
+# Python's regex over the raw text gives the correct token.
+IDS=$(
+    python3 - "$YAML_DIR" "$HELPERS_DIR" <<'PYEOF'
+import os
 import re
+import sys
 
 _, yaml_dir, helpers_dir = sys.argv
 
 pattern = re.compile(r'^\s+id:\s*"?([^"#\s]+)"?\s*$', re.MULTILINE)
 
 ids = set()
-import os
+
 
 def process_path(path):
-    if os.path.isdir(path):
-        for root, _, files in os.walk(path):
-            for fname in files:
-                if fname.endswith(('.yaml', '.yml')):
-                    fpath = os.path.join(root, fname)
-                    try:
-                        with open(fpath, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        for m in pattern.finditer(content):
-                            val = m.group(1)
-                            if val and not val.startswith('${'):
-                                ids.add(val)
-                    except Exception:
-                        continue
-    else:
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                content = f.read()
+    if not os.path.isdir(path):
+        return
+    for root, _, files in os.walk(path):
+        for fname in files:
+            if not fname.endswith(('.yaml', '.yml')):
+                continue
+            fpath = os.path.join(root, fname)
+            try:
+                with open(fpath, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except FileNotFoundError:
+                continue
             for m in pattern.finditer(content):
                 val = m.group(1)
                 if val and not val.startswith('${'):
                     ids.add(val)
-        except FileNotFoundError:
-            pass
 
-for path in [yaml_dir, helpers_dir]:
+
+for path in (yaml_dir, helpers_dir):
     process_path(path)
 
 for i in sorted(ids):
@@ -70,175 +91,132 @@ PYEOF
 )
 
 if [[ -z "$IDS" ]]; then
-    echo "No id: selectors found — check the grep pattern."
-    exit 0
+    echo "ERROR: no id: selectors found — the collector is broken, not the flows." >&2
+    exit 2
 fi
 
-# ── 2. Build the allow-list of known-good patterns ────────────────────────────
+# ── 2. Derive the valid set from TestTags.kt ────────────────────────────────
 #
-# Dynamic patterns: these are generated at runtime by TestTags functions.
-# They are valid when they match the slug expansion of the function input.
-ALLOW_PATTERNS=(
-    # From TestTags dynamic functions (must match slug expansion)
-    'task_item_[a-z0-9_]+'
-    'task_checkbox_[a-z0-9_]+'
-    'note_item_by_title_[a-z0-9_]+'
-    'note_item_[a-z0-9_]+'
-    'nav_tab_[a-z0-9_]+'
-    'menu_[a-z0-9_]+'
-    'settings_tab_[a-z0-9_]+'
-    'settings_content_[a-z0-9_]+'
-    'saved_agenda_card_[a-z0-9_]+'
-    'pomodoro_task_chip_[a-z0-9_]+'
-    'project_card_[a-z0-9_]+'
-    'task_action_[a-z0-9_]+'
-    'sheet_item_[a-z0-9_]+'
-    'agenda_section_[a-z0-9_]+'
-    'calendar_day_[0-9_]+'
-    'genui_[a-z0-9_]+'
+# Emits two newline-separated lists: exact literals first, then dynamic
+# prefixes. A dynamic function whose body is a bare "${PREFIX}..." (profileItem)
+# yields an EMPTY literal prefix; accepting "" would make startswith() true for
+# every id and the whole gate vacuous, so those are dropped and the prefix is
+# instead recovered from the *_PREFIX constant it references.
+readarray -t REGISTRY < <(
+    python3 - "$TESTTAGS_FILE" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        src = f.read()
+except FileNotFoundError:
+    sys.stderr.write(f"ERROR: registry not found at {path}\n")
+    sys.exit(2)
+
+literals = set(re.findall(r'const val \w+\s*(?::\s*String\s*)?=\s*"([^"]+)"', src))
+
+# name -> value, so a function body that interpolates a *_PREFIX constant can
+# be resolved back to its literal prefix.
+const_by_name = dict(
+    re.findall(r'const val (\w+)\s*(?::\s*String\s*)?=\s*"([^"]+)"', src)
 )
 
-# Known raw-string testTags that exist in the codebase but are not yet migrated
-# to TestTags.kt constants. These are tolerated until migrated.
-LEGACY_RAW=(
-    'projects_notification_host'
-    'chat_notification_host'
-    'archive_notification_host'
-)
+prefixes = set()
+for m in re.finditer(r'fun \w+\s*\([^)]*\)\s*(?::\s*String\s*)?=\s*"([^"]+)"', src):
+    body = m.group(1)
+    if '${' not in body:
+        continue
+    prefix = body.split('${')[0]
+    if prefix:
+        prefixes.add(prefix)
+        continue
+    # Body starts with an interpolation, e.g. "${PROFILE_ITEM_PREFIX}${slug(name)}".
+    # The declaration lives elsewhere in the file, so resolve by referenced name.
+    for name in re.findall(r'\$\{(\w+)\}', body):
+        if name in const_by_name:
+            prefixes.add(const_by_name[name])
+        else:
+            sys.stderr.write(
+                f"WARNING: {path} references undeclared constant {name}\n"
+            )
+
+# Positive control: an empty prefix would accept every id.
+assert '' not in prefixes, "empty prefix derived from TestTags.kt — gate would be vacuous"
+
+if not literals and not prefixes:
+    sys.stderr.write("ERROR: derived 0 literals and 0 prefixes from TestTags.kt\n")
+    sys.exit(2)
+
+for lit in sorted(literals):
+    print(lit)
+for pre in sorted(prefixes):
+    print(f"{pre}*")
+PYEOF
+) || exit 2
+
+if [[ ${#REGISTRY[@]} -eq 0 ]]; then
+    echo "ERROR: derived an empty valid-set from $TESTTAGS_FILE — gate would pass everything." >&2
+    exit 2
+fi
 
 # ── 3. Check each id ────────────────────────────────────────────────────────
 UNKNOWN=()
+ID_COUNT=0
 for id in $IDS; do
-    # Skip variable interpolation (${output.foo})
-    if [[ "$id" == *'\${'* ]]; then continue; fi
+    ID_COUNT=$((ID_COUNT + 1))
 
-    # Skip Maestro built-ins
-    if [[ "$id" == "nav_tab_"* ]] \
-       || [[ "$id" == "tasks_fab" ]] \
-       || [[ "$id" == "tasks_list" ]] \
-       || [[ "$id" == "task_context_menu_sheet" ]] \
-       || [[ "$id" == "task_editor_title_input" ]] \
-       || [[ "$id" == "task_editor_save" ]] \
-       || [[ "$id" == "task_editor_more_menu" ]] \
-       || [[ "$id" == "note_editor_body" ]] \
-       || [[ "$id" == "note_editor_save" ]] \
-       || [[ "$id" == "note_editor_title_input" ]] \
-       || [[ "$id" == "notes_quick_add_input" ]] \
-       || [[ "$id" == "search_input" ]] \
-       || [[ "$id" == "pomodoro_phase_label" ]] \
-       || [[ "$id" == "pomodoro_timer_label" ]] \
-       || [[ "$id" == "pomodoro_cycle_label" ]] \
-       || [[ "$id" == "pomodoro_stop_button" ]] \
-       || [[ "$id" == "pomodoro_skip_button" ]] \
-       || [[ "$id" == "pomodoro_play_button" ]] \
-       || [[ "$id" == "pomodoro_pause_button" ]] \
-       || [[ "$id" == "pomodoro_play_pause_button" ]] \
-       || [[ "$id" == "nav_menu_button" ]] \
-       || [[ "$id" == "menu_sheet" ]] \
-       || [[ "$id" == "top_bar_back_button" ]] \
-       || [[ "$id" == "menu_notes" ]] \
-       || [[ "$id" == "menu_settings" ]] \
-       || [[ "$id" == "menu_profile_sync" ]] \
-       || [[ "$id" == "menu_archive" ]] \
-       || [[ "$id" == "menu_ai_chat" ]] \
-       || [[ "$id" == "menu_profiles" ]] \
-       || [[ "$id" == "menu_statistics" ]] \
-       || [[ "$id" == "menu_search" ]] \
-       || [[ "$id" == "menu_quick_search" ]] \
-       || [[ "$id" == "sheet_item_Archive" ]] \
-       || [[ "$id" == "sheet_item_Mark_as_completed" ]] \
-       || [[ "$id" == "sheet_item_Open" ]] \
-       || [[ "$id" == "sheet_item_"* ]] \
-       || [[ "$id" == "settings_tab_interface" ]] \
-       || [[ "$id" == "settings_tab_agenda" ]] \
-       || [[ "$id" == "settings_tab_notifications" ]] \
-       || [[ "$id" == "settings_tab_aiprovider" ]] \
-       || [[ "$id" == "settings_tab_workschedule" ]] \
-       || [[ "$id" == "settings_tab_calendar" ]] \
-       || [[ "$id" == "settings_tab_tags" ]] \
-       || [[ "$id" == "settings_tab_taggroups" ]] \
-       || [[ "$id" == "settings_tab_files" ]] \
-       || [[ "$id" == "settings_tab_backup" ]] \
-       || [[ "$id" == "settings_tab_account" ]] \
-       || [[ "$id" == "project_editor_name_input" ]] \
-       || [[ "$id" == "project_editor_save" ]] \
-       || [[ "$id" == "project_detail_quick_add" ]] \
-       || [[ "$id" == "agenda_saved_views_button" ]] \
-       || [[ "$id" == "agenda_save_current_button" ]] \
-       || [[ "$id" == "saved_agenda_name_input" ]] \
-       || [[ "$id" == "saved_agenda_save_button" ]] \
-       || [[ "$id" == "saved_agenda_delete_button" ]] \
-       || [[ "$id" == "saved_agenda_list_back" ]] \
-       || [[ "$id" == "saved_agenda_create_fab" ]] \
-       || [[ "$id" == "note_editor_notification_host" ]] \
-       || [[ "$id" == "project_editor_notification_host" ]] \
-       || [[ "$id" == "project_editor_back" ]] \
-       || [[ "$id" == "project_editor_description_input" ]] \
-       || [[ "$id" == "backup_top_bar_back" ]] \
-       || [[ "$id" == "auth_email_input" ]] \
-       || [[ "$id" == "auth_password_input" ]] \
-       || [[ "$id" == "auth_sign_in_button" ]] \
-       || [[ "$id" == "auth_toggle_mode_button" ]] \
-       || [[ "$id" == "auth_continue_offline_button" ]] \
-       || [[ "$id" == "auth_error_text" ]] \
-       || [[ "$id" == "auth_loading" ]] \
-       || [[ "$id" == "tags_list" ]] \
-       || [[ "$id" == "notes_list" ]] \
-       || [[ "$id" == "notes_backlinks_button" ]] \
-       || [[ "$id" == "settings_dark_theme_switch" ]] \
-       || [[ "$id" == "task_editor_due_row" ]] \
-       || [[ "$id" == "task_editor_priority_row" ]] \
-       || [[ "$id" == "priority_option_high" ]] \
-       || [[ "$id" == "priority_option_medium" ]] \
-       || [[ "$id" == "priority_option_low" ]] \
-       || [[ "$id" == "priority_option_none" ]] \
-       || [[ "$id" == "dialog_confirm" ]] \
-       || [[ "$id" == "dialog_dismiss" ]] \
-       || [[ "$id" == "dialog_date_picker_ok" ]] \
-       || [[ "$id" == "dialog_date_picker_cancel" ]] \
-       || [[ "$id" == "dialog_date_picker_clear" ]] \
-       || [[ "$id" == "overflow_archive" ]] \
-       || [[ "$id" == "overflow_delete" ]] \
-       || [[ "$id" == "overflow_restore" ]] \
-       || [[ "$id" == "overflow_pin" ]] \
-       || [[ "$id" == "overflow_unpin" ]] \
-       || [[ "$id" == "snackbar_saved" ]] \
-       || [[ "$id" == "note_item_"* ]] \
-       || [[ "$id" == "task_item_"* ]] \
-       || [[ "$id" == "task_checkbox_"* ]] \
-       || [[ "$id" == "nav_tab_"* ]] \
-       || [[ "$id" == "menu_"* ]] \
-       || [[ "$id" == "project_card_"* ]] \
-       || [[ "$id" == "saved_agenda_card_"* ]] \
-       || [[ "$id" == "pomodoro_task_chip_"* ]] \
-       || [[ "$id" == "calendar_day_"* ]] \
-       || [[ "$id" == "genui_"* ]] \
-       || [[ "$id" == "settings_tab_"* ]] \
-       || [[ "$id" == "task_action_"* ]] \
-       || [[ "$id" == "sheet_item_"* ]] \
-       || [[ "$id" == "agenda_section_"* ]] \
-       || [[ "$id" == "settings_content_"* ]] \
-       || [[ "$id" == "dialog_title_"* ]] \
-       || [[ "$id" == "backup_create_button" ]] \
-       || [[ "$id" == "backup_restore_button" ]] \
-       || [[ "$id" == "profile_create_button" ]] \
-       || [[ "$id" == "profile_item_"* ]]; then
+    if [[ "$id" == *'\${'* ]]; then
         continue
     fi
 
-    # All remaining ids are unknown
-    UNKNOWN+=("$id")
+    KNOWN=false
+    for entry in "${REGISTRY[@]}"; do
+        if [[ "$entry" == *'*' ]]; then
+            # Dynamic prefix: strip the trailing '*' marker.
+            if [[ "$id" == "${entry%\*}"* ]]; then
+                KNOWN=true
+                break
+            fi
+        elif [[ "$id" == "$entry" ]]; then
+            KNOWN=true
+            break
+        fi
+    done
+
+    if [[ "$KNOWN" == false ]]; then
+        # Last resort: the explicit legacy list.
+        while IFS= read -r legacy; do
+            [[ -z "$legacy" ]] && continue
+            if [[ "$id" == "$legacy" ]]; then
+                KNOWN=true
+                break
+            fi
+        done <<<"$LEGACY_RAW"
+    fi
+
+    if [[ "$KNOWN" == false ]]; then
+        UNKNOWN+=("$id")
+    fi
 done
+
+if [[ "$ID_COUNT" -lt "$MIN_IDS" ]]; then
+    echo "ERROR: only $ID_COUNT id selectors collected (expected >= $MIN_IDS)." >&2
+    echo "The collector likely broke; a clean run here would be vacuous." >&2
+    exit 2
+fi
 
 # ── 4. Report ────────────────────────────────────────────────────────────────
 if [[ ${#UNKNOWN[@]} -eq 0 ]]; then
-    echo "All $(echo "$IDS" | wc -l) id selectors are known."
+    echo "All $ID_COUNT id selectors are known (${#REGISTRY[@]} entries derived from TestTags.kt)."
     exit 0
-else
-    echo "Unknown id: selectors (${#UNKNOWN[@]}) — add to TestTags.kt or the skip-list above:"
-    printf '  - %s\n' "${UNKNOWN[@]}"
-    echo ""
-    echo "If the id is a new testTag, add it to TestTags.kt as a const val or dynamic function."
-    echo "If it is a legacy raw string, add it to the skip-list (lines 116-225)."
-    exit 1
 fi
+
+echo "Unknown id: selectors (${#UNKNOWN[@]}/${ID_COUNT}) — not derivable from TestTags.kt:"
+printf '  - %s\n' "${UNKNOWN[@]}"
+echo ""
+echo "If this is a real testTag, add it to TestTags.kt as a const val or a"
+echo "dynamic function. If it predates the migration, add it to LEGACY_RAW in"
+echo "this script — but that list is debt and should shrink, not grow."
+exit 1

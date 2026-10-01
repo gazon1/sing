@@ -18,7 +18,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== [0/5] build version catalog gate ===${NC}"
+echo -e "${YELLOW}=== [0/6] build version catalog gate ===${NC}"
 # Fast: no JVM startup. Fails before Gradle if a *.gradle.kts contains a
 # hardcoded group:artifact:version literal that should come from libs.versions.toml.
 python3 scripts/build-version-catalog-gate.py --quiet . || {
@@ -26,7 +26,7 @@ python3 scripts/build-version-catalog-gate.py --quiet . || {
     exit 1
 }
 
-echo -e "${YELLOW}=== [1/5] detekt rule registry (fast) ===${NC}"
+echo -e "${YELLOW}=== [1/6] detekt rule registry (fast) ===${NC}"
 # Runs before Gradle: a duplicated or missing rule registration otherwise surfaces
 # minutes later as a YAML parse error pointing at detekt.yml rather than the cause.
 ./scripts/check-detekt-registrations.sh || {
@@ -34,28 +34,37 @@ echo -e "${YELLOW}=== [1/5] detekt rule registry (fast) ===${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [2/5] shared:jvmTest ===${NC}"
+echo -e "${YELLOW}=== [2/6] Maestro test tags ===${NC}"
+# Every `id:` in a flow is matched against TestTags.kt at run time, so renaming a
+# tag in the registry fails here rather than on a device hours later. Needs no
+# device and no JVM, so it costs nothing to run on every check.
+bash Maestro/scripts/check-tags.sh || {
+    echo -e "${RED}Maestro test tags FAILED${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [3/6] shared:jvmTest ===${NC}"
 ./gradlew :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [3/5] desktopApp:test ===${NC}"
+echo -e "${YELLOW}=== [4/6] desktopApp:test ===${NC}"
 ./gradlew :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [4/5] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [5/6] androidApp:assembleDebug ===${NC}"
 ./gradlew :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}assembleDebug passed${NC}"
 
-echo -e "${GREEN}=== [5/5] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${GREEN}=== [6/6] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
