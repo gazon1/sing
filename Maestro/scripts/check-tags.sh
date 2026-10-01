@@ -3,6 +3,11 @@
 # check-tags.sh — validates every `id:` selector in Maestro YAML flows against
 # the TestTags.kt registry.
 #
+# Status: legacy. The canonical blocking check is
+# `shared/src/jvmTest/.../arch/MaestroFlowTagsTest.kt` (JVM, runs as part of
+# :shared:jvmTest). This shell script is retained for ad-hoc local use and
+# pre-commit hook scenarios where gradle is unavailable.
+#
 # Every id used in a flow must either:
 #   1. Equal a `const val` literal declared in TestTags.kt
 #      (e.g. `settings_dark_theme_switch`)
@@ -11,10 +16,7 @@
 #   3. Appear in LEGACY_RAW below, for tags predating the TestTags migration
 #
 # The valid set is DERIVED FROM TestTags.kt at run time, never hand-maintained
-# here. The previous version carried a 110-entry `if [[ ]]` chain while
-# declaring TESTTAGS_FILE/ALLOW_PATTERNS/LEGACY_RAW without ever reading any of
-# them — the gate accepted whatever the chain said and could not notice a tag
-# being renamed in TestTags.kt. See docs/decisions/2026-10-02-tag-registry-single-source.md.
+# here. See docs/decisions/2026-10-01-maestro-flow-tag-contract.md.
 #
 # Run from repo root:
 #   bash Maestro/scripts/check-tags.sh
