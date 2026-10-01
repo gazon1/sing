@@ -1,0 +1,70 @@
+# Agenda: after creating a task from a specific tab, we return to that tab.
+#
+# Verifies:
+# 1. Creating from Today and saving returns to Today (task is in Today, not Inbox).
+# 2. Creating from Inbox and saving returns to Inbox (task is in No Date).
+# This is the per-tab back stack isolation — the save navigates back within
+# the tasks nested graph, then pops the TasksGraph from the agenda back stack,
+# returning to the source tab.
+#
+appId: com.singularity.todo
+name: tasks-return-to-source-tab
+tags:
+  - regression
+  - tasks
+---
+# ── Case 1: Today → FAB → save → still on Today ───────────────────────
+- runFlow: ../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 5000
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Return to Today"
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 8000
+- assertVisible:
+    id: task_item_return_to_today
+- assertVisible: "Return to Today"
+
+# ── Case 2: Inbox → FAB → save → still on Inbox ──────────────────────
+# Switch to Inbox explicitly to verify we're not stuck on Today
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_no_date
+    timeout: 5000
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Return to Inbox"
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_no_date
+    timeout: 8000
+- assertVisible:
+    id: task_item_return_to_inbox
+- assertVisible: "Return to Inbox"

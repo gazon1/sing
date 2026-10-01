@@ -1,5 +1,6 @@
 package com.singularity.todo.shell
 
+import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import kotlin.test.Test
@@ -25,15 +26,22 @@ class FabActionResolverTest {
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Inbox), navigate)
         assertEquals("Add task", result.label())
         result.click()
-        assertEquals(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create), navigatedTo)
+        val nav = navigatedTo as? AppDestination.TasksGraph
+        assertIs<AppDestination.TasksGraph>(nav)
+        assertEquals(AppDestination.TasksStartRoute.Create, nav.start)
+        assertNull(nav.initialDueDate, "Inbox FAB should not prefill due date")
     }
 
     @Test
-    fun agendaGraph_today_returnsAddTask() {
+    fun agendaGraph_today_returnsAddTask_withTodayDueDate() {
+        val today = todayInSystemZone()
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Today), navigate)
         assertEquals("Add task", result.label())
         result.click()
-        assertEquals(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create), navigatedTo)
+        val nav = navigatedTo as? AppDestination.TasksGraph
+        assertIs<AppDestination.TasksGraph>(nav)
+        assertEquals(AppDestination.TasksStartRoute.Create, nav.start)
+        assertEquals(today, nav.initialDueDate, "Today FAB should prefill due date to today")
     }
 
     @Test

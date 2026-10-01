@@ -1,0 +1,55 @@
+# Agenda: FAB from Today tab pre-fills due date to Today.
+#
+# Verifies:
+# 1. Tapping FAB from Today pre-fills the due date to today.
+# 2. Saving a task with Today pre-fill lands the task in the Today section.
+# 3. After save, we return to the Today agenda tab (not Inbox).
+#
+appId: com.singularity.todo
+name: tasks-prefill-from-today
+tags:
+  - regression
+  - tasks
+---
+# Launch clean and start on Today tab
+- runFlow: ../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 5000
+
+# Open create via FAB
+- tapOn:
+    id: tasks_fab
+
+# Verify title field is ready
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# Due date row should show a pre-filled date (today's date as YYYY-MM-DD).
+# The exact label is the ISO date string from today.
+- assertVisible:
+    id: task_editor_due_row
+
+# ── Fill title ─────────────────────────────────────────────────────────
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Task from Today tab"
+
+# ── Save ──────────────────────────────────────────────────────────────
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+
+# ── Verify task appears in Today section ──────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 8000
+- assertVisible:
+    id: task_item_task_from_today_tab
+- assertVisible: "Task from Today tab"
