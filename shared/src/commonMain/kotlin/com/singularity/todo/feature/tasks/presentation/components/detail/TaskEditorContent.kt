@@ -1,28 +1,18 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,17 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
-import com.singularity.todo.core.ui.preview.PreviewSamples
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -53,9 +34,6 @@ import kotlinx.datetime.LocalTime
 /**
  * Unified task editor Composable for both Create and View modes.
  *
- * Uses slot API: view-specific content is passed as nullable lambdas.
- * This eliminates the ~46% code duplication between TaskCreateContent and TaskDetailViewContent.
- *
  * @param titleDraft Current title value.
  * @param onTitleChange Called when title text changes.
  * @param isCompleted Whether the task is completed (affects checkbox appearance).
@@ -64,13 +42,19 @@ import kotlinx.datetime.LocalTime
  * @param onDescriptionChange Called when description text changes.
  * @param priority Current priority value.
  * @param onPrioritySelect Called when a priority is selected in the sheet.
- * @param onPriorityClear Called when the priority X button is tapped. Pass null in View mode (no X shown).
+ * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
  * @param dueDate Current due date (null means not set).
  * @param dueTime Current due time (null means not set).
  * @param onDueDateSelect Called when a date is selected in the date picker sheet.
- * @param onDueDateClear Called when the due date X button is tapped. Pass null in View mode.
+ * @param onDueDateClear Called when the due date X button is tapped. Pass null in Create mode.
  * @param onDueTimeSelect Called when a time is selected in the time picker sheet.
+ * @param showDueDate Controls whether the due date row is rendered.
+ * @param onPriorityClick Click on the Priority row opens the priority picker sheet.
+ * @param onDueDateClick Click on the Due Date row opens the date picker sheet.
+ * @param dependsOn IDs of tasks this task depends on.
+ * @param availableTasks Tasks available for dependency selection.
  * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
+ * @param onSetDependencies Called when the user confirms a new set of dependencies.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
@@ -93,16 +77,11 @@ fun TaskEditorContent(
     onDueDateClear: (() -> Unit)?,
     onDueTimeSelect: (LocalTime?) -> Unit,
     showDueDate: Boolean = true,
-    /** Click on the Priority row opens the priority picker sheet. */
     onPriorityClick: (() -> Unit)? = null,
-    /** Click on the Due Date row opens the date picker sheet. */
     onDueDateClick: (() -> Unit)? = null,
-    /** IDs of tasks this task depends on. Opens the [DependencyPickerSheet]. */
     dependsOn: Set<TaskId> = emptySet(),
-    /** Tasks available for dependency selection. */
     availableTasks: List<Task> = emptyList(),
     extraSections: (@Composable () -> Unit)?,
-    /** Called when the user confirms a new set of dependencies in [DependencyPickerSheet]. */
     onSetDependencies: ((Set<TaskId>) -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
@@ -120,8 +99,7 @@ fun TaskEditorContent(
                 onAiClick = onAiClick,
             )
         },
-        bottomBar = bottomBar
-            ?: {},
+        bottomBar = bottomBar ?: {},
         containerColor = TaskColors.Background,
     ) { padding ->
         Column(
@@ -148,7 +126,7 @@ fun TaskEditorContent(
             // View-mode extra sections
             extraSections?.invoke()
 
-            // Dependencies card — shown when task has dependencies
+            // Dependencies card
             if (dependsOn.isNotEmpty() && availableTasks.isNotEmpty()) {
                 val depTitles = dependsOn.mapNotNull { depId ->
                     availableTasks.find { it.id == depId }?.title?.ifBlank { null }
@@ -165,91 +143,21 @@ fun TaskEditorContent(
                 )
             }
 
-            // Priority attribute
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .testTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-                    .clickable(
-                        onClick = onPriorityClick
-                            ?: { sheets.show(TaskEditorSheet.Priority) },
-                    )
-                    .then(
-                        Modifier.padding(
-                            horizontal = TaskSpacing.cardPaddingHorizontal,
-                            vertical = TaskSpacing.cardPaddingVertical,
-                        ),
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Flag,
-                    contentDescription = null,
-                    tint = if (priority != TaskPriority.None) TaskColors.AccentBlue else TaskColors.TextSecondary,
-                    modifier = Modifier.size(TaskSpacing.iconSize),
-                )
-                Spacer(Modifier.width(TaskSpacing.lg))
-                Text(
-                    text = priorityLabel(priority),
-                    color = if (priority != TaskPriority.None) TaskColors.TextPrimary else TaskColors.TextSecondary,
-                    fontSize = 16.sp,
-                    fontWeight = if (priority != TaskPriority.None) FontWeight.Medium else FontWeight.Normal,
-                    modifier = Modifier.weight(1f),
-                )
-                if (priority != TaskPriority.None && onPriorityClear != null) {
-                    IconButton(onClick = onPriorityClear) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Сбросить приоритет",
-                            tint = TaskColors.TextSecondary,
-                        )
-                    }
-                } else {
-                    Spacer(Modifier.width(48.dp))
-                }
-            }
+            // Priority row
+            TaskEditorPriorityRow(
+                priority = priority,
+                onPriorityClick = onPriorityClick,
+                onPriorityClear = onPriorityClear,
+            )
 
-            // Due date attribute — only shown when showDueDate is true
+            // Due date row
             if (showDueDate) {
-                val label = dueDateLabel(dueDate, dueTime)
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .testTag(TestTags.TASK_EDITOR_DUE_ROW)
-                        .clickable(
-                            onClick = onDueDateClick
-                                ?: { sheets.show(TaskEditorSheet.Date) },
-                        )
-                        .padding(
-                            horizontal = TaskSpacing.cardPaddingHorizontal,
-                            vertical = TaskSpacing.cardPaddingVertical,
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CalendarToday,
-                        contentDescription = null,
-                        tint = if (dueDate != null) TaskColors.AccentBlue else TaskColors.TextSecondary,
-                        modifier = Modifier.size(TaskSpacing.iconSize),
-                    )
-                    Spacer(Modifier.width(TaskSpacing.lg))
-                    Text(
-                        text = label,
-                        color = if (dueDate != null) TaskColors.TextPrimary else TaskColors.TextSecondary,
-                        fontSize = 16.sp,
-                        fontWeight = if (dueDate != null) FontWeight.Medium else FontWeight.Normal,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (dueDate != null && onDueDateClear != null) {
-                        IconButton(onClick = onDueDateClear) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Сбросить дату",
-                                tint = TaskColors.TextSecondary,
-                            )
-                        }
-                    } else {
-                        Spacer(Modifier.width(48.dp))
-                    }
-                }
+                TaskEditorDueDateRow(
+                    dueDate = dueDate,
+                    dueTime = dueTime,
+                    onDueDateClick = onDueDateClick,
+                    onDueDateClear = onDueDateClear,
+                )
             }
 
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
@@ -274,7 +182,7 @@ fun TaskEditorContent(
         }
     }
 
-    // Sheets — delegate to TaskEditorSheetsHost which handles all 12 variants
+    // Sheets
     TaskEditorSheetsHost(
         model = TaskEditorModel(
             taskId = null,
@@ -301,15 +209,13 @@ fun TaskEditorContent(
             onDescriptionChange = onDescriptionChange,
             priority = RowCallbacks(
                 onChange = onPrioritySelect,
-                onClick = onPriorityClick
-                    ?: {},
+                onClick = onPriorityClick ?: {},
                 onClear = onPriorityClear,
             ),
             dueDate = DateRowCallbacks(
                 onChangeDate = onDueDateSelect,
                 onChangeTime = onDueTimeSelect,
-                onClick = onDueDateClick
-                    ?: {},
+                onClick = onDueDateClick ?: {},
                 onClear = onDueDateClear,
             ),
             startDate = null,
@@ -319,9 +225,6 @@ fun TaskEditorContent(
             pin = null,
             dependencies = RowCallbacks(
                 onChange = { onSetDependencies?.invoke(it) },
-                // onClick stays null so the row falls back to opening its own
-                // dependencies sheet. Passing `{}` here would count as "supplied" and
-                // suppress that fallback, leaving the row inert — see RowCallbacks KDoc.
                 onClick = null,
                 onClear = null,
             ),
@@ -337,12 +240,7 @@ fun TaskEditorContent(
 
 /**
  * Overload that unpacks [TaskEditorModel] and [TaskEditorCallbacks] into explicit parameters.
- * Used by [TaskDetailViewScreen] which constructs model + callbacks separately.
- *
- * Note: fields in [TaskEditorModel] that have no corresponding explicit parameter
- * (startDate, startTime, project, tags, recurrence, pin, checklist, attachments)
- * are not rendered by this overload. They are controlled via `extraSections` in the
- * explicit-parameter overload.
+ * Used by [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen].
  */
 @Composable
 fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, isCompleted: Boolean = false) {
@@ -354,16 +252,13 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         descriptionDraft = model.descriptionDraft,
         onDescriptionChange = callbacks.onDescriptionChange,
         priority = model.priority,
-        onPrioritySelect = callbacks.priority?.onChange
-            ?: {},
+        onPrioritySelect = callbacks.priority?.onChange ?: {},
         onPriorityClear = callbacks.priority?.onClear,
         dueDate = model.dueDate,
         dueTime = model.dueTime,
-        onDueDateSelect = callbacks.dueDate?.onChangeDate
-            ?: {},
+        onDueDateSelect = callbacks.dueDate?.onChangeDate ?: {},
         onDueDateClear = callbacks.dueDate?.onClear,
-        onDueTimeSelect = callbacks.dueDate?.onChangeTime
-            ?: {},
+        onDueTimeSelect = callbacks.dueDate?.onChangeTime ?: {},
         showDueDate = true,
         onPriorityClick = callbacks.priority?.onClick,
         onDueDateClick = callbacks.dueDate?.onClick,
@@ -375,123 +270,5 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
-    )
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-private fun priorityLabel(priority: TaskPriority): String = when (priority) {
-    TaskPriority.None -> "No priority"
-    TaskPriority.Low -> "Low priority"
-    TaskPriority.Medium -> "Medium priority"
-    TaskPriority.High -> "High priority"
-    TaskPriority.Urgent -> "Urgent"
-}
-
-private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
-    if (date == null) return "Добавить дату"
-    val dateStr = date.toString()
-    return if (time != null) {
-        "$dateStr ${
-            time.toString()
-                .take(5)
-        }"
-    } else {
-        dateStr
-    }
-}
-
-// ===== Preview =====
-
-@Preview
-@Composable
-private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    TaskEditorContent(
-        titleDraft = "",
-        onTitleChange = {},
-        isCompleted = false,
-        onCheckToggle = {},
-        descriptionDraft = "",
-        onDescriptionChange = {},
-        priority = TaskPriority.None,
-        onPrioritySelect = {},
-        onPriorityClear = null,
-        dueDate = null,
-        dueTime = null,
-        onDueDateSelect = {},
-        onDueDateClear = null,
-        onDueTimeSelect = {},
-        dependsOn = emptySet(),
-        availableTasks = emptyList(),
-        extraSections = null,
-        onSetDependencies = null,
-        bottomBar = null,
-        menuItems = emptyList(),
-        onBack = {},
-    )
-}
-
-@Preview
-@Composable
-private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val today = PreviewSamples.today
-    TaskEditorContent(
-        titleDraft = "Buy groceries",
-        onTitleChange = {},
-        isCompleted = false,
-        onCheckToggle = {},
-        descriptionDraft = "Milk, eggs, bread",
-        onDescriptionChange = {},
-        priority = TaskPriority.High,
-        onPrioritySelect = {},
-        onPriorityClear = {},
-        dueDate = today,
-        dueTime = LocalTime(14, 30),
-        onDueDateSelect = {},
-        onDueDateClear = {},
-        onDueTimeSelect = {},
-        dependsOn = emptySet(),
-        availableTasks = emptyList(),
-        extraSections = null,
-        onSetDependencies = null,
-        bottomBar = null,
-        menuItems = listOf(
-            TaskEditorMenuItem("Archive") {},
-            TaskEditorMenuItem("Delete") {},
-        ),
-        onBack = {},
-    )
-}
-
-@Preview
-@Composable
-private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    val today = PreviewSamples.today
-    val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
-    TaskEditorContent(
-        titleDraft = "Review PR",
-        onTitleChange = {},
-        isCompleted = false,
-        onCheckToggle = {},
-        descriptionDraft = "",
-        onDescriptionChange = {},
-        priority = TaskPriority.Urgent,
-        onPrioritySelect = {},
-        onPriorityClear = {},
-        dueDate = today,
-        dueTime = null,
-        onDueDateSelect = {},
-        onDueDateClear = {},
-        onDueTimeSelect = {},
-        dependsOn = setOf(sampleTask.id),
-        availableTasks = listOf(sampleTask),
-        extraSections = null,
-        onSetDependencies = {},
-        bottomBar = null,
-        menuItems = listOf(
-            TaskEditorMenuItem("Archive") {},
-            TaskEditorMenuItem("Delete") {},
-        ),
-        onBack = {},
     )
 }

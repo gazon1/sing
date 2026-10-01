@@ -7,8 +7,12 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.test.fakes.testTask
 import kotlinx.datetime.LocalDate
 import org.koin.core.Koin
@@ -28,21 +32,8 @@ import kotlin.time.Instant
  * }
  * ```
  *
- * ## Why [given] has no default for `due`
- *
- * The undated path is an open question, not a settled one. The domain half is
- * pinned green (`AgendaNoDateRegressionTest`), but the layers above
- * `AgendaEvaluator` are not yet exonerated — see
- * `2026-09-30-nodate-root-cause.md` and `deferred-backlog.md#nodate-steps-2-4`.
- * A test that seeds an undated task and then asserts it is listed is therefore
- * asserting on behaviour that is not yet decided, and when it fails the message
- * points at the assertion rather than at the real cause.
- *
- * Defaulting `due` to today would settle that silently: the task appears, the
- * test passes, and the undated path gets neither accidental nor deliberate
- * coverage. Making the argument mandatory forces a choice, and [givenUndated] is
- * how the undated case is asked for — by a name that `grep` can find, so the
- * tests standing on unsettled ground are enumerable.
+ * All optional parameters (projectId, tagIds, isPinned, priority, recurrence)
+ * use neutral defaults so existing call sites compile unchanged.
  */
 @OptIn(ExperimentalTestApi::class)
 class TasksRobot(
@@ -52,19 +43,32 @@ class TasksRobot(
     private var seq = 0
     private var seeded = 0
 
-    /** A task the agenda will render: dated, because that is the path that works today. */
+    /**
+     * A task the agenda will render.
+     *
+     * All optional fields use neutral defaults (null / empty / false) so existing
+     * call sites compile without changes.
+     */
     suspend fun given(
         due: LocalDate,
         title: String = "Buy milk",
         completed: Boolean = false,
+        projectId: ProjectId? = null,
+        tagIds: List<TagId> = emptyList(),
+        isPinned: Boolean = false,
+        priority: TaskPriority = TaskPriority.None,
+        recurrence: RecurrenceSpec? = null,
     ): TasksRobot = apply {
-        seed(title = title, dueDate = due, completed = completed)
-        // The seed is the precondition, so verify it landed before any UI
-        // assertion can run. Without this, a failed flow reads as "the screen
-        // does not render the task" when the repository never received it —
-        // two different bugs with one useless message. This is the MR-2
-        // layer-assertion convention, applied at the only place every
-        // robot-based flow passes through.
+        seed(
+            title = title,
+            dueDate = due,
+            completed = completed,
+            projectId = projectId,
+            tagIds = tagIds,
+            isPinned = isPinned,
+            priority = priority,
+            recurrence = recurrence,
+        )
         assertSeeded(koin, expected = ++seeded)
     }
 
@@ -93,24 +97,35 @@ class TasksRobot(
         title: String,
         dueDate: LocalDate?,
         completed: Boolean = false,
+        projectId: ProjectId? = null,
+        tagIds: List<TagId> = emptyList(),
+        isPinned: Boolean = false,
+        priority: TaskPriority = TaskPriority.None,
+        recurrence: RecurrenceSpec? = null,
     ) {
-        // Seed timestamps come off a fixed epoch stepped by the sequence number,
-        // not the wall clock: two tasks seeded in one flow must have a stable
-        // relative order, and a flow's result must not depend on the hour it ran.
-        // Same convention as NotesScreenTest / TagsRenameUiTest.
         val n = seq++
         val at = SEED_EPOCH + n.seconds
-        koin.get<TaskRepository>().upsert(
-            testTask(
-                id = TaskId("robot-task-$n"),
-                title = title,
-                dueDate = dueDate,
-                completedAt = if (completed) at else null,
-                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
-                createdAt = at,
-                updatedAt = at,
-            ),
+        val taskId = TaskId("robot-task-$n")
+        val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
+        val baseTask = testTask(
+            id = taskId,
+            title = title,
+            dueDate = dueDate,
+            completedAt = if (completed) at else null,
+            projectId = projectId,
+            tags = tagIds,
+            isPinned = isPinned,
+            priority = priority,
+            userId = userId,
+            createdAt = at,
+            updatedAt = at,
         )
+        val task = if (recurrence != null) {
+            baseTask.copy(recurrence = recurrence)
+        } else {
+            baseTask
+        }
+        koin.get<TaskRepository>().upsert(task)
     }
 
     private companion object {

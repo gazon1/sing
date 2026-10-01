@@ -24,12 +24,11 @@ tags:
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
-# Save keeps the editor open (it emits a "Saved" snackbar and stays, so the user
-# can keep editing) — it does not pop. Leave explicitly.
-- extendedWaitUntil:
-    visible:
-      id: snackbar_saved
-    timeout: 5000
+# Save keeps the editor open — it does not pop. The save button re-enables after
+# the async persist completes, which is the last write in this flow before we exit.
+# Note: Notification.Text("Saved", null) is a no-op (ResultDialog early-exits when
+# text==null). A real "Saved" toast requires Notification.Undo. See
+# deferred-backlog.md#saved-views-crud-flow-selects-a-snackbar-that-does-not-exist.
 # Leave via the top-bar arrow, not the system back: the arrow is the one that
 # honours the dirty-draft confirmation. The system back does not pop this screen.
 - tapOn:
