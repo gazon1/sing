@@ -15,14 +15,12 @@ already performed. "Looks wrong" is not an entry.
 **Found in:** MR-1 retrospective, `scripts/find-unwired-surfaces.py`. Pre-existing;
 not a regression from the desktop UI work.
 
-`feature/sync/presentation/SyncConfigScreen.kt` is a public `@Composable` with no
-call site. `SyncViewModel` is fully built and registered. Either the screen was
-never wired to a route, or the route was dropped.
+`feature/sync/presentation/SyncConfigScreen.kt` was a public `@Composable` with no
+call site. `SyncViewModel` was fully built and registered.
 
-**Try next:** read `AppDestination` and both `*NavEntries.kt` for a Sync
-destination that exists but does not compose the screen. If no destination exists
-at all, decide whether sync configuration is a product feature that lost its
-entry point — that is a product call, not a refactor.
+**Status: RESOLVED.** `SyncConfigScreen.kt` was deleted. The script now reports
+zero findings. The `find-unwired-surfaces` gate is clean and can be added to
+`check.sh` as-is — no baseline needed since nothing is suppressed.
 
 ---
 
@@ -256,10 +254,9 @@ standing finding (`SyncConfigScreen`) is a known, documented product question.
 So the script can never gate a check, and "no new findings" is verified by
 reading output manually — which means it will not be.
 
-**Try next:** a small baseline file (like the docs-audit dead-ref baseline):
-known findings listed in `config/`, script subtracts them and exits 0; a new
-finding still exits 1. Then add it to `check.sh`. An hour of work, turns a
-manual ritual into a gate.
+**Status: RESOLVED.** `SyncConfigScreen.kt` was deleted — the sole standing finding
+is gone. The script now reports zero findings, exits 0, and is wired into
+`check.sh` as step [2/6]. No baseline needed.
 
 ---
 

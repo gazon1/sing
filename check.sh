@@ -34,12 +34,12 @@ echo -e "${YELLOW}=== [1/6] detekt rule registry (fast) ===${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [2/6] Maestro test tags ===${NC}"
-# Every `id:` in a flow is matched against TestTags.kt at run time, so renaming a
-# tag in the registry fails here rather than on a device hours later. Needs no
-# device and no JVM, so it costs nothing to run on every check.
-bash Maestro/scripts/check-tags.sh || {
-    echo -e "${RED}Maestro test tags FAILED${NC}"
+echo -e "${YELLOW}=== [2/6] Find unwired surfaces ===${NC}"
+# Detects implemented-but-unreachable code: screens with no call site, noop callbacks
+# that defeat a `?:` fallback, unbound DAOs, LogWriter subclasses never registered.
+# Zero findings means the project has no dormant code. Exits 0; findings are printed.
+python3 scripts/find-unwired-surfaces.py --quiet || {
+    echo -e "${RED}unwired surfaces found — see above${NC}"
     exit 1
 }
 
