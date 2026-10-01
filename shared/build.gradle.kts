@@ -13,9 +13,8 @@ plugins {
     // NOTE: the Koin compiler plugin (libs.plugins.koin) was removed — zero
     // @Single/@Factory annotations exist (DI is pure Koin DSL) and koin-annotations 4.x
     // is incompatible with Koin 4.x (see AGENTS.md). Re-add only if annotations are adopted.
-	// Code quality
-	alias(libs.plugins.detekt)
-	alias(libs.plugins.kover)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
