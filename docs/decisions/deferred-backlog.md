@@ -10,32 +10,6 @@ already performed. "Looks wrong" is not an entry.
 
 ---
 
-## nodate-steps-2-4
-
-**Found in:** MR-1 (`feat/desktop-compose-ui-v2`), bisecting the open question in
-`2026-09-30-desktop-compose-ui-flow-tests.md`.
-
-**Status: RESOLVED.** See `2026-09-30-nodate-fix.md`.
-
-**Root cause:** `ProfileAwareCurrentUser._scopedUserId` was initialized to
-`UserId.anonymous` before the `combine().collect` fired. In the test harness,
-`seedTask()` ran before the collector fired, getting `UserId.anonymous` and
-orphaning the task. In production the window is microseconds and harmless; in
-tests it was large enough to cause a visible failure.
-
-**Fix:** Seed `_scopedUserId` synchronously from `currentUser.userId.value`
-and `profileRepository.activeProfileId.value` (both `StateFlow`, both already
-seeded). Also change `FakeAuthRepository` default from `UserId.anonymous` to
-`TestUsers.DEFAULT` so the fake is consistent.
-
-**Product question (still open):** does a task with `startDate` but no `dueDate`
-count as "No Date"? Schema v16 added start/end dates and no ADR states the
-semantic. The rule lives in two places — `Selector.DateBucket.NoDate` and
-`AgendaEvaluator.computeBadge` — and should route through a single
-`TaskComputed.hasNoDate`. Filed as a follow-up (not blocking).
-
----
-
 ## sync-config-screen-unwired
 
 **Found in:** MR-1 retrospective, `scripts/find-unwired-surfaces.py`. Pre-existing;
