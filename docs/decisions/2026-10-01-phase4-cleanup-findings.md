@@ -1,11 +1,9 @@
 ---
-id: 2026-10-01-phase4-cleanup-findings
 title: Phase 4 Post-Move Cleanup Findings
-description: >
-  Issues discovered and fixed during the Phase 4 repository package-move cleanup pass,
-  plus deferred tech debt items identified in the post-move audit.
+date: 2026-10-01
 status: accepted
-created: 2026-10-01
+id: 2026-10-01-phase4-cleanup-findings
+description: >
 profile: ai-agent
 ---
 

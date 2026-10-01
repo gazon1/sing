@@ -1134,6 +1134,7 @@ _22 entries need attention._
 - `2026-10-01-cluster-9-repository-package-moves` — _untagged_
 - `2026-10-01-maestro-flow-tag-contract` — testing, maestro, test-tags, ci-gates
 - `2026-10-01-nodate-regression-pinning` — testing, regression, nodate, agenda, task-repository
+- `2026-10-01-phase4-cleanup-findings` — _untagged_
 - `2026-10-01-post-mr-2-findings` — audit, mr-2
 - `2026-10-01-post-mr-3-findings` — audit, mr-3
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
@@ -1506,6 +1507,7 @@ _22 entries need attention._
 - `2026-10-01-cluster-9-repository-package-moves` — Cluster 9 — Repository Package Moves
 - `2026-10-01-maestro-flow-tag-contract` — Maestro flow tag contract — JVM test gate
 - `2026-10-01-nodate-regression-pinning` — NoDate regression pinning: contract + VM tests
+- `2026-10-01-phase4-cleanup-findings` — Phase 4 Post-Move Cleanup Findings
 - `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
 - `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
