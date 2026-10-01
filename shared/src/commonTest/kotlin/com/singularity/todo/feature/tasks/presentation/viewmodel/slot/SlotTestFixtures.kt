@@ -19,6 +19,7 @@ import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeReminderRepository
@@ -90,6 +91,7 @@ internal class SlotFakes {
     val checklistRepo = FakeChecklistRepository()
     val reminderRepo = FakeReminderRepository(currentUser = currentUser)
     val attachmentsRepo = FakeAttachmentRepository(currentUser = currentUser)
+    val notesRepo = FakeNotesRepository(currentUser = currentUser)
 
     fun deps(): TaskDetailDeps = TaskDetailDeps(
         taskRepo = taskRepo,
@@ -104,6 +106,7 @@ internal class SlotFakes {
         timeZoneProvider = TEST_TZ,
         clock = FakeClock(SLOT_NOW),
         completeRecurring = stubCompleteRecurring,
+        notesRepo = notesRepo,
         debounceMs = 300L,
     )
 

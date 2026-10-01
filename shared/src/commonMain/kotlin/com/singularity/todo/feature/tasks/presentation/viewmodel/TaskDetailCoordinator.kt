@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskComple
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskDraftSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntitySlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLifecycleSlot
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersSlot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,6 +102,8 @@ class TaskDetailCoordinator(
 
     private val backlinks = TaskBacklinksCollector(deps, vmScope, taskFlow)
 
+    private val logbook = TaskLogbookCollector(deps.notesRepo, vmScope, taskFlow)
+
     init {
         addCloseable(scope)
         scope.launch {
@@ -120,7 +123,8 @@ class TaskDetailCoordinator(
                 children.state,
                 reminders.state,
                 backlinks.state,
-            ) { task, draftState, entityState, childrenState, reminderState, backlinkState ->
+                logbook.state,
+            ) { task, draftState, entityState, childrenState, reminderState, backlinkState, logState ->
                 if (task == null) {
                     TaskDetailUiState.Error("Not found")
                 } else {
@@ -139,6 +143,7 @@ class TaskDetailCoordinator(
                             availableTasks = entityState.availableTasks,
                             linkedNotes = backlinkState.notes,
                             linkedTasks = backlinkState.tasks,
+                            logbookNotes = logState.allNotes,
                         ),
                     )
                 }

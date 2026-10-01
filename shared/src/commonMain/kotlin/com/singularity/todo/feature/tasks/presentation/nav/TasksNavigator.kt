@@ -50,6 +50,16 @@ open class TasksNavigator(
     }
 
     /**
+     * Exit the nested graph and open the note editor pre-attached to [taskId].
+     * The created note will be linked to the task via [com.singularity.todo.feature.notes.NotesRepository.createForTask].
+     *
+     * Used by [com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection].
+     */
+    open fun openCreateNote(taskId: TaskId) {
+        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(taskId.value)))
+    }
+
+    /**
      * Go back one entry.
      * - If stack size > 1: pop last entry.
      * - If stack size == 1 (at start route): exit the nested graph with no destination.

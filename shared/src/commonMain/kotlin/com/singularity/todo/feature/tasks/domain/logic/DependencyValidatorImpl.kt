@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.core.database.TaskDao
+import com.singularity.todo.feature.tasks.domain.model.DependencyAnalysis
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 
@@ -18,5 +19,11 @@ class DependencyValidatorImpl(private val taskDao: TaskDao) : DependencyValidato
             return Result.failure(IllegalArgumentException("Task cannot depend on itself: ${taskId.value}"))
         }
         return Result.success(Unit)
+    }
+
+    override suspend fun analyzeDependencies(taskId: TaskId): DependencyAnalysis {
+        // v1: self-loop only; no cycle possible with single-edge BFS
+        // Full graph traversal deferred to v2
+        return DependencyAnalysis(containsCycle = false, blockers = emptyList())
     }
 }

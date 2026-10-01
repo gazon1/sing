@@ -79,12 +79,14 @@ data class TaskTagCrossRef(
  */
 @Entity(
     tableName = "task_dependencies",
-    primaryKeys = ["task_id", "depends_on_task_id"],
+    primaryKeys = ["task_id", "depends_on_task_id", "verb"],
     indices = [Index("task_id"), Index("depends_on_task_id")],
 )
 data class TaskDependencyCrossRef(
     @ColumnInfo("task_id") val taskId: String,
     @ColumnInfo("depends_on_task_id") val dependsOnTaskId: String,
+    @ColumnInfo("verb", defaultValue = "'BLOCKS'")
+    val verb: String = "BLOCKS",
 )
 
 @Entity(
@@ -96,6 +98,7 @@ data class TaskDependencyCrossRef(
         Index("is_pinned"),
         Index("archived_at"),
         Index("sort_order"),
+        Index("task_id"),
     ],
 )
 data class NoteEntity(
@@ -118,6 +121,8 @@ data class NoteEntity(
     @ColumnInfo("word_count", defaultValue = "0") val wordCount: Int = 0,
     @ColumnInfo("char_count", defaultValue = "0") val charCount: Int = 0,
     @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]",
+    /** Structural note-to-task linkage. Nullable — notes not attached to any task have NULL. */
+    @ColumnInfo("task_id") val taskId: String? = null,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long?,

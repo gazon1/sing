@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
@@ -17,12 +16,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import org.koin.compose.koinInject
 
 /**
  * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
@@ -30,23 +33,32 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
  */
 @Composable
 fun TaskTitleRow(
+    taskId: String,
     title: String,
     isCompleted: Boolean,
     onTitleChange: (String) -> Unit,
     onCheckToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Guard: koinInject crashes in @Preview (no Koin app started). Skip when in preview mode.
+    val haptic = if (LocalInspectionMode.current) null else koinInject<Haptic>()
+
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onCheckToggle) {
-            Icon(
-                imageVector = if (isCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckBoxOutlineBlank,
-                contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
-                tint = if (isCompleted) TaskColors.AccentBlue else TaskColors.TextSecondary,
-                modifier = Modifier.size(TaskSpacing.iconSizeLarge),
-            )
+        Celebration(
+            triggerKey = if (isCompleted) taskId else "",
+            haptic = haptic,
+        ) {
+            IconButton(onClick = onCheckToggle) {
+                Icon(
+                    imageVector = if (isCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckBoxOutlineBlank,
+                    contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
+                    tint = if (isCompleted) TaskColors.AccentBlue else TaskColors.TextSecondary,
+                    modifier = Modifier.size(TaskSpacing.iconSizeLarge),
+                )
+            }
         }
         Spacer(modifier = Modifier.width(TaskSpacing.md))
         BasicTextField(

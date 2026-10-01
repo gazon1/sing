@@ -78,6 +78,7 @@ import kotlinx.datetime.LocalTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskEditorContent(
+    taskId: String,
     titleDraft: String,
     onTitleChange: (String) -> Unit,
     isCompleted: Boolean,
@@ -133,6 +134,7 @@ fun TaskEditorContent(
         ) {
             // Title row
             TaskTitleRow(
+                taskId = taskId,
                 title = titleDraft,
                 isCompleted = isCompleted,
                 onTitleChange = onTitleChange,
@@ -347,6 +349,7 @@ fun TaskEditorContent(
 @Composable
 fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, isCompleted: Boolean = false) {
     TaskEditorContent(
+        taskId = model.taskId?.value ?: "",
         titleDraft = model.titleDraft,
         onTitleChange = callbacks.onTitleChange,
         isCompleted = isCompleted,
@@ -407,6 +410,7 @@ private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
 @Composable
 private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     TaskEditorContent(
+        taskId = "",
         titleDraft = "",
         onTitleChange = {},
         isCompleted = false,
@@ -436,6 +440,7 @@ private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, u
 private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     val today = PreviewSamples.today
     TaskEditorContent(
+        taskId = "",
         titleDraft = "Buy groceries",
         onTitleChange = {},
         isCompleted = false,
@@ -469,6 +474,7 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
     val today = PreviewSamples.today
     val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
     TaskEditorContent(
+        taskId = "",
         titleDraft = "Review PR",
         onTitleChange = {},
         isCompleted = false,
