@@ -12,7 +12,9 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
+import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
@@ -49,10 +51,18 @@ class TaskCreateViewModelTest {
             initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
         ),
     )
+    private val fakeChecklistRepository = FakeChecklistRepository()
+    private val fakeAttachmentRepository = FakeAttachmentRepository()
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
         val deps = TaskCreateDeps(
-            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock.System, fakeCurrentUser),
+            createFromDraft = CreateTaskFromDraftUseCase(
+                fakeTaskRepo,
+                Clock.System,
+                fakeCurrentUser,
+                fakeChecklistRepository,
+                fakeAttachmentRepository,
+            ),
             logger = Logger.withTag("TaskCreateTest"),
             draftStore = fakeDraftStore,
         )

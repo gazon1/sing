@@ -74,7 +74,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get(), get()) }
-    factory { CreateTaskFromDraftUseCase(get(), get(), get()) }
+    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
     factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)

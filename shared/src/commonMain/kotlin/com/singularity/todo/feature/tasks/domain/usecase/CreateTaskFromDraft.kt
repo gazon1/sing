@@ -1,9 +1,13 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
+import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -41,6 +45,8 @@ class CreateTaskFromDraftUseCase(
     private val repo: TaskRepository,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val checklistRepository: ChecklistRepository,
+    private val attachmentRepository: AttachmentRepository,
 ) {
     suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
         val dueDate: LocalDate? = when (val option = draft.dueDate) {
@@ -98,7 +104,25 @@ class CreateTaskFromDraftUseCase(
                     userId = userId,
                 )
                 repo.create(task).fold(
-                    onSuccess = { Either.Right(taskId) },
+                    onSuccess = {
+                        // Persist checklist items
+                        if (draft.checklist.isNotEmpty()) {
+                            val items = draft.checklist.map { draftItem ->
+                                ChecklistItem(
+                                    id = ChecklistItemId.fromString(draftItem.id),
+                                    taskId = taskId.value,
+                                    title = draftItem.text,
+                                    isCompleted = draftItem.isChecked,
+                                )
+                            }
+                            checklistRepository.createBatch(taskId.value, items)
+                        }
+                        // Persist URL attachments
+                        for (draftAtt in draft.attachments) {
+                            attachmentRepository.addUrlAttachment(taskId, draftAtt.url, draftAtt.title)
+                        }
+                        Either.Right(taskId)
+                    },
                     onFailure = { e ->
                         Either.Left(AppError.Persistence(e.toMessage()))
                     },
