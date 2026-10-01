@@ -6,8 +6,14 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.test.fakes.testTask
 import kotlinx.datetime.LocalDate
 import org.koin.core.Koin
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Fluent access to task preconditions and assertions, so a flow reads as
@@ -37,9 +43,6 @@ import org.koin.core.Koin
  * coverage. Making the argument mandatory forces a choice, and [givenUndated] is
  * how the undated case is asked for — by a name that `grep` can find, so the
  * tests standing on unsettled ground are enumerable.
- *
- * [Koin.seedTask] keeps its nullable `dueDate` for the call sites that predate
- * this robot; new code should go through [given].
  */
 @OptIn(ExperimentalTestApi::class)
 class TasksRobot(
@@ -47,6 +50,7 @@ class TasksRobot(
     private val koin: Koin,
 ) {
     private var seq = 0
+    private var seeded = 0
 
     /** A task the agenda will render: dated, because that is the path that works today. */
     suspend fun given(
@@ -54,23 +58,15 @@ class TasksRobot(
         title: String = "Buy milk",
         completed: Boolean = false,
     ): TasksRobot = apply {
-        koin.seedTask(
-            id = nextId(),
-            title = title,
-            dueDate = due,
-            completed = completed,
-        )
-        ++seeded
+        seed(title = title, dueDate = due, completed = completed)
         // The seed is the precondition, so verify it landed before any UI
         // assertion can run. Without this, a failed flow reads as "the screen
         // does not render the task" when the repository never received it —
         // two different bugs with one useless message. This is the MR-2
         // layer-assertion convention, applied at the only place every
         // robot-based flow passes through.
-        assertSeeded(koin, expected = seeded)
+        assertSeeded(koin, expected = ++seeded)
     }
-
-    private var seeded = 0
 
     /**
      * An undated task, on purpose.
@@ -80,7 +76,7 @@ class TasksRobot(
      * on the broken path.
      */
     suspend fun givenUndated(title: String = "Buy milk"): TasksRobot = apply {
-        koin.seedTask(id = nextId(), title = title, dueDate = null)
+        seed(title = title, dueDate = null)
         assertSeeded(koin, expected = ++seeded)
     }
 
@@ -92,6 +88,24 @@ class TasksRobot(
     /** Waits for the task row and clicks it, returning the row for further work. */
     fun open(title: String): SemanticsNodeInteraction =
         test.awaitTag(TestTags.taskItem(title)).also { it.performClick() }
+
+    private suspend fun seed(
+        title: String,
+        dueDate: LocalDate?,
+        completed: Boolean = false,
+    ) {
+        koin.get<TaskRepository>().upsert(
+            testTask(
+                id = TaskId(nextId()),
+                title = title,
+                dueDate = dueDate,
+                completedAt = if (completed) Instant.fromEpochMilliseconds(1_700_000_000_000) else null,
+                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
+            ),
+        )
+    }
 
     private fun nextId(): String = "robot-task-${seq++}"
 }
