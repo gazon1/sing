@@ -16,18 +16,22 @@ import kotlinx.datetime.LocalDate
  *
  * ```kotlin
  * val transformers = DefaultBadgeRules.all(
+ *     DefaultBadgeRules.blocked,
  *     DefaultBadgeRules.pinned,
+ *     DefaultBadgeRules.recurring,
  *     DefaultBadgeRules.completed,
+ *     DefaultBadgeRules.overdue,
+ *     DefaultBadgeRules.noDate,
  * )
  * val badge = transformers.fold(null as AgendaBadge?) { acc, tr ->
- *     acc ?: tr.badgeFor(task)
+ *     acc ?: tr.badgeFor(task, today)
  * }
  * ```
  *
  * ## Coverage
  *
- * [DefaultBadgeRules] covers all 4 legacy badge cases: Pinned, Completed,
- * NoDate, Overdue.
+ * [DefaultBadgeRules] covers all 6 badge cases: Blocked, Pinned, Recurring,
+ * Completed, Overdue, NoDate. Priority order is enforced by [SelectorTransformer.all].
  *
  * @see DefaultBadgeRules
  */
@@ -76,13 +80,26 @@ interface SelectorTransformer {
 }
 
 /**
- * Canonical badge rules that mirror the legacy [computeBadge] logic.
+ * Canonical badge rules that mirror [AgendaBadgePolicy].
  *
  * Each rule is a [SelectorTransformer] that returns a non-null badge when
  * its predicate is satisfied. Composing them with [SelectorTransformer.all]
- * produces the same badge sequence as the original `when` expression.
+ * produces the same badge sequence as [AgendaBadgePolicy].
+ *
+ * Priority order (enforced by [SelectorTransformer.all]):
+ * Blocked → Pinned → Recurring → Completed → Overdue → NoDate.
+ *
+ * @see AgendaBadgePolicy
  */
 object DefaultBadgeRules {
+
+    /** Matches tasks that have incomplete dependencies (blocked). */
+    val blocked: SelectorTransformer = object : SelectorTransformer {
+        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
+
+        override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
+            if (task.dependsOn.isNotEmpty()) AgendaBadge.Blocked else null
+    }
 
     /** Matches pinned tasks. */
     val pinned: SelectorTransformer = object : SelectorTransformer {
@@ -92,20 +109,20 @@ object DefaultBadgeRules {
             if (task.isPinned) AgendaBadge.Pinned else null
     }
 
+    /** Matches recurring tasks. */
+    val recurring: SelectorTransformer = object : SelectorTransformer {
+        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
+
+        override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
+            if (task.recurrence != null) AgendaBadge.Recurring else null
+    }
+
     /** Matches completed tasks. */
     val completed: SelectorTransformer = object : SelectorTransformer {
         override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
 
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.isCompleted) AgendaBadge.Completed else null
-    }
-
-    /** Matches tasks with no due date. */
-    val noDate: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
-        override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
-            if (task.dueDate == null) AgendaBadge.NoDate else null
     }
 
     /** Matches overdue tasks. */
@@ -120,11 +137,26 @@ object DefaultBadgeRules {
             }
     }
 
+    /** Matches tasks with no due date. */
+    val noDate: SelectorTransformer = object : SelectorTransformer {
+        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
+
+        override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
+            if (task.dueDate == null) AgendaBadge.NoDate else null
+    }
+
     /**
-     * Composes all four default rules into a single transformer.
+     * Composes all six default rules into a single transformer.
      *
-     * Order: Pinned → Completed → NoDate → Overdue.
-     * This mirrors the priority of the original `computeBadge` `when` expression.
+     * Order: Blocked → Pinned → Recurring → Completed → Overdue → NoDate.
+     * This mirrors the priority of [AgendaBadgePolicy].
      */
-    val all: SelectorTransformer = SelectorTransformer.all(pinned, completed, noDate, overdue)
+    val all: SelectorTransformer = SelectorTransformer.all(
+        blocked,
+        pinned,
+        recurring,
+        completed,
+        overdue,
+        noDate,
+    )
 }

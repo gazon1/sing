@@ -73,12 +73,6 @@ object AgendaEvaluator {
     )
     fun matches(task: Task, selector: Selector, today: LocalDate): Boolean = selector.matches(task, today)
 
-    private fun computeBadge(task: Task, selector: Selector, today: LocalDate, allTasks: List<Task>): AgendaBadge? {
-        if (TaskComputed.isBlocked(task, allTasks)) return AgendaBadge.Blocked
-        if (task.isPinned) return AgendaBadge.Pinned
-        if (task.isCompleted) return AgendaBadge.Completed
-        if (task.dueDate == null) return AgendaBadge.NoDate
-        if (task.dueDate < today && !task.isCompleted) return AgendaBadge.Overdue
-        return null
-    }
+    private fun computeBadge(task: Task, selector: Selector, today: LocalDate, allTasks: List<Task>): AgendaBadge? =
+        computeAgendaBadge(task, today, allTasks)
 }
