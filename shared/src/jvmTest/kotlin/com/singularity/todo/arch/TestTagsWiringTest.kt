@@ -1,5 +1,6 @@
 package com.singularity.todo.arch
 
+import com.singularity.todo.core.ui.TestTagsCatalog
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -25,6 +26,14 @@ import kotlin.test.fail
  * but never called. This covers the tag registry's half of the same class of
  * problem: a *name* that is published but never produced.
  *
+ * ## Source of truth
+ *
+ * After ADR `2026-09-30-test-infra-known-gaps.md` §4 item #8, this test reads
+ * from [TestTagsCatalog.staticTags] — the same single-pass scanner that resolves
+ * nested `object` names to qualified paths (`EditorOverflow.ARCHIVE`). The
+ * `knownUnapplied` keys below use those qualified names, so a stale entry
+ * (constant was applied but the entry was not removed) is detected correctly.
+ *
  * ## Allowlist
  *
  * Every entry is debt, not a shortcut, and each needs a line saying why. Add an
@@ -42,12 +51,11 @@ class TestTagsWiringTest {
             ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
     ).parentFile.parentFile.parentFile
 
-    private val commonMainRoot: File = File(moduleRoot, "src/commonMain/kotlin")
-
-    private val testTagsFile = File(commonMainRoot, "com/singularity/todo/core/ui/TestTags.kt")
+    private val testTagsFile = File(moduleRoot, "src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt")
 
     /**
      * Declared-but-unapplied constants, with the reason each is still here.
+     * Keys use owner-qualified names as resolved by [TestTagsCatalog.staticTags].
      * Each must be *applied* in production code before it can be removed from
      * the registry — deleting the constant without wiring the composable would
      * leave the same trap, just undocumented.
@@ -56,15 +64,13 @@ class TestTagsWiringTest {
         "TASKS_LIST" to
             "the Android bottom-bar list tag; the desktop shell has no bottom bar, " +
             "so no JVM counterpart applies it",
-        "ARCHIVE" to
-            "EditorOverflow.ARCHIVE — the overflow menu renders rows through " +
-            "TestTags.taskAction(action), so this constant has no call site",
-        "RESTORE" to
-            "EditorOverflow.RESTORE — same as ARCHIVE. This entry was invisible before " +
-            "the identifier-boundary fix: `SyncEventType.RESTORED` contains \".RESTORE\" " +
-            "as a substring, so the old `contains` check reported the constant as applied.",
-        "PIN" to "EditorOverflow.PIN — same as ARCHIVE",
-        "UNPIN" to "EditorOverflow.UNPIN — same as ARCHIVE",
+        "EditorOverflow.DELETE" to
+            "the overflow menu renders rows through TestTags.taskAction(action), " +
+            "so this constant has no call site",
+        "EditorOverflow.ARCHIVE" to "same as DELETE",
+        "EditorOverflow.RESTORE" to "same as DELETE",
+        "EditorOverflow.PIN" to "same as DELETE",
+        "EditorOverflow.UNPIN" to "same as DELETE",
         "SNACKBAR_SAVED" to
             "referenced by Maestro/flows/agenda/03-saved-views-crud.yaml, which " +
             "waits on a snackbar the screen never shows — see " +
@@ -73,6 +79,8 @@ class TestTagsWiringTest {
 
     @Test
     fun every_declared_test_tag_is_applied_to_a_composable() {
+        // TestTagsCatalog.staticTags() returns owner-qualified names so that
+        // EditorOverflow.ARCHIVE and a hypothetical top-level ARCHIVE never collide.
         val declared = declaredConstants()
         assertTrue(declared.isNotEmpty(), "parsed no constants out of ${testTagsFile.path}")
 
@@ -92,10 +100,10 @@ class TestTagsWiringTest {
         val unapplied = declared
             // A *_PREFIX constant is a building block for a generated tag
             // (PROFILE_ITEM_PREFIX feeds profileItem()), not a tag in itself.
-            .filterNot { it.endsWith("_PREFIX") }
-            .filter { constant -> sourceText.none { constant.isAppliedIn(it) } }
+            .filterNot { it.first.endsWith("_PREFIX") }
+            .filter { (qualified, _) -> sourceText.none { qualified.isAppliedIn(it) } }
 
-        val undocumented = unapplied.filterNot { it in knownUnapplied }
+        val undocumented = unapplied.map { it.first }.filterNot { it in knownUnapplied }
         if (undocumented.isNotEmpty()) {
             fail(
                 "TestTags constants declared but never applied to a composable: " +
@@ -106,7 +114,7 @@ class TestTagsWiringTest {
             )
         }
 
-        val stale = knownUnapplied.keys.filterNot { it in unapplied }
+        val stale = knownUnapplied.keys.filterNot { it in unapplied.map { (k, _) -> k } }
         if (stale.isNotEmpty()) {
             fail(
                 "knownUnapplied entries that are now applied — remove them: ${stale.joinToString()}. " +
@@ -115,9 +123,13 @@ class TestTagsWiringTest {
         }
     }
 
-    /** `const val NAME = ...` declarations, including those nested in the groups. */
-    private fun declaredConstants(): List<String> =
-        CONST_DECL.findAll(testTagsFile.readText()).map { it.groupValues[1] }.toList()
+    /**
+     * Returns owner-qualified constant names from [TestTagsCatalog.staticTags].
+     * Qualified names (e.g. `EditorOverflow.ARCHIVE`) prevent same-named constants
+     * in different nested objects from colliding.
+     */
+    private fun declaredConstants(): List<Pair<String, String>> =
+        TestTagsCatalog.staticTags()
 
     /**
      * Whether [source] references this constant as a whole identifier.
@@ -129,8 +141,4 @@ class TestTagsWiringTest {
      */
     private fun String.isAppliedIn(source: String): Boolean =
         Regex("""\b${Regex.escape(this)}\b""").containsMatchIn(source)
-
-    private companion object {
-        val CONST_DECL = Regex("""const val ([A-Z][A-Z0-9_]*)""")
-    }
 }
