@@ -34,7 +34,7 @@ tags:
 - assertVisible:
     id: task_action_open
 - assertVisible:
-    id: task_action_mark_completed
+    id: task_action_mark_as_completed
 
 # Complete it first — archiving is a lifecycle action on done work.
 - tapOn:
