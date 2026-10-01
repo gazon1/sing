@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.flowOf
  * JVM stub [CalendarSyncRepository].
  * Calendar sync is Android-only; this implementation does nothing.
  */
-class NoopCalendarSyncRepository : CalendarSyncRepository {
+class NoopCalendarSyncRepositoryImpl : CalendarSyncRepository {
     override fun observeEnabled(): Flow<Boolean> = flowOf(false)
     override suspend fun setEnabled(enabled: Boolean) {}
     override fun observeTargetCalendarId(): Flow<String?> = flowOf(null)

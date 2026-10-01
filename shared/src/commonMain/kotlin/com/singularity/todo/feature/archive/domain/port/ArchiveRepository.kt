@@ -2,7 +2,7 @@ package com.singularity.todo.feature.archive.domain.port
 
 /**
  * Port for bulk-archiving completed tasks.
- * Platform implementation: [com.singularity.todo.feature.archive.data.TaskDaoArchiveRepository].
+ * Platform implementation: [com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl].
  */
 interface ArchiveRepository {
     /**

@@ -1,4 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
 
 package com.singularity.todo.feature.notes.presentation.screen
 

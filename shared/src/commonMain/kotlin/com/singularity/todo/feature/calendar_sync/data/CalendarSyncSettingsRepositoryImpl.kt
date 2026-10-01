@@ -31,7 +31,7 @@ private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
  * - `calendar_sync_last_at` (long) — epoch millis of last successful sync
  * - `calendar_sync_status` (string) — serialized [CalendarSyncStatus]
  */
-class CalendarSyncSettingsRepository(private val dataStore: DataStore<Preferences>) : CalendarSyncRepository {
+class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Preferences>) : CalendarSyncRepository {
 
     companion object {
         val CALENDAR_SYNC_ENABLED = booleanPreferencesKey("calendar_sync_enabled")

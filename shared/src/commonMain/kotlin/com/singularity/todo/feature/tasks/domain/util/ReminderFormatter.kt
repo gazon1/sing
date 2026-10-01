@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tasks.domain.port
+package com.singularity.todo.feature.tasks.domain.util
 
 import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.datetime.LocalDate

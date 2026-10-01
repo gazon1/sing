@@ -17,7 +17,7 @@ import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
@@ -110,7 +110,7 @@ fun testPlatformModule(): Module = module {
     single<ReminderScheduler> { InertReminderScheduler() }
     single<SyncScheduler> { InertSyncScheduler() }
     single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
-    single<CalendarSyncRepository> { NoopCalendarSyncRepository() }
+    single<CalendarSyncRepository> { NoopCalendarSyncRepositoryImpl() }
     single<CalendarProviderPort> { NoopCalendarProvider() }
     single<CalendarSyncWorkScheduler> { NoopCalendarSyncWorkScheduler() }
     single<CalendarAppQueries> { FakeCalendarAppQueries(emptyList()) }

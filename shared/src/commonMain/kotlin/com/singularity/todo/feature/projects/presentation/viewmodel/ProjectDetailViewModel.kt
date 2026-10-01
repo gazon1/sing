@@ -18,7 +18,7 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiE
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.reminders.ProjectReminder
 import com.singularity.todo.feature.reminders.ProjectReminderId
-import com.singularity.todo.feature.reminders.ProjectRemindersRepository
+import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter

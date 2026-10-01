@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda
 
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

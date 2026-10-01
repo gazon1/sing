@@ -93,16 +93,16 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 ### `_untagged_`
 
 - **ADR `2026-09-16-agenda-engine.md` mandate completed** — TasksViewModel
+- **After product decision:** One or more of:
 - **All 5 `SyncViewModelTest` cases pass** under `:shared:jvmTest`. The pre-existing `DiGraphTest` failure (DataStore multi-instance on the same file) is unrelated to this PR.
+- **Before product decision:** No code changes. The ADR tracks the question.
 - **Breaking change** for `NoteEditor`, `NotePreview`, and their tests — the `userId` argument is removed from `linkRepo.searchNotes(...)`, `linkRepo.searchTasks(...)`, and `linkRepo.getBacklinkNotes(...)` calls.
 - **CI не затронут**: `.github/workflows/ci.yml` эмулятор не поднимает.
 - **CI требует adb-устройство** для instrumentation — `SKIP_ADB=1` для пропуска
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
 - **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
-- **Five commits land together** because they all touch the same orbit
-- **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
-- _... and 358 more items_
+- _... and 365 more items_
 
 ### `agenda`
 
@@ -187,6 +187,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - None
 - _... and 17 more items_
+
+### `ci`
+
+- **Artifact naming:** `desktop-failure-bundle-${{ github.run_id }}` ensures unique
+- **Known limitation:** `CalendarFlowTest.every_day_of_the_month_has_an_addressable_cell`
+- **Known limitation:** `Find unwired surfaces` and `Run detekt` still run under
+- **Known limitation:** `Run Android debug` assemble also carries
+- **Positive:** CI runners that disappear now leave behind a downloadable
+- **Positive:** PR flakiness no longer blocks merges; main regressions are not
 
 ### `cleanup`
 
@@ -637,17 +646,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `testing`
 
+- (a) The NoDate fix in `ProfileAwareCurrentUser._scopedUserId` (synchronous seed
+- (a) `MaestroFlowTagsTest` will need updating if anyone adds a new dynamic
+- (b) `TaskComputed.hasNoDate` deduplication strategy is **not** changed. A
+- (b) `profileItem` and `calendarDay` are permanent companion exceptions in
+- (c) Worktree commits will continue to need `--no-verify` until the hook is
+- (c) `deferred-backlog.md` entry `## nodate-steps-2-4` is removed (already
+- (d) No detekt rule currently catches `kotlin.io.path.*` — the gap is
 - **Fake repo returns empty by default** — widget tests that check `LazyColumn` with `testTag` will fail when repo is empty (state = `Empty`). Test the `EmptyState` text instead, or seed data via `fakeNotesRepo.seed(note)`.
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process.
-- **Robolectric 4.17-beta-4** — `4.16` maxes at SDK 36; `compileSdk=37` requires the beta. The beta is already cached.
-- **Use `UserId` from `feature.tasks`** — it's defined in `Ids.kt` there, imported explicitly.
-- **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`.
-- **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
-- **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
-- A tag rename in `TestTags.kt` fails locally in `pre-push` and in `check.sh`,
-- A test failure in CI now produces a directory path in the suppressed exceptions
-- A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
-- _... and 51 more items_
+- **Positive:** Unknown tag ids are now a build failure in `:shared:jvmTest`.
+- _... and 62 more items_
 
 ### `ui`
 
@@ -1120,16 +1129,20 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — testing, desktop, ui, helpers
 - `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
 - `2026-10-01-agent-velocity-remaining-debt` — testing, tech-debt, agent-velocity, unwired-surface
-- `2026-10-01-architectural-followups` — _untagged_
-- `2026-10-01-notes-task-logbook-substrate` — _untagged_
+- `2026-10-01-bulk-operations-use-case-unwired` — _untagged_
+- `2026-10-01-ci-quality-ratchet` — ci, testing, desktop-compose, diagnostics, retry
+- `2026-10-01-cluster-9-repository-package-moves` — _untagged_
+- `2026-10-01-maestro-flow-tag-contract` — testing, maestro, test-tags, ci-gates
+- `2026-10-01-nodate-regression-pinning` — testing, regression, nodate, agenda, task-repository
 - `2026-10-01-post-mr-2-findings` — audit, mr-2
 - `2026-10-01-post-mr-3-findings` — audit, mr-3
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
 - `2026-10-01-remaining-tech-debt` — tech-debt, architecture, audit
+- `2026-10-01-startdate-vs-duedate-semantics` — _untagged_
 - `2026-10-01-tech-debt-reconciled` — tech-debt, reconciliation, plan-v4
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — test-coverage, desktop, maestro
 - `2026-10-01-test-infra-followups` — testing, tech-debt, maestro, testtags
-- `2026-10-01-typed-task-dependency-links` — _untagged_
+- `2026-10-01-test-infra-gaps` — testing, detekt, jvmtest, ci, configuration-cache
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
 ## Active entries
@@ -1488,15 +1501,19 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
-- `2026-10-01-architectural-followups` — _(no title)_
-- `2026-10-01-notes-task-logbook-substrate` — _(no title)_
+- `2026-10-01-bulk-operations-use-case-unwired` — Bulk Operations Use Case — Unwired in ViewModel
+- `2026-10-01-ci-quality-ratchet` — CI quality ratchet: FailureBundle upload + PR-only test retry
+- `2026-10-01-cluster-9-repository-package-moves` — Cluster 9 — Repository Package Moves
+- `2026-10-01-maestro-flow-tag-contract` — Maestro flow tag contract — JVM test gate
+- `2026-10-01-nodate-regression-pinning` — NoDate regression pinning: contract + VM tests
 - `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
 - `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
 - `2026-10-01-remaining-tech-debt` — Remaining tech debt — post-v4 audit
+- `2026-10-01-startdate-vs-duedate-semantics` — startDate vs dueDate — Task Date Model Semantics
 - `2026-10-01-tech-debt-reconciled` — Tech Debt Reconciled — v4 Plan
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — Phase 2 retro — ProfileSwitcher wiring, modal-drawer selector trap, pomodoro chip gap
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
-- `2026-10-01-typed-task-dependency-links` — _(no title)_
+- `2026-10-01-test-infra-gaps` — Test infrastructure gaps found during quality-ratchet session
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 

@@ -29,7 +29,7 @@ import kotlin.time.Clock
  *
  * @param syncApi Currently a stub in MR-2. Full implementation deferred to sync backend work.
  */
-internal class RemoteConfigRepositoryImpl(
+internal class RemoteConfigCacheRepositoryImpl(
     private val cacheDao: RemoteConfigCacheDao,
     private val syncApi: SyncApiClient,
     private val log: Logger = Logger.withTag("RemoteConfigPort"),

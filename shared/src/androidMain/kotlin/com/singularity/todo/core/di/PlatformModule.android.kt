@@ -32,7 +32,7 @@ import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepository
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepositoryImpl
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
@@ -221,7 +221,7 @@ actual fun platformModule(): Module = module {
 
     // Calendar sync settings repository (separate DataStore for isolation)
     single<CalendarSyncRepository> {
-        CalendarSyncSettingsRepository(get(qualifier = named("calendar_sync")))
+        CalendarSyncSettingsRepositoryImpl(get(qualifier = named("calendar_sync")))
     }
 
     // Calendar app picker — queries PackageManager for installed calendar apps

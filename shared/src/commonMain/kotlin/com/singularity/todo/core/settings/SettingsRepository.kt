@@ -15,7 +15,7 @@ import com.singularity.todo.core.schedule.DataStoreWorkScheduleSettingsRepositor
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.agenda.DataStoreDefaultAgendaViewSettingsRepository
-import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsRepository
+import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

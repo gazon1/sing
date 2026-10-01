@@ -9,7 +9,7 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
-import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepository
+import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,21 +34,21 @@ import kotlin.time.Clock
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
-class TaskDaoArchiveRepositoryTest {
+class TaskDaoArchiveRepositoryImplTest {
 
     private val user = UserId("u1")
 
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
     private lateinit var sync: FakeSyncRepository
-    private lateinit var repo: TaskDaoArchiveRepository
+    private lateinit var repo: TaskDaoArchiveRepositoryImpl
 
     @BeforeTest
     fun setUp() = runTest {
         tempDir = Files.createTempDirectory("singularity-archive-").toFile()
         db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
         sync = FakeSyncRepository(this)
-        repo = TaskDaoArchiveRepository(
+        repo = TaskDaoArchiveRepositoryImpl(
             taskDao = db.taskDao(),
             clock = Clock.System,
             currentUser = FakeProfileAwareCurrentUser(

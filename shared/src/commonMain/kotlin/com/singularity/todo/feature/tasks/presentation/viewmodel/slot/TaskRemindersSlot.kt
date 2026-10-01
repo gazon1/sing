@@ -9,7 +9,7 @@ import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.dueInstant
+import com.singularity.todo.feature.tasks.domain.util.dueInstant
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskRemindersIntent
 import kotlinx.coroutines.flow.MutableStateFlow

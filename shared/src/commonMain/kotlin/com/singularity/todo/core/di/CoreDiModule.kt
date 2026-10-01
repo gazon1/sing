@@ -50,9 +50,9 @@ import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
-import com.singularity.todo.feature.reminders.ProjectRemindersRepository
-import com.singularity.todo.feature.reminders.ProjectRemindersRepositoryImpl
+import com.singularity.todo.feature.reminders.data.ProjectRemindersRepositoryImpl
 import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
+import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
@@ -185,7 +185,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // RemoteConfigPort: Room + network-backed runtime config snapshot.
     // Consumes SyncApiClient (stub in MR-2) and Clock.
-    single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigRepositoryImpl(get(), get()) }
+    single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigCacheRepositoryImpl(get(), get()) }
 
     // SyncBootstrapper: registers pull handlers for all DocTypes.
     // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).

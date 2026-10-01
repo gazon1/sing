@@ -4,17 +4,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.settings.BaseSettingsRepository
 import com.singularity.todo.core.settings.SettingsNamespace
+import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-
-/**
- * Contract for the default agenda view setting.
- */
-interface DefaultAgendaViewSettingsRepository {
-
-    val defaultViewId: Flow<SavedAgendaViewId?>
-    suspend fun setDefaultViewId(id: SavedAgendaViewId?)
-}
 
 /**
  * Production [DefaultAgendaViewSettingsRepository] backed by DataStore.

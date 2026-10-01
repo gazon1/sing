@@ -26,10 +26,10 @@ import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.settings.SettingsRepository
-import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
+import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
@@ -47,9 +47,9 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ProjectReminder
 import com.singularity.todo.feature.reminders.ProjectReminderId
-import com.singularity.todo.feature.reminders.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain

@@ -13,7 +13,7 @@ import kotlin.time.Clock
  * Scoped to the active profile: the previous form issued a single global
  * `UPDATE` that archived completed tasks belonging to *every* user.
  */
-class TaskDaoArchiveRepository(
+class TaskDaoArchiveRepositoryImpl(
     private val taskDao: TaskDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,

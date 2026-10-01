@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.feature.archive.ArchiveViewModel
-import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepository
+import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl
 import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.search.SearchUseCase
@@ -66,7 +66,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single { RecurrenceCalculator }
 
-    singleOf(::TaskDaoArchiveRepository)
+    singleOf(::TaskDaoArchiveRepositoryImpl)
 
     single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 

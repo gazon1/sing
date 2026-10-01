@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.reminders
+package com.singularity.todo.feature.reminders.data
 
 import com.singularity.todo.core.database.ProjectReminderDao
 import com.singularity.todo.core.database.toEpochMillis
@@ -7,61 +7,14 @@ import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.reminders.ProjectReminder
+import com.singularity.todo.feature.reminders.ProjectReminderId
+import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
+import com.singularity.todo.feature.reminders.toEntity
+import com.singularity.todo.feature.reminders.toProjectReminder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-
-/**
- * Repository port for [ProjectReminder] persistence.
- *
- * Deliberately narrower than [ReminderRepository]: the model has no type, no offset
- * and no recurrence, so there is nothing to query on them. Every method here is scoped
- * to the current user, and every write asserts ownership before it lands.
- */
-interface ProjectRemindersRepository {
-
-    /** All project reminders for the current user, soonest first. */
-    fun observeAll(): Flow<List<ProjectReminder>>
-
-    /** Project reminders attached to [projectId], soonest first. */
-    fun watchByProject(projectId: ProjectId): Flow<List<ProjectReminder>>
-
-    /** Single reminder observation by [id] for the current user. */
-    fun observe(id: ProjectReminderId): Flow<ProjectReminder?>
-
-    /** Get a reminder by [id] for the current user. */
-    suspend fun get(id: ProjectReminderId): ProjectReminder?
-
-    /**
-     * Creates or updates a reminder.
-     *
-     * Rejects when the caller is not the entity's owner, rather than silently
-     * re-stamping the owner — see [ProfileAwareCurrentUser.assertCanWrite].
-     */
-    suspend fun upsert(reminder: ProjectReminder): Result<Unit>
-
-    /** Deletes a reminder by [id] for the current user. */
-    suspend fun delete(id: ProjectReminderId): Result<Unit>
-
-    /** Deletes a reminder by [id] for an explicit [userId]. Used by the fire receiver. */
-    suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit>
-
-    /** Deletes every reminder attached to [projectId]. */
-    suspend fun deleteByProject(projectId: ProjectId): Result<Unit>
-
-    /** Project reminders due at or before [nowEpochMs], for the current user. */
-    fun watchDueBefore(nowEpochMs: Long): Flow<List<ProjectReminder>>
-
-    /**
-     * Most-recent [limit] reminders due at or before [nowEpochMs].
-     *
-     * Backs the boot catch-up path, which must not load every past-due row.
-     */
-    fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<ProjectReminder>>
-
-    /** Records a successful fire, so a reboot does not re-fire the same reminder. */
-    suspend fun markFired(reminderId: ProjectReminderId, lastFiredAt: Long): Result<Unit>
-}
 
 /**
  * Room-backed [ProjectRemindersRepository]. Maps entities to domain; owns no queries

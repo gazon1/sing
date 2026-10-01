@@ -26,8 +26,8 @@ import org.koin.dsl.module
  *
  * The [CalendarSyncRepository] binding is registered by the platform module BEFORE this
  * module is loaded (platform modules are registered before feature modules in Modules.kt):
- * - Android: [CalendarSyncSettingsRepository][com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepository]
- * - JVM: [NoopCalendarSyncRepository][com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepository]
+ * - Android: [CalendarSyncSettingsRepositoryImpl][com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepositoryImpl]
+ * - JVM: [NoopCalendarSyncRepositoryImpl][com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl]
  *
  * [CalendarAppQueries] is also registered by the platform module:
  * - Android: [AndroidCalendarAppQueries][com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries]

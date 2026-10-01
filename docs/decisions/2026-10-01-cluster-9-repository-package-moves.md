@@ -1,12 +1,9 @@
 ---
-id: 2026-10-01-cluster-9-repository-package-moves
 title: Cluster 9 — Repository Package Moves
-description: >
-  Phase 4 of Epic 2 (Tech Debt Refactor). Moving 7 repository interfaces from
-  scattered feature-root and domain/repository locations to the canonical
-  feature/<x>/domain/port/ convention.
+date: 2026-10-01
 status: accepted
-created: 2026-10-01
+id: 2026-10-01-cluster-9-repository-package-moves
+description: >
 profile: ai-agent
 ---
 
