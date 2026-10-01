@@ -31,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
@@ -68,6 +69,13 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
 
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
+
+    // Topmost route in the current stack — determines the FAB and back arrow.
+    // When a nested screen (e.g. SavedAgendaEdit) is on top, use it instead of the tab.
+    val topMostRoute: NavKey = state.requireBackStackFor(state.topLevelRoute).lastOrNull()
+        ?: state.topLevelRoute
+    val fabCurrent: AppDestination = topMostRoute as? AppDestination
+        ?: current
 
     val currentStack = state.requireBackStackFor(state.topLevelRoute)
     val canGoBack = currentStack.size > 1
@@ -190,7 +198,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         content = {
             Scaffold(
                 floatingActionButton = {
-                    val action = fabActionForNav3(current) { navigator.navigate(it) }
+                    val action = fabActionForNav3(fabCurrent) { navigator.navigate(it) }
                     if (action != null) {
                         FloatingActionButton(onClick = action.onClick) {
                             Icon(Icons.Default.Add, contentDescription = action.label)
