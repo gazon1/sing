@@ -16,7 +16,7 @@ class PreviewProjectsNavigator(
     private val onOpenTasks: (ProjectId) -> Unit = {},
     private val onOpenTask: (TaskId) -> Unit = {},
 ) : ProjectsNavigator(
-        backStack = NavBackStack<ProjectsRoute>(ProjectsRoute.List, ProjectsRoute.List),
+        backStack = NavBackStack(ProjectsRoute.List, ProjectsRoute.List),
         onExitGraph = {},
     ) {
     override fun openDetail(id: ProjectId) { /* no-op for preview */ }

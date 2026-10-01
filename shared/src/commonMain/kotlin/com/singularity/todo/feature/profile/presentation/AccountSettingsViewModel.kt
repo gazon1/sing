@@ -25,7 +25,7 @@ sealed interface AccountSettingsIntent : MviIntent
  */
 class AccountSettingsViewModel(
     profileRepository: ProfileRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AccountSettingsUiState, AccountSettingsIntent, Nothing>(
         initialState = AccountSettingsUiState.Idle,
         scope = scope,

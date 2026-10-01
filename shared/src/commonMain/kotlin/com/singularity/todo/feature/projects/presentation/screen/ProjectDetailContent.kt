@@ -75,7 +75,6 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
-import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.projects.presentation.components.ActiveSheet
 import com.singularity.todo.feature.projects.presentation.components.CurrentProjectContent
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
@@ -171,8 +170,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                             expanded = overflowMenuOpen,
                             onDismissRequest = { overflowMenuOpen = false },
                         ) {
-                            val isArchived =
-                                (contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
+                            val isArchived = (contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
                             DropdownMenuItem(
                                 text = { Text(if (isArchived) "Unarchive" else "Archive") },
                                 onClick = {
@@ -208,7 +206,9 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
             )
 
             is ProjectDetailUiState.Content -> Column(
-                modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
+                modifier = Modifier.fillMaxSize()
+                    .padding(padding)
+                    .imePadding(),
             ) {
                 ProjectHeroSection(
                     ui = s.ui,
@@ -249,8 +249,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         // fixed set the picker offers, so a stored offset that no longer
                         // matches a member (offset list changed) reads as "no selection"
                         // rather than inventing a value the picker cannot show.
-                        reminderOffset = content?.ui?.reminderOffsetMinutes
-                            ?.let { m -> ReminderOffset.entries.firstOrNull { it.minutes == m } },
+                        reminderOffset = content.ui.reminderOffsetMinutes?.let { m -> ReminderOffset.entries.firstOrNull { it.minutes == m } },
                         onUpdateColor = { actions.onUpdateColor(it) },
                         onUpdateIcon = { actions.onUpdateIcon(it) },
                         onUpdateParent = { actions.onUpdateParent(it) },
@@ -273,11 +272,12 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
 // ─── Sections ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ProjectDetailUiState.title(): String = when (this) {
-    ProjectDetailUiState.Loading -> "Project"
-    ProjectDetailUiState.NotFound -> "Not found"
-    is ProjectDetailUiState.Content -> ui.project.name
-}
+private fun ProjectDetailUiState.title(): String =
+    when (this) {
+        ProjectDetailUiState.Loading -> "Project"
+        ProjectDetailUiState.NotFound -> "Not found"
+        is ProjectDetailUiState.Content -> ui.project.name
+    }
 
 @OptIn(ExperimentalTime::class)
 @Composable
@@ -289,19 +289,25 @@ private fun ProjectHeroSection(
     descriptionDraft: String,
     actions: ProjectDetailActions,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .padding(16.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier.size(
                     56.dp,
-                ).clip(CircleShape).background(Color(ui.project.color))
+                )
+                    .clip(CircleShape)
+                    .background(Color(ui.project.color))
                     .clickable(
                         onClickLabel = "Change project icon and color",
                         onClick = actions::onOpenColorSheet,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = ProjectIconRegistry.iconByKey(ui.project.icon) ?: Icons.Filled.Folder
+                val icon = ProjectIconRegistry.iconByKey(ui.project.icon)
+                    ?: Icons.Filled.Folder
                 Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
             }
             Spacer(Modifier.width(16.dp))
@@ -329,7 +335,9 @@ private fun ProjectHeroSection(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 LinearProgressIndicator(
                     progress = { ui.progressFraction },
-                    modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    modifier = Modifier.weight(1f)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
                     color = Color(ui.project.color),
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
@@ -358,7 +366,8 @@ private fun ProjectHeroSection(
 @Composable
 private fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions) {
     FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ui.project.dueDate?.let { date ->
@@ -410,7 +419,8 @@ private fun ProjectBodySection(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -496,8 +506,7 @@ private fun ProjectDetailQuickAddInput(
                 value = text,
                 onValueChange = { text = it },
                 placeholder = { Text("Add a task...") },
-                modifier = Modifier
-                    .fillMaxWidth()
+                modifier = Modifier.fillMaxWidth()
                     .testTag(TestTags.PROJECT_DETAIL_QUICK_ADD),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -545,10 +554,15 @@ private fun AddExistingTaskPopup(
     onDismiss: () -> Unit,
 ) {
     val filtered = remember(tasks, query) {
-        if (query.isBlank()) tasks.take(10) else tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+        if (query.isBlank()) tasks.take(10) else tasks.filter { it.title.contains(query, ignoreCase = true) }
+            .take(10)
     }
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
             Text("Add existing task", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(

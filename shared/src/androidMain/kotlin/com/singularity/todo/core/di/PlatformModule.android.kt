@@ -21,8 +21,8 @@ import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.platform.haptics.AndroidHaptic
 import com.singularity.todo.core.platform.haptics.Haptic
-import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
@@ -246,9 +246,10 @@ actual fun platformModule(): Module = module {
     }
 
     // ─── Haptics ─────────────────────────────────────────────────────────
+    @Suppress("NewApi") // VibratorManager requires API 31
     single<Haptic> {
         val context = get<Context>()
         val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-        createHaptic(vibratorManager)
+        AndroidHaptic.of(vibratorManager)
     }
 }
