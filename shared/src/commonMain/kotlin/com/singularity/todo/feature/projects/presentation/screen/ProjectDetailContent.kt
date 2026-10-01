@@ -99,6 +99,8 @@ import kotlin.time.Instant
 // ─── Content ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+// Decompose into ProjectDetailHero + ProjectDetailBody components (MR-5 follow-up)
 @Composable
 fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
