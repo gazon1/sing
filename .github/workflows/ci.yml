@@ -43,6 +43,12 @@ jobs:
         run: python3 scripts/find-unwired-surfaces.py --quiet
         continue-on-error: true
 
+      # Was never wired into any gate — that is how its 110-entry hand-maintained
+      # allow-list drifted out of sync with TestTags.kt unnoticed.
+      - name: Check Maestro test tags
+        run: bash Maestro/scripts/check-tags.sh
+        continue-on-error: true
+
   kover-report:
     runs-on: ubuntu-latest
     steps:

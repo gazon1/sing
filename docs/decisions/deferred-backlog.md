@@ -310,3 +310,58 @@ headroom at 351 entries.
    explaining why the index needs the room.
 3. Keep the existing discipline regardless: Consequences bullets are
    consequences; only **Always/Never** rules belong in the Critical section.
+
+---
+
+## ci-gates-are-all-continue-on-error
+
+**Found in:** `refactor/tag-registry-and-robots`, while wiring `check-tags.sh`
+into `.github/workflows/ci.yml`.
+
+**Symptom:** every gate step in the `build` job carries
+`continue-on-error: true` — `Build version catalog gate`, `Run detekt`,
+`Assemble Android debug`, `Find unwired surfaces`. Only `jvmTest`,
+`desktopApp:test` and the new `Check Maestro test tags` can fail the workflow.
+So "CI is green" says nothing about detekt, unwired surfaces, or version
+literals; a regression in any of them is a red line in the log that a reviewer
+has to notice by eye.
+
+**Already checked:** `:shared:detekt` does enforce locally
+(`ignoreFailures = false` in `shared/build.gradle.kts`, and `check.sh` step
+`[6/6]` fails on it) — this is a CI-policy gap, not a detekt gap. The new
+`Check Maestro test tags` step was added following the existing convention
+rather than flipping the policy inside an unrelated MR.
+
+**Try next:** decide the policy first, then flip one gate at a time, oldest
+debt first. `Find unwired surfaces` is the natural candidate for a baseline
+(see `find-unwired-surfaces-has-no-baseline` above) before it can go blocking.
+Flip with a full `--rerun-tasks` pass first so the backlog is known, not
+discovered by whoever pushes next. Do not flip several at once — the point is
+to make each regression visible, and a six-way red is not visible.
+
+---
+
+## no-direct-clock-system-kdoc-claims-tests-are-exempt
+
+**Found in:** `refactor/tag-registry-and-robots`, while fixing the
+`NoDirectClockSystem` violation that shipped in `2e99b1d0`.
+
+**Symptom:** the KDoc on `NoDirectClockSystemRule` states "Test sources are
+exempt (detekt's standard path filters handle patterns in test directories)".
+They are not exempt. Both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts`
+put `src/jvmTest/kotlin` in `source.setFrom`, and the rule has no path filter of
+its own — so any test helper touching `Clock.System` is a finding, exactly like
+production code.
+
+**Already checked:** `isAllowedFile()` in the rule whitelists only
+`core/platform/Clock.kt` and `core/di/CoreDiModule.kt`. The exemption the KDoc
+describes does not exist anywhere in the implementation.
+
+**Try next:** decide which is true, then make the code match. If tests should be
+exempt, add a test-path check to `isAllowedFile()` and a `RuleTest` case proving
+a `jvmTest` file no longer fires — that is the cheap reading, and it matches what
+`NotesScreenTest` and `TagsRenameUiTest` already do (fixed `Instant`, not
+`Clock.System`). If tests should be held to the same standard, delete the
+sentence and treat the 47 existing suppressions as the real backlog. Do not
+change this while the "47 suppressions" item from
+`2026-09-30-test-infra-known-gaps` is still open — the two decisions interact.

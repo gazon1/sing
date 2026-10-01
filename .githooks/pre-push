@@ -19,10 +19,40 @@ cd "$REPO_ROOT"
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
+# ── Structural gates (seconds, no Gradle) ────────────────────────────────
+#
+# These run BEFORE the Gradle suite on purpose: they are pure file scans, so
+# a structural violation is reported in under a second instead of after a
+# multi-minute build. Same rationale as find-unwired-surfaces.py owning its
+# own exit code — see docs/decisions/2026-10-01-test-infra-followups.md.
+
+echo "=== Pre-push [$BRANCH] — structural gates ==="
+
+if ! python3 scripts/build-version-catalog-gate.py --quiet .; then
+    echo ""
+    echo "pre-push FAILED — hardcoded version literal. Add it to gradle/libs.versions.toml"
+    echo "and reference it via libs.*, or push with --no-verify."
+    exit 1
+fi
+
+if ! bash Maestro/scripts/check-tags.sh; then
+    echo ""
+    echo "pre-push FAILED — unknown id: selector in a Maestro flow."
+    echo "Add it to TestTags.kt or the legacy allow-list, or push with --no-verify."
+    exit 1
+fi
+
+echo "=== Structural gates OK ==="
+echo ""
+
 echo "=== Pre-push [$BRANCH] — full test suite ==="
 
-# Run all fast tests + detekt (slow tests are excluded — use CI for those)
+# Run all fast tests + detekt (slow tests are excluded — use CI for those).
+# :desktopApp:detekt belongs here, not just in check.sh: a NoDirectClockSystem
+# violation in TasksRobot reached main precisely because this hook only ran the
+# shared module's detekt, and check.sh is not something every push goes through.
 ./gradlew :shared:detekt \
+    :desktopApp:detekt \
     :shared:jvmTest \
     :desktopApp:test \
     :mcp-server:test \
