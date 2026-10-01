@@ -6,10 +6,13 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 /**
  * Runtime mode for [SavedAgendaViewModel].
  *
- * Determines whether the VM is editing an existing view or creating a new one
- * from a seed [AgendaDefinition].
+ * Determines whether the VM is editing, creating, or displaying results for
+ * a saved view.
  */
 sealed interface SavedAgendaScreenMode {
+    /** Display the tasks matching a saved view's definition. */
+    data class View(val viewId: SavedAgendaViewId) : SavedAgendaScreenMode
+
     /** Edit an existing saved view by ID. */
     data class Edit(val viewId: SavedAgendaViewId) : SavedAgendaScreenMode
 

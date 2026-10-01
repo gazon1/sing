@@ -98,6 +98,9 @@ sealed interface SavedAgendaViewState {
             draft.name.isNotBlank() && draft.isDirty && !decodeError
     }
 
+    /** Results mode: loaded definition ready to pass to [com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen]. */
+    data class Results(val definition: AgendaDefinition, val viewName: String) : SavedAgendaViewState
+
     data object NotFound : SavedAgendaViewState
 }
 
@@ -141,10 +144,22 @@ class SavedAgendaViewModel(
     init {
         scope.launch {
             when (val m = mode) {
+                is SavedAgendaScreenMode.View -> initViewMode(m)
                 is SavedAgendaScreenMode.Edit -> initEditMode(m)
                 is SavedAgendaScreenMode.Create -> initCreateMode(m)
             }
         }
+    }
+
+    private suspend fun initViewMode(mode: SavedAgendaScreenMode.View) {
+        val view = deps.repo.observe(mode.viewId).first()
+        if (view == null) {
+            setState(SavedAgendaViewState.NotFound)
+            return
+        }
+        val sections = decodeSections(view.sectionsJson) ?: emptyList()
+        val definition = AgendaDefinition(view.name, sections)
+        setState(SavedAgendaViewState.Results(definition, view.name))
     }
 
     private suspend fun initEditMode(mode: SavedAgendaScreenMode.Edit) {
@@ -237,6 +252,8 @@ class SavedAgendaViewModel(
             )
             val now = deps.clock.now()
             when (mode) {
+                is SavedAgendaScreenMode.View -> { /* no-op — results screen has no save action */ }
+
                 is SavedAgendaScreenMode.Edit -> {
                     val updated = SavedAgendaViewFactory.update(
                         current.view ?: error("view must not be null when canSave is true"),
@@ -280,8 +297,10 @@ class SavedAgendaViewModel(
     }
 
     private fun onDelete() {
-        val viewId = (mode as? SavedAgendaScreenMode.Edit)?.viewId
-            ?: return
+        val viewId = when (mode) {
+            is SavedAgendaScreenMode.Edit -> mode.viewId
+            else -> return
+        }
         scope.launch {
             deps.repo.delete(viewId)
                 .fold(

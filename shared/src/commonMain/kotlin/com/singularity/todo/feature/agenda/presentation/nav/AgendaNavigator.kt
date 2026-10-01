@@ -34,6 +34,11 @@ open class AgendaNavigator(
         backStack.add(AgendaStartRoute.SavedAgendaList)
     }
 
+    /** Push the saved agenda results screen (task list for a saved view) onto the stack. */
+    open fun openSavedAgendaResults(viewId: SavedAgendaViewId) {
+        backStack.add(AgendaStartRoute.SavedAgendaResults(viewId.raw))
+    }
+
     /** Push the saved agenda edit screen onto the stack. */
     open fun openSavedAgendaEdit(viewId: SavedAgendaViewId) {
         backStack.add(AgendaStartRoute.SavedAgendaEdit(viewId.raw))

@@ -93,6 +93,7 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
                     )
                 }
                 entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
+                entry<AgendaStartRoute.SavedAgendaResults> { route -> AgendaNavContent(route = route) }
                 entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
                 entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
             },
@@ -108,6 +109,7 @@ actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRout
     entry<AgendaStartRoute.Project> { route -> AgendaNavContent(route = route) }
     entry<AgendaStartRoute.Tag> { route -> AgendaNavContent(route = route) }
     entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.SavedAgendaResults> { route -> AgendaNavContent(route = route) }
     entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
     entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
 }
