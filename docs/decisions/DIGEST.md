@@ -102,7 +102,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
 - **Five commits land together** because they all touch the same orbit
 - **HlcFactory must be `open`**: The actual JVM class is final, preventing test subclassing. Changed to `open class`.
-- _... and 350 more items_
+- _... and 358 more items_
 
 ### `agenda`
 
@@ -1120,6 +1120,8 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — testing, desktop, ui, helpers
 - `2026-09-30-vm-init-property-declaration-order` — viewmodel, coroutines, defect-class, production-bug
 - `2026-10-01-agent-velocity-remaining-debt` — testing, tech-debt, agent-velocity, unwired-surface
+- `2026-10-01-architectural-followups` — _untagged_
+- `2026-10-01-notes-task-logbook-substrate` — _untagged_
 - `2026-10-01-post-mr-2-findings` — audit, mr-2
 - `2026-10-01-post-mr-3-findings` — audit, mr-3
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
@@ -1127,6 +1129,7 @@ _22 entries need attention._
 - `2026-10-01-tech-debt-reconciled` — tech-debt, reconciliation, plan-v4
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — test-coverage, desktop, maestro
 - `2026-10-01-test-infra-followups` — testing, tech-debt, maestro, testtags
+- `2026-10-01-typed-task-dependency-links` — _untagged_
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
 ## Active entries
@@ -1485,6 +1488,8 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
+- `2026-10-01-architectural-followups` — _(no title)_
+- `2026-10-01-notes-task-logbook-substrate` — _(no title)_
 - `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
 - `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
@@ -1492,5 +1497,6 @@ _22 entries need attention._
 - `2026-10-01-tech-debt-reconciled` — Tech Debt Reconciled — v4 Plan
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — Phase 2 retro — ProfileSwitcher wiring, modal-drawer selector trap, pomodoro chip gap
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
+- `2026-10-01-typed-task-dependency-links` — _(no title)_
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 

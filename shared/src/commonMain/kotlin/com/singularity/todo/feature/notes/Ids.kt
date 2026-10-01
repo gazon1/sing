@@ -5,6 +5,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
@@ -89,6 +90,14 @@ data class Note(
     val wordCount: Int = 0,
     val charCount: Int = 0,
     val outgoingLinks: List<String> = emptyList(),
+    /**
+     * Structural note-to-task linkage. When non-null, this note is attached to the
+     * identified task and appears in the task's logbook.
+     *
+     * This field coexists with [outgoingLinks] — the `task://<id>` URL token is still
+     * written into [outgoingLinks] for backward compatibility during migration.
+     */
+    val taskId: TaskId? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val deletedAt: Instant? = null,

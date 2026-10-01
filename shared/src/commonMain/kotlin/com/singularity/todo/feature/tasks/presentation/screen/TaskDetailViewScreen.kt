@@ -47,6 +47,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
+import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
@@ -101,6 +102,7 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                 var showAiSheet by rememberSaveable { mutableStateOf(false) }
 
                 TaskEditorContent(
+                    taskId = ui.task.id.value,
                     titleDraft = ui.titleDraft,
                     onTitleChange = { vm.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
                     isCompleted = ui.task.isCompleted,
@@ -154,6 +156,13 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                     onOpenTask = { navigator.openDetail(it) },
                                 )
                             }
+                            // Logbook: notes explicitly attached to this task via Note.taskId.
+                            LogbookSection(
+                                notes = ui.logbookNotes,
+                                onOpenNote = { navigator.openNote(it) },
+                                onAddNote = { taskId -> navigator.openCreateNote(taskId) },
+                                currentTaskId = ui.task.id,
+                            )
                         }
                     },
                     onSetDependencies = { vm.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },

@@ -33,6 +33,8 @@ data class TaskDetailUi(
     val linkedNotes: List<Note> = emptyList(),
     /** Tasks that link TO this task via task:// URL scheme. */
     val linkedTasks: List<Task> = emptyList(),
+    /** Notes attached to this task via [com.singularity.todo.feature.notes.Note.taskId]. */
+    val logbookNotes: List<Note> = emptyList(),
 )
 
 /**

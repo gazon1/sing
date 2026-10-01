@@ -469,9 +469,9 @@ private class FakeTaskDao(
         }
     }
 
-    override suspend fun upsertDependencyForUser(taskId: String, depId: String, userId: String) {
+    override suspend fun upsertDependencyForUser(taskId: String, depId: String, verb: String, userId: String) {
         if (!ownsTask(taskId, userId)) return
-        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId))
+        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId, verb = verb))
     }
 
     override suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int {
@@ -479,6 +479,16 @@ private class FakeTaskDao(
         depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId } }
         return 1
     }
+
+    override suspend fun removeDependencyForVerb(taskId: String, depId: String, verb: String, userId: String): Int {
+        if (!ownsTask(taskId, userId)) return 0
+        val before = depRefs.value.count { r -> r.taskId == taskId && r.dependsOnTaskId == depId && r.verb == verb }
+        depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId && r.verb == verb } }
+        return before
+    }
+
+    override fun observeTypedDependenciesForUser(taskId: String, userId: String): Flow<List<TaskDependencyCrossRef>> =
+        depRefs.map { refs -> refs.filter { it.taskId == taskId } }
 
     override suspend fun clearDependenciesForUser(taskId: String, userId: String): Int {
         if (!ownsTask(taskId, userId)) return 0
@@ -559,6 +569,12 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
             n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
                 n.title.contains(q, ignoreCase = true)
         }.sortedByDescending { it.updatedAt }.take(20)
+    }
+
+    override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<NoteEntity>> = store.map { map ->
+        map.values.filter { n ->
+            n.taskId == taskId && n.userId == userId && n.deletedAt == null
+        }.sortedByDescending { n -> n.createdAt }.take(50)
     }
 
     override suspend fun upsert(note: NoteEntity) {

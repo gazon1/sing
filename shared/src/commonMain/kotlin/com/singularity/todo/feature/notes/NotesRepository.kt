@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -94,4 +95,28 @@ interface NotesRepository :
      * If a daily note for that date already exists, returns its id.
      */
     suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId>
+
+    // ─── Task-logbook ───────────────────────────────────────────────────────────
+
+    /**
+     * Observes all notes attached to [taskId] for the current user.
+     * A note is "attached" when its [Note.taskId] field equals [taskId].
+     *
+     * @see createForTask
+     */
+    fun watchForTask(taskId: TaskId): Flow<List<Note>>
+
+    /**
+     * Creates a new note attached to [taskId] and returns its id.
+     * The note is also written to [outgoingLinks] as `task://<taskId>` for backward
+     * compatibility with wikilink-based backlinks.
+     *
+     * @return the new note's id.
+     */
+    suspend fun createForTask(
+        taskId: TaskId,
+        title: String,
+        bodyMarkdown: String? = null,
+        bodyHtml: String? = null,
+    ): Result<NoteId>
 }

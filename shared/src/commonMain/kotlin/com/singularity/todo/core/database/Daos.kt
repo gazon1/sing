@@ -231,15 +231,17 @@ interface TaskDao {
      * Returns `Unit` — see [upsertTagCrossRefForUser] for why the rejected case
      * cannot report a count. The unscoped [upsertDependency] is kept solely for
      * the backup-restore path.
+     *
+     * Uses `verb = 'BLOCKS'` as the default for backward compatibility.
      */
     @Query(
         """
-        INSERT OR REPLACE INTO task_dependencies (task_id, depends_on_task_id)
-        SELECT :taskId, :depId
+        INSERT OR REPLACE INTO task_dependencies (task_id, depends_on_task_id, verb)
+        SELECT :taskId, :depId, :verb
         WHERE EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun upsertDependencyForUser(taskId: String, depId: String, userId: String)
+    suspend fun upsertDependencyForUser(taskId: String, depId: String, verb: String, userId: String)
 
     /** Unscoped variant — backup-restore path only. See [upsertDependencyForUser]. */
     @Upsert
@@ -253,6 +255,30 @@ interface TaskDao {
         """,
     )
     suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int
+
+    /**
+     * Removes a specific verb edge between [taskId] and [depId].
+     */
+    @Query(
+        """
+        DELETE FROM task_dependencies
+        WHERE task_id = :taskId AND depends_on_task_id = :depId AND verb = :verb
+        AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
+        """,
+    )
+    suspend fun removeDependencyForVerb(taskId: String, depId: String, verb: String, userId: String): Int
+
+    /**
+     * Returns all dependency edges for [taskId] including their verb, scoped to [userId].
+     */
+    @Query(
+        """
+        SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
+        WHERE td.task_id = :taskId
+        AND td.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    fun observeTypedDependenciesForUser(taskId: String, userId: String): Flow<List<TaskDependencyCrossRef>>
 
     @Query(
         """
@@ -432,7 +458,27 @@ interface NoteDao {
     suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity>
 
     /**
+     * Returns notes attached to the given taskId (notes.task_id = :taskId), for the current user.
+     * Uses the indexed [task_id] column for O(log n) lookups.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE task_id = :taskId
+          AND user_id = :userId
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 50
+        """,
+    )
+    fun watchByTaskForUser(taskId: String, userId: String): Flow<List<NoteEntity>>
+
+    /**
      * Returns notes that link TO the given taskId via `task://<id>` URL scheme, for the current user.
+     * [watchByTaskForUser] should be preferred for new code — this method is kept for backward
+     * compatibility with existing wikilink-only notes.
+     *
+     * @deprecated Use [watchByTaskForUser] which uses the indexed task_id column.
      */
     @Query(
         """

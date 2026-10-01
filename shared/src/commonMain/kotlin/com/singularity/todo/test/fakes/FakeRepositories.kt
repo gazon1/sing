@@ -53,7 +53,9 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -304,9 +306,22 @@ internal class InMemoryTaskDao : TaskDao {
         return before
     }
 
-    override suspend fun upsertDependencyForUser(taskId: String, depId: String, userId: String) {
-        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId))
+    override suspend fun upsertDependencyForUser(taskId: String, depId: String, verb: String, userId: String) {
+        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId, verb = verb))
     }
+
+    override suspend fun removeDependencyForVerb(taskId: String, depId: String, verb: String, userId: String): Int {
+        val before = _deps.value.count { it.taskId == taskId && it.dependsOnTaskId == depId && it.verb == verb }
+        _deps.update { current ->
+            current.filter {
+                !(it.taskId == taskId && it.dependsOnTaskId == depId && it.verb == verb)
+            }
+        }
+        return before
+    }
+
+    override fun observeTypedDependenciesForUser(taskId: String, userId: String): Flow<List<TaskDependencyCrossRef>> =
+        _deps.map { refs -> refs.filter { it.taskId == taskId } }
 
     // ── Tag methods (stubs so the interface is satisfied) ─────────────────────
 
@@ -670,10 +685,38 @@ open class FakeTaskRepository(
             val uid = currentUserId().value
             dao.clearDependenciesForUser(taskId.value, uid)
             deps.forEach { dep ->
-                dao.upsertDependencyForUser(taskId.value, dep.value, uid)
+                dao.upsertDependencyForUser(taskId.value, dep.value, DependencyVerb.BLOCKS.name, uid)
             }
         }
     }
+
+    override suspend fun setDependency(
+        from: TaskId,
+        to: TaskId,
+        verb: DependencyVerb,
+        enabled: Boolean,
+    ): Result<Unit> = runCatching {
+        val uid = currentUserId().value
+        if (enabled) {
+            dao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
+        } else {
+            dao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
+        }
+    }
+
+    override fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.observeTypedDependenciesForUser(taskId.value, uid.value)
+                .map { rows ->
+                    rows.map { row ->
+                        TaskDependency(
+                            ownerTaskId = TaskId.fromString(row.taskId),
+                            dependencyTaskId = TaskId.fromString(row.dependsOnTaskId),
+                            verb = DependencyVerb.valueOf(row.verb),
+                        )
+                    }
+                }
+        }
 }
 
 // ─── ChecklistRepository ─────────────────────────────────────────────────────
@@ -1643,6 +1686,43 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         )
         store.upsert(note)
         newId
+    }
+
+    // ─── Task-logbook ───────────────────────────────────────────────────────────────
+
+    override fun watchForTask(taskId: TaskId): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter {
+                    it.taskId == taskId && it.userId == uid && it.deletedAt == null
+                }
+            }
+        }
+
+    override suspend fun createForTask(
+        taskId: TaskId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+        val uid = currentUser.scopedUserId.value
+        val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+        val now = Clock.System.now()
+        val note = com.singularity.todo.feature.notes.Note(
+            id = id,
+            userId = uid,
+            title = title,
+            bodyMarkdown = bodyMarkdown,
+            bodyHtml = bodyHtml,
+            kind = com.singularity.todo.feature.notes.NoteKind.Plain,
+            wordCount = bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+            charCount = bodyMarkdown?.length ?: 0,
+            taskId = taskId,
+            createdAt = now,
+            updatedAt = now,
+        )
+        store.upsert(note)
+        id
     }
 }
 

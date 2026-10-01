@@ -1,6 +1,7 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -208,7 +209,7 @@ class AppDatabaseFactoryJvmTest {
 
         // The INSERT cross-ref methods return Unit, so assert the effect: nothing written.
         dao.upsertTagCrossRefForUser("t1", "tag1", "intruder")
-        dao.upsertDependencyForUser("t1", "t2", "intruder")
+        dao.upsertDependencyForUser("t1", "t2", DependencyVerb.BLOCKS.name, "intruder")
         assertEquals(emptyList(), dao.getTagIdsForTask("t1").first())
         assertEquals(emptyList(), dao.getDependencyIdsForTask("t1").first())
 
@@ -238,7 +239,7 @@ class AppDatabaseFactoryJvmTest {
         assertEquals(1, dao.markCompleteForUser("t1", now + 1, "u1"))
         assertEquals(1, dao.setPinnedForUser("t1", true, now + 2, "u1"))
         dao.upsertTagCrossRefForUser("t1", "tag1", "u1")
-        dao.upsertDependencyForUser("t1", "t2", "u1")
+        dao.upsertDependencyForUser("t1", "t2", DependencyVerb.BLOCKS.name, "u1")
         assertEquals(1, dao.softDeleteForUser("t1", now + 3, "u1"))
 
         assertEquals(listOf("tag1"), dao.getTagIdsForTask("t1").first())

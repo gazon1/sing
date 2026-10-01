@@ -1,6 +1,7 @@
 package com.singularity.todo.core.di
 
 import android.content.Context
+import android.os.VibratorManager
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -20,6 +21,8 @@ import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
@@ -240,5 +243,12 @@ actual fun platformModule(): Module = module {
     // WorkManager scheduler for calendar sync
     single<CalendarSyncWorkScheduler> {
         AndroidCalendarSyncWorkScheduler(get())
+    }
+
+    // ─── Haptics ─────────────────────────────────────────────────────────
+    single<Haptic> {
+        val context = get<Context>()
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        createHaptic(vibratorManager)
     }
 }

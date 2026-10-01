@@ -22,10 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import org.koin.compose.koinInject
 
 /**
  * Stateless checklist row — checkbox, label, optional delete and promote.
@@ -55,6 +59,8 @@ fun ChecklistItemRow(
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    // Guard: koinInject crashes in @Preview (no Koin app started). Skip when in preview mode.
+    val haptic = if (LocalInspectionMode.current) null else koinInject<Haptic>()
 
     Row(
         modifier = modifier
@@ -62,10 +68,18 @@ fun ChecklistItemRow(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = { onToggle() },
-        )
+        Celebration(
+            // Note: checklist items have no stable ID in the current API, so `text`
+            // is used as triggerKey. Items with identical text within one task will
+            // share a celebration signal — acceptable for this primitive type.
+            triggerKey = if (checked) text else "",
+            haptic = haptic,
+        ) {
+            Checkbox(
+                checked = checked,
+                onCheckedChange = { onToggle() },
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,
