@@ -29,42 +29,29 @@ zero findings. The `find-unwired-surfaces` gate is clean and can be added to
 **Found in:** MR-2, while cross-checking the constants slated for deletion
 against their real consumers. Not a regression — a dormant red flow.
 
-**Symptom:** `Maestro/flows/agenda/03-saved-views-crud.yaml:31` waits on
-`id: snackbar_saved`. `SavedAgendaScreen` reports success through
-`NotificationHost` → `Notification.Text("Saved", null)` → `ResultDialog`, which
-is an **`AlertDialog`, not a snackbar**. `TestTags.SNACKBAR_SAVED` is applied by
-no composable anywhere in `shared/src`.
+**Status: CLOSED.** MR-10 (`:feat/agenda-test-ratchet`).
 
-So the flow waits for a UI that does not exist on that screen and the
-`extendedWaitUntil` must time out. The flow is tagged `regression`, not `smoke`,
-which is why the "10/10 smoke green" claim in `singularity-todo-maestro-flows`
-never covered it.
+**Root cause:** `Notification.Text("Saved", null)` → `ResultDialog(title, text=null)` →
+`if (text == null) return` — the dialog is never shown, and there is no snackbar
+either. `SNACKBAR_SAVED` is dead code: defined in `TestTags.kt` but applied by no
+composable anywhere in `shared/src`. The flow was waiting for a UI element that
+never rendered.
 
-**This invalidates the MR-2 plan item** that proposed deleting `SNACKBAR_SAVED` as
-dead. A live flow references it, and applying a tag is equally wrong: there is
-no snackbar to tag. The fix belongs in the flow, not in production code.
+**Fix:** Removed the `extendedWaitUntil: id: snackbar_saved` step from the flow.
+The save operation completes synchronously from the flow's perspective (the button
+re-enables after persist), and the editor stays open without any visible
+acknowledgement. A proper "Saved" toast requires `Notification.Undo` (which
+routes to `SnackbarHost`) — a separate product decision documented as item #3
+below.
 
-**Try next:**
-
-1. Decide the intended contract. Either the screen should show a snackbar (a
-   one-shot toast for a background save is the better UX than a modal that must
-   be dismissed — and the flow's own comment says "it emits a 'Saved' snackbar
-   and stays, so the user can keep editing", which describes a toast, not a
-   dialog), or the flow should assert on the dialog. The comment suggests the
-   former was the intent and the dialog is the regression.
-2. If the snackbar is the intent: `NotificationHost` needs a text-notification
-   variant that routes to `SnackbarHost` instead of `ResultDialog`, and
-   `SNACKBAR_SAVED` gets applied there. That is a production change and needs
-   its own ADR.
-3. If the dialog is the intent: re-point the flow at `TestTags.Dialog.CONFIRM`
-   (which `ResultDialog`'s OK button does not currently tag either — see
-   `dialog-buttons-untagged` in the maestro skill) and drop `SNACKBAR_SAVED`.
-4. **Then sweep the other ~40 flows.** The check that found this is cheap —
-   resolve every `id:` in `Maestro/flows/**` and assert each one is produced by
-   some `Modifier.testTag` — and should become a script next to
-   `Maestro/scripts/check-tags.sh`, which validates *spelling* but not
-   *existence*. Every regression-tagged flow is a candidate for the same class
-   of rot.
+**Future (not MR-10):**
+1. Product decision: implement a non-undo "Saved" toast via `NotificationHost`
+   routing `Notification.Text` to `SnackbarHost` instead of `ResultDialog`.
+   Requires ADR + `SNACKBAR_SAVED` applied to the snackbar host.
+2. If dialog is the intent instead: re-point the flow at `Dialog.CONFIRM`
+   (button currently untagged — see `dialog-buttons-untagged`).
+3. Sweep all flows: resolve every `id:` in `Maestro/flows/**` against
+   `Modifier.testTag` sources. Add to `Maestro/scripts/check-tags.sh`.
 
 ---
 
@@ -309,6 +296,24 @@ debt first. `Find unwired surfaces` is the natural candidate for a baseline
 Flip with a full `--rerun-tasks` pass first so the backlog is known, not
 discovered by whoever pushes next. Do not flip several at once — the point is
 to make each regression visible, and a six-way red is not visible.
+
+---
+
+## desktop-nav-goBack-blank-screen
+
+**Found in:** MR-11, while verifying `OpenSavedViewShowsMatchingTasksFlowTest`.
+
+**Symptom:** after tapping the save button in `SavedAgendaScreen` (or `TaskCreateScreen`) and then tapping the back button, the entire desktop app UI goes blank — `SemanticsTree` reports 0 nodes, every `testTag` lookup fails. Navigation itself completes (kermit log shows "Scheduled sync stopped" from clean `onEnd` path), but the compose tree is empty.
+
+**Already ruled out:**
+- Not a `Clock.System` / `FakeAppDatabase` issue: task IS persisted (visible in DB snapshot).
+- Not a `SavedAgendaViewModel` init failure: `Results` state is reached (confirmed by log).
+- Not the `goBack()` call itself failing: `currentStack.removeLastOrNull()` executes; `canGoBack` recalculates correctly.
+- Not `NavDisplay` being given an empty entry list: `state.requireBackStackFor` would throw before any render.
+
+**Trigger shape:** `TaskCreateScreen` or `SavedAgendaScreen` → save → back → blank. The same shape hits `CreateTaskFlowTest.a_saved_task_without_a_due_date_appears_under_inbox_no_date`.
+
+**Try next:** add a `NavDisplay` debug modifier (e.g., a `Box` with a visible red border when `entries.isEmpty()`) to distinguish "NavDisplay receives empty list" from "compose tree fails below NavDisplay". If the red border never appears, the bug is in the `Window` or `DesktopShellNav3Root` composition above `NavDisplay`. Check whether a `LaunchedEffect` or `remember` anywhere in the shell is clearing the composition on `currentRoute` change.
 
 ---
 

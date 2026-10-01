@@ -40,6 +40,12 @@ sealed interface AgendaStartRoute : AppNavKey {
     @Serializable
     data object SavedAgendaList : AgendaStartRoute
 
+    /** Display the tasks matching a saved view's definition. */
+    @Serializable
+    data class SavedAgendaResults(val viewId: String) : AgendaStartRoute {
+        val id: SavedAgendaViewId get() = SavedAgendaViewId.fromString(viewId)
+    }
+
     /** Edit a specific saved view. */
     @Serializable
     data class SavedAgendaEdit(val viewId: String) : AgendaStartRoute {

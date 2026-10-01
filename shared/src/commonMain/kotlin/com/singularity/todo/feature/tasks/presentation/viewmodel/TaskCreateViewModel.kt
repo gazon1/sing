@@ -7,6 +7,8 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
+import com.singularity.todo.feature.tasks.presentation.state.DraftAttachment
+import com.singularity.todo.feature.tasks.presentation.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
@@ -110,6 +112,50 @@ class TaskCreateViewModel(
             }
 
             is TaskCreateIntent.SetStartTime -> updateDraft { it.copy(startTime = intent.time) }
+
+            is TaskCreateIntent.SetEndDate -> updateDraft {
+                val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
+                it.copy(endDate = option)
+            }
+
+            is TaskCreateIntent.SetEndTime -> updateDraft { it.copy(endTime = intent.time) }
+
+            is TaskCreateIntent.SetProject -> updateDraft { it.copy(projectId = intent.projectId?.value) }
+
+            is TaskCreateIntent.SetTags -> updateDraft { it.copy(tagIds = intent.tagIds.map { it.value }) }
+
+            is TaskCreateIntent.SetRecurrence -> updateDraft { it.copy(recurrence = intent.spec) }
+
+            TaskCreateIntent.PinToggled -> updateDraft { it.copy(isPinned = !it.isPinned) }
+
+            is TaskCreateIntent.AddChecklistItem -> {
+                val newItem = DraftChecklistItem(
+                    id = com.singularity.todo.core.ids.nextId(),
+                    text = intent.text,
+                )
+                updateDraft { it.copy(checklist = it.checklist + newItem) }
+            }
+
+            is TaskCreateIntent.ToggleChecklistItem -> updateDraft { draft ->
+                draft.copy(
+                    checklist = draft.checklist.map { item ->
+                        if (item.id == intent.id) item.copy(isChecked = !item.isChecked) else item
+                    },
+                )
+            }
+
+            is TaskCreateIntent.RemoveChecklistItem -> updateDraft { draft ->
+                draft.copy(checklist = draft.checklist.filter { it.id != intent.id })
+            }
+
+            is TaskCreateIntent.AddAttachmentUrl -> {
+                val newAttachment = DraftAttachment(url = intent.url, title = intent.title)
+                updateDraft { it.copy(attachments = it.attachments + newAttachment) }
+            }
+
+            is TaskCreateIntent.RemoveAttachmentUrl -> updateDraft { draft ->
+                draft.copy(attachments = draft.attachments.filter { it.url != intent.url })
+            }
 
             TaskCreateIntent.SaveClicked -> save()
 

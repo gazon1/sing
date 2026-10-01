@@ -27,30 +27,38 @@ import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScre
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
  * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
+ *
+ * @param backStack Ignored on Android. Android always creates its own stack via
+ *                  [rememberNavBackStack] with [navSavedStateConfig] for process-death survival.
  */
 @Composable
-actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
+actual fun TasksNavGraph(
+    start: TasksRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<TasksRoute>?,
+) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist. It is constant
     // across process death — only the NavBackStack content is serialized.
     val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
+    val stack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<TasksRoute>
 
-    val navigator = remember(backStack, onExitGraph) {
-        TasksNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        TasksNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalTasksNavigator provides navigator,
     ) {
         // Intercept system back at the start route to exit the nested graph.
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
+        BackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),

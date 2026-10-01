@@ -24,9 +24,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -56,6 +58,7 @@ fun SavedAgendaCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .testTag(TestTags.savedAgendaCard(view.name))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,

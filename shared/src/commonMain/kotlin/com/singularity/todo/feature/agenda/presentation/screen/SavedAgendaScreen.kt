@@ -49,7 +49,6 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
-import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.Section
@@ -69,31 +68,35 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 /**
- * Root composable for the saved agenda view edit/create screen.
+ * Root composable for the saved agenda view display/edit/create screen.
  * Uses [koinViewModel] to obtain the [SavedAgendaViewModel] scoped to this nav entry.
  *
- * @param viewId The ID of the view to edit. Pass null when creating a new view.
- * @param seed The [AgendaDefinition] to seed a new view from. Pass null when editing.
- * @param modeHint Informational label shown in the top bar ("Edit View" or "Create View").
+ * @param mode The runtime mode derived from the navigation route.
+ * @param modeHint Informational label shown in the top bar ("Saved view", "Edit View", or "Create View").
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SavedAgendaScreen(
-    viewId: SavedAgendaViewId?,
-    seed: AgendaDefinition?,
-    modeHint: String,
-    modifier: Modifier = Modifier,
-) {
+fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: Modifier = Modifier) {
     val navigator = LocalAgendaNavigator.current
-
-    val mode: SavedAgendaScreenMode = if (viewId != null) {
-        SavedAgendaScreenMode.Edit(viewId)
-    } else {
-        SavedAgendaScreenMode.Create(seed ?: error("seed is required when creating a new saved agenda view"))
-    }
 
     val viewModel: SavedAgendaViewModel = koinViewModel { parametersOf(mode) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // In Results mode, render AgendaScreen directly — no edit chrome needed.
+    if (state is SavedAgendaViewState.Results) {
+        val results = state as SavedAgendaViewState.Results
+        BackTopAppBar(
+            title = results.viewName,
+            onBack = { navigator.back() },
+            modifier = modifier,
+        ) { paddingValues ->
+            AgendaScreen(
+                definition = results.definition,
+                modifier = Modifier.padding(paddingValues),
+            )
+        }
+        return
+    }
 
     // Dialog state: null = no dialog/sheet, else the active dialog
     val dialogs = rememberDialogState<ActiveDialog>()
@@ -228,6 +231,12 @@ private fun SavedAgendaContent(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
+        }
+
+        // Results state is handled at the parent SavedAgendaScreen level —
+        // this branch exists only to satisfy exhaustiveness and should never be reached.
+        is SavedAgendaViewState.Results -> {
+            LoadingIndicator(modifier = modifier.fillMaxSize())
         }
 
         is SavedAgendaViewState.Editing -> {

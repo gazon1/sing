@@ -103,7 +103,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     ) { paddingValues ->
         SavedAgendaListContent(
             state = state,
-            onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) },
+            onViewSelected = { viewId -> navigator.openSavedAgendaResults(viewId) },
             onDelete = { viewId -> viewModel.onIntent(SavedAgendaListIntent.Delete(viewId)) },
             onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
             onCopyToProfile = { viewId -> pendingCopyViewId = viewId },

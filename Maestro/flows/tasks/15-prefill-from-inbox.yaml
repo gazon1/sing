@@ -1,0 +1,49 @@
+# Agenda: FAB from Inbox tab does NOT pre-fill due date.
+#
+# Verifies:
+# 1. Tapping FAB from Inbox leaves due date blank (no prefill).
+# 2. Saving the task without due date lands it in the Inbox "No Date" section.
+#
+appId: com.singularity.todo
+name: tasks-prefill-from-inbox
+tags:
+  - regression
+  - tasks
+---
+# Launch clean and start on Inbox tab
+- runFlow: ../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_no_date
+    timeout: 5000
+
+# Open create via FAB
+- tapOn:
+    id: tasks_fab
+
+# Verify title field is ready
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── Fill title (no due date set) ──────────────────────────────────────
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Task from Inbox tab"
+
+# ── Save ──────────────────────────────────────────────────────────────
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+
+# ── Verify task appears in No Date section ─────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_no_date
+    timeout: 8000
+- assertVisible:
+    id: task_item_task_from_inbox_tab
+- assertVisible: "Task from Inbox tab"

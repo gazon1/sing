@@ -25,10 +25,20 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
  * Back navigation is handled via the outer app's toolbar / window controls.
  *
  * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop.
+ *
+ * @param backStack Optional pre-created stack. When provided, the graph uses this stack
+ *                  instead of creating a new one. Used by JVM Desktop to pass a stable
+ *                  stack created via [rememberInMemoryNavBackStack] in the entry block,
+ *                  preventing nested navigation state from being lost on tab switches.
  */
 @Composable
-actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier: Modifier) {
-    val backStack: NavBackStack<NotesRoute> = rememberInMemoryNavBackStack(start)
+actual fun NotesNavGraph(
+    navCallbacks: NavCallbacks,
+    start: NotesRoute,
+    modifier: Modifier,
+    backStack: NavBackStack<NotesRoute>?,
+) {
+    val stack: NavBackStack<NotesRoute> = backStack ?: rememberInMemoryNavBackStack(start)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
         if (dest != null) {
@@ -38,15 +48,15 @@ actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier
         }
     }
 
-    val navigator = remember(backStack, onExitGraph) {
-        NotesNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        NotesNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalNotesNavigator provides navigator,
     ) {
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryProvider = entryProvider {

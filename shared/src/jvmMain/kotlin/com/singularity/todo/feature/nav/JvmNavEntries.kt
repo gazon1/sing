@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.core.platform.todayInSystemZone
@@ -28,13 +30,21 @@ import org.koin.compose.koinInject
 /**
  * Creates the app-wide entry provider for JVM Desktop, using the same [entryProvider] DSL
  * as Android.
+ *
+ * The returned lambda is stable across recompositions. Inside each [entry][entryProvider.entry]
+ * block, [rememberInMemoryNavBackStack] is called to create the NavBackStack for nested graphs.
+ * Because the entry { } content is a @Composable lambda, [remember] is stable across
+ * recomposition of the entry's content — the stack is created once per route entry,
+ * preventing the "nested stack lost on tab switch" bug.
+ *
+ * [rememberInMemoryNavBackStack] uses the seed route as its remember key. For nested
+ * graphs (Agenda, Tasks, Calendar), passing `stack.lastOrNull() ?: route.start` ensures
+ * the graph always uses the current top of the stack as its seed, preserving nested
+ * navigation state when the parent recomposes.
  */
 @Composable
 fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
     // ─── Top-level tabs ────────────────────────────────────────────────
-
-    // Inbox, Today, Upcoming are handled by the catch-all AgendaGraph entry below.
-    // Each variant maps to the corresponding AgendaStartRoute (Inbox/Today/Upcoming).
 
     entry<AppDestination.Plans> {
         ProjectsNavGraph(
@@ -135,8 +145,9 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     }
 
     entry<AppDestination.TasksByProject> { route ->
+        val agendaStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(AgendaStartRoute.Inbox)
         AgendaNavGraph(
-            start = AgendaStartRoute.Project(route.projectId),
+            start = agendaStack.lastOrNull() ?: AgendaStartRoute.Project(route.projectId),
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
@@ -144,19 +155,22 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
                     else -> nav.goBack()
                 }
             },
+            backStack = agendaStack,
         )
     }
 
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
     entry<AppDestination.TasksGraph> { route ->
+        val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))
         TasksNavGraph(
-            start = route.start.toTasksRoute(route.initialDueDate),
+            start = tasksStack.lastOrNull() ?: route.start.toTasksRoute(route.initialDueDate),
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
                     else -> nav.goBack()
                 }
             },
+            backStack = tasksStack,
         )
     }
 
@@ -183,8 +197,9 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
     // AgendaGraph entry
     entry<AppDestination.AgendaGraph> { route ->
+        val agendaStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(route.start)
         AgendaNavGraph(
-            start = route.start,
+            start = agendaStack.lastOrNull() ?: route.start,
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
@@ -192,6 +207,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
                     else -> nav.goBack()
                 }
             },
+            backStack = agendaStack,
         )
     }
 }

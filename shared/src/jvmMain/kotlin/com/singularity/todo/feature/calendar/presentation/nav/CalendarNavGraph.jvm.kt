@@ -20,20 +20,30 @@ import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
  * SavedStateConfiguration is not needed.
  * No system back gesture on desktop — handled via the outer app's toolbar.
  * No [rememberViewModelStoreNavEntryDecorator] needed on JVM desktop.
+ *
+ * @param backStack Optional pre-created stack. When provided, the graph uses this stack
+ *                  instead of creating a new one. Used by JVM Desktop to pass a stable
+ *                  stack created via [rememberInMemoryNavBackStack] in the entry block,
+ *                  preventing nested navigation state from being lost on tab switches.
  */
 @Composable
-actual fun CalendarNavGraph(start: CalendarRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
-    val backStack: NavBackStack<CalendarRoute> = rememberInMemoryNavBackStack(start)
+actual fun CalendarNavGraph(
+    start: CalendarRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    backStack: NavBackStack<CalendarRoute>?,
+) {
+    val stack: NavBackStack<CalendarRoute> = backStack ?: rememberInMemoryNavBackStack(start)
 
-    val navigator = remember(backStack, onExitGraph) {
-        CalendarNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        CalendarNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalCalendarNavigator provides navigator,
     ) {
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryProvider = entryProvider {

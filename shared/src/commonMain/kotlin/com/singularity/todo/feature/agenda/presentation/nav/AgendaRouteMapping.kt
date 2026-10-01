@@ -9,6 +9,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
 import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen
 import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 
@@ -66,15 +67,18 @@ fun AgendaNavContent(
 
         is AgendaStartRoute.SavedAgendaList -> SavedAgendaListScreen()
 
+        is AgendaStartRoute.SavedAgendaResults -> SavedAgendaScreen(
+            mode = SavedAgendaScreenMode.View(SavedAgendaViewId.fromString(route.viewId)),
+            modeHint = "Saved view",
+        )
+
         is AgendaStartRoute.SavedAgendaEdit -> SavedAgendaScreen(
-            viewId = SavedAgendaViewId.fromString(route.viewId),
-            seed = null,
+            mode = SavedAgendaScreenMode.Edit(SavedAgendaViewId.fromString(route.viewId)),
             modeHint = "Edit View",
         )
 
         AgendaStartRoute.SavedAgendaCreate -> SavedAgendaScreen(
-            viewId = null,
-            seed = AgendaPresets.Inbox,
+            mode = SavedAgendaScreenMode.Create(AgendaPresets.Inbox),
             modeHint = "Create View",
         )
     }
@@ -97,6 +101,9 @@ fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
     is AgendaStartRoute.Tag -> AgendaPresets.byTag(id)
 
     is AgendaStartRoute.SavedAgendaList -> AgendaPresets.Inbox
+
+    // Not used — results are loaded by SavedAgendaViewModel and rendered directly
+    is AgendaStartRoute.SavedAgendaResults -> AgendaPresets.Inbox
 
     // Not used
     is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.Inbox

@@ -28,20 +28,30 @@ import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScre
  *
  * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop —
  * each NavDisplay entry already has proper per-entry ViewModel scoping.
+ *
+ * @param backStack Pre-created stack. When non-null the stack is NOT re-created
+ *   on recomposition, which prevents nested navigation state from being lost when
+ *   the parent [com.singularity.todo.feature.nav.Nav3State] triggers recomposition.
+ *   When null (default), creates a new stack via [rememberInMemoryNavBackStack].
  */
 @Composable
-actual fun TasksNavGraph(start: TasksRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
-    val backStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(start)
+actual fun TasksNavGraph(
+    start: TasksRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    backStack: NavBackStack<TasksRoute>?,
+) {
+    val stack: NavBackStack<TasksRoute> = backStack ?: rememberInMemoryNavBackStack(start)
 
-    val navigator = remember(backStack, onExitGraph) {
-        TasksNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        TasksNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalTasksNavigator provides navigator,
     ) {
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryProvider = entryProvider {

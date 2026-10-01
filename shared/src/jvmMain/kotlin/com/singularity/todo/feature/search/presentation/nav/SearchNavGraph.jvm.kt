@@ -24,10 +24,15 @@ import com.singularity.todo.feature.search.SearchScreen
  *
  * No [rememberViewModelStoreNavEntryDecorator][androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator]
  * is used on JVM desktop.
+ *
+ * @param backStack Pre-created stack. When non-null the stack is NOT re-created
+ *   on recomposition, which prevents nested navigation state from being lost when
+ *   the parent [com.singularity.todo.feature.nav.Nav3State] triggers recomposition.
+ *   When null (default), creates a new stack via [rememberInMemoryNavBackStack].
  */
 @Composable
-actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
-    val backStack: NavBackStack<Search> = rememberInMemoryNavBackStack(Search)
+actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier, backStack: NavBackStack<Search>?) {
+    val stack: NavBackStack<Search> = backStack ?: rememberInMemoryNavBackStack(Search)
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
         if (dest != null) {
@@ -47,7 +52,7 @@ actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
         // Desktop has no system back gesture — BackHandler is a no-op on JVM.
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryProvider = entryProvider {

@@ -25,20 +25,30 @@ import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
  * Back navigation is handled via the outer app's toolbar / window controls.
  *
  * No [rememberViewModelStoreNavEntryDecorator] is used on JVM desktop.
+ *
+ * @param backStack Pre-created stack. When non-null the stack is NOT re-created
+ *   on recomposition, which prevents nested navigation state from being lost when
+ *   the parent [com.singularity.todo.feature.nav.Nav3State] triggers recomposition.
+ *   When null (default), creates a new stack via [rememberInMemoryNavBackStack].
  */
 @Composable
-actual fun ProjectsNavGraph(start: ProjectsRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
-    val backStack: NavBackStack<ProjectsRoute> = rememberInMemoryNavBackStack(start)
+actual fun ProjectsNavGraph(
+    start: ProjectsRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    backStack: NavBackStack<ProjectsRoute>?,
+) {
+    val stack: NavBackStack<ProjectsRoute> = backStack ?: rememberInMemoryNavBackStack(start)
 
-    val navigator = remember(backStack, onExitGraph) {
-        ProjectsNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        ProjectsNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalProjectsNavigator provides navigator,
     ) {
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryProvider = entryProvider {

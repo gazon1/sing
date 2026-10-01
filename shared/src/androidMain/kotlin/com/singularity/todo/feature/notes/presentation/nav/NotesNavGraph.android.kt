@@ -28,15 +28,23 @@ import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
  * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
+ *
+ * @param backStack Ignored on Android. Android always creates its own stack via
+ *                  [rememberNavBackStack] with [navSavedStateConfig] for process-death survival.
  */
 @Composable
-actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier: Modifier) {
+actual fun NotesNavGraph(
+    navCallbacks: NavCallbacks,
+    start: NotesRoute,
+    modifier: Modifier,
+    @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<NotesRoute>?,
+) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
+    val stack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<NotesRoute>
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
@@ -47,18 +55,18 @@ actual fun NotesNavGraph(navCallbacks: NavCallbacks, start: NotesRoute, modifier
         }
     }
 
-    val navigator = remember(backStack, onExitGraph) {
-        NotesNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        NotesNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalNotesNavigator provides navigator,
     ) {
         // Intercept system back at the start route to exit the nested graph.
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
+        BackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),

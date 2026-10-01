@@ -1,0 +1,74 @@
+# Agenda: tap a saved view card in the list → see the results screen
+# with tasks matching that view's definition.
+#
+# The flow:
+# 1. Seed an active task so the "Active tasks" section has content.
+# 2. Create a saved view named "My Active Tasks" with an Active-tasks section.
+# 3. Navigate to Saved Views list.
+# 4. Tap the "My Active Tasks" card → SavedAgendaResults screen.
+# 5. Verify the view's title in the top bar.
+# 6. Verify the seeded task appears (matches the Active-tasks filter).
+appId: com.singularity.todo
+name: agenda-saved-view-results
+tags:
+  - regression
+  - agenda
+---
+# ── Seed one active task ───────────────────────────────────────────────────
+- runFlow: ../helpers/seed-task.yaml
+
+# ── Create saved view: Today tab → Save Current → name → save ───────────────
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_save_current_button
+    timeout: 8000
+- tapOn:
+    id: agenda_save_current_button
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_name_input
+- eraseText
+- inputText: "My Active Tasks"
+- hideKeyboard
+- tapOn:
+    id: saved_agenda_save_button
+# Dismiss discard-guard on exit (draft is now dirty from naming)
+- tapOn:
+    id: top_bar_back_button
+- extendedWaitUntil:
+    visible: "Discard changes?"
+    timeout: 8000
+- tapOn:
+    id: dialog_dismiss
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+
+# ── Open Saved Views list ────────────────────────────────────────────────────
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "Saved Views"
+    timeout: 8000
+# The "My Active Tasks" card should be visible.
+- assertVisible: "My Active Tasks"
+
+# ── Tap the card → SavedAgendaResults screen ────────────────────────────────
+- tapOn:
+    id: saved_agenda_card_my_active_tasks
+# The results screen shows the view name in the top bar.
+- extendedWaitUntil:
+    visible: "My Active Tasks"
+    timeout: 8000
+# The seeded "Buy milk" task matches the Active-tasks filter and should appear.
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
+- assertVisible: "Buy milk"

@@ -17,6 +17,7 @@ class PreviewAgendaNavigator :
         onExitGraph = {},
     ) {
     override fun openSavedAgendaList() { /* no-op for preview */ }
+    override fun openSavedAgendaResults(viewId: SavedAgendaViewId) { /* no-op for preview */ }
     override fun openSavedAgendaEdit(viewId: SavedAgendaViewId) { /* no-op for preview */ }
     override fun openSavedAgendaCreate(seed: AgendaDefinition) { /* no-op for preview */ }
     override fun back() { /* no-op for preview */ }

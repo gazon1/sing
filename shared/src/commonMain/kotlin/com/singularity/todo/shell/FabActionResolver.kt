@@ -1,5 +1,6 @@
 package com.singularity.todo.shell
 
+import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 
@@ -19,18 +20,34 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  * The deprecated singletons [AppDestination.Inbox]/[AppDestination.Today] were removed in MR-3
  * (they were dead-code entry registrations that were never reached at runtime — the shell
  * uses AgendaGraph routes instead).
+ *
+ * ## FAB prefill behaviour
+ *
+ * When navigating from the **Today** tab, the task creation screen is pre-filled with
+ * `dueDate = Today` so the user can change it without having to set it from scratch.
+ * When navigating from **Inbox**, no due date is pre-filled.
  */
 internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination) -> Unit): FabAction? =
     when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
-            if (current.start == AgendaStartRoute.Inbox || current.start == AgendaStartRoute.Today) {
-                FabAction(
+            when (current.start) {
+                AgendaStartRoute.Today -> FabAction(
                     label = "Add task",
-                    onClick = { navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create)) },
+                    onClick = {
+                        val today = todayInSystemZone()
+                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create, today))
+                    },
                 )
-            } else {
-                null
+
+                AgendaStartRoute.Inbox -> FabAction(
+                    label = "Add task",
+                    onClick = {
+                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+                    },
+                )
+
+                else -> null
             }
         }
 
