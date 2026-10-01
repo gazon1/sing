@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-94 skills: 81 project-specific, 13 generic/meta.
+97 skills: 84 project-specific, 13 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -18,7 +18,8 @@ state *which tasks need the skill*, not summarise its contents.
 |---|---:|---|
 | `singularity-todo-adb-screen-unlock` | 84 | How to wake and unlock a physical Android device connected via adb before UI verification. |
 | `singularity-todo-adb-workflow` | 159 | Full adb workflow for UI verification on a physical Android device connected via USB. |
-| `singularity-todo-ai-action-registry-pattern` | 310 | AI action slot-API pattern for Singularity Todo. |
+| `singularity-todo-agenda-section-design` | 77 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
+| `singularity-todo-ai-action-registry-pattern` | 308 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
 | `singularity-todo-android-release-workflow` | 230 | Android release build workflow for Singularity Todo — signing configuration, R8/ProGuard minification, iterative rule fixing, APK verification, and the release checklist. |
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
@@ -30,6 +31,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cross-feature-navigation` | 196 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
+| `singularity-todo-desktop-compose-ui-tests` | 230 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 381 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 234 | Catch Koin DI missing bindings before the app reaches a device. |
@@ -37,14 +39,13 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-domain-logic-pattern` | 203 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
 | `singularity-todo-draft-restoration` | 427 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
-| `singularity-todo-emulator-launch` | 139 | Launch and recover the Android emulator on this dev host. |
+| `singularity-todo-emulator-launch` | 147 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 454 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-icon-registry` | 261 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 103 | JvmInline value class patterns for Singularity Todo. |
 | `singularity-todo-kmp-platform-specific` | 263 | KMP expect/actual patterns for AI features and platform-only dependencies. |
 | `singularity-todo-kmp-reorderable` | 226 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
-| `singularity-todo-koin-di` | 178 | DEPRECATED. |
 | `singularity-todo-koin-dsl` | 101 | Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf vs viewModel {}, singleOf / factoryOf, koinBridge for suspend factories, and where bindings live (per-domain *DiModule.kt, with core/di/Modules.kt as an aggregator). |
 | `singularity-todo-koin-overview` | 41 | Router skill — index to all Koin DI skills. |
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
@@ -58,6 +59,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-multi-profile` | 401 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 325 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
 | `singularity-todo-mvi-framework` | 260 | Local MVI framework for Singularity Todo KMP. |
+| `singularity-todo-nav3-decorators` | 68 | Nav3 entry decorators — ViewModelStore vs SaveableStateHolder scoping. |
 | `singularity-todo-nav3-nested-graphs` | 432 | Full architecture of Nav3 two-level nested navigation in this KMP project: expect/actual *NavGraph pattern, sealed Route hierarchies, Local*Navigator providers, entryProvider wiring, and how the outer AppNavHost integrates nested graphs. |
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |
 | `singularity-todo-note-ai-multi-op` | 324 | Note AI multi-operation implementation guide for Singularity Todo. |
@@ -80,10 +82,10 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-sync` | 221 | Sync architecture for the Singularity Todo KMP app: Hybrid Logical Clock (HLC), ConflictResolver, SyncOutbox, SyncableEntity contract, SupabaseSyncApiClient, and SyncEngine orchestration. |
 | `singularity-todo-task-callback-groups` | 321 | Decision tree for grouping callbacks in Composable function signatures — when to use raw lambdas (≤3 params), when to use a @JvmInline value class Action hierarchy (outgoing events), and when to avoid data class "parameter objects" that group unrelated callbacks. |
 | `singularity-todo-task-detail-ux` | 268 | Document-style vs form-style UX pattern for task detail screens. |
-| `singularity-todo-task-snapshot-testing` | 168 | Roborazzi snapshot testing for Compose Multiplatform — Maven coordinates, plugin setup, Compose capture API, CI integration, and known issues. |
+| `singularity-todo-task-snapshot-testing` | 175 | NOT ADOPTED — research notes only. |
 | `singularity-todo-tech-debt-refactor` | 125 | High-level plan for the tech-debt refactor epic (3 epics x 10 PRs), with per-PR pointers to the skill that carries the detail. |
 | `singularity-todo-test-flaky-prevention` | 193 | Rules to prevent test flakiness in the Singularity Todo project. |
-| `singularity-todo-test-helpers` | 499 | Standardized test helpers and patterns for ViewModel tests in this project. |
+| `singularity-todo-test-helpers` | 505 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 162 | JUnit tag-based test filtering strategy for the Singularity Todo project. |
 | `singularity-todo-testable-vm` | 434 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
@@ -94,7 +96,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-vm-migration-playbook` | 355 | Step-by-step playbook for migrating an existing ViewModel from stateIn/combine/scopeOverride to the canonical scope-as-default-param pattern. |
 | `singularity-todo-vm-pattern-overview` | 80 | Router skill — index to all ViewModel-related skills. |
 | `singularity-todo-workflow-evals` | 102 | Run workflow evals to measure agent quality — run tasks, compare against baseline, report results. |
-| `singularity-todo-worktree-isolation` | 115 | Run a refactor in an isolated git worktree so the main checkout stays clean and parallel work is unaffected. |
+| `singularity-todo-worktree-isolation` | 135 | Run a refactor in an isolated git worktree so the main checkout stays clean and parallel work is unaffected. |
 | `singularity-todo-write-pipeline` | 130 | Canonical write pipeline for user-scoped repositories: assertCanWrite guard → Room upsert → SyncRepository.enqueue. |
 
 ## Generic / meta skills
@@ -102,11 +104,11 @@ state *which tasks need the skill*, not summarise its contents.
 | Skill | Lines | Description |
 |---|---:|---|
 | `code-review-pr-workflow` | 191 | Author and review a pull request in this project. |
-| `debugging-investigation` | 176 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis, common patterns. |
+| `debugging-investigation` | 226 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis, common patterns. |
 | `domain-glossary` | 89 | Decide whether a term belongs in docs/CONTEXT.md and add it correctly. |
 | `domain-modeling` | 73 | Build and sharpen a project's domain model. |
-| `grill-me` | 5 | A relentless interview to sharpen a plan or design. |
-| `grill-with-docs` | 5 | A relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go. |
+| `grill-me-RETIRED` | 5 | RETIRED. |
+| `grill-with-docs-RETIRED` | 5 | RETIRED. |
 | `grilling` | 27 | Grill the user relentlessly about a plan, decision, or idea. |
 | `handoff` | 13 | Compact the current conversation into a handoff document for another agent to pick up. |
 | `progress-journal` | 111 | Update PROGRESS.md during and after an epic — retro entries, PR status, blockers. |
@@ -119,4 +121,7 @@ state *which tasks need the skill*, not summarise its contents.
 
 | Skill | Lines | Description |
 |---|---:|---|
+| `grill-me-RETIRED` | 5 | RETIRED. |
+| `grill-with-docs-RETIRED` | 5 | RETIRED. |
+| `singularity-todo-koin-di-RETIRED` | 5 | RETIRED. |
 | `singularity-todo-vm-koin-scoping-RETIRED` | 28 | RETIRED. |
