@@ -100,7 +100,7 @@ reaches_its_detail_screen` падает примерно в одном прог�
 флагом `-Dsingularity.ui.dumpTree=true`. Дефектом это не считаю; в отчёт попало
 потому, что ожидалось по плану.
 
-### 4. Два парсера `TestTags.kt` (не исправлено)
+### 4. Два парсера `TestTags.kt` (исправлено)
 
 `TestTagsCatalog` (полный разбор с учётом вложенных `object`) и
 `TestTagsWiringTest` (отдельный regex `const val ([A-Z][A-Z0-9_]*)`). Расходятся
@@ -162,9 +162,10 @@ reaches_its_detail_screen` падает примерно в одном прог�
    тех, где `Clock.System` попадает в VM под тестом. Для каждого оставленного
    подавления нужна причина; сегодня их нет ни у одного, и это делает
    молчаливое подавление неотличимым от забытой проверки.
-8. Слияние двух парсеров в один. `TestTagsWiringTest` должен использовать
-   `TestTagsCatalog.staticTags()`; после слияния правило «каждая константа
-   применена» и golden-таблица читают один источник истины.
+8. **Сделано.** `TestTagsWiringTest` теперь читает `TestTagsCatalog.staticTags()`;
+   owner-qualified ключи (`EditorOverflow.DELETE`) совпадают с каталогом. При этом
+   обнаружен previously-invisible `EditorOverflow.DELETE` — old regex не видел nested
+   objects вообще, новое правило корректно ловит его как `knownUnapplied`.
 9. «Used for»/пример для динамических функций — либо оставить как есть с
    явным указанием в скилле, что правка в двух файлах это ожидаемо, либо
    вынести в KDoc самого `TestTags.kt` и парсить оттуда.

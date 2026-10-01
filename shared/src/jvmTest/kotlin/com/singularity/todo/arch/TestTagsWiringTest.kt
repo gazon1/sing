@@ -128,6 +128,7 @@ class TestTagsWiringTest {
      * Qualified names (e.g. `EditorOverflow.ARCHIVE`) prevent same-named constants
      * in different nested objects from colliding.
      */
+    @Suppress("FunctionSignature") // ktlint: = on same → WrappingRule, new line → FunctionSignature
     private fun declaredConstants(): List<Pair<String, String>> =
         TestTagsCatalog.staticTags()
 
