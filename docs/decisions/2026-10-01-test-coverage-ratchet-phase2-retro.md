@@ -1,9 +1,9 @@
 ---
 title: Phase 2 retro — ProfileSwitcher wiring, modal-drawer selector trap, pomodoro chip gap
-date: 2026-10-01
+description: Phase 2 retro — ProfileSwitcher wiring fix, NO-MARKER tagging, and pomodoro chip-flow desktop gap
 status: accepted
 tags: [test-coverage, desktop, maestro]
-description: Phase 2 retro — ProfileSwitcher wiring fix, NO-MARKER tagging, and pomodoro chip-flow desktop gap
+created: 2026-10-01
 ---
 
 # Phase 2 retro — desktop coverage ratchet
