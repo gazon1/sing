@@ -2,6 +2,7 @@ package com.singularity.todo.feature.flows.pomodoro
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -19,11 +20,17 @@ import org.junit.Test
  * asserting the tag swap is what proves the state actually changed, rather than
  * counting clicks.
  *
- * Unlike the Android pause/resume flow, this one cannot drive the timer from a
- * task chip: the chip list comes from `PomodoroTaskListProvider`, and seeding it
- * means overriding a platform binding, which is out of scope for a flow suite
- * that otherwise runs against the real graph. Play/pause is still reachable from
- * the initial state, so the transition is covered without the fixture.
+ * ## Why focus-task / skip / stop flows are not mirrored here
+ *
+ * The three flows below (`02-start-focus-task`, `04-skip-to-break`, `05-stop-resets`)
+ * select a task from a chip list before operating the timer. That chip list comes
+ * from `PomodoroTaskListProvider`, whose JVM binding (`JvmPomodoroTaskListProvider`)
+ * returns an empty, never-updating flow — desktop has no inbox concept. There is
+ * no chip to click, so these three flows have no desktop equivalent today.
+ *
+ * The timer itself (play/pause/skip/stop) is fully exercised by the two tests
+ * below, which reach every control from the initial paused state without needing
+ * a seeded fixture.
  */
 @OptIn(ExperimentalTestApi::class)
 class PomodoroFlowTest {

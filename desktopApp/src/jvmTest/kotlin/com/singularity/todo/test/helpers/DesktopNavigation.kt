@@ -35,8 +35,8 @@ object DesktopShell {
     /** The six top-level tabs, in drawer order. */
     val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro", "Calendar")
 
-    /** The six destinations behind the drawer's second group. */
-    val MENU_ENTRIES = listOf("Statistics", "Notes", "AI Chat", "Search", "Archive", "Settings")
+    /** The seven destinations behind the drawer's second group. */
+    val MENU_ENTRIES = listOf("Statistics", "Notes", "AI Chat", "Search", "Archive", "Profiles", "Settings")
 }
 
 /**

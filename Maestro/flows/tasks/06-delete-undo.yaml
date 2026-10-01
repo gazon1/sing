@@ -8,6 +8,7 @@ appId: com.singularity.todo
 name: tasks-delete-undo
 tags:
   - tasks
+  - smoke
 ---
 - runFlow: ../../helpers/seed-task.yaml
 - tapOn:

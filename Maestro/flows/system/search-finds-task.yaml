@@ -9,6 +9,7 @@ appId: com.singularity.todo
 name: search-finds-task
 tags:
   - system
+  - smoke
 ---
 # Seed a task with a unique searchable title.
 - openLink: "todo-debug://seed?task=UniqueSearchableTask2026"

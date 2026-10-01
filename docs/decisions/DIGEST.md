@@ -1125,6 +1125,7 @@ _22 entries need attention._
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
 - `2026-10-01-remaining-tech-debt` — tech-debt, architecture, audit
 - `2026-10-01-tech-debt-reconciled` — tech-debt, reconciliation, plan-v4
+- `2026-10-01-test-coverage-ratchet-phase2-retro` — test-coverage, desktop, maestro
 - `2026-10-01-test-infra-followups` — testing, tech-debt, maestro, testtags
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
@@ -1489,6 +1490,7 @@ _22 entries need attention._
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
 - `2026-10-01-remaining-tech-debt` — Remaining tech debt — post-v4 audit
 - `2026-10-01-tech-debt-reconciled` — Tech Debt Reconciled — v4 Plan
+- `2026-10-01-test-coverage-ratchet-phase2-retro` — Phase 2 retro — ProfileSwitcher wiring, modal-drawer selector trap, pomodoro chip gap
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 

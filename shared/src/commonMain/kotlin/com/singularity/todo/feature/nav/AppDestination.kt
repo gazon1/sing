@@ -377,6 +377,7 @@ object DestinationKind {
         AppDestination.AiChat,
         AppDestination.Search,
         AppDestination.Archive,
+        AppDestination.ProfileSwitcher,
         AppDestination.Settings,
     )
 

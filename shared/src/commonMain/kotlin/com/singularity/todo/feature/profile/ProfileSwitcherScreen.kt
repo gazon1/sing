@@ -296,7 +296,9 @@ private fun CreateProfileDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.PROFILE_CREATE_NAME_INPUT),
                 )
                 OutlinedTextField(
                     value = emoji,
@@ -332,6 +334,7 @@ private fun CreateProfileDialog(
             TextButton(
                 onClick = { onCreate(name, emoji, colorIdx) },
                 enabled = name.isNotBlank(),
+                modifier = Modifier.testTag(TestTags.Dialog.CONFIRM),
             ) {
                 Text("Create")
             }

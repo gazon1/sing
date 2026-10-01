@@ -257,6 +257,7 @@ object TestTags {
 
     // ─── Profile ────────────────────────────────────────────────────────────
     const val PROFILE_CREATE_BUTTON = "profile_create_button"
+    const val PROFILE_CREATE_NAME_INPUT = "profile_create_name_input"
     const val PROFILE_ITEM_PREFIX = "profile_item_"
 
     fun profileItem(name: String) = "${PROFILE_ITEM_PREFIX}${slug(name)}"

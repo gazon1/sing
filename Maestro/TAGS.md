@@ -159,6 +159,7 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `PROFILE_CREATE_BUTTON` | `profile_create_button` | |
+| `PROFILE_CREATE_NAME_INPUT` | `profile_create_name_input` | |
 | `PROFILE_ITEM_PREFIX` | `profile_item_` | |
 
 ## Dynamic functions

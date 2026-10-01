@@ -9,6 +9,7 @@ appId: com.singularity.todo
 name: profile-isolation
 tags:
   - profile
+  - smoke
 ---
 # 1. Ensure we are on the default profile with an empty inbox.
 - runFlow: ../../helpers/launch-clean.yaml

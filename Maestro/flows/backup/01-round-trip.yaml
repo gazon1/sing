@@ -9,6 +9,7 @@ appId: com.singularity.todo
 name: backup-round-trip
 tags:
   - backup
+  - smoke
 ---
 # 1. Seed a task while online.
 - runFlow: ../../helpers/seed.yaml

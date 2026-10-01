@@ -8,6 +8,7 @@ appId: com.singularity.todo
 name: tasks-rename-empty
 tags:
   - tasks
+  - smoke
 ---
 # Seed a task with a known title.
 - openLink: "todo-debug://seed?task=RenameMe&due=today"
