@@ -279,7 +279,7 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
             clock = kotlin.time.Clock.System,
             currentUser = currentUser,
             syncRepository = syncRepo,
-            dependencyValidator = DependencyValidatorImpl(db.taskDao()),
+            dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
         )
     }
 }

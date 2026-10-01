@@ -92,6 +92,32 @@ validation before API design.
 - No speculative index on `verb` — added only when a real query pattern demands it.
 - `Migration24To25` is a marker (Room auto-generates the ALTER).
 
+## Sync serialization
+
+`DependencyVerb` is serialized as the enum entry name (`"BLOCKS"`, `"FOLLOWS_UP"`, …)
+in JSON. `DependencyVerb.valueOf` with fallback to `BLOCKS` is used on deserialization.
+
+**`TaskDependencyCrossRef` does not implement `SyncableEntity`.** Cross-ref sync is
+deferred because `task_dependencies` has no `user_id` column — the ownership model
+(whose HLC clocks the edge?) requires additional design. The serialization contract
+is documented here so that the future sync implementation is consistent.
+
+## Foreign-key constraints
+
+`task_dependencies` references `tasks(id)` via `task_id` and `depends_on_task_id` but
+declares **no FK constraints** at the database level. Referential integrity is enforced
+by the repository layer. Rationale:
+
+- The cross-ref table has **no `user_id`** — user isolation is done via SQL subqueries
+  against `tasks`. A proper FK would need `(task_id, user_id)` compound, requiring a
+  separate schema change.
+- `ON DELETE` semantics are handled by `clearDependenciesForUser` in the repository,
+  which is called when a task is deleted.
+- Adding FK constraints now would be a breaking schema migration with no consumer
+  driving the need.
+
+Deferred: add `user_id` to `task_dependencies` to enable compound FK and unblock sync.
+
 ## Links
 
 - `Migration24To25.kt`

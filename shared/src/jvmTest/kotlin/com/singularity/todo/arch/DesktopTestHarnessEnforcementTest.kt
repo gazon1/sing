@@ -75,6 +75,12 @@ class DesktopTestHarnessEnforcementTest {
             "smoke tests: desktop popup menus cannot be fully tested in headless " +
             "environment, harness would add FailureBundle with no actionable output. " +
             "Revisit if smoke scope expands.",
+        "CelebrationTest.kt" to
+            "haptic verification tests call runDesktopComposeUiTest to trigger " +
+            "LaunchedEffect and verify side-effects on a test spy. " +
+            "Should migrate to v2 runDesktopComposeUiTest with aligned dispatchers " +
+            "so advanceUntilIdle() is scoped to the same test. " +
+            " tracked in follow-up ADR.",
     )
 
     @Test

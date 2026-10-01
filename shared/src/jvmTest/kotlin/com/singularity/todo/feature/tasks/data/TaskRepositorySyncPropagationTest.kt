@@ -53,15 +53,16 @@ class TaskRepositorySyncPropagationTest {
         tempDir = Files.createTempDirectory("singularity-sync-").toFile()
         db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
         sync = FakeSyncRepository(this)
+        val currentUser = FakeProfileAwareCurrentUser(
+            FakeAuthRepository(Session.Anonymous(user)),
+            scope = backgroundScope,
+        )
         repo = TaskRepositoryImpl(
             taskDao = db.taskDao(),
             clock = Clock.System,
-            currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(Session.Anonymous(user)),
-                scope = backgroundScope,
-            ),
+            currentUser = currentUser,
             syncRepository = sync,
-            dependencyValidator = DependencyValidatorImpl(db.taskDao()),
+            dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
         )
     }
 

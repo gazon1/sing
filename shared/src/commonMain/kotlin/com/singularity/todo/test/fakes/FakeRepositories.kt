@@ -273,70 +273,89 @@ class FakeBackupRepository : BackupRepository {
  * Stores only dependency and tag cross-references; all other methods error.
  */
 internal class InMemoryTaskDao : TaskDao {
-    private val _deps = MutableStateFlow<List<TaskDependencyCrossRef>>(emptyList())
+    /** Dependencies partitioned by userId — mirrors production where SQL queries filter by user_id. */
+    private val depsByUser = MutableStateFlow<Map<String, List<TaskDependencyCrossRef>>>(
+        emptyMap<String, List<TaskDependencyCrossRef>>(),
+    )
     private val _tags = MutableStateFlow<List<TaskTagCrossRef>>(emptyList())
 
     // ── Dependency methods (the only ones used by FakeTaskRepository) ─────────
 
     override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
-        _deps.map { refs ->
-            refs.filter { it.taskId == taskId }
-                .map { it.dependsOnTaskId }
-        }
+        depsByUser.map { byUser -> byUser.values.flatten().filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
 
     override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
-        error("not implemented")
-
-    override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
-        _deps.map { refs ->
-            refs.filter { it.dependsOnTaskId == taskId }
-                .map { it.taskId }
+        depsByUser.map { byUser ->
+            byUser[userId]?.filter { it.taskId == taskId }?.map { it.dependsOnTaskId }
+                ?: emptyList()
         }
 
+    override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
+        depsByUser.map { byUser -> byUser.values.flatten().filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
+
     override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> =
-        error(
-            "not implemented",
-        )
+        depsByUser.map { byUser ->
+            byUser[userId]?.filter { it.dependsOnTaskId == taskId }?.map { it.taskId }
+                ?: emptyList()
+        }
 
     override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
-        _deps.update { current ->
-            current.filter {
+        // Ambiguous without userId — do not use in tests that need isolation
+        depsByUser.update { byUser ->
+            val all = byUser.values.flatten().filter {
                 !(it.taskId == ref.taskId && it.dependsOnTaskId == ref.dependsOnTaskId)
             } + ref
+            mapOf("" to all) // partition by single "" key — no isolation
         }
     }
 
-    // Ownership-scoped variants. This stub has no task store, so the userId check
-    // cannot be evaluated — it applies the mutation and reports the affected count,
-    // preserving the pre-existing behaviour for the dependency tests.
     override suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int {
-        val before = _deps.value.count { it.taskId == taskId && it.dependsOnTaskId == depId }
-        _deps.update { current -> current.filter { !(it.taskId == taskId && it.dependsOnTaskId == depId) } }
+        val before = depsByUser.value[userId]?.count { it.taskId == taskId && it.dependsOnTaskId == depId } ?: 0
+        depsByUser.update { byUser ->
+            val remaining = byUser[userId]?.filter {
+                !(it.taskId == taskId && it.dependsOnTaskId == depId)
+            } ?: emptyList()
+            byUser + (userId to remaining)
+        }
         return before
     }
 
     override suspend fun clearDependenciesForUser(taskId: String, userId: String): Int {
-        val before = _deps.value.count { it.taskId == taskId }
-        _deps.update { current -> current.filter { it.taskId != taskId } }
+        val before = depsByUser.value[userId]?.count { it.taskId == taskId } ?: 0
+        depsByUser.update { byUser ->
+            byUser + (userId to (byUser[userId]?.filter { it.taskId != taskId } ?: emptyList()))
+        }
         return before
     }
 
     override suspend fun upsertDependencyForUser(taskId: String, depId: String, verb: String, userId: String) {
-        upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId, verb = verb))
+        val ref = TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId, verb = verb)
+        depsByUser.update { byUser ->
+            val userDeps = byUser[userId]?.filter {
+                !(it.taskId == taskId && it.dependsOnTaskId == depId)
+            } ?: emptyList()
+            byUser + (userId to (userDeps + ref))
+        }
     }
 
     override suspend fun removeDependencyForVerb(taskId: String, depId: String, verb: String, userId: String): Int {
-        val before = _deps.value.count { it.taskId == taskId && it.dependsOnTaskId == depId && it.verb == verb }
-        _deps.update { current ->
-            current.filter {
-                !(it.taskId == taskId && it.dependsOnTaskId == depId && it.verb == verb)
-            }
+        val before =
+            depsByUser.value[userId]?.count { it.taskId == taskId && it.dependsOnTaskId == depId && it.verb == verb }
+                ?: 0
+        depsByUser.update { byUser ->
+            byUser + (
+                userId to (
+                    byUser[userId]?.filter {
+                        !(it.taskId == taskId && it.dependsOnTaskId == depId && it.verb == verb)
+                    } ?: emptyList()
+                )
+            )
         }
         return before
     }
 
     override fun observeTypedDependenciesForUser(taskId: String, userId: String): Flow<List<TaskDependencyCrossRef>> =
-        _deps.map { refs -> refs.filter { it.taskId == taskId } }
+        depsByUser.map { byUser -> byUser[userId]?.filter { it.taskId == taskId } ?: emptyList() }
 
     // ── Tag methods (stubs so the interface is satisfied) ─────────────────────
 
@@ -369,7 +388,7 @@ internal class InMemoryTaskDao : TaskDao {
         _tags
 
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> =
-        _deps
+        depsByUser.map { it[userId] ?: emptyList() }
 
     // ── Outgoing links (stub — not used by FakeTaskRepository) ───────────────
 
@@ -501,7 +520,7 @@ internal class InMemoryTaskDao : TaskDao {
         )
 
     override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> =
-        _deps.value
+        depsByUser.value[userId] ?: emptyList()
 
     override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> =
         error("not implemented")
