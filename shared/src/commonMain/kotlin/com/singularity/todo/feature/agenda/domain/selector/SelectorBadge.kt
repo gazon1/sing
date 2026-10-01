@@ -8,9 +8,9 @@ import kotlinx.datetime.LocalDate
 /**
  * Composes per-task [AgendaBadge]s for a [Selector].
  *
- * Each transformer declares which tasks it applies to ([matches]) and what
- * [AgendaBadge] to produce ([badgeFor]). Multiple transformers can be combined
- * via [all] — the first non-null badge wins.
+ * Each transformer declares which [AgendaBadge] to produce ([badgeFor]) when its
+ * predicate is satisfied. Multiple transformers can be combined via [all] —
+ * the first non-null badge wins.
  *
  * ## Usage
  *
@@ -37,18 +37,8 @@ import kotlinx.datetime.LocalDate
  */
 interface SelectorTransformer {
     /**
-     * Returns true if [this] transformer applies to [task] on [today].
-     *
-     * Used to determine scope. A transformer with broader scope should be
-     * listed before a narrower one in [all] composition.
-     */
-    fun Selector.matches(task: Task, today: LocalDate): Boolean
-
-    /**
      * Returns the [AgendaBadge] for [task], or null if [this] transformer
      * does not apply.
-     *
-     * Called only when [matches] returns true.
      */
     fun badgeFor(task: Task, today: LocalDate): AgendaBadge?
 
@@ -65,8 +55,6 @@ interface SelectorTransformer {
             CompositeTransformer(transformers.toList())
 
         private class CompositeTransformer(private val transformers: List<SelectorTransformer>) : SelectorTransformer {
-            override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
             override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? {
                 var result: AgendaBadge? = null
                 for (t in transformers) {
@@ -95,40 +83,30 @@ object DefaultBadgeRules {
 
     /** Matches tasks that have incomplete dependencies (blocked). */
     val blocked: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.dependsOn.isNotEmpty()) AgendaBadge.Blocked else null
     }
 
     /** Matches pinned tasks. */
     val pinned: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.isPinned) AgendaBadge.Pinned else null
     }
 
     /** Matches recurring tasks. */
     val recurring: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.recurrence != null) AgendaBadge.Recurring else null
     }
 
     /** Matches completed tasks. */
     val completed: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.isCompleted) AgendaBadge.Completed else null
     }
 
     /** Matches overdue tasks. */
     val overdue: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.dueDate != null && task.dueDate < today && !task.isCompleted) {
                 AgendaBadge.Overdue
@@ -139,8 +117,6 @@ object DefaultBadgeRules {
 
     /** Matches tasks with no due date. */
     val noDate: SelectorTransformer = object : SelectorTransformer {
-        override fun Selector.matches(task: Task, today: LocalDate): Boolean = true
-
         override fun badgeFor(task: Task, today: LocalDate): AgendaBadge? =
             if (task.dueDate == null) AgendaBadge.NoDate else null
     }

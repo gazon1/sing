@@ -11,6 +11,8 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
+import com.singularity.todo.test.fakes.FakeAttachmentRepository
+import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
@@ -42,10 +44,18 @@ class TaskCreateDebounceTest {
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeDraftStore = FakeDraftStore()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(initialUserId = testUserId)
+    private val fakeChecklistRepository = FakeChecklistRepository()
+    private val fakeAttachmentRepository = FakeAttachmentRepository()
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
         val deps = TaskCreateDeps(
-            createFromDraft = CreateTaskFromDraftUseCase(fakeTaskRepo, Clock.System, fakeCurrentUser),
+            createFromDraft = CreateTaskFromDraftUseCase(
+                fakeTaskRepo,
+                Clock.System,
+                fakeCurrentUser,
+                fakeChecklistRepository,
+                fakeAttachmentRepository,
+            ),
             logger = Logger.withTag("TaskCreate"),
             draftStore = fakeDraftStore,
         )
