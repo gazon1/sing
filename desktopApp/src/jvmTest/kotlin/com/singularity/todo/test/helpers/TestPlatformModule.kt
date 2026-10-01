@@ -12,6 +12,8 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
@@ -103,6 +105,9 @@ fun testPlatformModule(): Module = module {
     single<SharePort> { InertSharePort() }
     single<BackupCodec> { UnusedBackupCodec() }
     single<String> { tempRoot().resolve("backups").absolutePath }
+    // Mirrors PlatformModule.jvm.kt — TaskTitleRow / ChecklistItemRow inject it
+    // unconditionally, and a missing definition hangs the flow in failure capture.
+    single<Haptic> { createHaptic(Unit) }
 
     // ─── Schedulers ─────────────────────────────────────────────────────────
     // NoopCalendarSyncRepository / NoopCalendarProvider are JVM-ready production

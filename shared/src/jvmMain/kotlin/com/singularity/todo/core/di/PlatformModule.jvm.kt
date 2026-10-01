@@ -19,6 +19,8 @@ import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
@@ -113,6 +115,10 @@ actual fun platformModule(): Module = module {
     single<SecureStoragePort> { JvmSecureStorage() }
 
     single<NotificationPort> { JvmNotificationPort() }
+
+    // NoOp on JVM — TaskTitleRow / ChecklistItemRow inject Haptic unconditionally,
+    // so the definition must exist or task detail composition fails.
+    single<Haptic> { createHaptic(Unit) }
 
     single<FileSystem> { JvmFileSystem() }
 
