@@ -57,8 +57,13 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
+| `TASK_EDITOR_PIN_ROW` | `task_editor_pin_row` | |
 | `TASK_EDITOR_PRIORITY_ROW` | `task_editor_priority_row` | |
+| `TASK_EDITOR_PROJECT_ROW` | `task_editor_project_row` | |
+| `TASK_EDITOR_RECURRENCE_ROW` | `task_editor_recurrence_row` | |
 | `TASK_EDITOR_SAVE` | `task_editor_save` | |
+| `TASK_EDITOR_START_DATE_ROW` | `task_editor_start_date_row` | |
+| `TASK_EDITOR_TAGS_ROW` | `task_editor_tags_row` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
 
 ### Agenda

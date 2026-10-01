@@ -75,6 +75,21 @@ object TestTags {
     /** Priority row in the task editor attribute list. */
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
+    /** Start-date row in the task editor attribute list. */
+    const val TASK_EDITOR_START_DATE_ROW = "task_editor_start_date_row"
+
+    /** Project row in the task editor attribute list. */
+    const val TASK_EDITOR_PROJECT_ROW = "task_editor_project_row"
+
+    /** Tags row in the task editor attribute list. */
+    const val TASK_EDITOR_TAGS_ROW = "task_editor_tags_row"
+
+    /** Recurrence row in the task editor attribute list. */
+    const val TASK_EDITOR_RECURRENCE_ROW = "task_editor_recurrence_row"
+
+    /** Pin toggle row in the task editor attribute list. */
+    const val TASK_EDITOR_PIN_ROW = "task_editor_pin_row"
+
     /**
      * Priority options in the priority picker dialog — one per [TaskPriority].
      *

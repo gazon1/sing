@@ -6,13 +6,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,7 +28,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -51,6 +64,17 @@ import kotlinx.datetime.LocalTime
  * @param showDueDate Controls whether the due date row is rendered.
  * @param onPriorityClick Click on the Priority row opens the priority picker sheet.
  * @param onDueDateClick Click on the Due Date row opens the date picker sheet.
+ * @param startDate Current start date (null means not set).
+ * @param startTime Current start time (null means not set).
+ * @param startDateCallbacks Callbacks for the start date row. Null = row is hidden.
+ * @param project Current project ID, or null.
+ * @param projectCallbacks Callbacks for the project row. Null = row is hidden.
+ * @param tags Current list of tag IDs.
+ * @param tagsCallbacks Callbacks for the tags row. Null = row is hidden.
+ * @param recurrence Current recurrence spec, or null.
+ * @param recurrenceCallbacks Callbacks for the recurrence row. Null = row is hidden.
+ * @param isPinned Whether the task is pinned.
+ * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
  * @param dependsOn IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
  * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
@@ -79,6 +103,17 @@ fun TaskEditorContent(
     showDueDate: Boolean = true,
     onPriorityClick: (() -> Unit)? = null,
     onDueDateClick: (() -> Unit)? = null,
+    startDate: LocalDate? = null,
+    startTime: LocalTime? = null,
+    startDateCallbacks: DateRowCallbacks? = null,
+    project: ProjectId? = null,
+    projectCallbacks: RowCallbacks<ProjectId?>? = null,
+    tags: List<TagId> = emptyList(),
+    tagsCallbacks: RowCallbacks<List<TagId>>? = null,
+    recurrence: RecurrenceSpec? = null,
+    recurrenceCallbacks: RowCallbacks<RecurrenceSpec?>? = null,
+    isPinned: Boolean = false,
+    pinCallbacks: ToggleCallbacks? = null,
     dependsOn: Set<TaskId> = emptySet(),
     availableTasks: List<Task> = emptyList(),
     extraSections: (@Composable () -> Unit)?,
@@ -160,6 +195,72 @@ fun TaskEditorContent(
                 )
             }
 
+            // Start date row
+            startDateCallbacks?.let { cb ->
+                StartDateRow(
+                    startDate = startDate,
+                    startTime = startTime,
+                    callbacks = cb,
+                    onStartDateClick = { sheets.show(TaskEditorSheet.StartDate) },
+                )
+            }
+
+            // Project row
+            projectCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.Filled.Folder,
+                    label = project?.value ?: "No project",
+                    isActive = project != null,
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
+                    trailingContent = if (cb.onClear != null && project != null) {
+                        {
+                            Icon(
+                                imageVector = Icons.Filled.Folder,
+                                contentDescription = "Clear project",
+                                tint = TaskColors.TextSecondary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_PROJECT_ROW),
+                )
+            }
+
+            // Tags row
+            tagsCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.AutoMirrored.Filled.Label,
+                    label = if (tags.isEmpty()) "Add tags" else "${tags.size} tag${if (tags.size > 1) "s" else ""}",
+                    isActive = tags.isNotEmpty(),
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Tags) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_TAGS_ROW),
+                )
+            }
+
+            // Recurrence row
+            recurrenceCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.Filled.Repeat,
+                    label = recurrence?.let { "Repeats" } ?: "No repeat",
+                    isActive = recurrence != null,
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Recurrence) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_RECURRENCE_ROW),
+                )
+            }
+
+            // Pin row
+            pinCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.Filled.PushPin,
+                    label = if (isPinned) "Pinned" else "Not pinned",
+                    isActive = isPinned,
+                    onClick = cb.onToggle,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_PIN_ROW),
+                )
+            }
+
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
         }
     }
@@ -191,14 +292,14 @@ fun TaskEditorContent(
             priority = priority,
             dueDate = dueDate,
             dueTime = dueTime,
-            startDate = null,
-            startTime = null,
-            project = null,
-            tags = emptyList(),
+            startDate = startDate,
+            startTime = startTime,
+            project = project,
+            tags = tags,
             checklist = emptyList(),
             attachments = emptyList(),
-            recurrence = null,
-            isPinned = false,
+            recurrence = recurrence,
+            isPinned = isPinned,
             dependsOn = dependsOn,
             availableTasks = availableTasks,
         ),
@@ -218,11 +319,11 @@ fun TaskEditorContent(
                 onClick = onDueDateClick ?: {},
                 onClear = onDueDateClear,
             ),
-            startDate = null,
-            project = null,
-            tags = null,
-            recurrence = null,
-            pin = null,
+            startDate = startDateCallbacks,
+            project = projectCallbacks,
+            tags = tagsCallbacks,
+            recurrence = recurrenceCallbacks,
+            pin = pinCallbacks,
             dependencies = RowCallbacks(
                 onChange = { onSetDependencies?.invoke(it) },
                 onClick = null,
@@ -235,6 +336,27 @@ fun TaskEditorContent(
         ),
         activeSheet = sheets.active,
         onSheetDismiss = { sheets.dismiss() },
+    )
+}
+
+@Composable
+private fun StartDateRow(
+    startDate: LocalDate?,
+    startTime: LocalTime?,
+    callbacks: DateRowCallbacks,
+    onStartDateClick: () -> Unit,
+) {
+    val label = when {
+        startDate == null -> "No start date"
+        startTime != null -> "$startDate $startTime"
+        else -> startDate.toString()
+    }
+    TaskAttributeCard(
+        icon = Icons.Filled.CalendarToday,
+        label = label,
+        isActive = startDate != null,
+        onClick = callbacks.onClick ?: onStartDateClick,
+        modifier = Modifier.testTag(TestTags.TASK_EDITOR_START_DATE_ROW),
     )
 }
 
@@ -262,6 +384,17 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         showDueDate = true,
         onPriorityClick = callbacks.priority?.onClick,
         onDueDateClick = callbacks.dueDate?.onClick,
+        startDate = model.startDate,
+        startTime = model.startTime,
+        startDateCallbacks = callbacks.startDate,
+        project = model.project,
+        projectCallbacks = callbacks.project,
+        tags = model.tags,
+        tagsCallbacks = callbacks.tags,
+        recurrence = model.recurrence,
+        recurrenceCallbacks = callbacks.recurrence,
+        isPinned = model.isPinned,
+        pinCallbacks = callbacks.pin,
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
         extraSections = null,
