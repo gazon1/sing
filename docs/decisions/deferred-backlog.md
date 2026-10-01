@@ -310,3 +310,31 @@ headroom at 351 entries.
    explaining why the index needs the room.
 3. Keep the existing discipline regardless: Consequences bullets are
    consequences; only **Always/Never** rules belong in the Critical section.
+
+---
+
+## ci-gates-are-all-continue-on-error
+
+**Found in:** `refactor/tag-registry-and-robots`, while wiring `check-tags.sh`
+into `.github/workflows/ci.yml`.
+
+**Symptom:** every gate step in the `build` job carries
+`continue-on-error: true` — `Build version catalog gate`, `Run detekt`,
+`Assemble Android debug`, `Find unwired surfaces`. Only `jvmTest`,
+`desktopApp:test` and the new `Check Maestro test tags` can fail the workflow.
+So "CI is green" says nothing about detekt, unwired surfaces, or version
+literals; a regression in any of them is a red line in the log that a reviewer
+has to notice by eye.
+
+**Already checked:** `:shared:detekt` does enforce locally
+(`ignoreFailures = false` in `shared/build.gradle.kts`, and `check.sh` step
+`[6/6]` fails on it) — this is a CI-policy gap, not a detekt gap. The new
+`Check Maestro test tags` step was added following the existing convention
+rather than flipping the policy inside an unrelated MR.
+
+**Try next:** decide the policy first, then flip one gate at a time, oldest
+debt first. `Find unwired surfaces` is the natural candidate for a baseline
+(see `find-unwired-surfaces-has-no-baseline` above) before it can go blocking.
+Flip with a full `--rerun-tasks` pass first so the backlog is known, not
+discovered by whoever pushes next. Do not flip several at once — the point is
+to make each regression visible, and a six-way red is not visible.

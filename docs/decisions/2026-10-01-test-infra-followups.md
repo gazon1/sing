@@ -1,8 +1,8 @@
 ---
-description: Follow-up observations and deferred items discovered during test-infra ratchet work
-status: active
-created: 2026-10-01
-tags: [test-infra, Maestro, TestTags, follow-up]
+title: "Test-infra follow-ups: наблюдения по итогам ratchet"
+date: 2026-10-01
+status: accepted
+tags: [testing, tech-debt, maestro, testtags]
 ---
 
 # Test-infra follow-ups (2026-10-01)
@@ -58,6 +58,12 @@ documentation without any runtime benefit.
 ---
 
 ## 3. Two parallel tag-validation systems have a 52-ID gap
+
+> **Superseded by `2026-10-02-tag-registry-single-source.md`.** The framing below
+> described a "52-ID gap" between two systems that were both reading the
+> registry. In fact `check-tags.sh` never read `TestTags.kt` at all — it used a
+> hand-kept 110-entry allow-list and was wired into no gate whatsoever. Fixed
+> there; kept here for the history of how the misdiagnosis happened.
 
 **What.** `TestTagsWiringTest` (Kotlin, JVM, `:shared:jvmTest`) validates that every
 TestTags constant is applied somewhere in `commonMain + androidMain + jvmMain`.

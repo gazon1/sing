@@ -644,10 +644,10 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **`Clock` must be passed to `CreateTaskUseCase` / `UpdateTaskUseCase`** — use the singleton `Clock` from `core.platform`.
 - **`Session.Anonymous()` requires `UserId`** — always pass `UserId.anonymous` or `UserId.fromString("...")`.
 - **`waitForIdle()` is a method, not a function** — do NOT import it. Call `composeRule.waitForIdle()` directly.
+- A tag rename in `TestTags.kt` fails locally in `pre-push` and in `check.sh`,
 - A test failure in CI now produces a directory path in the suppressed exceptions
 - A timeout on `awaitTag` names the missing tag and suggests nearby alternatives.
-- All 593 existing tests continue to pass
-- _... and 47 more items_
+- _... and 51 more items_
 
 ### `ui`
 
@@ -1125,6 +1125,8 @@ _22 entries need attention._
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
 - `2026-10-01-remaining-tech-debt` — tech-debt, architecture, audit
 - `2026-10-01-tech-debt-reconciled` — tech-debt, reconciliation, plan-v4
+- `2026-10-01-test-infra-followups` — testing, tech-debt, maestro, testtags
+- `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
 ## Active entries
 
@@ -1487,4 +1489,6 @@ _22 entries need attention._
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
 - `2026-10-01-remaining-tech-debt` — Remaining tech debt — post-v4 audit
 - `2026-10-01-tech-debt-reconciled` — Tech Debt Reconciled — v4 Plan
+- `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
+- `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 
