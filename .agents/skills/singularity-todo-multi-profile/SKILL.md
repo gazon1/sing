@@ -56,7 +56,7 @@ val Profile.defaultSettings get() = ProfileSettings()
 ## ProfileRepository
 
 ```kotlin
-// shared/src/commonMain/.../feature/profile/ProfileRepository.kt
+// shared/src/commonMain/.../feature/profile/domain/port/ProfileRepository.kt
 package com.singularity.todo.core.profile
 
 import kotlinx.coroutines.flow.Flow
@@ -383,8 +383,8 @@ val dbPath = "~/.singularity-todo/singularity-todo.db"  // same for all!
 | File | Purpose |
 |---|---|
 | `shared/src/commonMain/.../feature/profile/Profile.kt` | Domain object + ProfileSettings |
-| `shared/src/commonMain/.../feature/profile/ProfileRepository.kt` | Interface |
-| `shared/src/commonMain/.../feature/profile/RoomProfileRepository.kt` | Room implementation |
+| `shared/src/commonMain/.../feature/profile/domain/port/ProfileRepository.kt` | Interface |
+| `shared/src/commonMain/.../feature/profile/ProfileRepositoryImpl.kt` | Room + DataStore implementation |
 | `shared/src/commonMain/.../feature/profile/ProfileAwareCurrentUser.kt` | userId mapper |
 | `shared/src/commonMain/.../feature/profile/ProfileSwitcherViewModel.kt` | VM for UI |
 | `shared/src/commonMain/.../feature/profile/ProfileSwitcherScreen.kt` | Compose screen |
