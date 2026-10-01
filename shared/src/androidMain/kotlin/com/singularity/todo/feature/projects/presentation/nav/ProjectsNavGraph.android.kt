@@ -28,29 +28,37 @@ import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
  * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
+ *
+ * @param backStack Ignored on Android. Android always creates its own stack via
+ *                  [rememberNavBackStack] with [navSavedStateConfig] for process-death survival.
  */
 @Composable
-actual fun ProjectsNavGraph(start: ProjectsRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
+actual fun ProjectsNavGraph(
+    start: ProjectsRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<ProjectsRoute>?,
+) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<ProjectsRoute> = rememberNavBackStack(savedStateConfig, start)
+    val stack: NavBackStack<ProjectsRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<ProjectsRoute>
 
-    val navigator = remember(backStack, onExitGraph) {
-        ProjectsNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        ProjectsNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalProjectsNavigator provides navigator,
     ) {
         // Intercept system back at the start route to exit the nested graph.
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
+        BackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(

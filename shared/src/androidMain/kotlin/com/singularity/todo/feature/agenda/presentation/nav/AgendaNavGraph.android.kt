@@ -30,18 +30,26 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
  *
  * The context menu on touch is a long-press bottom sheet; the JVM graph wires its
  * right-click popup into the same slot instead.
+ *
+ * @param backStack Ignored on Android. Android always creates its own stack via
+ *                  [rememberNavBackStack] with [navSavedStateConfig] for process-death survival.
  */
 @Composable
-actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
+actual fun AgendaNavGraph(
+    start: AgendaStartRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<AgendaStartRoute>?,
+) {
     val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<AgendaStartRoute> = rememberNavBackStack(savedStateConfig, start)
+    val stack: NavBackStack<AgendaStartRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<AgendaStartRoute>
 
-    val navigator = remember(backStack, onExitGraph) {
+    val navigator = remember(stack, onExitGraph) {
         AgendaNavigator(
-            backStack = backStack,
+            backStack = stack,
             onExitGraph = onExitGraph,
         )
     }
@@ -69,10 +77,10 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
     CompositionLocalProvider(
         LocalAgendaNavigator provides navigator,
     ) {
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
+        BackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { onExitGraph(null) },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),

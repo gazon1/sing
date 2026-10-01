@@ -26,26 +26,34 @@ import com.singularity.todo.feature.nav.navSavedStateConfig
  * LocalViewModelStoreOwner resolves to ComponentActivity instead of the NavEntry.
  *
  * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
+ *
+ * @param backStack Ignored on Android. Android always creates its own stack via
+ *                  [rememberNavBackStack] with [navSavedStateConfig] for process-death survival.
  */
 @Composable
-actual fun CalendarNavGraph(start: CalendarRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
+actual fun CalendarNavGraph(
+    start: CalendarRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<CalendarRoute>?,
+) {
     val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<CalendarRoute> = rememberNavBackStack(savedStateConfig, start)
+    val stack: NavBackStack<CalendarRoute> = rememberNavBackStack(savedStateConfig, start)
         as NavBackStack<CalendarRoute>
 
-    val navigator = remember(backStack, onExitGraph) {
-        CalendarNavigator(backStack, onExitGraph)
+    val navigator = remember(stack, onExitGraph) {
+        CalendarNavigator(stack, onExitGraph)
     }
 
     CompositionLocalProvider(
         LocalCalendarNavigator provides navigator,
     ) {
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
+        BackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),

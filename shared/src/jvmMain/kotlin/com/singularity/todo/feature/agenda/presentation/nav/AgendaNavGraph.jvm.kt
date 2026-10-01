@@ -26,14 +26,24 @@ import org.koin.compose.koinInject
  * Uses an in-memory [NavBackStack] — no process death on Desktop, so
  * SavedStateConfiguration is not needed. No system back gesture on desktop —
  * handled via the outer app's toolbar.
+ *
+ * @param backStack Optional pre-created stack. When provided, the graph uses this stack
+ *                  instead of creating a new one. Used by JVM Desktop to pass a stable
+ *                  stack created via [rememberInMemoryNavBackStack] in the entry block,
+ *                  preventing nested navigation state from being lost on tab switches.
  */
 @Composable
-actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?) -> Unit, modifier: Modifier) {
-    val backStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(start)
+actual fun AgendaNavGraph(
+    start: AgendaStartRoute,
+    onExitGraph: (AppDestination?) -> Unit,
+    modifier: Modifier,
+    backStack: NavBackStack<AgendaStartRoute>?,
+) {
+    val stack: NavBackStack<AgendaStartRoute> = backStack ?: rememberInMemoryNavBackStack(start)
 
-    val navigator = remember(backStack, onExitGraph) {
+    val navigator = remember(stack, onExitGraph) {
         AgendaNavigator(
-            backStack = backStack,
+            backStack = stack,
             onExitGraph = onExitGraph,
         )
     }
@@ -87,7 +97,7 @@ actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: (AppDestination?
         LocalAgendaNavigator provides navigator,
     ) {
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { onExitGraph(null) },
             entryProvider = entryProvider {

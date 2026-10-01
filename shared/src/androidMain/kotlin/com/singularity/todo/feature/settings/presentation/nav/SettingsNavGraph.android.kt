@@ -25,15 +25,22 @@ import com.singularity.todo.feature.settings.SettingsScreen
  * Uses [rememberViewModelStoreNavEntryDecorator] for per-entry VM scoping.
  *
  * Persistence: uses [navSavedStateConfig()] so the back stack survives process death.
+ *
+ * @param backStack Ignored on Android. Android always creates its own stack via
+ *                  [rememberNavBackStack] with [navSavedStateConfig] for process-death survival.
  */
 @Composable
-actual fun SettingsNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
+actual fun SettingsNavGraph(
+    navCallbacks: NavCallbacks,
+    modifier: Modifier,
+    @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<Settings>?,
+) {
     // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
     // (which concrete NavKey subtypes exist), not a value to persist.
     val savedStateConfig = navSavedStateConfig()
 
     @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)
+    val stack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)
         as NavBackStack<Settings>
 
     val onExitGraph: (AppDestination?) -> Unit = { dest ->
@@ -51,10 +58,10 @@ actual fun SettingsNavGraph(navCallbacks: NavCallbacks, modifier: Modifier) {
     CompositionLocalProvider(
         LocalSettingsNavigator provides navigator,
     ) {
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
+        BackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
 
         NavDisplay(
-            backStack = backStack,
+            backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
