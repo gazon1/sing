@@ -317,7 +317,7 @@ dependencies {
     // AndroidX compose-ui-test-junit4 (1.7.3) is used here, NOT the JetBrains
     // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
     add("androidHostTestImplementation", libs.robolectric)
-    add("androidHostTestImplementation", "androidx.compose.ui:ui-test-junit4:1.7.3")
+    add("androidHostTestImplementation", libs.compose.ui.test.junit4)
     add("androidHostTestImplementation", libs.koin.test)
     // ApplicationProvider + the instrumentation registry the Koin graph test needs.
     add("androidHostTestImplementation", libs.androidx.test.core)

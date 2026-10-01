@@ -18,7 +18,15 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== [0/4] detekt rule registry (fast) ===${NC}"
+echo -e "${YELLOW}=== [0/5] build version catalog gate ===${NC}"
+# Fast: no JVM startup. Fails before Gradle if a *.gradle.kts contains a
+# hardcoded group:artifact:version literal that should come from libs.versions.toml.
+python3 scripts/build-version-catalog-gate.py --quiet . || {
+    echo -e "${RED}build version catalog FAILED — hardcoded literal(s) found${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [1/5] detekt rule registry (fast) ===${NC}"
 # Runs before Gradle: a duplicated or missing rule registration otherwise surfaces
 # minutes later as a YAML parse error pointing at detekt.yml rather than the cause.
 ./scripts/check-detekt-registrations.sh || {
@@ -26,28 +34,28 @@ echo -e "${YELLOW}=== [0/4] detekt rule registry (fast) ===${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [1/4] shared:jvmTest ===${NC}"
+echo -e "${YELLOW}=== [2/5] shared:jvmTest ===${NC}"
 ./gradlew :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [2/4] desktopApp:test ===${NC}"
+echo -e "${YELLOW}=== [3/5] desktopApp:test ===${NC}"
 ./gradlew :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [3/4] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [4/5] androidApp:assembleDebug ===${NC}"
 ./gradlew :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}assembleDebug passed${NC}"
 
-echo -e "${GREEN}=== [4/4] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${GREEN}=== [5/5] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.

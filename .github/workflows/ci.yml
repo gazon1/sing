@@ -21,6 +21,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Build version catalog gate
+        run: python3 scripts/build-version-catalog-gate.py --quiet .
+        continue-on-error: true
+
       - name: Run jvmTest (fast + slow)
         run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon
 
