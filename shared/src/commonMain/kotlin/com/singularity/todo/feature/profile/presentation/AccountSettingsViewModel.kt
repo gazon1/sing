@@ -4,7 +4,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.Profile
-import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.flow.Flow
 
 /** Placeholder state — AccountSettingsViewModel only exposes activeProfile Flow. */

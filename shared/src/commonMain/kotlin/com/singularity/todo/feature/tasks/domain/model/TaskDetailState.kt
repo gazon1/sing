@@ -7,12 +7,12 @@ import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
-import com.singularity.todo.feature.checklist.ChecklistRepository
-import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
-import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
@@ -29,14 +29,13 @@ data class TaskDetailDeps(
     val projectsRepo: ProjectsRepository,
     val tagsRepo: com.singularity.todo.feature.tags.TagsRepository,
     val checklistRepository: ChecklistRepository,
+    val notesRepo: NotesRepository,
     val reminderRepo: ReminderRepository,
     val reminderScheduler: ReminderScheduler,
     val attachmentsRepo: AttachmentRepository,
     val timeZoneProvider: TimeZoneProvider,
     val clock: Clock,
     val completeRecurring: CompleteRecurringTaskUseCase,
-    /** Notes repository — required for the task logbook. */
-    val notesRepo: NotesRepository,
     /** AI use cases — nullable so tests can omit them. */
     val refineTask: RefineTaskUseCase? = null,
     val generateDescription: GenerateDescriptionUseCase? = null,

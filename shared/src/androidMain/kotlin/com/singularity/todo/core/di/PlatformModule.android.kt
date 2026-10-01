@@ -34,7 +34,7 @@ import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepository
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider

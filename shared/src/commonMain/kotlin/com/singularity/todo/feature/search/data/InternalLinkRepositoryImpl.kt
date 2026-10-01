@@ -6,7 +6,7 @@ import com.singularity.todo.core.database.toTask
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 
 class InternalLinkRepositoryImpl(

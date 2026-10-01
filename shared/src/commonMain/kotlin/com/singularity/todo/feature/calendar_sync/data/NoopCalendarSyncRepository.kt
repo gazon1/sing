@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.calendar_sync.data
 
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
-import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 

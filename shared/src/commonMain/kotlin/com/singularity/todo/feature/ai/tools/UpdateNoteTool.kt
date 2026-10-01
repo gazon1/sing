@@ -3,7 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock

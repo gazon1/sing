@@ -2,6 +2,7 @@ package com.singularity.todo.feature.profile
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

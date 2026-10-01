@@ -12,7 +12,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteKind
-import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.toEntity
 import com.singularity.todo.feature.notes.toLinksJson
 import com.singularity.todo.feature.notes.toNote

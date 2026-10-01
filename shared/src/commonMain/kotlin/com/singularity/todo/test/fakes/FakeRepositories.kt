@@ -37,11 +37,11 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
-import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
-import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -50,7 +50,7 @@ import com.singularity.todo.feature.reminders.ProjectReminderId
 import com.singularity.todo.feature.reminders.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
-import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -1447,7 +1447,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
 
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
-open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) : com.singularity.todo.feature.notes.NotesRepository {
+open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
+    com.singularity.todo.feature.notes.domain.port.NotesRepository {
     /** Exposes raw store map for tests that need direct map access. */
     val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store.state.value
     private val store = InMemoryStore<com.singularity.todo.feature.notes.Note>(keyOf = { it.id.value })

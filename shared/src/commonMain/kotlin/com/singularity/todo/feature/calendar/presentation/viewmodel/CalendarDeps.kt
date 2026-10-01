@@ -3,7 +3,7 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 
 /**

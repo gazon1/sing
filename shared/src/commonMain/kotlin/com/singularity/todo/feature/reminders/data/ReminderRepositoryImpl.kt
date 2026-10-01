@@ -9,7 +9,7 @@ import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
-import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.reminders.toEntity
 import com.singularity.todo.feature.reminders.toReminder
 import com.singularity.todo.feature.tasks.domain.model.TaskId

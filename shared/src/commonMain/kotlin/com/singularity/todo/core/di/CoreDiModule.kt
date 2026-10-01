@@ -52,8 +52,8 @@ import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.ProjectRemindersRepositoryImpl
-import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.factoryOf

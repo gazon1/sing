@@ -10,7 +10,7 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
-import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.test.fakes.FakeIdGenerator
 import com.singularity.todo.test.fakes.FakeNotesRepository

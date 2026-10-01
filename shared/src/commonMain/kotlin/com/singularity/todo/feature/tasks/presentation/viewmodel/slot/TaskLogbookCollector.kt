@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

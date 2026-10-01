@@ -1,8 +1,10 @@
-package com.singularity.todo.feature.notes
+package com.singularity.todo.feature.notes.domain.port
 
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
-import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.notes.NoteColor
+import com.singularity.todo.feature.notes.NoteId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -96,15 +98,13 @@ interface NotesRepository :
      */
     suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId>
 
-    // ─── Task-logbook ───────────────────────────────────────────────────────────
+    // ─── Task-linked notes ────────────────────────────────────────────────────
 
     /**
-     * Observes all notes attached to [taskId] for the current user.
-     * A note is "attached" when its [Note.taskId] field equals [taskId].
-     *
+     * Watches notes linked to a specific task via wikilinks.
      * @see createForTask
      */
-    fun watchForTask(taskId: TaskId): Flow<List<Note>>
+    fun watchForTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId): Flow<List<Note>>
 
     /**
      * Creates a new note attached to [taskId] and returns its id.
@@ -114,7 +114,7 @@ interface NotesRepository :
      * @return the new note's id.
      */
     suspend fun createForTask(
-        taskId: TaskId,
+        taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
         title: String,
         bodyMarkdown: String? = null,
         bodyHtml: String? = null,

@@ -1,5 +1,7 @@
-package com.singularity.todo.feature.checklist
+package com.singularity.todo.feature.checklist.domain.port
 
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
 import kotlinx.coroutines.flow.Flow
 
 /**

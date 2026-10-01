@@ -7,7 +7,7 @@ import android.content.Context
 import android.provider.CalendarContract
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.error.translateExceptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull

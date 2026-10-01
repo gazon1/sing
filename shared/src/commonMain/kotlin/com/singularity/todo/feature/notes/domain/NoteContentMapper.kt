@@ -20,7 +20,7 @@ internal object NoteContentMapper {
 
     /**
      * Extracts `note://...` / `task://...` URLs from the editor HTML,
-     * ready for [com.singularity.todo.feature.notes.NotesRepository.setOutgoingLinks].
+     * ready for [com.singularity.todo.feature.notes.domain.port.NotesRepository.setOutgoingLinks].
      */
     fun outgoingLinkUrls(html: String): List<String> = extractOutgoingLinks(html).map { ref ->
         when (ref) {

@@ -19,19 +19,18 @@ import com.singularity.todo.feature.notes.NoteAiAction
 import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteAiResult.Improved
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.SuggestTagsResult
 import com.singularity.todo.feature.notes.SummarizeResult
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.formatExtractActionsResult
 import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.notes.formatSuggestTagsResult
 import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.search.InternalLinkRepository
-import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
@@ -90,10 +89,10 @@ class NoteEditor(
     scope = scope,
 ) {
 
-    /** Caches the existing note when opening to preserve createdAt and taskId across saves. */
+    /** Caches the existing note when opening to preserve createdAt across saves. */
     private var cachedNote: Note? = null
 
-    /** Converts an Editing draft to Note using the cached note to preserve createdAt and taskId. */
+    /** Converts an Editing draft to Note using the cached note to preserve createdAt. */
     private fun editingAsNote(draft: Editing): Note {
         val noteId = NoteId.fromString(draft.id)
         val existing = cachedNote
@@ -108,7 +107,6 @@ class NoteEditor(
                 ?: now,
             updatedAt = now,
             isFolder = false,
-            taskId = existing?.taskId,
         )
     }
 
@@ -137,13 +135,8 @@ class NoteEditor(
         }
     }
 
-    /**
-     * Creates a new note and returns the generated ID.
-     * @param preExistingId When non-null, uses this ID instead of generating a new one.
-     *                      Used by [createNoteForTask] to keep the editor ID in sync with
-     *                      the note already created in the repository.
-     */
-    fun createNote(preExistingId: String? = null): String {
+    /** Creates a new note and returns the generated ID. */
+    fun createNote(): String {
         cachedNote = null // no existing note for new notes
         val id = NoteId.fromString(
             preExistingId
@@ -159,20 +152,6 @@ class NoteEditor(
         open(draft)
         updateDraft { draft }
         return id.value
-    }
-
-    /**
-     * Creates a new note attached to [taskId] and opens it in the editor.
-     * The note is first persisted via [NotesRepository.createForTask] so it exists
-     * in the DB before autosave triggers the first `upsert`. The editor draft uses
-     * the same ID so subsequent autosave updates the already-created note.
-     */
-    suspend fun createNoteForTask(taskId: TaskId) {
-        val newNoteId = repo.createForTask(taskId, title = "", bodyMarkdown = null, bodyHtml = null)
-            .getOrThrow() // propagate failure via exception
-        val note = repo.get(newNoteId)!! // createForTask guarantees the note exists
-        cachedNote = note // preserve taskId + createdAt for autosave
-        createNote(preExistingId = note.id.value)
     }
 
     /** Current editor state for the screen. */

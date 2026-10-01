@@ -5,7 +5,7 @@ import com.singularity.todo.feature.notes.LinkSchemes
 /**
  * JSON serialization helpers for the `outgoing_links` column on [TaskEntity].
  *
- * Mirrors the pattern used in [com.singularity.todo.feature.notes.NotesRepository]
+ * Mirrors the pattern used in [com.singularity.todo.feature.notes.domain.port.NotesRepository]
  * for `NoteEntity.outgoingLinks`.
  *
  * Links are stored as a JSON array of URL strings, e.g.:

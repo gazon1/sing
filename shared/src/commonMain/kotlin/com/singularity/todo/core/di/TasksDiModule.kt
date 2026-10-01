@@ -4,9 +4,9 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.feature.archive.ArchiveViewModel
-import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
-import com.singularity.todo.feature.checklist.ChecklistRepository
+import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepository
 import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
+import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl

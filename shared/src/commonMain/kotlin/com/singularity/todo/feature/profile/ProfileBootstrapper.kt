@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.profile
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.flow.first
 
 /**

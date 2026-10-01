@@ -2,7 +2,6 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
-import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.domain.editor.extractActionsLambda
@@ -10,12 +9,13 @@ import com.singularity.todo.feature.notes.domain.editor.improveNoteLambda
 import com.singularity.todo.feature.notes.domain.editor.rewriteNoteLambda
 import com.singularity.todo.feature.notes.domain.editor.suggestTagsLambda
 import com.singularity.todo.feature.notes.domain.editor.summarizeNoteLambda
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.search.InternalLinkRepository
 import com.singularity.todo.feature.search.data.InternalLinkRepositoryImpl
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

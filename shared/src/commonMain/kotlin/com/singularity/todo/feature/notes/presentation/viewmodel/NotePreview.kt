@@ -6,9 +6,9 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.notes.NotesUiEvent
-import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first

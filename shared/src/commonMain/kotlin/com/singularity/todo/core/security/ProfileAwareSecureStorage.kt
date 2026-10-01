@@ -1,6 +1,6 @@
 package com.singularity.todo.core.security
 
-import com.singularity.todo.feature.profile.ProfileRepository
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 
 /**
  * A [SecureStoragePort] that namespaces all keys under `profiles/{profileId}/`

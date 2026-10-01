@@ -1,6 +1,8 @@
-package com.singularity.todo.feature.profile
+package com.singularity.todo.feature.profile.domain.port
 
 import com.singularity.todo.core.repository.GenericUserScopedRepository
+import com.singularity.todo.feature.profile.Profile
+import com.singularity.todo.feature.profile.ProfileId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 

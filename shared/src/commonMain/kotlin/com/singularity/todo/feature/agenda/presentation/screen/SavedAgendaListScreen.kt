@@ -113,7 +113,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
 
     // Profile picker for copy-to-profile
     pendingCopyViewId?.let { viewId ->
-        val profileRepo: com.singularity.todo.feature.profile.ProfileRepository = koinInject()
+        val profileRepo: com.singularity.todo.feature.profile.domain.port.ProfileRepository = koinInject()
         ProfilePickerSheet(
             viewId = viewId,
             profileRepo = profileRepo,
@@ -179,7 +179,7 @@ fun SavedAgendaListContent(
 @Composable
 private fun ProfilePickerSheet(
     viewId: SavedAgendaViewId,
-    profileRepo: com.singularity.todo.feature.profile.ProfileRepository,
+    profileRepo: com.singularity.todo.feature.profile.domain.port.ProfileRepository,
     onDismiss: () -> Unit,
     onPick: (com.singularity.todo.feature.profile.ProfileId) -> Unit,
 ) {

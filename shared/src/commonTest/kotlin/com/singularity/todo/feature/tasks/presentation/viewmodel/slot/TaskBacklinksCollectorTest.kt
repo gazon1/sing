@@ -3,7 +3,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.search.InternalLinkRepository
+import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest

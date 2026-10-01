@@ -13,8 +13,8 @@ import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_USER_ID
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.reminders.ReminderFireLogic
 import com.singularity.todo.feature.reminders.ReminderId
-import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope

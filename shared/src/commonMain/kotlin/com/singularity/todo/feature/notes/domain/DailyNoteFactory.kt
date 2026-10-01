@@ -2,7 +2,7 @@ package com.singularity.todo.feature.notes.domain
 
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.NotesRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 

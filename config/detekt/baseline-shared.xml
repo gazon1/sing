@@ -725,7 +725,7 @@
     <ID>PackageName:CalendarSyncExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageName:CalendarSyncExceptionsTest.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageName:CalendarSyncOrchestrator.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
-    <ID>PackageName:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.repository</ID>
+    <ID>PackageName:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
     <ID>PackageName:CalendarSyncSettingsRepository.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:CalendarSyncSettingsScreen.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:CalendarSyncStatus.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
@@ -770,7 +770,7 @@
     <ID>PackageNaming:CalendarSyncExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageNaming:CalendarSyncExceptionsTest.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageNaming:CalendarSyncOrchestrator.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
-    <ID>PackageNaming:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.repository</ID>
+    <ID>PackageNaming:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
     <ID>PackageNaming:CalendarSyncSettingsRepository.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:CalendarSyncSettingsScreen.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:CalendarSyncStatus.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>

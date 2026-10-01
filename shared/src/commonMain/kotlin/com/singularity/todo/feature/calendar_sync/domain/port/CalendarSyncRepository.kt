@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.calendar_sync.domain.repository
+package com.singularity.todo.feature.calendar_sync.domain.port
 
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import kotlinx.coroutines.flow.Flow

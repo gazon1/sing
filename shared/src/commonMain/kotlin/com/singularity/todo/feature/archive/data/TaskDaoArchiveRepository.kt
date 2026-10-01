@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.archive
+package com.singularity.todo.feature.archive.data
 
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toTask

@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.search
+package com.singularity.todo.feature.search.domain.port
 
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.tasks.domain.model.Task
