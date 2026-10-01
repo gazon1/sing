@@ -1,7 +1,7 @@
 package com.singularity.todo.core.sync
 
 /**
- * One-shot events emitted by [SyncConfigScreen]'s ViewModel.
+ * One-shot events emitted by the sync config ViewModel.
  * Consumed via Channel + repeatOnLifecycle(STARTED).
  */
 sealed interface SyncFormEvent {

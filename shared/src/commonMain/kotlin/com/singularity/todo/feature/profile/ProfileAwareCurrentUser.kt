@@ -29,11 +29,35 @@ open class ProfileAwareCurrentUser(
     private val scope: CoroutineScope,
 ) {
 
+    /** Computes the scoped userId from the current upstreams — synchronous, no dispatch. */
+    private fun computeScopedUserId(userId: UserId, profileId: ProfileId): UserId =
+        if (profileId == ProfileId.default) {
+            userId
+        } else {
+            UserId.fromString("${profileId.value}/${userId.value}")
+        }
+
     /**
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`
      * when the profile is the default one (backwards-compatible).
+     *
+     * ## Why seeded synchronously
+     *
+     * Both `currentUser.userId` and `profileRepository.activeProfileId` are
+     * `StateFlow` already seeded before this constructor runs. Computing the
+     * initial value directly (not via an async collector) means `scopedUserId.value`
+     * is correct from the first read — no race with test-body code such as
+     * `seedTask` that runs before the first `collect` emission.
+     *
+     * The `scope.launch { combine(...).collect {...} }` handles runtime user
+     * switches and profile switches.
      */
-    private val _scopedUserId = MutableStateFlow(UserId.anonymous)
+    private val _scopedUserId = MutableStateFlow(
+        computeScopedUserId(
+            currentUser.userId.value,
+            profileRepository.activeProfileId.value,
+        ),
+    )
     open val scopedUserId: StateFlow<UserId> = _scopedUserId
 
     init {
@@ -42,11 +66,7 @@ open class ProfileAwareCurrentUser(
                 currentUser.userId,
                 profileRepository.activeProfileId,
             ) { userId, profileId ->
-                if (profileId == ProfileId.default) {
-                    userId
-                } else {
-                    UserId.fromString("${profileId.value}/${userId.value}")
-                }
+                computeScopedUserId(userId, profileId)
             }.collect { _scopedUserId.value = it }
         }
     }

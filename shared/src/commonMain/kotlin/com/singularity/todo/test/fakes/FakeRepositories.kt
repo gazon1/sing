@@ -917,7 +917,7 @@ open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUs
 
 // ─── AuthRepository ───────────────────────────────────────────────────────────
 
-class FakeAuthRepository(initialSession: Session = Session.Anonymous(UserId.anonymous)) : AuthRepository {
+class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.DEFAULT)) : AuthRepository {
     private val _currentSession = MutableStateFlow(initialSession)
 
     // Return _currentSession directly — MutableStateFlow IS a StateFlow, so this satisfies

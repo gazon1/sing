@@ -33,41 +33,8 @@ import org.koin.compose.koinInject
 fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
     // ─── Top-level tabs ────────────────────────────────────────────────
 
-    entry<AppDestination.Inbox> {
-        AgendaNavGraph(
-            start = AgendaStartRoute.Inbox,
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
-
-    entry<AppDestination.Today> {
-        AgendaNavGraph(
-            start = AgendaStartRoute.Today,
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
-
-    entry<AppDestination.Upcoming> {
-        AgendaNavGraph(
-            start = AgendaStartRoute.Upcoming,
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
+    // Inbox, Today, Upcoming are handled by the catch-all AgendaGraph entry below.
+    // Each variant maps to the corresponding AgendaStartRoute (Inbox/Today/Upcoming).
 
     entry<AppDestination.Plans> {
         ProjectsNavGraph(

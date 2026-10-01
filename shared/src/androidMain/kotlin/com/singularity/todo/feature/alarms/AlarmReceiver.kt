@@ -37,7 +37,7 @@ import kotlin.time.Clock
  * - [ACTION_REMINDER_DATA_CHANGED] — reminder list changed; re-schedule all active reminders
  *
  * Uses [goAsync] + a dedicated [CoroutineScope] for clean lifecycle management.
- * All heavy work (DB reads, flows) runs on [Dispatchers.Default].
+ * All heavy work (DB reads, notification posting) runs on [Dispatchers.IO].
  *
  * ## Stale-text fix
  * Notification title/body are computed at fire time by reading the fresh task title from Room DB.
@@ -70,7 +70,7 @@ class AlarmReceiver :
         }
         val pendingResult = goAsync()
         val scope = CoroutineScope(
-            Dispatchers.Default +
+            Dispatchers.IO +
                 SupervisorJob() +
                 CoroutineExceptionHandler { _, e -> log.e(e) { "AlarmReceiver failed" } },
         )

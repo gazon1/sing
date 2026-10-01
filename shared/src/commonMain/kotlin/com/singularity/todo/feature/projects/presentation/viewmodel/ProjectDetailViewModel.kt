@@ -64,7 +64,7 @@ class ProjectDetailViewModel(
     private val updateTask: UpdateTaskUseCase,
     private val createTaskUseCase: CreateTaskUseCase,
     private val projectReminders: ProjectRemindersRepository,
-    private val clock: Clock,
+    val clock: Clock,
     private val log: Logger,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
