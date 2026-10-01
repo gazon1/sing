@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.notes.NotesRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
  * @param scope drives the collection coroutine and is cancelled when the task detail screen leaves
  * @param taskFlow emits the current task; null while loading or after task is deleted
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class TaskLogbookCollector(
     private val notesRepo: NotesRepository,
     scope: AutoCloseableCoroutineScope,
@@ -34,15 +36,17 @@ class TaskLogbookCollector(
 
     init {
         scope.launch {
-            taskFlow.filterNotNull().flatMapLatest { task ->
-                notesRepo.watchForTask(task.id)
-            }.collect { notes ->
-                _state.value = if (notes.isEmpty()) {
-                    TaskLogbookState.Empty
-                } else {
-                    TaskLogbookState.Loaded(notes)
+            taskFlow.filterNotNull()
+                .flatMapLatest { task ->
+                    notesRepo.watchForTask(task.id)
                 }
-            }
+                .collect { notes ->
+                    _state.value = if (notes.isEmpty()) {
+                        TaskLogbookState.Empty
+                    } else {
+                        TaskLogbookState.Loaded(notes)
+                    }
+                }
         }
     }
 }

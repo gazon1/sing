@@ -78,86 +78,91 @@ import kotlin.time.Clock
 class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : SettingsRepository {
     // ── Per-section repositories ──────────────────────────────────────────────
 
-    override val notifications: NotificationsSettingsRepository =
-        object : NotificationsSettingsRepository {
-            private val _enabled = MutableStateFlow(true)
-            private val _sound = MutableStateFlow(true)
-            private val _vibration = MutableStateFlow(true)
-            private val _reminderDefault = MutableStateFlow(ReminderOffset.AT_DUE)
-            override val enabled: Flow<Boolean> = _enabled
-            override val sound: Flow<Boolean> = _sound
-            override val vibration: Flow<Boolean> = _vibration
-            override val reminderDefault: Flow<ReminderOffset> = _reminderDefault
-            override suspend fun setEnabled(value: Boolean) {
-                _enabled.value = value
-            }
-            override suspend fun setSound(value: Boolean) {
-                _sound.value = value
-            }
-            override suspend fun setVibration(value: Boolean) {
-                _vibration.value = value
-            }
-            override suspend fun setReminderDefault(value: ReminderOffset) {
-                _reminderDefault.value = value
-            }
+    override val notifications: NotificationsSettingsRepository = object : NotificationsSettingsRepository {
+        private val _enabled = MutableStateFlow(true)
+        private val _sound = MutableStateFlow(true)
+        private val _vibration = MutableStateFlow(true)
+        private val _reminderDefault = MutableStateFlow(ReminderOffset.AT_DUE)
+        override val enabled: Flow<Boolean> = _enabled
+        override val sound: Flow<Boolean> = _sound
+        override val vibration: Flow<Boolean> = _vibration
+        override val reminderDefault: Flow<ReminderOffset> = _reminderDefault
+        override suspend fun setEnabled(value: Boolean) {
+            _enabled.value = value
         }
 
-    override val workSchedule: WorkScheduleSettingsRepository =
-        object : WorkScheduleSettingsRepository {
-            private val _dayStart = MutableStateFlow(540)
-            private val _dayEnd = MutableStateFlow(1080)
-            private val _lunchStart = MutableStateFlow(720)
-            private val _lunchEnd = MutableStateFlow(780)
-            private val _sat = MutableStateFlow(false)
-            private val _sun = MutableStateFlow(false)
-            override val dayStartMinutes: Flow<Int> = _dayStart
-            override val dayEndMinutes: Flow<Int> = _dayEnd
-            override val lunchStartMinutes: Flow<Int> = _lunchStart
-            override val lunchEndMinutes: Flow<Int> = _lunchEnd
-            override val weekendSat: Flow<Boolean> = _sat
-            override val weekendSun: Flow<Boolean> = _sun
-            override suspend fun setDayStartMinutes(value: Int) {
-                _dayStart.value = value
-            }
-            override suspend fun setDayEndMinutes(value: Int) {
-                _dayEnd.value = value
-            }
-            override suspend fun setLunchStartMinutes(value: Int) {
-                _lunchStart.value = value
-            }
-            override suspend fun setLunchEndMinutes(value: Int) {
-                _lunchEnd.value = value
-            }
-            override suspend fun setWeekendSat(value: Boolean) {
-                _sat.value = value
-            }
-            override suspend fun setWeekendSun(value: Boolean) {
-                _sun.value = value
-            }
+        override suspend fun setSound(value: Boolean) {
+            _sound.value = value
         }
 
-    override val greeting: GreetingSettingsRepository =
-        object : GreetingSettingsRepository {
-            private val _morning = MutableStateFlow(12)
-            private val _afternoon = MutableStateFlow(18)
-            override val morningEndHour: Flow<Int> = _morning
-            override val afternoonEndHour: Flow<Int> = _afternoon
-            override suspend fun setMorningEndHour(hour: Int) {
-                _morning.value = hour
-            }
-            override suspend fun setAfternoonEndHour(hour: Int) {
-                _afternoon.value = hour
-            }
+        override suspend fun setVibration(value: Boolean) {
+            _vibration.value = value
         }
 
-    override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
-        object : DefaultAgendaViewSettingsRepository {
-            private val _id = MutableStateFlow<SavedAgendaViewId?>(null)
-            override val defaultViewId: Flow<SavedAgendaViewId?> = _id
-            override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
-                _id.value = id
-            }
+        override suspend fun setReminderDefault(value: ReminderOffset) {
+            _reminderDefault.value = value
         }
+    }
+
+    override val workSchedule: WorkScheduleSettingsRepository = object : WorkScheduleSettingsRepository {
+        private val _dayStart = MutableStateFlow(540)
+        private val _dayEnd = MutableStateFlow(1080)
+        private val _lunchStart = MutableStateFlow(720)
+        private val _lunchEnd = MutableStateFlow(780)
+        private val _sat = MutableStateFlow(false)
+        private val _sun = MutableStateFlow(false)
+        override val dayStartMinutes: Flow<Int> = _dayStart
+        override val dayEndMinutes: Flow<Int> = _dayEnd
+        override val lunchStartMinutes: Flow<Int> = _lunchStart
+        override val lunchEndMinutes: Flow<Int> = _lunchEnd
+        override val weekendSat: Flow<Boolean> = _sat
+        override val weekendSun: Flow<Boolean> = _sun
+        override suspend fun setDayStartMinutes(value: Int) {
+            _dayStart.value = value
+        }
+
+        override suspend fun setDayEndMinutes(value: Int) {
+            _dayEnd.value = value
+        }
+
+        override suspend fun setLunchStartMinutes(value: Int) {
+            _lunchStart.value = value
+        }
+
+        override suspend fun setLunchEndMinutes(value: Int) {
+            _lunchEnd.value = value
+        }
+
+        override suspend fun setWeekendSat(value: Boolean) {
+            _sat.value = value
+        }
+
+        override suspend fun setWeekendSun(value: Boolean) {
+            _sun.value = value
+        }
+    }
+
+    override val greeting: GreetingSettingsRepository = object : GreetingSettingsRepository {
+        private val _morning = MutableStateFlow(12)
+        private val _afternoon = MutableStateFlow(18)
+        override val morningEndHour: Flow<Int> = _morning
+        override val afternoonEndHour: Flow<Int> = _afternoon
+        override suspend fun setMorningEndHour(hour: Int) {
+            _morning.value = hour
+        }
+
+        override suspend fun setAfternoonEndHour(hour: Int) {
+            _afternoon.value = hour
+        }
+    }
+
+    override val defaultAgendaView: DefaultAgendaViewSettingsRepository = object : DefaultAgendaViewSettingsRepository {
+        private val _id = MutableStateFlow<SavedAgendaViewId?>(null)
+        override val defaultViewId: Flow<SavedAgendaViewId?> = _id
+        override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
+            _id.value = id
+        }
+    }
 
     // ── AI (flat — AiSettingsStore reads via SettingsReader) ────────────────
 
@@ -181,15 +186,19 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
     override suspend fun setAiProvider(value: String) {
         _aiProvider.value = value
     }
+
     override suspend fun setAiModel(value: String) {
         _aiModel.value = value
     }
+
     override suspend fun setAiBaseUrl(value: String) {
         _aiBaseUrl.value = value
     }
+
     override suspend fun setAiSystemPrompt(value: String) {
         _aiSystemPrompt.value = value
     }
+
     override suspend fun setUserId(value: String) {
         _userId.value = value
     }
@@ -199,7 +208,8 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
 
 class FakeBackupRepository : BackupRepository {
     private val backupsStore = MutableStateFlow<List<BackupMetadata>>(emptyList())
-    override fun observeAll(): Flow<List<BackupMetadata>> = backupsStore
+    override fun observeAll(): Flow<List<BackupMetadata>> =
+        backupsStore
 
     // ─── Recording fields (for assertions) ───────────────────────────────────
     var lastExportOptions: ExportOptions? = null
@@ -249,7 +259,8 @@ class FakeBackupRepository : BackupRepository {
         return pushResult
     }
 
-    override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
+    override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> =
+        Result.failure(NotImplementedError())
 }
 
 // ─── FileSystem (in-memory) — already exists as MapFileSystem ─────────────────
@@ -268,26 +279,30 @@ internal class InMemoryTaskDao : TaskDao {
     // ── Dependency methods (the only ones used by FakeTaskRepository) ─────────
 
     override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
-        _deps.map { refs -> refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
+        _deps.map { refs ->
+            refs.filter { it.taskId == taskId }
+                .map { it.dependsOnTaskId }
+        }
 
-    override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> = error("not implemented")
+    override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        error("not implemented")
 
     override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
-        _deps.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
+        _deps.map { refs ->
+            refs.filter { it.dependsOnTaskId == taskId }
+                .map { it.taskId }
+        }
 
-    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> = error(
-        "not implemented",
-    )
+    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        error(
+            "not implemented",
+        )
 
     override suspend fun upsertDependency(ref: TaskDependencyCrossRef) {
         _deps.update { current ->
             current.filter {
-                !(
-                    it.taskId == ref.taskId &&
-                        it.dependsOnTaskId == ref.dependsOnTaskId
-                )
-            } +
-                ref
+                !(it.taskId == ref.taskId && it.dependsOnTaskId == ref.dependsOnTaskId)
+            } + ref
         }
     }
 
@@ -326,9 +341,13 @@ internal class InMemoryTaskDao : TaskDao {
     // ── Tag methods (stubs so the interface is satisfied) ─────────────────────
 
     override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
-        _tags.map { refs -> refs.filter { it.taskId == taskId }.map { it.tagId } }
+        _tags.map { refs ->
+            refs.filter { it.taskId == taskId }
+                .map { it.tagId }
+        }
 
-    override fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>> = error("not implemented")
+    override fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+        error("not implemented")
 
     override suspend fun upsertTagCrossRef(ref: TaskTagCrossRef) {
         _tags.update { current -> current.filter { !(it.taskId == ref.taskId && it.tagId == ref.tagId) } + ref }
@@ -346,9 +365,11 @@ internal class InMemoryTaskDao : TaskDao {
 
     // ── Batch extras (for TaskRepositoryImpl userTasksWithExtras) ─────────────
 
-    override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = _tags
+    override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> =
+        _tags
 
-    override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = _deps
+    override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> =
+        _deps
 
     // ── Outgoing links (stub — not used by FakeTaskRepository) ───────────────
 
@@ -360,14 +381,16 @@ internal class InMemoryTaskDao : TaskDao {
     override suspend fun getBacklinkTasks(
         taskId: String,
         userId: String,
-    ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+    ): List<com.singularity.todo.core.database.TaskEntity> =
+        error("not implemented")
 
     // ── Remaining DAO methods (unused by FakeTaskRepository) ──────────────────
 
     override fun watchActive(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
-    override fun watchById(id: String): Flow<com.singularity.todo.core.database.TaskEntity?> = error("not implemented")
+    override fun watchById(id: String): Flow<com.singularity.todo.core.database.TaskEntity?> =
+        error("not implemented")
 
     override fun watchByIdForUser(id: String, userId: String): Flow<com.singularity.todo.core.database.TaskEntity?> =
         error("not implemented")
@@ -388,18 +411,21 @@ internal class InMemoryTaskDao : TaskDao {
         userId: String,
         today: String,
         endDate: String,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchByProject(
         userId: String,
         projectId: String,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchByDateRange(
         userId: String,
         from: String,
         to: String,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchByTag(userId: String, tagId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
@@ -407,23 +433,27 @@ internal class InMemoryTaskDao : TaskDao {
     override fun watchByAnyTag(
         userId: String,
         tagIds: List<String>,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchByAllTags(
         userId: String,
         tagIds: List<String>,
         size: Int,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchByPriorities(
         userId: String,
         priorities: List<String>,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchByRegexp(
         userId: String,
         pattern: String,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
 
     override fun watchPinned(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
@@ -431,42 +461,53 @@ internal class InMemoryTaskDao : TaskDao {
     override suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int =
         error("not implemented")
 
-    override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity? = error("not implemented")
+    override suspend fun getById(id: String): com.singularity.todo.core.database.TaskEntity =
+        error("not implemented")
 
-    override suspend fun getByIdForUser(id: String, userId: String): com.singularity.todo.core.database.TaskEntity? =
+    override suspend fun getByIdForUser(id: String, userId: String): com.singularity.todo.core.database.TaskEntity =
         error("not implemented")
 
     override fun watchSearchResults(
         userId: String,
         q: String,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error(
-        "not implemented",
-    )
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error(
+            "not implemented",
+        )
 
     override suspend fun searchTitles(userId: String, q: String): List<com.singularity.todo.core.database.TaskEntity> =
         error(
             "not implemented",
         )
 
-    override suspend fun upsert(task: com.singularity.todo.core.database.TaskEntity) = error("not implemented")
+    override suspend fun upsert(task: com.singularity.todo.core.database.TaskEntity) =
+        error("not implemented")
 
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
+        error("not implemented")
 
-    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
+        error("not implemented")
 
-    override suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
+    override suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int =
+        error("not implemented")
 
-    override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
+    override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int =
+        error("not implemented")
 
-    override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> = error(
-        "not implemented",
-    )
+    override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> =
+        error(
+            "not implemented",
+        )
 
-    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> = _deps.value
+    override suspend fun listAllDependenciesForUser(userId: String): List<TaskDependencyCrossRef> =
+        _deps.value
 
-    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = error("not implemented")
+    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> =
+        error("not implemented")
 
-    override suspend fun archiveCompletedForUser(ts: Long, userId: String): Int = error("not implemented")
+    override suspend fun archiveCompletedForUser(ts: Long, userId: String): Int =
+        error("not implemented")
 }
 
 open class FakeTaskRepository(
@@ -484,7 +525,8 @@ open class FakeTaskRepository(
      * reads `currentUser` from 17 call sites.
      */
     private val currentUser: ProfileAwareCurrentUser by lazy {
-        explicitCurrentUser ?: FakeProfileAwareCurrentUser()
+        explicitCurrentUser
+            ?: FakeProfileAwareCurrentUser()
     }
 
     /** Expose store state as [StateFlow] for [watchTasks] and other flows. */
@@ -502,27 +544,36 @@ open class FakeTaskRepository(
     var setDependenciesOverride: Result<Unit>? = null
 
     /** Seeds tasks by merging into existing state (adds or overwrites by id). */
-    fun seed(vararg tasks: Task) = store.seed(tasks.toList())
+    fun seed(vararg tasks: Task) =
+        store.seed(tasks.toList())
 
-    fun add(task: Task) = store.upsert(task)
+    fun add(task: Task) =
+        store.upsert(task)
 
-    fun clear() = store.clear()
+    fun clear() =
+        store.clear()
 
     // ── GenericUserScopedRepository implementation ────────────────────────────────
 
-    override suspend fun currentUserId(): UserId = currentUser.scopedUserId.value
+    override suspend fun currentUserId(): UserId =
+        currentUser.scopedUserId.value
 
-    override fun observeAll(): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { map -> map.values.filter { it.userId == uid }.toList() }
-    }
+    override fun observeAll(): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.onStart { emit(store.state.value) }
+                .map { map ->
+                    map.values.filter { it.userId == uid }
+                        .toList()
+                }
+        }
 
-    override fun observe(id: TaskId): Flow<Task?> = currentUser.observeForCurrentUser { uid ->
-        store.state.onStart { emit(store.state.value) }.map { it[id.value]?.takeIf { t -> t.userId == uid } }
-    }
+    override fun observe(id: TaskId): Flow<Task?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.onStart { emit(store.state.value) }
+                .map { it[id.value]?.takeIf { t -> t.userId == uid } }
+        }
 
-    open override suspend fun create(item: Task): Result<Task> {
+    override suspend fun create(item: Task): Result<Task> {
         createOverride?.let { return it }
         return runCatching {
             store.upsert(item)
@@ -530,7 +581,7 @@ open class FakeTaskRepository(
         }
     }
 
-    open override suspend fun update(item: Task): Result<Task> {
+    override suspend fun update(item: Task): Result<Task> {
         updateOverride?.let { return it }
         return runCatching {
             // Production reads before writing and rejects updates to entities
@@ -544,7 +595,7 @@ open class FakeTaskRepository(
         }
     }
 
-    open override suspend fun delete(id: TaskId): Result<Unit> {
+    override suspend fun delete(id: TaskId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatching {
             // Production `delete` soft-deletes (sets archivedAt) and keeps the row.
@@ -553,7 +604,7 @@ open class FakeTaskRepository(
             val uid = currentUserId()
             val existing = store[id.value]?.takeIf { it.userId == uid }
                 ?: throw IllegalArgumentException("Task not found or not owned: ${id.value}")
-            store.upsert(existing.copy(archivedAt = kotlin.time.Clock.System.now()))
+            store.upsert(existing.copy(archivedAt = Clock.System.now()))
         }
     }
 
@@ -564,52 +615,62 @@ open class FakeTaskRepository(
 
     // ── Domain-specific user-scoped observers ────────────────────────────────────
 
-    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { map ->
-                map.values
-                    .filter { it.userId == uid }
-                    .filter {
-                        TaskDomain.matchesFilter(
-                            it,
-                            filter,
-                            kotlin.time.Instant.fromEpochMilliseconds(
-                                Clock.System.now().toEpochMilliseconds(),
-                            ).toLocalDateTime(TimeZone.currentSystemDefault()).date,
-                        )
-                    }
-                    .sortedWith(compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }))
-            }
-    }
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.onStart { emit(store.state.value) }
+                .map { map ->
+                    map.values.filter { it.userId == uid }
+                        .filter {
+                            TaskDomain.matchesFilter(
+                                it,
+                                filter,
+                                kotlin.time.Instant.fromEpochMilliseconds(
+                                    Clock.System.now()
+                                        .toEpochMilliseconds(),
+                                )
+                                    .toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                            )
+                        }
+                        .sortedWith(compareBy({
+                            it.dueDate?.toString()
+                                ?: "\uFFFF"
+                        }, { !it.isPinned }))
+                }
+        }
 
     override fun observeByDate(date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state
-                .onStart { emit(store.state.value) }
+            store.state.onStart { emit(store.state.value) }
                 .map { map ->
-                    map.values
-                        .filter { it.userId == uid }
+                    map.values.filter { it.userId == uid }
                         .filter { !it.isTrashed && !it.someday && it.dueDate == date }
                         .sortedWith(compareBy({ !it.isPinned }))
                 }
         }
 
-    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
-        store.state
-            .onStart { emit(store.state.value) }
-            .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId == uid } }
-    }
+    override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.onStart { emit(store.state.value) }
+                .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId == uid } }
+        }
 
     override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
-        dao.getDependencyIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+        dao.getDependencyIdsForTask(taskId.value)
+            .map { ids ->
+                ids.map { TaskId.fromString(it) }
+                    .toSet()
+            }
 
     override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> =
-        dao.getBlockingTaskIdsForTask(taskId.value).map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
+        dao.getBlockingTaskIdsForTask(taskId.value)
+            .map { ids ->
+                ids.map { TaskId.fromString(it) }
+                    .toSet()
+            }
 
     // ── Legacy / DAO-backed methods ─────────────────────────────────────────────
 
-    open override suspend fun softDelete(id: TaskId): Result<Unit> {
+    override suspend fun softDelete(id: TaskId): Result<Unit> {
         softDeleteOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { task ->
@@ -624,7 +685,7 @@ open class FakeTaskRepository(
         return store[id.value]?.takeIf { it.userId == uid }
     }
 
-    open override suspend fun restore(id: TaskId): Result<Unit> {
+    override suspend fun restore(id: TaskId): Result<Unit> {
         restoreOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { task ->
@@ -634,7 +695,7 @@ open class FakeTaskRepository(
         }
     }
 
-    open override suspend fun toggleComplete(id: TaskId): Result<Unit> {
+    override suspend fun toggleComplete(id: TaskId): Result<Unit> {
         toggleCompleteOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { task ->
@@ -648,7 +709,7 @@ open class FakeTaskRepository(
         }
     }
 
-    open override suspend fun togglePinned(id: TaskId): Result<Unit> {
+    override suspend fun togglePinned(id: TaskId): Result<Unit> {
         togglePinnedOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { task ->
@@ -663,7 +724,7 @@ open class FakeTaskRepository(
         return store[id.value]?.userId == uid
     }
 
-    open override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> {
+    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> {
         setTagsOverride?.let { return it }
         return runCatching {
             store[taskId.value]?.let { task ->
@@ -673,13 +734,15 @@ open class FakeTaskRepository(
         }
     }
 
-    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list ->
-            list[taskId.value]?.takeIf { it.userId == uid }?.tags ?: emptyList()
+    override fun getTagIds(taskId: TaskId): Flow<List<TagId>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list[taskId.value]?.takeIf { it.userId == uid }?.tags
+                    ?: emptyList()
+            }
         }
-    }
 
-    open override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> {
+    override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> {
         setDependenciesOverride?.let { return it }
         return runCatching {
             val uid = currentUserId().value
@@ -695,14 +758,15 @@ open class FakeTaskRepository(
         to: TaskId,
         verb: DependencyVerb,
         enabled: Boolean,
-    ): Result<Unit> = runCatching {
-        val uid = currentUserId().value
-        if (enabled) {
-            dao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
-        } else {
-            dao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
+    ): Result<Unit> =
+        runCatching {
+            val uid = currentUserId().value
+            if (enabled) {
+                dao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
+            } else {
+                dao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
+            }
         }
-    }
 
     override fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>> =
         currentUser.observeForCurrentUser { uid ->
@@ -738,37 +802,45 @@ class FakeChecklistRepository : ChecklistRepository {
     }
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
-        items.map { map -> map.values.filter { it.taskId == taskId }.sortedBy { it.sortOrder } }
+        items.map { map ->
+            map.values.filter { it.taskId == taskId }
+                .sortedBy { it.sortOrder }
+        }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
-        val item = ChecklistItem(
-            id = ChecklistItemId.generate(),
-            taskId = taskId,
-            title = title,
-            isCompleted = false,
-            sortOrder = 0,
-        )
-        items.value += (item.id.value to item)
-        item.id
-    }
+    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> =
+        runCatching {
+            val item = ChecklistItem(
+                id = ChecklistItemId.generate(),
+                taskId = taskId,
+                title = title,
+                isCompleted = false,
+                sortOrder = 0,
+            )
+            items.value += (item.id.value to item)
+            item.id
+        }
 
-    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
-        val current = items.value.values.firstOrNull { it.id == itemId && it.taskId == taskId }
-            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
-        items.value += (itemId.value to current.copy(isCompleted = !current.isCompleted))
-    }
+    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> =
+        runCatching {
+            val current = items.value.values.firstOrNull { it.id == itemId && it.taskId == taskId }
+                ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+            items.value += (itemId.value to current.copy(isCompleted = !current.isCompleted))
+        }
 
-    override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
-        items.value += (item.id.value to item)
-    }
+    override suspend fun upsert(item: ChecklistItem): Result<Unit> =
+        runCatching {
+            items.value += (item.id.value to item)
+        }
 
-    override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
-        items.value = items.value.filterKeys { it != id.value }
-    }
+    override suspend fun delete(id: ChecklistItemId): Result<Unit> =
+        runCatching {
+            items.value = items.value.filterKeys { it != id.value }
+        }
 
-    override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {
-        this.items.value += items.associateBy { it.id.value }
-    }
+    override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> =
+        runCatching {
+            this.items.value += items.associateBy { it.id.value }
+        }
 }
 
 // ─── ReminderRepository ──────────────────────────────────────────────────────
@@ -783,33 +855,40 @@ open class FakeProjectRemindersRepository(
     }
 
     /** Every reminder currently stored — convenience for assertions. */
-    fun all(): List<ProjectReminder> = reminders.value.values.toList()
+    fun all(): List<ProjectReminder> =
+        reminders.value.values.toList()
 
     var upsertOverride: Result<Unit>? = null
     var deleteByProjectOverride: Result<Unit>? = null
     var markFiredOverride: Result<Unit>? = null
 
-    override fun observeAll(): Flow<List<ProjectReminder>> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { m -> m.values.filter { it.userId == uid }.sortedBy { it.fireAt } }
-    }
+    override fun observeAll(): Flow<List<ProjectReminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { m ->
+                m.values.filter { it.userId == uid }
+                    .sortedBy { it.fireAt }
+            }
+        }
 
     override fun watchByProject(projectId: ProjectId): Flow<List<ProjectReminder>> =
         currentUser.observeForCurrentUser { uid ->
             reminders.map { m ->
-                m.values.filter { it.projectId == projectId && it.userId == uid }.sortedBy { it.fireAt }
+                m.values.filter { it.projectId == projectId && it.userId == uid }
+                    .sortedBy { it.fireAt }
             }
         }
 
-    override fun observe(id: ProjectReminderId): Flow<ProjectReminder?> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { m -> m.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    override fun observe(id: ProjectReminderId): Flow<ProjectReminder?> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { m -> m.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun get(id: ProjectReminderId): ProjectReminder? {
         val uid = currentUser.scopedUserId.value
         return reminders.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    open override suspend fun upsert(reminder: ProjectReminder): Result<Unit> {
+    override suspend fun upsert(reminder: ProjectReminder): Result<Unit> {
         upsertOverride?.let { return it }
         return runCatching {
             val uid = currentUser.scopedUserId.value
@@ -818,14 +897,15 @@ open class FakeProjectRemindersRepository(
         }
     }
 
-    override suspend fun delete(id: ProjectReminderId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        reminders.value = reminders.value - (id.value)
-    }
+    override suspend fun delete(id: ProjectReminderId): Result<Unit> =
+        runCatching {
+            reminders.value -= (id.value)
+        }
 
-    override suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit> = runCatching {
-        reminders.value = reminders.value - (id.value)
-    }
+    override suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit> =
+        runCatching {
+            reminders.value -= (id.value)
+        }
 
     override suspend fun deleteByProject(projectId: ProjectId): Result<Unit> {
         deleteByProjectOverride?.let { return it }
@@ -852,15 +932,14 @@ open class FakeProjectRemindersRepository(
     override suspend fun markFired(reminderId: ProjectReminderId, lastFiredAt: Long): Result<Unit> {
         markFiredOverride?.let { return it }
         return runCatching {
-            val uid = currentUser.scopedUserId.value
-            val existing = reminders.value[reminderId.value] ?: return@runCatching
+            val existing = reminders.value[reminderId.value]
+                ?: return@runCatching
             reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
         }
     }
 }
 
-open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    ReminderRepository {
+open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) : ReminderRepository {
     internal val reminders = MutableStateFlow<Map<String, Reminder>>(emptyMap())
 
     fun seed(vararg reminders: Reminder) {
@@ -876,34 +955,39 @@ open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUs
 
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { map -> map.values.filter { it.userId == uid }.sortedBy { it.fireAt } }
-    }
+    override fun observeAll(): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values.filter { it.userId == uid }
+                    .sortedBy { it.fireAt }
+            }
+        }
 
-    override fun observe(id: ReminderId): Flow<Reminder?> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { map -> map.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    override fun observe(id: ReminderId): Flow<Reminder?> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map -> map.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun get(id: ReminderId): Reminder? {
         val uid = currentUser.scopedUserId.value
         return reminders.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    open override suspend fun upsert(reminder: Reminder): Result<Unit> {
+    override suspend fun upsert(reminder: Reminder): Result<Unit> {
         upsertOverride?.let { return it }
         return runCatching {
             reminders.value += (reminder.id.value to reminder)
         }
     }
 
-    open override suspend fun delete(id: ReminderId): Result<Unit> {
+    override suspend fun delete(id: ReminderId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatching {
             reminders.value = reminders.value.filterKeys { it != id.value }
         }
     }
 
-    open override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> {
+    override suspend fun delete(id: ReminderId, userId: UserId): Result<Unit> {
         deleteWithUserIdOverride?.let { return it }
         return runCatching {
             reminders.value = reminders.value.filterKeys { it != id.value }
@@ -912,47 +996,51 @@ open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUs
 
     // ─── Domain methods ─────────────────────────────────────────────────────
 
-    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { map ->
-            map.values
-                .filter { it.userId == uid && it.recurringPattern != null }
-                .mapTo(mutableSetOf()) { it.taskId }
+    override fun observeRecurringTaskIds(): Flow<Set<TaskId>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values.filter { it.userId == uid && it.recurringPattern != null }
+                    .mapTo(mutableSetOf()) { it.taskId }
+            }
         }
-    }
 
-    override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { map ->
-            map.values.filter { it.taskId == taskId && it.userId == uid }.sortedBy { it.fireAt }
+    override fun watchByTask(taskId: TaskId): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values.filter { it.taskId == taskId && it.userId == uid }
+                    .sortedBy { it.fireAt }
+            }
         }
-    }
 
-    override fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
-        reminders.map { map ->
-            map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }.sortedBy { it.fireAt }
+    override fun watchDueBefore(nowEpochMs: Long): Flow<List<Reminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            reminders.map { map ->
+                map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }
+                    .sortedBy { it.fireAt }
+            }
         }
-    }
 
     override fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<Reminder>> =
         currentUser.observeForCurrentUser { uid ->
             reminders.map { map ->
-                map.values
-                    .filter { it.fireAt <= nowEpochMs && it.userId == uid }
+                map.values.filter { it.fireAt <= nowEpochMs && it.userId == uid }
                     .sortedBy { r -> -r.fireAt }
                     .take(limit)
             }
         }
 
-    open override suspend fun deleteByTask(taskId: TaskId): Result<Unit> {
+    override suspend fun deleteByTask(taskId: TaskId): Result<Unit> {
         deleteByTaskOverride?.let { return it }
         return runCatching {
             reminders.value = reminders.value.filterValues { it.taskId != taskId }
         }
     }
 
-    open override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> {
+    override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> {
         markFiredOverride?.let { return it }
         return runCatching {
-            val existing = reminders.value[reminderId.value] ?: return@runCatching
+            val existing = reminders.value[reminderId.value]
+                ?: return@runCatching
             reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
         }
     }
@@ -971,14 +1059,22 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
-    override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
-    override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
-    override suspend fun signOut(): Result<Unit> = runCatching {
-        _currentSession.value = Session.SignedOut
-    }
+    override suspend fun signUp(email: String, password: String): Result<Unit> =
+        Result.success(Unit)
 
-    override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
+    override suspend fun signIn(email: String, password: String): Result<Unit> =
+        Result.success(Unit)
+
+    override suspend fun signInAnonymously(): Result<Unit> =
+        Result.success(Unit)
+
+    override suspend fun signOut(): Result<Unit> =
+        runCatching {
+            _currentSession.value = Session.SignedOut
+        }
+
+    override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> =
+        Result.success(Unit)
 
     /**
      * Switches the session to a new anonymous user with [userId].
@@ -991,25 +1087,31 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
 
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
-class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    ProjectsRepository {
+class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) : ProjectsRepository {
     internal val store = InMemoryStore<Project>(
         keyOf = { it.id.value },
     )
 
-    fun seed(vararg projects: Project) = store.seed(projects.toList())
-    fun add(project: Project) = store.upsert(project)
-    fun clear() = store.clear()
+    fun seed(vararg projects: Project) =
+        store.seed(projects.toList())
+
+    fun add(project: Project) =
+        store.upsert(project)
+
+    fun clear() =
+        store.clear()
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.filter { it.userId == uid && !it.isDeleted } }
-    }
+    override fun observeAll(): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.filter { it.userId == uid && !it.isDeleted } }
+        }
 
-    override fun observe(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    override fun observe(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun get(id: ProjectId): Project? {
         val uid = currentUser.scopedUserId.value
@@ -1021,26 +1123,30 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
      * Previously this filtered by nothing, so it returned another user's project
      * and any test asserting cross-user isolation passed vacuously.
      */
-    override fun observeProject(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    override fun observeProject(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
-    override suspend fun create(item: Project): Result<Project> = runCatching {
-        store.upsert(item)
-        item
-    }
+    override suspend fun create(item: Project): Result<Project> =
+        runCatching {
+            store.upsert(item)
+            item
+        }
 
-    override suspend fun update(item: Project): Result<Project> = runCatching {
-        store.upsert(item)
-        item
-    }
+    override suspend fun update(item: Project): Result<Project> =
+        runCatching {
+            store.upsert(item)
+            item
+        }
 
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Project $id not found or not owned by current user")
-        store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.System.now()))
-    }
+    override suspend fun delete(id: ProjectId): Result<Unit> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Project $id not found or not owned by current user")
+            store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.System.now()))
+        }
 
     override suspend fun upsert(project: Project): Project {
         store.upsert(project)
@@ -1049,20 +1155,20 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
 
     // ─── SoftDeletable ───────────────────────────────────────────────────────
 
-    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Project $id not found or not owned by current user")
-        store.upsert(existing.copy(isDeleted = false, deletedAt = null))
-    }
+    override suspend fun restore(id: ProjectId): Result<Unit> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Project $id not found or not owned by current user")
+            store.upsert(existing.copy(isDeleted = false, deletedAt = null))
+        }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
-                list.values
-                    .filter { it.userId == uid && !it.isDeleted }
+                list.values.filter { it.userId == uid && !it.isDeleted }
                     .map { p ->
                         ProjectWithCountRow(
                             project = ProjectEntity(
@@ -1089,58 +1195,66 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
         }
 
     /** Scoped to the current user, matching production's `watchByParentForUser`. */
-    override fun observeByParent(parentId: ProjectId): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list ->
-            list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
+    override fun observeByParent(parentId: ProjectId): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.parentId == parentId && it.userId == uid && !it.isDeleted }
+            }
         }
-    }
 
     /** Scoped to the current user, matching production's `watchByIdForUser`. */
-    override fun changes(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    override fun changes(id: ProjectId): Flow<Project?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         val uid = currentUser.scopedUserId.value
-        store[id.value]?.takeIf { it.userId == uid }?.let { existing ->
-            store.upsert(
-                existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
-            )
-        }
+        store[id.value]?.takeIf { it.userId == uid }
+            ?.let { existing ->
+                store.upsert(
+                    existing.copy(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
+                )
+            }
     }
 
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
         val uid = currentUser.scopedUserId.value
-        store[id.value]?.takeIf { it.userId == uid }?.let { existing ->
-            store.upsert(
-                existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
-            )
-        }
+        store[id.value]?.takeIf { it.userId == uid }
+            ?.let { existing ->
+                store.upsert(
+                    existing.copy(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt)),
+                )
+            }
     }
 
     /** Scoped to the current user, matching production's `findByIdempotencyKeyForUser`. */
     override suspend fun findByIdempotencyKey(key: String): Project? {
         val uid = currentUser.scopedUserId.value
-        return store.values().firstOrNull { it.idempotencyKey == key && it.userId == uid }
+        return store.values()
+            .firstOrNull { it.idempotencyKey == key && it.userId == uid }
     }
 }
 
 // ─── TagsRepository ──────────────────────────────────────────────────────────
 
-class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    com.singularity.todo.feature.tags.TagsRepository {
+class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) : com.singularity.todo.feature.tags.TagsRepository {
     private val store = InMemoryStore<com.singularity.todo.feature.tags.Tag>(keyOf = { it.id.value })
 
-    fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) = store.seed(tags.toList())
-    fun add(tag: com.singularity.todo.feature.tags.Tag) = store.upsert(tag)
-    fun clear() = store.clear()
+    fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) =
+        store.seed(tags.toList())
+
+    fun add(tag: com.singularity.todo.feature.tags.Tag) =
+        store.upsert(tag)
+
+    fun clear() =
+        store.clear()
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state
-                .onStart { emit(store.state.value) }
+            store.state.onStart { emit(store.state.value) }
                 .map { list -> list.values.filter { it.userId == uid } }
         }
 
@@ -1156,18 +1270,20 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
     }
 
     override suspend fun create(
-        tag: com.singularity.todo.feature.tags.Tag,
-    ): Result<com.singularity.todo.feature.tags.Tag> = runCatching {
-        store.upsert(tag)
-        tag
-    }
+        item: com.singularity.todo.feature.tags.Tag,
+    ): Result<com.singularity.todo.feature.tags.Tag> =
+        runCatching {
+            store.upsert(item)
+            item
+        }
 
     override suspend fun update(
-        tag: com.singularity.todo.feature.tags.Tag,
-    ): Result<com.singularity.todo.feature.tags.Tag> = runCatching {
-        store.upsert(tag)
-        tag
-    }
+        item: com.singularity.todo.feature.tags.Tag,
+    ): Result<com.singularity.todo.feature.tags.Tag> =
+        runCatching {
+            store.upsert(item)
+            item
+        }
 
     /** Scoped to the current user, matching production's `watchByIdForUser`. */
     override fun observeTag(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
@@ -1175,15 +1291,16 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
             store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
         }
 
-    override suspend fun delete(id: TagId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
-        // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
-        // looked trashed since 1970 — anything comparing the timestamp saw a
-        // different value than production produces.
-        store.upsert(existing.copy(deletedAt = kotlin.time.Clock.System.now()))
-    }
+    override suspend fun delete(id: TagId): Result<Unit> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
+            // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
+            // looked trashed since 1970 — anything comparing the timestamp saw a
+            // different value than production produces.
+            store.upsert(existing.copy(deletedAt = Clock.System.now()))
+        }
 
     override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {
         store.upsert(tag)
@@ -1193,11 +1310,11 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
 
 // ─── AttachmentRepository ────────────────────────────────────────────────────
 
-open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    com.singularity.todo.core.attachments.AttachmentRepository {
+open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) : com.singularity.todo.core.attachments.AttachmentRepository {
     private val store = InMemoryStore<com.singularity.todo.core.attachments.Attachment>(keyOf = { it.id.value })
 
-    fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
+    fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) =
+        store.seed(attachments.toList())
 
     // ─── Configurable results (for failure-path tests) ────────────────────
     var createOverride: Result<com.singularity.todo.core.attachments.Attachment>? = null
@@ -1214,9 +1331,10 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
 
     override fun observe(
         id: com.singularity.todo.core.attachments.AttachmentId,
-    ): Flow<com.singularity.todo.core.attachments.Attachment?> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    ): Flow<com.singularity.todo.core.attachments.Attachment?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun get(
         id: com.singularity.todo.core.attachments.AttachmentId,
@@ -1225,7 +1343,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    open override suspend fun create(
+    override suspend fun create(
         attachment: com.singularity.todo.core.attachments.Attachment,
     ): Result<com.singularity.todo.core.attachments.Attachment> {
         createOverride?.let { return it }
@@ -1235,7 +1353,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         }
     }
 
-    open override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> {
+    override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatching {
             store.remove(id.value)
@@ -1251,7 +1369,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
 
     // ─── Domain methods (ambient user) ────────────────────────────────────
 
-    open override suspend fun saveFileAttachment(
+    override suspend fun saveFileAttachment(
         taskId: TaskId,
         sourcePath: String,
         mimeType: String?,
@@ -1279,7 +1397,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         }
     }
 
-    open override suspend fun addUrlAttachment(
+    override suspend fun addUrlAttachment(
         taskId: TaskId,
         url: String,
         title: String?,
@@ -1288,7 +1406,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         return runCatching {
             // Production rejects malformed URLs before writing; the fake accepted
             // anything, so validation could never be exercised in a test.
-            com.singularity.todo.core.attachments.AttachmentDomain.validateUrl(url).getOrThrow()
+            com.singularity.todo.core.attachments.AttachmentDomain.validateUrl(url)
+                .getOrThrow()
             val uid = currentUser.scopedUserId.value
             val att = com.singularity.todo.core.attachments.Attachment(
                 id = com.singularity.todo.core.attachments.AttachmentId.generate(),
@@ -1296,7 +1415,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
                 userId = uid,
                 type = com.singularity.todo.core.attachments.AttachmentType.Url,
                 url = url,
-                title = title ?: "",
+                title = title
+                    ?: "",
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),
             )
@@ -1308,15 +1428,19 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
 
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
-open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    com.singularity.todo.feature.notes.NotesRepository {
+open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) : com.singularity.todo.feature.notes.NotesRepository {
     /** Exposes raw store map for tests that need direct map access. */
     val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store.state.value
     private val store = InMemoryStore<com.singularity.todo.feature.notes.Note>(keyOf = { it.id.value })
 
-    fun seed(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
-    fun add(note: com.singularity.todo.feature.notes.Note) = store.upsert(note)
-    fun clear() = store.clear()
+    fun seed(note: com.singularity.todo.feature.notes.Note) =
+        store.upsert(note)
+
+    fun add(note: com.singularity.todo.feature.notes.Note) =
+        store.upsert(note)
+
+    fun clear() =
+        store.clear()
 
     // ─── Configurable results (for failure-path tests) ────────────────────
     var createOverride: Result<com.singularity.todo.feature.notes.Note>? = null
@@ -1344,16 +1468,17 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override fun observe(
         id: com.singularity.todo.feature.notes.NoteId,
-    ): Flow<com.singularity.todo.feature.notes.Note?> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-    }
+    ): Flow<com.singularity.todo.feature.notes.Note?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
 
     override suspend fun get(id: com.singularity.todo.feature.notes.NoteId): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value
         return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
     }
 
-    open override suspend fun create(
+    override suspend fun create(
         item: com.singularity.todo.feature.notes.Note,
     ): Result<com.singularity.todo.feature.notes.Note> {
         createOverride?.let { return it }
@@ -1363,7 +1488,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun update(
+    override suspend fun update(
         item: com.singularity.todo.feature.notes.Note,
     ): Result<com.singularity.todo.feature.notes.Note> {
         updateOverride?.let { return it }
@@ -1373,14 +1498,15 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun upsert(
+    override suspend fun upsert(
         note: com.singularity.todo.feature.notes.Note,
-    ): com.singularity.todo.feature.notes.Note = runCatching {
-        store.upsert(note)
-        note
-    }.getOrThrow()
+    ): com.singularity.todo.feature.notes.Note =
+        run {
+            store.upsert(note)
+            note
+        }
 
-    open override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+    override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
@@ -1393,7 +1519,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     // ─── SoftDeletable ─────────────────────────────────────────────────────
 
-    open override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+    override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         restoreOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
@@ -1424,8 +1550,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter {
-                    it.userId == uid && it.parentNoteId == null && !it.isFolder &&
-                        it.archivedAt == null && it.deletedAt == null
+                    it.userId == uid && it.parentNoteId == null && !it.isFolder && it.archivedAt == null && it.deletedAt == null
                 }
             }
         }
@@ -1439,13 +1564,12 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 // never returns. The fake is the test double, not a better spec —
                 // whether note search *should* cover bodies is a product question.
                 list.values.filter { note ->
-                    note.userId == uid && note.archivedAt == null && note.deletedAt == null &&
-                        note.title.contains(query, ignoreCase = true)
+                    note.userId == uid && note.archivedAt == null && note.deletedAt == null && note.title.contains(query, ignoreCase = true)
                 }
             }
         }
 
-    open override suspend fun createWithContent(
+    override suspend fun createWithContent(
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
         bodyMarkdown: String,
@@ -1462,7 +1586,8 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 bodyMarkdown = bodyMarkdown,
                 bodyHtml = bodyHtml,
                 kind = com.singularity.todo.feature.notes.NoteKind.Plain,
-                wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                wordCount = bodyMarkdown.split(Regex("\\s+"))
+                    .count { it.isNotBlank() },
                 charCount = bodyMarkdown.length,
                 createdAt = now,
                 updatedAt = now,
@@ -1472,7 +1597,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun createNoteWithTitle(title: String): Result<com.singularity.todo.feature.notes.NoteId> {
+    override suspend fun createNoteWithTitle(title: String): Result<com.singularity.todo.feature.notes.NoteId> {
         createNoteWithTitleOverride?.let { return it }
         return runCatching {
             val uid = currentUser.scopedUserId.value
@@ -1495,7 +1620,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun updateContent(
+    override suspend fun updateContent(
         id: com.singularity.todo.feature.notes.NoteId,
         title: String,
         bodyMarkdown: String,
@@ -1509,7 +1634,8 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                         title = title,
                         bodyMarkdown = bodyMarkdown,
                         bodyHtml = bodyHtml,
-                        wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
+                        wordCount = bodyMarkdown.split(Regex("\\s+"))
+                            .count { it.isNotBlank() },
                         charCount = bodyMarkdown.length,
                         updatedAt = Clock.System.now(),
                     ),
@@ -1518,7 +1644,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+    override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         archiveOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
@@ -1527,7 +1653,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
+    override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         unarchiveOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
@@ -1536,7 +1662,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> {
+    override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> {
         setPinnedOverride?.let { return it }
         return runCatching {
             store[id.value]?.let { existing ->
@@ -1545,7 +1671,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun setColor(
+    override suspend fun setColor(
         id: com.singularity.todo.feature.notes.NoteId,
         color: com.singularity.todo.feature.notes.NoteColor?,
     ): Result<Unit> {
@@ -1557,7 +1683,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun setSortOrder(
+    override suspend fun setSortOrder(
         id: com.singularity.todo.feature.notes.NoteId,
         sortOrder: Int,
     ): Result<Unit> {
@@ -1569,7 +1695,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         }
     }
 
-    open override suspend fun setOutgoingLinks(
+    override suspend fun setOutgoingLinks(
         id: com.singularity.todo.feature.notes.NoteId,
         links: List<String>,
     ): Result<Unit> {
@@ -1587,8 +1713,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter {
-                    it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Template &&
-                        it.deletedAt == null
+                    it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Template && it.deletedAt == null
                 }
             }
         }
@@ -1596,23 +1721,19 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     override fun watchDailyNotesInRange(
         from: String,
         to: String,
-    ): Flow<List<com.singularity.todo.feature.notes.Note>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list ->
-            list.values.filter {
-                it.userId == uid &&
-                    it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &&
-                    it.deletedAt == null &&
-                    it.title >= from &&
-                    it.title <= to
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter {
+                    it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.deletedAt == null && it.title >= from && it.title <= to
+                }
             }
         }
-    }
 
     override suspend fun getDailyNote(dateKey: String): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value
         return store.state.value.values.firstOrNull {
-            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
-                it.deletedAt == null
+            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey && it.deletedAt == null
         }
     }
 
@@ -1620,73 +1741,80 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         templateId: com.singularity.todo.feature.notes.NoteId,
         targetTitle: String,
         targetDateKey: String?,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val template = store.state.value.values.firstOrNull { it.id == templateId && it.userId == uid }
-            ?: throw IllegalArgumentException("Template not found: $templateId")
-        val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val now = Clock.System.now()
-        val finalTitle = targetDateKey?.let { "$it — $targetTitle" } ?: targetTitle
-        val note = template.copy(
-            id = newId,
-            title = finalTitle,
-            bodyMarkdown = template.bodyMarkdown,
-            bodyHtml = template.bodyHtml,
-            kind = if (targetDateKey !=
-                null
-            ) {
-                com.singularity.todo.feature.notes.NoteKind.Daily
-            } else {
-                com.singularity.todo.feature.notes.NoteKind.Plain
-            },
-            color = template.color,
-            wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
-            charCount = template.bodyMarkdown?.length ?: 0,
-            createdAt = now,
-            updatedAt = now,
-        )
-        store.upsert(note)
-        newId
-    }
+    ): Result<com.singularity.todo.feature.notes.NoteId> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val template = store.state.value.values.firstOrNull { it.id == templateId && it.userId == uid }
+                ?: throw IllegalArgumentException("Template not found: $templateId")
+            val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+            val now = Clock.System.now()
+            val finalTitle = targetDateKey?.let { "$it — $targetTitle" }
+                ?: targetTitle
+            val note = template.copy(
+                id = newId,
+                title = finalTitle,
+                bodyMarkdown = template.bodyMarkdown,
+                bodyHtml = template.bodyHtml,
+                kind = if (targetDateKey != null) {
+                    com.singularity.todo.feature.notes.NoteKind.Daily
+                } else {
+                    com.singularity.todo.feature.notes.NoteKind.Plain
+                },
+                color = template.color,
+                wordCount = template.bodyMarkdown?.split(Regex("\\s+"))
+                    ?.count { it.isNotBlank() }
+                    ?: 0,
+                charCount = template.bodyMarkdown?.length
+                    ?: 0,
+                createdAt = now,
+                updatedAt = now,
+            )
+            store.upsert(note)
+            newId
+        }
 
-    override suspend fun saveAsTemplate(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Note $id not found or not owned by current user")
-        store.upsert(existing.copy(kind = com.singularity.todo.feature.notes.NoteKind.Template))
-    }
+    override suspend fun saveAsTemplate(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Note $id not found or not owned by current user")
+            store.upsert(existing.copy(kind = com.singularity.todo.feature.notes.NoteKind.Template))
+        }
 
     override suspend fun getOrCreateDailyNote(
         dateKey: String,
         fromTemplateId: com.singularity.todo.feature.notes.NoteId?,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val existing = store.state.value.values.firstOrNull {
-            it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
-                it.deletedAt == null
+    ): Result<com.singularity.todo.feature.notes.NoteId> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val existing = store.state.value.values.firstOrNull {
+                it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey && it.deletedAt == null
+            }
+            if (existing != null) return@runCatching existing.id
+            val now = Clock.System.now()
+            val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+            val template = fromTemplateId?.let {
+                store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid }
+            }
+            val note = com.singularity.todo.feature.notes.Note(
+                id = newId,
+                userId = uid,
+                title = dateKey,
+                bodyMarkdown = template?.bodyMarkdown,
+                bodyHtml = template?.bodyHtml,
+                kind = com.singularity.todo.feature.notes.NoteKind.Daily,
+                color = template?.color,
+                wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))
+                    ?.count { it.isNotBlank() }
+                    ?: 0,
+                charCount = template?.bodyMarkdown?.length
+                    ?: 0,
+                createdAt = now,
+                updatedAt = now,
+            )
+            store.upsert(note)
+            newId
         }
-        if (existing != null) return@runCatching existing.id
-        val now = Clock.System.now()
-        val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val template = fromTemplateId?.let {
-            store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid }
-        }
-        val note = com.singularity.todo.feature.notes.Note(
-            id = newId,
-            userId = uid,
-            title = dateKey,
-            bodyMarkdown = template?.bodyMarkdown,
-            bodyHtml = template?.bodyHtml,
-            kind = com.singularity.todo.feature.notes.NoteKind.Daily,
-            color = template?.color,
-            wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
-            charCount = template?.bodyMarkdown?.length ?: 0,
-            createdAt = now,
-            updatedAt = now,
-        )
-        store.upsert(note)
-        newId
-    }
 
     // ─── Task-logbook ───────────────────────────────────────────────────────────────
 
@@ -1704,26 +1832,30 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         title: String,
         bodyMarkdown: String?,
         bodyHtml: String?,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val now = Clock.System.now()
-        val note = com.singularity.todo.feature.notes.Note(
-            id = id,
-            userId = uid,
-            title = title,
-            bodyMarkdown = bodyMarkdown,
-            bodyHtml = bodyHtml,
-            kind = com.singularity.todo.feature.notes.NoteKind.Plain,
-            wordCount = bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
-            charCount = bodyMarkdown?.length ?: 0,
-            taskId = taskId,
-            createdAt = now,
-            updatedAt = now,
-        )
-        store.upsert(note)
-        id
-    }
+    ): Result<com.singularity.todo.feature.notes.NoteId> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
+            val now = Clock.System.now()
+            val note = com.singularity.todo.feature.notes.Note(
+                id = id,
+                userId = uid,
+                title = title,
+                bodyMarkdown = bodyMarkdown,
+                bodyHtml = bodyHtml,
+                kind = com.singularity.todo.feature.notes.NoteKind.Plain,
+                wordCount = bodyMarkdown?.split(Regex("\\s+"))
+                    ?.count { it.isNotBlank() }
+                    ?: 0,
+                charCount = bodyMarkdown?.length
+                    ?: 0,
+                taskId = taskId,
+                createdAt = now,
+                updatedAt = now,
+            )
+            store.upsert(note)
+            id
+        }
 }
 
 // ─── ProfileRepository ──────────────────────────────────────────────────────────
@@ -1752,23 +1884,28 @@ class FakeProfileRepository : ProfileRepository {
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Profile>> = _profiles
+    override fun observeAll(): Flow<List<Profile>> =
+        _profiles
 
-    override fun observe(id: ProfileId): Flow<Profile?> = _profiles.map { list ->
-        list.find { it.id == id }
-    }
+    override fun observe(id: ProfileId): Flow<Profile?> =
+        _profiles.map { list ->
+            list.find { it.id == id }
+        }
 
-    override suspend fun get(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
+    override suspend fun get(id: ProfileId): Profile? =
+        _profiles.value.find { it.id == id }
 
-    override suspend fun create(item: Profile): Result<Profile> = runCatching {
-        _profiles.value += item
-        item
-    }
+    override suspend fun create(item: Profile): Result<Profile> =
+        runCatching {
+            _profiles.value += item
+            item
+        }
 
-    override suspend fun update(item: Profile): Result<Profile> = runCatching {
-        _profiles.value = _profiles.value.map { if (it.id == item.id) item else it }
-        item
-    }
+    override suspend fun update(item: Profile): Result<Profile> =
+        runCatching {
+            _profiles.value = _profiles.value.map { if (it.id == item.id) item else it }
+            item
+        }
 
     override suspend fun delete(id: ProfileId): Result<Unit> {
         if (_profiles.value.size <= 1) {
@@ -1783,17 +1920,20 @@ class FakeProfileRepository : ProfileRepository {
 
     // ─── Profile-specific observers ────────────────────────────────────────────
 
-    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
-        _profiles.value.find { it.id == id } ?: _profiles.value.first()
-    }
+    override fun activeProfile(): Flow<Profile> =
+        _activeProfileId.map { id ->
+            _profiles.value.find { it.id == id }
+                ?: _profiles.value.first()
+        }
 
     override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
-    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {
-        _activeProfileId.value = id
-    }
+    override suspend fun switchTo(id: ProfileId): Result<Unit> =
+        runCatching {
+            _activeProfileId.value = id
+        }
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // In-memory fake: just append any missing extras; default already present
@@ -1831,7 +1971,7 @@ fun FakeProfileAwareCurrentUser(
     profileRepository: ProfileRepository = FakeProfileRepository(),
     dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
 ): ProfileAwareCurrentUser {
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
+    val scope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
     return fakeProfileAwareCurrentUserImpl(
         authRepository = FakeAuthRepository(Session.Anonymous(initialUserId)),
         profileRepository = profileRepository,
@@ -1861,7 +2001,7 @@ fun FakeProfileAwareCurrentUser(
     profileRepository: ProfileRepository = FakeProfileRepository(),
     dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
 ): ProfileAwareCurrentUser {
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
+    val scope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
     return fakeProfileAwareCurrentUserImpl(authRepository, profileRepository, scope)
 }
 
@@ -1874,8 +2014,9 @@ fun FakeProfileAwareCurrentUser(
 fun FakeProfileAwareCurrentUser(
     authRepository: AuthRepository,
     profileRepository: ProfileRepository = FakeProfileRepository(),
-    scope: kotlinx.coroutines.CoroutineScope,
-): ProfileAwareCurrentUser = fakeProfileAwareCurrentUserImpl(authRepository, profileRepository, scope)
+    scope: CoroutineScope,
+): ProfileAwareCurrentUser =
+    fakeProfileAwareCurrentUserImpl(authRepository, profileRepository, scope)
 
 /**
  * Internal factory — shared logic for all [FakeProfileAwareCurrentUser] overloads.
@@ -1884,19 +2025,17 @@ fun FakeProfileAwareCurrentUser(
 private fun fakeProfileAwareCurrentUserImpl(
     authRepository: AuthRepository,
     profileRepository: ProfileRepository,
-    scope: kotlinx.coroutines.CoroutineScope,
+    scope: CoroutineScope,
 ): ProfileAwareCurrentUser {
     val currentUser = CurrentUser(authRepository, scope)
 
-    val initialUid = (
-        authRepository.currentSession.value.let {
-            when (it) {
-                is Session.SignedIn -> it.userId
-                is Session.Anonymous -> it.userId
-                else -> UserId.anonymous
-            }
+    val initialUid = (authRepository.currentSession.value.let {
+        when (it) {
+            is Session.SignedIn -> it.userId
+            is Session.Anonymous -> it.userId
+            else -> UserId.anonymous
         }
-    )
+    })
 
     // Build scopedUserId from session changes via plain collect. The collector
     // is launched on the provided [scope] so when the test passes `backgroundScope`,
@@ -1911,15 +2050,16 @@ private fun fakeProfileAwareCurrentUserImpl(
     }
 
     return object : ProfileAwareCurrentUser(currentUser, profileRepository, scope) {
-        override val scopedUserId: kotlinx.coroutines.flow.StateFlow<UserId> = fakeScopedUserId.asStateFlow()
+        override val scopedUserId: StateFlow<UserId> = fakeScopedUserId.asStateFlow()
     }
 }
 
-private fun extractUserId(session: Session): UserId = when (session) {
-    is Session.SignedIn -> session.userId
-    is Session.Anonymous -> session.userId
-    else -> UserId.anonymous
-}
+private fun extractUserId(session: Session): UserId =
+    when (session) {
+        is Session.SignedIn -> session.userId
+        is Session.Anonymous -> session.userId
+        else -> UserId.anonymous
+    }
 
 // ─── SavedAgendaViewsRepository ────────────────────────────────────────────────
 
@@ -1936,7 +2076,8 @@ class FakeSavedAgendaViewsRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
+    override suspend fun currentUserId(): String =
+        currentUser.scopedUserId.value.value
 
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> =
         runCatching {
@@ -1951,34 +2092,41 @@ class FakeSavedAgendaViewsRepository(
             copy
         }
 
-    override fun observeAll(): Flow<List<SavedAgendaView>> = currentUser.observeForCurrentUser { uid ->
-        store.map { map ->
-            map.values.filter { it.userId == uid }.sortedBy { it.name }
+    override fun observeAll(): Flow<List<SavedAgendaView>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.map { map ->
+                map.values.filter { it.userId == uid }
+                    .sortedBy { it.name }
+            }
         }
-    }
 
-    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> = currentUser.observeForCurrentUser { uid ->
-        store.map { map -> map[SavedAgendaViewKey.of(uid.value, id.raw)] }
-    }
+    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
+        currentUser.observeForCurrentUser { uid ->
+            store.map { map -> map[SavedAgendaViewKey.of(uid.value, id.raw)] }
+        }
 
     override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
         val uid = currentUser.scopedUserId.value
         return store.value[SavedAgendaViewKey.of(uid.value, id.raw)]
     }
 
-    override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
+    override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> =
+        upsert(item)
 
-    override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
+    override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> =
+        upsert(item)
 
-    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
-        store.update { map -> map + (SavedAgendaViewKey.of(view.userId.value, view.id.raw) to view) }
-        view
-    }
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> =
+        runCatching {
+            store.update { map -> map + (SavedAgendaViewKey.of(view.userId.value, view.id.raw) to view) }
+            view
+        }
 
-    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value
-        store.update { map -> map - SavedAgendaViewKey.of(uid.value, id.raw) }
-    }
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value
+            store.update { map -> map - SavedAgendaViewKey.of(uid.value, id.raw) }
+        }
 
     /** Synchronous upsert for tests. */
     fun upsertSync(view: SavedAgendaView) {
@@ -1986,10 +2134,12 @@ class FakeSavedAgendaViewsRepository(
     }
 
     /** Get a view by raw ID string for tests. */
-    fun getById(id: String): SavedAgendaView? = store.value.values.find { it.id.raw == id }
+    fun getById(id: String): SavedAgendaView? =
+        store.value.values.find { it.id.raw == id }
 
     /** Get all views for tests. */
-    fun getAll(): List<SavedAgendaView> = store.value.values.toList()
+    fun getAll(): List<SavedAgendaView> =
+        store.value.values.toList()
 
     /** Clear all views for test isolation. */
     fun clear() {
@@ -2005,7 +2155,8 @@ class FakeFileRevealer : FileRevealer {
         // no-op in tests
     }
 
-    override fun attachmentsBasePath(): String = "/fake/attachments"
+    override fun attachmentsBasePath(): String =
+        "/fake/attachments"
 }
 
 /**
@@ -2017,16 +2168,11 @@ class FakeCalendarProvider : CalendarProviderPort {
     private val events = mutableMapOf<Long, CalendarSyncEvent>()
     private var nextEventId = 1000L
 
-    /** Inject a pre-existing event (e.g. from a previous sync row). */
-    fun injectEvent(eventId: Long, event: CalendarSyncEvent) {
-        events[eventId] = event
-        if (eventId >= nextEventId) nextEventId = eventId + 1
-    }
-
     override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
         Result.success(mapOf("cal1" to "Test Calendar"))
 
-    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> = Result.success(nextEventId++)
+    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
+        Result.success(nextEventId++)
 
     override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> {
         events[eventId] = event
@@ -2049,5 +2195,6 @@ class FakeCalendarProvider : CalendarProviderPort {
  */
 class FakeCalendarAppQueries(private val apps: List<CalendarAppInfo>) : CalendarAppQueries {
 
-    override suspend fun listInstalled(): List<CalendarAppInfo> = apps
+    override suspend fun listInstalled(): List<CalendarAppInfo> =
+        apps
 }

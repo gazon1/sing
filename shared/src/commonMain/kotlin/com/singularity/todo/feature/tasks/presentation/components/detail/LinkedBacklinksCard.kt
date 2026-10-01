@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,8 +76,7 @@ private fun BacklinkSection(
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier
-                .padding(
+            modifier = Modifier.padding(
                     horizontal = TaskSpacing.cardPaddingHorizontal,
                     vertical = TaskSpacing.cardPaddingVertical,
                 )
@@ -101,13 +100,12 @@ private fun BacklinkSection(
                 items.forEachIndexed { index, title ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                             .clickable { onItemClick(index) }
                             .padding(vertical = 2.dp),
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.TextSnippet,
+                            imageVector = Icons.AutoMirrored.Filled.TextSnippet,
                             contentDescription = null,
                             tint = TaskColors.AccentBlue,
                             modifier = Modifier.size(14.dp),

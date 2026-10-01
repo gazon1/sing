@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.minus
@@ -36,20 +35,21 @@ class AgendaEvaluatorTest {
         isPinned: Boolean = false,
         tags: List<TagId> = emptyList(),
         projectId: ProjectId? = null,
-    ): Task = Task(
-        id = com.singularity.todo.feature.tasks.domain.model.TaskId(id),
-        title = title,
-        dueDate = dueDate,
-        priority = priority,
-        isPinned = isPinned,
-        tags = tags,
-        projectId = projectId,
-        kind = TaskKind.Task,
-        completedAt = if (isCompleted) Instant.fromEpochMilliseconds(0) else null,
-        createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0),
-        userId = com.singularity.todo.core.ids.UserId("test-user"),
-    )
+    ): Task =
+        Task(
+            id = com.singularity.todo.feature.tasks.domain.model.TaskId(id),
+            title = title,
+            dueDate = dueDate,
+            priority = priority,
+            isPinned = isPinned,
+            tags = tags,
+            projectId = projectId,
+            kind = TaskKind.Task,
+            completedAt = if (isCompleted) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = com.singularity.todo.core.ids.UserId("test-user"),
+        )
 
     // ─── Selector: DateBucket ──────────────────────────────────────────────────
 

@@ -4,7 +4,6 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
@@ -27,34 +26,35 @@ class TaskComputedTest {
         startTime: LocalTime? = null,
         endDate: LocalDate? = null,
         endTime: LocalTime? = null,
-        completedAt: Instant? = null,
-        archivedAt: Instant? = null,
-    ): Task = Task(
-        id = TaskId.generate(),
-        title = "Test",
-        description = null,
-        priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
-        kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = dueDate,
-        dueTime = dueTime,
-        startDate = startDate,
-        startTime = startTime,
-        endDate = endDate,
-        endTime = endTime,
-        accentColor = null,
-        emoji = null,
-        completedAt = completedAt,
-        someday = false,
-        archivedAt = archivedAt,
-        isPinned = false,
-        dependsOn = emptySet(),
-        createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0),
-        userId = testUserId,
-    )
+        completedAt: kotlin.time.Instant? = null,
+        archivedAt: kotlin.time.Instant? = null,
+    ): Task =
+        Task(
+            id = TaskId.generate(),
+            title = "Test",
+            description = null,
+            priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
+            kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = dueDate,
+            dueTime = dueTime,
+            startDate = startDate,
+            startTime = startTime,
+            endDate = endDate,
+            endTime = endTime,
+            accentColor = null,
+            emoji = null,
+            completedAt = completedAt,
+            someday = false,
+            archivedAt = archivedAt,
+            isPinned = false,
+            dependsOn = emptySet(),
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = testUserId,
+        )
 
     // ─── isActive ────────────────────────────────────────────────────────────
 
@@ -66,13 +66,13 @@ class TaskComputedTest {
 
     @Test
     fun `isActive false when completed`() {
-        val t = task(completedAt = Instant.fromEpochMilliseconds(1))
+        val t = task(completedAt = kotlin.time.Instant.fromEpochMilliseconds(1))
         assertFalse(TaskComputed.isActive(t, today))
     }
 
     @Test
     fun `isActive false when trashed`() {
-        val t = task(archivedAt = Instant.fromEpochMilliseconds(1))
+        val t = task(archivedAt = kotlin.time.Instant.fromEpochMilliseconds(1))
         assertFalse(TaskComputed.isActive(t, today))
     }
 

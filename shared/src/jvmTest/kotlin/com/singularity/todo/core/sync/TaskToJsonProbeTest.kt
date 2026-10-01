@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Regression: [SyncableEntity.toJson] uses `serializer<T>()` reflection, which
@@ -24,14 +25,17 @@ class TaskSyncSerializationTest {
             title = "T",
             kind = TaskKind.Task,
             priority = TaskPriority.None,
-            createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
-            updatedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(0),
+            createdAt = Instant.fromEpochMilliseconds(0),
+            updatedAt = Instant.fromEpochMilliseconds(0),
             userId = UserId("test-user"),
         )
 
         val json = task.toJson()
 
-        assertEquals("test-user", json["userId"]?.toString()?.trim('"'))
+        assertEquals("test-user",
+            json["userId"]?.toString()
+                ?.trim('"')
+        )
         assertTrue(json.containsKey("title"))
     }
 }

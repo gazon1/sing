@@ -3,11 +3,11 @@ package com.singularity.todo.feature.calendar_sync.domain.logic
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tasks.domain.model.Task
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.number
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
@@ -36,7 +36,8 @@ object CalendarEventMapper {
         existingEventId: Long?,
     ): CalendarSyncEvent {
         val tz = TimeZone.currentSystemDefault()
-        val effectiveDate = task.dueDate ?: todayInSystemZone(tz)
+        val effectiveDate = task.dueDate
+            ?: todayInSystemZone(tz)
 
         val startMs = if (task.dueTime != null) {
             val ldt = LocalDateTime(
@@ -48,9 +49,11 @@ object CalendarEventMapper {
                 second = 0,
                 nanosecond = 0,
             )
-            ldt.toInstant(tz).toEpochMilliseconds()
+            ldt.toInstant(tz)
+                .toEpochMilliseconds()
         } else {
-            effectiveDate.atStartOfDayIn(tz).toEpochMilliseconds()
+            effectiveDate.atStartOfDayIn(tz)
+                .toEpochMilliseconds()
         }
 
         val endMs = if (task.dueTime != null) {
@@ -58,19 +61,21 @@ object CalendarEventMapper {
         } else {
             // All-day: end = start of next day
             val tomorrow = effectiveDate.nextDay()
-            tomorrow.atStartOfDayIn(tz).toEpochMilliseconds()
+            tomorrow.atStartOfDayIn(tz)
+                .toEpochMilliseconds()
         }
 
         val rrule = reminder?.recurringPattern?.let { pattern ->
-            RecurrenceRuleMapper.map(pattern)?.let { rule ->
-                RruleGenerator.generate(rule)
-            }
+            RecurrenceRuleMapper.map(pattern)
+                ?.let { rule ->
+                    RruleGenerator.generate(rule)
+                }
         }
 
         // Strip any existing deep-link to avoid doubling on re-sync
-        val rawDescription = task.description ?: ""
-        val strippedDescription = rawDescription
-            .substringBefore(CalendarSyncEvent.deepLink(task.id))
+        val rawDescription = task.description
+            ?: ""
+        val strippedDescription = rawDescription.substringBefore(CalendarSyncEvent.deepLink(task.id))
             .trimEnd()
         val description = buildString {
             if (strippedDescription.isNotBlank()) {
@@ -95,25 +100,28 @@ object CalendarEventMapper {
         return event.copy(checksum = event.checksum())
     }
 
-    private fun todayInSystemZone(tz: TimeZone): LocalDate = Instant.fromEpochMilliseconds(System.currentTimeMillis())
-        .toLocalDateTime(tz).date
+    private fun todayInSystemZone(tz: TimeZone): LocalDate =
+        kotlin.time.Instant.fromEpochMilliseconds(System.currentTimeMillis())
+            .toLocalDateTime(tz).date
 
     private fun LocalDate.nextDay(): LocalDate {
-        val dim = daysInMonth(year, monthNumber)
+        val dim = daysInMonth(year, month.number)
         val nextD = day + 1
         return when {
-            nextD <= dim -> LocalDate(year, monthNumber, nextD)
-            monthNumber == 12 -> LocalDate(year + 1, 1, 1)
-            else -> LocalDate(year, monthNumber + 1, 1)
+            nextD <= dim -> LocalDate(year, month.number, nextD)
+            month.number == 12 -> LocalDate(year + 1, 1, 1)
+            else -> LocalDate(year, month.number + 1, 1)
         }
     }
 
-    private fun daysInMonth(year: Int, month: Int): Int = when (month) {
-        1, 3, 5, 7, 8, 10, 12 -> 31
-        4, 6, 9, 11 -> 30
-        2 -> if (isLeapYear(year)) 29 else 28
-        else -> 30
-    }
+    private fun daysInMonth(year: Int, month: Int): Int =
+        when (month) {
+            1, 3, 5, 7, 8, 10, 12 -> 31
+            4, 6, 9, 11 -> 30
+            2 -> if (isLeapYear(year)) 29 else 28
+            else -> 30
+        }
 
-    private fun isLeapYear(year: Int): Boolean = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    private fun isLeapYear(year: Int): Boolean =
+        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }

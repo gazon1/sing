@@ -124,7 +124,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
     // Show snackbar on error, then dismiss it
     LaunchedEffect((uiState as? SettingsUiState.Content)?.errorMessage) {
-        val msg = (uiState as? SettingsUiState.Content)?.errorMessage
+        val msg = uiState.errorMessage
             ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(msg)
         viewModel.onIntent(SettingsIntent.DismissError)
@@ -135,7 +135,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         modifier = modifier,
     ) { paddingValues ->
         when (val state = uiState) {
-            is SettingsUiState.Content -> SettingsContent(
+            else -> SettingsContent(
                 state = state,
                 selectedTab = selectedTab,
                 onSelectTab = { selectedTab = it },

@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -32,6 +32,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -77,8 +78,7 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier
-                .padding(
+            modifier = Modifier.padding(
                     horizontal = TaskSpacing.cardPaddingHorizontal,
                     vertical = TaskSpacing.cardPaddingVertical,
                 )
@@ -86,7 +86,7 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Filled.TextSnippet,
+                imageVector = Icons.AutoMirrored.Filled.TextSnippet,
                 contentDescription = null,
                 tint = TaskColors.TextSecondary,
                 modifier = Modifier.size(TaskSpacing.iconSize),
@@ -130,8 +130,7 @@ private fun LogbookLoadedCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier
-                .padding(
+            modifier = Modifier.padding(
                     horizontal = TaskSpacing.cardPaddingHorizontal,
                     vertical = TaskSpacing.cardPaddingVertical,
                 )
@@ -143,7 +142,7 @@ private fun LogbookLoadedCard(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.TextSnippet,
+                    imageVector = Icons.AutoMirrored.Filled.TextSnippet,
                     contentDescription = null,
                     tint = TaskColors.TextSecondary,
                     modifier = Modifier.size(TaskSpacing.iconSize),
@@ -191,8 +190,7 @@ private fun LogbookLoadedCard(
 @Composable
 private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -214,7 +212,8 @@ private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier =
  * "Today", "Yesterday", or "Jan 1" for other days.
  */
 private fun formatDayLabel(date: LocalDate): String {
-    val nowMs = kotlin.time.Clock.System.now().toEpochMilliseconds()
+    val nowMs = kotlin.time.Clock.System.now()
+        .toEpochMilliseconds()
     val today = LocalDate.fromEpochDays((nowMs / 86_400_000).toInt())
     val yesterday = LocalDate.fromEpochDays(today.toEpochDays() - 1)
     return when (date) {
@@ -227,7 +226,7 @@ private fun formatDayLabel(date: LocalDate): String {
                 "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
             )
-            "${monthNames[date.monthNumber - 1]} ${date.dayOfMonth}"
+            "${monthNames[date.month.number - 1]} ${date.day}"
         }
     }
 }

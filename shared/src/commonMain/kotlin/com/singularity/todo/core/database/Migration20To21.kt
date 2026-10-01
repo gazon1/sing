@@ -3,12 +3,13 @@ package com.singularity.todo.core.database
 import androidx.room3.migration.AutoMigrationSpec
 
 /**
- * Migration from v20 to v21 — adds `outgoing_links` column to tasks for wikilink backlinks.
+ * Migration from v20 to v21 — adds `kind` column to notes.
  *
- * Tasks can now be linked from notes and other tasks using `task://<id>` URL scheme,
- * enabling a backlinks panel in [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen].
+ * Stores the note kind: 'Plain' (default), 'MeetingNotes', etc.
+ * Existing notes get `kind = 'Plain'` via the column default.
+ * No index on `kind` is added speculatively — add one only when a
+ * concrete query pattern demonstrates the need (per BAN list).
  *
- * Storage format mirrors [NoteEntity.outgoingLinks]: a hand-rolled JSON array of URL strings,
- * serialised via [com.singularity.todo.feature.tasks.data.TaskOutgoingLinks.toLinksJson].
+ * No destructive changes: all existing rows continue to work.
  */
 class Migration20To21 : AutoMigrationSpec

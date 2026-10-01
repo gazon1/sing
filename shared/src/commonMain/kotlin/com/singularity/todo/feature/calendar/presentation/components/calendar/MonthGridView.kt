@@ -42,6 +42,7 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
 
 /**
  * Swipeable month grid. Hosts a [HorizontalPager] of [MonthGridPage]s, one per
@@ -77,15 +78,22 @@ fun MonthGridView(
     val anchorYearMonth = remember(monthAnchor) { monthAnchor.toYearMonth() }
     val weekdayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
-    Column(modifier = modifier.fillMaxSize().background(palette.background)) {
+    Column(
+        modifier = modifier.fillMaxSize()
+            .background(palette.background)
+    ) {
         // Fixed weekday header — does not scroll with pages.
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
             weekdayLabels.forEach { label ->
                 Text(
                     text = label,
                     color = palette.textSecondary,
                     fontSize = 13.sp,
-                    modifier = Modifier.weight(1f).padding(start = 12.dp),
+                    modifier = Modifier.weight(1f)
+                        .padding(start = 12.dp),
                 )
             }
         }
@@ -149,7 +157,10 @@ private fun MonthGridPage(
 
     Column(modifier = modifier.fillMaxSize()) {
         weeks.forEach { week ->
-            Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .weight(1f)
+            ) {
                 week.forEach { date ->
                     MonthDayCell(
                         date = date,
@@ -160,7 +171,8 @@ private fun MonthGridPage(
                         onClick = { onDayClick(date) },
                         onTaskClick = onTaskClick,
                         onEmptyCellLongPress = onEmptyCellLongPress,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.weight(1f)
+                            .fillMaxHeight(),
                     )
                 }
             }
@@ -188,13 +200,18 @@ private fun MonthDayCell(
     val hasNoTasks = tasks.isEmpty() && isCurrentMonth
 
     Box(
-        modifier = modifier
-            .testTag(
+        modifier = modifier.testTag(
                 TestTags.calendarDay(
-                    "${date.year}-${date.monthNumber.toString().padStart(
-                        2,
-                        '0',
-                    )}-${date.dayOfMonth.toString().padStart(2, '0')}",
+                    "${date.year}-${
+                        date.month.number.toString()
+                            .padStart(
+                                2,
+                                '0',
+                            )
+                    }-${
+                        date.day.toString()
+                            .padStart(2, '0')
+                    }",
                 ),
             )
             .border(width = 0.5.dp, color = palette.divider)
@@ -215,8 +232,7 @@ private fun MonthDayCell(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isToday) {
                     Box(
-                        modifier = Modifier
-                            .size(20.dp)
+                        modifier = Modifier.size(20.dp)
                             .clip(CircleShape)
                             .background(palette.todayBadge),
                         contentAlignment = Alignment.Center,

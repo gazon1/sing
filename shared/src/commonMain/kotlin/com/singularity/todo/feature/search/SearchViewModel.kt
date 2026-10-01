@@ -215,8 +215,8 @@ class SearchViewModel(
         } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
             _parsedQuery.value = null
             _activeFilter.value = null
-            vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position)) }
-        } catch (e: com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException) {
+            vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message, e.position)) }
+        } catch (_: UnsupportedSimpleFilterException) {
             // Expected: query cannot be expressed as SimpleFilter — activeFilter = null signals this
             _parsedQuery.value = null
             _activeFilter.value = null
@@ -275,7 +275,7 @@ class SearchViewModel(
             } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
                 _parsedQuery.value = null
                 _activeFilter.value = null
-                emit(SearchUiEvent.QueryParseError(e.message ?: "Parse error", e.position))
+                emit(SearchUiEvent.QueryParseError(e.message, e.position))
             }
             updateState { it.copy(isSearching = true) }
         }

@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskEntityIntent
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
  * against a snapshot the screen last observed. That is what keeps a concurrent remote edit
  * from being reverted by a field the user did not touch.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class TaskEntitySlot(
     private val taskId: TaskId,
     private val deps: TaskDetailDeps,
@@ -41,7 +43,8 @@ class TaskEntitySlot(
     init {
         scope.launch {
             val projectFlow = taskFlow.flatMapLatest { task ->
-                task?.projectId?.let { deps.projectsRepo.observe(it) } ?: flowOf(null)
+                task?.projectId?.let { deps.projectsRepo.observe(it) }
+                    ?: flowOf(null)
             }
             // The picker must not offer the task as its own dependency, nor trashed tasks.
             val availableFlow = deps.taskRepo.observeByFilter(TaskFilter.All)
@@ -60,7 +63,8 @@ class TaskEntitySlot(
     }
 
     override fun onIntent(intent: TaskEntityIntent) {
-        val task = taskFlow.value ?: return
+        val task = taskFlow.value
+            ?: return
         when (intent) {
             is TaskDetailIntent.Domain.SetDueDate -> mutate(task) { copy(dueDate = intent.date) }
 
@@ -80,24 +84,25 @@ class TaskEntitySlot(
 
             is TaskDetailIntent.Domain.SetKind -> mutate(task, "Failed to set kind") { copy(kind = intent.kind) }
 
-            TaskDetailIntent.Domain.ToggleSomeday ->
-                mutate(task, "Failed to set someday") { copy(someday = !someday) }
+            TaskDetailIntent.Domain.ToggleSomeday -> mutate(task, "Failed to set someday") { copy(someday = !someday) }
 
             TaskDetailIntent.Domain.TogglePinned -> mutate(task) { copy(isPinned = !isPinned) }
 
-            is TaskDetailIntent.Domain.SetRecurrence ->
-                mutate(task, "Failed to set recurrence") { copy(recurrence = intent.spec) }
+            is TaskDetailIntent.Domain.SetRecurrence -> mutate(task, "Failed to set recurrence") { copy(recurrence = intent.spec) }
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
         }
     }
 
-    private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
-        deps.updateTask(task.id) { it.transform() }.onFailure { onError(error) }
-    }
+    private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) =
+        scope.launch {
+            deps.updateTask(task.id) { it.transform() }
+                .onFailure { onError(error) }
+        }
 
-    private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
-        deps.taskRepo.setDependencies(task.id, intent.dependsOn)
-            .onFailure { onError("Failed to set dependencies") }
-    }
+    private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) =
+        scope.launch {
+            deps.taskRepo.setDependencies(task.id, intent.dependsOn)
+                .onFailure { onError("Failed to set dependencies") }
+        }
 }

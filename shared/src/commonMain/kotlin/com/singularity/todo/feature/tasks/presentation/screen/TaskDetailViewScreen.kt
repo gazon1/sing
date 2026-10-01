@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -195,7 +195,7 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
 private fun TagsSection(tags: List<Tag>, onDeleteTag: (TagId) -> Unit) {
     if (tags.isEmpty()) return
     ExtraSectionCard(
-        icon = { Icon(Icons.Filled.Label, contentDescription = null) },
+        icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
         label = "Tags",
     ) {
         Row(
@@ -203,32 +203,32 @@ private fun TagsSection(tags: List<Tag>, onDeleteTag: (TagId) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            tags.take(5).forEach { tag ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+            tags.take(5)
+                .forEach { tag ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                     ) {
-                        Text(
-                            text = tag.name,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = "Remove tag",
-                            modifier = Modifier
-                                .clickable { onDeleteTag(tag.id) }
-                                .height(14.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = tag.name,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Remove tag",
+                                modifier = Modifier.clickable { onDeleteTag(tag.id) }
+                                    .height(14.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
                     }
                 }
-            }
         }
     }
 }
@@ -254,41 +254,41 @@ private fun ChecklistSection(
 ) {
     if (checklist.isEmpty()) return
     ExtraSectionCard(
-        icon = { Icon(Icons.Filled.ListAlt, contentDescription = null) },
+        icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
         label = "Checklist (${checklist.count { it.isCompleted }}/${checklist.size})",
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            checklist.take(10).forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onToggle(item) }
-                        .padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (item.isCompleted) "✓ ${item.title}" else item.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
-                        color = if (item.isCompleted) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(
-                        onClick = { onDelete(item.id) },
-                        modifier = Modifier.height(24.dp),
+            checklist.take(10)
+                .forEach { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable { onToggle(item) }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = "Delete item",
-                            tint = MaterialTheme.colorScheme.error,
+                        Text(
+                            text = if (item.isCompleted) "✓ ${item.title}" else item.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
+                            color = if (item.isCompleted) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            modifier = Modifier.weight(1f),
                         )
+                        IconButton(
+                            onClick = { onDelete(item.id) },
+                            modifier = Modifier.height(24.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Delete item",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
-            }
             if (checklist.size > 10) {
                 Text(
                     "+${checklist.size - 10} more",
@@ -307,15 +307,16 @@ private fun AttachmentsSection(attachments: List<Attachment>) {
         label = "Attachments (${attachments.size})",
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            attachments.take(5).forEach { att ->
-                Text(
-                    text = att.displayTitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(vertical = 2.dp),
-                )
-            }
+            attachments.take(5)
+                .forEach { att ->
+                    Text(
+                        text = att.displayTitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
         }
     }
 }
@@ -350,25 +351,26 @@ private fun ExtraSectionCard(icon: @Composable () -> Unit, label: String, conten
 private fun buildDetailMenuItems(
     isTrashed: Boolean,
     onIntent: (TaskDetailIntent.Domain) -> Unit,
-): List<TaskEditorMenuItem> = if (isTrashed) {
-    listOf(
-        TaskEditorMenuItem(
-            label = "Восстановить",
-            onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
-        ),
-    )
-} else {
-    listOf(
-        TaskEditorMenuItem(
-            label = "Архивировать",
-            onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
-        ),
-        TaskEditorMenuItem(
-            label = "Удалить",
-            onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
-        ),
-    )
-}
+): List<TaskEditorMenuItem> =
+    if (isTrashed) {
+        listOf(
+            TaskEditorMenuItem(
+                label = "Восстановить",
+                onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
+            ),
+        )
+    } else {
+        listOf(
+            TaskEditorMenuItem(
+                label = "Архивировать",
+                onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
+            ),
+            TaskEditorMenuItem(
+                label = "Удалить",
+                onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
+            ),
+        )
+    }
 
 // ─── Loading / Error ─────────────────────────────────────────────────────────
 
@@ -385,8 +387,7 @@ private fun LoadingState() {
 @Composable
 private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

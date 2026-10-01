@@ -20,7 +20,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
@@ -60,24 +59,25 @@ class CalendarViewModelTest {
         initialDate: LocalDate = anchor,
         initialMode: CalendarViewMode = CalendarViewMode.MONTH,
         scope: CoroutineScope,
-    ) = CalendarViewModel(
-        deps = CalendarDeps(
-            taskRepo = fakeTaskRepo,
-            reminderRepo = fakeReminderRepo,
-            logger = Logger.withTag("CalendarTest"),
-            today = anchor, // deterministic — same as anchor so date math is predictable
-        ),
-        initialDate = initialDate,
-        initialMode = initialMode,
-        scope = testScope(scope),
-    )
+    ) =
+        CalendarViewModel(
+            deps = CalendarDeps(
+                taskRepo = fakeTaskRepo,
+                reminderRepo = fakeReminderRepo,
+                logger = Logger.withTag("CalendarTest"),
+                today = anchor, // deterministic — same as anchor so date math is predictable
+            ),
+            initialDate = initialDate,
+            initialMode = initialMode,
+            scope = testScope(scope),
+        )
 
     private fun seedTask(
         id: String,
         title: String,
         dueDate: LocalDate,
         dueTime: LocalTime? = null,
-        completedAt: Instant? = null,
+        completedAt: kotlin.time.Instant? = null,
     ) {
         fakeTaskRepo.seed(
             Task(
@@ -87,8 +87,8 @@ class CalendarViewModelTest {
                 dueDate = dueDate,
                 dueTime = dueTime,
                 completedAt = completedAt,
-                createdAt = Instant.fromEpochMilliseconds(0),
-                updatedAt = Instant.fromEpochMilliseconds(0),
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
             ),
         )
     }
@@ -96,123 +96,136 @@ class CalendarViewModelTest {
     // ─── initial state ─────────────────────────────────────────────────────
 
     @Test
-    fun `initial state is Loading`() = runTest {
-        val vm = createVm(scope = backgroundScope)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `initial state is Loading`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope)
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     // ─── intent handlers (smoke tests — no crash) ─────────────────────────
 
     @Test
-    fun `ViewModeChanged does not crash`() = runTest {
-        val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
-        vm.onIntent(CalendarIntent.ViewModeChanged(CalendarViewMode.WEEK))
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `ViewModeChanged does not crash`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
+            vm.onIntent(CalendarIntent.ViewModeChanged(CalendarViewMode.WEEK))
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `GoNext does not crash for MONTH mode`() = runTest {
-        val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
-        vm.onIntent(CalendarIntent.GoNext)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `GoNext does not crash for MONTH mode`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
+            vm.onIntent(CalendarIntent.GoNext)
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `GoPrevious does not crash for MONTH mode`() = runTest {
-        val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
-        vm.onIntent(CalendarIntent.GoPrevious)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `GoPrevious does not crash for MONTH mode`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
+            vm.onIntent(CalendarIntent.GoPrevious)
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `GoNext does not crash for DAY mode`() = runTest {
-        val dayAnchor = LocalDate(2026, Month.SEPTEMBER, 16)
-        val vm = createVm(scope = backgroundScope, initialDate = dayAnchor, initialMode = CalendarViewMode.DAY)
-        vm.onIntent(CalendarIntent.GoNext)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `GoNext does not crash for DAY mode`() =
+        runTest {
+            val dayAnchor = LocalDate(2026, Month.SEPTEMBER, 16)
+            val vm = createVm(scope = backgroundScope, initialDate = dayAnchor, initialMode = CalendarViewMode.DAY)
+            vm.onIntent(CalendarIntent.GoNext)
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `GoToday does not crash`() = runTest {
-        val otherDate = LocalDate(2025, Month.JANUARY, 1)
-        val vm = createVm(scope = backgroundScope, initialDate = otherDate, initialMode = CalendarViewMode.MONTH)
-        vm.onIntent(CalendarIntent.GoToday)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `GoToday does not crash`() =
+        runTest {
+            val otherDate = LocalDate(2025, Month.JANUARY, 1)
+            val vm = createVm(scope = backgroundScope, initialDate = otherDate, initialMode = CalendarViewMode.MONTH)
+            vm.onIntent(CalendarIntent.GoToday)
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `DayClicked does not crash in MONTH mode`() = runTest {
-        val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
-        vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `DayClicked does not crash in MONTH mode`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
+            vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `DayClicked does not crash in DAY mode`() = runTest {
-        val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.DAY)
-        vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `DayClicked does not crash in DAY mode`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.DAY)
+            vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `ToggleMiniCalendar does not crash twice`() = runTest {
-        val vm = createVm(scope = backgroundScope)
-        vm.onIntent(CalendarIntent.ToggleMiniCalendar)
-        vm.onIntent(CalendarIntent.ToggleMiniCalendar)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `ToggleMiniCalendar does not crash twice`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope)
+            vm.onIntent(CalendarIntent.ToggleMiniCalendar)
+            vm.onIntent(CalendarIntent.ToggleMiniCalendar)
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     @Test
-    fun `DismissMiniCalendar does not crash`() = runTest {
-        val vm = createVm(scope = backgroundScope)
-        vm.onIntent(CalendarIntent.ToggleMiniCalendar) // open first
-        vm.onIntent(CalendarIntent.DismissMiniCalendar) // then dismiss
-        assertIs<CalendarUiState.Loading>(vm.state.value)
-    }
+    fun `DismissMiniCalendar does not crash`() =
+        runTest {
+            val vm = createVm(scope = backgroundScope)
+            vm.onIntent(CalendarIntent.ToggleMiniCalendar) // open first
+            vm.onIntent(CalendarIntent.DismissMiniCalendar) // then dismiss
+            assertIs<CalendarUiState.Loading>(vm.state.value)
+        }
 
     // ─── TaskClicked emits NavigateToTask event ──────────────────────────────
     // Note: Collecting SharedFlow.first() inside runTest creates a coroutine that
     // the TestScope tracks. We use backgroundScope to avoid UncompletedCoroutinesError.
     @Test
-    fun `TaskClicked emits NavigateToTask event with correct taskId`() = runTest {
-        @Suppress("UNCHECKED_CAST")
-        val vm = createVm(scope = backgroundScope)
-        val taskId = TaskId.generate()
+    fun `TaskClicked emits NavigateToTask event with correct taskId`() =
+        runTest {
+            @Suppress("UNCHECKED_CAST") val vm = createVm(scope = backgroundScope)
+            val taskId = TaskId.generate()
 
-        vm.onIntent(CalendarIntent.TaskClicked(taskId))
-        advanceUntilIdle()
+            vm.onIntent(CalendarIntent.TaskClicked(taskId))
+            advanceUntilIdle()
 
-        val event = vm.events.first()
-        assertIs<CalendarUiEvent.NavigateToTask>(event)
-        assertEquals(taskId, event.taskId)
-    }
+            val event = vm.events.first()
+            assertIs<CalendarUiEvent.NavigateToTask>(event)
+            assertEquals(taskId, event.taskId)
+        }
 
     // ─── FakeTaskRepository integration ───────────────────────────────────
 
     @Test
-    fun `seeded tasks are visible in repository`() = runTest {
-        seedTask("t1", "Meeting", LocalDate(2026, Month.SEPTEMBER, 16))
-        val tasks = fakeTaskRepo.tasks.first()
-        assertEquals(1, tasks.size)
-        assertEquals("Meeting", tasks["t1"]?.title)
-    }
+    fun `seeded tasks are visible in repository`() =
+        runTest {
+            seedTask("t1", "Meeting", LocalDate(2026, Month.SEPTEMBER, 16))
+            val tasks = fakeTaskRepo.tasks.first()
+            assertEquals(1, tasks.size)
+            assertEquals("Meeting", tasks["t1"]?.title)
+        }
 
     @Test
-    fun `seeded tasks with dueTime have correct dueTime`() = runTest {
-        seedTask("t1", "Standup", LocalDate(2026, Month.SEPTEMBER, 16), LocalTime(9, 0))
-        val tasks = fakeTaskRepo.tasks.first()
-        assertEquals(LocalTime(9, 0), tasks["t1"]?.dueTime)
-    }
+    fun `seeded tasks with dueTime have correct dueTime`() =
+        runTest {
+            seedTask("t1", "Standup", LocalDate(2026, Month.SEPTEMBER, 16), LocalTime(9, 0))
+            val tasks = fakeTaskRepo.tasks.first()
+            assertEquals(LocalTime(9, 0), tasks["t1"]?.dueTime)
+        }
 
     @Test
-    fun `completed tasks have non-null completedAt`() = runTest {
-        seedTask(
-            id = "t1",
-            title = "Done task",
-            dueDate = LocalDate(2026, Month.SEPTEMBER, 16),
-            completedAt = Instant.fromEpochMilliseconds(1),
-        )
-        val tasks = fakeTaskRepo.tasks.first()
-        assertNotNull(tasks["t1"]?.completedAt)
-    }
+    fun `completed tasks have non-null completedAt`() =
+        runTest {
+            seedTask(
+                id = "t1",
+                title = "Done task",
+                dueDate = LocalDate(2026, Month.SEPTEMBER, 16),
+                completedAt = kotlin.time.Instant.fromEpochMilliseconds(1),
+            )
+            val tasks = fakeTaskRepo.tasks.first()
+            assertNotNull(tasks["t1"]?.completedAt)
+        }
 }

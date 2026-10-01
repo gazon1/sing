@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -41,8 +41,7 @@ fun NoteAiActionSheet(onSelect: (NoteAiAction) -> Unit, onDismiss: () -> Unit, m
         modifier = modifier,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 8.dp)
                 .padding(bottom = 32.dp),
         ) {
@@ -112,7 +111,7 @@ fun NoteAiActionSheet(onSelect: (NoteAiAction) -> Unit, onDismiss: () -> Unit, m
 
             // Tags
             AiActionItem(
-                icon = Icons.Filled.Label,
+                icon = Icons.AutoMirrored.Filled.Label,
                 title = "Suggest tags",
                 subtitle = "AI-powered tag recommendations",
                 onClick = { onSelect(NoteAiAction.SuggestTags) },

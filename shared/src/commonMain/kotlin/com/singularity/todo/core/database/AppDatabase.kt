@@ -62,8 +62,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 19, to = 20, spec = Migration19To20::class),
         AutoMigration(from = 20, to = 21, spec = Migration20To21::class),
         AutoMigration(from = 21, to = 22, spec = Migration21To22::class),
-        // 22→23 adds the project_reminders table only — purely additive, so Room needs
-        // no spec and generates the CREATE TABLE itself.
+        AutoMigration(from = 22, to = 23, spec = Migration22To23::class),
         AutoMigration(from = 23, to = 24, spec = Migration23To24::class),
         AutoMigration(from = 24, to = 25, spec = Migration24To25::class),
     ],

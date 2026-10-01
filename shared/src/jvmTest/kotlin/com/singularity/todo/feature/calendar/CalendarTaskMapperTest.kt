@@ -5,7 +5,6 @@ import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
@@ -32,41 +31,42 @@ class CalendarTaskMapperTest {
         title: String = "Test Task",
         dueDate: LocalDate? = LocalDate(2026, Month.SEPTEMBER, 16),
         dueTime: LocalTime? = null,
-        completedAt: Instant? = null,
+        completedAt: kotlin.time.Instant? = null,
         emoji: String? = null,
         accentColor: Long? = null,
-    ): Task = Task(
-        id = TaskId.fromString(id),
-        title = title,
-        description = null,
-        priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
-        kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = dueDate,
-        dueTime = dueTime,
-        startDate = null,
-        startTime = null,
-        endDate = null,
-        endTime = null,
-        accentColor = accentColor,
-        emoji = emoji,
-        completedAt = completedAt,
-        someday = false,
-        archivedAt = null,
-        isPinned = false,
-        dependsOn = emptySet(),
-        createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0),
-        userId = testUserId,
-    )
+    ): Task =
+        Task(
+            id = TaskId.fromString(id),
+            title = title,
+            description = null,
+            priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
+            kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = dueDate,
+            dueTime = dueTime,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = accentColor,
+            emoji = emoji,
+            completedAt = completedAt,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            dependsOn = emptySet(),
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = testUserId,
+        )
 
     // ─── status mapping ─────────────────────────────────────────────────────
 
     @ParameterizedTest(name = "completedAt={0}, dueDate={1} → {2}")
     @MethodSource
-    fun `status mapping`(completedAt: Instant?, dueDate: LocalDate, expectedStatus: CalendarTaskStatus) {
+    fun `status mapping`(completedAt: kotlin.time.Instant?, dueDate: LocalDate, expectedStatus: CalendarTaskStatus) {
         val task = makeTask(completedAt = completedAt, dueDate = dueDate)
         assertEquals(expectedStatus, CalendarTaskMapper.toCalendarTaskUi(task, today).status)
     }
@@ -161,16 +161,17 @@ class CalendarTaskMapperTest {
     // ═══════════════════════════════════════════════════════════════════════════
     companion object {
         @JvmStatic
-        fun `status mapping`(): List<Arguments> = listOf(
-            // today = Sept 16, 2026
-            Arguments.of(
-                Instant.fromEpochMilliseconds(1),
-                LocalDate(2026, Month.SEPTEMBER, 10),
-                CalendarTaskStatus.DONE,
-            ),
-            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
-            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
-            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
-        )
+        fun `status mapping`(): List<Arguments> =
+            listOf(
+                // today = Sept 16, 2026
+                Arguments.of(
+                    kotlin.time.Instant.fromEpochMilliseconds(1),
+                    LocalDate(2026, Month.SEPTEMBER, 10),
+                    CalendarTaskStatus.DONE,
+                ),
+                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
+                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
+                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
+            )
     }
 }

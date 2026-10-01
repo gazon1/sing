@@ -6,6 +6,7 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.minus
+import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
@@ -28,12 +29,13 @@ object RecurrenceCalculator {
      * @param anchor The date to compute the next occurrence relative to.
      * @return The next occurrence date.
      */
-    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate = when (spec) {
-        is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
-        is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
-        is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
-        is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
-    }
+    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate =
+        when (spec) {
+            is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
+            is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
+            is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
+            is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
+        }
 
     /**
      * Returns how many occurrences were missed between [anchor] and [today] (inclusive),
@@ -113,8 +115,8 @@ object RecurrenceCalculator {
 
     private fun nextMonthly(anchor: LocalDate, dayOfMonth: Int): LocalDate {
         val nextMonth = anchor.plus(1, DateTimeUnit.MONTH)
-        val lastDay = lastDayOfMonth(nextMonth.year, nextMonth.monthNumber)
-        return LocalDate(nextMonth.year, nextMonth.monthNumber, minOf(dayOfMonth, lastDay))
+        val lastDay = lastDayOfMonth(nextMonth.year, nextMonth.month.number)
+        return LocalDate(nextMonth.year, nextMonth.month.number, minOf(dayOfMonth, lastDay))
     }
 
     private fun countMonthlyMissed(anchor: LocalDate, today: LocalDate, dayOfMonth: Int): Int {

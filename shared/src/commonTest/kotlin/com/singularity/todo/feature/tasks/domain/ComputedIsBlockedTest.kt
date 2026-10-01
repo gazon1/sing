@@ -6,7 +6,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -19,26 +18,27 @@ import kotlin.test.assertTrue
 class ComputedIsBlockedTest {
 
     private val userId = UserId("test-user")
-    private val epoch = Instant.fromEpochMilliseconds(0)
+    private val epoch = kotlin.time.Instant.fromEpochMilliseconds(0)
 
     private fun makeTask(
         id: String,
         title: String = "Task $id",
         dependsOn: Set<TaskId> = emptySet(),
-        completedAt: Instant? = null,
-        archivedAt: Instant? = null, // null = not trashed
-    ): Task = Task(
-        id = TaskId(id),
-        title = title,
-        kind = TaskKind.Task,
-        priority = TaskPriority.None,
-        dependsOn = dependsOn,
-        completedAt = completedAt,
-        createdAt = epoch,
-        updatedAt = epoch,
-        userId = userId,
-        archivedAt = archivedAt,
-    )
+        completedAt: kotlin.time.Instant? = null,
+        archivedAt: kotlin.time.Instant? = null, // null = not trashed
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = title,
+            kind = TaskKind.Task,
+            priority = TaskPriority.None,
+            dependsOn = dependsOn,
+            completedAt = completedAt,
+            createdAt = epoch,
+            updatedAt = epoch,
+            userId = userId,
+            archivedAt = archivedAt,
+        )
 
     // ─── No dependencies ────────────────────────────────────────────────────
 
