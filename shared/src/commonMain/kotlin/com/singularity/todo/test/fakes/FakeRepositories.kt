@@ -621,9 +621,9 @@ open class FakeTaskRepository(
                     }
                     .sortedWith(
                         compareBy({
-                        it.dueDate?.toString()
-                            ?: "\uFFFF"
-                    }, { !it.isPinned })
+                            it.dueDate?.toString()
+                                ?: "\uFFFF"
+                        }, { !it.isPinned }),
                     )
             }
     }
@@ -1975,12 +1975,12 @@ private fun fakeProfileAwareCurrentUserImpl(
 
     val initialUid = (
         authRepository.currentSession.value.let {
-        when (it) {
-            is Session.SignedIn -> it.userId
-            is Session.Anonymous -> it.userId
-            else -> UserId.anonymous
+            when (it) {
+                is Session.SignedIn -> it.userId
+                is Session.Anonymous -> it.userId
+                else -> UserId.anonymous
+            }
         }
-    }
     )
 
     // Build scopedUserId from session changes via plain collect. The collector

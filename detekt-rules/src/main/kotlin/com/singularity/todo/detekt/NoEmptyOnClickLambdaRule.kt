@@ -70,8 +70,10 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
     private fun isPreviewContext(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val file = element.containingKtFile
         val fileName = file.name.lowercase()
-        // Skip preview files
+        // Skip files whose name or path contains "preview" (filename or /preview/ directory)
         if (fileName.contains("preview")) return true
+        val filePath = file.virtualFile?.path ?: ""
+        if (filePath.contains("/preview/", ignoreCase = true)) return true
         // Skip functions annotated with @Preview
         var current: org.jetbrains.kotlin.psi.KtElement? = element
         while (current != null) {

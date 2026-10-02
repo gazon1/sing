@@ -343,4 +343,4 @@ no-combine-side-effect:
 # MR-3: empty onClick = {} in composable previews
 no-empty-onclick-lambda:
   NoEmptyOnClickLambda:
-    active: false
+    active: true

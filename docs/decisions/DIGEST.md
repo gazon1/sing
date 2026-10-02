@@ -622,17 +622,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `tech-debt`
 
+- **FK enforcement** means inserting a note with a non-existent `task_id` now throws `ForeignKeyConstraintException` instead of silently succeeding.
+- **No FK index skip**: the existing `index_notes_task_id` means queries filtering by `task_id` remain efficient.
+- **Ongoing wikilinks**: `outgoing_links` still contains `note://<id>` strings from note-to-note links. These are not enforced by the DB and remain an application-level concern.
 - 0 active violations сверх baseline
 - 0 raw production `runBlocking` outside suppressed boundaries; 2 fewer than
+- All per-connection PRAGMAs are now correctly applied to every connection Room acquires.
 - All three changes are additive-renames only
 - Both "god-VMs" are now honest coordinators; the audit's line-count smell is
 - CI regression устранена: `NoDirectClockSystem = 0`
 - Detekt now actually enforces runBlocking/vmScope bans in `:shared` (report-only
-- Detekt reports 21 pre-existing `VmCloseable` findings + ~340 mostly-formatting
-- Future feature work adds a section by declaring a contributor + one `bind`
-- If Settings grows actual cross-section coupling later, the split decision can
-- MR-2.2 note: `expect object Clock` remains for backward compatibility; production code should use `kotlinx.datetime.Clock` directly
-- _... and 5 more items_
+- _... and 13 more items_
 
 ### `technical-debt`
 
@@ -1138,6 +1138,11 @@ _22 entries need attention._
 - `2026-10-01-nodate-regression-pinning` — testing, regression, nodate, agenda, task-repository
 - `2026-10-01-notes-task-logbook-substrate` — _untagged_
 - `2026-10-01-phase4-cleanup-findings` — _untagged_
+- `2026-10-01-post-mr-10-findings` — task-editor, agenda, maestro, mr-10
+- `2026-10-01-post-mr-11-findings` — agenda, navigation, desktop, mr-11
+- `2026-10-01-post-mr-12-findings` — task-editor, agenda, mr-12
+- `2026-10-01-post-mr-13-findings` — navigation, agenda, fab, mr-13
+- `2026-10-01-post-mr-14-findings` — agenda, badge, mr-14
 - `2026-10-01-post-mr-2-findings` — audit, mr-2
 - `2026-10-01-post-mr-3-findings` — audit, mr-3
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
@@ -1150,6 +1155,9 @@ _22 entries need attention._
 - `2026-10-01-test-ratchet-findings` — test-coverage, architecture, mr-followup
 - `2026-10-01-typed-task-dependency-links` — _untagged_
 - `2026-10-02-desktop-haptic-missing-binding` — incident, desktop, di, testing
+- `2026-10-02-note-entity-dual-task-linkage` — tech-debt, database, room, migration
+- `2026-10-02-per-connection-pragmas-and-fk-enforcement` — tech-debt, database, room, kmp
+- `2026-10-02-post-tech-debt-audit-findings` — tech-debt, detekt, quality, testing
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
 ## Active entries
@@ -1508,15 +1516,20 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
-- `2026-10-01-architectural-followups` — _(no title)_
+- `2026-10-01-architectural-followups` — Architectural Follow-ups — October 2026 Epic
 - `2026-10-01-bulk-operations-use-case-unwired` — Bulk Operations Use Case — Unwired in ViewModel
 - `2026-10-01-ci-quality-ratchet` — CI quality ratchet: FailureBundle upload + PR-only test retry
 - `2026-10-01-cluster-9-repository-package-moves` — Cluster 9 — Repository Package Moves
 - `2026-10-01-desktop-nav-followup` — Desktop navigation follow-up: FAB hijack + tab-back regression
 - `2026-10-01-maestro-flow-tag-contract` — Maestro flow tag contract — JVM test gate
 - `2026-10-01-nodate-regression-pinning` — NoDate regression pinning: contract + VM tests
-- `2026-10-01-notes-task-logbook-substrate` — _(no title)_
+- `2026-10-01-notes-task-logbook-substrate` — ADR: Notes ↔ Tasks Logbook Substrate
 - `2026-10-01-phase4-cleanup-findings` — Phase 4 Post-Move Cleanup Findings
+- `2026-10-01-post-mr-10-findings` — Post-MR-10 findings — TaskEditor refactor + agenda test ratchet
+- `2026-10-01-post-mr-11-findings` — Post-MR-11 findings — SavedAgendaResults screen + pre-existing desktop nav regression
+- `2026-10-01-post-mr-12-findings` — Post-MR-12 findings — TaskCreate editor full fields
+- `2026-10-01-post-mr-13-findings` — Post-MR-13 findings — source-tab prefill + per-tab back stack
+- `2026-10-01-post-mr-14-findings` — Post-MR-14 findings — agenda badge single source + Recurring gap
 - `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
 - `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
@@ -1527,7 +1540,10 @@ _22 entries need attention._
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
 - `2026-10-01-test-infra-gaps` — Test infrastructure gaps found during quality-ratchet session
 - `2026-10-01-test-ratchet-findings` — Post-test-ratchet findings: structural gaps found during MR-10..14
-- `2026-10-01-typed-task-dependency-links` — _(no title)_
+- `2026-10-01-typed-task-dependency-links` — Typed Task Dependency Links — verb column
 - `2026-10-02-desktop-haptic-missing-binding` — _(no title)_
+- `2026-10-02-note-entity-dual-task-linkage` — NoteEntity dual task linkage — FK enforcement and wikilink removal
+- `2026-10-02-per-connection-pragmas-and-fk-enforcement` — Per-connection PRAGMA enforcement and FK constraints
+- `2026-10-02-post-tech-debt-audit-findings` — Post-tech-debt-cleanup audit — remaining findings
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 

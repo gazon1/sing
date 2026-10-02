@@ -5,6 +5,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.log.Redaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +55,7 @@ class SupabaseAuthRepository(
             // TODO: Implement with Supabase SDK
             _isLoading.value = false
         }
-        result.onFailure { e -> log.e(e) { "signUp failed [email=${email.take(3)}***]" } }
+        result.onFailure { e -> log.e(e) { "signUp failed [email=${Redaction.redactEmail(email)}]" } }
         return result
     }
 
@@ -66,7 +67,7 @@ class SupabaseAuthRepository(
             // TODO: Implement with Supabase SDK
             _isLoading.value = false
         }
-        result.onFailure { e -> log.e(e) { "signIn failed [email=${email.take(3)}***]" } }
+        result.onFailure { e -> log.e(e) { "signIn failed [email=${Redaction.redactEmail(email)}]" } }
         if (result.isFailure) _isLoading.value = false
         return result
     }

@@ -10,6 +10,7 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.chat.ChatViewModel
+import com.singularity.todo.feature.ai.chat.UsageRecordingTextGen
 import com.singularity.todo.feature.ai.tools.ClusterNotesTool
 import com.singularity.todo.feature.ai.tools.ClusterTasksTool
 import com.singularity.todo.feature.ai.tools.CreateNoteTool
@@ -67,6 +68,7 @@ import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.transport.GenuiTransport
 import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -77,6 +79,7 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * JVM actual for [aiToolsModule].
@@ -99,7 +102,7 @@ actual fun aiToolsModule(): Module = module {
     // ─── AI Service ───
 
     single<TextGenPort> {
-        KoogAgentService(
+        val delegate = KoogAgentService(
             secureStorage = get<ProfileAwareSecureStorage>(),
             settings = get(),
             promptExecutor = get<PromptExecutorPort>().executor,
@@ -107,11 +110,19 @@ actual fun aiToolsModule(): Module = module {
             allTools = get(),
             remoteConfigPort = get(),
         )
+        UsageRecordingTextGen(
+            delegate = delegate,
+            usageRecorder = get<RoomUsageRecorder>(),
+            currentUser = get<ProfileAwareCurrentUser>(),
+            clock = get<Clock>(),
+        )
     }
 
     // ─── Token Usage Tracking ───
 
     singleOf(::RoomUsageRecorder)
+    @Suppress("NoDirectClockSystem") // Clock.System wrapped for injectability
+    single<Clock> { Clock.System }
 
     viewModel { ChatViewModel(Logger.withTag("ChatViewModel"), get(), get()) }
     viewModel { AiUsageViewModel(get(), get()) }

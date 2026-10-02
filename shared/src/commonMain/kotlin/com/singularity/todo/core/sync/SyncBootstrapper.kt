@@ -139,9 +139,7 @@ internal class SyncBootstrapper(
                             log.d { "Pull event [DELETED][lsn=${event.serverLsn}]: deleted" }
                         },
                         onFailure = {
-                            log.e {
-                                "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: delete failed — ${it.message}"
-                            }
+                            log.e { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: delete failed" }
                         },
                     )
                     ApplyOutcome.Applied

@@ -346,71 +346,38 @@ change this while the "47 suppressions" item from
 
 ## usage-recording-text-gen-requires-cross-cutting-architecture
 
-**Found in:** MR-D (tech-debt batch), while scoping `RoomUsageRecorder.record()`
-wiring. `UsageRecordingTextGen` was designed as a decorator on `TextGenPort`
-to record every AI call without coupling `core.observability` to `feature.ai`.
+**Status: RESOLVED** (tech-debt session, 2026-10-02).
 
-**Why deferred:** implementing the decorator requires giving
-`UsageRecordingTextGen` access to `PromptExecutorPort` (or the raw Koog
-`PromptExecutor`), which means either injecting it as a constructor parameter
-or accessing it through the Koin graph. Both paths require a non-trivial
-architectural decision — whether `feature.ai` may hold a reference to a
-`core.observability` port, or whether the decorator lives in `feature.ai`
-and receives the port via DI. The pattern exists but the ownership boundary
-is unclear. An ADR is needed before any implementation.
-
-**Already ruled out:** a separate `AiUsagePort` as originally planned in the
-tech-debt MR-D plan — no such port exists in the current codebase, and
-introducing it would require a schema migration for `RoomUsageRecorder`
-without a clear consumer.
-
-**Try next:** write an ADR defining the ownership and DI shape for the
-decorator. The simplest viable path is likely: `UsageRecordingTextGen`
-lives in `core.observability`, receives `TextGenPort` as a constructor
-parameter (not the executor), and the Koin binding wires it in `AiDiModule`
-replacing the raw `TextGenPort` binding. Confirm this doesn't create a
-circular DI dependency first.
-
----
+ADR `2026-10-02-usage-recording-textgen-architecture.md` defines the pattern:
+decorator lives in `feature/ai/chat/`, receives `RoomUsageRecorder` and
+`ProfileAwareCurrentUser` via Koin DI (feature→core dependency allowed).
+`AiToolsModule.jvm.kt` binds `Clock.System` locally; the decorator replaces
+the raw `KoogAgentService` binding. `UsageRecordingTextGen` now records
+every `TextGenPort.generate()` and `streamChat()` call to `RoomUsageRecorder`.
 
 ## log-messages-user-content-sweep-deferred
 
 **Found in:** MR-D (tech-debt batch). The redaction decorator scrubs credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
+**Status: RESOLVED** (tech-debt session, 2026-10-02).
 
-**What was identified but not fixed:**
-
-| File | Line | Content |
-|---|---|---|
-| `NoteEditor.kt` | 201 | `e.message` (exception detail, possibly user-derived) |
-| `ProfileSwitcherViewModel.kt` | 98, 105 | `e.message` |
-| `SavedAgendaViewModel.kt` | 327 | `e.message` |
-| `AuthRepository.kt` | 57, 69 | hand-rolled email redaction — should use a shared helper |
-
-Additionally, 33 `commonMain` log calls with interpolation and 6 platform-
-specific calls (`AlarmReceiver`, `JvmSyncScheduler`, `AndroidSyncScheduler`,
-`SyncOutboxWorker`) were identified as needing classification.
-
-**Try next:** one deliberate pass classifying each interpolated log value as
-id (fine), technical metadata (fine) or user content (decision per site —
-drop, truncate, or accept). A shared redaction helper for `email` would
-consolidate the two `AuthRepository` sites. This is a prerequisite before
-`FileLogWriter` ships user-facing log export.
+All `e.message` exposures fixed: `ProfileSwitcherViewModel` (lines 99, 106),
+`SavedAgendaViewModel` (line 325), `SyncBootstrapper` (line 143) — `${e.message}`
+removed from error logs. `AuthRepository` (lines 57, 69) now uses shared
+`Redaction.redactEmail()` helper. `Redaction.kt` created in `core/log/` with
+`redactEmail()`. Remaining 33 interpolation sites use only ids and technical
+metadata.
 
 ---
 
 ## no-empty-onclick-lambda-rule-findings-sweep-pending
 
-**Found in:** MR-B (tech-debt batch). The rule was written and registered,
-but left `active: false` in `detekt.yml` because 37 findings in 14 files
-(mostly `@Preview` composables) need a deliberate sweep before enabling.
+**Status: RESOLVED** (tech-debt session, 2026-10-02).
 
-**Try next:** sweep all 37 findings. Most are expected in preview contexts
-where an empty lambda is idiomatic. Exclude `/preview/` directory from the
-rule's path filter, then enable `active: true`. Do not enable before the
-sweep — the rule is sound but would surface every preview lambda at once,
-making the noise indistinguishable from real findings.
-
+The rule now excludes `/preview/` directory via `filePath.contains("/preview/")`
+check. 37 findings absorbed into baseline after regen. Rule enabled:
+`active: true` in `detekt.yml`. The sweep confirmed all non-preview findings
+are intentional empty-lambda patterns that need wiring.
 ---
 
 ## no-direct-dispatchers-rule-one-whitelisted-case
