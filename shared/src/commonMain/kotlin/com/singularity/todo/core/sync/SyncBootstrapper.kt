@@ -18,7 +18,7 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.timetracking.data.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import kotlinx.serialization.serializer
 
 /**

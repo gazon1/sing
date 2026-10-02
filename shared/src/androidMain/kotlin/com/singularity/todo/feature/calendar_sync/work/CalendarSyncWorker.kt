@@ -13,11 +13,11 @@ import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatu
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncPlan
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncedEventRef
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
 import com.singularity.todo.feature.calendar_sync.error.FailureType
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.reminders.ReminderRepository
+import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
