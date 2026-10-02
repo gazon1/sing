@@ -33,7 +33,8 @@ import org.jetbrains.kotlin.psi.KtProperty
  * - Methods that call `clock.xxx()` — domain timestamp injection is legitimate
  * - Methods whose call receiver is `tool.*` — LLM use cases call Koog tool facades
  * - The abstract `LlmUseCase<I,O>` base class
- * - Methods in test sources (detekt's standard `excludes` config handles those)
+ *
+ * Note: test-source exemption is not implemented via path filters in this rule.
  *
  * @see PassThroughUseCaseProvider for how this rule is registered.
  */

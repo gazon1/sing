@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * `@OptIn(CombineStateInReadThrough::class)`. This rule flags violations so they
  * can be migrated to the canonical pattern per the `vm-migration-playbook` skill.
  *
- * Test sources are exempt.
+ * Note: test-source exemption is not implemented via path filters in this rule.
  *
  * @see NoStateInRuleProvider for registration.
  */

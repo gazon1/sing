@@ -62,7 +62,7 @@ jobs:
 
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
-        continue-on-error: true
+        # blocking: any new unwired surface is a regression
 
       # Replaced by com.singularity.todo.arch.MaestroFlowTagsTest in :shared:jvmTest
       # (blocking — any unknown id fails the build). Retained here as a non-blocking
