@@ -79,9 +79,9 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
     ) {
         Row(
             modifier = Modifier.padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
-                )
+                horizontal = TaskSpacing.cardPaddingHorizontal,
+                vertical = TaskSpacing.cardPaddingVertical,
+            )
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -131,9 +131,9 @@ private fun LogbookLoadedCard(
     ) {
         Column(
             modifier = Modifier.padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
-                )
+                horizontal = TaskSpacing.cardPaddingHorizontal,
+                vertical = TaskSpacing.cardPaddingVertical,
+            )
                 .fillMaxWidth(),
         ) {
             // Header row

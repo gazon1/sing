@@ -31,6 +31,21 @@ import kotlinx.coroutines.CoroutineScope
  * - The scope hosts background work like `stateIn` collectors; UI
  *   immediacy is irrelevant here. VM scopes use `Main.immediate`.
  *
+ * ## Dispatcher invariant
+ *
+ * **The dispatcher is injected via DI.** Platform-agnostic code should never hardcode
+ * `withContext(Dispatchers.IO)` directly — instead it receives the scope as a
+ * constructor parameter from Koin. This makes the dispatcher mockable in tests and
+ * explicit in production.
+ *
+ * The following 6 platform-ported implementations **intentionally** hardcode the
+ * dispatcher because they use a blocking native API (I/O, file system, notification
+ * posting) and the blocking is the entire point of the operation:
+ * [AndroidSecureStorage] (security/IO), [JvmSecureStorage] (security/IO),
+ * [AndroidCalendarProvider] (ContentResolver/IO), [JvmNotificationPort] (notify-send/IO),
+ * [FileRevealer.jvm] (XDG-open/IO), [AndroidCalendarAppQueries] (JDBC/IO).
+ * These are the exceptions, not the rule.
+ *
  * See `singularity-todo-coroutine-scopes` for full rationale and patterns.
  */
 expect fun createBackgroundScope(): CoroutineScope

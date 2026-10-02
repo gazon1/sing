@@ -77,9 +77,9 @@ private fun BacklinkSection(
     ) {
         Row(
             modifier = Modifier.padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
-                )
+                horizontal = TaskSpacing.cardPaddingHorizontal,
+                vertical = TaskSpacing.cardPaddingVertical,
+            )
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {

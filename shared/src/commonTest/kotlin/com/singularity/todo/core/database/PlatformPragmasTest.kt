@@ -10,46 +10,70 @@ import kotlin.test.assertTrue
  * Tests for the pure [PlatformPragmas] helper.
  *
  * The helper itself is intentionally side-effect free w.r.t. Kotlin code: it owns
- * a `List<String>` of PRAGMA statements and applies them via [androidx.sqlite.execSQL].
- * End-to-end execution is verified by [AppDatabaseFactoryJvmTest] on a real
- * `BundledSQLiteDriver`.
+ * separate `List<String>` of PRAGMA statements split by scope
+ * ([FileLevelCommands] vs [PerConnectionCommands]) and applies them via
+ * [androidx.sqlite.execSQL].
+ *
+ * End-to-end execution on a real [androidx.sqlite.driver.bundled.BundledSQLiteDriver]
+ * is verified by [AppDatabaseFactoryJvmTest].
  */
 @Tag("slow")
 class PlatformPragmasTest {
 
     @Test
-    fun commandsListMatchesTheDesktopTuningWeHadBeforeRoom() {
-        assertEquals(
-            listOf(
-                "PRAGMA journal_mode = WAL",
-                "PRAGMA synchronous = NORMAL",
-                "PRAGMA cache_size = -2000",
-                "PRAGMA temp_store = MEMORY",
-            ),
-            PlatformPragmas.Commands,
-        )
+    fun fileLevelCommandsAreWALOnly() {
+        assertEquals(listOf("PRAGMA journal_mode = WAL"), PlatformPragmas.FileLevelCommands)
     }
 
     @Test
-    fun everyCommandTargetsADesktopPerformanceKnob() {
-        for (cmd in PlatformPragmas.Commands) {
+    fun perConnectionCommandsAreExactlyFive() {
+        val cmds = PlatformPragmas.PerConnectionCommands
+        assertEquals(5, cmds.size, "synchronous, cache_size, temp_store, foreign_keys, busy_timeout")
+    }
+
+    @Test
+    fun perConnectionCommandsCoverPerformanceAndSafety() {
+        val all = PlatformPragmas.PerConnectionCommands.joinToString("\n")
+        assertTrue(all.contains("synchronous"), "synchronous NORMAL — fsync cost O(1)")
+        assertTrue(all.contains("cache_size"), "cache_size -2000 — 2 MiB page cache")
+        assertTrue(all.contains("temp_store"), "temp_store = MEMORY — RAM for sort")
+        assertTrue(all.contains("foreign_keys"), "foreign_keys = ON — FK enforcement")
+        assertTrue(all.contains("busy_timeout"), "busy_timeout = 5000 — 5 s retry window")
+    }
+
+    @Test
+    fun fileLevelCommandsTargetFileHeader() {
+        for (cmd in PlatformPragmas.FileLevelCommands) {
+            assertTrue(cmd.startsWith("PRAGMA "), "not a PRAGMA: $cmd")
+            assertTrue(cmd.contains("journal_mode"), "only journal_mode is file-level: $cmd")
+        }
+    }
+
+    @Test
+    fun perConnectionCommandsAreAllPerConnection() {
+        for (cmd in PlatformPragmas.PerConnectionCommands) {
             assertTrue(cmd.startsWith("PRAGMA "), "not a PRAGMA: $cmd")
             assertTrue(
-                cmd.contains("=") || cmd.endsWith("MEMORY"),
-                "PRAGMA missing assignment: $cmd",
+                cmd.contains("synchronous") ||
+                    cmd.contains("cache_size") ||
+                    cmd.contains("temp_store") ||
+                    cmd.contains("foreign_keys") ||
+                    cmd.contains("busy_timeout"),
+                "per-connection PRAGMA only: $cmd",
             )
         }
     }
 
     @Test
-    fun commandsListIsNonEmptyAndOrderStable() {
-        // Order matters: e.g. journal_mode must be set before synchronous, since
-        // NORMAL is meaningful only with WAL on. Capture twice to ensure stability.
-        val first = PlatformPragmas.Commands
-        val second = PlatformPragmas.Commands
+    fun listsAreNonEmptyAndOrderStable() {
+        // Order matters: journal_mode must be set before synchronous, since NORMAL is
+        // meaningful only with WAL. Capture twice to ensure stability.
+        val first = PlatformPragmas.FileLevelCommands
+        val second = PlatformPragmas.FileLevelCommands
         assertEquals(first, second)
-        // List.contains(x) checks element equality — the elements are full PRAGMA
-        // statements, so substring presence needs any { } instead.
-        assertTrue(first.any { it.contains("journal_mode") })
+
+        val pFirst = PlatformPragmas.PerConnectionCommands
+        val pSecond = PlatformPragmas.PerConnectionCommands
+        assertEquals(pFirst, pSecond)
     }
 }

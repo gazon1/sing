@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * A tappable row that shows an icon and a label.
@@ -82,7 +83,7 @@ private fun IconPickerRowLightPreview() = PreviewThemed(darkTheme = false) {
             },
             label = "Due date",
             hasValue = true,
-            onClick = {},
+            onClick = noopClick,
         )
         IconPickerRow(
             icon = {
@@ -94,7 +95,7 @@ private fun IconPickerRowLightPreview() = PreviewThemed(darkTheme = false) {
             },
             label = "Due date",
             hasValue = false,
-            onClick = {},
+            onClick = noopClick,
         )
     }
 }

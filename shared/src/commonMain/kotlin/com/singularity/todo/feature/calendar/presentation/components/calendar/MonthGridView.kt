@@ -80,12 +80,12 @@ fun MonthGridView(
 
     Column(
         modifier = modifier.fillMaxSize()
-            .background(palette.background)
+            .background(palette.background),
     ) {
         // Fixed weekday header — does not scroll with pages.
         Row(
             modifier = Modifier.fillMaxWidth()
-                .padding(vertical = 8.dp)
+                .padding(vertical = 8.dp),
         ) {
             weekdayLabels.forEach { label ->
                 Text(
@@ -159,7 +159,7 @@ private fun MonthGridPage(
         weeks.forEach { week ->
             Row(
                 modifier = Modifier.fillMaxWidth()
-                    .weight(1f)
+                    .weight(1f),
             ) {
                 week.forEach { date ->
                     MonthDayCell(
@@ -201,19 +201,19 @@ private fun MonthDayCell(
 
     Box(
         modifier = modifier.testTag(
-                TestTags.calendarDay(
-                    "${date.year}-${
-                        date.month.number.toString()
-                            .padStart(
-                                2,
-                                '0',
-                            )
-                    }-${
-                        date.day.toString()
-                            .padStart(2, '0')
-                    }",
-                ),
-            )
+            TestTags.calendarDay(
+                "${date.year}-${
+                    date.month.number.toString()
+                        .padStart(
+                            2,
+                            '0',
+                        )
+                }-${
+                    date.day.toString()
+                        .padStart(2, '0')
+                }",
+            ),
+        )
             .border(width = 0.5.dp, color = palette.divider)
             .let { box ->
                 if (isSelected) box.background(palette.surface) else box

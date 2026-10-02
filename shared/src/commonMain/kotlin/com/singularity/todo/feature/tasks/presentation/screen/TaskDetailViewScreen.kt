@@ -351,26 +351,25 @@ private fun ExtraSectionCard(icon: @Composable () -> Unit, label: String, conten
 private fun buildDetailMenuItems(
     isTrashed: Boolean,
     onIntent: (TaskDetailIntent.Domain) -> Unit,
-): List<TaskEditorMenuItem> =
-    if (isTrashed) {
-        listOf(
-            TaskEditorMenuItem(
-                label = "Восстановить",
-                onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
-            ),
-        )
-    } else {
-        listOf(
-            TaskEditorMenuItem(
-                label = "Архивировать",
-                onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
-            ),
-            TaskEditorMenuItem(
-                label = "Удалить",
-                onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
-            ),
-        )
-    }
+): List<TaskEditorMenuItem> = if (isTrashed) {
+    listOf(
+        TaskEditorMenuItem(
+            label = "Восстановить",
+            onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
+        ),
+    )
+} else {
+    listOf(
+        TaskEditorMenuItem(
+            label = "Архивировать",
+            onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
+        ),
+        TaskEditorMenuItem(
+            label = "Удалить",
+            onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
+        ),
+    )
+}
 
 // ─── Loading / Error ─────────────────────────────────────────────────────────
 

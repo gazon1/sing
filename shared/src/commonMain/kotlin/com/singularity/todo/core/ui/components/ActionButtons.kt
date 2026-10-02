@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Sparkle-icon button used everywhere an AI capability is offered
@@ -42,23 +43,23 @@ fun DeleteActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun AiActionButtonLightPreview() = PreviewThemed(darkTheme = false) {
-    AiActionButton(onClick = {})
+    AiActionButton(onClick = noopClick)
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun AiActionButtonDarkPreview() = PreviewThemed(darkTheme = true) {
-    AiActionButton(onClick = {})
+    AiActionButton(onClick = noopClick)
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun DeleteActionButtonLightPreview() = PreviewThemed(darkTheme = false) {
-    DeleteActionButton(onClick = {})
+    DeleteActionButton(onClick = noopClick)
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun DeleteActionButtonDarkPreview() = PreviewThemed(darkTheme = true) {
-    DeleteActionButton(onClick = {})
+    DeleteActionButton(onClick = noopClick)
 }

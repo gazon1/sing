@@ -29,13 +29,12 @@ object RecurrenceCalculator {
      * @param anchor The date to compute the next occurrence relative to.
      * @return The next occurrence date.
      */
-    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate =
-        when (spec) {
-            is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
-            is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
-            is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
-            is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
-        }
+    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate = when (spec) {
+        is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
+        is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
+        is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
+        is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
+    }
 
     /**
      * Returns how many occurrences were missed between [anchor] and [today] (inclusive),

@@ -144,22 +144,6 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         )
     }
 
-    entry<AppDestination.TasksByProject> { route ->
-        val agendaStack: NavBackStack<AgendaStartRoute> =
-            rememberInMemoryNavBackStack(AgendaStartRoute.Project(route.projectId))
-        AgendaNavGraph(
-            start = agendaStack.lastOrNull() ?: AgendaStartRoute.Project(route.projectId),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-            backStack = agendaStack,
-        )
-    }
-
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
     entry<AppDestination.TasksGraph> { route ->
         // Seed with the REQUESTED route, not a hardcoded one: rememberInMemoryNavBackStack
@@ -220,18 +204,11 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
 /**
  * Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute].
- *
- * Note: Inbox/Today/Upcoming/ByProject are deprecated (AgendaEngine MR1).
- * These variants no longer have corresponding routes in TasksNavGraph — they fall back
- * to [TasksRoute.Create] so the user at least sees a valid screen.
+ * Only [Create] and [Detail] remain — the other deprecated variants were removed.
  */
 private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
-
     is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
-
-    // Deprecated variants: fall back to Create
-    else -> TasksRoute.Create(initialDueDate)
 }
 
 /** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */

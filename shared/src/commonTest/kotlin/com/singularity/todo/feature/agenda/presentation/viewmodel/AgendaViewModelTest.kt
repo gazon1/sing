@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
@@ -54,7 +52,7 @@ class AgendaViewModelTest {
     )
 
     private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
-        deps = AgendaDeps(taskRepo = fakeRepo, logger = Logger),
+        deps = AgendaDeps(taskRepo = fakeRepo, clock = Clock.System, logger = Logger),
         definition = AgendaPresets.Inbox,
         scope = scope,
     )

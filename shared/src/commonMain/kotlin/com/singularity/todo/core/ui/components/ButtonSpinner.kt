@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Small in-button spinner used by LoginScreen / BackupScreen.
@@ -35,7 +36,7 @@ private fun ButtonSpinnerLightPreview() = PreviewThemed(darkTheme = false) {
     Row {
         ButtonSpinner()
         Spacer(modifier = Modifier.width(8.dp))
-        Button(onClick = {}) { Text("Continue") }
+        Button(onClick = noopClick) { Text("Continue") }
     }
 }
 
@@ -45,6 +46,6 @@ private fun ButtonSpinnerDarkPreview() = PreviewThemed(darkTheme = true) {
     Row {
         ButtonSpinner()
         Spacer(modifier = Modifier.width(8.dp))
-        Button(onClick = {}) { Text("Continue") }
+        Button(onClick = noopClick) { Text("Continue") }
     }
 }

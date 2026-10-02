@@ -5,7 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.auth.LoginScreen
-import org.koin.compose.koinInject
 
 /**
  * Navigation guard: routes the user to [LoginScreen] when the session is
@@ -20,7 +19,7 @@ import org.koin.compose.koinInject
  * navigate on success; no callbacks are needed here.
  */
 @Composable
-fun AuthGuard(authRepository: AuthRepository = koinInject(), content: @Composable () -> Unit) {
+fun AuthGuard(authRepository: AuthRepository, content: @Composable () -> Unit) {
     val session by authRepository.currentSession.collectAsStateWithLifecycle()
     when (session) {
         Session.Loading -> LoadingIndicator()

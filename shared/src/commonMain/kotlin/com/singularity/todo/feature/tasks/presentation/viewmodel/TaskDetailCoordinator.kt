@@ -75,7 +75,7 @@ class TaskDetailCoordinator(
 
     private val entity = TaskEntitySlot(taskId, deps, vmScope, taskFlow, ::reportError)
 
-    private val completion = TaskCompletionSlot(deps, vmScope, taskFlow, ::reportError)
+    private val completion = TaskCompletionSlot(deps, vmScope, taskFlow, ::reportError, ::reportSaved)
 
     private val children = TaskChildrenSlot(
         taskId = taskId,
