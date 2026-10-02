@@ -1,7 +1,8 @@
 ---
-description: Architectural follow-ups from October 2026 epic completion
+title: Architectural Follow-ups — October 2026 Epic
+date: 2026-10-01
 status: accepted
-created: 2026-10-01
+description: Architectural follow-ups from October 2026 epic completion
 ---
 
 # Architectural Follow-ups — October 2026 Epic

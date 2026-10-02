@@ -341,3 +341,109 @@ a `jvmTest` file no longer fires — that is the cheap reading, and it matches w
 sentence and treat the 47 existing suppressions as the real backlog. Do not
 change this while the "47 suppressions" item from
 `2026-09-30-test-infra-known-gaps` is still open — the two decisions interact.
+
+---
+
+## usage-recording-text-gen-requires-cross-cutting-architecture
+
+**Found in:** MR-D (tech-debt batch), while scoping `RoomUsageRecorder.record()`
+wiring. `UsageRecordingTextGen` was designed as a decorator on `TextGenPort`
+to record every AI call without coupling `core.observability` to `feature.ai`.
+
+**Why deferred:** implementing the decorator requires giving
+`UsageRecordingTextGen` access to `PromptExecutorPort` (or the raw Koog
+`PromptExecutor`), which means either injecting it as a constructor parameter
+or accessing it through the Koin graph. Both paths require a non-trivial
+architectural decision — whether `feature.ai` may hold a reference to a
+`core.observability` port, or whether the decorator lives in `feature.ai`
+and receives the port via DI. The pattern exists but the ownership boundary
+is unclear. An ADR is needed before any implementation.
+
+**Already ruled out:** a separate `AiUsagePort` as originally planned in the
+tech-debt MR-D plan — no such port exists in the current codebase, and
+introducing it would require a schema migration for `RoomUsageRecorder`
+without a clear consumer.
+
+**Try next:** write an ADR defining the ownership and DI shape for the
+decorator. The simplest viable path is likely: `UsageRecordingTextGen`
+lives in `core.observability`, receives `TextGenPort` as a constructor
+parameter (not the executor), and the Koin binding wires it in `AiDiModule`
+replacing the raw `TextGenPort` binding. Confirm this doesn't create a
+circular DI dependency first.
+
+---
+
+## log-messages-user-content-sweep-deferred
+
+**Found in:** MR-D (tech-debt batch). The redaction decorator scrubs credential
+shapes; it does not catch task titles, note bodies, or AI prompt fragments.
+
+**What was identified but not fixed:**
+
+| File | Line | Content |
+|---|---|---|
+| `NoteEditor.kt` | 201 | `e.message` (exception detail, possibly user-derived) |
+| `ProfileSwitcherViewModel.kt` | 98, 105 | `e.message` |
+| `SavedAgendaViewModel.kt` | 327 | `e.message` |
+| `AuthRepository.kt` | 57, 69 | hand-rolled email redaction — should use a shared helper |
+
+Additionally, 33 `commonMain` log calls with interpolation and 6 platform-
+specific calls (`AlarmReceiver`, `JvmSyncScheduler`, `AndroidSyncScheduler`,
+`SyncOutboxWorker`) were identified as needing classification.
+
+**Try next:** one deliberate pass classifying each interpolated log value as
+id (fine), technical metadata (fine) or user content (decision per site —
+drop, truncate, or accept). A shared redaction helper for `email` would
+consolidate the two `AuthRepository` sites. This is a prerequisite before
+`FileLogWriter` ships user-facing log export.
+
+---
+
+## no-empty-onclick-lambda-rule-findings-sweep-pending
+
+**Found in:** MR-B (tech-debt batch). The rule was written and registered,
+but left `active: false` in `detekt.yml` because 37 findings in 14 files
+(mostly `@Preview` composables) need a deliberate sweep before enabling.
+
+**Try next:** sweep all 37 findings. Most are expected in preview contexts
+where an empty lambda is idiomatic. Exclude `/preview/` directory from the
+rule's path filter, then enable `active: true`. Do not enable before the
+sweep — the rule is sound but would surface every preview lambda at once,
+making the noise indistinguishable from real findings.
+
+---
+
+## no-direct-dispatchers-rule-one-whitelisted-case
+
+**Found in:** MR-B (tech-debt batch). `NoDirectDispatchersRule` bans
+`Dispatchers.IO/Default/Main` in production. One legitimate case was
+identified: `core/log/FileLogWriter.kt:50` uses
+`Dispatchers.IO.limitedParallelism(1)` to guarantee sequential writes.
+
+**Status:** the whitelisting is already done in the rule code
+(`isAllowedFile` for `FileLogWriter.kt`). The rule is `active: false`
+pending the sweep of any other callers. If no other callers exist, the
+rule can stay `active: false` indefinitely — the whitelist is the fix,
+not a signal to search for more cases.
+
+**Try next:** confirm no other `Dispatchers` calls in `commonMain` production
+code outside `FileLogWriter` and the existing test/fakes whitelists. If
+clean, the rule is a documentation asset rather than an active gate.
+
+---
+
+## nav-display-debug-border-not-found
+
+**Found in:** MR-C (tech-debt batch). The plan proposed adding a red-border
+debug overlay to `NavDisplay` when `entries.isEmpty()` as a diagnostic for
+`desktop-nav-goBack-blank-screen`. Investigation showed no such modifier
+exists in the codebase and no obvious place to add it that would survive
+the blank-screen bug (the compose tree is empty at that point, so any
+modifier on `NavDisplay` would not render either).
+
+**Try next:** this item is closed as "not implementable as described". The
+diagnostic approach should instead target the shell layer —
+`DesktopShellNav3Root` or `DesktopShellNav3` — where a `LaunchedEffect` or
+`remember` on `currentRoute` can be observed before the tree goes blank.
+A visible diagnostic there (before the blank) would confirm whether the
+route change itself is the trigger.

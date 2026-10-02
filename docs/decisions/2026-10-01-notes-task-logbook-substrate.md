@@ -1,3 +1,8 @@
+---
+title: ADR: Notes ↔ Tasks Logbook Substrate
+date: 2026-10-01
+status: accepted
+---
 # ADR: Notes ↔ Tasks Logbook Substrate
 
 - Status: Accepted
