@@ -144,21 +144,6 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         )
     }
 
-    entry<AppDestination.TasksByProject> { route ->
-        val agendaStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(AgendaStartRoute.Inbox)
-        AgendaNavGraph(
-            start = agendaStack.lastOrNull() ?: AgendaStartRoute.Project(route.projectId),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-            backStack = agendaStack,
-        )
-    }
-
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
     entry<AppDestination.TasksGraph> { route ->
         val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))

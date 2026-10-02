@@ -147,22 +147,7 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         )
     }
 
-    // TasksByProject: redirects to AgendaGraph(Project) — "See all" in project detail
-    entry<AppDestination.TasksByProject> { route ->
-        AgendaNavGraph(
-            start = AgendaStartRoute.Project(route.projectId),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
-
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
-    // Note: Inbox/Today/Upcoming/ByProject in TasksStartRoute are deprecated (AgendaEngine MR1).
-    // They fall back to TasksRoute.Create() which shows the new-task screen.
     entry<AppDestination.TasksGraph> { route ->
         TasksNavGraph(
             start = route.start.toTasksRoute(route.initialDueDate),

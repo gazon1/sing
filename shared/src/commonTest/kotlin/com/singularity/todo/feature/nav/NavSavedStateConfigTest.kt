@@ -79,9 +79,8 @@ class NavSavedStateConfigTest {
         // editing a serializer list anywhere.
         val json = Json
         val samples: List<AppDestination> = listOf(
-            AppDestination.Inbox,
-            AppDestination.Today,
-            AppDestination.Upcoming,
+            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+            AppDestination.AgendaGraph(AgendaStartRoute.Today),
             AppDestination.Plans,
             AppDestination.Pomodoro,
             AppDestination.Statistics,
@@ -93,14 +92,11 @@ class NavSavedStateConfigTest {
             AppDestination.Settings,
             AppDestination.AiUsage,
             AppDestination.ProfileSwitcher,
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Inbox),
-            AppDestination.TasksByProject("p1"),
+            AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
+            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create),
             AppDestination.ProjectsGraph(),
             AppDestination.NotesGraph(),
             AppDestination.CalendarGraph(),
-            AppDestination.TaskDetail("t1"),
-            AppDestination.TaskDetailCreate(),
             AppDestination.ProjectEditor("pr1"),
             AppDestination.ProjectDetail("pr1"),
         )
