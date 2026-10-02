@@ -10,6 +10,9 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.kover) apply false
+    // koinCompiler — applied directly (not via version catalog alias) because
+    // the plugin id "io.insert-koin.compiler.plugin" is incompatible with catalog accessor.
+    id("io.insert-koin.compiler.plugin").version("1.2.1") apply false
 }
 
 allprojects {

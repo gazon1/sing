@@ -40,6 +40,7 @@ ktor = "3.5.2"
 # DI / Koin
 koin = "4.2.2"
 koin-annotations = "4.2.2"
+koin-compiler-plugin = "1.2.1"
 
 # Persistence / DataStore
 datastore = "1.2.1"
@@ -318,3 +319,4 @@ room3 = { id = "androidx.room3", version.ref = "room" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 koin = { id = "koin", version.ref = "koin" }
+koin-compiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koin-compiler-plugin" }

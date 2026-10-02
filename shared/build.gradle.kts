@@ -10,11 +10,16 @@ plugins {
     alias(libs.plugins.ksp)
     // Room 3 KSP plugin (schema export)
     alias(libs.plugins.room3)
-    // NOTE: the Koin compiler plugin (libs.plugins.koin) was removed — zero
-    // @Single/@Factory annotations exist (DI is pure Koin DSL) and koin-annotations 4.x
-    // is incompatible with Koin 4.x (see AGENTS.md). Re-add only if annotations are adopted.
+    // Koin Compiler Plugin 1.2 — validates classic DSL (single { ... }) at compile time.
+    // No @Single/@Factory annotations needed; koin-annotations 4.x is incompatible (see AGENTS.md).
+    // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
+    id("io.insert-koin.compiler.plugin") version "1.2.1"
     alias(libs.plugins.detekt)
     alias(libs.plugins.kover)
+}
+
+koinCompiler {
+    // userLogs = true // uncomment to see detected definitions during development
 }
 
 kotlin {

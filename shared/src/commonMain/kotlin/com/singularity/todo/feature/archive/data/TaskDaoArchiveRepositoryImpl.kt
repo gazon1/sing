@@ -3,6 +3,7 @@ package com.singularity.todo.feature.archive.data
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlin.time.Clock
 
@@ -18,7 +19,7 @@ class TaskDaoArchiveRepositoryImpl(
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
-) {
+) : ArchiveRepository {
     /**
      * Archives tasks with completed_at != null AND archived_at IS NULL
      * for the current user only. Returns the number of archived rows.
@@ -30,7 +31,7 @@ class TaskDaoArchiveRepositoryImpl(
      * before and after so only newly-archived tasks are pushed, not the whole
      * trash.
      */
-    suspend fun archiveCompletedTasks(): Result<Int> = runCatching {
+    override suspend fun archiveCompletedTasks(): Result<Int> = runCatching {
         val uid = currentUser.scopedUserId.value.value
         val before = taskDao.getTrashForUser(uid).map { it.id }.toSet()
         val archived = taskDao.archiveCompletedForUser(clock.now().toEpochMilliseconds(), uid)

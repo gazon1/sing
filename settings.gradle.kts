@@ -21,6 +21,11 @@ pluginManagement {
             if (requested.id.id == "koin") {
                 useModule("io.insert-koin:koin-gradle-plugin:${requested.version}")
             }
+            // The compiler plugin (io.insert-koin.compiler.plugin) also lacks a
+            // plugin-marker artifact in some releases; resolve it explicitly.
+            if (requested.id.id == "io.insert-koin.compiler.plugin") {
+                useModule("io.insert-koin:koin-compiler-gradle-plugin:${requested.version}")
+            }
         }
     }
 }
