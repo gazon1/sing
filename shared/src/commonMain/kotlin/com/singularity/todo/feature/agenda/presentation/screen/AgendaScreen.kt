@@ -1,10 +1,10 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
@@ -54,13 +54,11 @@ fun AgendaScreen(
     val navigator = LocalAgendaNavigator.current
     val seedStore: SavedAgendaSeedStore = koinInject()
 
-    LaunchedEffect(Unit) {
-        vm.events.collect { event ->
-            when (event) {
-                is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
-                is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
-                is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
-            }
+    CollectEvents(vm.events) { event ->
+        when (event) {
+            is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
+            is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
+            is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
         }
     }
 
