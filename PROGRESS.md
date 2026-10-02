@@ -285,5 +285,37 @@ Time entries + notes in one chronological stream
 - `fingerprintTarget` must be an extension property, not an interface property — Kotlin's interface dispatch doesn't support `when(this)`
 - `encodeToByteArray()` explicitly named (not `encodeToByte()`) — Kotlin String has both overloads
 - Room `@Transaction` on a `suspend fun` that calls another `@Transaction` internally is valid — Kotlin coroutines preserve transaction semantics across suspend boundaries
-### Phase 8 — Checklist sovereignty + tag suppression (MR-8) ⏳ NOT STARTED
+### Phase 8 — Checklist sovereignty + tag suppression (MR-8) ✅ DONE
+
+**What was done:**
+- `ChecklistItemEntity`: added `checked_by TEXT?`, `checked_at INTEGER?`, `row_version INTEGER DEFAULT 1`; all toggle via `ChecklistDao.toggleItem` (targeted UPDATE preserving new columns)
+- `ChecklistRepositoryImpl`: `toggleItem` now writes `actor`/`checkedAt` and increments `row_version`; `addItem` seeds `row_version = 1`; `createBatch` preserves existing `checkedBy`/`checkedAt`/`rowVersion`
+- `ChecklistRepository.toggleItem(taskId, itemId, actor: String = "user")` — default `"user"` for backward compat with existing UI call sites
+- `ChecklistItem` domain model gains `checkedBy: String?` and `checkedAt: Long?`
+- `TagEditActor` enum (`User | AiProposal`) — distinguishes UI tag edits from AI proposal tag dispatches
+- `Task.aiSuppressedTagIds: Set<TagId>` added to domain model
+- `TaskEntity` gains `ai_suppressed_tag_ids TEXT DEFAULT '[]'` (JSON array, auto-migration safe)
+- `TaskRepository.setTags(taskId, tagIds, actor: TagEditActor = User)` — full suppression logic:
+  - User removes tag → records in `aiSuppressedTagIds`
+  - User adds tag → clears from `aiSuppressedTagIds`
+  - AiProposal → suppressions unchanged
+- `ApplyProposalItemUseCase.dispatch`: `AddTags`/`RemoveTags` now pass `TagEditActor.AiProposal`
+- `Migration29To30` (AutoMigrationSpec), schema v29 → v30
+
+**What went well:**
+- Default parameter `actor = "user"` on `ChecklistRepository.toggleItem` avoided updating 4 call sites in the UI layer
+- `Checked_by`/`checked_at`/`row_version` targeted UPDATE preserves columns added in future — no read-reconstruct-write
+- JSON array for `aiSuppressedTagIds` (following `outgoing_links` precedent) avoids schema migration complexity
+
+**What didn't go well:**
+- Detekt ran AFTER the first Kotlin compile, so `ColumnInfo(defaultValue = "1")` was not set initially — KSP rejected the migration for a NOT NULL column with no default
+- `MutableStateFlow<Map<...>>` type in `FakeChecklistDao` caused type inference failures in `setTags` block — had to separate `existingTagStrings: Set<String>` from `existingTagIds: Set<TagId>` explicitly
+
+**Critical fixes:**
+- `ChecklistItem.checkedBy` nullable (`String?`) — pre-existing items have no actor, no crash on read
+- `StableJson.SetSerializer(String.serializer())` — requires explicit `serializer()` import, not `decodeFromString<Set<String>>`
+- `FakeAppDatabase.FakeChecklistDao.toggleItem` — implemented the new `toggleItem` signature (was only `updateCompletionStatus`)
+
+**Findings for ADR:**
+- Room auto-migration requires `@ColumnInfo(defaultValue = "N")` on any added NOT NULL column — KSP validates this at compile time, not at migration time
 ### Phase 9 — ProposalCard + AI redirect (MR-9) ⏳ NOT STARTED

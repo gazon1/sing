@@ -51,7 +51,7 @@ import kotlinx.coroutines.flow.StateFlow
  *     override fun onIntent(intent: TaskChecklistIntent) {
  *         when (intent) {
  *             is TaskChecklistIntent.Add -> scope.launch { repo.addItem(taskId.value, intent.title) }
- *             is TaskChecklistIntent.Toggle -> scope.launch { repo.toggleItem(taskId.value, intent.itemId) }
+ *             is TaskChecklistIntent.Toggle -> scope.launch { repo.toggleItem(taskId.value, intent.itemId, "user") }
  *         }
  *     }
  * }

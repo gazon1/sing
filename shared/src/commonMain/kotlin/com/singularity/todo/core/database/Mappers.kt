@@ -14,6 +14,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.serialization.builtins.SetSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlin.time.Instant
 
 /**
@@ -83,6 +85,10 @@ internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), dependsOn: Set<T
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
     dependsOn = dependsOn,
+    aiSuppressedTagIds = StableJson.decodeFromString(
+        SetSerializer(String.serializer()),
+        aiSuppressedTagIds,
+    ).map { TagId.fromString(it) }.toSet(),
     recurrence = recurrenceRule?.let {
         StableJson.decodeFromString<RecurrenceSpec>(it)
     },

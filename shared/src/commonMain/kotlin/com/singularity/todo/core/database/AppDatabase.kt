@@ -52,7 +52,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AiProposalEntity::class,
         ProposalItemEntity::class,
     ],
-    version = 29,
+    version = 30,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -78,6 +78,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AutoMigration(from = 26, to = 27, spec = Migration26To27::class),
         AutoMigration(from = 27, to = 28, spec = Migration27To28::class),
         AutoMigration(from = 28, to = 29, spec = Migration28To29::class),
+        AutoMigration(from = 29, to = 30, spec = Migration29To30::class),
     ],
     exportSchema = true,
 )

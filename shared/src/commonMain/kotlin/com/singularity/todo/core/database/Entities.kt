@@ -51,6 +51,7 @@ data class TaskEntity(
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
     @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
     @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]", // wikilink backlinks
+    @ColumnInfo("ai_suppressed_tag_ids", defaultValue = "[]") val aiSuppressedTagIds: String = "[]",
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,
@@ -259,6 +260,12 @@ data class ChecklistItemEntity(
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
+    /** Who last changed the completion state: "user" or "ai". Null for pre-existing items. */
+    @ColumnInfo("checked_by") val checkedBy: String? = null,
+    /** Epoch millis when completion was last changed. Null for pre-existing items. */
+    @ColumnInfo("checked_at") val checkedAt: Long? = null,
+    /** Monotonically increasing version; incremented on every completion toggle. */
+    @ColumnInfo("row_version", defaultValue = "1") val rowVersion: Int = 1,
 )
 
 /**

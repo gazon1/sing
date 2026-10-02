@@ -752,10 +752,34 @@ interface ChecklistDao {
     /**
      * Toggles the completion status of a checklist item, scoped to the user.
      *
-     * Returns the number of rows updated (0 if the item was not found or already had
-     * the target state). Uses a targeted UPDATE rather than read-reconstruct-write
-     * to preserve any additional columns added to [ChecklistItemEntity] in future.
+     * Writes `checked_by` (the actor), `checked_at` (epoch millis), and increments
+     * `row_version` on every toggle. Uses a targeted UPDATE rather than
+     * read-reconstruct-write to preserve any additional columns.
+     *
+     * @return the number of rows updated (0 if the item was not found or already had
+     * the target state).
      */
+    @Query(
+        """
+        UPDATE checklist_items
+        SET is_completed = :isCompleted,
+            updated_at = :updatedAt,
+            checked_by = :actor,
+            checked_at = :checkedAt,
+            row_version = row_version + 1
+        WHERE id = :itemId
+          AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun toggleItem(
+        itemId: String,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        checkedAt: Long,
+        actor: String,
+        userId: String,
+    ): Int
+
     @Query(
         """
         UPDATE checklist_items

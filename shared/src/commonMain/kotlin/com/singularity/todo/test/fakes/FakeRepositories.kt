@@ -52,6 +52,7 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -711,11 +712,19 @@ open class FakeTaskRepository(
         return store[id.value]?.userId == uid
     }
 
-    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> {
+    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor): Result<Unit> {
         setTagsOverride?.let { return it }
         return runCatching {
             store[taskId.value]?.let { task ->
-                val updated = task.copy(tags = tagIds)
+                val newTags = tagIds.toSet()
+                val removed = task.tags.toSet() - newTags
+                val added = newTags - task.tags.toSet()
+                val suppressed = task.aiSuppressedTagIds.toMutableSet()
+                if (actor == TagEditActor.User) {
+                    suppressed.addAll(removed)
+                    suppressed.removeAll(added)
+                }
+                val updated = task.copy(tags = tagIds, aiSuppressedTagIds = suppressed)
                 store.upsert(updated)
             }
         }
@@ -798,16 +807,26 @@ class FakeChecklistRepository : ChecklistRepository {
             title = title,
             isCompleted = false,
             sortOrder = 0,
+            checkedBy = null,
+            checkedAt = null,
         )
         items.value += (item.id.value to item)
         item.id
     }
 
-    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
-        val current = items.value.values.firstOrNull { it.id == itemId && it.taskId == taskId }
-            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
-        items.value += (itemId.value to current.copy(isCompleted = !current.isCompleted))
-    }
+    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String): Result<Unit> =
+        runCatching {
+            val current = items.value.values.firstOrNull { it.id == itemId && it.taskId == taskId }
+                ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+            items.value += (
+                itemId.value to current.copy(
+                    isCompleted = !current.isCompleted,
+                    checkedBy = actor,
+                    checkedAt = now,
+                )
+            )
+        }
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
         items.value += (item.id.value to item)

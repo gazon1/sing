@@ -140,6 +140,12 @@ data class Task(
      */
     val dependsOn: Set<TaskId> = emptySet(),
     /**
+     * Tag IDs that the AI has suggested removing, and which the user has suppressed.
+     * Suppressed tags are excluded from AI prompts so they are not re-proposed.
+     * The set is cleared when the user manually adds any of these tags back.
+     */
+    val aiSuppressedTagIds: Set<TagId> = emptySet(),
+    /**
      * The recurrence rule for this task, if any.
      * Null means the task does not repeat.
      *

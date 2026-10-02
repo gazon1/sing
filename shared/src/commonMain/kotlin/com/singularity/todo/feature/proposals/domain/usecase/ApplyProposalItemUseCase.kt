@@ -11,6 +11,7 @@ import com.singularity.todo.feature.proposals.domain.model.TaskField
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -192,12 +193,12 @@ class ApplyProposalItemUseCase(
 
             is ProposalPlan.AddTags -> {
                 val current = tasks.getTagIds(plan.taskId).first().toSet()
-                tasks.setTags(plan.taskId, (current + plan.tagIds).toList()).getOrThrow()
+                tasks.setTags(plan.taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
             }
 
             is ProposalPlan.RemoveTags -> {
                 val current = tasks.getTagIds(plan.taskId).first().toSet()
-                tasks.setTags(plan.taskId, (current - plan.tagIds).toList()).getOrThrow()
+                tasks.setTags(plan.taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
             }
 
             is ProposalPlan.AddChecklistItems -> plan.texts.forEach { text ->

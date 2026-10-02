@@ -38,19 +38,23 @@ class ChecklistRepositoryImpl(
                 sortOrder = item.sortOrder,
                 createdAt = now,
                 updatedAt = now,
+                checkedBy = null,
+                checkedAt = null,
+                rowVersion = 1,
             ),
         )
         item.id
     }
 
-    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
-        val uid = currentUser.scopedUserId.value.value
-        val now = clock.now().toEpochMilliseconds()
-        val existing = dao.watchByTask(taskId).first().find { it.id == itemId.value }
-            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
-        val rows = dao.updateCompletionStatus(itemId.value, !existing.isCompleted, now, uid)
-        require(rows > 0) { "Checklist item $itemId not found or not owned by current user" }
-    }
+    override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String): Result<Unit> =
+        runCatching {
+            val uid = currentUser.scopedUserId.value.value
+            val now = clock.now().toEpochMilliseconds()
+            val existing = dao.watchByTask(taskId).first().find { it.id == itemId.value }
+                ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+            val rows = dao.toggleItem(itemId.value, !existing.isCompleted, now, now, actor, uid)
+            require(rows > 0) { "Checklist item $itemId not found or not owned by current user" }
+        }
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
         dao.upsert(item.toEntity())
@@ -76,6 +80,9 @@ class ChecklistRepositoryImpl(
                     sortOrder = index,
                     createdAt = existingItem?.createdAt ?: now,
                     updatedAt = now,
+                    checkedBy = item.checkedBy ?: existingItem?.checkedBy,
+                    checkedAt = item.checkedAt ?: existingItem?.checkedAt,
+                    rowVersion = existingItem?.rowVersion ?: 1,
                 ),
             )
         }
@@ -88,6 +95,8 @@ private fun ChecklistItemEntity.toItem() = ChecklistItem(
     title = title,
     isCompleted = isCompleted,
     sortOrder = sortOrder,
+    checkedBy = checkedBy,
+    checkedAt = checkedAt,
 )
 
 private fun ChecklistItem.toEntity() = ChecklistItemEntity(
@@ -98,4 +107,7 @@ private fun ChecklistItem.toEntity() = ChecklistItemEntity(
     sortOrder = sortOrder,
     createdAt = 0L, // filled by repository
     updatedAt = 0L,
+    checkedBy = checkedBy,
+    checkedAt = checkedAt,
+    rowVersion = 1,
 )

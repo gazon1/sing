@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.domain.port
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDependency
@@ -48,7 +49,7 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     suspend fun softDelete(id: TaskId): Result<Unit>
     suspend fun toggleComplete(id: TaskId): Result<Unit>
     suspend fun togglePinned(id: TaskId): Result<Unit>
-    suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit>
+    suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor = TagEditActor.User): Result<Unit>
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
 
     /**
