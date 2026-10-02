@@ -4,8 +4,8 @@ package com.singularity.todo.feature.pomodoro
 
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.timetracking.TimeEntryKind
 import com.singularity.todo.feature.timetracking.data.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

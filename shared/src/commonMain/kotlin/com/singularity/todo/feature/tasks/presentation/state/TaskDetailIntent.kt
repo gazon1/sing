@@ -13,7 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.timetracking.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -186,11 +186,14 @@ sealed interface TaskDetailIntent : MviIntent {
             val endedAtMs: Long,
             val kind: TimeEntryKind,
             val note: String?,
-        ) : Domain, TaskTimeSlotIntent
+        ) : Domain,
+            TaskTimeSlotIntent
 
         /**
          * Update the displayed elapsed time (called by the UI ticker).
          */
-        data class Tick(val elapsedMs: Long) : Domain, TaskTimeSlotIntent
+        data class Tick(val elapsedMs: Long) :
+            Domain,
+            TaskTimeSlotIntent
     }
 }

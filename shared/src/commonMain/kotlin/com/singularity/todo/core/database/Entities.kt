@@ -357,7 +357,7 @@ data class TimeEntryEntity(
     @ColumnInfo("ended_at") val endedAt: Long?,
     /** Work | Recording. Recording sessions are excluded from progress aggregates. */
     @ColumnInfo("kind") val kind: String,
-    /** Timer | Manual | Pomodoro | AiProposal */
+    /** Timer | Manual | Pomodoro | AiProposal. */
     @ColumnInfo("source") val source: String,
     /** Free-text description of work done. */
     @ColumnInfo("note") val note: String?,

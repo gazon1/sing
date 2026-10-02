@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer

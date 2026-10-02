@@ -563,7 +563,7 @@ private fun AddExistingTaskPopup(
             tasks.take(10)
         } else {
             tasks.filter { it.title.contains(query, ignoreCase = true) }
-            .take(10)
+                .take(10)
         }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {

@@ -65,12 +65,7 @@ fun SubtasksSection(
 }
 
 @Composable
-private fun SubtaskRow(
-    task: Task,
-    onToggle: () -> Unit,
-    onDelete: () -> Unit,
-    onOpen: () -> Unit,
-) {
+private fun SubtaskRow(task: Task, onToggle: () -> Unit, onDelete: () -> Unit, onOpen: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

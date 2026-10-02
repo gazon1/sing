@@ -3,9 +3,9 @@ package com.singularity.todo.test.fakes
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.timetracking.TimeEntry
-import com.singularity.todo.feature.timetracking.TimeEntryKind
-import com.singularity.todo.feature.timetracking.TimeEntrySource
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,9 +17,7 @@ import kotlin.time.Instant
  * In-memory fake of [TimeTrackingRepository] for tests.
  * Does NOT enforce single-open-entry invariant (kept simple for tests).
  */
-class FakeTimeTrackingRepository(
-    private val clock: Clock,
-) : TimeTrackingRepository {
+class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingRepository {
 
     private val entries = MutableStateFlow<Map<String, TimeEntry>>(emptyMap())
 

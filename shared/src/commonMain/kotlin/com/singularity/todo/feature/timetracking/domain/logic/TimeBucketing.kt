@@ -3,10 +3,9 @@ package com.singularity.todo.feature.timetracking.domain.logic
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.timetracking.TimeEntry
-import com.singularity.todo.feature.timetracking.TimeEntryKind
-import com.singularity.todo.feature.timetracking.TimeEntrySource
-import kotlinx.datetime.Clock
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -14,7 +13,6 @@ import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant as KInstant
 
 // ─── Interval representation ──────────────────────────────────────────────────
 
@@ -37,9 +35,7 @@ data class TimeInterval(
 /**
  * An open (ongoing) interval with no end — the timer is still running.
  */
-data class OpenInterval(
-    val startMs: Long,
-)
+data class OpenInterval(val startMs: Long)
 
 // ─── Merge ───────────────────────────────────────────────────────────────────
 
@@ -98,11 +94,7 @@ fun mergeIntervals(entries: List<TimeEntry>): List<TimeInterval> {
  * Like [mergeIntervals] but includes an open (running) entry.
  * The open interval's end is taken as `nowMs` at call time.
  */
-fun mergeIntervalsWithOpen(
-    entries: List<TimeEntry>,
-    open: OpenInterval?,
-    nowMs: Long,
-): List<TimeInterval> {
+fun mergeIntervalsWithOpen(entries: List<TimeEntry>, open: OpenInterval?, nowMs: Long): List<TimeInterval> {
     if (entries.isEmpty() && open == null) return emptyList()
 
     val allIntervals = mutableListOf<TimeInterval>()
@@ -178,14 +170,14 @@ fun splitAtMidnight(interval: TimeInterval, zone: TimeZone): List<TimeInterval> 
  * @param totalWorkMs Total merged work time in milliseconds.
  * @param estimateMinutes The task's estimate, or null if not set.
  */
-data class TaskProgress(
-    val totalWorkMs: Long,
-    val estimateMinutes: Int?,
-) {
+data class TaskProgress(val totalWorkMs: Long, val estimateMinutes: Int?) {
     /** Progress as a fraction in 0.0..1.0, or null if no estimate. */
     val fraction: Double? get() = estimateMinutes?.let { est ->
-        if (est <= 0) null
-        else (totalWorkMs / 60_000.0 / est).coerceIn(0.0, 1.0)
+        if (est <= 0) {
+            null
+        } else {
+            (totalWorkMs / 60_000.0 / est).coerceIn(0.0, 1.0)
+        }
     }
 
     val isOverEstimate: Boolean get() = estimateMinutes != null && fraction != null && fraction!! > 1.0
@@ -202,14 +194,8 @@ data class TaskProgress(
  * @param entries All time entries for the task.
  * @param estimateMinutes The task's estimate, or null.
  * @param zone Time zone for midnight splitting.
- * @param nowMs Current time (used for open entries).
  */
-fun taskProgress(
-    entries: List<TimeEntry>,
-    estimateMinutes: Int?,
-    zone: TimeZone,
-    nowMs: Long,
-): TaskProgress {
+fun taskProgress(entries: List<TimeEntry>, estimateMinutes: Int?, zone: TimeZone): TaskProgress {
     val workEntries = entries.filter { it.kind == TimeEntryKind.Work }
     if (workEntries.isEmpty()) return TaskProgress(0, estimateMinutes)
 
@@ -227,16 +213,14 @@ fun taskProgress(
  * @param zone Time zone for computing the date of each entry.
  * @return Map from date string to entries on that day.
  */
-fun groupByDay(entries: List<TimeEntry>, zone: TimeZone): Map<String, List<TimeEntry>> {
-    return entries
-        .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
-        .groupBy { entry ->
-            entry.startedAt
-                .toLocalDateTime(zone)
-                .date
-                .toString()
-        }
-}
+fun groupByDay(entries: List<TimeEntry>, zone: TimeZone): Map<String, List<TimeEntry>> = entries
+    .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
+    .groupBy { entry ->
+        entry.startedAt
+            .toLocalDateTime(zone)
+            .date
+            .toString()
+    }
 
 /**
  * Groups time entries by project.
@@ -245,11 +229,7 @@ fun groupByDay(entries: List<TimeEntry>, zone: TimeZone): Map<String, List<TimeE
  * @param taskProjectMap Map from taskId to projectId (or null for no project).
  * @return Map from projectId (or null for no project) to entries.
  */
-fun groupByProject(
-    entries: List<TimeEntry>,
-    taskProjectMap: Map<String, String?>,
-): Map<String?, List<TimeEntry>> {
-    return entries
+fun groupByProject(entries: List<TimeEntry>, taskProjectMap: Map<String, String?>): Map<String?, List<TimeEntry>> =
+    entries
         .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
         .groupBy { entry -> taskProjectMap[entry.taskId.value] }
-}

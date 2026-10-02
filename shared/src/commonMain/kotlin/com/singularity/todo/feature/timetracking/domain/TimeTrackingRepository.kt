@@ -3,9 +3,9 @@ package com.singularity.todo.feature.timetracking.domain
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.timetracking.TimeEntry
-import com.singularity.todo.feature.timetracking.TimeEntryKind
-import com.singularity.todo.feature.timetracking.TimeEntrySource
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -34,7 +34,12 @@ interface TimeTrackingRepository {
      *
      * @return the id of the newly created entry.
      */
-    suspend fun startEntry(taskId: TaskId, userId: UserId, kind: TimeEntryKind, source: TimeEntrySource): Result<TimeEntryId>
+    suspend fun startEntry(
+        taskId: TaskId,
+        userId: UserId,
+        kind: TimeEntryKind,
+        source: TimeEntrySource,
+    ): Result<TimeEntryId>
 
     /**
      * Stop the currently open entry for [userId], setting its [endedAt].

@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.timetracking.domain.model
 
-import com.singularity.todo.feature.timetracking.TimeEntry
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
 
 /**
  * UI state for the task time-tracking slot.
@@ -21,18 +21,12 @@ sealed interface TaskTimeSlotState {
      * @param entry The running time entry.
      * @param elapsedMs milliseconds elapsed since [entry][TimeEntry.startedAt], updated by the UI.
      */
-    data class Running(
-        val entry: TimeEntry,
-        val elapsedMs: Long,
-    ) : TaskTimeSlotState
+    data class Running(val entry: TimeEntry, val elapsedMs: Long) : TaskTimeSlotState
 
     /**
      * Task has time entries but no active session.
      * @param entries All time entries for this task (newest first).
      * @param totalWorkMs Total work milliseconds across all completed entries.
      */
-    data class Loaded(
-        val entries: List<TimeEntry>,
-        val totalWorkMs: Long,
-    ) : TaskTimeSlotState
+    data class Loaded(val entries: List<TimeEntry>, val totalWorkMs: Long) : TaskTimeSlotState
 }

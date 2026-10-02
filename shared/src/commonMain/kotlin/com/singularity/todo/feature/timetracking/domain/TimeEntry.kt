@@ -1,7 +1,8 @@
-package com.singularity.todo.feature.timetracking
+package com.singularity.todo.feature.timetracking.domain
 
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
@@ -9,7 +10,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
-import com.singularity.todo.core.serialization.StableJson
 import kotlin.time.Instant
 
 /**
@@ -21,6 +21,7 @@ import kotlin.time.Instant
 enum class TimeEntryKind {
     /** Counts toward task progress. */
     Work,
+
     /** Audio/video — does not count as work. */
     Recording,
 }

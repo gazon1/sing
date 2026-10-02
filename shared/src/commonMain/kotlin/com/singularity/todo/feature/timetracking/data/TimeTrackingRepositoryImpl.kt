@@ -5,13 +5,12 @@ import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.timetracking.TimeEntry
-import com.singularity.todo.feature.timetracking.TimeEntryKind
-import com.singularity.todo.feature.timetracking.TimeEntrySource
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 /**
  * Room-backed implementation of [TimeTrackingRepository].
@@ -31,8 +30,7 @@ class TimeTrackingRepositoryImpl(
     override fun watchOpenEntry(userId: UserId): Flow<TimeEntry?> =
         dao.watchOpenEntry(userId.value).map { it?.toDomain() }
 
-    override suspend fun getOpenEntry(userId: UserId): TimeEntry? =
-        dao.getOpenEntry(userId.value)?.toDomain()
+    override suspend fun getOpenEntry(userId: UserId): TimeEntry? = dao.getOpenEntry(userId.value)?.toDomain()
 
     override suspend fun startEntry(
         taskId: TaskId,

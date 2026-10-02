@@ -14,10 +14,7 @@ sealed interface TaskDetailExtras {
     data object Unresolved : TaskDetailExtras
 
     /** Every partition resolved. */
-    data class Ready(
-        val timeSlotState: TaskTimeSlotState,
-        val firstRun: FirstRun,
-    ) : TaskDetailExtras
+    data class Ready(val timeSlotState: TaskTimeSlotState, val firstRun: FirstRun) : TaskDetailExtras
 }
 
 /**

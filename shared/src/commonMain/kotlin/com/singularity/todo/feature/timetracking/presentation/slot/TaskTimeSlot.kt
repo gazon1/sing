@@ -6,8 +6,8 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
-import com.singularity.todo.feature.timetracking.TimeEntryKind
-import com.singularity.todo.feature.timetracking.TimeEntrySource
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -60,7 +59,9 @@ class TaskTimeSlot(
                             entry = openEntry,
                             elapsedMs = 0L,
                         )
+
                         workEntries.isEmpty() -> TaskTimeSlotState.Idle
+
                         else -> TaskTimeSlotState.Loaded(
                             entries = workEntries.sortedByDescending { it.startedAt },
                             totalWorkMs = totalMs,
@@ -73,9 +74,13 @@ class TaskTimeSlot(
     override fun onIntent(intent: TaskTimeSlotIntent) {
         when (intent) {
             is TaskTimeSlotIntent.Start -> start()
+
             is TaskTimeSlotIntent.Stop -> stop()
+
             is TaskTimeSlotIntent.CreateManual -> createManual(intent)
+
             is TaskTimeSlotIntent.Tick -> tick(intent.elapsedMs)
+
             // Unknown variant —silently ignore to survive future intent additions
             else -> { /* no-op */ }
         }

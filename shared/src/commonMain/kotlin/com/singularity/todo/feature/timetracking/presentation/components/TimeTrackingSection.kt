@@ -19,7 +19,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,10 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
-import com.singularity.todo.feature.timetracking.TimeEntry
-import com.singularity.todo.feature.timetracking.presentation.components.formatElapsed
-import com.singularity.todo.feature.timetracking.presentation.components.formatDuration
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
+import com.singularity.todo.feature.timetracking.presentation.components.formatDuration
+import com.singularity.todo.feature.timetracking.presentation.components.formatElapsed
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -46,6 +45,7 @@ import java.util.Locale
  * @param onAddManual Called when the user taps "Add entry".
  */
 @Composable
+@Suppress("LongMethod") // Task time display with summary, timer, and entry list
 fun TimeTrackingSection(
     state: TaskTimeSlotState,
     onStart: () -> Unit,

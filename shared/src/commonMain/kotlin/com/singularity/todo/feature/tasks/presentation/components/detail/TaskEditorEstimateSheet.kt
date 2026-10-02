@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,11 +28,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TaskEditorEstimateSheet(
-    selected: Int?,
-    onSelect: (Int?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun TaskEditorEstimateSheet(selected: Int?, onSelect: (Int?) -> Unit, modifier: Modifier = Modifier) {
     val presets = listOf(5, 15, 30, 60, 120)
     var customText by remember { mutableStateOf("") }
 

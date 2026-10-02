@@ -204,11 +204,9 @@ class TaskDetailCoordinator(
             }
         }
 
-    private fun resolveFirstRun(
-        childrenState: TaskChildrenState,
-        task: Task?,
-    ): FirstRun = when {
+    private fun resolveFirstRun(childrenState: TaskChildrenState, task: Task?): FirstRun = when {
         task == null -> FirstRun.Established
+
         else -> FirstRunResolver.resolve(
             hasBody = !task.description.isNullOrBlank(),
             checklistCount = childrenState.checklist.size,

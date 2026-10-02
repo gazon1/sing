@@ -30,14 +30,16 @@ interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE user_id = :userId AND ended_at IS NULL AND deleted_at IS NULL LIMIT 1")
     suspend fun getOpenEntry(userId: String): TimeEntryEntity?
 
-    @Query("""
+    @Query(
+        """
         SELECT * FROM time_entries
         WHERE user_id = :userId
           AND started_at >= :startMs
           AND started_at < :endMs
           AND deleted_at IS NULL
         ORDER BY started_at DESC
-    """)
+        """,
+    )
     fun watchForUserInRange(userId: String, startMs: Long, endMs: Long): Flow<List<TimeEntryEntity>>
 
     // ── Mutations ─────────────────────────────────────────────────────────────
@@ -51,7 +53,9 @@ interface TimeEntryDao {
     @Query("UPDATE time_entries SET note = :note, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
     suspend fun updateNote(id: String, note: String?, updatedAt: Long, userId: String): Int
 
-    @Query("UPDATE time_entries SET deleted_at = :deletedAt, updated_at = :deletedAt WHERE id = :id AND user_id = :userId")
+    @Query(
+        "UPDATE time_entries SET deleted_at = :deletedAt, updated_at = :deletedAt WHERE id = :id AND user_id = :userId",
+    )
     suspend fun softDelete(id: String, deletedAt: Long, userId: String): Int
 
     @Query("DELETE FROM time_entries WHERE id = :id AND user_id = :userId")

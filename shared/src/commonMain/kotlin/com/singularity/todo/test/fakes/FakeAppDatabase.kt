@@ -80,6 +80,8 @@ class FakeAppDatabase : AppDatabase() {
     private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
     private val _tagGroups = MutableStateFlow<Map<String, TagGroupEntity>>(emptyMap())
     private val _projectTagGroups = MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>(emptyList())
+
+    @Suppress("BackingPropertyNaming") // Internal store, no matching public property
     private val _timeEntries = MutableStateFlow<Map<String, TimeEntryEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
@@ -1399,8 +1401,9 @@ private class FakeProjectInheritedTagGroupDao(
 }
 
 private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, TimeEntryEntity>>) : TimeEntryDao {
-    override fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>> =
-        store.map { map -> map.values.filter { it.taskId == taskId && it.deletedAt == null }.sortedByDescending { it.startedAt } }
+    override fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>> = store.map { map ->
+        map.values.filter { it.taskId == taskId && it.deletedAt == null }.sortedByDescending { it.startedAt }
+    }
 
     override fun watchOpenEntry(userId: String): Flow<TimeEntryEntity?> =
         store.map { map -> map.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null } }
