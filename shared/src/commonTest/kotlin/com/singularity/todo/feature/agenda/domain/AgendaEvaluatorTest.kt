@@ -292,8 +292,13 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("Second", order = 1, selector = Selector.DateBucket(RelativeBucket.Tomorrow)),
-                Section("First", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
+                Section(
+                    id = "second",
+                    name = "Second",
+                    order = 1,
+                    selector = Selector.DateBucket(RelativeBucket.Tomorrow),
+                ),
+                Section(id = "first", name = "First", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
             ),
         )
         val tasks = listOf(
@@ -311,8 +316,13 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("All", order = 0, selector = Selector.Anything, discard = true), // discard removes matched tasks
-                Section("Only Overdue", order = 1, selector = Selector.DateBucket(RelativeBucket.Overdue)),
+                Section(id = "all", name = "All", order = 0, selector = Selector.Anything, discard = true), // discard removes matched tasks
+                Section(
+                    id = "only-overdue",
+                    name = "Only Overdue",
+                    order = 1,
+                    selector = Selector.DateBucket(RelativeBucket.Overdue),
+                ),
             ),
         )
         val tasks = listOf(
@@ -332,7 +342,12 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("Overdue", order = 0, selector = Selector.DateBucket(RelativeBucket.Overdue)),
+                Section(
+                    id = "overdue",
+                    name = "Overdue",
+                    order = 0,
+                    selector = Selector.DateBucket(RelativeBucket.Overdue),
+                ),
             ),
         )
         val task = makeTask("1", "Late!", dueDate = today.minus(1, DateTimeUnit.DAY))
@@ -346,8 +361,18 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("Empty", order = 0, selector = Selector.DateBucket(RelativeBucket.Tomorrow)),
-                Section("Has Today", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
+                Section(
+                    id = "empty",
+                    name = "Empty",
+                    order = 0,
+                    selector = Selector.DateBucket(RelativeBucket.Tomorrow),
+                ),
+                Section(
+                    id = "has-today",
+                    name = "Has Today",
+                    order = 1,
+                    selector = Selector.DateBucket(RelativeBucket.Today),
+                ),
             ),
         )
         val tasks = listOf(makeTask("1", "Today task", dueDate = today))
@@ -364,7 +389,7 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("All", order = 0, selector = Selector.Anything),
+                Section(id = "all", name = "All", order = 0, selector = Selector.Anything),
             ),
         )
         val base = makeTask("base", "Same title", dueDate = today)
@@ -396,7 +421,7 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("All", order = 0, selector = Selector.Anything),
+                Section(id = "all", name = "All", order = 0, selector = Selector.Anything),
             ),
         )
         val task = makeTask("1", "One task", dueDate = today)
@@ -410,7 +435,7 @@ class AgendaEvaluatorTest {
         val definition = AgendaDefinition(
             title = "Test",
             sections = listOf(
-                Section("Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
+                Section(id = "today", name = "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
             ),
         )
         val tasks = listOf(

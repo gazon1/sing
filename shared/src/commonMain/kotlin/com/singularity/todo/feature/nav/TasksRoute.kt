@@ -28,5 +28,5 @@ sealed interface TasksRoute : AppNavKey {
     data class Detail(val taskId: TaskId) : TasksRoute
 
     @Serializable
-    data class Create(val initialDueDate: LocalDate? = null) : TasksRoute
+    data class Create(val initialDueDate: LocalDate? = null, val sectionPrefillKey: String? = null) : TasksRoute
 }

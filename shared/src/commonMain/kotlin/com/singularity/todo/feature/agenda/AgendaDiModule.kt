@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -47,6 +48,7 @@ fun agendaModule(): Module = module {
         AgendaViewModel(
             deps = AgendaDeps(
                 taskRepo = get<TaskRepository>(),
+                draftStore = get<DraftStore>(),
                 logger = Logger.withTag("Agenda"),
             ),
             definition = definition,

@@ -69,6 +69,7 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
         endedAt: Long,
         kind: TimeEntryKind,
         note: String?,
+        source: TimeEntrySource,
     ): Result<TimeEntryId> {
         val id = TimeEntryId.generate()
         val now = clock.now()
@@ -79,7 +80,7 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
             startedAt = Instant.fromEpochMilliseconds(startedAt),
             endedAt = Instant.fromEpochMilliseconds(endedAt),
             kind = kind,
-            source = TimeEntrySource.Manual,
+            source = source,
             note = note,
             createdAt = now,
             updatedAt = now,

@@ -46,6 +46,7 @@ object AgendaEvaluator {
                 }
 
                 RenderedSection(
+                    id = section.effectiveId,
                     name = section.name,
                     tasks = matched.map { task ->
                         AgendaRowItem(
@@ -55,6 +56,7 @@ object AgendaEvaluator {
                         )
                     },
                     badge = matched.size.takeIf { it > 0 },
+                    prefill = section.prefill,
                 )
             }
     }

@@ -17,12 +17,20 @@ sealed interface AgendaUiState {
 /**
  * A section that has been evaluated against a task list and is ready to render.
  *
+ * @param id Section identifier, from [Section.id].
  * @param name Section display name (from [Section.name]).
  * @param tasks The tasks matching the section's [Selector], already filtered by
  *        [Section.discard] semantics from previous sections.
  * @param badge Optional count badge shown in the section header (e.g. "12" for overdue).
+ * @param prefill Pre-fill data for the '+' create button, from [Section.prefill].
  */
-data class RenderedSection(val name: String, val tasks: List<AgendaRowItem>, val badge: Int? = null)
+data class RenderedSection(
+    val id: String,
+    val name: String,
+    val tasks: List<AgendaRowItem>,
+    val badge: Int? = null,
+    val prefill: SectionPrefill? = null,
+)
 
 /**
  * A single task row within a rendered [RenderedSection].

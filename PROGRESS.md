@@ -193,8 +193,63 @@ Time entries + notes in one chronological stream
 **Findings for ADR:**
 - `internal` functions in Compose UI modules can't be imported across feature boundaries — consider extracting shared UI helpers into `core/ui/` to avoid duplication
 
-### Phase 5 — Insights tab (MR-5) ⏳ NOT STARTED
-### Phase 6 — Agenda section headers '+' (MR-6) ⏳ NOT STARTED
+### Phase 5 — Insights tab (MR-5) ✅ DONE
+`da77c365` (Insights tab with time bucketing)
+"Time" tab in Statistics with stacked bars by day and project breakdown
+
+**What was done:**
+- `InsightsViewModel`: combines `timeTrackingRepo.watchEntriesInRange`, `taskRepository.observeByFilter`, `projectsRepo.observeProjectsWithCounts`; uses `mergeIntervalsWithOpen` + `splitAtMidnight` for accurate day bucketing
+- Added `watchEntriesInRange` to `TimeTrackingRepository` interface (existed in DAO and impl but not in domain interface)
+- `DayInsightsBucket` and `bucketByDay` added to `TimeBucketing.kt`; `bucketByProject` added for project-level aggregation
+- `InsightsUiState`, `ProjectInsightsBucket` data classes; `InsightsViewModel` wired in `TasksDiModule`
+- `StatisticsScreen` refactored: `TasksTabContent` extracted from main screen, `PrimaryTabRow` with Tasks/Time tabs, `InsightsStackedBarChart` and `ProjectTimeRow` composables
+- `TimeTrackingRepositoryImpl` had wrong method names (`watchForTask`/`watchForUserInRange` vs interface's `watchEntries`/`watchEntriesInRange`) — fixed
+- `FakeTimeTrackingRepository` updated to implement the new interface method
+- Duplicate `TimeTrackingRepository.kt` in `data/` package caused interface mismatch — removed `data/` copy, impl now imports `domain.TimeTrackingRepository`
+
+**What went well:**
+- Adding the interface method first and then wiring through was clean
+- Tab architecture follows existing patterns (`PrimaryTabRow`, two content functions)
+
+**What didn't go well:**
+- ktlint auto-correct badly mangled `FakeRepositories.kt` indentation cascade (927-line diff) — had to restore from HEAD
+- The `data/TimeTrackingRepository.kt` duplicate file was a pre-existing issue
+
+**Critical fixes:**
+- `watchEntriesInRange` in impl was named `watchForUserInRange` — added interface method and renamed impl
+- `ProjectWithCountRow.project.id` is a `ProjectId` value class — needed `.value` for `String` map key
+
+**Findings for ADR:**
+- Duplicate interface files (`data/` vs `domain/`) cause subtle type resolution bugs — worth an architecture rule
+### Phase 6 — Agenda section headers '+' (MR-6) ✅ DONE
+**Commits:** 1 (this merge commit)
+
+**What was done:**
+- `Section.id` (nullable, with `effectiveId` derivation) + `SectionPrefill` + `SectionEditorCard` prefill editor
+- `AgendaIntent.CreateInSection` + `AgendaUiEvent.CreateInSection`
+- `AgendaViewModel.handleCreateInSection`: saves `TaskDraft` under `section_create_draft_$sectionId` key
+- `AgendaNavigator.openCreateInSection(sectionId)`: navigates to `TasksGraph(TasksStartRoute.Create(sectionPrefillKey=sectionId))`
+- `TasksRoute.Create` gains `sectionPrefillKey: String?` parameter
+- `TasksNavGraph.android.kt` + `tasksEntryProvider()` pass `sectionPrefillKey` through to `TaskCreateScreen`
+- `TaskCreateScreen` + `TaskCreateViewModel` accept and restore from section draft key
+- `AgendaContent`: '+' button on section headers with `Icons.Default.Add`
+
+**What went well:**
+- Navigation wiring was systematic — followed the established `AppDestination → TasksNavGraph → TasksRoute` pattern cleanly
+- `Section.id` nullable + `effectiveId` computed property cleanly solves the backwards-compat problem
+
+**What didn't go well:**
+- Agent produced broken MR-7 changes that polluted the branch and had to be manually cleaned up
+- `Section.id` non-nullable was added before verifying backwards-compat impact — caused a runtime crash risk for saved agenda views
+
+**Critical fixes:**
+- `Section.id` changed to `String? = null` with `effectiveId: String get() = id ?: name.lowercase()` — fixes saved-agenda deserialization
+- Agent's `proposals/` package deleted (incomplete), `AppDatabase` + `PlatformModule.jvm.kt` reverted
+- `FakeTimeTrackingRepository.createManualEntry` updated to match `TimeTrackingRepository` interface (added `source` parameter)
+- `AgendaEvaluator` + `AgendaViewModel` updated to use `effectiveId` instead of `id`
+
+**Findings for ADR:**
+- `2026-10-02-mr6-mr7-breakage-post-mortem.md` — documents the full post-mortem including agent rules and MR-0-B prerequisite for MR-7
 ### Phase 7 — AI proposal data layer (MR-7) ⏳ NOT STARTED
 ### Phase 8 — Checklist sovereignty + tag suppression (MR-8) ⏳ NOT STARTED
 ### Phase 9 — ProposalCard + AI redirect (MR-9) ⏳ NOT STARTED

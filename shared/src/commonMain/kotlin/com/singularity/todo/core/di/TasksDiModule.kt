@@ -150,7 +150,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
+    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?, sectionPrefillKey: String?) ->
         TaskCreateViewModel(
             deps = TaskCreateDeps(
                 createFromDraft = get(),
@@ -158,6 +158,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 draftStore = get(),
             ),
             initialDueDate = initialDueDate,
+            sectionPrefillKey = sectionPrefillKey,
         )
     }
 

@@ -63,6 +63,7 @@ interface TimeTrackingRepository {
         endedAt: Long,
         kind: TimeEntryKind,
         note: String?,
+        source: TimeEntrySource = TimeEntrySource.Manual,
     ): Result<TimeEntryId>
 
     /**

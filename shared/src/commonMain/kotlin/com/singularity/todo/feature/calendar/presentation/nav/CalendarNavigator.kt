@@ -43,7 +43,7 @@ open class CalendarNavigator(
     open fun openCreateTask(initialDueDate: LocalDate) {
         onExitGraph(
             AppDestination.TasksGraph(
-                start = AppDestination.TasksStartRoute.Create,
+                start = AppDestination.TasksStartRoute.Create(),
                 initialDueDate = initialDueDate,
             ),
         )

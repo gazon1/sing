@@ -95,12 +95,14 @@ class SavedAgendaViewModelTest {
 
     @Test
     fun draftStateReorderSectionsSetsDirty() {
-        val original = listOf(Section("A", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)))
+        val original = listOf(Section("a", "A", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)))
         val draft = SavedAgendaDraftState()
         draft.seed(Draft("Test", original, "Test", original, initialized = true))
         assertFalse(draft.state.isDirty)
 
-        val reordered = listOf(Section("A", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)))
+        val reordered = listOf(
+            Section(id = "a", name = "A", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
+        )
         draft.reorderSections(reordered)
         assertTrue(draft.state.isDirty)
         assertEquals(reordered, draft.state.sections)
@@ -187,7 +189,9 @@ class SavedAgendaViewModelTest {
         val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
         advanceUntilIdle()
 
-        val reordered = listOf(Section("Today", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)))
+        val reordered = listOf(
+            Section("today", "Today", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
+        )
         vm.onIntent(SavedAgendaIntent.SectionsReordered(reordered))
 
         val state = vm.state.value
@@ -250,7 +254,9 @@ class SavedAgendaViewModelTest {
     fun createModeSeedsDraftFromSeed() = runTest {
         val seed = AgendaDefinition(
             title = "Fresh View",
-            sections = listOf(Section("Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today))),
+            sections = listOf(
+                Section("today", "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
+            ),
         )
 
         val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
@@ -326,7 +332,7 @@ class SavedAgendaViewModelTest {
 
     @Test
     fun markSavedResetsIsDirtyToFalse() {
-        val sections = listOf(Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)))
+        val sections = listOf(Section("today", "Today", 0, Selector.DateBucket(RelativeBucket.Today)))
         val draft = SavedAgendaDraftState()
         draft.seed(Draft("Name", sections, "Name", sections, initialized = true))
         assertFalse(draft.state.isDirty)
@@ -344,12 +350,12 @@ class SavedAgendaViewModelTest {
 
     @Test
     fun markSavedClearsDirtyAfterSectionChange() {
-        val sections = listOf(Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)))
+        val sections = listOf(Section("today", "Today", 0, Selector.DateBucket(RelativeBucket.Today)))
         val draft = SavedAgendaDraftState()
         draft.seed(Draft("Name", sections, "Name", sections, initialized = true))
         assertFalse(draft.state.isDirty)
 
-        draft.reorderSections(listOf(Section("Today", 1, Selector.DateBucket(RelativeBucket.Today))))
+        draft.reorderSections(listOf(Section("today", "Today", 1, Selector.DateBucket(RelativeBucket.Today))))
         assertTrue(draft.state.isDirty)
 
         draft.markSaved()

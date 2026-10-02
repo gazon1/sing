@@ -36,14 +36,14 @@ internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination
                     label = "Add task",
                     onClick = {
                         val today = todayInSystemZone()
-                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create, today))
+                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
                     },
                 )
 
                 AgendaStartRoute.Inbox -> FabAction(
                     label = "Add task",
                     onClick = {
-                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
                     },
                 )
 

@@ -162,7 +162,7 @@ sealed interface AppDestination : AppNavKey {
         data object Today : TasksStartRoute
 
         @Serializable
-        data object Create : TasksStartRoute
+        data class Create(val sectionPrefillKey: String? = null) : TasksStartRoute
 
         @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
         @Serializable

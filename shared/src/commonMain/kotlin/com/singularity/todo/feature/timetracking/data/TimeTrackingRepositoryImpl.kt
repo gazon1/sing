@@ -78,6 +78,7 @@ class TimeTrackingRepositoryImpl(
         endedAt: Long,
         kind: TimeEntryKind,
         note: String?,
+        source: TimeEntrySource,
     ): Result<TimeEntryId> = runCatching {
         require(endedAt > startedAt) { "endedAt ($endedAt) must be after startedAt ($startedAt)" }
 
@@ -90,7 +91,7 @@ class TimeTrackingRepositoryImpl(
             startedAt = startedAt,
             endedAt = endedAt,
             kind = kind.name,
-            source = TimeEntrySource.Manual.name,
+            source = source.name,
             note = note,
             createdAt = now,
             updatedAt = now,

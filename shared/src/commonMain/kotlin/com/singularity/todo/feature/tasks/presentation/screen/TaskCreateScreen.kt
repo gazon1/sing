@@ -42,8 +42,8 @@ import org.koin.core.parameter.parametersOf
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun TaskCreateScreen(initialDueDate: LocalDate?) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate) }
+fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = null) {
+    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, sectionPrefillKey) }
     val navigator = LocalTasksNavigator.current
 
     val state by vm.state.collectAsStateWithLifecycle()

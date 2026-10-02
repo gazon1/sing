@@ -9,6 +9,8 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
+import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -99,6 +101,29 @@ class AgendaViewModel(
             is AgendaIntent.TaskExpandClicked -> with(intent) {
                 scope.launch { emit(AgendaUiEvent.ExpandTask(taskId)) }
             }
+
+            is AgendaIntent.CreateInSection -> with(intent) {
+                scope.launch { handleCreateInSection(intent.sectionId) }
+            }
         }
+    }
+
+    private suspend fun handleCreateInSection(sectionId: String) {
+        // Find the section definition
+        val section = definition.sections.find { it.effectiveId == sectionId } ?: return
+        val sectionPrefill = section.prefill ?: return
+
+        // Build a TaskDraft from the section prefill
+        val draft = TaskDraft(
+            title = sectionPrefill.title ?: "",
+            dueDate = sectionPrefill.dueDate?.let { DueDateOption.Custom(it, it.toString()) }
+                ?: DueDateOption.None,
+        )
+
+        // Save to DraftStore under section-specific key
+        val key = "section_create_draft_$sectionId"
+        deps.draftStore.save(key, draft, TaskDraft.serializer())
+
+        emit(AgendaUiEvent.CreateInSection(sectionId))
     }
 }

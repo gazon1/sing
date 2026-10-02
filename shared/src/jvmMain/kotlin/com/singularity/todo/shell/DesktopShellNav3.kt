@@ -103,7 +103,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                 "File",
                 children = buildMenuNodes {
                     item("new_task", "New Task", shortcut = "Ctrl+N") {
-                        navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create))
+                        navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create()))
                     }
                     item("settings", "Settings…", shortcut = "Ctrl+,") {
                         navigator.navigate(AppDestination.Settings)
