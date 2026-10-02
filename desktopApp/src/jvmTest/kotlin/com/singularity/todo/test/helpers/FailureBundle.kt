@@ -114,9 +114,17 @@ data class FailureBundle(
             )
 
             // Screenshot — captureToImage() on SkikoComposeUiTest is available in 1.12.0.
-            // captureToImage blocks on EventQueue.invokeAndWait, so a failure that left an
-            // endless redraw loop running never releases it — a coroutine timeout cannot
-            // cancel a blocking EDT wait. Skippable via -Dsingularity.test.screenshot=false.
+            //
+            // captureToImage blocks on EventQueue.invokeAndWait, so a failure that left
+            // an endless redraw loop running never releases it, and a coroutine timeout
+            // cannot cancel a blocking EDT wait — the diagnostic path itself hung and
+            // masked the real failure. Freezing the frame clock first breaks BOTH known
+            // hang modes: recomposition and animation invalidations are delivered as
+            // frame-clock callbacks, and a frozen clock stops scheduling them, so the
+            // composition reaches "idle" immediately and the capture proceeds. The
+            // screenshot shows the last composed frame — exactly what diagnosis needs.
+            // -Dsingularity.test.screenshot=false still skips the capture entirely.
+            runCatching { testInstance.mainClock.autoAdvance = false }
             if (System.getProperty("singularity.test.screenshot") != "false") {
                 runCatching {
                     val bitmap = testInstance.captureToImage()

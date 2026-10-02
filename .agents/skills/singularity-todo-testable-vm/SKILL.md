@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-testable-vm
-description: Testable ViewModel pattern for Singularity Todo KMP app. Use when writing a new ViewModel, when a VM has hard-to-test combine/stateIn logic, or when existing VM tests are flaky. Covers the MviViewModel base class (preferred), IntentActions inline wrapper, DraftState pattern, and the canonical scope-as-default-param pattern. Documents the BAN list (stateIn, viewModelScope, runBlocking).
+description: Testable ViewModel pattern for Singularity Todo KMP app. Use when writing a new ViewModel, when a VM has hard-to-test combine/stateIn logic, when existing VM tests are flaky, or when a VM screen is stuck on Loading (init-order pitfall). Covers the MviViewModel base class (preferred), IntentActions inline wrapper, DraftState pattern, and the canonical scope-as-default-param pattern. Documents the BAN list (stateIn, viewModelScope, runBlocking).
 ---
 
 # Testable ViewModel Pattern
@@ -174,6 +174,33 @@ This replaces the old pattern:
 }
 val actions = TagsActions(viewModel::onIntent)
 ```
+
+---
+
+## Critical Pitfall: a property read from `init` must be declared BEFORE it
+
+Kotlin initialises properties in declaration order, and an `init` block sees a
+property declared AFTER it as `null` — no compile error, no intrinsic check inside
+the same class, because the JVM field is simply not assigned yet. If that `init`
+launches a coroutine reading the property, the coroutine dies before its first
+emission: **no error state, no event, just a screen on its loading shell forever**.
+The concrete instance: `TaskDetailCoordinator` declared `extrasState` after the
+`init` that combines over it — the combine died with
+`NullPointerException: parameter f8 is null` on a background dispatcher.
+
+```kotlin
+class MyViewModel(...) : MviViewModel<...>(...) {
+    private val extras = buildExtras()   // ✅ BEFORE init — init reads it
+
+    init { scope.launch { combine(extras, ...).collect { setState(it) } } }
+    // private val extras = buildExtras()  // ❌ AFTER init — read as null there
+}
+```
+
+`MviViewModel`-level tests never catch this (the property is only read from the
+init-launched combine); a graph-resolved construction does. The guard is
+`TaskDetailCoordinatorGraphTest` — build the VM from the real DI graph and assert
+the state leaves `Loading` in real time. ADR: `2026-10-03-merge-regression-fixes.md`.
 
 ---
 

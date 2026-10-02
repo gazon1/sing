@@ -92,10 +92,13 @@ class KoinGraphValidationTest {
         single { get<AppDatabase>().llmUsageDao() }
         single { get<AppDatabase>().profileDao() }
         single { get<AppDatabase>().agendaViewDao() }
+        single { get<AppDatabase>().calendarSyncTaskMapDao() }
+        single { get<AppDatabase>().savedSearchDao() }
         single { get<AppDatabase>().timeEntryDao() }
+        single { get<AppDatabase>().proposalDao() }
+        single { get<AppDatabase>().proposalItemDao() }
         single { get<AppDatabase>().tagGroupDao() }
         single { get<AppDatabase>().projectInheritedTagGroupDao() }
-        single { get<AppDatabase>().savedSearchDao() }
 
         // ─── DataStore ─────────────────────────────────────────────────
         val userHome = System.getProperty("user.home")

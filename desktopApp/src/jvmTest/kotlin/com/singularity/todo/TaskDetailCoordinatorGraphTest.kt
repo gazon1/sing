@@ -62,11 +62,13 @@ class TaskDetailCoordinatorGraphTest {
                     deps = graphDeps(koin),
                     taskId = TaskId("graph-test-task-0"),
                 )
-                // The combine legitimately emits Error("Not found") once while
-                // taskFlow is still on its seeded null — the repository emission
-                // that resolves the task lands a moment later. Waiting for Loaded
-                // (not "any terminal state") is the actual contract under test: a
-                // dead combine would leave Loading forever and time out here.
+                // Waiting for Loaded (not "any terminal state") is the contract
+                // under test: a combine that dies before its first emission would
+                // leave Loading forever and time out here. Before the taskLoad
+                // partition, the combine ALSO flashed Error("Not found") on its
+                // first emission while taskFlow was still on its seeded null —
+                // this wait pins that the screen goes Loading → Loaded, never
+                // through Error, on the happy path.
                 val loaded = withTimeout(10.seconds) {
                     coordinator.state.first { it is TaskDetailUiState.Loaded }
                         as TaskDetailUiState.Loaded

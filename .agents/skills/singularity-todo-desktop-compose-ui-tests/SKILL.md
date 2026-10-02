@@ -1,7 +1,7 @@
 ---
 name: singularity-todo-desktop-compose-ui-tests
 status: active
-description: Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. Use when adding a flow test that mirrors a Maestro flow, when a desktop test fails on a missing node or an ambiguous selector, or when a test needs seeded data. Covers the runDesktopAppTest harness, the in-memory platform module, the Koin load order, and the shell's contentDescription selectors.
+description: Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. Use when adding a flow test that mirrors a Maestro flow, when a desktop test fails on a missing node or an ambiguous selector, when a test HANGS or the VM never leaves Loading, or when a test needs seeded data. Covers the runDesktopAppTest harness, the failure diagnostics bundle, the in-memory platform module (DAO parity guard), the Koin load order, and the shell's contentDescription selectors.
 ---
 
 # Desktop Compose UI tests
@@ -151,11 +151,25 @@ one it was written in.
 
 ## Debugging
 
-**When a test fails**, `runDesktopAppTest` already attaches the semantics tree
-to the exception, so it rides along in the test report. Nothing to enable.
+**When a test fails**, the harness bundles diagnostics automatically into
+`desktopApp/build/diagnostics/<TestClass>/attempt-N/`: `screenshot.png` (the last
+composed frame), `db-state.txt` (FakeAppDatabase dump), `kermit.log`. Read those
+before reading source — a screenshot answering "what was actually on screen" in one
+glance beats an hour of source review. The semantics tree also rides on the failure
+itself as a suppressed exception, so it is in the test XML too.
 
-**When a test passes but you want to see what is on screen**, two opt-in
-switches, both forwarded into the test JVM by `desktopApp/build.gradle.kts`:
+Two contracts baked into the bundle:
+
+- The frame clock is frozen (`mainClock.autoAdvance = false`) before the screenshot.
+  A never-idle composition — an indeterminate spinner on an unresolved state, a Koin
+  error retried per frame — would otherwise hang `captureToImage` forever (it blocks
+  on `EventQueue.invokeAndWait`, which no coroutine timeout can cancel). The captured
+  frame may be mid-transition; it is diagnostic evidence, not a visual baseline.
+- `-Dsingularity.test.screenshot=false` skips the capture entirely.
+
+**Opt-in switches** (forwarded into the test JVM via `providers.systemProperty` —
+provider reads are configuration-cache inputs, so they work on cache reuse where a
+plain `System.getProperty` snapshot would silently freeze stale values):
 
 ```bash
 ./gradlew :desktopApp:test --tests '*MyFlowTest' -Dsingularity.ui.dumpTree=true
@@ -168,8 +182,6 @@ selector** — guessing is the largest source of wasted turns here.
 
 Reading a failure:
 
-| Message | Means | Do |
-|---|---|---|
 | Message | Means | Do |
 |---|---|---|
 | "Tag '…' is not in the semantics tree" | `awaitTag` timed out | The explainer lists nearby tags; dump the tree if you need the full picture |
@@ -186,6 +198,33 @@ println(koin.get<TaskRepository>().observeAll().first())
 "The repository returns it and the screen does not show it" is a different
 investigation from "the repository returns nothing", and guessing between them
 is the expensive mistake.
+
+**For a HANG** (gradle never returns) — do not re-run and hope. `jstack` the Gradle
+test worker while it is stuck and follow the hang protocol in
+`debugging-investigation` (step 4): test thread in `EventQueue.invokeAndWait` plus a
+100%-busy `AWT-EventQueue-0` in `RenderNode_nDrawInto` means a never-idle
+composition; for silent coroutine death (VM stuck on its initial state, no events),
+`DebugProbes.dumpCoroutines()` prints the uncaught throw that killed it. The
+headless probe pattern — build `domainModule()` + `testPlatformModule()` in a plain
+`runTest`, construct the VM directly, wait for `Loaded` — splits "VM never resolves"
+from "screen does not render it" in one run; see
+`TaskDetailCoordinatorGraphTest` for the shape.
+
+## Graph-level guards
+
+Two tests keep the harness graph honest; keep them green when touching DI:
+
+- `TestPlatformModuleParityTest` — every DAO `platformModule()` binds must also be
+  bound by `testPlatformModule()`. A missing DAO throws
+  `NoDefinitionFoundException` inside composition, which Compose retries every
+  frame: it presents as a hang, not an error. Registration-only comparison — no
+  real files or ports are touched.
+- `TaskDetailCoordinatorGraphTest` — the detail VM, built from the real DI graph,
+  must reach `Loaded` in real time. Pins against a combine coroutine dying before
+  its first emission: no error state, no event, just an eternal loading shell.
+  Companion rule for any VM: **a property read from `init` must be declared before
+  it** — Kotlin initialises properties in declaration order, and an init block sees
+  a later property as null (no intrinsic check inside the same class).
 
 If a test passes alone but fails in the suite, suspect shared state before the
 selector — the usual culprit is a process-global mutation. See

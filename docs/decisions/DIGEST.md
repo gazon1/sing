@@ -1183,6 +1183,7 @@ _22 entries need attention._
 - `2026-10-02-task-time-tracking-and-estimate` — timetracking, tasks, database
 - `2026-10-02-usage-recording-textgen-architecture` — _untagged_
 - `2026-10-03-merge-regression-fixes` — nav3, coroutines, testing, merge
+- `2026-10-03-post-merge-debt` — debt, tasks, testing, profiles
 
 ## Active entries
 
@@ -1577,4 +1578,5 @@ _22 entries need attention._
 - `2026-10-02-task-time-tracking-and-estimate` — Task time tracking: estimate, time_entries, timer, Pomodoro
 - `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
 - `2026-10-03-merge-regression-fixes` — Merge regressions: Nav3 rendering contract, property-init-order NPE, test-harness DAOs
+- `2026-10-03-post-merge-debt` — Post-merge debt: deferred fixes and accepted risks from the time-hub merge
 

@@ -16,6 +16,10 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskAiSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksCollector
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksState
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntityState
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookState
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskChildrenSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskChildrenState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskCompletionSlot
@@ -75,6 +79,15 @@ class TaskDetailCoordinator(
     private val loadable = MutableStateFlow<Task?>(null)
     private val taskFlow: StateFlow<Task?> = loadable.asStateFlow()
     private val retryVersion = MutableStateFlow(0)
+
+    /**
+     * Whether the repository has ANSWERED — separates "no answer yet" from "answered
+     * and absent". The top-level combine reads this, not [taskFlow]: [taskFlow] starts
+     * on a seeded null, so a combine fed directly by it emits `Error("Not found")` in
+     * the instant before the repository's first emission, and every task-detail open
+     * flashed the error screen.
+     */
+    private val taskLoad = MutableStateFlow<TaskLoad>(TaskLoad.Pending)
 
     private fun reportError(message: String) = tryEmit(TaskDetailUiEvent.Error(message))
     private fun reportSaved(message: String) = tryEmit(TaskDetailUiEvent.Saved(message))
@@ -167,12 +180,13 @@ class TaskDetailCoordinator(
                 .catch { reportError(it.message ?: "Error") }
                 .collect { task ->
                     loadable.value = task
+                    taskLoad.value = if (task == null) TaskLoad.Missing else TaskLoad.Found(task)
                     if (task != null) draft.seed(task.title, task.description ?: "")
                 }
         }
         scope.launch {
             combineStates(
-                taskFlow,
+                taskLoad,
                 draft.state,
                 entity.state,
                 children.state,
@@ -181,35 +195,20 @@ class TaskDetailCoordinator(
                 logbook.state,
                 extrasState,
                 proposalsCollector?.state ?: flowOf(emptyList()),
-            ) { task, draftState, entityState, childrenState, reminderState, backlinkState, logState, extras, _ ->
-                if (task == null) {
-                    TaskDetailUiState.Error("Not found")
-                } else {
-                    TaskDetailUiState.Loaded(
-                        ui = TaskDetailUi(
-                            task = task,
-                            titleDraft = draftState.title,
-                            descriptionDraft = draftState.description,
-                            project = entityState.project,
-                            tags = entityState.tags,
-                            checklist = childrenState.checklist,
-                            reminders = reminderState.reminders,
-                            attachments = childrenState.attachments,
-                            subtasks = childrenState.subtasks,
-                            dependsOn = task.dependsOn,
-                            availableTasks = entityState.availableTasks,
-                            linkedNotes = backlinkState.notes,
-                            linkedTasks = backlinkState.tasks,
-                            logbookEntries = logState.allEntries,
-                            timeSlotState = when (val ex = extras) {
-                                is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
-                                is TaskDetailExtras.Ready -> ex.timeSlotState
-                            },
-                            firstRun = when (val ex = extras) {
-                                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                                is TaskDetailExtras.Ready -> ex.firstRun
-                            },
-                        ),
+            ) { load, draftState, entityState, childrenState, reminderState, backlinkState, logState, extras, _ ->
+                when (load) {
+                    is TaskLoad.Pending -> TaskDetailUiState.Loading
+
+                    is TaskLoad.Missing -> TaskDetailUiState.Error("Not found")
+
+                    is TaskLoad.Found -> loadedState(
+                        task = load.task,
+                        draftState = draftState,
+                        entityState = entityState,
+                        childrenState = childrenState,
+                        reminderState = reminderState,
+                        backlinkState = backlinkState,
+                        logState = logState,
                         extras = extras,
                     )
                 }
@@ -218,6 +217,51 @@ class TaskDetailCoordinator(
                 .collect { setState(it) }
         }
     }
+
+    /**
+     * Builds the [TaskDetailUiState.Loaded] state from the nine combined inputs.
+     *
+     * Extracted from the top-level `combineStates` transform so the `when` over
+     * [TaskLoad] stays single-line — a nested multi-line constructor inside a
+     * `when` branch trips ktlint's IndentationRule (an analysis exception, not a finding).
+     */
+    @Suppress("LongParameterList")
+    private fun loadedState(
+        task: Task,
+        draftState: TaskDetailDraft,
+        entityState: TaskEntityState,
+        childrenState: TaskChildrenState,
+        reminderState: TaskRemindersState,
+        backlinkState: TaskBacklinksState,
+        logState: TaskLogbookState,
+        extras: TaskDetailExtras,
+    ): TaskDetailUiState.Loaded = TaskDetailUiState.Loaded(
+        ui = TaskDetailUi(
+            task = task,
+            titleDraft = draftState.title,
+            descriptionDraft = draftState.description,
+            project = entityState.project,
+            tags = entityState.tags,
+            checklist = childrenState.checklist,
+            reminders = reminderState.reminders,
+            attachments = childrenState.attachments,
+            subtasks = childrenState.subtasks,
+            dependsOn = task.dependsOn,
+            availableTasks = entityState.availableTasks,
+            linkedNotes = backlinkState.notes,
+            linkedTasks = backlinkState.tasks,
+            logbookEntries = logState.allEntries,
+            timeSlotState = when (val ex = extras) {
+                is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
+                is TaskDetailExtras.Ready -> ex.timeSlotState
+            },
+            firstRun = when (val ex = extras) {
+                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                is TaskDetailExtras.Ready -> ex.firstRun
+            },
+        ),
+        extras = extras,
+    )
 
     private fun resolveFirstRun(childrenState: TaskChildrenState, task: Task?): FirstRun = when {
         task == null -> FirstRun.Established
@@ -232,6 +276,7 @@ class TaskDetailCoordinator(
 
     /** Re-subscribes to the task after a load failure. */
     fun retry() {
+        taskLoad.value = TaskLoad.Pending
         retryVersion.value++
     }
 
@@ -329,5 +374,20 @@ class TaskDetailCoordinator(
                 }
             }
         }
+    }
+
+    /**
+     * Repository answer state for the observed task. Kept private: only the top-level
+     * combine branches on it — slots keep consuming [Task] via `taskFlow`.
+     */
+    private sealed interface TaskLoad {
+        /** The repository has not answered yet — the screen stays on its loading shell. */
+        data object Pending : TaskLoad
+
+        /** The repository answered: the task exists. */
+        data class Found(val task: Task) : TaskLoad
+
+        /** The repository answered: no such task for the current user. */
+        data object Missing : TaskLoad
     }
 }

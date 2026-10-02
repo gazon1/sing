@@ -414,4 +414,7 @@ regressions that made every desktop flow test fail or hang on the feature branch
 **Findings for ADR:**
 - Kotlin property-initialisation order vs `init` blocks is the "unwired surface" of
   constructors: it compiles, it passes VM-level tests that never touch the property,
-  and only a screen that renders the loading shell catches it.
+  and only a screen that renders the loading shell catches it. Recorded in
+  `docs/decisions/2026-10-03-merge-regression-fixes.md`; the follow-up sweep's
+  deferred items live in `docs/decisions/2026-10-03-post-merge-debt.md` (scopedUserId
+  snapshot at construction, DIGEST line budget, frozen-frame screenshot caveat).
