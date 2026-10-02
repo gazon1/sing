@@ -122,11 +122,8 @@ class Nav3State internal constructor(
         }
     }
 
-    private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
-        listOf(startRoute)
-    } else {
-        listOf(startRoute, topLevelRoute)
-    }
+    private fun getTopLevelRoutesInUse(): List<NavKey> =
+        backStacks.filter { (_, stack) -> stack.isNotEmpty() }.keys.toList()
 }
 
 /**

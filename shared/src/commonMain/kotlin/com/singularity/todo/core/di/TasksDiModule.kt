@@ -14,9 +14,9 @@ import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.DaoProjectLookup
 import com.singularity.todo.feature.search.query.DaoTagLookup
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.SearchQueryResolver
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
