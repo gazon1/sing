@@ -405,6 +405,7 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     archivedAt = archivedAt.toEpochMillisOrNull(),
     isPinned = isPinned,
     recurrenceRule = recurrence?.let { StableJson.encodeToString(RecurrenceSpec.serializer(), it) },
+    estimateMinutes = estimateMinutes,
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     userId = userId.value,

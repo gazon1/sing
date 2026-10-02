@@ -1,6 +1,10 @@
 package com.singularity.todo.feature.pomodoro
 
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.pomodoro.recomputeRemaining
+import com.singularity.todo.feature.timetracking.TimeEntryKind
+import com.singularity.todo.feature.timetracking.TimeEntrySource
+import com.singularity.todo.feature.timetracking.data.TimeTrackingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -40,6 +44,8 @@ class AndroidPomodoroTimer(
     private val alarmScheduler: PomodoroScheduler,
     override val config: PomodoroConfig,
     private val scope: CoroutineScope,
+    private val timeTrackingRepo: TimeTrackingRepository,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : PomodoroTimer {
 
     private val _state = MutableStateFlow(initialState())
@@ -130,7 +136,26 @@ class AndroidPomodoroTimer(
         // Race guard: prevents double-trigger when OS alarm fires simultaneously with in-app ticker
         if (phaseEnded) return
         phaseEnded = true
-        _state.value = _state.value.copy(isRunning = false, phaseStartedAtEpochMs = null)
+        val previousState = _state.value
+        // Log time entry BEFORE transitioning state — taskId and phaseStartedAtEpochMs are still valid here
+        if (previousState.phase == PomodoroPhase.Work) {
+            val taskId = previousState.taskId
+            val startedAt = previousState.phaseStartedAtEpochMs
+            if (taskId != null && startedAt != null) {
+                val endedAt = clock.now().toEpochMilliseconds()
+                scope.launch {
+                    timeTrackingRepo.createManualEntry(
+                        taskId = com.singularity.todo.feature.tasks.domain.model.TaskId(taskId),
+                        userId = currentUser.scopedUserId.value,
+                        startedAt = startedAt,
+                        endedAt = endedAt,
+                        kind = TimeEntryKind.Work,
+                        note = null,
+                    )
+                }
+            }
+        }
+        _state.value = previousState.copy(isRunning = false, phaseStartedAtEpochMs = null)
         _state.value = nextPhase(_state.value, config)
     }
 

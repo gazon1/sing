@@ -44,17 +44,28 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
-import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
+import com.singularity.todo.feature.tasks.presentation.state.FirstRun
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
+import com.singularity.todo.feature.timetracking.TimeEntryKind
+import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
+import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
+import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
+import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -99,7 +110,9 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
 
             is TaskDetailUiState.Loaded -> {
                 val ui = s.ui
+                val extras = s.extras
                 var showAiSheet by rememberSaveable { mutableStateOf(false) }
+                var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
 
                 TaskEditorContent(
                     taskId = ui.task.id.value,
@@ -123,6 +136,12 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                     showDueDate = true,
                     onPriorityClick = null,
                     onDueDateClick = null,
+                    estimateMinutes = ui.task.estimateMinutes,
+                    estimateCallbacks = RowCallbacks(
+                        onChange = { vm.onIntent(TaskDetailIntent.Domain.SetEstimate(it)) },
+                        onClick = null,
+                        onClear = { vm.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
+                    ),
                     dependsOn = ui.dependsOn,
                     availableTasks = ui.availableTasks,
                     extraSections = {
@@ -130,6 +149,17 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            val firstRun = when (val ex = extras) {
+                                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                is TaskDetailExtras.Ready -> ex.firstRun
+                            }
+                            if (firstRun is FirstRun.Offer) {
+                                FirstRunSection(
+                                    onWriteNote = { /* scroll to body */ },
+                                    onAddChecklist = { /* expand checklist */ },
+                                    onAskAi = { showAiSheet = true },
+                                )
+                            }
                             TagsSection(
                                 tags = ui.tags,
                                 onDeleteTag = { vm.onIntent(TaskDetailIntent.Domain.RemoveTag(it)) },
@@ -141,6 +171,12 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                 checklist = ui.checklist,
                                 onToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(it)) },
                                 onDelete = { vm.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(it)) },
+                            )
+                            SubtasksSection(
+                                subtasks = ui.subtasks,
+                                onToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleSubtask(it)) },
+                                onDelete = { vm.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
+                                onOpen = { navigator.openDetail(it.id) },
                             )
                             if (ui.attachments.isNotEmpty()) {
                                 AttachmentsSection(attachments = ui.attachments)
@@ -157,6 +193,12 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                 )
                             }
                             // Logbook: notes explicitly attached to this task via Note.taskId.
+                            TimeTrackingSection(
+                                state = ui.timeSlotState,
+                                onStart = { vm.onIntent(TaskDetailIntent.Domain.Start) },
+                                onStop = { vm.onIntent(TaskDetailIntent.Domain.Stop) },
+                                onAddManual = { showTimeEntrySheet = true },
+                            )
                             LogbookSection(
                                 notes = ui.logbookNotes,
                                 onOpenNote = { navigator.openNote(it) },
@@ -182,6 +224,24 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                             showAiSheet = false
                         },
                         onDismiss = { showAiSheet = false },
+                    )
+                }
+
+                if (showTimeEntrySheet) {
+                    TimeEntryEditorSheet(
+                        taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
+                        onSave = { startedAtMs, endedAtMs, kind, note ->
+                            vm.onIntent(
+                                TaskDetailIntent.Domain.CreateManual(
+                                    startedAtMs = startedAtMs,
+                                    endedAtMs = endedAtMs,
+                                    kind = kind,
+                                    note = note,
+                                ),
+                            )
+                            showTimeEntrySheet = false
+                        },
+                        onDismiss = { showTimeEntrySheet = false },
                     )
                 }
             }

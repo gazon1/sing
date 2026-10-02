@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.timetracking.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -143,6 +144,12 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskEntityIntent
 
+        // ── Estimate ────────────────────────────────────────────────────────
+
+        data class SetEstimate(val minutes: Int?) :
+            Domain,
+            TaskEntityIntent
+
         // ── Attachments ──────────────────────────────────────────────────────
 
         data class AddUrlAttachment(val url: String, val title: String?) :
@@ -158,5 +165,32 @@ sealed interface TaskDetailIntent : MviIntent {
         data class RunAiAction(val action: TaskAiAction) :
             Domain,
             TaskAiIntent
+
+        // ── Time Tracking ─────────────────────────────────────────────────
+
+        /** Start the time tracker for this task. */
+        data object Start : Domain, TaskTimeSlotIntent
+
+        /** Stop the running time tracker. */
+        data object Stop : Domain, TaskTimeSlotIntent
+
+        /**
+         * Create a manual time entry.
+         * @param startedAtMs Start time in epoch milliseconds.
+         * @param endedAtMs End time in epoch milliseconds.
+         * @param kind Work or Recording.
+         * @param note Optional note.
+         */
+        data class CreateManual(
+            val startedAtMs: Long,
+            val endedAtMs: Long,
+            val kind: TimeEntryKind,
+            val note: String?,
+        ) : Domain, TaskTimeSlotIntent
+
+        /**
+         * Update the displayed elapsed time (called by the UI ticker).
+         */
+        data class Tick(val elapsedMs: Long) : Domain, TaskTimeSlotIntent
     }
 }

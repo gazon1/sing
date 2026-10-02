@@ -53,4 +53,8 @@ data class TaskEditorModel(
     val isPinned: Boolean = false,
     val dependsOn: Set<TaskId> = emptySet(),
     val availableTasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
+    /** Estimated time in minutes. Null means no estimate has been set. */
+    val estimateMinutes: Int? = null,
+    /** Task creation timestamp in epoch milliseconds — used as default for time entry start. */
+    val taskStartedAtMs: Long? = null,
 )

@@ -6,6 +6,9 @@ import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.state.FirstRun
+import com.singularity.todo.feature.tasks.presentation.state.FirstRunResolver
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
@@ -13,12 +16,15 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskAiSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskChildrenSlot
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskChildrenState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskCompletionSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskDraftSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntitySlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLifecycleSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersSlot
+import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
+import com.singularity.todo.feature.timetracking.presentation.slot.TaskTimeSlot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -104,6 +110,14 @@ class TaskDetailCoordinator(
 
     private val logbook = TaskLogbookCollector(deps.notesRepo, vmScope, taskFlow)
 
+    private val timeSlot = TaskTimeSlot(
+        taskId = taskId,
+        timeTrackingRepo = deps.timeTrackingRepo,
+        currentUser = deps.currentUser,
+        scope = vmScope,
+        taskFlow = taskFlow,
+    )
+
     init {
         addCloseable(scope)
         scope.launch {
@@ -124,12 +138,13 @@ class TaskDetailCoordinator(
                 reminders.state,
                 backlinks.state,
                 logbook.state,
-            ) { task, draftState, entityState, childrenState, reminderState, backlinkState, logState ->
+                extrasState,
+            ) { task, draftState, entityState, childrenState, reminderState, backlinkState, logState, extras ->
                 if (task == null) {
                     TaskDetailUiState.Error("Not found")
                 } else {
                     TaskDetailUiState.Loaded(
-                        TaskDetailUi(
+                        ui = TaskDetailUi(
                             task = task,
                             titleDraft = draftState.title,
                             descriptionDraft = draftState.description,
@@ -144,13 +159,62 @@ class TaskDetailCoordinator(
                             linkedNotes = backlinkState.notes,
                             linkedTasks = backlinkState.tasks,
                             logbookNotes = logState.allNotes,
+                            timeSlotState = when (val ex = extras) {
+                                is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
+                                is TaskDetailExtras.Ready -> ex.timeSlotState
+                            },
+                            firstRun = when (val ex = extras) {
+                                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                is TaskDetailExtras.Ready -> ex.firstRun
+                            },
                         ),
+                        extras = extras,
                     )
                 }
             }
                 .catch { reportError(it.message ?: "Error") }
                 .collect { setState(it) }
         }
+    }
+
+    /**
+     * Combines time tracking, first-run, and (future) proposals into one partition.
+     *
+     * Deliberately NOT a `stateIn(WhileSubscribed)`: the running timer is one of the
+     * inputs, and `WhileSubscribed(5_000)` keeps that upstream alive for five seconds
+     * after the last subscriber goes away — which in a Compose UI test means the
+     * recomposer never reaches idle and `captureToImage` blocks forever. A plain
+     * `MutableStateFlow` fed by a `collect` is the canonical shape here.
+     */
+    private val extrasState: StateFlow<TaskDetailExtras> =
+        MutableStateFlow<TaskDetailExtras>(TaskDetailExtras.Unresolved).also { sink ->
+            vmScope.launch {
+                combine(
+                    timeSlot.state,
+                    children.state,
+                    taskFlow,
+                ) { timeState, childrenState, task ->
+                    Triple(timeState, childrenState, task)
+                }.collect { (timeState, childrenState, task) ->
+                    sink.value = TaskDetailExtras.Ready(
+                        timeSlotState = timeState,
+                        firstRun = resolveFirstRun(childrenState, task),
+                    )
+                }
+            }
+        }
+
+    private fun resolveFirstRun(
+        childrenState: TaskChildrenState,
+        task: Task?,
+    ): FirstRun = when {
+        task == null -> FirstRun.Established
+        else -> FirstRunResolver.resolve(
+            hasBody = !task.description.isNullOrBlank(),
+            checklistCount = childrenState.checklist.size,
+            completedSubtaskCount = childrenState.subtasks.count { it.isCompleted },
+            ageMs = (deps.clock.now() - task.createdAt).inWholeMilliseconds.coerceAtLeast(0L),
+        )
     }
 
     /** Re-subscribes to the task after a load failure. */
@@ -179,6 +243,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.TogglePinned,
             is TaskDetailIntent.Domain.SetRecurrence,
             is TaskDetailIntent.Domain.SetDependencies,
+            is TaskDetailIntent.Domain.SetEstimate,
             -> entity.onIntent(intent)
 
             is TaskDetailIntent.Domain.ToggleChecklistItem,
@@ -202,6 +267,12 @@ class TaskDetailCoordinator(
             -> lifecycle.onIntent(intent)
 
             is TaskDetailIntent.Domain.RunAiAction -> ai.onIntent(intent)
+
+            is TaskDetailIntent.Domain.Start,
+            is TaskDetailIntent.Domain.Stop,
+            is TaskDetailIntent.Domain.CreateManual,
+            is TaskDetailIntent.Domain.Tick,
+            -> timeSlot.onIntent(intent)
         }
     }
 }

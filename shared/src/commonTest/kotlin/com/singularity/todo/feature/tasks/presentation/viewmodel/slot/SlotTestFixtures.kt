@@ -25,6 +25,7 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,6 +93,7 @@ internal class SlotFakes {
     val reminderRepo = FakeReminderRepository(currentUser = currentUser)
     val attachmentsRepo = FakeAttachmentRepository(currentUser = currentUser)
     val notesRepo = FakeNotesRepository(currentUser = currentUser)
+    val timeTrackingRepo = FakeTimeTrackingRepository(FakeClock(SLOT_NOW))
 
     fun deps(): TaskDetailDeps = TaskDetailDeps(
         taskRepo = taskRepo,
@@ -107,6 +109,8 @@ internal class SlotFakes {
         clock = FakeClock(SLOT_NOW),
         completeRecurring = stubCompleteRecurring,
         notesRepo = notesRepo,
+        timeTrackingRepo = timeTrackingRepo,
+        currentUser = currentUser,
         debounceMs = 300L,
     )
 

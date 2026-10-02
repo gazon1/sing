@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
+import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -167,6 +168,30 @@ fun TaskEditorSheetsHost(
             availableTasks = model.availableTasks,
             onApply = { newDeps ->
                 callbacks.dependencies?.onChange?.invoke(newDeps)
+                onSheetDismiss()
+            },
+            onDismiss = onSheetDismiss,
+        )
+
+        // ── Estimate ────────────────────────────────────────────────────────
+        is TaskEditorSheet.Estimate -> TaskEditorSheetHost(
+            title = "Estimate",
+            onClose = onSheetDismiss,
+        ) {
+            TaskEditorEstimateSheet(
+                selected = model.estimateMinutes,
+                onSelect = { minutes ->
+                    callbacks.estimate?.onChange?.invoke(minutes)
+                    onSheetDismiss()
+                },
+            )
+        }
+
+        // ── Time Entry ───────────────────────────────────────────────────────
+        is TaskEditorSheet.TimeEntry -> TimeEntryEditorSheet(
+            taskStartedAtMs = model.taskStartedAtMs,
+            onSave = { startedAtMs, endedAtMs, kind, note ->
+                callbacks.onTimeEntrySave?.invoke(startedAtMs, endedAtMs, kind, note)
                 onSheetDismiss()
             },
             onDismiss = onSheetDismiss,

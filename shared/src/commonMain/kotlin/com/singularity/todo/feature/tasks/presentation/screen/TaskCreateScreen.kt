@@ -125,6 +125,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
             attachments = attachmentItems,
             recurrence = state.draft.recurrence,
             isPinned = state.draft.isPinned,
+            estimateMinutes = null,
             dependsOn = emptySet(),
             availableTasks = emptyList(),
         ),
@@ -168,6 +169,9 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
             pin = ToggleCallbacks(
                 onToggle = { vm.onIntent(TaskCreateIntent.PinToggled) },
             ),
+            estimate = null,
+            onTimeEntryAdd = null,
+            onTimeEntrySave = null,
             checklist = ChecklistCallbacks(
                 onOpen = { sheets.show(TaskEditorSheet.Checklist) },
                 onAdd = { text -> vm.onIntent(TaskCreateIntent.AddChecklistItem(text)) },

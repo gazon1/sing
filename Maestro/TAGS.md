@@ -56,6 +56,7 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
+| `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
 | `TASK_EDITOR_PIN_ROW` | `task_editor_pin_row` | |
 | `TASK_EDITOR_PRIORITY_ROW` | `task_editor_priority_row` | |

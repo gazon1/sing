@@ -2,6 +2,10 @@ package com.singularity.todo.test
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ids.UserId
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
@@ -92,6 +96,17 @@ class KoinGraphValidationTest {
         single { get<AppDatabase>().llmUsageDao() }
         single { get<AppDatabase>().profileDao() }
         single { get<AppDatabase>().agendaViewDao() }
+        single { get<AppDatabase>().timeEntryDao() }
+        single { get<AppDatabase>().tagGroupDao() }
+        single { get<AppDatabase>().projectInheritedTagGroupDao() }
+        single { get<AppDatabase>().savedSearchDao() }
+
+        // ─── Auth (stub for ProfileRepository) ─────────────────────────
+        single<AuthRepository> { StubAuthRepository() }
+        single<com.singularity.todo.feature.profile.ProfileRepository> {
+            com.singularity.todo.feature.profile.ProfileRepositoryImpl(get(), get(), get(), get())
+        }
+        single { com.singularity.todo.feature.profile.ProfileAwareCurrentUser(get(), get(), get()) }
 
         // ─── DataStore ─────────────────────────────────────────────────
         val userHome = System.getProperty("user.home")
@@ -112,7 +127,7 @@ class KoinGraphValidationTest {
         // ─── Pomodoro ──────────────────────────────────────────────────
         single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
         single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
-        factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get()) }
+        factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get(), get(), get()) }
 
         // ─── Reminders ─────────────────────────────────────────────────
         single<ReminderScheduler> { JvmReminderScheduler() }
@@ -146,4 +161,18 @@ class KoinGraphValidationTest {
             app.close()
         }
     }
+}
+
+/**
+ * Minimal stub for [AuthRepository] used in DI validation tests.
+ * Returns anonymous session with no side effects.
+ */
+private class StubAuthRepository : AuthRepository {
+    override val currentSession = MutableStateFlow<Session>(Session.Anonymous(UserId.anonymous))
+    override val isLoading = MutableStateFlow(false)
+    override suspend fun signUp(email: String, password: String) = kotlin.Result.success(Unit)
+    override suspend fun signIn(email: String, password: String) = kotlin.Result.success(Unit)
+    override suspend fun signInAnonymously() = kotlin.Result.success(Unit)
+    override suspend fun signOut() = kotlin.Result.success(Unit)
+    override suspend fun migrateAnonymousTo(newUserId: UserId) = kotlin.Result.success(Unit)
 }

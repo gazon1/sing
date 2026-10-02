@@ -143,6 +143,8 @@ actual fun platformModule(): Module = module {
             get(),
             get(),
             com.singularity.todo.core.coroutines.createBackgroundScope(),
+            get(),
+            get(),
         )
     }
 

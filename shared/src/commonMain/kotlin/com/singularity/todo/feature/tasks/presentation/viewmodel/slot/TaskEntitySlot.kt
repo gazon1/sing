@@ -94,6 +94,11 @@ class TaskEntitySlot(
             ) { copy(recurrence = intent.spec) }
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
+
+            is TaskDetailIntent.Domain.SetEstimate -> mutate(
+                task,
+                "Failed to set estimate",
+            ) { copy(estimateMinutes = intent.minutes) }
         }
     }
 
