@@ -2,8 +2,6 @@
 
 package com.singularity.todo.feature.notes.presentation.screen
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,10 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +42,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.detail.SavedIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.EditorSession
@@ -154,12 +151,6 @@ fun NoteEditorScreenContent(
     showAiSheet: Boolean = false,
     onDismissAiSheet: () -> Unit = {},
 ) {
-    val savedAlpha by animateFloatAsState(
-        targetValue = if (savedVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "savedAlpha",
-    )
-
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
     var linkUrl by rememberSaveable { mutableStateOf("") }
     val linkQueryFlow = remember { MutableStateFlow("") }
@@ -177,17 +168,7 @@ fun NoteEditorScreenContent(
                     }
                 },
                 actions = {
-                    if (savedVisible || savedAlpha > 0f) {
-                        Text(
-                            text = "Saved",
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp)
-                                .alpha(savedAlpha),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
+                    SavedIndicator(visible = savedVisible)
                     IconButton(onClick = onSaveNow, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE)) {
                         Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
