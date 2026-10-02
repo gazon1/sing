@@ -45,6 +45,18 @@ fi
 echo "=== Structural gates OK ==="
 echo ""
 
+# ── Worktree shortcut ──────────────────────────────────────────────────
+# In a worktree, --git-dir (the actual .git dir for this worktree) differs
+# from --git-common-dir (the shared .git dir for the main checkout).  In the
+# main checkout they are the same.  Worktrees run their own cheap pre-push
+# already; the full Gradle suite belongs only in the main checkout.
+if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
+    echo "=== Pre-push [$BRANCH] — worktree detected ==="
+    echo "Run the full suite from the main checkout before merging."
+    echo "Fast gates (build-version-catalog, Maestro tags) passed."
+    exit 0
+fi
+
 echo "=== Pre-push [$BRANCH] — full test suite ==="
 
 # Run all fast tests + detekt (slow tests are excluded — use CI for those).

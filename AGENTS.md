@@ -106,10 +106,12 @@ wildcard import. Use explicit imports: `kotlin.io.path.exists`, `kotlin.io.path.
 detekt silently.
 
 **Tests relying on `systemProperty` need `--rerun-tasks` after edits.**
-The Gradle configuration cache may return a stale compiled test class even after the
-source file changes, particularly when the system property value is used in the test
-logic. If a test with `System.getProperty(...)` gives a false green result after an
-edit, run `./gradlew :shared:compileTestKotlinJvm --rerun-tasks` and retry.
+`--rerun-tasks` forces Gradle to re-execute task up-to-date checks, bypassing the
+task history cache. This is separate from the configuration cache (`org.gradle.configuration-cache`):
+if a test reads `System.getProperty(...)` and the config-cache entry was built before your edit,
+the stale compiled test class may still be used. Run `./gradlew :shared:compileTestKotlinJvm --rerun-tasks`
+and retry. The configuration cache itself is invalidated by any change to tracked inputs
+(`inputs.property` declarations in build scripts).
 
 ## expect/actual порты
 

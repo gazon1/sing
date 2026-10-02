@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
  * parameter so VMs are testable without `Dispatchers.setMain`. This rule flags violations
  * so they can be migrated per the `vm-migration-playbook` skill.
  *
- * Test sources are exempt — detekt's standard path filters handle test paths.
+ * Note: test-source exemption is not implemented via path filters in this rule.
  *
  * @see NoViewModelScopeInProductionProvider for registration.
  */

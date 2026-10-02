@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  *   wrap Clock.System behind the public `Clock` interface.
  * - [CoreDiModule][com.singularity.todo.core.di] — where the singleton binding is declared.
  *
- * Test sources are exempt (detekt's standard path filters handle patterns in test directories).
+ * Note: test-source exemption is not implemented via path filters in this rule.
  *
  * ## Migration
  * Instead of `Clock.System.now()`, inject `Clock` as a constructor or module parameter:
