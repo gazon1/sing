@@ -34,8 +34,8 @@ class PreviewTasksNavigator(private val onOpenProject: (ProjectId) -> Unit = {})
  * ```
  * @Preview
  * @Composable
- * private fun TaskDetailViewScreenPreview() = TasksPreviewWrapper {
- *     TaskDetailViewScreen(taskId = TaskId("t1"))
+ * private fun TaskDetailScreenPreview() = TasksPreviewWrapper {
+ *     TaskDetailScreen(taskId = TaskId("t1"))
  * }
  * ```
  */

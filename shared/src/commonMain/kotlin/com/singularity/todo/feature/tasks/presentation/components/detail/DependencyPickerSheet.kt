@@ -30,7 +30,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskEditorShee
  * Multi-select task dependency picker sheet.
  *
  * Allows the user to pick which tasks this task depends on.
- * Opens from a "Dependencies" card in `TaskDetailViewScreen.extraSections`.
+ * Opens from a "Dependencies" card in [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
  *
  * @param currentDeps Currently selected dependency IDs for this task.
  * @param availableTasks All tasks available for selection (not trashed, not self).

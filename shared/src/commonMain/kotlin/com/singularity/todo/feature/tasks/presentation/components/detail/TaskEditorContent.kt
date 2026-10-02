@@ -367,7 +367,7 @@ private fun StartDateRow(
 
 /**
  * Overload that unpacks [TaskEditorModel] and [TaskEditorCallbacks] into explicit parameters.
- * Used by [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen].
+ * Used by [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
  */
 @Composable
 fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, isCompleted: Boolean = false) {
