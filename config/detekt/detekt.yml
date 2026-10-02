@@ -339,3 +339,8 @@ kdoc-enforcement:
 no-combine-side-effect:
   NoCombineSideEffect:
     active: true
+
+# MR-3: empty onClick = {} in composable previews
+no-empty-onclick-lambda:
+  NoEmptyOnClickLambda:
+    active: false

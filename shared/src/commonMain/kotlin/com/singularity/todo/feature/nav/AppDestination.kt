@@ -6,14 +6,10 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.datetime.LocalDate
@@ -48,32 +44,6 @@ sealed interface AppDestination : AppNavKey {
     /** User-visible label — used by BottomBar and MenuSheet. */
     val title: String
 
-    /**
-     * Inbox tab — now handled by [AgendaGraph] with [AgendaStartRoute.Inbox].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Inbox] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Inbox) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Inbox)"),
-    )
-    @Serializable
-    data object Inbox : AppDestination {
-        override val title = "Inbox"
-    }
-
-    /**
-     * Today tab — now handled by [AgendaGraph] with [AgendaStartRoute.Today].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Today] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Today) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Today)"),
-    )
-    @Serializable
-    data object Today : AppDestination {
-        override val title = "Today"
-    }
-
     @Serializable
     data object Plans : AppDestination {
         override val title = "Plans"
@@ -82,19 +52,6 @@ sealed interface AppDestination : AppNavKey {
     @Serializable
     data object Pomodoro : AppDestination {
         override val title = "Pomodoro"
-    }
-
-    /**
-     * Upcoming tab — now handled by [AgendaGraph] with [AgendaStartRoute.Upcoming].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Upcoming] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Upcoming) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Upcoming)"),
-    )
-    @Serializable
-    data object Upcoming : AppDestination {
-        override val title = "Upcoming"
     }
 
     @Serializable
@@ -147,30 +104,11 @@ sealed interface AppDestination : AppNavKey {
 
     /**
      * Start route for the tasks nested graph. Used as `start` param in [TasksGraph].
-     *
-     * @deprecated Inbox/Today/Upcoming/ByProject are deprecated (AgendaEngine MR1).
-     * They no longer have corresponding routes in TasksNavGraph — use [Create] or [Detail].
      */
     @Serializable
     sealed interface TasksStartRoute : AppNavKey {
-        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable
-        data object Inbox : TasksStartRoute
-
-        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable
-        data object Today : TasksStartRoute
-
         @Serializable
         data object Create : TasksStartRoute
-
-        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable
-        data object Upcoming : TasksStartRoute
-
-        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable
-        data class ByProject(val projectId: String) : TasksStartRoute
 
         @Serializable
         data class Detail(val taskId: String) : TasksStartRoute
@@ -183,39 +121,6 @@ sealed interface AppDestination : AppNavKey {
     @Serializable
     data class TasksGraph(val start: TasksStartRoute, val initialDueDate: LocalDate? = null) : AppDestination {
         override val title = "Tasks"
-    }
-
-    /**
-     * Direct entry to tasks filtered by project. Now redirects to [AgendaGraph] with [AgendaStartRoute.Project].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Project] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Project(projectId)) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Project(projectId))"),
-    )
-    @Serializable
-    data class TasksByProject(val projectId: String) : AppDestination {
-        override val title = "Project Tasks"
-    }
-
-    /** @deprecated Use TasksGraph(TasksStartRoute.Create) or navigate to TasksRoute.Create internally */
-    @Deprecated(
-        "Use TasksGraph(TasksStartRoute.Create) instead",
-        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Detail(taskId))"),
-    )
-    @Serializable
-    data class TaskDetail(val taskId: String) : AppDestination {
-        override val title = "Task"
-    }
-
-    /** @deprecated Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead */
-    @Deprecated(
-        "Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead",
-        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"),
-    )
-    @Serializable
-    data class TaskDetailCreate(val initialDueDate: String? = null) : AppDestination {
-        override val title = "New Task"
     }
 
     @Serializable
@@ -325,9 +230,6 @@ sealed interface AppDestination : AppNavKey {
 /** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
 val AppDestination.icon: ImageVector
     get() = when (this) {
-        AppDestination.Inbox -> Icons.Filled.Inbox
-        AppDestination.Today -> Icons.Filled.Today
-        AppDestination.Upcoming -> Icons.Filled.DateRange
         AppDestination.Plans -> Icons.Filled.Check
         AppDestination.Pomodoro -> Icons.Filled.Repeat
         AppDestination.Statistics -> Icons.Filled.BarChart
@@ -335,21 +237,21 @@ val AppDestination.icon: ImageVector
         AppDestination.Notes -> Icons.Filled.Create
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
         AppDestination.Search -> Icons.Filled.Search
-        AppDestination.Archive -> Icons.Filled.Inbox
+        AppDestination.Archive -> Icons.Filled.Check
         AppDestination.Settings -> Icons.Filled.Settings
         AppDestination.AiUsage -> Icons.Filled.BarChart
         AppDestination.ProfileSwitcher -> Icons.Filled.Person
-        is AppDestination.TaskDetail -> Icons.Filled.Check
-        is AppDestination.TaskDetailCreate -> Icons.Filled.Check
         is AppDestination.TasksGraph -> Icons.Filled.Check
-        is AppDestination.TasksByProject -> Icons.Filled.Folder
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
         is AppDestination.ProjectsGraph -> Icons.Filled.Check
+        is AppDestination.ProjectsStartRoute -> Icons.Filled.Check
         is AppDestination.NotesGraph -> Icons.Filled.Create
+        is AppDestination.NotesStartRoute -> Icons.Filled.Create
         is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
         is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
-        is AppDestination.AgendaGraph -> Icons.Filled.Inbox
+        is AppDestination.AgendaGraph -> Icons.Filled.Check
+        is AgendaStartRoute -> Icons.Filled.Check
     }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */

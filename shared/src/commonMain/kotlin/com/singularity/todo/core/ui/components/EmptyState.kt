@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Type alias for the `actions` slot in [EmptyState] — allows callers to pass
@@ -95,7 +96,7 @@ private fun EmptyStateWithActionsPreview() = PreviewThemed(darkTheme = false) {
         title = "No notes yet",
         subtitle = "Create your first note to get started",
         actions = {
-            FilledTonalButton(onClick = {}) {
+            FilledTonalButton(onClick = noopClick) {
                 Text("Create your first note")
             }
         },
@@ -109,7 +110,7 @@ private fun EmptyStateWithActionsDarkPreview() = PreviewThemed(darkTheme = true)
         title = "No tasks yet",
         subtitle = "Tap + to create one",
         actions = {
-            FilledTonalButton(onClick = {}) {
+            FilledTonalButton(onClick = noopClick) {
                 Text("Create task")
             }
         },

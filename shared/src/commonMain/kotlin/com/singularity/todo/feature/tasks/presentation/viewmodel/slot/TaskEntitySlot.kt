@@ -88,21 +88,22 @@ class TaskEntitySlot(
 
             TaskDetailIntent.Domain.TogglePinned -> mutate(task) { copy(isPinned = !isPinned) }
 
-            is TaskDetailIntent.Domain.SetRecurrence -> mutate(task, "Failed to set recurrence") { copy(recurrence = intent.spec) }
+            is TaskDetailIntent.Domain.SetRecurrence -> mutate(
+                task,
+                "Failed to set recurrence",
+            ) { copy(recurrence = intent.spec) }
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
         }
     }
 
-    private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) =
-        scope.launch {
-            deps.updateTask(task.id) { it.transform() }
-                .onFailure { onError(error) }
-        }
+    private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
+        deps.updateTask(task.id) { it.transform() }
+            .onFailure { onError(error) }
+    }
 
-    private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) =
-        scope.launch {
-            deps.taskRepo.setDependencies(task.id, intent.dependsOn)
-                .onFailure { onError("Failed to set dependencies") }
-        }
+    private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
+        deps.taskRepo.setDependencies(task.id, intent.dependsOn)
+            .onFailure { onError("Failed to set dependencies") }
+    }
 }

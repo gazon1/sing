@@ -5,6 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Generic "AI Result" / error dialog. Shows nothing when [text] is null.
@@ -31,7 +32,7 @@ private fun ResultDialogSuccessPreview() = PreviewThemed(darkTheme = false) {
     ResultDialog(
         title = "Success",
         text = "Your data has been exported successfully.",
-        onDismiss = {},
+        onDismiss = noopClick,
     )
 }
 
@@ -41,6 +42,6 @@ private fun ResultDialogErrorPreview() = PreviewThemed(darkTheme = true) {
     ResultDialog(
         title = "Error",
         text = "Failed to connect to the server. Please check your internet connection.",
-        onDismiss = {},
+        onDismiss = noopClick,
     )
 }

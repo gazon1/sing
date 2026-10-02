@@ -10,3 +10,4 @@ com.singularity.todo.detekt.NoStaticProfileAwareCurrentUserProvider
 com.singularity.todo.detekt.PassThroughUseCaseProvider
 com.singularity.todo.detekt.KDocEnforcementRulesProvider
 com.singularity.todo.detekt.NoCombineSideEffectProvider
+com.singularity.todo.detekt.NoEmptyOnClickLambdaProvider

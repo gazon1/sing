@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb

@@ -2,18 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>AnnotationOnSeparateLine:CalendarViewModelTest.kt:CalendarViewModelTest$@Suppress("UNCHECKED_CAST")</ID>
-    <ID>AnnotationOnSeparateLine:NoteEditor.kt:NoteEditor$@Suppress("UNCHECKED_CAST") when (result) { is Improved -&gt; NotesUiEvent.AiResult(formatNoteAiResult(result)) is SummarizeResult -&gt; NotesUiEvent.AiResult(formatSummarizeResult(result)) is ExtractActionsResult -&gt; NotesUiEvent.AiResult(formatExtractActionsResult(result)) is SuggestTagsResult -&gt; NotesUiEvent.AiResult(formatSuggestTagsResult(result)) is NoteAiResult.Error -&gt; NotesUiEvent.AiResult("AI error: ${result.message}") else -&gt; null }</ID>
-    <ID>AnnotationOnSeparateLine:NoteEditor.kt:NoteEditor$@Suppress("UNCHECKED_CAST") when (success) { is Improved -&gt; before.copy(title = success.title, html = success.body, isDirty = true) else -&gt; null }</ID>
-    <ID>ArgumentListWrapping:FakeRepositories.kt:FakeNotesRepository$(query, ignoreCase = true)</ID>
-    <ID>ArgumentListWrapping:FakeRepositories.kt:FakeProjectsRepository$(parentId = parentId, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt))</ID>
-    <ID>ArgumentListWrapping:FakeRepositories.kt:FakeProjectsRepository$(sortOrder = sortOrder, updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt))</ID>
-    <ID>ArgumentListWrapping:FakeRepositories.kt:FakeProjectsRepository$(updatedAt)</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:(selected = unit == u, onClick = { onUnitChange(u) }, role = Role.RadioButton)</ID>
-    <ID>ArgumentListWrapping:RecurrencePickerSheet.kt:(u)</ID>
-    <ID>ArgumentListWrapping:TaskEntitySlot.kt:TaskEntitySlot$(recurrence = intent.spec)</ID>
-    <ID>ArgumentListWrapping:TaskEntitySlot.kt:TaskEntitySlot$(task, "Failed to set recurrence")</ID>
-    <ID>ArgumentListWrapping:TaskToJsonProbeTest.kt:TaskSyncSerializationTest$("test-user", json["userId"]?.toString() ?.trim('"') )</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _fetchModelsError = MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _isFetchingModels = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _models = MutableStateFlow&lt;List&lt;String&gt;&gt;(emptyList())</ID>
@@ -67,24 +55,6 @@
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _queryString = MutableStateFlow("")</ID>
     <ID>BackingPropertyNaming:SessionStore.kt:DataStoreSessionStore$private val _deviceIdFlow = MutableStateFlow("")</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.deletedAt == null</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.title &lt;= to</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.title &gt;= from</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.userId == uid &amp;&amp; it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &amp;&amp; it.deletedAt == null</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.userId == uid &amp;&amp; it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &amp;&amp; it.deletedAt == null &amp;&amp; it.title &gt;= from</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.userId == uid &amp;&amp; it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &amp;&amp; it.deletedAt == null &amp;&amp; it.title &gt;= from &amp;&amp; it.title &lt;= to</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.userId == uid &amp;&amp; it.kind == com.singularity.todo.feature.notes.NoteKind.Daily &amp;&amp; it.title == dateKey &amp;&amp; it.deletedAt == null</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.userId == uid &amp;&amp; it.kind == com.singularity.todo.feature.notes.NoteKind.Template &amp;&amp; it.deletedAt == null</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$it.userId == uid &amp;&amp; it.parentNoteId == null &amp;&amp; !it.isFolder &amp;&amp; it.archivedAt == null &amp;&amp; it.deletedAt == null</ID>
-    <ID>BinaryExpressionWrapping:FakeRepositories.kt:FakeNotesRepository$note.userId == uid &amp;&amp; note.archivedAt == null &amp;&amp; note.deletedAt == null &amp;&amp; note.title.contains(query, ignoreCase = true)</ID>
-    <ID>BinaryExpressionWrapping:ProjectDetailContent.kt:(contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true</ID>
-    <ID>BinaryExpressionWrapping:ProjectDetailContent.kt:it.minutes == m</ID>
-    <ID>BlankLineBetweenWhenConditions:TaskEntitySlot.kt:TaskEntitySlot$when (intent) { is TaskDetailIntent.Domain.SetDueDate -&gt; mutate(task) { copy(dueDate = intent.date) } is TaskDetailIntent.Domain.SetDueTime -&gt; mutate(task) { copy(dueTime = intent.time) } is TaskDetailIntent.Domain.SetStartDate -&gt; mutate(task) { copy(startDate = intent.date) } is TaskDetailIntent.Domain.SetStartTime -&gt; mutate(task) { copy(startTime = intent.time) } is TaskDetailIntent.Domain.SetPriority -&gt; mutate(task) { copy(priority = intent.priority) } is TaskDetailIntent.Domain.SetProject -&gt; mutate(task) { copy(projectId = intent.projectId) } is TaskDetailIntent.Domain.SetTags -&gt; mutate(task) { copy(tags = intent.tagIds) } is TaskDetailIntent.Domain.RemoveTag -&gt; mutate(task) { copy(tags = tags - intent.tagId) } is TaskDetailIntent.Domain.SetKind -&gt; mutate(task, "Failed to set kind") { copy(kind = intent.kind) } TaskDetailIntent.Domain.ToggleSomeday -&gt; mutate(task, "Failed to set someday") { copy(someday = !someday) } TaskDetailIntent.Domain.TogglePinned -&gt; mutate(task) { copy(isPinned = !isPinned) } is TaskDetailIntent.Domain.SetRecurrence -&gt; mutate(task, "Failed to set recurrence") { copy(recurrence = intent.spec) } is TaskDetailIntent.Domain.SetDependencies -&gt; setDependencies(task, intent) }</ID>
-    <ID>ClassSignature:DependencyValidatorImpl.kt:DependencyValidatorImpl : DependencyValidator</ID>
-    <ID>ClassSignature:FakeRepositories.kt:FakeAttachmentRepository : AttachmentRepository</ID>
-    <ID>ClassSignature:FakeRepositories.kt:FakeProjectsRepository : ProjectsRepository</ID>
-    <ID>ClassSignature:FakeRepositories.kt:FakeReminderRepository : ReminderRepository</ID>
-    <ID>ClassSignature:FakeRepositories.kt:FakeTagsRepository : TagsRepository</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
@@ -93,6 +63,7 @@
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
+    <ID>CyclomaticComplexMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectDetailContent</ID>
     <ID>CyclomaticComplexMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>CyclomaticComplexMethod:SelectorMatcher.kt:fun Selector.matches: Boolean</ID>
     <ID>CyclomaticComplexMethod:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$suspend fun run: Boolean</ID>
@@ -170,177 +141,8 @@
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
-    <ID>FunctionLiteral:ProjectDetailContent.kt:&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:RecurrencePickerSheet.kt:&lt;anonymous&gt;</ID>
-    <ID>FunctionLiteral:TaskEntitySlot.kt:TaskEntitySlot$&lt;anonymous&gt;</ID>
-    <ID>FunctionSignature:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$private fun makeTask: Task</ID>
-    <ID>FunctionSignature:CalendarEventMapper.kt:CalendarEventMapper$private fun daysInMonth: Int</ID>
-    <ID>FunctionSignature:CalendarEventMapper.kt:CalendarEventMapper$private fun isLeapYear: Boolean</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun daysInMonth: Int</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun instantOfEpochMs: kotlin.time.Instant</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun isLeapYear: Boolean</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun localDate</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun localTime</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun midnightMs</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun reminder</ID>
-    <ID>FunctionSignature:CalendarEventMapperTest.kt:CalendarEventMapperTest$private fun task</ID>
-    <ID>FunctionSignature:CalendarTaskMapperTest.kt:CalendarTaskMapperTest$private fun makeTask: Task</ID>
-    <ID>FunctionSignature:CalendarTaskMapperTest.kt:CalendarTaskMapperTest.Companion$@JvmStatic fun `status mapping`: List&lt;Arguments&gt;</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `DayClicked does not crash in DAY mode`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `DayClicked does not crash in MONTH mode`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `DismissMiniCalendar does not crash`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `GoNext does not crash for DAY mode`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `GoNext does not crash for MONTH mode`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `GoPrevious does not crash for MONTH mode`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `GoToday does not crash`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `TaskClicked emits NavigateToTask event with correct taskId`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `ToggleMiniCalendar does not crash twice`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `ViewModeChanged does not crash`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `completed tasks have non-null completedAt`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `initial state is Loading`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `seeded tasks are visible in repository`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$@Test fun `seeded tasks with dueTime have correct dueTime`</ID>
-    <ID>FunctionSignature:CalendarViewModelTest.kt:CalendarViewModelTest$private fun createVm</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) fun FakeProfileAwareCurrentUser: ProfileAwareCurrentUser</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAttachmentRepository$fun seed</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAttachmentRepository$override fun observe: Flow&lt;com.singularity.todo.core.attachments.Attachment?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAuthRepository$override suspend fun migrateAnonymousTo: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAuthRepository$override suspend fun signIn: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAuthRepository$override suspend fun signInAnonymously: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAuthRepository$override suspend fun signOut: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeAuthRepository$override suspend fun signUp: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeBackupRepository$override fun observeAll: Flow&lt;List&lt;BackupMetadata&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeBackupRepository$override suspend fun pull: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeCalendarAppQueries$override suspend fun listInstalled: List&lt;CalendarAppInfo&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeCalendarProvider$override suspend fun insertEvent: Result&lt;Long&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeChecklistRepository$override fun watchByTask: Flow&lt;List&lt;ChecklistItem&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeChecklistRepository$override suspend fun addItem: Result&lt;ChecklistItemId&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeChecklistRepository$override suspend fun createBatch: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeChecklistRepository$override suspend fun delete: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeChecklistRepository$override suspend fun toggleItem: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeChecklistRepository$override suspend fun upsert: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeFileRevealer$override fun attachmentsBasePath: String</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$fun add</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$fun clear</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$fun seed</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override fun observe: Flow&lt;com.singularity.todo.feature.notes.Note?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override fun watchDailyNotesInRange: Flow&lt;List&lt;com.singularity.todo.feature.notes.Note&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override suspend fun createForTask: Result&lt;com.singularity.todo.feature.notes.NoteId&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override suspend fun createFromTemplate: Result&lt;com.singularity.todo.feature.notes.NoteId&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override suspend fun getOrCreateDailyNote: Result&lt;com.singularity.todo.feature.notes.NoteId&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override suspend fun saveAsTemplate: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override suspend fun setSortOrder: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeNotesRepository$override suspend fun upsert: com.singularity.todo.feature.notes.Note</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override fun activeProfile: Flow&lt;Profile&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override fun observe: Flow&lt;Profile?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override fun observeAll: Flow&lt;List&lt;Profile&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override suspend fun create: Result&lt;Profile&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override suspend fun get: Profile?</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override suspend fun switchTo: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProfileRepository$override suspend fun update: Result&lt;Profile&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectRemindersRepository$fun all: List&lt;ProjectReminder&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectRemindersRepository$override fun observe: Flow&lt;ProjectReminder?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectRemindersRepository$override fun observeAll: Flow&lt;List&lt;ProjectReminder&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectRemindersRepository$override suspend fun delete: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$fun add</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$fun clear</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$fun seed</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override fun changes: Flow&lt;Project?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override fun observe: Flow&lt;Project?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override fun observeAll: Flow&lt;List&lt;Project&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override fun observeByParent: Flow&lt;List&lt;Project&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override fun observeProject: Flow&lt;Project?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override suspend fun create: Result&lt;Project&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override suspend fun delete: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override suspend fun restore: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeProjectsRepository$override suspend fun update: Result&lt;Project&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeReminderRepository$override fun observe: Flow&lt;Reminder?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeReminderRepository$override fun observeAll: Flow&lt;List&lt;Reminder&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeReminderRepository$override fun observeRecurringTaskIds: Flow&lt;Set&lt;TaskId&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeReminderRepository$override fun watchByTask: Flow&lt;List&lt;Reminder&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeReminderRepository$override fun watchDueBefore: Flow&lt;List&lt;Reminder&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$fun getAll: List&lt;SavedAgendaView&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$fun getById: SavedAgendaView?</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override fun observe: Flow&lt;SavedAgendaView?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override fun observeAll: Flow&lt;List&lt;SavedAgendaView&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override suspend fun create: Result&lt;SavedAgendaView&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override suspend fun currentUserId: String</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override suspend fun delete: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override suspend fun update: Result&lt;SavedAgendaView&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeSavedAgendaViewsRepository$override suspend fun upsert: Result&lt;SavedAgendaView&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTagsRepository$fun add</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTagsRepository$fun clear</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTagsRepository$fun seed</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTagsRepository$override suspend fun create: Result&lt;com.singularity.todo.feature.tags.Tag&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTagsRepository$override suspend fun delete: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTagsRepository$override suspend fun update: Result&lt;com.singularity.todo.feature.tags.Tag&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$fun add</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$fun clear</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$fun seed</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun getTagIds: Flow&lt;List&lt;TagId&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun observe: Flow&lt;Task?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun observeAll: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun observeBlockingBy: Flow&lt;Set&lt;TaskId&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun observeByFilter: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun observeDependencies: Flow&lt;Set&lt;TaskId&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override fun observeSubtasks: Flow&lt;List&lt;Task&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override suspend fun currentUserId: UserId</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:FakeTaskRepository$override suspend fun setDependency: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun getTagIdsForTask: Flow&lt;List&lt;String&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun getTagIdsForUser: Flow&lt;List&lt;String&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun observeTagCrossRefs: Flow&lt;List&lt;TaskTagCrossRef&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchByAllTags: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchByAnyTag: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchByDateRange: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchById: Flow&lt;com.singularity.todo.core.database.TaskEntity?&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchByPriorities: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchByProject: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchByRegexp: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchSearchResults: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override fun watchUpcoming: Flow&lt;List&lt;com.singularity.todo.core.database.TaskEntity&gt;&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun archiveCompletedForUser: Int</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun getBacklinkTasks: List&lt;com.singularity.todo.core.database.TaskEntity&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun getById: com.singularity.todo.core.database.TaskEntity</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun listAllForUser: List&lt;com.singularity.todo.core.database.TaskEntity&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun listAllTagsForUser: List&lt;TaskTagCrossRef&gt;</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun markCompleteForUser: Int</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun markIncompleteForUser: Int</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun restoreForUser: Int</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun softDeleteForUser: Int</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:InMemoryTaskDao$override suspend fun upsert</ID>
-    <ID>FunctionSignature:FakeRepositories.kt:private fun extractUserId: UserId</ID>
-    <ID>FunctionSignature:NoteEditor.kt:NoteEditor$override fun validate: String?</ID>
-    <ID>FunctionSignature:NoteEditor.kt:NoteEditor$override suspend fun persist: Either&lt;AppError, Unit&gt;</ID>
-    <ID>FunctionSignature:NoteEditor.kt:NoteEditor$suspend fun searchNotesForLink: List&lt;LinkResult&gt;</ID>
-    <ID>FunctionSignature:NoteEditor.kt:NoteEditor$suspend fun searchTasksForLink: List&lt;LinkResult&gt;</ID>
-    <ID>FunctionSignature:ProjectDetailContent.kt:@Composable private fun ProjectDetailUiState.title: String</ID>
-    <ID>FunctionSignature:RecurrenceCalculator.kt:RecurrenceCalculator$fun nextOccurrence: LocalDate</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:fun buildSpec: RecurrenceSpec</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:private fun RecurrenceSpec.intervalAmount: Int</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:private fun RecurrenceSpec.intervalUnit: DateTimeUnit.DateBased</ID>
-    <ID>FunctionSignature:RecurrencePickerSheet.kt:private fun RecurrenceSpec.specType: SpecType</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun delete_isIdempotent</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun delete_removesView</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun observeAll_returnsEmptyForUnknownUser</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun sectionsJson_preservesFullAgendaDefinition</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun upsert_createsView</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun upsert_updatesExistingView</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun watchAll_returnsViewsForUser</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun watchAll_sortsByName</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun watchById_returnsNullForUnknownId</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$@Test fun watchById_returnsView</ID>
-    <ID>FunctionSignature:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$private fun makeView: SavedAgendaView</ID>
-    <ID>FunctionSignature:TaskComputedTest.kt:TaskComputedTest$private fun task: Task</ID>
-    <ID>FunctionSignature:TaskDetailViewScreen.kt:private fun buildDetailMenuItems: List&lt;TaskEditorMenuItem&gt;</ID>
-    <ID>FunctionSignature:TaskEntitySlot.kt:TaskEntitySlot$private fun mutate</ID>
-    <ID>FunctionSignature:TaskEntitySlot.kt:TaskEntitySlot$private fun setDependencies</ID>
-    <ID>ImportOrdering:TasksDiModule.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.draft.DraftStore import com.singularity.todo.core.draft.UserScopedDraftStore import com.singularity.todo.feature.archive.ArchiveViewModel import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository import com.singularity.todo.feature.search.SearchUseCase import com.singularity.todo.feature.search.SearchViewModel import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl import com.singularity.todo.feature.search.domain.port.SavedSearchRepository import com.singularity.todo.feature.search.query.DaoProjectLookup import com.singularity.todo.feature.search.query.DaoTagLookup import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver import com.singularity.todo.feature.search.query.ProjectLookup import com.singularity.todo.feature.search.query.SearchQueryResolver import com.singularity.todo.feature.profile.ProfileAwareCurrentUser import com.singularity.todo.feature.search.query.TagLookup import com.singularity.todo.feature.statistics.StatisticsViewModel import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps import com.singularity.todo.feature.tasks.domain.port.DependencyValidator import com.singularity.todo.feature.tasks.domain.port.TaskRepository import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator import org.koin.core.module.dsl.factoryOf import org.koin.core.module.dsl.singleOf import org.koin.core.module.dsl.viewModel import org.koin.dsl.module</ID>
-    <ID>Indentation:LinkedBacklinksCard.kt: </ID>
-    <ID>Indentation:LogbookSection.kt: </ID>
-    <ID>Indentation:MonthGridView.kt: </ID>
-    <ID>Indentation:NoteEditor.kt:NoteEditor$ </ID>
-    <ID>Indentation:RecurrencePickerSheet.kt: </ID>
-    <ID>Indentation:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$ </ID>
+    <ID>Indentation:FakeRepositories.kt: </ID>
+    <ID>Indentation:FakeRepositories.kt:FakeTaskRepository$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -376,6 +178,7 @@
     <ID>LongMethod:PlatformModule.android.kt:actual fun platformModule: Module</ID>
     <ID>LongMethod:PomodoroScreen.kt:@Composable fun PomodoroScreen</ID>
     <ID>LongMethod:PomodoroScreen.kt:@Composable private fun PomodoroContentPreview</ID>
+    <ID>LongMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectDetailContent</ID>
     <ID>LongMethod:ProjectEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ProjectEditorContent</ID>
     <ID>LongMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>LongMethod:ReorderableSectionList.kt:@Composable fun ReorderableSectionList</ID>
@@ -399,36 +202,23 @@
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
     <ID>MaximumLineLength:CalendarSyncSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeAttachmentRepository${</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository$)</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository$null</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository$to</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository${</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeReminderRepository${</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeTagsRepository${</ID>
     <ID>MaximumLineLength:IdTokenTest.kt:IdTokenTest$"</ID>
     <ID>MaximumLineLength:KoogAgentService.kt:FakeTextGen$,</ID>
     <ID>MaximumLineLength:LlmUseCase.kt:ImproveNoteUseCase$(</ID>
     <ID>MaximumLineLength:NoteContentMapperTest.kt:NoteContentMapperTest$"""</ID>
     <ID>MaximumLineLength:ProfileSwitcherScreen.kt:// Preview pattern: construct VM with Fake* deps directly</ID>
-    <ID>MaximumLineLength:ProjectDetailContent.kt:,</ID>
-    <ID>MaximumLineLength:ProjectDetailContent.kt:true</ID>
-    <ID>MaximumLineLength:RecurrencePickerSheet.kt:)</ID>
     <ID>MaximumLineLength:SavedAgendaViewModelTest.kt:SavedAgendaViewModelTest$,</ID>
     <ID>MaximumLineLength:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$// other user — not returned by scoped query</ID>
     <ID>MaximumLineLength:SettingsImporter.kt:SettingsImporter$)</ID>
     <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
-    <ID>MaximumLineLength:TaskEntitySlot.kt:TaskEntitySlot$}</ID>
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
     <ID>MayBeConstant:AndroidSyncScheduler.kt:AndroidSyncScheduler.Companion$private val INTENT_ACTION = "com.singularity.todo.SYNC_ALARM"</ID>
     <ID>MayBeConstant:OAuthTokenRefreshTest.kt:OAuthTokenRefreshTest.Companion$val NOW = 1_700_000_000_000L</ID>
-    <ID>MultiLineIfElse:ProjectDetailContent.kt:tasks.filter { it.title.contains(query, ignoreCase = true) } .take(10)</ID>
-    <ID>MultiLineIfElse:ProjectDetailContent.kt:tasks.take(10)</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
+    <ID>NoDirectClockSystem:AgendaViewModelTest.kt:AgendaViewModelTest$Clock.System</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
-    <ID>NoUnusedImports:DependencyValidatorTest.kt:com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -465,8 +255,6 @@
     <ID>PackageName:RecurrenceRuleMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:RruleGenerator.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:RruleGeneratorTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
-    <ID>PackageName:SharedCommonTest.kt:package com.example.singularity_cllone_kmp</ID>
-    <ID>PackageName:SharedLogicDesktopTest.kt:package com.example.singularity_cllone_kmp</ID>
     <ID>PackageName:SyncDiffMerge.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:SyncDiffMergeTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:SyncPlan.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
@@ -510,8 +298,6 @@
     <ID>PackageNaming:RecurrenceRuleMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:RruleGenerator.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:RruleGeneratorTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
-    <ID>PackageNaming:SharedCommonTest.kt:package com.example.singularity_cllone_kmp</ID>
-    <ID>PackageNaming:SharedLogicDesktopTest.kt:package com.example.singularity_cllone_kmp</ID>
     <ID>PackageNaming:SyncDiffMerge.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:SyncDiffMergeTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:SyncPlan.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
@@ -519,7 +305,6 @@
     <ID>PackageNaming:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
-    <ID>ParameterListWrapping:ProjectDetailContent.kt:m</ID>
     <ID>PropertyName:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
@@ -588,22 +373,7 @@
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
     <ID>TopLevelPropertyNaming:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
-    <ID>TrailingCommaOnCallSite:MonthGridView.kt:( modifier = Modifier.fillMaxWidth() .padding(vertical = 8.dp) )</ID>
-    <ID>TrailingCommaOnCallSite:MonthGridView.kt:( modifier = Modifier.fillMaxWidth() .weight(1f) )</ID>
-    <ID>TrailingCommaOnCallSite:MonthGridView.kt:( modifier = modifier.fillMaxSize() .background(palette.background) )</ID>
-    <ID>TrailingCommaOnCallSite:NoteEditor.kt:NoteEditor$( NotesUiEvent.SaveFailed( e.message ?: "Autosave failed" ) )</ID>
-    <ID>TrailingCommaOnCallSite:NoteEditor.kt:NoteEditor$( e.message ?: "Autosave failed" )</ID>
-    <ID>TrailingCommaOnCallSite:NoteEditor.kt:NoteEditor$( preExistingId ?: idGen.next() )</ID>
-    <ID>TrailingCommaOnCallSite:ProjectDetailContent.kt:( modifier = Modifier.fillMaxWidth() .padding(16.dp) )</ID>
-    <ID>TrailingCommaOnCallSite:ProjectDetailContent.kt:( modifier = Modifier.fillMaxWidth() .padding(horizontal = 24.dp) .padding(bottom = 32.dp) )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( (currentSpec as? Monthly)?.dayOfMonth ?: anchorDate.day )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( (currentSpec as? Yearly)?.day ?: anchorDate.day )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( (currentSpec as? Yearly)?.month ?: anchorDate.month.number )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( currentSpec?.base ?: RecurrenceBase.FROM_COMPLETION )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( currentSpec?.intervalAmount() ?: 1 )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( currentSpec?.intervalUnit() ?: DateTimeUnit.WEEK )</ID>
-    <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( currentSpec?.specType() ?: SpecType.INTERVAL_DAY )</ID>
-    <ID>TrailingCommaOnCallSite:TaskToJsonProbeTest.kt:TaskSyncSerializationTest$("test-user", json["userId"]?.toString() ?.trim('"') )</ID>
+    <ID>TrailingCommaOnCallSite:FakeRepositories.kt:FakeTaskRepository$( compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }) )</ID>
     <ID>UnusedParameter:AgendaEvaluator.kt:AgendaEvaluator$selector: Selector</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>
@@ -639,8 +409,5 @@
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
     <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
     <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
-    <ID>Wrapping:FakeRepositories.kt:(</ID>
-    <ID>Wrapping:FakeRepositories.kt:FakeTaskRepository$(</ID>
-    <ID>Wrapping:TaskToJsonProbeTest.kt:TaskSyncSerializationTest$(</ID>
   </CurrentIssues>
 </SmellBaseline>

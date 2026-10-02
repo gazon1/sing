@@ -26,6 +26,7 @@ class TaskCompletionSlot(
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
+    private val onSaved: (String) -> Unit,
 ) : FeatureSlot<TaskCompletionState, TaskCompletionIntent> {
 
     private val _state = MutableStateFlow(TaskCompletionState())
@@ -55,6 +56,7 @@ class TaskCompletionSlot(
         if (completing && task.recurrence != null) {
             scope.launch {
                 deps.completeRecurring(task.id)
+                    .onSuccess { onSaved("Recurrence completed") }
                     .onFailure { onError("Failed to complete recurring task") }
             }
             return
@@ -62,6 +64,7 @@ class TaskCompletionSlot(
         val completedAt = if (completing) deps.clock.now() else null
         scope.launch {
             deps.updateTask(task.id) { it.copy(completedAt = completedAt) }
+                .onSuccess { onSaved(if (completedAt != null) "Marked done" else "Marked active") }
                 .onFailure { onError("Save failed") }
         }
     }

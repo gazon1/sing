@@ -54,6 +54,7 @@ import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
@@ -75,7 +76,6 @@ import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
-import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -363,7 +363,7 @@ private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
         Text("Backup", modifier = Modifier.padding(16.dp))
     },
     SettingsTab.Account to {
-        AccountSettingsScreen(vm = AccountSettingsViewModel(FakeProfileRepository()))
+        AccountSettingsScreen(vm = AccountSettingsViewModel(PreviewProfileRepository))
     },
 )
 

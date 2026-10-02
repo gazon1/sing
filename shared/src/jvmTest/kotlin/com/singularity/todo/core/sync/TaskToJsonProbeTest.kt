@@ -32,9 +32,10 @@ class TaskSyncSerializationTest {
 
         val json = task.toJson()
 
-        assertEquals("test-user",
+        assertEquals(
+            "test-user",
             json["userId"]?.toString()
-                ?.trim('"')
+                ?.trim('"'),
         )
         assertTrue(json.containsKey("title"))
     }

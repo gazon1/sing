@@ -26,10 +26,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
-import com.singularity.todo.test.fakes.FakeProfileRepository
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -105,10 +105,8 @@ fun AccountSettingsScreen(modifier: Modifier = Modifier, vm: AccountSettingsView
 @Preview
 @Composable
 private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val fakeProfileRepo = FakeProfileRepository()
-    val activeProfile by fakeProfileRepo.activeProfile().collectAsStateWithLifecycle(initialValue = null)
     AccountSettingsScreenPreviewContent(
-        activeProfile = activeProfile,
+        activeProfile = PreviewSamples.previewProfile,
         onNavigateToProfileSwitcher = {},
     )
 }
@@ -116,10 +114,8 @@ private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = fals
 @Preview
 @Composable
 private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    val fakeProfileRepo = FakeProfileRepository()
-    val activeProfile by fakeProfileRepo.activeProfile().collectAsStateWithLifecycle(initialValue = null)
     AccountSettingsScreenPreviewContent(
-        activeProfile = activeProfile,
+        activeProfile = PreviewSamples.previewProfile,
         onNavigateToProfileSwitcher = {},
     )
 }

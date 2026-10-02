@@ -7,6 +7,7 @@ import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl
 import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
@@ -16,7 +17,6 @@ import com.singularity.todo.feature.search.query.DaoTagLookup
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.SearchQueryResolver
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl

@@ -17,6 +17,8 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.profile.Profile
+import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.reminders.Reminder
@@ -60,6 +62,9 @@ internal fun PreviewThemed(
     }
 }
 
+/** No-op click handler for @Preview composables. Use instead of `onClick = {}`. */
+internal val noopClick: () -> Unit = {}
+
 // ===== Shared sample data builders =====
 
 /**
@@ -76,6 +81,17 @@ internal object PreviewSamples {
     val today: LocalDate = LocalDate(2026, 9, 6)
     val userId: UserId = UserId.anonymous
     private val projectUserId: UserId = UserId.anonymous
+
+    /** Minimal [Profile] for @Preview composables — replaces [com.singularity.todo.test.fakes.FakeProfileRepository]. */
+    internal val previewProfile: Profile = Profile(
+        id = ProfileId.default,
+        name = "Personal",
+        emoji = "🏠",
+        colorIdx = 0,
+        isDefault = true,
+        createdAt = Instant.fromEpochMilliseconds(0),
+        updatedAt = Instant.fromEpochMilliseconds(0),
+    )
 
     fun task(
         id: String = "t1",

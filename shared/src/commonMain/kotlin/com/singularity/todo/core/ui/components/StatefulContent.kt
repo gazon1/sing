@@ -14,6 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Unified content renderer for sealed UI states that follow the
@@ -176,7 +177,7 @@ private fun StatefulContentEmptyPreview() = PreviewThemed(darkTheme = false) {
         emptyTitle = "No tasks yet",
         emptySubtitle = "Create your first task",
         emptyActions = {
-            FilledTonalButton(onClick = {}) { Text("Create task") }
+            FilledTonalButton(onClick = noopClick) { Text("Create task") }
         },
     ) { value, modifier -> Text(value, modifier) }
 }
@@ -187,7 +188,7 @@ private fun StatefulContentErrorPreview() = PreviewThemed(darkTheme = true) {
     StatefulContent<String>(
         state = ContentState.Error(AppError.Network("Timed out")),
         emptyTitle = "No tasks",
-        onRetry = {},
+        onRetry = noopClick,
     ) { value, modifier -> Text(value, modifier) }
 }
 

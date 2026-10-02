@@ -7,7 +7,6 @@ import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
-import com.singularity.todo.feature.notes.LinkSchemes
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
@@ -376,9 +375,6 @@ class NotesRepositoryImpl(
         val uid = currentUser.scopedUserId.value
         val now = clock.now().toEpochMilliseconds()
         val id = NoteId(com.singularity.todo.core.ids.nextId())
-        // Build outgoing_links: the task:// wikilink for backward compat with wikilink-based backlinks
-        val taskWikilink = "${LinkSchemes.TASK_PREFIX}${taskId.value}"
-        val links = listOf(taskWikilink)
         val wordCount = bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0
         noteDao.upsert(
             NoteEntity(
@@ -395,8 +391,8 @@ class NotesRepositoryImpl(
                 sortOrder = 0,
                 wordCount = wordCount,
                 charCount = bodyMarkdown?.length ?: 0,
-                outgoingLinks = links.toLinksJson(),
-                taskId = taskId.value, // structural FK — the indexed column
+                outgoingLinks = "[]", // task:// links are stored only in taskId (structural FK)
+                taskId = taskId.value,
                 createdAt = now,
                 updatedAt = now,
                 deletedAt = null,

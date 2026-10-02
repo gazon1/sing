@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Type alias for the `trailing` slot in [SettingsRow] — allows callers to pass
@@ -260,8 +261,8 @@ private fun SettingsSectionDarkPreview() = PreviewThemed(darkTheme = true) {
 @Composable
 private fun SettingsRowLightPreview() = PreviewThemed(darkTheme = false) {
     SettingsSection(title = "General") {
-        SettingsActionRow(title = "Language", subtitle = "English", onClick = {})
-        SettingsActionRow(title = "About", onClick = {})
+        SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
+        SettingsActionRow(title = "About", onClick = noopClick)
         SettingsSwitchRow(title = "Switch setting", checked = true, onCheckedChange = {})
     }
 }
@@ -270,7 +271,7 @@ private fun SettingsRowLightPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun SettingsRowDarkPreview() = PreviewThemed(darkTheme = true) {
     SettingsSection(title = "General") {
-        SettingsActionRow(title = "Language", subtitle = "English", onClick = {})
+        SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
     }
 }
 
@@ -278,12 +279,12 @@ private fun SettingsRowDarkPreview() = PreviewThemed(darkTheme = true) {
 @Composable
 private fun SettingsValueRowPreview() = PreviewThemed(darkTheme = false) {
     SettingsSection(title = "Region") {
-        SettingsValueRow(title = "Language", value = "English", onClick = {})
+        SettingsValueRow(title = "Language", value = "English", onClick = noopClick)
         SettingsValueRow(
             title = "Week starts on",
             value = "Monday",
             subtitle = "Applies to calendar and reminders",
-            onClick = {},
+            onClick = noopClick,
         )
     }
 }

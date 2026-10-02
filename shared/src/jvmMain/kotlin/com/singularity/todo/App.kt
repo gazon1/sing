@@ -74,7 +74,7 @@ private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeS
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
         ) {
-            AuthGuard {
+            AuthGuard(koinInject()) {
                 PlatformShell(state, navigator, navCallbacks)
             }
         }

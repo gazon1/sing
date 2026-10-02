@@ -28,7 +28,7 @@ import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncInten
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectCalendar
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetEnabled
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SyncNow
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,7 +47,7 @@ import java.util.Locale
  */
 @Composable
 fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
-    val viewModel: CalendarSyncViewModel = koinInject()
+    val viewModel: CalendarSyncViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     val permissionRequester = rememberCalendarPermissionRequester()

@@ -28,15 +28,12 @@ class CalendarEventMapperTest {
             .toLocalDateTime(tz).date
     }
 
-    private fun localDate(year: Int, month: Int, day: Int) =
-        LocalDate(year, month, day)
+    private fun localDate(year: Int, month: Int, day: Int) = LocalDate(year, month, day)
 
-    private fun localTime(hour: Int, minute: Int) =
-        LocalTime(hour, minute)
+    private fun localTime(hour: Int, minute: Int) = LocalTime(hour, minute)
 
-    private fun midnightMs(date: LocalDate) =
-        date.atStartOfDayIn(tz)
-            .toEpochMilliseconds()
+    private fun midnightMs(date: LocalDate) = date.atStartOfDayIn(tz)
+        .toEpochMilliseconds()
 
     private fun nextDayMidnightMs(date: LocalDate): Long {
         // Mirror the logic from CalendarEventMapper.LocalDate.nextDay()
@@ -51,19 +48,16 @@ class CalendarEventMapperTest {
             .toEpochMilliseconds()
     }
 
-    private fun daysInMonth(year: Int, month: Int): Int =
-        when (month) {
-            1, 3, 5, 7, 8, 10, 12 -> 31
-            4, 6, 9, 11 -> 30
-            2 -> if (isLeapYear(year)) 29 else 28
-            else -> 30
-        }
+    private fun daysInMonth(year: Int, month: Int): Int = when (month) {
+        1, 3, 5, 7, 8, 10, 12 -> 31
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYear(year)) 29 else 28
+        else -> 30
+    }
 
-    private fun isLeapYear(year: Int): Boolean =
-        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    private fun isLeapYear(year: Int): Boolean = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 
-    private fun instantOfEpochMs(ms: Long): kotlin.time.Instant =
-        kotlin.time.Instant.fromEpochMilliseconds(ms)
+    private fun instantOfEpochMs(ms: Long): kotlin.time.Instant = kotlin.time.Instant.fromEpochMilliseconds(ms)
 
     // Full Task constructor with all required fields
     private fun task(
@@ -72,47 +66,45 @@ class CalendarEventMapperTest {
         dueDate: LocalDate? = null,
         dueTime: LocalTime? = null,
         description: String? = null,
-    ) =
-        Task(
-            id = id,
-            title = title,
-            description = description,
-            priority = TaskPriority.None,
-            kind = TaskKind.Task,
-            projectId = null,
-            parentTaskId = null,
-            tags = emptyList(),
-            dueDate = dueDate,
-            dueTime = dueTime,
-            startDate = null,
-            startTime = null,
-            endDate = null,
-            endTime = null,
-            accentColor = null,
-            emoji = null,
-            completedAt = null,
-            someday = false,
-            archivedAt = null,
-            isPinned = false,
-            dependsOn = emptySet(),
-            createdAt = instantOfEpochMs(0),
-            updatedAt = instantOfEpochMs(0),
-            userId = UserId("u1"),
-        )
+    ) = Task(
+        id = id,
+        title = title,
+        description = description,
+        priority = TaskPriority.None,
+        kind = TaskKind.Task,
+        projectId = null,
+        parentTaskId = null,
+        tags = emptyList(),
+        dueDate = dueDate,
+        dueTime = dueTime,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = null,
+        emoji = null,
+        completedAt = null,
+        someday = false,
+        archivedAt = null,
+        isPinned = false,
+        dependsOn = emptySet(),
+        createdAt = instantOfEpochMs(0),
+        updatedAt = instantOfEpochMs(0),
+        userId = UserId("u1"),
+    )
 
     // Full Reminder constructor for recurring pattern tests
-    private fun reminder(taskId: TaskId, recurringPattern: String?) =
-        Reminder(
-            id = ReminderId("r1"),
-            taskId = taskId,
-            userId = UserId("u1"),
-            type = ReminderType.Gentle,
-            offsetMinutes = 0,
-            fireAt = 0L,
-            recurringPattern = recurringPattern,
-            viewId = null,
-            lastFiredAt = null,
-        )
+    private fun reminder(taskId: TaskId, recurringPattern: String?) = Reminder(
+        id = ReminderId("r1"),
+        taskId = taskId,
+        userId = UserId("u1"),
+        type = ReminderType.Gentle,
+        offsetMinutes = 0,
+        fireAt = 0L,
+        recurringPattern = recurringPattern,
+        viewId = null,
+        lastFiredAt = null,
+    )
 
     @Test
     fun timed_task_maps_to_timed_event_with_1h_duration() {
