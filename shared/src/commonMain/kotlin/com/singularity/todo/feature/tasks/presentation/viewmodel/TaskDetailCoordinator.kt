@@ -108,7 +108,7 @@ class TaskDetailCoordinator(
 
     private val backlinks = TaskBacklinksCollector(deps, vmScope, taskFlow)
 
-    private val logbook = TaskLogbookCollector(deps.notesRepo, vmScope, taskFlow)
+    private val logbook = TaskLogbookCollector(deps.notesRepo, deps.timeTrackingRepo, vmScope, taskFlow)
 
     private val timeSlot = TaskTimeSlot(
         taskId = taskId,
@@ -158,7 +158,7 @@ class TaskDetailCoordinator(
                             availableTasks = entityState.availableTasks,
                             linkedNotes = backlinkState.notes,
                             linkedTasks = backlinkState.tasks,
-                            logbookNotes = logState.allNotes,
+                            logbookEntries = logState.allEntries,
                             timeSlotState = when (val ex = extras) {
                                 is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
                                 is TaskDetailExtras.Ready -> ex.timeSlotState

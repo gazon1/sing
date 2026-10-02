@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -30,39 +31,41 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
+import java.util.Locale
 
 /**
- * Task logbook — a chronological feed of notes attached to the current task.
+ * Task logbook — a chronological feed of notes and time entries attached to the current task.
  *
- * Rendered inside [TaskEditorContent] extraSections. Groups notes by day using
- * [Note.createdAt] and displays them in reverse-chronological order.
+ * Rendered inside [TaskEditorContent] extraSections. Groups entries by day and displays them
+ * in reverse-chronological order.
  *
- * @param notes The logbook notes to display (already extracted from [TaskLogbookState]).
+ * @param entries The logbook entries to display (already extracted from [TaskLogbookState]).
  * @param onOpenNote Invoked when the user taps a note — opens the note preview.
- * @param onAddNote Invoked when the user taps the add button — opens the note editor
+ * @param onAddNote Invoked when the user taps the add note button — opens the note editor
  *                  pre-attached to the current task.
  * @param currentTaskId The task to attach new notes to.
  */
 @Composable
 fun LogbookSection(
-    notes: List<Note>,
+    entries: List<LogbookEntry>,
     onOpenNote: (NoteId) -> Unit,
     onAddNote: (TaskId) -> Unit,
     currentTaskId: TaskId,
     modifier: Modifier = Modifier,
 ) {
-    if (notes.isEmpty()) {
+    if (entries.isEmpty()) {
         LogbookEmptyCard(
             onAddNote = { onAddNote(currentTaskId) },
             modifier = modifier,
         )
     } else {
         LogbookLoadedCard(
-            notes = notes,
+            entries = entries,
             onOpenNote = onOpenNote,
             onAddNote = { onAddNote(currentTaskId) },
             modifier = modifier,
@@ -113,14 +116,18 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
 
 @Composable
 private fun LogbookLoadedCard(
-    notes: List<Note>,
+    entries: List<LogbookEntry>,
     onOpenNote: (NoteId) -> Unit,
     onAddNote: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val grouped = remember(notes) {
-        notes.groupBy { note: Note ->
-            note.createdAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
+    val grouped = remember(entries) {
+        entries.groupBy { entry ->
+            val instant = when (entry) {
+                is LogbookEntry.NoteEntry -> entry.note.createdAt
+                is LogbookEntry.TimeEntryRow -> entry.entry.startedAt
+            }
+            instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
         }
     }
 
@@ -149,7 +156,7 @@ private fun LogbookLoadedCard(
                 )
                 Spacer(Modifier.width(TaskSpacing.lg))
                 Text(
-                    text = "Logbook (${notes.size})",
+                    text = "Logbook (${entries.size})",
                     color = TaskColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -167,8 +174,8 @@ private fun LogbookLoadedCard(
 
             Spacer(Modifier.height(TaskSpacing.md))
 
-            // Grouped notes
-            grouped.forEach { (date: LocalDate, dayNotes: List<Note>) ->
+            // Grouped entries
+            grouped.forEach { (date: LocalDate, dayEntries: List<LogbookEntry>) ->
                 Text(
                     text = formatDayLabel(date),
                     color = TaskColors.TextSecondary,
@@ -176,11 +183,17 @@ private fun LogbookLoadedCard(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(bottom = 4.dp, top = 8.dp),
                 )
-                dayNotes.forEach { note: Note ->
-                    LogbookNoteRow(
-                        note = note,
-                        onClick = { onOpenNote(note.id) },
-                    )
+                dayEntries.forEach { entry: LogbookEntry ->
+                    when (entry) {
+                        is LogbookEntry.NoteEntry -> LogbookNoteRow(
+                            note = entry.note,
+                            onClick = { onOpenNote(entry.note.id) },
+                        )
+
+                        is LogbookEntry.TimeEntryRow -> LogbookTimeEntryRow(
+                            entry = entry.entry,
+                        )
+                    }
                 }
             }
         }
@@ -204,6 +217,49 @@ private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier =
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+@Composable
+private fun LogbookTimeEntryRow(
+    entry: com.singularity.todo.feature.timetracking.domain.TimeEntry,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Timer,
+            contentDescription = null,
+            tint = TaskColors.TextSecondary,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        val duration = entry.durationMs?.let { formatElapsed(it) } ?: "running"
+        Text(
+            text = "${entry.kind.name.lowercase()} · $duration",
+            color = TaskColors.TextSecondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * Formats elapsed milliseconds as HH:MM:SS or MM:SS.
+ */
+private fun formatElapsed(elapsedMs: Long): String {
+    val totalSeconds = elapsedMs / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.US, "%d:%02d", minutes, seconds)
     }
 }
 

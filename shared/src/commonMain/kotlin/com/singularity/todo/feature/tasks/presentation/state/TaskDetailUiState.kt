@@ -8,6 +8,7 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 
 /**
@@ -34,8 +35,8 @@ data class TaskDetailUi(
     val linkedNotes: List<Note> = emptyList(),
     /** Tasks that link TO this task via task:// URL scheme. */
     val linkedTasks: List<Task> = emptyList(),
-    /** Notes attached to this task via [com.singularity.todo.feature.notes.Note.taskId]. */
-    val logbookNotes: List<Note> = emptyList(),
+    /** Logbook entries (notes + time entries) attached to this task, newest first. */
+    val logbookEntries: List<LogbookEntry> = emptyList(),
     /** Time tracking state for this task. */
     val timeSlotState: TaskTimeSlotState = TaskTimeSlotState.Idle,
     /** First-run state for this task. */

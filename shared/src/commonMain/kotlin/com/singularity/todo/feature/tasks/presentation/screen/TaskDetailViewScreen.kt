@@ -197,7 +197,7 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                 onAddManual = { showTimeEntrySheet = true },
                             )
                             LogbookSection(
-                                notes = ui.logbookNotes,
+                                entries = ui.logbookEntries,
                                 onOpenNote = { navigator.openNote(it) },
                                 onAddNote = { taskId -> navigator.openCreateNote(taskId) },
                                 currentTaskId = ui.task.id,
