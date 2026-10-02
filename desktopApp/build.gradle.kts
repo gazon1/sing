@@ -132,9 +132,16 @@ tasks.withType<Test>().configureEach {
     // hard failure. Read from System.getProperties rather than
     // project.findProperty because the CLI form lands on the daemon first.
     // The prefix keeps it to this project's switches.
-    System.getProperties().stringPropertyNames()
-        .filter { it.startsWith("singularity.") }
-        .forEach { key -> systemProperty(key, System.getProperty(key)) }
+    // Track each singularity.* key as an input so Gradle config cache is invalidated
+    // when any of them change.  Using inputs.property() rather than a plain forEach
+    // because the latter is invisible to the configuration-cache.
+    listOf(
+        "singularity.test.profile",
+        "singularity.test.is.android",
+        "singularity.test.is.desktop",
+        "singularity.test.is.jvm",
+        "singularity.test.verbose",
+    ).forEach { key -> inputs.property(key) { System.getProperty(key) } }
 
     // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
     // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so

@@ -52,8 +52,8 @@ test:
 check:
     #!/bin/bash
     set -euo pipefail
+    # check.sh already runs detekt (step [7/7]); lint here would run it a second time.
     SKIP_ADB={{SKIP_ADB}} ./check.sh
-    just lint
 
 [group('tests')]
 [doc('Clean build artifacts')]

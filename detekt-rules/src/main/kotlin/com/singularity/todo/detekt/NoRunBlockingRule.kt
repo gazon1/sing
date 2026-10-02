@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * (ViewModels, repositories, use cases). It belongs only in tests and main entry points.
  * The canonical alternative is `CoroutineScope.launch { ... }` or `scope.launch { ... }`.
  *
- * Test sources are exempt — detekt's standard path filters handle test paths.
+ * Note: test-source exemption is not implemented via path filters in this rule.
  *
  * @see NoRunBlockingProvider for registration.
  */

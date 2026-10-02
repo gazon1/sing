@@ -2,6 +2,36 @@
 
 Reference implementations for convention plugins. **Not yet wired into the main build** — Gradle 9's included-build classpath isolation makes wiring a `kotlin-dsl` convention build non-trivial.
 
+## Trigger conditions
+
+Connect `build-logic/convention` to the main build when **both** are true:
+
+1. **(a) ≥ 10 modules** share the same convention plugin (kotlin-multiplatform-library,
+   android-application, jvm-application, android-library). Count current convention
+   candidates: `shared`, `androidApp`, `desktopApp`, `mcp-server`, `detekt-rules` —
+   five modules. A new shared convention is worth the overhead when a sixth module
+   would otherwise copy the same plugin block.
+
+2. **(b) Gradle closed the included-build isolation gap.** Track [gradle/gradle#34896](
+   https://github.com/gradle/gradle/issues/34896). When a stable Gradle release ships
+   a resolution that eliminates the `pluginManagement` + classpath-isolation conflict,
+   the migration steps below apply.
+
+**Do not wire preemptively.** The convention build adds a second Gradle invocation
+to every `includeBuild` refresh in CI. The current 5-module flat structure compiles
+in one daemon pass; the convention build buys consistency at the cost of build latency.
+
+## Convention plugin checklist
+
+Before wiring, verify all four plugins exist and are documented:
+
+| Plugin | File | Covers |
+|---|---|---|
+| `common-deps-convention` | `plugins/common-deps-convention.gradle.kts` | Dependency versions + platform-agnostic global settings |
+| `kotlin-multiplatform-library-convention` | `plugins/kotlin-multiplatform-library-convention.gradle.kts` | KMP targets, Room, Koin, KSP |
+| `android-application-convention` | `plugins/android-application-convention.gradle.kts` | Android app + Compose compiler |
+| `jvm-application-convention` | `plugins/jvm-application-convention.gradle.kts` | JVM/desktop targets + Compose compiler |
+
 ## Why not yet applied
 
 Gradle 9's classpath isolation for included builds means:

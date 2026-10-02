@@ -34,13 +34,17 @@ scripts/find-unwired-surfaces.py          # report; exit 1 when anything is foun
 scripts/find-unwired-surfaces.py --quiet  # findings only
 ```
 
-Detects three shapes, each validated against a synthetic fixture so a detector
+Detects six shapes, each validated against a synthetic fixture so a detector
 that never fires cannot pass unnoticed:
 
-- **screen** — a public `*Screen` composable with no call site anywhere.
+- **screen** — a public `*Screen`/`*Card`/`*Section`/`*Sheet` composable with no call site anywhere.
 - **default-noop** — a callback declared `= {}` that a `?:` consumer reads as
   "supplied", so the fallback never runs.
 - **di-binding** — a Room DAO accessor on `AppDatabase` with no Koin binding.
+- **log-writer** — a `LogWriter` subclass never registered via `Logger.setLogWriters`.
+- **expect-unwired** — an `expect` declaration with an `actual` that is never called.
+- **orphan-binding** — a Koin `single<>/factory<>` binding with no `get<>/koinGet<>` consumer
+  (known orphans are allowlisted in `DECLARED_INTENT`).
 
 The one thing that makes the screen check work: **KDoc mentions are not calls.**
 `[SyncConfigScreen]` in a doc comment is a text match for the symbol, so a naive

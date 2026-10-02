@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * For `Thread.sleep` in instrumented (emulator) tests, there is no equivalent
  * virtual-time substitute — the only option is to reduce the delay or restructure
  * the test. When `Thread.sleep` appears in an instrumented test it should be
- * suppressed with `@Suppress("DEPRECATION")` and a TODO comment referencing this rule.
+ * suppressed with `@Suppress("ThreadSleepInTest")` and a TODO comment referencing this rule.
  *
  * Exemptions for `delay()`:
  * - `delay(0)` and `delay(1)` — effectively no-ops, no virtual-time needed
@@ -41,6 +41,11 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoRealDelayInTestRuleProvider for registration.
  */
 class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
+
+    private companion object {
+        private const val BAN_LIST_REF =
+            "See AGENTS.md ban list + singularity-todo-test-flaky-prevention skill."
+    }
 
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
@@ -73,8 +78,7 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
                 entity = Entity.from(expression),
                 message = "delay($value) is a real-time block in tests. " +
                     "Use advanceUntilIdle(), advanceTimeBy($value), or runCurrent() " +
-                    "from kotlinx.coroutines.test instead. See AGENTS.md ban list + " +
-                    "singularity-todo-test-flaky-prevention skill.",
+                    "from kotlinx.coroutines.test instead. $BAN_LIST_REF",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -100,7 +104,7 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
                     "In Compose UI tests use composeTestRule.waitForIdle(). " +
                     "In instrumented (emulator) tests where no alternative exists, " +
                     "suppress with @Suppress(\"ThreadSleepInTest\") on the test function. " +
-                    "See AGENTS.md ban list + singularity-todo-test-flaky-prevention skill.",
+                    "$BAN_LIST_REF",
                 references = emptyList(),
                 suppressReasons = listOf("ThreadSleepInTest"),
             ),

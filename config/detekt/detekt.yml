@@ -339,3 +339,15 @@ kdoc-enforcement:
 no-combine-side-effect:
   NoCombineSideEffect:
     active: true
+
+# MR-B (pending): 37 findings across 14 files (mostly @Preview composables).
+# Enable after sweeping the preview files.
+no-empty-onclick-lambda:
+  NoEmptyOnClickLambda:
+    active: false
+
+# MR-B (pending): one real finding in FileLogWriter (Dispatchers.IO.limitedParallelism(1))
+# which is already whitelisted. Enable after audit.
+no-direct-dispatchers:
+  NoDirectDispatchers:
+    active: false
