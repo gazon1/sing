@@ -19,10 +19,8 @@ import kotlinx.coroutines.flow.first
  * The blocking edges returned are the subset of outgoing edges from the cycle that,
  * if removed, would break the cycle.
  */
-class DependencyValidatorImpl(
-    private val taskDao: TaskDao,
-    private val currentUser: ProfileAwareCurrentUser,
-) : DependencyValidator {
+class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentUser: ProfileAwareCurrentUser) :
+    DependencyValidator {
 
     override suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Result<Unit> {
         if (taskId.value in newDeps.map { it.value }) {

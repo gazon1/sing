@@ -170,7 +170,8 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                             expanded = overflowMenuOpen,
                             onDismissRequest = { overflowMenuOpen = false },
                         ) {
-                            val isArchived = (contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
+                            val isArchived =
+                                (contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
                             DropdownMenuItem(
                                 text = { Text(if (isArchived) "Unarchive" else "Archive") },
                                 onClick = {
@@ -249,7 +250,12 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         // fixed set the picker offers, so a stored offset that no longer
                         // matches a member (offset list changed) reads as "no selection"
                         // rather than inventing a value the picker cannot show.
-                        reminderOffset = content.ui.reminderOffsetMinutes?.let { m -> ReminderOffset.entries.firstOrNull { it.minutes == m } },
+                        reminderOffset = content.ui.reminderOffsetMinutes?.let { m ->
+                            ReminderOffset.entries.firstOrNull {
+                                it.minutes ==
+                                    m
+                            }
+                        },
                         onUpdateColor = { actions.onUpdateColor(it) },
                         onUpdateIcon = { actions.onUpdateIcon(it) },
                         onUpdateParent = { actions.onUpdateParent(it) },
@@ -272,12 +278,11 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
 // ─── Sections ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ProjectDetailUiState.title(): String =
-    when (this) {
-        ProjectDetailUiState.Loading -> "Project"
-        ProjectDetailUiState.NotFound -> "Not found"
-        is ProjectDetailUiState.Content -> ui.project.name
-    }
+private fun ProjectDetailUiState.title(): String = when (this) {
+    ProjectDetailUiState.Loading -> "Project"
+    ProjectDetailUiState.NotFound -> "Not found"
+    is ProjectDetailUiState.Content -> ui.project.name
+}
 
 @OptIn(ExperimentalTime::class)
 @Composable
@@ -291,7 +296,7 @@ private fun ProjectHeroSection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -554,14 +559,18 @@ private fun AddExistingTaskPopup(
     onDismiss: () -> Unit,
 ) {
     val filtered = remember(tasks, query) {
-        if (query.isBlank()) tasks.take(10) else tasks.filter { it.title.contains(query, ignoreCase = true) }
+        if (query.isBlank()) {
+            tasks.take(10)
+        } else {
+            tasks.filter { it.title.contains(query, ignoreCase = true) }
             .take(10)
+        }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 32.dp),
         ) {
             Text("Add existing task", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))

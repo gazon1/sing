@@ -20,6 +20,11 @@ import kotlinx.coroutines.flow.Flow
 @Entity(tableName = "calendar_sync_task_map")
 data class CalendarSyncTaskMapEntity(
     @PrimaryKey @ColumnInfo("task_id") val taskId: String,
+    /**
+     * The user who owns this mapping. Nullable only for legacy rows created before
+     * the multi-profile fix — they are cleaned up as stale on the next sync pass.
+     */
+    @ColumnInfo("user_id") val userId: String?,
     @ColumnInfo("calendar_id") val calendarId: String,
     @ColumnInfo("event_id") val eventId: Long,
     @ColumnInfo("synced_at") val syncedAt: Long,
@@ -29,43 +34,61 @@ data class CalendarSyncTaskMapEntity(
 
 /**
  * DAO for [CalendarSyncTaskMapEntity].
+ *
+ * All methods are scoped to [userId] for multi-profile safety.
+ * The [deleteStale] method — called by [CalendarSyncWorker][com.singularity.todo.feature.calendar_sync.CalendarSyncWorker]
+ * — MUST NOT delete rows belonging to other profiles, which is why [userId] is
+ * required even for the stale-cleanup query.
  */
 @Dao
 interface CalendarSyncTaskMapDao {
 
-    /** Observe the entire map as a Flow. */
-    @Query("SELECT * FROM calendar_sync_task_map")
-    fun observeAll(): Flow<List<CalendarSyncTaskMapEntity>>
+    /** Observe all mappings for a given user. */
+    @Query("SELECT * FROM calendar_sync_task_map WHERE user_id = :userId")
+    fun observeAll(userId: String): Flow<List<CalendarSyncTaskMapEntity>>
 
-    /** Get all mappings as a snapshot (non-Flow). */
-    @Query("SELECT * FROM calendar_sync_task_map")
-    suspend fun getAll(): List<CalendarSyncTaskMapEntity>
+    /** Get all mappings for a given user as a snapshot (non-Flow). */
+    @Query("SELECT * FROM calendar_sync_task_map WHERE user_id = :userId")
+    suspend fun getAll(userId: String): List<CalendarSyncTaskMapEntity>
 
-    /** Get the event ID for a specific task, if any. */
-    @Query("SELECT event_id FROM calendar_sync_task_map WHERE task_id = :taskId")
-    suspend fun getEventId(taskId: String): Long?
+    /** Get the event ID for a specific task, if any (task must belong to [userId]). */
+    @Query("SELECT event_id FROM calendar_sync_task_map WHERE task_id = :taskId AND user_id = :userId")
+    suspend fun getEventId(taskId: String, userId: String): Long?
 
-    /** Get the full mapping entity for a specific task, if any. */
-    @Query("SELECT * FROM calendar_sync_task_map WHERE task_id = :taskId")
-    suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity?
+    /** Get the full mapping entity for a specific task, if any (task must belong to [userId]). */
+    @Query("SELECT * FROM calendar_sync_task_map WHERE task_id = :taskId AND user_id = :userId")
+    suspend fun getByTaskId(taskId: String, userId: String): CalendarSyncTaskMapEntity?
 
-    /** Insert or replace a mapping. */
+    /** Insert or replace a mapping. Caller must populate [CalendarSyncTaskMapEntity.userId]. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: CalendarSyncTaskMapEntity)
 
     /** Delete the mapping for a specific task. */
-    @Query("DELETE FROM calendar_sync_task_map WHERE task_id = :taskId")
-    suspend fun delete(taskId: String)
+    @Query("DELETE FROM calendar_sync_task_map WHERE task_id = :taskId AND user_id = :userId")
+    suspend fun delete(taskId: String, userId: String)
 
     /** Delete the mapping for a specific system calendar event ID. */
-    @Query("DELETE FROM calendar_sync_task_map WHERE event_id = :eventId")
-    suspend fun deleteByEventId(eventId: Long)
+    @Query("DELETE FROM calendar_sync_task_map WHERE event_id = :eventId AND user_id = :userId")
+    suspend fun deleteByEventId(eventId: Long, userId: String)
 
-    /** Delete all mappings for tasks not in the given set. */
-    @Query("DELETE FROM calendar_sync_task_map WHERE task_id NOT IN (:taskIds)")
-    suspend fun deleteStale(taskIds: List<String>)
+    /**
+     * Delete all mappings for tasks not in the given set, scoped to [userId].
+     *
+     * WARNING: prior to the fix that added [userId] parameter, this query ran without
+     * a user filter and would delete rows from ALL profiles on a multi-profile device.
+     * Always pass [userId] — no exceptions.
+     */
+    @Query("DELETE FROM calendar_sync_task_map WHERE user_id = :userId AND task_id NOT IN (:taskIds)")
+    suspend fun deleteStale(taskIds: List<String>, userId: String)
 
-    /** Clear all mappings. */
-    @Query("DELETE FROM calendar_sync_task_map")
-    suspend fun clearAll()
+    /**
+     * Delete all rows that have NULL [userId] — legacy rows from before the multi-profile
+     * fix. These are cleaned up as stale on every sync pass.
+     */
+    @Query("DELETE FROM calendar_sync_task_map WHERE user_id IS NULL")
+    suspend fun deleteLegacyRows()
+
+    /** Clear all mappings for a given user. */
+    @Query("DELETE FROM calendar_sync_task_map WHERE user_id = :userId")
+    suspend fun clearAll(userId: String)
 }

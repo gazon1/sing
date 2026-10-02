@@ -60,35 +60,35 @@ class NoteEditor(
     private val currentUser: ProfileAwareCurrentUser,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
-    initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
-    autosave = { draft ->
-        // Autosave reads from DB to preserve createdAt. Debounced to 500ms, so the
-        // extra round-trip on every keystroke is acceptable.
-        // Note: taskId is NOT preserved here — it is only set via editingAsNote
-        // (the explicit-save path) which is guaranteed to have cachedNote set.
-        val noteId = NoteId.fromString(draft.id)
-        val existing = repo.get(noteId)
-        val now: kotlin.time.Instant = Clock.System.now()
-        repo.upsert(
-            Note(
-                id = noteId,
-                userId = currentUser.scopedUserId.value,
-                title = draft.title,
-                bodyHtml = draft.html,
-                bodyMarkdown = null,
-                createdAt = existing?.createdAt
-                    ?: now,
-                updatedAt = now,
-                isFolder = false,
-                // taskId is preserved via cachedNote in the explicit-save path only
-            ),
-        )
-    },
-    restore = { null },
-    logger = log,
-    autosaveDebounceMs = 500L,
-    scope = scope,
-) {
+        initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
+        autosave = { draft ->
+            // Autosave reads from DB to preserve createdAt. Debounced to 500ms, so the
+            // extra round-trip on every keystroke is acceptable.
+            // Note: taskId is NOT preserved here — it is only set via editingAsNote
+            // (the explicit-save path) which is guaranteed to have cachedNote set.
+            val noteId = NoteId.fromString(draft.id)
+            val existing = repo.get(noteId)
+            val now: kotlin.time.Instant = Clock.System.now()
+            repo.upsert(
+                Note(
+                    id = noteId,
+                    userId = currentUser.scopedUserId.value,
+                    title = draft.title,
+                    bodyHtml = draft.html,
+                    bodyMarkdown = null,
+                    createdAt = existing?.createdAt
+                        ?: now,
+                    updatedAt = now,
+                    isFolder = false,
+                    // taskId is preserved via cachedNote in the explicit-save path only
+                ),
+            )
+        },
+        restore = { null },
+        logger = log,
+        autosaveDebounceMs = 500L,
+        scope = scope,
+    ) {
 
     /** Caches the existing note when opening to preserve createdAt across saves. */
     private var cachedNote: Note? = null
@@ -146,7 +146,7 @@ class NoteEditor(
         cachedNote = null // no existing note for new notes
         val id = NoteId.fromString(
             preExistingId
-                ?: idGen.next()
+                ?: idGen.next(),
         )
         val draft = Editing(
             id = id.value,
@@ -178,8 +178,7 @@ class NoteEditor(
     val editorState: DraftUiState<Editing>
         get() = state.value
 
-    override fun validate(draft: Editing): String? =
-        null
+    override fun validate(draft: Editing): String? = null
 
     override suspend fun onSaved() {
         // Explicit save persists the note: it is no longer "new" — a subsequent
@@ -188,13 +187,12 @@ class NoteEditor(
         emit(NotesUiEvent.SavedPulse)
     }
 
-    override suspend fun persist(draft: Editing): Either<AppError, Unit> =
-        try {
-            repo.upsert(editingAsNote(draft))
-            Either.Right(Unit)
-        } catch (e: Exception) {
-            Either.Left(AppError.Persistence(e.toMessage()))
-        }
+    override suspend fun persist(draft: Editing): Either<AppError, Unit> = try {
+        repo.upsert(editingAsNote(draft))
+        Either.Right(Unit)
+    } catch (e: Exception) {
+        Either.Left(AppError.Persistence(e.toMessage()))
+    }
 
     override fun onAutosaveError(e: Throwable) {
         log.e(e) { "autosave failed: ${e.message}" }
@@ -202,8 +200,8 @@ class NoteEditor(
             emit(
                 NotesUiEvent.SaveFailed(
                     e.message
-                        ?: "Autosave failed"
-                )
+                        ?: "Autosave failed",
+                ),
             )
         }
     }
@@ -240,13 +238,15 @@ class NoteEditor(
                     .getOrThrow()
             },
             onResult = { before, success ->
-                @Suppress("UNCHECKED_CAST") when (success) {
+                @Suppress("UNCHECKED_CAST")
+                when (success) {
                     is Improved -> before.copy(title = success.title, html = success.body, isDirty = true)
                     else -> null
                 }
             },
             onEvent = { result ->
-                @Suppress("UNCHECKED_CAST") when (result) {
+                @Suppress("UNCHECKED_CAST")
+                when (result) {
                     is Improved -> NotesUiEvent.AiResult(formatNoteAiResult(result))
                     is SummarizeResult -> NotesUiEvent.AiResult(formatSummarizeResult(result))
                     is ExtractActionsResult -> NotesUiEvent.AiResult(formatExtractActionsResult(result))
@@ -260,13 +260,11 @@ class NoteEditor(
 
     // ─── Link search ─────────────────────────────────────────────────────
 
-    suspend fun searchNotesForLink(query: String): List<LinkResult> =
-        linkRepo.searchNotes(query)
-            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+    suspend fun searchNotesForLink(query: String): List<LinkResult> = linkRepo.searchNotes(query)
+        .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
 
-    suspend fun searchTasksForLink(query: String): List<LinkResult> =
-        linkRepo.searchTasks(query)
-            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(query)
+        .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
 
     // ─── Cleanup ─────────────────────────────────────────────────────────
 

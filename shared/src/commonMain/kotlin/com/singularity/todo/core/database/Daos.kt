@@ -371,10 +371,16 @@ interface NoteDao {
     )
     fun watchRootNotes(userId: String): Flow<List<NoteEntity>>
 
+    /**
+     * Observe direct child notes of a folder, scoped to [userId].
+     *
+     * The caller is responsible for ensuring [parentId] itself belongs to [userId];
+     * this query only filters the returned children.
+     */
     @Query(
-        "SELECT * FROM notes WHERE parent_note_id = :parentId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
+        "SELECT * FROM notes WHERE parent_note_id = :parentId AND user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
     )
-    fun watchChildren(parentId: String): Flow<List<NoteEntity>>
+    fun watchChildrenForUser(parentId: String, userId: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
     fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?>

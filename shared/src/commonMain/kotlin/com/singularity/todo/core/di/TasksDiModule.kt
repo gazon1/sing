@@ -4,9 +4,10 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.feature.archive.ArchiveViewModel
-import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl
+import com.singularity.todo.feature.archive.TaskDaoArchiveRepository
+import com.singularity.todo.feature.checklist.ChecklistRepository
 import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
-import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
@@ -14,7 +15,6 @@ import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.DaoProjectLookup
 import com.singularity.todo.feature.search.query.DaoTagLookup
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.TagLookup
@@ -66,7 +66,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single { RecurrenceCalculator }
 
-    singleOf(::TaskDaoArchiveRepositoryImpl)
+    singleOf(::TaskDaoArchiveRepository)
 
     single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 

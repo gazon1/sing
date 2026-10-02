@@ -34,33 +34,32 @@ class CalendarTaskMapperTest {
         completedAt: kotlin.time.Instant? = null,
         emoji: String? = null,
         accentColor: Long? = null,
-    ): Task =
-        Task(
-            id = TaskId.fromString(id),
-            title = title,
-            description = null,
-            priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
-            kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
-            projectId = null,
-            parentTaskId = null,
-            tags = emptyList(),
-            dueDate = dueDate,
-            dueTime = dueTime,
-            startDate = null,
-            startTime = null,
-            endDate = null,
-            endTime = null,
-            accentColor = accentColor,
-            emoji = emoji,
-            completedAt = completedAt,
-            someday = false,
-            archivedAt = null,
-            isPinned = false,
-            dependsOn = emptySet(),
-            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-            userId = testUserId,
-        )
+    ): Task = Task(
+        id = TaskId.fromString(id),
+        title = title,
+        description = null,
+        priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
+        kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
+        projectId = null,
+        parentTaskId = null,
+        tags = emptyList(),
+        dueDate = dueDate,
+        dueTime = dueTime,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = accentColor,
+        emoji = emoji,
+        completedAt = completedAt,
+        someday = false,
+        archivedAt = null,
+        isPinned = false,
+        dependsOn = emptySet(),
+        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+        userId = testUserId,
+    )
 
     // ─── status mapping ─────────────────────────────────────────────────────
 
@@ -161,17 +160,16 @@ class CalendarTaskMapperTest {
     // ═══════════════════════════════════════════════════════════════════════════
     companion object {
         @JvmStatic
-        fun `status mapping`(): List<Arguments> =
-            listOf(
-                // today = Sept 16, 2026
-                Arguments.of(
-                    kotlin.time.Instant.fromEpochMilliseconds(1),
-                    LocalDate(2026, Month.SEPTEMBER, 10),
-                    CalendarTaskStatus.DONE,
-                ),
-                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
-                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
-                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
-            )
+        fun `status mapping`(): List<Arguments> = listOf(
+            // today = Sept 16, 2026
+            Arguments.of(
+                kotlin.time.Instant.fromEpochMilliseconds(1),
+                LocalDate(2026, Month.SEPTEMBER, 10),
+                CalendarTaskStatus.DONE,
+            ),
+            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
+            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
+            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
+        )
     }
 }

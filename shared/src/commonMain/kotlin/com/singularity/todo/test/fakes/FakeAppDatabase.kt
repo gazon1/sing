@@ -559,8 +559,14 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override suspend fun getByIdForUser(id: String, userId: String): NoteEntity? =
         store.value.values.find { it.id == id && it.userId == userId }
 
-    override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.parentNoteId == parentId && n.archivedAt == null && n.deletedAt == null }
+    override fun watchChildrenForUser(parentId: String, userId: String): Flow<List<NoteEntity>> = store.map { items ->
+        items.values
+            .filter { n ->
+                n.parentNoteId == parentId &&
+                    n.userId == userId &&
+                    n.archivedAt == null &&
+                    n.deletedAt == null
+            }
             .sortedWith(compareBy({ it.sortOrder }, { it.title }))
     }
 
@@ -1040,36 +1046,52 @@ private class FakeReminderDao(
 private class FakeCalendarSyncTaskMapDao(private val store: MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>) :
     CalendarSyncTaskMapDao {
 
-    override fun observeAll(): Flow<List<CalendarSyncTaskMapEntity>> = store.map { it.values.toList() }
+    override fun observeAll(userId: String): Flow<List<CalendarSyncTaskMapEntity>> =
+        store.map { vals -> vals.values.filter { it.userId == userId } }
 
-    override suspend fun getAll(): List<CalendarSyncTaskMapEntity> = store.value.values.toList()
+    override suspend fun getAll(userId: String): List<CalendarSyncTaskMapEntity> =
+        store.value.values.filter { it.userId == userId }
 
-    override suspend fun getEventId(taskId: String): Long? = store.value[taskId]?.eventId
+    override suspend fun getEventId(taskId: String, userId: String): Long? =
+        store.value[taskId]?.takeIf { it.userId == userId }?.eventId
 
-    override suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity? = store.value[taskId]
+    override suspend fun getByTaskId(taskId: String, userId: String): CalendarSyncTaskMapEntity? =
+        store.value[taskId]?.takeIf { it.userId == userId }
 
     override suspend fun upsert(entity: CalendarSyncTaskMapEntity) {
         store.update { it + (entity.taskId to entity) }
     }
 
-    override suspend fun delete(taskId: String) {
-        store.update { it - taskId }
-    }
-
-    override suspend fun deleteByEventId(eventId: Long) {
+    override suspend fun delete(taskId: String, userId: String) {
         store.update { current ->
-            current.filterValues { it.eventId != eventId }
+            // Only delete if the row belongs to this user
+            if (current[taskId]?.userId == userId) current - taskId else current
         }
     }
 
-    override suspend fun deleteStale(taskIds: List<String>) {
+    override suspend fun deleteByEventId(eventId: Long, userId: String) {
         store.update { current ->
-            current.filterKeys { it in taskIds }
+            current.filterValues { it.eventId != eventId || it.userId != userId }
         }
     }
 
-    override suspend fun clearAll() {
-        store.value = emptyMap()
+    override suspend fun deleteStale(taskIds: List<String>, userId: String) {
+        store.update { current ->
+            // Only keep rows that either (a) are for a different user, or (b) are in the taskIds set
+            current.filterValues { it.userId != userId || it.taskId in taskIds }
+        }
+    }
+
+    override suspend fun clearAll(userId: String) {
+        store.update { current ->
+            current.filterValues { it.userId != userId }
+        }
+    }
+
+    override suspend fun deleteLegacyRows() {
+        store.update { current ->
+            current.filterValues { it.userId != null }
+        }
     }
 }
 

@@ -344,10 +344,25 @@ class TaskRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
         dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
-        taskDao.clearDependenciesForUser(taskId.value, uid)
-        deps.forEach { depId ->
-            taskDao.upsertDependencyForUser(taskId.value, depId.value, DependencyVerb.BLOCKS.name, uid)
+
+        // Read existing edges so we can preserve their verbs (fixes prior hardcoded BLOCKS bug).
+        val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
+        val existingMap = existingEdges.associateBy({ it.dependsOnTaskId }, { it.verb })
+
+        val desired = deps.map { it.value }.toSet()
+        val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
+
+        // Remove edges no longer in the desired set
+        (existing - desired).forEach { depId ->
+            taskDao.removeDependencyForUser(taskId.value, depId, uid)
         }
+
+        // Upsert remaining edges, preserving existing verb or defaulting to BLOCKS for new ones
+        desired.forEach { depId ->
+            val verb = existingMap[depId] ?: DependencyVerb.BLOCKS.name
+            taskDao.upsertDependencyForUser(taskId.value, depId, verb, uid)
+        }
+
         // Same as setTags: `dependsOn` is part of the synced payload.
         enqueueFresh(taskId)
     }

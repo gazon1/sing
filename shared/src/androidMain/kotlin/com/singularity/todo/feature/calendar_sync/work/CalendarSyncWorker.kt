@@ -13,10 +13,11 @@ import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatu
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncPlan
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncedEventRef
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.repository.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
 import com.singularity.todo.feature.calendar_sync.error.FailureType
-import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.reminders.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
@@ -47,6 +48,7 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
     private val calendarProvider: CalendarProviderPort by inject()
     private val syncRepo: CalendarSyncRepository by inject()
     private val taskMapDao: CalendarSyncTaskMapDao by inject()
+    private val currentUser: ProfileAwareCurrentUser by inject()
 
     override suspend fun doWork(): Result {
         // Check if sync is enabled
@@ -63,12 +65,13 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
         syncRepo.setStatus(CalendarSyncStatus.Syncing)
 
         return try {
+            val userId = currentUser.scopedUserId.value.value
             val allTasks = taskRepo.observeAll()
                 .first()
                 .filter { !it.isCompleted && !it.isTrashed }
 
             // Map entities to the domain read model so the pure diff never sees Room types
-            val existingMap: Map<String, SyncedEventRef> = taskMapDao.getAll()
+            val existingMap: Map<String, SyncedEventRef> = taskMapDao.getAll(userId)
                 .associateBy({ it.taskId }, { it.toSyncedEventRef() })
 
             // Map all tasks to CalendarSyncEvents
@@ -100,6 +103,7 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
                             taskMapDao.upsert(
                                 CalendarSyncTaskMapEntity(
                                     taskId = plan.event.taskId.value,
+                                    userId = userId,
                                     calendarId = plan.event.calendarId,
                                     eventId = eventId,
                                     syncedAt = System.currentTimeMillis(),
@@ -115,6 +119,7 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
                             taskMapDao.upsert(
                                 CalendarSyncTaskMapEntity(
                                     taskId = plan.event.taskId.value,
+                                    userId = userId,
                                     calendarId = plan.event.calendarId,
                                     eventId = plan.eventId,
                                     syncedAt = System.currentTimeMillis(),
@@ -127,7 +132,7 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
 
                     is SyncPlan.Delete -> {
                         calendarProvider.deleteEvent(plan.eventId).onSuccess {
-                            taskMapDao.deleteByEventId(plan.eventId)
+                            taskMapDao.deleteByEventId(plan.eventId, userId)
                             deleted++
                         }.onFailure {
                             failedDeletes.add(plan.eventId)
@@ -139,7 +144,9 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
 
             // Standard stale cleanup: remove mappings for tasks that no longer exist locally
             val currentTaskIds = allTasks.map { it.id.value }
-            taskMapDao.deleteStale(currentTaskIds)
+            taskMapDao.deleteStale(currentTaskIds, userId)
+            // Also purge legacy NULL-user_id rows from before the multi-profile fix
+            taskMapDao.deleteLegacyRows()
 
             syncRepo.setLastSyncedAt(System.currentTimeMillis())
             syncRepo.setStatus(
