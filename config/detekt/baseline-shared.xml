@@ -20,6 +20,7 @@
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _testResult = MutableStateFlow&lt;AiTestResult&gt;(AiTestResult.Idle)</ID>
     <ID>BackingPropertyNaming:AndroidPomodoroTaskListProvider.kt:AndroidPomodoroTaskListProvider$private val _tasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
     <ID>BackingPropertyNaming:CalendarViewModel.kt:CalendarViewModel$/** Selection state — anchor date, view mode, mini panel open/closed. */ private val _calendarState = MutableStateFlow( CalendarState( anchor = initialDate, viewMode = initialMode, isMiniOpen = false, ), )</ID>
+    <ID>BackingPropertyNaming:CalendarViewModel.kt:CalendarViewModel$/** Today's date — updated from [deps.todayFlow] immediately and at each local midnight. */ private val _today = MutableStateFlow(initialDate)</ID>
     <ID>BackingPropertyNaming:EventBus.kt:EventBus$private val _channel = Channel&lt;E&gt;(capacity)</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _agendaViews = MutableStateFlow&lt;Map&lt;String, AgendaViewEntity&gt;&gt;(emptyMap())</ID>
     <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _attachments = MutableStateFlow&lt;Map&lt;String, AttachmentEntity&gt;&gt;(emptyMap())</ID>
@@ -61,7 +62,7 @@
     <ID>BackingPropertyNaming:ProjectDetailViewModel.kt:ProjectDetailViewModel$/** Emits null on start (loading placeholder), then the project flow. */ private val _projectFlow = MutableStateFlow&lt;Project?&gt;(null)</ID>
     <ID>BackingPropertyNaming:ProjectsViewModel.kt:ProjectsViewModel$private val _searchQuery = MutableStateFlow("")</ID>
     <ID>BackingPropertyNaming:ProjectsViewModel.kt:ProjectsViewModel$private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)</ID>
-    <ID>BackingPropertyNaming:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$private val _snapshot: MutableStateFlow&lt;RemoteConfigSnapshot&gt; = MutableStateFlow(RemoteConfigSnapshot.defaults())</ID>
+    <ID>BackingPropertyNaming:RemoteConfigRepositoryImpl.kt:RemoteConfigRepositoryImpl$private val _snapshot: MutableStateFlow&lt;RemoteConfigSnapshot&gt; = MutableStateFlow(RemoteConfigSnapshot.defaults())</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _activeFilter = MutableStateFlow&lt;SimpleFilter?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _activeSavedSearchId = MutableStateFlow&lt;SavedSearchId?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
@@ -80,8 +81,10 @@
     <ID>BinaryExpressionWrapping:ProjectDetailContent.kt:(contentState as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true</ID>
     <ID>BinaryExpressionWrapping:ProjectDetailContent.kt:it.minutes == m</ID>
     <ID>BlankLineBetweenWhenConditions:TaskEntitySlot.kt:TaskEntitySlot$when (intent) { is TaskDetailIntent.Domain.SetDueDate -&gt; mutate(task) { copy(dueDate = intent.date) } is TaskDetailIntent.Domain.SetDueTime -&gt; mutate(task) { copy(dueTime = intent.time) } is TaskDetailIntent.Domain.SetStartDate -&gt; mutate(task) { copy(startDate = intent.date) } is TaskDetailIntent.Domain.SetStartTime -&gt; mutate(task) { copy(startTime = intent.time) } is TaskDetailIntent.Domain.SetPriority -&gt; mutate(task) { copy(priority = intent.priority) } is TaskDetailIntent.Domain.SetProject -&gt; mutate(task) { copy(projectId = intent.projectId) } is TaskDetailIntent.Domain.SetTags -&gt; mutate(task) { copy(tags = intent.tagIds) } is TaskDetailIntent.Domain.RemoveTag -&gt; mutate(task) { copy(tags = tags - intent.tagId) } is TaskDetailIntent.Domain.SetKind -&gt; mutate(task, "Failed to set kind") { copy(kind = intent.kind) } TaskDetailIntent.Domain.ToggleSomeday -&gt; mutate(task, "Failed to set someday") { copy(someday = !someday) } TaskDetailIntent.Domain.TogglePinned -&gt; mutate(task) { copy(isPinned = !isPinned) } is TaskDetailIntent.Domain.SetRecurrence -&gt; mutate(task, "Failed to set recurrence") { copy(recurrence = intent.spec) } is TaskDetailIntent.Domain.SetDependencies -&gt; setDependencies(task, intent) }</ID>
+    <ID>ClassSignature:CalendarViewModel.kt:CalendarViewModel$CalendarState</ID>
     <ID>ClassSignature:DependencyValidatorImpl.kt:DependencyValidatorImpl : DependencyValidator</ID>
     <ID>ClassSignature:FakeRepositories.kt:FakeAttachmentRepository : AttachmentRepository</ID>
+    <ID>ClassSignature:FakeRepositories.kt:FakeNotesRepository : NotesRepository</ID>
     <ID>ClassSignature:FakeRepositories.kt:FakeProjectsRepository : ProjectsRepository</ID>
     <ID>ClassSignature:FakeRepositories.kt:FakeReminderRepository : ReminderRepository</ID>
     <ID>ClassSignature:FakeRepositories.kt:FakeTagsRepository : TagsRepository</ID>
@@ -101,7 +104,7 @@
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>EmptyFunctionBlock:FakeHlcFactory.kt:FakeHlcFactory.&lt;no name provided&gt;${}</ID>
-    <ID>EmptyFunctionBlock:NoopCalendarSyncRepositoryImpl.kt:NoopCalendarSyncRepositoryImpl${}</ID>
+    <ID>EmptyFunctionBlock:NoopCalendarSyncRepository.kt:NoopCalendarSyncRepository${}</ID>
     <ID>EndOfSentenceFormat:BackupCodec.kt:BackupCodec$* Creates a zip archive at `destPath` containing: * - `MANIFEST.json` — [manifestBytes] * - `payload.json` — [payloadBytes] * - `attachments/$name` — one entry per [attachments] pair (name → bytes)</ID>
     <ID>EndOfSentenceFormat:Daos.kt:DailyUsageRow$ Row type returned by observeByDay </ID>
     <ID>EndOfSentenceFormat:Daos.kt:ModelUsageRow$ Row type returned by observeByModel </ID>
@@ -137,6 +140,7 @@
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Recurrence row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Start date + time row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Tags row — null = hidden </ID>
+    <ID>Filename:ArchiveRepository.kt:com.singularity.todo.feature.archive.ArchiveRepository.kt</ID>
     <ID>Filename:AttachmentUploadService.kt:com.singularity.todo.core.attachments.AttachmentUploadService.kt</ID>
     <ID>Filename:CalendarSyncExceptions.kt:com.singularity.todo.feature.calendar_sync.error.CalendarSyncExceptions.kt</ID>
     <ID>Filename:Computed.kt:com.singularity.todo.feature.tasks.domain.logic.Computed.kt</ID>
@@ -172,6 +176,8 @@
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
     <ID>FunctionLiteral:ProjectDetailContent.kt:&lt;anonymous&gt;</ID>
     <ID>FunctionLiteral:RecurrencePickerSheet.kt:&lt;anonymous&gt;</ID>
+    <ID>FunctionLiteral:TaskDetailContent.kt:&lt;anonymous&gt;</ID>
+    <ID>FunctionLiteral:TaskDetailViewScreen.kt:&lt;anonymous&gt;</ID>
     <ID>FunctionLiteral:TaskEntitySlot.kt:TaskEntitySlot$&lt;anonymous&gt;</ID>
     <ID>FunctionSignature:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$private fun makeTask: Task</ID>
     <ID>FunctionSignature:CalendarEventMapper.kt:CalendarEventMapper$private fun daysInMonth: Int</ID>
@@ -334,7 +340,8 @@
     <ID>FunctionSignature:TaskDetailViewScreen.kt:private fun buildDetailMenuItems: List&lt;TaskEditorMenuItem&gt;</ID>
     <ID>FunctionSignature:TaskEntitySlot.kt:TaskEntitySlot$private fun mutate</ID>
     <ID>FunctionSignature:TaskEntitySlot.kt:TaskEntitySlot$private fun setDependencies</ID>
-    <ID>ImportOrdering:TasksDiModule.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.draft.DraftStore import com.singularity.todo.core.draft.UserScopedDraftStore import com.singularity.todo.feature.archive.ArchiveViewModel import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository import com.singularity.todo.feature.search.SearchUseCase import com.singularity.todo.feature.search.SearchViewModel import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl import com.singularity.todo.feature.search.domain.port.SavedSearchRepository import com.singularity.todo.feature.search.query.DaoProjectLookup import com.singularity.todo.feature.search.query.DaoTagLookup import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver import com.singularity.todo.feature.search.query.ProjectLookup import com.singularity.todo.feature.search.query.SearchQueryResolver import com.singularity.todo.feature.profile.ProfileAwareCurrentUser import com.singularity.todo.feature.search.query.TagLookup import com.singularity.todo.feature.statistics.StatisticsViewModel import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps import com.singularity.todo.feature.tasks.domain.port.DependencyValidator import com.singularity.todo.feature.tasks.domain.port.TaskRepository import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator import org.koin.core.module.dsl.factoryOf import org.koin.core.module.dsl.singleOf import org.koin.core.module.dsl.viewModel import org.koin.dsl.module</ID>
+    <ID>ImportOrdering:TagsDiModule.kt:import com.singularity.todo.feature.tags.TagsRepository import com.singularity.todo.feature.tags.TagsViewModel import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl import com.singularity.todo.feature.tags.data.TagsRepositoryImpl import com.singularity.todo.feature.tags.domain.port.TagGroupRepository import com.singularity.todo.feature.tags.domain.usecase.CreateTagGroupUseCase import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase import com.singularity.todo.feature.tags.domain.usecase.DeleteTagGroupUseCase import com.singularity.todo.feature.tags.domain.usecase.EffectiveTagsResolver import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel import org.koin.core.module.dsl.factoryOf import org.koin.core.module.dsl.viewModelOf import org.koin.core.module.dsl.viewModelOf import org.koin.dsl.module</ID>
+    <ID>ImportOrdering:TasksDiModule.kt:import co.touchlab.kermit.Logger import com.singularity.todo.core.draft.DraftStore import com.singularity.todo.core.draft.UserScopedDraftStore import com.singularity.todo.feature.archive.ArchiveViewModel import com.singularity.todo.feature.archive.TaskDaoArchiveRepository import com.singularity.todo.feature.checklist.ChecklistRepository import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl import com.singularity.todo.feature.search.SearchUseCase import com.singularity.todo.feature.search.SearchViewModel import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl import com.singularity.todo.feature.search.domain.port.SavedSearchRepository import com.singularity.todo.feature.search.query.DaoProjectLookup import com.singularity.todo.feature.search.query.DaoTagLookup import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver import com.singularity.todo.feature.search.query.ProjectLookup import com.singularity.todo.feature.search.query.SearchQueryResolver import com.singularity.todo.feature.profile.ProfileAwareCurrentUser import com.singularity.todo.feature.search.query.TagLookup import com.singularity.todo.feature.statistics.StatisticsViewModel import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps import com.singularity.todo.feature.tasks.domain.port.DependencyValidator import com.singularity.todo.feature.tasks.domain.port.TaskRepository import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator import org.koin.core.module.dsl.factoryOf import org.koin.core.module.dsl.singleOf import org.koin.core.module.dsl.viewModel import org.koin.core.module.dsl.viewModelOf import org.koin.dsl.module</ID>
     <ID>Indentation:LinkedBacklinksCard.kt: </ID>
     <ID>Indentation:LogbookSection.kt: </ID>
     <ID>Indentation:MonthGridView.kt: </ID>
@@ -391,7 +398,6 @@
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
-    <ID>LongMethod:TasksDiModule.kt:fun tasksModule: org.koin.core.module.Module</ID>
     <ID>LoopWithTooManyJumpStatements:A2uiParser.kt:A2uiParser$for</ID>
     <ID>LoopWithTooManyJumpStatements:ConditionExprParser.kt:ConditionExprParser$while</ID>
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
@@ -403,6 +409,7 @@
     <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository$)</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository$null</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository$to</ID>
+    <ID>MaximumLineLength:FakeRepositories.kt:FakeNotesRepository${</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository${</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeReminderRepository${</ID>
@@ -429,6 +436,7 @@
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
     <ID>NoUnusedImports:DependencyValidatorTest.kt:com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorTest.kt</ID>
+    <ID>NoUnusedImports:TagsDiModule.kt:import org.koin.core.module.dsl.viewModelOf</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -444,8 +452,8 @@
     <ID>PackageName:CalendarSyncExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageName:CalendarSyncExceptionsTest.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageName:CalendarSyncOrchestrator.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
-    <ID>PackageName:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
-    <ID>PackageName:CalendarSyncSettingsRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageName:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.repository</ID>
+    <ID>PackageName:CalendarSyncSettingsRepository.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:CalendarSyncSettingsScreen.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:CalendarSyncStatus.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:CalendarSyncTaskMapDao.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -458,7 +466,7 @@
     <ID>PackageName:JvmCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:LlmUseCase.kt:package com.singularity.todo.feature.ai.use_cases</ID>
     <ID>PackageName:NoopCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
-    <ID>PackageName:NoopCalendarSyncRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageName:NoopCalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:NoopCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:RecurrenceRule.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:RecurrenceRuleMapper.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
@@ -489,8 +497,8 @@
     <ID>PackageNaming:CalendarSyncExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageNaming:CalendarSyncExceptionsTest.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageNaming:CalendarSyncOrchestrator.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
-    <ID>PackageNaming:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
-    <ID>PackageNaming:CalendarSyncSettingsRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageNaming:CalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.repository</ID>
+    <ID>PackageNaming:CalendarSyncSettingsRepository.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:CalendarSyncSettingsScreen.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:CalendarSyncStatus.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:CalendarSyncTaskMapDao.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -503,7 +511,7 @@
     <ID>PackageNaming:JvmCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:LlmUseCase.kt:package com.singularity.todo.feature.ai.use_cases</ID>
     <ID>PackageNaming:NoopCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
-    <ID>PackageNaming:NoopCalendarSyncRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageNaming:NoopCalendarSyncRepository.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:NoopCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageNaming:RecurrenceRule.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:RecurrenceRuleMapper.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
@@ -520,6 +528,8 @@
     <ID>PackageNaming:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>ParameterListWrapping:ProjectDetailContent.kt:m</ID>
+    <ID>PreviewTimestamp:NotePreviewScreen.kt:Clock.System.now()</ID>
+    <ID>PreviewTimestamp:SearchScreen.kt:Clock.System.now()</ID>
     <ID>PropertyName:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
@@ -535,6 +545,12 @@
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>ScreenContract:AccountSettingsScreen.kt:vm: AccountSettingsViewModel = koinViewModel()</ID>
+    <ID>ScreenContract:ArchiveScreen.kt:viewModel: ArchiveViewModel = koinViewModel()</ID>
+    <ID>ScreenContract:LoginScreen.kt:viewModel: AuthViewModel = koinViewModel()</ID>
+    <ID>ScreenContract:NotesListScreen.kt:viewModel: NotesListViewModel = koinViewModel()</ID>
+    <ID>ScreenContract:SearchScreen.kt:viewModel: SearchViewModel = koinViewModel()</ID>
+    <ID>ScreenContract:StatisticsScreen.kt:viewModel: StatisticsViewModel = koinViewModel()</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
     <ID>SwallowedException:QueryParser.kt:QueryParser$e: Exception</ID>
@@ -557,7 +573,7 @@
     <ID>TooGenericExceptionCaught:OAuthTokenRefresh.kt:OAuthTokenRefresh$e: Exception</ID>
     <ID>TooGenericExceptionCaught:QueryParser.kt:QueryParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RecurrenceParser.kt:RecurrenceParser$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:RemoteConfigRepositoryImpl.kt:RemoteConfigRepositoryImpl$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RewriteNoteTool.kt:RewriteNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
@@ -604,6 +620,23 @@
     <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( currentSpec?.intervalUnit() ?: DateTimeUnit.WEEK )</ID>
     <ID>TrailingCommaOnCallSite:RecurrencePickerSheet.kt:( currentSpec?.specType() ?: SpecType.INTERVAL_DAY )</ID>
     <ID>TrailingCommaOnCallSite:TaskToJsonProbeTest.kt:TaskSyncSerializationTest$("test-user", json["userId"]?.toString() ?.trim('"') )</ID>
+    <ID>UiNamingConvention:CalendarSyncEvent.kt:CalendarSyncEvent</ID>
+    <ID>UiNamingConvention:Ids.kt:NotesListState</ID>
+    <ID>UiNamingConvention:LoginFormState.kt:LoginFormState : FormState</ID>
+    <ID>UiNamingConvention:Nav3State.kt:Nav3State</ID>
+    <ID>UiNamingConvention:NoteEditorState.kt:NoteEditorState</ID>
+    <ID>UiNamingConvention:PomodoroDomain.kt:PomodoroState</ID>
+    <ID>UiNamingConvention:ProjectDetailDraftState.kt:ProjectDetailDraftState</ID>
+    <ID>UiNamingConvention:SavedAgendaViewModel.kt:SavedAgendaDraftState</ID>
+    <ID>UiNamingConvention:SyncViewModel.kt:SyncState</ID>
+    <ID>UiNamingConvention:TaskDetailDraftState.kt:TaskDetailDraftState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskAiState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskBacklinksState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskChildrenState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskCompletionState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskEntityState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskLifecycleState</ID>
+    <ID>UiNamingConvention:TaskSlotStates.kt:TaskRemindersState</ID>
     <ID>UnusedParameter:AgendaEvaluator.kt:AgendaEvaluator$selector: Selector</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>

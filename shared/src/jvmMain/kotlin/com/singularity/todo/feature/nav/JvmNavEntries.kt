@@ -144,30 +144,9 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
         )
     }
 
-    entry<AppDestination.TasksByProject> { route ->
-        val agendaStack: NavBackStack<AgendaStartRoute> =
-            rememberInMemoryNavBackStack(AgendaStartRoute.Project(route.projectId))
-        AgendaNavGraph(
-            start = agendaStack.lastOrNull() ?: AgendaStartRoute.Project(route.projectId),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-            backStack = agendaStack,
-        )
-    }
-
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
     entry<AppDestination.TasksGraph> { route ->
-        // Seed with the REQUESTED route, not a hardcoded one: rememberInMemoryNavBackStack
-        // uses the seed as its remember key, so a hardcoded seed makes the
-        // `lastOrNull() ?: route.start...` fallback dead code and every navigation
-        // (e.g. Detail(taskId) from the agenda) lands on the hardcoded screen.
-        val tasksStack: NavBackStack<TasksRoute> =
-            rememberInMemoryNavBackStack(route.start.toTasksRoute(route.initialDueDate))
+        val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))
         TasksNavGraph(
             start = tasksStack.lastOrNull() ?: route.start.toTasksRoute(route.initialDueDate),
             onExitGraph = { dest ->

@@ -51,34 +51,36 @@ Every document-style detail screen follows this vertical structure:
 
 ## ActiveSheet Sealed Interface
 
-All bottom sheets and dialogs are routed through a single `ActiveSheet` sealed interface in the ViewModel — **never** local `remember { mutableStateOf<Sheet?>(null) }` in the Composable.
+Bottom sheets and dialogs are routed using a single `ActiveSheet` (or equivalent) **sealed interface
+as a type tag**, paired with `rememberOverlayState<ActiveSheet>()` on the screen.
+
+**Routing state lives on the screen, not in the VM.** Use `rememberOverlayState<T>()` to hold
+the current sheet — this replaces the pattern of one `MutableStateFlow<Sheet?>` per sheet in
+the ViewModel, which is a well-known source of stale-cast bugs.
 
 ```kotlin
-// ViewModel
-sealed interface ActiveSheet {
-    data object ColorPicker : ActiveSheet
-    data object IconPicker : ActiveSheet
-    data object DatePicker : ActiveSheet
-    data object ConfirmDelete : ActiveSheet
-    // ...
-}
+// Screen — owns the routing state
+val sheetState = rememberOverlayState<ProjectDetailSheet>()
 
-private val _activeSheet = MutableStateFlow<ActiveSheet?>(null)
-val activeSheet: StateFlow<ActiveSheet?> = _activeSheet.asStateFlow()
-
-// Screen
-val sheet by viewModel.activeSheet.collectAsStateWithLifecycle()
-when (sheet) {
-    is ActiveSheet.ColorPicker -> ColorPickerSheet(onSelect = { ... }, onDismiss = { _activeSheet.value = null })
-    is ActiveSheet.IconPicker -> IconPickerSheet(onSelect = { ... }, onDismiss = { ... })
-    // ...
-    null -> { /* no sheet */ }
+// Actions helper routes sheet open/close entirely on screen
+val actions = remember {
+    ProjectDetailActions { intent ->
+        when (intent) {
+            is ProjectDetailIntent.Routing.OpenColorSheet -> sheetState.show(ProjectDetailSheet.PickColor)
+            is ProjectDetailIntent.Routing.OpenDeleteSheet -> sheetState.show(ProjectDetailSheet.ConfirmDelete)
+            is ProjectDetailIntent.Routing.CloseSheet -> sheetState.hide()
+            is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
+        }
+    }
 }
 ```
 
-This replaces the pattern of one `remember { mutableStateOf<Sheet?>(null) }` per sheet, which is a well-known source of stale-cast bugs when casting `state as? Loaded`.
+The VM has **no** `MutableStateFlow<Sheet?>` and **no** `SharedFlow` routing events.
+Sheet composables receive callbacks for domain actions (e.g. `onColorSelected: (Color) -> Unit`),
+not routing commands.
 
-See `singularity-todo-task-detail-ux` for the full `ActiveSheet` example in `feature/projects/presentation/components/ActiveSheet.kt`.
+See `routing-state-on-screen.md` (ADR 2026-10-02) for the full rationale and the
+contradiction this resolves.
 
 ## Inline Edit Pattern (Debounced)
 
@@ -196,9 +198,11 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 | `singularity-todo-task-detail-ux` | Task-specific worked example with full TickTick screenshots |
 | `singularity-todo-shared-ui-components` | 4-section decomposition rule, shared widget catalogue |
 | `singularity-todo-ui-event-vs-state` | Continuous vs one-shot event semantics |
+| `ui-event-vs-state/routing-state` | Routing state on screen (not VM) — see ADR 2026-10-02 |
 | `singularity-todo-inline-edit-saved-feedback` | Debounced edit + Saved-spam prevention (deep dive) |
 | `singularity-todo-cross-feature-navigation` | Chip → detail navigation UX |
 | `singularity-todo-sheet-extraction` | `ActiveSheet` sealed interface, `*SheetsHost` pattern, callback bundle design, routing intents for navigation-from-sheet |
+| `docs/decisions/2026-10-02-routing-state-on-screen.md` | ADR resolving the routing-state location conflict |
 
 ## Anti-Patterns
 
@@ -206,7 +210,6 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 2. **Saved events from debounced collectors** — spams users; use silent `_lastEditedAt` continuous state.
 3. **Saved events from chip-setters** — spams users on every priority/project/tag chip tap; chip-setters must be silent too.
 4. **>4 sub-composables** — consolidate into 4 sections; each sub-component should be ≥30 lines to justify a file.
-5. **`remember { mutableStateOf<Sheet?>(null) }` per sheet** — use a single `ActiveSheet` sealed interface in the VM.
-6. **Emoji icons instead of Material Icons** — `Icons.Filled.*` only in production UI.
-7. **Mixing unrelated refactors in one PR** — e.g. combining sheet API migration with Instant type migration. Keep PRs focused: one concern per PR. A type-system migration (Instant) mixed with a UI migration (sheets) creates massive scope and makes review impossible.
-8. **Using a `ContentParams` data class instead of extending `XxxActions`** — creates 4-level nested hierarchy with no cohesion. Use `@JvmInline value class XxxActions` with sealed `Action` hierarchy instead. See `singularity-todo-task-callback-groups`.
+5. **Emoji icons instead of Material Icons** — `Icons.Filled.*` only in production UI.
+6. **Mixing unrelated refactors in one PR** — e.g. combining sheet API migration with Instant type migration. Keep PRs focused: one concern per PR. A type-system migration (Instant) mixed with a UI migration (sheets) creates massive scope and makes review impossible.
+7. **Using a `ContentParams` data class instead of extending `XxxActions`** — creates 4-level nested hierarchy with no cohesion. Use `@JvmInline value class XxxActions` with sealed `Action` hierarchy instead. See `singularity-todo-task-callback-groups`.

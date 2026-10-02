@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,15 +38,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +59,8 @@ import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.detail.ConfirmationSheet
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.LinkSchemes
 import com.singularity.todo.feature.notes.Note
@@ -80,6 +79,13 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
+// ─── Overlay state ──────────────────────────────────────────────────────────────
+
+private sealed interface NotePreviewSheet {
+    data object DeleteConfirm : NotePreviewSheet
+    data object Backlinks : NotePreviewSheet
+}
+
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,8 +93,7 @@ import kotlin.time.Instant
 fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var deleteDialogVisible by remember { mutableStateOf(false) }
-    var backlinksSheetVisible by remember { mutableStateOf(false) }
+    val sheets = rememberOverlayState<NotePreviewSheet>()
 
     LaunchedEffect(route.noteId) {
         viewModel.onIntent(NotePreviewIntent.Load(route.noteId.value))
@@ -98,47 +103,38 @@ fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinVi
         state = state,
         onBack = { navigator.back() },
         onEdit = { navigator.openEditor(route.noteId) },
-        onDelete = { deleteDialogVisible = true },
-        onBacklinksClick = { backlinksSheetVisible = true },
+        onDelete = { sheets.show(NotePreviewSheet.DeleteConfirm) },
+        onBacklinksClick = { sheets.show(NotePreviewSheet.Backlinks) },
         onNavigateToNote = { id -> navigator.openPreview(NoteId.fromString(id)) },
         onNavigateToTask = { id -> navigator.openTask(TaskId.fromString(id)) },
     )
 
-    // Delete confirmation dialog
-    if (deleteDialogVisible) {
-        AlertDialog(
-            onDismissRequest = { deleteDialogVisible = false },
-            title = { Text("Delete note?") },
-            text = { Text("This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.onIntent(NotePreviewIntent.Delete)
-                        deleteDialogVisible = false
-                        navigator.back()
-                    },
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
+    // Delete confirmation sheet
+    if (sheets.sheet == NotePreviewSheet.DeleteConfirm) {
+        ConfirmationSheet(
+            title = "Delete note?",
+            message = "This action cannot be undone.",
+            confirmLabel = "Delete",
+            dismissLabel = "Cancel",
+            onConfirm = {
+                viewModel.onIntent(NotePreviewIntent.Delete)
+                sheets.dismissSheet()
+                navigator.back()
             },
-            dismissButton = {
-                TextButton(onClick = { deleteDialogVisible = false }) {
-                    Text("Cancel")
-                }
-            },
+            onDismiss = { sheets.dismissSheet() },
         )
     }
 
-    // Backlinks panel
+    // Backlinks sheet
     val loadedState = state as? NotePreviewState.Loaded
-    if (backlinksSheetVisible && loadedState != null) {
+    if (sheets.sheet == NotePreviewSheet.Backlinks && loadedState != null) {
         BacklinksSheet(
             backlinks = loadedState.backlinks,
-            onNoteSelected = { id ->
-                backlinksSheetVisible = false
-                navigator.openPreview(NoteId.fromString(id))
+            onNoteSelected = {
+                sheets.dismissSheet()
+                navigator.openPreview(it)
             },
-            onDismiss = { backlinksSheetVisible = false },
+            onDismiss = { sheets.dismissSheet() },
         )
     }
 }
@@ -319,7 +315,7 @@ private fun MetaLabel(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (String) -> Unit, onDismiss: () -> Unit) {
+private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (NoteId) -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -375,7 +371,7 @@ private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (String) -> Un
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().clickable { onNoteSelected(note.id) },
                             )
                             HorizontalDivider()
                         }

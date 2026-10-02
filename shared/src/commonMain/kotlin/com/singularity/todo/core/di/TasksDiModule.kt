@@ -1,3 +1,5 @@
+@file:Suppress("ImportOrdering", "LongMethod")
+
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger

@@ -146,7 +146,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Cross-feature imports are now compile-time errors if they bypass domain
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks
-- _... and 65 more items_
+- _... and 68 more items_
 
 ### `auth`
 
@@ -223,6 +223,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - Fake implementations in `FakeProjectDao` add `mutateForUser` that guards by `userId` before mutating, returning 0 if the entity belongs to a different user.
 - Old non-`*ForUser` DAO methods remain in the interface for binary compatibility but are no longer called by production code.
+
+### `data-integrity`
+
+- Multi-node cycles (A→B→C→A) are now rejected at write time, not just at UI-time
+- Test coverage for `assertNoCycles` multi-node case should be added to `DependencyValidatorTest`
+- `DependencyValidatorImpl.analyzeDependencies` unchanged — continues to support the cycle-detection UI (Phase 7b)
+- `bfsReachableFrom` is private and is NOT a public API change
 
 ### `datastore`
 
@@ -1151,6 +1158,8 @@ _22 entries need attention._
 - `2026-10-01-test-infra-followups` — testing, tech-debt, maestro, testtags
 - `2026-10-01-test-infra-gaps` — testing, detekt, jvmtest, ci, configuration-cache
 - `2026-10-01-typed-task-dependency-links` — _untagged_
+- `2026-10-02-cycle-detection-fix-b5` — data-integrity, dependency-validation, bugfix
+- `2026-10-02-routing-state-on-screen` — architecture, ui, android, desktop
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 
 ## Active entries
@@ -1509,13 +1518,13 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
-- `2026-10-01-architectural-followups` — Architectural Follow-ups — October 2026 Epic
+- `2026-10-01-architectural-followups` — _(no title)_
 - `2026-10-01-bulk-operations-use-case-unwired` — Bulk Operations Use Case — Unwired in ViewModel
 - `2026-10-01-ci-quality-ratchet` — CI quality ratchet: FailureBundle upload + PR-only test retry
 - `2026-10-01-desktop-nav-followup` — Desktop navigation follow-up: FAB hijack + tab-back regression
 - `2026-10-01-maestro-flow-tag-contract` — Maestro flow tag contract — JVM test gate
 - `2026-10-01-nodate-regression-pinning` — NoDate regression pinning: contract + VM tests
-- `2026-10-01-notes-task-logbook-substrate` — ADR: Notes ↔ Tasks Logbook Substrate
+- `2026-10-01-notes-task-logbook-substrate` — _(no title)_
 - `2026-10-01-post-mr-10-findings` — Post-MR-10 findings — TaskEditor refactor + agenda test ratchet
 - `2026-10-01-post-mr-11-findings` — Post-MR-11 findings — SavedAgendaResults screen + pre-existing desktop nav regression
 - `2026-10-01-post-mr-12-findings` — Post-MR-12 findings — TaskCreate editor full fields
@@ -1530,6 +1539,8 @@ _22 entries need attention._
 - `2026-10-01-test-coverage-ratchet-phase2-retro` — Phase 2 retro — ProfileSwitcher wiring, modal-drawer selector trap, pomodoro chip gap
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
 - `2026-10-01-test-infra-gaps` — Test infrastructure gaps found during quality-ratchet session
-- `2026-10-01-typed-task-dependency-links` — Typed Task Dependency Links — verb column
+- `2026-10-01-typed-task-dependency-links` — _(no title)_
+- `2026-10-02-cycle-detection-fix-b5` — Fix B5: assertNoCycles uses full BFS, not just self-loop check
+- `2026-10-02-routing-state-on-screen` — Routing state lives on the screen, not in the ViewModel
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 
