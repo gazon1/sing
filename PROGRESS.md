@@ -332,18 +332,33 @@ Time entries + notes in one chronological stream
 - `TaskDetailCoordinator` routes all 4 intents — `apply.confirm`/`reject`/`confirmAll` and `proposals.retract`
 - `TasksDiModule` wires `proposals = get()` and `applyProposal = get()` into `TaskDetailDeps`
 - `TaskAiSlot` generates `ProposalFingerprint` for each item (stable identity for rejection suppression)
+- `TaskProposalsCollector` watches `ProposalRepository.watchProposalsForTask`, filtering to proposals with pending items
+- `TaskDetailExtras.Ready` gains `proposals: List<AiProposal>`
+- `combineStates` gains a 9-input overload; coordinator's extras combine updated to include proposals
+- `ProposalSection` + `ProposalCard` + `ProposalItemRow` composables in `TaskDetailViewScreen`:
+  per-item confirm/reject (with optional reason field, shown inline on ✗ tap)
+  and proposal-level "Accept all" / "Dismiss"
+- `AiActionButton` wired on three list screens:
+  - `SearchScreen` → navigates to task detail on AI tap
+  - `ArchiveScreen` → navigates to task detail on AI tap
+  - `ProjectDetailContent` → navigates to task detail on AI tap
 
 **What went well:**
 - Redirecting TaskAiSlot to proposals was clean: `execute()` now builds a proposal and saves it instead of applying writes
 - `ConfirmAllProposalItems` reports failure count (not just success) — partial batch success is normal, not an error
+- Extracting `ProposalItemRow` sub-composable kept `ProposalCard` within the 80-line limit
 
 **What didn't go well:**
 - `scope.launch` in `onIntent` required using `vmScope`, not a local `scope` variable — had to check how other slots reference the scope
 - `ConfirmAllProposalItems` returns `BatchResult(applied, failed)` — had to add `.failed.size` reporting since it's a normal result, not an exception
+- `extrasState` needed both adding proposals to its combine AND including `proposalsCollector?.state` in the top-level 9-input `combineStates` — two separate places
 
 **Critical fixes:**
 - `ApplyProposalItemUseCase` is already injected into the tasks feature via `TasksDiModule` — no circular dependency issues
 - Proposals are wired as nullable in `TaskDetailDeps` (`= null`) matching the existing AI use case pattern for test omission
+- `TaskAiSlot` was missing `ProposalItemStatus` import (caused compile failure)
+- `combineStates` 9-input overload required adding the `pack` extension and overload alongside existing 6/7/8-input helpers
 
 **Findings for ADR:**
 - `TaskAiSlot` creates proposals with `ProposalSource.Detail` — Card-level proposals from list screens would use `ProposalSource.Card` (separate wiring, deferred)
+- The 9-input `combineStates` was a minimal addition — proposals slot naturally belong in `extrasState` alongside `timeSlotState` and `firstRun`
