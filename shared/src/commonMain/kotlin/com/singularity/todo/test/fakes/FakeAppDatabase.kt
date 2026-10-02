@@ -1122,6 +1122,17 @@ private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, C
         store.update { current -> current.filterValues { c -> c.taskId != taskId } }
         return before
     }
+
+    override suspend fun updateCompletionStatus(
+        itemId: String,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
+        val existing = store.value[itemId] ?: return 0
+        store.update { it + (itemId to existing.copy(isCompleted = isCompleted, updatedAt = updatedAt)) }
+        return 1
+    }
 }
 
 // ─── LlmUsageDao ────────────────────────────────────────────────────────────────

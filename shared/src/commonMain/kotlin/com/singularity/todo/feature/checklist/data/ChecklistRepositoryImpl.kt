@@ -44,21 +44,12 @@ class ChecklistRepositoryImpl(
     }
 
     override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId): Result<Unit> = runCatching {
-        val allItems = dao.watchByTask(taskId).first()
-        val existing = allItems.find { it.id == itemId.value }
-            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+        val uid = currentUser.scopedUserId.value.value
         val now = clock.now().toEpochMilliseconds()
-        dao.upsert(
-            ChecklistItemEntity(
-                id = existing.id,
-                taskId = existing.taskId,
-                title = existing.title,
-                isCompleted = !existing.isCompleted,
-                sortOrder = existing.sortOrder,
-                createdAt = existing.createdAt,
-                updatedAt = now,
-            ),
-        )
+        val existing = dao.watchByTask(taskId).first().find { it.id == itemId.value }
+            ?: throw IllegalArgumentException("Checklist item not found: $itemId")
+        val rows = dao.updateCompletionStatus(itemId.value, !existing.isCompleted, now, uid)
+        require(rows > 0) { "Checklist item $itemId not found or not owned by current user" }
     }
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
@@ -72,7 +63,10 @@ class ChecklistRepositoryImpl(
 
     override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {
         val now = clock.now().toEpochMilliseconds()
+        // Read existing items so we preserve their createdAt instead of overwriting with now
+        val existing = dao.watchByTask(taskId).first().associateBy { it.id }
         items.forEachIndexed { index, item ->
+            val existingItem = existing[item.id.value]
             dao.upsert(
                 ChecklistItemEntity(
                     id = item.id.value,
@@ -80,7 +74,7 @@ class ChecklistRepositoryImpl(
                     title = item.title,
                     isCompleted = item.isCompleted,
                     sortOrder = index,
-                    createdAt = now,
+                    createdAt = existingItem?.createdAt ?: now,
                     updatedAt = now,
                 ),
             )

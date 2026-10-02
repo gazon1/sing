@@ -749,6 +749,23 @@ interface ChecklistDao {
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)
 
+    /**
+     * Toggles the completion status of a checklist item, scoped to the user.
+     *
+     * Returns the number of rows updated (0 if the item was not found or already had
+     * the target state). Uses a targeted UPDATE rather than read-reconstruct-write
+     * to preserve any additional columns added to [ChecklistItemEntity] in future.
+     */
+    @Query(
+        """
+        UPDATE checklist_items
+        SET is_completed = :isCompleted, updated_at = :updatedAt
+        WHERE id = :itemId
+          AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun updateCompletionStatus(itemId: String, isCompleted: Boolean, updatedAt: Long, userId: String): Int
+
     @Query(
         """
         DELETE FROM checklist_items
@@ -933,6 +950,7 @@ interface ProjectInheritedTagGroupDao {
     suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String)
 
     /**
+     * Whether [projectId] exists and belongs to [userId].
      * Whether [projectId] exists and belongs to [userId].
      *
      * Lives here rather than in the repository so callers do not have to take a

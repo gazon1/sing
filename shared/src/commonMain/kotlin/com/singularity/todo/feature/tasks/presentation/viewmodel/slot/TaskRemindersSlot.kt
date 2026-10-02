@@ -68,8 +68,11 @@ class TaskRemindersSlot(
         val fireAt = task.dueDate?.let { due ->
             dueInstant(due, task.dueTime, offset, deps.timeZoneProvider.current())
         } ?: now
+        // Reuse existing reminder id so last_fired_at is preserved (avoids resetting the
+        // recurring fire-count on every offset change)
+        val existingId = _state.value.reminders.firstOrNull()?.id ?: ReminderId.generate()
         val reminder = Reminder(
-            id = ReminderId.generate(),
+            id = existingId,
             taskId = task.id,
             userId = userId,
             type = ReminderType.Gentle,
