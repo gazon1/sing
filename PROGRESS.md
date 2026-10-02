@@ -120,3 +120,59 @@ vm-migration-playbook merge, feature-scaffold TOC, AGENTS.md update
   Usage cost column is therefore always empty
 - Chasing "why is this ref documented?" repeatedly turned up *design* that was never built
 - Triage backlog recorded in `docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md`
+
+---
+
+## Epic: time-hub-ai-proposals
+
+**Start date:** 2026-10-02
+**Status:** in progress
+**Worktree:** `~/work/singularity-todo-time-hub` (`refactor/time-hub-ai-proposals`)
+
+### Phase 0 — Pre-work (MR-0-A/B/C/D) ✅ COMPLETED
+See commit history: `67fed68f` (MR-0-A), `dbbf1d15` (MR-0-B), `70678dd2` (MR-0-C), `21d8cc80` (MR-0-D)
+
+### Phase 1 — Time Tracking data layer (MR-1) ✅ COMPLETED
+See `eb85ce54` and `9a4bfd70`
+
+### Phase 2 — Timer, Pomodoro, manual entry (MR-2) ✅ COMPLETED
+See `eb85ce54`
+
+### Phase 3 — Task Detail as hub (MR-3) 🔄 IN PROGRESS
+`f1e292f7` (rebase fix), `419371dd` (detekt cleanup)
+
+**What was done:**
+- `TaskDetailExtras` partition: `timeSlotState` + `firstRun` combined in one flow, keeping coordinator at 8 inputs
+- `FirstRunResolver`: pure clock-injected logic, 8 test cases covering all resolution paths
+- `SubtasksSection`: renders direct child tasks with ExtraSectionCard, self-hides when empty
+- `FirstRunSection`: three action chips ("Write note", "Add checklist", "Ask AI"), sealed state machine
+- `TaskDetailCoordinator`: removed `stateIn(WhileSubscribed)` per BAN-list → canonical `MutableStateFlow + collect`
+- All wired in `TaskDetailViewScreen.kt` in correct block order
+
+**What went well:**
+- Partition pattern works: one new flow instead of growing combine arity
+- FirstRunResolver is pure and trivially testable
+- `stateIn` removal was correct per BAN-list
+
+**What didn't go well:**
+- Rebase introduced 120+ detekt violations from reformatting (FakeRepositories, etc.)
+- Import paths shifted after rebase — `TimeEntry` package move needed cascading import fixes
+- Desktop boot test was already failing on main (app boots to Settings tab) — pre-existing issue
+
+**Critical fixes:**
+- `JvmPomodoroTimer` needed 6 params (added `timeTrackingRepo` + `currentUser`)
+- `FakeRepositories.kt` restored from main to fix indentation cascade
+- `TimeEntry.kt` moved to `feature/timetracking/domain/` (package = domain)
+
+**Findings for ADR:**
+- Detekt `FunctionSignature` rule rejects multi-line parameter lists — code must use `param: Type,` style even for 4+ parameters
+- `LongMethod` suppression works but needs `@Suppress` annotation, not baseline
+
+### Phase 4 — Logbook merge (MR-4) ⏳ NOT STARTED
+Time entries + notes in one chronological stream
+
+### Phase 5 — Insights tab (MR-5) ⏳ NOT STARTED
+### Phase 6 — Agenda section headers '+' (MR-6) ⏳ NOT STARTED
+### Phase 7 — AI proposal data layer (MR-7) ⏳ NOT STARTED
+### Phase 8 — Checklist sovereignty + tag suppression (MR-8) ⏳ NOT STARTED
+### Phase 9 — ProposalCard + AI redirect (MR-9) ⏳ NOT STARTED
