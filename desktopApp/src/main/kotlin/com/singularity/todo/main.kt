@@ -31,10 +31,9 @@ fun main() = singleWindowApplication(
     )
     startKoin {
             modules(
-                platformModule(),
-                coreLoggingModule(),
-                *domainModule().toTypedArray(),
-                gateModule(RELEASES_URL),
+                listOf(platformModule(), coreLoggingModule()) +
+                    domainModule() +
+                    listOf(gateModule(RELEASES_URL)),
             )
     }
 

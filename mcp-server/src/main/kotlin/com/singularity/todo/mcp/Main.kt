@@ -88,7 +88,7 @@ fun main(args: Array<String>): Unit = runBlocking {
  */
 private fun bootstrapKoin(profileId: String?): Boolean = try {
     startKoin {
-        modules(platformModule(profileId), *domainModule().toTypedArray())
+        modules(listOf(platformModule(profileId)) + domainModule())
     }
     true
 } catch (e: Throwable) {

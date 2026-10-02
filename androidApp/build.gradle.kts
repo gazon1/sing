@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.detekt)
+    // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
+    id("io.insert-koin.compiler.plugin") version "1.2.1"
 }
 
 kotlin {

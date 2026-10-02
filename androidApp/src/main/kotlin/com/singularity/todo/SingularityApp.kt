@@ -69,11 +69,9 @@ class SingularityApp : Application() {
         startKoin {
             androidContext(this@SingularityApp)
             modules(
-                platformModule(),
-                coreLoggingModule(),
-                *domainModule().toTypedArray(),
-                gateModule(PLAY_STORE_URI),
-                appUpdateModule(),
+                listOf(platformModule(), coreLoggingModule()) +
+                    domainModule() +
+                    listOf(gateModule(PLAY_STORE_URI), appUpdateModule()),
             )
         }
         // Start the calendar sync orchestrator — launches the debounced collector coroutine.
