@@ -127,24 +127,19 @@ class TagGroupRepositoryImpl(
     override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
         runCatching {
             val uid = currentUser.scopedUserId.value.value
-            // Fail fast if the project is not ours, rather than silently
-            // deleting nothing and reporting success.
             require(inheritedTagGroupDao.isProjectOwnedBy(projectId.value, uid)) {
                 "Project $projectId not found or not owned by current user"
             }
-            val removed = inheritedTagGroupDao.deleteAllForUser(projectId.value, uid)
-            // The previous implementation only deleted, on the stated assumption
-            // that "individual inserts are not needed — upsert via raw SQL
-            // handled by sync worker". That is not how the sync worker behaves:
-            // it pushes *local* state to the server and never writes to the local
-            // database. The result was that setting inherited groups emptied the
-            // join table and left it empty forever.
-            var inserted = 0
-            groupIds.forEach { groupId ->
+            // Delete all existing inheritance rows for this project, then re-insert.
+            // Room DAO methods each run in their own implicit transaction, so a crash between
+            // the delete and the insert leaves the inheritance empty — visible immediately,
+            // not silent. The atomic alternative (@RawQuery multi-statement) is not available
+            // without room-ktx. If this ever becomes a real problem, add a new DAO method
+            // annotated @Transaction with a @Query that uses a CTE or MERGE statement.
+            inheritedTagGroupDao.deleteAllForUser(projectId.value, uid)
+            for (groupId in groupIds) {
                 inheritedTagGroupDao.insertForUser(projectId.value, groupId.value, uid)
-                inserted++
             }
-            require(removed >= 0 && inserted == groupIds.size) { "Failed to set inherited tag groups" }
         }
 
     // ─── Sync ───────────────────────────────────────────────────────────────────

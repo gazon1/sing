@@ -34,7 +34,7 @@ open class NotesNavigator(
      * Used when the user taps a [[task]] wikilink inside a note.
      */
     open fun openTask(taskId: TaskId) {
-        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
     }
 
     /**

@@ -252,6 +252,8 @@ style:
 # See: detekt-rules-ktlint-wrapper/src/main/kotlin/dev/detekt/rules/ktlintwrapper/wrappers/
 # ---------------------------------------------------------------------------
 ktlint:
+  ImportOrdering:
+    active: false          # IDE owns import order; ktlint auto-fix may still sort
   active: true
   code_style: ktlint_official
   auto_correct: true

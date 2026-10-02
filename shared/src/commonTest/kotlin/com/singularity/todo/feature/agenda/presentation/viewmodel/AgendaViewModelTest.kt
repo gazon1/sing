@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
@@ -52,7 +53,7 @@ class AgendaViewModelTest {
     )
 
     private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
-        deps = AgendaDeps(taskRepo = fakeRepo, clock = Clock.System, logger = Logger),
+        deps = AgendaDeps(taskRepo = fakeRepo, clock = Clock.System, logger = Logger, draftStore = FakeDraftStore()),
         definition = AgendaPresets.Inbox,
         scope = scope,
     )

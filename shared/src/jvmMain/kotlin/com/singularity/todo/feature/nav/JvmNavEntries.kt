@@ -209,6 +209,8 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
     is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
+    is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Create(null)
+    is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Create(null)
 }
 
 /** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */

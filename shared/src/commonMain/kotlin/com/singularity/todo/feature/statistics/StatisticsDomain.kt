@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.platform.TimeConstants
-import java.time.Instant
-import java.time.ZoneId
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 data class DayBucket(
     val date: String, // "YYYY-MM-DD"
@@ -32,16 +33,18 @@ internal fun computeStatistics(
     val perDayMap = mutableMapOf<String, Int>()
     for (i in 0 until rangeDays) {
         val dayMs = nowEpochMs - (i * TimeConstants.MILLIS_PER_DAY)
-        val day = Instant.ofEpochMilli(dayMs)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate().toString()
+        val day = Instant.fromEpochMilliseconds(dayMs)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
+            .toString()
         perDayMap[day] = 0
     }
 
     recentCompleted.forEach { (_, completedAt) ->
-        val day = Instant.ofEpochMilli(completedAt)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate().toString()
+        val day = Instant.fromEpochMilliseconds(completedAt)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
+            .toString()
         perDayMap[day] = (perDayMap[day] ?: 0) + 1
     }
 

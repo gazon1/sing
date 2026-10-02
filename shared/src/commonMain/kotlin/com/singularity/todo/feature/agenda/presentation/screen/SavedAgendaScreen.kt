@@ -179,6 +179,7 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
             onItemSelected = { selector ->
                 dialogs.dismiss()
                 val section = Section(
+                    id = "section_$nextOrder",
                     name = selector.typeDescription,
                     order = nextOrder,
                     selector = selector,
@@ -426,8 +427,8 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
                 draft = Draft(
                     name = "My Work Setup",
                     sections = listOf(
-                        Section("Today", 0, Selector.DateBucket(RelativeBucket.Today)),
-                        Section("Overdue", 1, Selector.DateBucket(RelativeBucket.Overdue)),
+                        Section("today", "Today", 0, Selector.DateBucket(RelativeBucket.Today)),
+                        Section("overdue", "Overdue", 1, Selector.DateBucket(RelativeBucket.Overdue)),
                     ),
                     originalName = "My Work Setup",
                     originalSections = emptyList(),

@@ -118,6 +118,8 @@ fun TaskEditorContent(
     recurrenceCallbacks: RowCallbacks<RecurrenceSpec?>? = null,
     isPinned: Boolean = false,
     pinCallbacks: ToggleCallbacks? = null,
+    estimateMinutes: Int? = null,
+    estimateCallbacks: RowCallbacks<Int?>? = null,
     dependsOn: Set<TaskId> = emptySet(),
     availableTasks: List<Task> = emptyList(),
     extraSections: (@Composable () -> Unit)?,
@@ -189,6 +191,15 @@ fun TaskEditorContent(
                 onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
                 onPriorityClear = onPriorityClear,
             )
+
+            // Estimate row
+            estimateCallbacks?.let { cb ->
+                TaskEditorEstimateRow(
+                    estimateMinutes = estimateMinutes,
+                    onEstimateClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Estimate) },
+                    onEstimateClear = cb.onClear,
+                )
+            }
 
             // Due date row
             if (showDueDate) {
@@ -305,6 +316,7 @@ fun TaskEditorContent(
             attachments = emptyList(),
             recurrence = recurrence,
             isPinned = isPinned,
+            estimateMinutes = estimateMinutes,
             dependsOn = dependsOn,
             availableTasks = availableTasks,
         ),
@@ -329,6 +341,7 @@ fun TaskEditorContent(
             tags = tagsCallbacks,
             recurrence = recurrenceCallbacks,
             pin = pinCallbacks,
+            estimate = estimateCallbacks,
             dependencies = RowCallbacks(
                 onChange = { onSetDependencies?.invoke(it) },
                 onClick = null,
@@ -336,6 +349,8 @@ fun TaskEditorContent(
             ),
             checklist = null,
             attachments = null,
+            onTimeEntryAdd = null,
+            onTimeEntrySave = null,
             bottomBar = null,
             menuItems = menuItems,
         ),
@@ -401,6 +416,8 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         recurrenceCallbacks = callbacks.recurrence,
         isPinned = model.isPinned,
         pinCallbacks = callbacks.pin,
+        estimateMinutes = model.estimateMinutes,
+        estimateCallbacks = callbacks.estimate,
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
         extraSections = null,

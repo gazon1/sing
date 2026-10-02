@@ -44,12 +44,14 @@ data class TaskEntity(
     @ColumnInfo("end_time") val endTime: String?, // ISO "HH:mm:ss"
     @ColumnInfo("accent_color") val accentColor: Long?, // ARGB color value, null = use default
     @ColumnInfo("emoji") val emoji: String?, // task-level emoji, null = none
+    @ColumnInfo("estimate_minutes") val estimateMinutes: Int? = null,
     @ColumnInfo("completed_at") val completedAt: Long?, // epoch millis
     val someday: Boolean = false,
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
     @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
     @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]", // wikilink backlinks
+    @ColumnInfo("ai_suppressed_tag_ids", defaultValue = "[]") val aiSuppressedTagIds: String = "[]",
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("user_id") val userId: String,
@@ -258,6 +260,12 @@ data class ChecklistItemEntity(
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
+    /** Who last changed the completion state: "user" or "ai". Null for pre-existing items. */
+    @ColumnInfo("checked_by") val checkedBy: String? = null,
+    /** Epoch millis when completion was last changed. Null for pre-existing items. */
+    @ColumnInfo("checked_at") val checkedAt: Long? = null,
+    /** Monotonically increasing version; incremented on every completion toggle. */
+    @ColumnInfo("row_version", defaultValue = "1") val rowVersion: Int = 1,
 )
 
 /**
@@ -323,6 +331,43 @@ data class TagGroupEntity(
     @ColumnInfo("user_id") val userId: String,
     @ColumnInfo("name") val name: String,
     @ColumnInfo("color") val color: Int, // ARGB
+    @ColumnInfo("created_at") val createdAt: Long,
+    @ColumnInfo("updated_at") val updatedAt: Long,
+    @ColumnInfo("deleted_at") val deletedAt: Long? = null,
+    @Embedded val sync: SyncColumns = SyncColumns(),
+)
+
+// ─── Time Entries ─────────────────────────────────────────────────────────────
+
+/**
+ * A time tracking entry recording a work or recording session against a task.
+ *
+ * @param kind Work = counts toward task progress; Recording = audio/video, excluded from progress.
+ * @param source Timer | Manual | Pomodoro | AiProposal — how the entry was created.
+ * @param note Optional free-text note describing what was worked on.
+ */
+@Entity(
+    tableName = "time_entries",
+    indices = [
+        Index("task_id"),
+        Index("started_at"),
+        Index("user_id"),
+    ],
+)
+data class TimeEntryEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo("task_id") val taskId: String,
+    @ColumnInfo("user_id") val userId: String,
+    /** Epoch millis — start of the session. */
+    @ColumnInfo("started_at") val startedAt: Long,
+    /** Epoch millis — end of session. Null means the entry is still running. */
+    @ColumnInfo("ended_at") val endedAt: Long?,
+    /** Work | Recording. Recording sessions are excluded from progress aggregates. */
+    @ColumnInfo("kind") val kind: String,
+    /** Timer | Manual | Pomodoro | AiProposal. */
+    @ColumnInfo("source") val source: String,
+    /** Free-text description of work done. */
+    @ColumnInfo("note") val note: String?,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long? = null,

@@ -28,7 +28,7 @@ class FabActionResolverTest {
         result.click()
         val nav = navigatedTo as? AppDestination.TasksGraph
         assertIs<AppDestination.TasksGraph>(nav)
-        assertEquals(AppDestination.TasksStartRoute.Create, nav.start)
+        assertEquals(AppDestination.TasksStartRoute.Create(), nav.start)
         assertNull(nav.initialDueDate, "Inbox FAB should not prefill due date")
     }
 
@@ -40,7 +40,7 @@ class FabActionResolverTest {
         result.click()
         val nav = navigatedTo as? AppDestination.TasksGraph
         assertIs<AppDestination.TasksGraph>(nav)
-        assertEquals(AppDestination.TasksStartRoute.Create, nav.start)
+        assertEquals(AppDestination.TasksStartRoute.Create(), nav.start)
         assertEquals(today, nav.initialDueDate, "Today FAB should prefill due date to today")
     }
 

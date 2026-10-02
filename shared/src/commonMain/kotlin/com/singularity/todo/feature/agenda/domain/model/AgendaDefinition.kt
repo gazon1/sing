@@ -22,16 +22,52 @@ enum class AgendaLayout {
 /**
  * A single section within an [AgendaDefinition].
  *
+ * @param id Stable identifier for this section. Used to restore a section's prefill draft.
  * @param name Display name of the section (e.g. "Today", "Overdue", "No Date").
  * @param order Sorting weight; sections are sorted ascending by this value when
  *        rendering an agenda with multiple sections.
  * @param selector The predicate that selects tasks for this section.
  * @param discard If true, matched tasks are removed from subsequent sections.
  *        Used for exclude-first semantics (e.g. "All tasks except Completed").
+ * @param prefill Default values pre-filled when the user taps '+' in this section.
  */
 @Serializable
 @SerialName("Section")
-data class Section(val name: String, val order: Int = 0, val selector: Selector, val discard: Boolean = false)
+data class Section(
+    // Nullable to support deserialization of saved agendas created before `id` existed.
+    // Use `effectiveId` to access the guaranteed-non-null identifier.
+    val id: String? = null,
+    val name: String,
+    val order: Int = 0,
+    val selector: Selector,
+    val discard: Boolean = false,
+    val prefill: SectionPrefill? = null,
+) {
+    /**
+     * Guaranteed-non-null stable id for this section.
+     * For sections loaded from legacy saved agendas (where `id == null`), derives a
+     * stable id from the section name so the `+` button prefill key is deterministic.
+     */
+    val effectiveId: String get() = id ?: name.lowercase()
+        .replace(" ", "_")
+        .replace(Regex("[^a-z0-9_]"), "")
+}
+
+/**
+ * Pre-fill values for a task created via the '+' button in an agenda section.
+ * Stored in [com.singularity.todo.core.draft.DraftStore] before navigating to the
+ * create screen, and read back by [com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen].
+ *
+ * @param sectionId The id of the section that initiated the create.
+ * @param title Optional title pre-filled from the section context.
+ * @param dueDate Optional due date pre-filled from the section context (e.g. a date bucket).
+ */
+@Serializable
+data class SectionPrefill(
+    val sectionId: String,
+    val title: String? = null,
+    val dueDate: kotlinx.datetime.LocalDate? = null,
+)
 
 /**
  * The top-level agenda definition — a named collection of sections.
@@ -90,10 +126,12 @@ class AgendaScope {
     internal val sections = mutableListOf<Section>()
 
     fun section(
-        name: String,
+        id: String,
+        name: String = id,
         selector: Selector? = null,
         order: Int = sections.size,
         discard: Boolean = false,
+        prefill: SectionPrefill? = null,
         block: SectionScope.() -> Unit = {},
     ) {
         val scope = SectionScope().apply(block)
@@ -101,7 +139,7 @@ class AgendaScope {
         checkNotNull(effectiveSelector) {
             "Section '$name' has no selector — pass as parameter or assign inside block"
         }
-        sections.add(Section(name, order, effectiveSelector, discard))
+        sections.add(Section(id, name, order, effectiveSelector, discard, prefill))
     }
 }
 

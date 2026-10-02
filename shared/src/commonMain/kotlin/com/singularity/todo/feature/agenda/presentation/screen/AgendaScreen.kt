@@ -60,6 +60,7 @@ fun AgendaScreen(
                 is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
                 is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
                 is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
+                is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
             }
         }
     }

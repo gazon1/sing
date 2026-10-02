@@ -105,6 +105,9 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().calendarSyncTaskMapDao() }
     single { get<AppDatabase>().savedSearchDao() }
+    single { get<AppDatabase>().timeEntryDao() }
+    single { get<AppDatabase>().proposalDao() }
+    single { get<AppDatabase>().proposalItemDao() }
 
     // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
 
@@ -215,7 +218,7 @@ actual fun platformModule(): Module = module {
     single<PomodoroTaskListProvider> { AndroidPomodoroTaskListProvider(get(), MainScope()) }
     // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
     // point gets its own instance with the CoroutineScope from coreModule.
-    factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), get()) }
+    factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), get(), get(), get()) }
 
     // ─── Calendar Sync ────────────────────────────────────────────────
 

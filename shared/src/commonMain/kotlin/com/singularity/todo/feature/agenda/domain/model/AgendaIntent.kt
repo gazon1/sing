@@ -13,4 +13,7 @@ sealed interface AgendaIntent : MviIntent {
     data class TaskPinClicked(val taskId: TaskId) : AgendaIntent
     data class TaskDeleteClicked(val taskId: TaskId) : AgendaIntent
     data class TaskExpandClicked(val taskId: TaskId) : AgendaIntent
+
+    /** User tapped '+' in a section header to create a task pre-filled from that section. */
+    data class CreateInSection(val sectionId: String) : AgendaIntent
 }

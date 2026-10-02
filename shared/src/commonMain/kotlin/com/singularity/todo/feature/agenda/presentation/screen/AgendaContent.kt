@@ -4,12 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material3.CircularProgressIndicator
@@ -212,7 +214,11 @@ private fun AgendaList(
     ) {
         for (section in sections) {
             item(key = "header-${section.name}") {
-                AgendaSectionHeader(name = section.name, badge = section.badge)
+                AgendaSectionHeader(
+                    name = section.name,
+                    badge = section.badge,
+                    onAddClick = { onIntent(AgendaIntent.CreateInSection(section.id)) },
+                )
             }
 
             items(
@@ -235,19 +241,34 @@ private fun AgendaList(
 }
 
 @Composable
-private fun AgendaSectionHeader(name: String, badge: Int?) {
+private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Unit)?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .testTag(TestTags.agendaSection(name)),
     ) {
-        val label = if (badge != null && badge > 0) "$name  ·  $badge" else name
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val label = if (badge != null && badge > 0) "$name  ·  $badge" else name
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (onAddClick != null) {
+                IconButton(onClick = onAddClick) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Create in $name",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -375,16 +396,19 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
         state = AgendaUiState.Loaded(
             sections = listOf(
                 RenderedSection(
+                    id = "overdue",
                     name = "Overdue",
                     tasks = listOf(AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue, isBlocked = false)),
                     badge = 1,
                 ),
                 RenderedSection(
+                    id = "today",
                     name = "Today",
                     tasks = listOf(AgendaRowItem(task = todayTask, isBlocked = false)),
                     badge = null,
                 ),
                 RenderedSection(
+                    id = "completed",
                     name = "Completed",
                     tasks = listOf(
                         AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed, isBlocked = false),
@@ -392,6 +416,7 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
                     badge = null,
                 ),
                 RenderedSection(
+                    id = "upcoming",
                     name = "Upcoming",
                     tasks = listOf(
                         AgendaRowItem(task = pinnedTask, badge = AgendaBadge.Pinned, isBlocked = false),
@@ -418,6 +443,7 @@ private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurf
         state = AgendaUiState.Loaded(
             sections = listOf(
                 RenderedSection(
+                    id = "today",
                     name = "Today",
                     tasks = listOf(
                         AgendaRowItem(task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today)),

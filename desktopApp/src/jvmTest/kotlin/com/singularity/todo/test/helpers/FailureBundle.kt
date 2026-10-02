@@ -63,6 +63,7 @@ data class FailureBundle(
     }
 
     companion object {
+
         private val diagnosticsRoot: File by lazy {
             val root = File("build/diagnostics")
             root.mkdirs()
@@ -99,7 +100,7 @@ data class FailureBundle(
          *                             if any; may be null when logging was never enabled.
          */
         @OptIn(ExperimentalTestApi::class)
-        fun capture(
+        suspend fun capture(
             testClassSimpleName: String,
             testInstance: DesktopComposeUiTest,
             app: Koin,
@@ -112,11 +113,16 @@ data class FailureBundle(
                 outputDir = prepareOutputDir(testClassSimpleName, attempt),
             )
 
-            // Screenshot — captureToImage() on SkikoComposeUiTest is available in 1.12.0
-            runCatching {
-                val bitmap = testInstance.captureToImage()
-                val bufferedImage: BufferedImage = bitmap.toAwtImage()
-                ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
+            // Screenshot — captureToImage() on SkikoComposeUiTest is available in 1.12.0.
+            // captureToImage blocks on EventQueue.invokeAndWait, so a failure that left an
+            // endless redraw loop running never releases it — a coroutine timeout cannot
+            // cancel a blocking EDT wait. Skippable via -Dsingularity.test.screenshot=false.
+            if (System.getProperty("singularity.test.screenshot") != "false") {
+                runCatching {
+                    val bitmap = testInstance.captureToImage()
+                    val bufferedImage: BufferedImage = bitmap.toAwtImage()
+                    ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
+                }
             }
 
             // Database state — testPlatformModule() binds the database under the

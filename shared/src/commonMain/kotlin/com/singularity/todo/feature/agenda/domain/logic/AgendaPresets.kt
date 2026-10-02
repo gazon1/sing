@@ -32,20 +32,20 @@ object AgendaPresets {
      * "No Date" sits after it but is disjoint (`dueDate == null`).
      */
     val Inbox: AgendaDefinition = agenda("Inbox") {
-        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true)
-        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 0, discard = true)
-        section("Yesterday", Selector.DateBucket(RelativeBucket.Yesterday), order = 1, discard = true)
-        section("Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true)
-        section("This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, discard = true)
-        section("Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, discard = true)
-        section("This Month", Selector.DateBucket(RelativeBucket.ThisMonth), order = 5)
-        section("No Date", Selector.DateBucket(RelativeBucket.NoDate), order = 6)
+        section("overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true)
+        section("today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 0, discard = true)
+        section("yesterday", "Yesterday", Selector.DateBucket(RelativeBucket.Yesterday), order = 1, discard = true)
+        section("tomorrow", "Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true)
+        section("this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, discard = true)
+        section("next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, discard = true)
+        section("this_month", "This Month", Selector.DateBucket(RelativeBucket.ThisMonth), order = 5)
+        section("no_date", "No Date", Selector.DateBucket(RelativeBucket.NoDate), order = 6)
     }
 
     /** Only today's tasks, with overdue shown at the top. */
     val Today: AgendaDefinition = agenda("Today") {
-        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true)
-        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 1)
+        section("overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true)
+        section("today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 1)
     }
 
     /**
@@ -55,11 +55,11 @@ object AgendaPresets {
      * `discard`; the narrower buckets above them do, for the same reason as [Inbox].
      */
     val Upcoming: AgendaDefinition = agenda("Upcoming") {
-        section("Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true)
-        section("Today", Selector.DateBucket(RelativeBucket.Today), order = 1, discard = true)
-        section("Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true)
-        section("This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3)
-        section("Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4)
+        section("overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true)
+        section("today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 1, discard = true)
+        section("tomorrow", "Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true)
+        section("this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3)
+        section("next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4)
     }
 
     /**
@@ -67,7 +67,7 @@ object AgendaPresets {
      * @param id The [ProjectId] to filter by.
      */
     fun byProject(id: ProjectId): AgendaDefinition = agenda(id.value) {
-        section("Project Tasks", Selector.Projects(setOf(id)), order = 0)
+        section("project_tasks", "Project Tasks", Selector.Projects(setOf(id)), order = 0)
     }
 
     /**
@@ -82,7 +82,7 @@ object AgendaPresets {
      * @param ids The set of tag IDs to filter by. A task matching any one of them is included.
      */
     fun byTags(ids: Set<TagId>): AgendaDefinition = agenda("Tagged") {
-        section("Tags", Selector.Tags(ids), order = 0)
+        section("tags", "Tags", Selector.Tags(ids), order = 0)
     }
 
     /**
@@ -93,6 +93,6 @@ object AgendaPresets {
      * @param to End of the range (inclusive).
      */
     fun byDateRange(from: LocalDate, to: LocalDate): AgendaDefinition = agenda("Date Range") {
-        section("Range", Selector.DateRange(from, to), order = 0)
+        section("date_range", "Range", Selector.DateRange(from, to), order = 0)
     }
 }

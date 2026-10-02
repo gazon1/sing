@@ -64,7 +64,7 @@ actual fun TasksNavGraph(
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
                 entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
-                entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
+                entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
             },
         )
     }
@@ -73,5 +73,5 @@ actual fun TasksNavGraph(
 @Composable
 actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = entryProvider {
     entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
-    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
+    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
 }

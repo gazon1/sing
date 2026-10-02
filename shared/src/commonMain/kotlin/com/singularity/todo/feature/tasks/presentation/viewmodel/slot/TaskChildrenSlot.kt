@@ -73,7 +73,7 @@ class TaskChildrenSlot(
     }
 
     private fun toggleChecklistItem(intent: TaskDetailIntent.Domain.ToggleChecklistItem) = scope.launch {
-        deps.checklistRepository.toggleItem(taskId.value, intent.item.id)
+        deps.checklistRepository.toggleItem(taskId.value, intent.item.id, "user")
             .onFailure { onError("Toggle failed") }
     }
 

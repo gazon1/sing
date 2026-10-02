@@ -11,6 +11,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
+import com.singularity.todo.feature.proposals.proposalModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
@@ -42,6 +43,7 @@ fun domainModule(): List<Module> = buildList {
     add(tagsModule())
     add(calendarModule())
     add(agendaModule())
+    add(proposalModule())
     add(calendarSyncModule())
     // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
     // profileModule() wrapped its bindings in module {} which created a child scope.

@@ -122,6 +122,9 @@ class Nav3State internal constructor(
         }
     }
 
+    // Targeted, not "all non-empty stacks": every back stack is seeded with its key at
+    // composition, so an isNotEmpty filter would always include every top-level route and
+    // NavDisplay would render the last one (Settings) instead of the current tab.
     private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
         listOf(startRoute)
     } else {

@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.genui.render.material3
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.render.DataContext
 
@@ -17,7 +17,7 @@ import com.singularity.todo.feature.genui.render.DataContext
  */
 @Composable
 internal fun RenderSingle(ref: NodeRef, ctx: DataContext, modifier: Modifier = Modifier) {
-    val surfaces by ctx.surfaces.collectAsState()
+    val surfaces by ctx.surfaces.collectAsStateWithLifecycle()
     val surface = surfaces[ctx.surfaceId] ?: return
     val node = surface.components[ref.id] ?: return
     ctx.registry.render(node, ctx, modifier)

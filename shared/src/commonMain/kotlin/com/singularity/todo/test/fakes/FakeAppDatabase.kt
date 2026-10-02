@@ -38,6 +38,12 @@ import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.proposals.data.AiProposalEntity
+import com.singularity.todo.feature.proposals.data.ProposalDao
+import com.singularity.todo.feature.proposals.data.ProposalItemDao
+import com.singularity.todo.feature.proposals.data.ProposalItemEntity
+import com.singularity.todo.feature.timetracking.data.TimeEntryDao
+import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -79,6 +85,15 @@ class FakeAppDatabase : AppDatabase() {
     private val _tagGroups = MutableStateFlow<Map<String, TagGroupEntity>>(emptyMap())
     private val _projectTagGroups = MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>(emptyList())
 
+    @Suppress("BackingPropertyNaming") // Internal store, no matching public property
+    private val _timeEntries = MutableStateFlow<Map<String, TimeEntryEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _proposals = MutableStateFlow<Map<String, AiProposalEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _proposalItems = MutableStateFlow<Map<String, ProposalItemEntity>>(emptyMap())
+
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
@@ -99,6 +114,9 @@ class FakeAppDatabase : AppDatabase() {
     override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(
         _projectTagGroups,
     )
+    override fun timeEntryDao(): TimeEntryDao = FakeTimeEntryDao(_timeEntries)
+    override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals)
+    override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -121,6 +139,9 @@ class FakeAppDatabase : AppDatabase() {
         _savedSearches.value = emptyMap()
         _tagGroups.value = emptyMap()
         _projectTagGroups.value = emptyList()
+        _timeEntries.value = emptyMap()
+        _proposals.value = emptyMap()
+        _proposalItems.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -559,8 +580,14 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override suspend fun getByIdForUser(id: String, userId: String): NoteEntity? =
         store.value.values.find { it.id == id && it.userId == userId }
 
-    override fun watchChildren(parentId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.parentNoteId == parentId && n.archivedAt == null && n.deletedAt == null }
+    override fun watchChildrenForUser(parentId: String, userId: String): Flow<List<NoteEntity>> = store.map { items ->
+        items.values
+            .filter { n ->
+                n.parentNoteId == parentId &&
+                    n.userId == userId &&
+                    n.archivedAt == null &&
+                    n.deletedAt == null
+            }
             .sortedWith(compareBy({ it.sortOrder }, { it.title }))
     }
 
@@ -1040,36 +1067,52 @@ private class FakeReminderDao(
 private class FakeCalendarSyncTaskMapDao(private val store: MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>) :
     CalendarSyncTaskMapDao {
 
-    override fun observeAll(): Flow<List<CalendarSyncTaskMapEntity>> = store.map { it.values.toList() }
+    override fun observeAll(userId: String): Flow<List<CalendarSyncTaskMapEntity>> =
+        store.map { vals -> vals.values.filter { it.userId == userId } }
 
-    override suspend fun getAll(): List<CalendarSyncTaskMapEntity> = store.value.values.toList()
+    override suspend fun getAll(userId: String): List<CalendarSyncTaskMapEntity> =
+        store.value.values.filter { it.userId == userId }
 
-    override suspend fun getEventId(taskId: String): Long? = store.value[taskId]?.eventId
+    override suspend fun getEventId(taskId: String, userId: String): Long? =
+        store.value[taskId]?.takeIf { it.userId == userId }?.eventId
 
-    override suspend fun getByTaskId(taskId: String): CalendarSyncTaskMapEntity? = store.value[taskId]
+    override suspend fun getByTaskId(taskId: String, userId: String): CalendarSyncTaskMapEntity? =
+        store.value[taskId]?.takeIf { it.userId == userId }
 
     override suspend fun upsert(entity: CalendarSyncTaskMapEntity) {
         store.update { it + (entity.taskId to entity) }
     }
 
-    override suspend fun delete(taskId: String) {
-        store.update { it - taskId }
-    }
-
-    override suspend fun deleteByEventId(eventId: Long) {
+    override suspend fun delete(taskId: String, userId: String) {
         store.update { current ->
-            current.filterValues { it.eventId != eventId }
+            // Only delete if the row belongs to this user
+            if (current[taskId]?.userId == userId) current - taskId else current
         }
     }
 
-    override suspend fun deleteStale(taskIds: List<String>) {
+    override suspend fun deleteByEventId(eventId: Long, userId: String) {
         store.update { current ->
-            current.filterKeys { it in taskIds }
+            current.filterValues { it.eventId != eventId || it.userId != userId }
         }
     }
 
-    override suspend fun clearAll() {
-        store.value = emptyMap()
+    override suspend fun deleteStale(taskIds: List<String>, userId: String) {
+        store.update { current ->
+            // Only keep rows that either (a) are for a different user, or (b) are in the taskIds set
+            current.filterValues { it.userId != userId || it.taskId in taskIds }
+        }
+    }
+
+    override suspend fun clearAll(userId: String) {
+        store.update { current ->
+            current.filterValues { it.userId != userId }
+        }
+    }
+
+    override suspend fun deleteLegacyRows() {
+        store.update { current ->
+            current.filterValues { it.userId != null }
+        }
     }
 }
 
@@ -1099,6 +1142,40 @@ private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, C
         val before = store.value.values.count { it.taskId == taskId }
         store.update { current -> current.filterValues { c -> c.taskId != taskId } }
         return before
+    }
+
+    override suspend fun updateCompletionStatus(
+        itemId: String,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
+        val existing = store.value[itemId] ?: return 0
+        store.update { it + (itemId to existing.copy(isCompleted = isCompleted, updatedAt = updatedAt)) }
+        return 1
+    }
+
+    override suspend fun toggleItem(
+        itemId: String,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        checkedAt: Long,
+        actor: String,
+        userId: String,
+    ): Int {
+        val existing = store.value[itemId] ?: return 0
+        store.update {
+            it + (
+                itemId to existing.copy(
+                    isCompleted = isCompleted,
+                    updatedAt = updatedAt,
+                    checkedBy = actor,
+                    checkedAt = checkedAt,
+                    rowVersion = existing.rowVersion + 1,
+                )
+            )
+        }
+        return 1
     }
 }
 
@@ -1357,5 +1434,174 @@ private class FakeProjectInheritedTagGroupDao(
         val before = store.value.count { it.tagGroupId == tagGroupId }
         store.update { list -> list.filter { it.tagGroupId != tagGroupId } }
         return before
+    }
+}
+
+private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, TimeEntryEntity>>) : TimeEntryDao {
+    override fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>> = store.map { map ->
+        map.values.filter { it.taskId == taskId && it.deletedAt == null }.sortedByDescending { it.startedAt }
+    }
+
+    override fun watchOpenEntry(userId: String): Flow<TimeEntryEntity?> =
+        store.map { map -> map.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null } }
+
+    override suspend fun getOpenEntry(userId: String): TimeEntryEntity? =
+        store.value.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null }
+
+    override fun watchForUserInRange(userId: String, startMs: Long, endMs: Long): Flow<List<TimeEntryEntity>> =
+        store.map { map ->
+            map.values.filter {
+                it.userId == userId &&
+                    it.startedAt >= startMs &&
+                    it.startedAt < endMs &&
+                    it.deletedAt == null
+            }.sortedByDescending { it.startedAt }
+        }
+
+    override suspend fun upsert(entity: TimeEntryEntity) {
+        store.update { map -> map + (entity.id to entity) }
+    }
+
+    override suspend fun stopEntry(id: String, endedAt: Long, updatedAt: Long, userId: String): Int {
+        val before = store.value[id]
+        if (before == null || before.userId != userId) return 0
+        store.update { map -> map + (id to before.copy(endedAt = endedAt, updatedAt = updatedAt)) }
+        return 1
+    }
+
+    override suspend fun updateNote(id: String, note: String?, updatedAt: Long, userId: String): Int {
+        val before = store.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        store.update { map -> map + (id to before.copy(note = note, updatedAt = updatedAt)) }
+        return 1
+    }
+
+    override suspend fun softDelete(id: String, deletedAt: Long, userId: String): Int {
+        val before = store.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        store.update { map -> map + (id to before.copy(deletedAt = deletedAt, updatedAt = deletedAt)) }
+        return 1
+    }
+
+    override suspend fun delete(id: String, userId: String): Int {
+        val before = store.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        store.update { map -> map - id }
+        return 1
+    }
+}
+
+/**
+ * In-memory [ProposalDao].
+ *
+ * The compare-and-set in [claimItem] is reproduced faithfully — it is the property
+ * under test in `ApplyProposalItemUseCaseTest` (a second tap must apply nothing), so
+ * a fake that always returned 1 would make that test lie.
+ */
+private class FakeProposalDao(private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>) : ProposalDao {
+
+    override suspend fun upsertProposal(entity: AiProposalEntity) {
+        proposals.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun getProposal(id: String): AiProposalEntity? = proposals.value[id]
+
+    override fun watchProposal(id: String): Flow<AiProposalEntity?> = proposals.map { it[id] }
+
+    override fun watchProposalsForTask(taskId: String, userId: String): Flow<List<AiProposalEntity>> =
+        proposals.map { map ->
+            map.values.filter { it.taskId == taskId && it.userId == userId }
+                .sortedByDescending { it.createdAt }
+        }
+
+    override fun watchProposalsByStatus(userId: String, status: String): Flow<List<AiProposalEntity>> =
+        proposals.map { map ->
+            map.values.filter { it.userId == userId && it.status == status }
+                .sortedByDescending { it.createdAt }
+        }
+
+    override suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long, userId: String): Int {
+        val before = proposals.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        proposals.update { it + (id to before.copy(status = status, updatedAt = updatedAt)) }
+        return 1
+    }
+}
+
+/**
+ * In-memory [ProposalItemDao].
+ *
+ * The compare-and-set in [claimItem] is reproduced faithfully — it is the property
+ * under test in `ApplyProposalItemUseCaseTest` (a second tap must apply nothing), so
+ * a fake that always returned 1 would make that test lie. The ownership check is
+ * likewise real: a fake that skipped it would hide a cross-user decision.
+ */
+private class FakeProposalItemDao(
+    private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>,
+    private val items: MutableStateFlow<Map<String, ProposalItemEntity>>,
+) : ProposalItemDao {
+    override suspend fun upsertItem(entity: ProposalItemEntity) {
+        items.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun getItem(id: String): ProposalItemEntity? = items.value[id]
+
+    override fun watchItemsForProposal(proposalId: String): Flow<List<ProposalItemEntity>> =
+        items.map { map -> map.values.filter { it.proposalId == proposalId }.sortedBy { it.sortOrder } }
+
+    override suspend fun getItemsForProposal(proposalId: String): List<ProposalItemEntity> =
+        items.value.values.filter { it.proposalId == proposalId }.sortedBy { it.sortOrder }
+
+    override suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int =
+        items.value.values.count { it.proposalId == proposalId && it.fingerprint == fingerprint }
+
+    override suspend fun claimItem(
+        userId: String,
+        id: String,
+        status: String,
+        decidedAt: Long,
+        actor: String,
+        reason: String?,
+    ): Int {
+        val before = items.value[id] ?: return 0
+        // The whole point: only a row still in Pending can transition.
+        if (before.status != "Pending") return 0
+        if (proposals.value[before.proposalId]?.userId != userId) return 0
+        items.update { map ->
+            map + (
+                id to before.copy(
+                    status = status,
+                    decidedAt = decidedAt,
+                    decidedActor = actor,
+                    rejectionReason = reason,
+                )
+            )
+        }
+        return 1
+    }
+
+    override suspend fun retractPendingItems(proposalId: String, userId: String): Int {
+        val owned = proposals.value[proposalId]?.userId == userId
+        val affected = if (owned) {
+            items.value.values.filter { it.proposalId == proposalId && it.status == "Pending" }
+        } else {
+            emptyList()
+        }
+        if (affected.isEmpty()) return 0
+        items.update { map ->
+            map.mapValues { (key, value) ->
+                if (affected.any { it.id == key }) value.copy(status = "Retracted") else value
+            }
+        }
+        return affected.size
+    }
+
+    override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> {
+        val ownerIds = proposals.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        return items.value.values
+            .filter { it.proposalId in ownerIds && it.status == "Rejected" }
+            .sortedByDescending { it.decidedAt ?: 0L }
+            .take(limit)
+            .map { it.fingerprint }
     }
 }

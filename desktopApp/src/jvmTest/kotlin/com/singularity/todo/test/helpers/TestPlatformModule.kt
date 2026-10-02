@@ -80,6 +80,10 @@ fun testPlatformModule(): Module = module {
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().savedSearchDao() }
+    single { get<AppDatabase>().calendarSyncTaskMapDao() }
+    single { get<AppDatabase>().timeEntryDao() }
+    single { get<AppDatabase>().proposalDao() }
+    single { get<AppDatabase>().proposalItemDao() }
 
     // ─── Settings storage ───────────────────────────────────────────────────
     // The three named bindings mirror platformModule(); domainModule()'s

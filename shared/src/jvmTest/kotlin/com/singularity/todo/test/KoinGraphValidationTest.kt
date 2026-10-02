@@ -92,6 +92,10 @@ class KoinGraphValidationTest {
         single { get<AppDatabase>().llmUsageDao() }
         single { get<AppDatabase>().profileDao() }
         single { get<AppDatabase>().agendaViewDao() }
+        single { get<AppDatabase>().timeEntryDao() }
+        single { get<AppDatabase>().tagGroupDao() }
+        single { get<AppDatabase>().projectInheritedTagGroupDao() }
+        single { get<AppDatabase>().savedSearchDao() }
 
         // ─── DataStore ─────────────────────────────────────────────────
         val userHome = System.getProperty("user.home")
@@ -112,7 +116,7 @@ class KoinGraphValidationTest {
         // ─── Pomodoro ──────────────────────────────────────────────────
         single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
         single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
-        factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get()) }
+        factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get(), get(), get()) }
 
         // ─── Reminders ─────────────────────────────────────────────────
         single<ReminderScheduler> { JvmReminderScheduler() }

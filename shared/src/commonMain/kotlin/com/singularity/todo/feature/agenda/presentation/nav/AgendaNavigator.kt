@@ -29,6 +29,19 @@ open class AgendaNavigator(
         // Context menu is handled via routing state in AgendaContent — no nav needed
     }
 
+    /**
+     * Open the task create screen with pre-fill values from an agenda section.
+     * The [sectionId] is used as the draft key suffix so the pre-populated draft
+     * (title, due date) is restored when the create screen opens.
+     */
+    open fun openCreateInSection(sectionId: String) {
+        onExitGraph(
+            AppDestination.TasksGraph(
+                start = AppDestination.TasksStartRoute.Create(sectionPrefillKey = sectionId),
+            ),
+        )
+    }
+
     /** Push the saved agenda views list onto the stack. */
     open fun openSavedAgendaList() {
         backStack.add(AgendaStartRoute.SavedAgendaList)

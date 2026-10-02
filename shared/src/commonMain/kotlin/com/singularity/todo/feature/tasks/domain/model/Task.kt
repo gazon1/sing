@@ -112,6 +112,11 @@ data class Task(
     val endTime: kotlinx.datetime.LocalTime? = null,
     val accentColor: Long? = null, // ARGB color value, null = use default
     val emoji: String? = null, // task-level emoji, null = none
+    /**
+     * Estimated time to complete this task, in minutes.
+     * Null means no estimate has been set — distinct from 0 minutes.
+     */
+    val estimateMinutes: Int? = null,
     val completedAt: Instant? = null,
     val someday: Boolean = false,
     val archivedAt: Instant? = null,
@@ -134,6 +139,12 @@ data class Task(
      * @see 2026-09-18-task-dependencies
      */
     val dependsOn: Set<TaskId> = emptySet(),
+    /**
+     * Tag IDs that the AI has suggested removing, and which the user has suppressed.
+     * Suppressed tags are excluded from AI prompts so they are not re-proposed.
+     * The set is cleared when the user manually adds any of these tags back.
+     */
+    val aiSuppressedTagIds: Set<TagId> = emptySet(),
     /**
      * The recurrence rule for this task, if any.
      * Null means the task does not repeat.
@@ -184,6 +195,7 @@ data class CreateTaskInput(
     val endTime: kotlinx.datetime.LocalTime? = null,
     val accentColor: Long? = null,
     val emoji: String? = null,
+    val estimateMinutes: Int? = null,
     val someday: Boolean = false,
     /**
      * The recurrence rule for the new task, or null for a non-recurring task.

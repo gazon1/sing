@@ -198,11 +198,13 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
 /**
  * Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute].
- * Only [Create] and [Detail] remain — the other deprecated variants were removed.
+ * Deprecated [Inbox] and [Upcoming] map to [Create] for backwards compatibility.
  */
 private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
     is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
+    is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Create(null)
+    is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Create(null)
 }
 
 /** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */

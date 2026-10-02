@@ -102,7 +102,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
 - **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
-- _... and 373 more items_
+- _... and 386 more items_
 
 ### `agenda`
 
@@ -122,9 +122,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - All 32 tools are available to any AI agent via MCP stdio
 - LLM tools go through the Koog prompt pipeline (`PromptExecutor`)
+- MCP tools (`create_task`, `update_task`, `delete_task`, `decompose_and_create`) are
 - The Test connection "probe" prompt is hard-coded: `"Reply with the single word: pong."` — change together with the system prompt if needed.
 - Write tools use repositories directly (same layer as ViewModels)
 - `SettingsViewModel.testConnection()` **always** short-circuits with `Error("API key not configured")` when no key, **without** calling `textGen`. Tests assert this with `FakeTextGen(trackGenerateCalls = true)` and `assertEquals(emptyList(), textGen.generateCalls)`.
+- `TaskAiSlot` no longer writes directly. All five `TaskAiAction` variants become
+- `ai_proposal` + `ai_proposal_item` are local-only for now. Cross-device sync requires
+- `checked_by` / `checked_at` on checklist items (MR-8) requires `row_version`
 - `llm_usage` table tracks input/output tokens and cost per call
 
 ### `analytics`
@@ -302,6 +306,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - When adding a bundle, confirm all members are used together in every relevant source set. A bundle that partially applies is worse than no bundle.
 - `android.useAndroidX=true` removed from `gradle.properties` — it has been the default since AGP 4.x.
 - `resolutionStrategy` additions go in `build.gradle.kts` (root) only. Never add a second `configurations.all { resolutionStrategy }` in a module.
+
+### `insights`
+
+- No lower bound on entry duration. A 1-second interval is included. Lotti's 15-second
+- The slow contract test (`TimeTrackingRepositoryContractTest`) runs against a real
+- `TimeBucketing.kt` is pure domain logic (`commonMain`), testable without a database or
 
 ### `koin`
 
@@ -613,12 +623,12 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A task may have zero, one, or many dependencies.
 - Cycle detection is deferred — cycles are rare and the cost of a DFS on every `setDependencies` call is non-trivial for large task graphs.
 - Deadline indicator rendering in `UpcomingBadges`.
-- If card-level AI is wanted later, the prerequisite is a preview-and-confirm step —
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
 - Self-dependency is validated in the MCP tool and silently ignored by the join-table upsert (PRIMARY KEY prevents the duplicate).
 - Single narrow Room query (`watchByDate`) reused for the new use case.
-- _... and 15 more items_
+- Week navigation via swipe on `DaySwitcherRow`.
+- _... and 12 more items_
 
 ### `tech-debt`
 
@@ -657,6 +667,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **JVM args for JDK 21+** — add `--add-opens=java.base/jdk.internal.access=ALL-UNNAMED` to `gradle.properties` (`org.gradle.jvmargs`) AND to `shared/build.gradle.kts` via `afterEvaluate` + `tasks.withType<Test>()` for the test worker process.
 - **Positive:** Unknown tag ids are now a build failure in `:shared:jvmTest`.
 - _... and 62 more items_
+
+### `timetracking`
+
+- Cross-device sync of time entries is deferred. Time tracking is local-only for now;
+- JVM Desktop has no native Pomodoro notification system. `JvmPomodoroTimer` is a stub
+- `TimeEntryId` is a `@JvmInline value class` wrapping `String`, matching the pattern for
+- `TimeTrackingRepository` lives in `feature/timetracking.domain` — the domain layer, per
 
 ### `ui`
 
@@ -768,10 +785,10 @@ _22 entries need attention._
 ## Recently superseded
 
 - `2026-09-30-nodate-root-cause` — NoDate bisect — the domain is sound; the break is above AgendaEvaluator
+- `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-26-production-readiness-findings` — Production Readiness Findings — 2026-09-25
 - `2026-09-26-notes-clean-architecture-r21` — R21: Notes Clean Architecture — deferred
 - `2026-09-23-test-standards-enforcement` — Test Standards — Enforcement, Gap Filling, and Architecture Cleanup
-- `2026-09-23-file-logging-and-exporter` — FileLogWriter + LogExporter: persistent rolling logs and user-facing export
 
 ## Index (slug -> tags)
 
@@ -1093,7 +1110,6 @@ _22 entries need attention._
 - `2026-09-29-sync-config-screen-has-no-host` — sync, ui, gap, maestro
 - `2026-09-29-task-longpress-menu-and-archive-restore` — ui, tasks, agenda, android
 - `2026-09-30-agenda-section-discard-missing` — agenda, domain-logic, agenda-presets, lazycolumn
-- `2026-09-30-card-level-ai-actions-deferred` — tasks, ai, ux, gap
 - `2026-09-30-dead-affordances-removed` — calendar, ui, gap, cleanup
 - `2026-09-30-dead-code-deleted-and-oauth-kept` — logging, koin, kermit, debugging
 - `2026-09-30-desktop-compose-ui-flow-tests` — desktop, testing, compose, koin, ui-test
@@ -1138,6 +1154,11 @@ _22 entries need attention._
 - `2026-10-01-nodate-regression-pinning` — testing, regression, nodate, agenda, task-repository
 - `2026-10-01-notes-task-logbook-substrate` — _untagged_
 - `2026-10-01-phase4-cleanup-findings` — _untagged_
+- `2026-10-01-post-mr-10-findings` — task-editor, agenda, maestro, mr-10
+- `2026-10-01-post-mr-11-findings` — agenda, navigation, desktop, mr-11
+- `2026-10-01-post-mr-12-findings` — task-editor, agenda, mr-12
+- `2026-10-01-post-mr-13-findings` — navigation, agenda, fab, mr-13
+- `2026-10-01-post-mr-14-findings` — agenda, badge, mr-14
 - `2026-10-01-post-mr-2-findings` — audit, mr-2
 - `2026-10-01-post-mr-3-findings` — audit, mr-3
 - `2026-10-01-post-mr-9-findings` — build, convention-plugins, mr-9
@@ -1149,8 +1170,15 @@ _22 entries need attention._
 - `2026-10-01-test-infra-gaps` — testing, detekt, jvmtest, ci, configuration-cache
 - `2026-10-01-test-ratchet-findings` — test-coverage, architecture, mr-followup
 - `2026-10-01-typed-task-dependency-links` — _untagged_
+- `2026-10-02-ai-proposal-confirmation` — ai, proposals, tasks, tags
 - `2026-10-02-desktop-haptic-missing-binding` — incident, desktop, di, testing
+- `2026-10-02-insights-time-bucketing` — insights, timebucketing, database
+- `2026-10-02-log-redaction-classification-policy` — _untagged_
+- `2026-10-02-mixed-platform-audit-followups` — platform, audit, android, jvm, desktop
+- `2026-10-02-mr6-mr7-breakage-post-mortem` — _untagged_
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
+- `2026-10-02-task-time-tracking-and-estimate` — timetracking, tasks, database
+- `2026-10-02-usage-recording-textgen-architecture` — _untagged_
 
 ## Active entries
 
@@ -1472,7 +1500,6 @@ _22 entries need attention._
 - `2026-09-29-sync-config-screen-has-no-host` — SyncConfigScreen is never rendered — the planned sync flows have nothing to drive
 - `2026-09-29-task-longpress-menu-and-archive-restore` — Long-press task menu on Android, and restoring from the archive
 - `2026-09-30-agenda-section-discard-missing` — AgendaPresets: every narrow bucket section needs discard=true
-- `2026-09-30-card-level-ai-actions-deferred` — Card-level AI actions are deferred: they mutate without preview or undo
 - `2026-09-30-dead-affordances-removed` — Nine calendar affordances were removed: they promised a feature that does not exist
 - `2026-09-30-dead-code-deleted-and-oauth-kept` — MR-4 dead-code sweep: what was deleted, and three things that look deletable but are not
 - `2026-09-30-desktop-compose-ui-flow-tests` — Desktop Compose UI tests mount the real App() with an in-memory platform module
@@ -1508,15 +1535,20 @@ _22 entries need attention._
 - `2026-09-30-ultron-ideas-evaluation` — Ultron testing ideas — what we adopted, what we skipped
 - `2026-09-30-vm-init-property-declaration-order` — VM init: property declared after the init block that uses it
 - `2026-10-01-agent-velocity-remaining-debt` — Ревизия после MR-7: что осталось и что поможет агенту
-- `2026-10-01-architectural-followups` — _(no title)_
+- `2026-10-01-architectural-followups` — Architectural Follow-ups — October 2026 Epic
 - `2026-10-01-bulk-operations-use-case-unwired` — Bulk Operations Use Case — Unwired in ViewModel
 - `2026-10-01-ci-quality-ratchet` — CI quality ratchet: FailureBundle upload + PR-only test retry
 - `2026-10-01-cluster-9-repository-package-moves` — Cluster 9 — Repository Package Moves
 - `2026-10-01-desktop-nav-followup` — Desktop navigation follow-up: FAB hijack + tab-back regression
 - `2026-10-01-maestro-flow-tag-contract` — Maestro flow tag contract — JVM test gate
 - `2026-10-01-nodate-regression-pinning` — NoDate regression pinning: contract + VM tests
-- `2026-10-01-notes-task-logbook-substrate` — _(no title)_
+- `2026-10-01-notes-task-logbook-substrate` — ADR: Notes ↔ Tasks Logbook Substrate
 - `2026-10-01-phase4-cleanup-findings` — Phase 4 Post-Move Cleanup Findings
+- `2026-10-01-post-mr-10-findings` — Post-MR-10 findings — TaskEditor refactor + agenda test ratchet
+- `2026-10-01-post-mr-11-findings` — Post-MR-11 findings — SavedAgendaResults screen + pre-existing desktop nav regression
+- `2026-10-01-post-mr-12-findings` — Post-MR-12 findings — TaskCreate editor full fields
+- `2026-10-01-post-mr-13-findings` — Post-MR-13 findings — source-tab prefill + per-tab back stack
+- `2026-10-01-post-mr-14-findings` — Post-MR-14 findings — agenda badge single source + Recurring gap
 - `2026-10-01-post-mr-2-findings` — Post-MR-2 audit findings
 - `2026-10-01-post-mr-3-findings` — Post-MR-3 audit findings
 - `2026-10-01-post-mr-9-findings` — Post-MR-9 findings — Convention plugins
@@ -1527,7 +1559,14 @@ _22 entries need attention._
 - `2026-10-01-test-infra-followups` — Test-infra follow-ups: наблюдения по итогам ratchet
 - `2026-10-01-test-infra-gaps` — Test infrastructure gaps found during quality-ratchet session
 - `2026-10-01-test-ratchet-findings` — Post-test-ratchet findings: structural gaps found during MR-10..14
-- `2026-10-01-typed-task-dependency-links` — _(no title)_
+- `2026-10-01-typed-task-dependency-links` — Typed Task Dependency Links — verb column
+- `2026-10-02-ai-proposal-confirmation` — AI proposal confirmation: compare-and-set, transactional apply, tag suppression
 - `2026-10-02-desktop-haptic-missing-binding` — _(no title)_
+- `2026-10-02-insights-time-bucketing` — Insights time bucketing: union-merge, midnight split, no SQLite dates on integer columns
+- `2026-10-02-log-redaction-classification-policy` — Log Message User-Content Classification Policy
+- `2026-10-02-mixed-platform-audit-followups` — Mixed platform audit — MR-0 follow-ups: what was fixed and what was deferred
+- `2026-10-02-mr6-mr7-breakage-post-mortem` — MR-6 / MR-7 Post-mortem — broken preconditions and agent cleanup
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
+- `2026-10-02-task-time-tracking-and-estimate` — Task time tracking: estimate, time_entries, timer, Pomodoro
+- `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
 

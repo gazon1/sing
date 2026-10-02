@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -96,6 +97,20 @@ data class TaskEditorCallbacks(
     val checklist: ChecklistCallbacks?,
     /** Attachments row — null = hidden */
     val attachments: AttachmentsCallbacks?,
+    /** Estimate row — null = hidden. */
+    val estimate: RowCallbacks<Int?>?,
+    /**
+     * Time entry — null means time entry row is hidden.
+     * Called to open the time entry editor sheet. The sheet's onSave is wired separately
+     * via [onTimeEntrySave].
+     */
+    val onTimeEntryAdd: (() -> Unit)?,
+    /**
+     * Called when the user saves a manual time entry from [TimeEntryEditorSheet].
+     * Parameters: (startedAtMs, endedAtMs, kind, note).
+     */
+    val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
+
     /** Bottom bar content — null means no bottom bar */
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */

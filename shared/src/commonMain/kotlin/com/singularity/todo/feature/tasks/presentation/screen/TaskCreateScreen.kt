@@ -42,8 +42,8 @@ import org.koin.core.parameter.parametersOf
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun TaskCreateScreen(initialDueDate: LocalDate?) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate) }
+fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = null) {
+    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, sectionPrefillKey) }
     val navigator = LocalTasksNavigator.current
 
     val state by vm.state.collectAsStateWithLifecycle()
@@ -125,6 +125,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
             attachments = attachmentItems,
             recurrence = state.draft.recurrence,
             isPinned = state.draft.isPinned,
+            estimateMinutes = null,
             dependsOn = emptySet(),
             availableTasks = emptyList(),
         ),
@@ -168,6 +169,9 @@ fun TaskCreateScreen(initialDueDate: LocalDate?) {
             pin = ToggleCallbacks(
                 onToggle = { vm.onIntent(TaskCreateIntent.PinToggled) },
             ),
+            estimate = null,
+            onTimeEntryAdd = null,
+            onTimeEntrySave = null,
             checklist = ChecklistCallbacks(
                 onOpen = { sheets.show(TaskEditorSheet.Checklist) },
                 onAdd = { text -> vm.onIntent(TaskCreateIntent.AddChecklistItem(text)) },

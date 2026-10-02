@@ -126,7 +126,7 @@ class TaskLifecycleIntegrationTest {
         val before = checklistRepo.watchByTask(taskId.value).first().first()
         assertFalse(before.isCompleted)
 
-        checklistRepo.toggleItem(taskId.value, itemId).getOrThrow()
+        checklistRepo.toggleItem(taskId.value, itemId, "user").getOrThrow()
         advanceUntilIdle()
 
         val after = checklistRepo.watchByTask(taskId.value).first().first()

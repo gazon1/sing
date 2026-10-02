@@ -155,7 +155,7 @@ fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailActions, m
 
 // ─── Quick Add (private — only used by ProjectBodySection) ─────────────────────
 
-private sealed class QuickAddSheet {
+sealed class QuickAddSheet {
     data object Picker : QuickAddSheet()
 }
 

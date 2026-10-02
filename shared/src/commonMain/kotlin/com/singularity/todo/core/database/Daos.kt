@@ -371,10 +371,16 @@ interface NoteDao {
     )
     fun watchRootNotes(userId: String): Flow<List<NoteEntity>>
 
+    /**
+     * Observe direct child notes of a folder, scoped to [userId].
+     *
+     * The caller is responsible for ensuring [parentId] itself belongs to [userId];
+     * this query only filters the returned children.
+     */
     @Query(
-        "SELECT * FROM notes WHERE parent_note_id = :parentId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
+        "SELECT * FROM notes WHERE parent_note_id = :parentId AND user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
     )
-    fun watchChildren(parentId: String): Flow<List<NoteEntity>>
+    fun watchChildrenForUser(parentId: String, userId: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
     fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?>
@@ -743,6 +749,47 @@ interface ChecklistDao {
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)
 
+    /**
+     * Toggles the completion status of a checklist item, scoped to the user.
+     *
+     * Writes `checked_by` (the actor), `checked_at` (epoch millis), and increments
+     * `row_version` on every toggle. Uses a targeted UPDATE rather than
+     * read-reconstruct-write to preserve any additional columns.
+     *
+     * @return the number of rows updated (0 if the item was not found or already had
+     * the target state).
+     */
+    @Query(
+        """
+        UPDATE checklist_items
+        SET is_completed = :isCompleted,
+            updated_at = :updatedAt,
+            checked_by = :actor,
+            checked_at = :checkedAt,
+            row_version = row_version + 1
+        WHERE id = :itemId
+          AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun toggleItem(
+        itemId: String,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        checkedAt: Long,
+        actor: String,
+        userId: String,
+    ): Int
+
+    @Query(
+        """
+        UPDATE checklist_items
+        SET is_completed = :isCompleted, updated_at = :updatedAt
+        WHERE id = :itemId
+          AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun updateCompletionStatus(itemId: String, isCompleted: Boolean, updatedAt: Long, userId: String): Int
+
     @Query(
         """
         DELETE FROM checklist_items
@@ -927,6 +974,7 @@ interface ProjectInheritedTagGroupDao {
     suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String)
 
     /**
+     * Whether [projectId] exists and belongs to [userId].
      * Whether [projectId] exists and belongs to [userId].
      *
      * Lives here rather than in the repository so callers do not have to take a

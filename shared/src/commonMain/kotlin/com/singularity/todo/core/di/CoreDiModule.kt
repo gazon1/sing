@@ -198,6 +198,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             projectRepo = get(),
             tagRepo = get(),
             tagGroupRepo = get(),
+            timeTrackingRepo = get(),
         )
     }
 

@@ -82,6 +82,9 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().savedSearchDao() }
+    single { get<AppDatabase>().timeEntryDao() }
+    single { get<AppDatabase>().proposalDao() }
+    single { get<AppDatabase>().proposalItemDao() }
 
     // ─── DataStore (split: user settings + state) ─────────────────────────
     // File-level caching: the SAME DataStore instance is returned for the same
@@ -142,6 +145,8 @@ actual fun platformModule(): Module = module {
             get(),
             get(),
             com.singularity.todo.core.coroutines.createBackgroundScope(),
+            get(),
+            get(),
         )
     }
 

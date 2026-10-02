@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -13,6 +15,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -143,6 +146,12 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskEntityIntent
 
+        // ── Estimate ────────────────────────────────────────────────────────
+
+        data class SetEstimate(val minutes: Int?) :
+            Domain,
+            TaskEntityIntent
+
         // ── Attachments ──────────────────────────────────────────────────────
 
         data class AddUrlAttachment(val url: String, val title: String?) :
@@ -158,5 +167,49 @@ sealed interface TaskDetailIntent : MviIntent {
         data class RunAiAction(val action: TaskAiAction) :
             Domain,
             TaskAiIntent
+
+        // ── Proposals ────────────────────────────────────────────────────
+
+        /** Confirm one proposal item. */
+        data class ConfirmProposalItem(val itemId: ProposalItemId) : Domain
+
+        /** Reject one proposal item, optionally with a reason. */
+        data class RejectProposalItem(val itemId: ProposalItemId, val reason: String? = null) : Domain
+
+        /** Confirm all pending items across all proposals for this task. */
+        data class ConfirmAllProposalItems(val proposalId: ProposalId) : Domain
+
+        /** Dismiss (retract) a proposal and all its pending items. */
+        data class DismissProposal(val proposalId: ProposalId) : Domain
+
+        // ── Time Tracking ─────────────────────────────────────────────────
+
+        /** Start the time tracker for this task. */
+        data object Start : Domain, TaskTimeSlotIntent
+
+        /** Stop the running time tracker. */
+        data object Stop : Domain, TaskTimeSlotIntent
+
+        /**
+         * Create a manual time entry.
+         * @param startedAtMs Start time in epoch milliseconds.
+         * @param endedAtMs End time in epoch milliseconds.
+         * @param kind Work or Recording.
+         * @param note Optional note.
+         */
+        data class CreateManual(
+            val startedAtMs: Long,
+            val endedAtMs: Long,
+            val kind: TimeEntryKind,
+            val note: String?,
+        ) : Domain,
+            TaskTimeSlotIntent
+
+        /**
+         * Update the displayed elapsed time (called by the UI ticker).
+         */
+        data class Tick(val elapsedMs: Long) :
+            Domain,
+            TaskTimeSlotIntent
     }
 }

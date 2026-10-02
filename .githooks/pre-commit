@@ -10,7 +10,9 @@ cd "$ROOT"
 # Skip compile check when inside a git worktree — the hook runs against the main
 # checkout's source set, so any worktree that is API-ahead of main will produce
 # spurious "unresolved reference" errors and block the worktree commit.
-if [ -f .git ]; then
+# Detect by comparing --git-dir (per-worktree) with --git-common-dir (shared .git):
+# they differ in worktrees, are identical in the main checkout.
+if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-commit: skipped (worktree) ==="
     exit 0
 fi

@@ -90,6 +90,9 @@ object TestTags {
     /** Pin toggle row in the task editor attribute list. */
     const val TASK_EDITOR_PIN_ROW = "task_editor_pin_row"
 
+    /** Estimate row in the task editor attribute list. */
+    const val TASK_EDITOR_ESTIMATE_ROW = "task_editor_estimate_row"
+
     /**
      * Priority options in the priority picker dialog — one per [TaskPriority].
      *

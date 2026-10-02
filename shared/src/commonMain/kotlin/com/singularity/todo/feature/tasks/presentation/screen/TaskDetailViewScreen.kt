@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,24 +38,35 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
+import com.singularity.todo.feature.tasks.presentation.state.FirstRun
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
+import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
+import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -99,7 +111,9 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
 
             is TaskDetailUiState.Loaded -> {
                 val ui = s.ui
+                val extras = s.extras
                 var showAiSheet by rememberSaveable { mutableStateOf(false) }
+                var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
 
                 TaskEditorContent(
                     taskId = ui.task.id.value,
@@ -123,6 +137,12 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                     showDueDate = true,
                     onPriorityClick = null,
                     onDueDateClick = null,
+                    estimateMinutes = ui.task.estimateMinutes,
+                    estimateCallbacks = RowCallbacks(
+                        onChange = { vm.onIntent(TaskDetailIntent.Domain.SetEstimate(it)) },
+                        onClick = null,
+                        onClear = { vm.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
+                    ),
                     dependsOn = ui.dependsOn,
                     availableTasks = ui.availableTasks,
                     extraSections = {
@@ -130,6 +150,38 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            val firstRun = when (val ex = extras) {
+                                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                is TaskDetailExtras.Ready -> ex.firstRun
+                            }
+                            if (firstRun is FirstRun.Offer) {
+                                FirstRunSection(
+                                    onWriteNote = { /* scroll to body */ },
+                                    onAddChecklist = { /* expand checklist */ },
+                                    onAskAi = { showAiSheet = true },
+                                )
+                            }
+                            val proposals = when (val ex = extras) {
+                                is TaskDetailExtras.Unresolved -> emptyList()
+                                is TaskDetailExtras.Ready -> ex.proposals
+                            }
+                            if (proposals.isNotEmpty()) {
+                                ProposalSection(
+                                    proposals = proposals,
+                                    onConfirm = { itemId ->
+                                        vm.onIntent(TaskDetailIntent.Domain.ConfirmProposalItem(itemId))
+                                    },
+                                    onReject = { itemId, reason ->
+                                        vm.onIntent(TaskDetailIntent.Domain.RejectProposalItem(itemId, reason))
+                                    },
+                                    onConfirmAll = { proposalId ->
+                                        vm.onIntent(TaskDetailIntent.Domain.ConfirmAllProposalItems(proposalId))
+                                    },
+                                    onDismiss = { proposalId ->
+                                        vm.onIntent(TaskDetailIntent.Domain.DismissProposal(proposalId))
+                                    },
+                                )
+                            }
                             TagsSection(
                                 tags = ui.tags,
                                 onDeleteTag = { vm.onIntent(TaskDetailIntent.Domain.RemoveTag(it)) },
@@ -141,6 +193,12 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                 checklist = ui.checklist,
                                 onToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(it)) },
                                 onDelete = { vm.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(it)) },
+                            )
+                            SubtasksSection(
+                                subtasks = ui.subtasks,
+                                onToggle = { vm.onIntent(TaskDetailIntent.Domain.ToggleSubtask(it)) },
+                                onDelete = { vm.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
+                                onOpen = { navigator.openDetail(it.id) },
                             )
                             if (ui.attachments.isNotEmpty()) {
                                 AttachmentsSection(attachments = ui.attachments)
@@ -157,8 +215,14 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                 )
                             }
                             // Logbook: notes explicitly attached to this task via Note.taskId.
+                            TimeTrackingSection(
+                                state = ui.timeSlotState,
+                                onStart = { vm.onIntent(TaskDetailIntent.Domain.Start) },
+                                onStop = { vm.onIntent(TaskDetailIntent.Domain.Stop) },
+                                onAddManual = { showTimeEntrySheet = true },
+                            )
                             LogbookSection(
-                                notes = ui.logbookNotes,
+                                entries = ui.logbookEntries,
                                 onOpenNote = { navigator.openNote(it) },
                                 onAddNote = { taskId -> navigator.openCreateNote(taskId) },
                                 currentTaskId = ui.task.id,
@@ -182,6 +246,24 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                             showAiSheet = false
                         },
                         onDismiss = { showAiSheet = false },
+                    )
+                }
+
+                if (showTimeEntrySheet) {
+                    TimeEntryEditorSheet(
+                        taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
+                        onSave = { startedAtMs, endedAtMs, kind, note ->
+                            vm.onIntent(
+                                TaskDetailIntent.Domain.CreateManual(
+                                    startedAtMs = startedAtMs,
+                                    endedAtMs = endedAtMs,
+                                    kind = kind,
+                                    note = note,
+                                ),
+                            )
+                            showTimeEntrySheet = false
+                        },
+                        onDismiss = { showTimeEntrySheet = false },
                     )
                 }
             }
@@ -317,6 +399,136 @@ private fun AttachmentsSection(attachments: List<Attachment>) {
                         modifier = Modifier.padding(vertical = 2.dp),
                     )
                 }
+        }
+    }
+}
+
+// ─── AI Proposals ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun ProposalSection(
+    proposals: List<AiProposal>,
+    onConfirm: (ProposalItemId) -> Unit,
+    onReject: (ProposalItemId, String?) -> Unit,
+    onConfirmAll: (ProposalId) -> Unit,
+    onDismiss: (ProposalId) -> Unit,
+) {
+    proposals.forEach { proposal ->
+        ProposalCard(
+            proposal = proposal,
+            onConfirm = onConfirm,
+            onReject = onReject,
+            onConfirmAll = { onConfirmAll(proposal.id) },
+            onDismiss = { onDismiss(proposal.id) },
+        )
+    }
+}
+
+@Composable
+private fun ProposalCard(
+    proposal: AiProposal,
+    onConfirm: (ProposalItemId) -> Unit,
+    onReject: (ProposalItemId, String?) -> Unit,
+    onConfirmAll: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var rejectingItemId by mutableStateOf<ProposalItemId?>(null)
+    var rejectionText by mutableStateOf("")
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "AI Suggestions",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Row {
+                    TextButton(onClick = onConfirmAll) {
+                        Text("Accept all")
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("Dismiss")
+                    }
+                }
+            }
+
+            proposal.pendingItems.forEach { item ->
+                ProposalItemRow(
+                    item = item,
+                    isRejecting = rejectingItemId == item.id,
+                    rejectionText = if (rejectingItemId == item.id) rejectionText else "",
+                    onConfirm = { onConfirm(item.id) },
+                    onStartReject = { rejectingItemId = item.id },
+                    onSendReject = {
+                        onReject(item.id, rejectionText.takeIf { it.isNotBlank() })
+                        rejectingItemId = null
+                        rejectionText = ""
+                    },
+                    onCancelReject = {
+                        rejectingItemId = null
+                        rejectionText = ""
+                    },
+                    onRejectionTextChange = { rejectionText = it },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProposalItemRow(
+    item: com.singularity.todo.feature.proposals.domain.model.ProposalItem,
+    isRejecting: Boolean,
+    rejectionText: String,
+    onConfirm: () -> Unit,
+    onStartReject: () -> Unit,
+    onSendReject: () -> Unit,
+    onCancelReject: () -> Unit,
+    onRejectionTextChange: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = item.humanSummary,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            if (isRejecting) {
+                TextButton(onClick = onSendReject) { Text("Send") }
+                TextButton(onClick = onCancelReject) { Text("Cancel") }
+            } else {
+                TextButton(onClick = onConfirm) { Text("✓") }
+                TextButton(onClick = onStartReject) { Text("✗") }
+            }
+        }
+        if (isRejecting) {
+            OutlinedTextField(
+                value = rejectionText,
+                onValueChange = onRejectionTextChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Reason (optional)") },
+                singleLine = true,
+            )
         }
     }
 }

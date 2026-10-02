@@ -28,10 +28,10 @@ import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncInten
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectCalendar
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetEnabled
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SyncNow
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Calendar sync settings screen.
@@ -124,8 +124,13 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
                     is CalendarSyncStatus.Disabled -> "Disabled"
 
                     is CalendarSyncStatus.Idle -> {
-                        val date = s.lastSyncedAt?.let {
-                            SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(Date(it))
+                        val date = s.lastSyncedAt?.let { ts ->
+                            val instant = Instant.fromEpochMilliseconds(ts)
+                            val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+                            val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
+                            val hour = local.hour.toString().padStart(2, '0')
+                            val minute = local.minute.toString().padStart(2, '0')
+                            "$month ${local.dayOfMonth}, ${local.year} $hour:$minute"
                         } ?: "Never"
                         "Last synced: $date"
                     }

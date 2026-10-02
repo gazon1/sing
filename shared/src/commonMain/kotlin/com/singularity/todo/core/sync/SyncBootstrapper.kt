@@ -1,6 +1,7 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
@@ -17,6 +18,7 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import kotlinx.serialization.serializer
 
 /**
@@ -33,6 +35,7 @@ internal class SyncBootstrapper(
     private val projectRepo: ProjectsRepository,
     private val tagRepo: TagsRepository,
     private val tagGroupRepo: TagGroupRepository,
+    private val timeTrackingRepo: TimeTrackingRepository,
     private val log: Logger = Logger.withTag("SyncBootstrapper"),
 ) {
     init {
@@ -129,10 +132,18 @@ internal class SyncBootstrapper(
                     // Soft-delete is applied when the entity supports it; hard-delete repos ignore it.
                     val outcome: Result<Unit> = when (event.entityType) {
                         DocType.Task -> taskRepo.delete(TaskId.fromString(event.entityId))
+
                         DocType.Note -> noteRepo.delete(NoteId.fromString(event.entityId))
+
                         DocType.Project -> projectRepo.delete(ProjectId.fromString(event.entityId))
+
                         DocType.Tag -> tagRepo.delete(TagId.fromString(event.entityId))
+
                         DocType.TagGroup -> tagGroupRepo.delete(TagGroupId.fromString(event.entityId))
+
+                        DocType.TimeEntry -> timeTrackingRepo.delete(
+                            TimeEntryId.fromString(event.entityId),
+                        )
                     }
                     outcome.fold(
                         onSuccess = {

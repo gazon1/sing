@@ -19,17 +19,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * List tile showing a single reminder's offset and scheduled fire time.
  */
 @Composable
 fun ReminderTile(reminder: Reminder, onDelete: () -> Unit, modifier: Modifier = Modifier) {
-    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
-    val fireTime = dateFormat.format(Date(reminder.fireAt))
+    val fireTime = remember(reminder.fireAt) {
+        val instant = Instant.fromEpochMilliseconds(reminder.fireAt)
+        val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
+        val hour = local.hour.toString().padStart(2, '0')
+        val minute = local.minute.toString().padStart(2, '0')
+        "$month ${local.dayOfMonth}, $hour:$minute"
+    }
     val offsetLabel = when {
         reminder.offsetMinutes == 0 -> "At due time"
         reminder.offsetMinutes > 0 -> "${reminder.offsetMinutes} min before"

@@ -20,4 +20,6 @@ sealed interface TaskEditorSheet {
     data object Checklist : TaskEditorSheet
     data object Attachments : TaskEditorSheet
     data object Dependencies : TaskEditorSheet
+    data object Estimate : TaskEditorSheet
+    data object TimeEntry : TaskEditorSheet
 }

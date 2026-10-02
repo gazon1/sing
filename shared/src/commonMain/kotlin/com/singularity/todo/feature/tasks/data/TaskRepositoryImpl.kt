@@ -16,6 +16,7 @@ import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -31,6 +32,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.builtins.SetSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlin.time.Clock
 
 /**
@@ -323,18 +326,46 @@ class TaskRepositoryImpl(
         return taskDao.getByIdForUser(id.value, uid)?.toTask()
     }
 
-    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>): Result<Unit> = runCatching {
+    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor): Result<Unit> = runCatching {
         val uid = currentUser.scopedUserId.value.value
         // Touch the owning task first so a foreign id fails here rather than
         // silently "succeeding" with zero cross-refs written.
-        require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
-        val existing = taskDao.getTagIdsForUser(taskId.value, uid).first()
-        existing.forEach { tagId ->
-            taskDao.removeTagRefForUser(taskId.value, tagId, uid)
+        val entity = taskDao.getByIdForUser(taskId.value, uid)
+            ?: error("Task $taskId not found")
+        val existingTagStrings = taskDao.getTagIdsForUser(taskId.value, uid).first().toSet() // Set<String>
+        val existingTagIds = existingTagStrings.map { TagId.fromString(it) }.toSet() // Set<TagId>
+        val newTagIds = tagIds.toSet() // Set<TagId>
+
+        val removed = existingTagIds - newTagIds
+        val added = newTagIds - existingTagIds
+
+        // Apply cross-ref changes
+        existingTagStrings.forEach { tagId -> taskDao.removeTagRefForUser(taskId.value, tagId, uid) }
+        newTagIds.forEach { tagId -> taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid) }
+
+        // Suppression logic only for User actor; AiProposal never touches suppressions
+        val currentSuppressed = StableJson.decodeFromString(
+            SetSerializer(String.serializer()),
+            entity.aiSuppressedTagIds,
+        ).toMutableSet()
+
+        if (actor == TagEditActor.User) {
+            // User removing a tag → record as suppressed
+            currentSuppressed.addAll(removed.map { it.value })
+            // User adding a tag → clear suppression for that tag
+            added.forEach { currentSuppressed.remove(it.value) }
         }
-        tagIds.forEach { tagId ->
-            taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid)
-        }
+        // AiProposal: suppressions unchanged
+
+        // Persist updated suppressions back to the entity
+        val updatedEntity = entity.copy(
+            aiSuppressedTagIds = StableJson.encodeToString(
+                SetSerializer(String.serializer()),
+                currentSuppressed,
+            ),
+        )
+        taskDao.upsert(updatedEntity)
+
         // `tags` is a serialised field of Task, so the cross-ref change is part of
         // the synced state and must be pushed.
         enqueueFresh(taskId)
@@ -344,10 +375,25 @@ class TaskRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
         dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
-        taskDao.clearDependenciesForUser(taskId.value, uid)
-        deps.forEach { depId ->
-            taskDao.upsertDependencyForUser(taskId.value, depId.value, DependencyVerb.BLOCKS.name, uid)
+
+        // Read existing edges so we can preserve their verbs (fixes prior hardcoded BLOCKS bug).
+        val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
+        val existingMap = existingEdges.associateBy({ it.dependsOnTaskId }, { it.verb })
+
+        val desired = deps.map { it.value }.toSet()
+        val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
+
+        // Remove edges no longer in the desired set
+        (existing - desired).forEach { depId ->
+            taskDao.removeDependencyForUser(taskId.value, depId, uid)
         }
+
+        // Upsert remaining edges, preserving existing verb or defaulting to BLOCKS for new ones
+        desired.forEach { depId ->
+            val verb = existingMap[depId] ?: DependencyVerb.BLOCKS.name
+            taskDao.upsertDependencyForUser(taskId.value, depId, verb, uid)
+        }
+
         // Same as setTags: `dependsOn` is part of the synced payload.
         enqueueFresh(taskId)
     }
@@ -390,6 +436,11 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     archivedAt = archivedAt.toEpochMillisOrNull(),
     isPinned = isPinned,
     recurrenceRule = recurrence?.let { StableJson.encodeToString(RecurrenceSpec.serializer(), it) },
+    aiSuppressedTagIds = StableJson.encodeToString(
+        SetSerializer(String.serializer()),
+        aiSuppressedTagIds.map { it.value }.toSet(),
+    ),
+    estimateMinutes = estimateMinutes,
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     userId = userId.value,

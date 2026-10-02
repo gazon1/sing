@@ -159,6 +159,7 @@ class SyncableEntitySerializationTest {
             DocType.Project,
             DocType.Tag,
             DocType.TagGroup,
+            DocType.TimeEntry,
         )
         assertEquals(
             docTypes,

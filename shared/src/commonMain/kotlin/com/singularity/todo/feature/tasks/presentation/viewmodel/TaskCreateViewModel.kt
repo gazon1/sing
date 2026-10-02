@@ -50,6 +50,7 @@ data class TaskCreateDeps(
 class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: kotlinx.datetime.LocalDate?,
+    sectionPrefillKey: String?,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
         initialDraft = TaskDraft(
@@ -57,10 +58,15 @@ class TaskCreateViewModel(
                 ?: DueDateOption.None,
         ),
         autosave = { draft ->
+            // Always save to the generic draft key — section prefill is restored once on entry.
             deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
         },
         restore = {
-            deps.draftStore.load(TaskCreateDeps.DRAFT_KEY, TaskDraft.serializer())
+            // If opened from an agenda section, restore from the section-specific draft key
+            // so that the prefill values (title, due date) are pre-populated.
+            val key = sectionPrefillKey?.let { "section_create_draft_$it" }
+                ?: TaskCreateDeps.DRAFT_KEY
+            deps.draftStore.load(key, TaskDraft.serializer())
         },
         logger = deps.logger,
         scope = scope,

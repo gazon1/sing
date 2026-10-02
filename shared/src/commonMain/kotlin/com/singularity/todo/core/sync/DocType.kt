@@ -10,6 +10,7 @@ enum class DocType(val key: String) {
     Project("project"),
     Tag("tag"),
     TagGroup("tag_group"),
+    TimeEntry("time_entry"),
     ;
 
     companion object {

@@ -38,20 +38,22 @@ class NavKeyRegistrationTest {
 
     @Test
     fun `top-level destinations are registered`() {
+        assertRoundTrips(AppDestination.Inbox)
+        assertRoundTrips(AppDestination.Today)
         assertRoundTrips(AppDestination.Statistics)
-        assertRoundTrips(AppDestination.Settings)
     }
 
     @Test
     fun `nested graph destinations are registered`() {
         // These are the leaves of a *nested* sealed hierarchy. They are the ones
         // that broke when the app switched to registering AppNavKey alone.
-        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create))
+        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Inbox))
         assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail("t1")))
         assertRoundTrips(AppDestination.ProjectsGraph())
         assertRoundTrips(AppDestination.NotesGraph())
         assertRoundTrips(AppDestination.CalendarGraph())
         assertRoundTrips(AppDestination.AgendaGraph(AgendaStartRoute.Today))
+        assertRoundTrips(AppDestination.TaskDetail("t1"))
     }
 
     @Test

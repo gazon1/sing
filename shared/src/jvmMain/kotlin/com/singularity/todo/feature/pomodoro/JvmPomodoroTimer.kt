@@ -2,6 +2,11 @@
 
 package com.singularity.todo.feature.pomodoro
 
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
+import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,6 +30,8 @@ class JvmPomodoroTimer(
     private val taskListProvider: PomodoroTaskListProvider,
     override val config: PomodoroConfig,
     private val scope: CoroutineScope,
+    private val timeTrackingRepo: TimeTrackingRepository,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : PomodoroTimer {
 
     private val _state = MutableStateFlow(initialState())
@@ -95,7 +102,27 @@ class JvmPomodoroTimer(
     }
 
     private fun onPhaseComplete() {
-        _state.value = _state.value.copy(isRunning = false, phaseStartedAtEpochMs = null)
+        val previousState = _state.value
+        // Log time entry BEFORE transitioning state
+        if (previousState.phase == PomodoroPhase.Work) {
+            val taskId = previousState.taskId
+            val startedAt = previousState.phaseStartedAtEpochMs
+            if (taskId != null && startedAt != null) {
+                val endedAt = clock.now().toEpochMilliseconds()
+                scope.launch {
+                    timeTrackingRepo.createManualEntry(
+                        taskId = TaskId(taskId),
+                        userId = currentUser.scopedUserId.value,
+                        startedAt = startedAt,
+                        endedAt = endedAt,
+                        kind = TimeEntryKind.Work,
+                        note = null,
+                        source = TimeEntrySource.Pomodoro,
+                    )
+                }
+            }
+        }
+        _state.value = previousState.copy(isRunning = false, phaseStartedAtEpochMs = null)
         _state.value = nextPhase(_state.value, config)
     }
 

@@ -18,6 +18,7 @@ import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.TagLookup
+import com.singularity.todo.feature.statistics.InsightsViewModel
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
@@ -71,6 +72,15 @@ fun tasksModule(): org.koin.core.module.Module = module {
     single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 
     single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get(), get()) }
+
+    // ─── Time tracking ──────────────────────────────────────────────────
+    single<com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository> {
+        com.singularity.todo.feature.timetracking.data.TimeTrackingRepositoryImpl(
+            get(),
+            get(),
+            get<ProfileAwareCurrentUser>(),
+        )
+    }
 
     // ─── Use Cases ──────────────────────────────────────────────────────
 
@@ -127,18 +137,22 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 clock = get(),
                 completeRecurring = get(),
                 notesRepo = get(),
+                timeTrackingRepo = get(),
+                currentUser = get<ProfileAwareCurrentUser>(),
                 refineTask = get(),
                 generateDescription = get(),
                 generateChecklist = get(),
                 decomposeTask = get(),
                 pickTime = get(),
                 linkRepo = get(),
+                proposals = get(),
+                applyProposal = get(),
             ),
             taskId = taskId,
         )
     }
 
-    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?) ->
+    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?, sectionPrefillKey: String?) ->
         TaskCreateViewModel(
             deps = TaskCreateDeps(
                 createFromDraft = get(),
@@ -146,12 +160,23 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 draftStore = get(),
             ),
             initialDueDate = initialDueDate,
+            sectionPrefillKey = sectionPrefillKey,
         )
     }
 
     viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
 
     viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
+
+    viewModel<InsightsViewModel> {
+        InsightsViewModel(
+            timeTrackingRepo = get(),
+            taskRepository = get(),
+            projectsRepo = get(),
+            currentUser = get(),
+            clock = get(),
+        )
+    }
 
     viewModel<SearchViewModel> {
         SearchViewModel(

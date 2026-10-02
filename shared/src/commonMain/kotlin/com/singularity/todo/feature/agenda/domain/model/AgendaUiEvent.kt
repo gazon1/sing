@@ -11,4 +11,11 @@ sealed interface AgendaUiEvent : MviEvent {
     data class NavigateToTask(val taskId: TaskId) : AgendaUiEvent
     data class ShowTaskContextMenu(val taskId: TaskId) : AgendaUiEvent
     data class ExpandTask(val taskId: TaskId) : AgendaUiEvent
+
+    /**
+     * Navigate to the task create screen with pre-fill from [sectionId].
+     * The prefill draft was already written to [com.singularity.todo.core.draft.DraftStore]
+     * before this event is emitted.
+     */
+    data class CreateInSection(val sectionId: String) : AgendaUiEvent
 }
