@@ -88,7 +88,7 @@ fun TimeGridView(
 
         // Hourly grid
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(24) { hour ->
+            items(24, key = { it }) { hour ->
                 HourRow(
                     hour = hour,
                     dates = dates,

@@ -11,7 +11,7 @@ from pathlib import Path
 
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
-MAX_DIGEST_LINES = 1550  # raised from 1500 to accommodate new quality-ratchet ADRs
+MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
 MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
 
 
@@ -174,15 +174,13 @@ def main() -> None:
             out.append(f"- `{slug}` — {ti}")
         out.append("")
 
-    out.append("## Index (slug -> tags)")
-    out.append("")
-    active = [s for s in titles if s not in superseded]
-    for slug in sorted(active):
-        tag_str = tags_raw.get(slug, '').strip('[]')
-        out.append(f"- `{slug}` — {tag_str or '_untagged_'}")
-    out.append("")
     out.append("## Active entries")
     out.append("")
+    # One index, not two. A former "Index (slug -> tags)" section listed every slug
+    # alongside its tags while this one lists the same slugs alongside their titles —
+    # ~385 duplicated lines that pushed the digest past its budget on every new ADR.
+    # Tags are already reachable through the per-tag sections above, and a title is the
+    # more useful half of an index.
     for path in entries:
         slug = path.stem
         if slug not in superseded:

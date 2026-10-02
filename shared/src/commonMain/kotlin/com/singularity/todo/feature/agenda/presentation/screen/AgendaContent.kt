@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
@@ -93,6 +95,7 @@ fun AgendaContent(
         ->
     },
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
 ) {
     // Routing state: which task is right-clicked and where.
     // Managed here in the screen layer per ui-event-vs-state skill.
@@ -184,6 +187,7 @@ fun AgendaContent(
                         today = state.today,
                         onIntent = onIntent,
                         onOpenContextMenu = ::openContextMenu,
+                        listState = listState,
                         modifier = Modifier.padding(paddingValues),
                     )
                 }
@@ -205,9 +209,11 @@ private fun AgendaList(
     today: LocalDate,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
+    listState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),

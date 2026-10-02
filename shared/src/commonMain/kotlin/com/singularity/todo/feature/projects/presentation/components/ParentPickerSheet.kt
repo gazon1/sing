@@ -42,7 +42,7 @@ fun ParentPickerSheet(
                 Text("None (root)")
             }
             LazyColumn {
-                items(options) { opt ->
+                items(options, key = { it.id }) { opt ->
                     FilterChip(
                         selected = opt.isCurrent,
                         onClick = { onPick(opt.id) },

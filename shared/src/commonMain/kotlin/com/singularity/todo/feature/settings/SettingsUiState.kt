@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.settings
 
+import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
@@ -30,6 +31,7 @@ typealias SettingsIntent = SettingsIntent
  * [Content] holds typed contributor sections plus ephemeral (non-persisted) state.
  * Error state is a top-level field because it is not a contributor section.
  */
+@Immutable
 sealed interface SettingsUiState {
     data class Content(
         // ── Typed contributor sections ─────────────────────────────────────────

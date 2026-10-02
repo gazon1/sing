@@ -18,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,6 +32,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
+import com.singularity.todo.feature.nav.LocalNav3State
 import com.singularity.todo.feature.nav.MenuButtonTitle
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -114,11 +116,13 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
     ) { padding ->
         val appEntryProvider = createAppEntryProvider(navCallbacks)
-        NavDisplay(
-            entries = state.toDecoratedEntries(appEntryProvider),
-            onBack = { navigator.goBack() },
-            modifier = Modifier.padding(padding),
-        )
+        CompositionLocalProvider(LocalNav3State provides state) {
+            NavDisplay(
+                entries = state.toDecoratedEntries(appEntryProvider),
+                onBack = { navigator.goBack() },
+                modifier = Modifier.padding(padding),
+            )
+        }
     }
 
     if (menuVisible) {

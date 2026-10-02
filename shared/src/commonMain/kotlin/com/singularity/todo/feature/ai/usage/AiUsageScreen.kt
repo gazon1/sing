@@ -62,7 +62,7 @@ fun AiUsageScreen(modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            items(state.dailyUsage.take(7)) { daily ->
+            items(state.dailyUsage.take(7), key = { it.date }) { daily ->
                 DailyUsageRow(daily)
             }
         }
@@ -77,7 +77,7 @@ fun AiUsageScreen(modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            items(state.toolUsage) { tool ->
+            items(state.toolUsage, key = { it.toolName }) { tool ->
                 ToolUsageRow(tool)
             }
         }
@@ -92,7 +92,7 @@ fun AiUsageScreen(modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            items(state.modelUsage) { model ->
+            items(state.modelUsage, key = { it.modelId }) { model ->
                 ModelUsageRow(model)
             }
         }
