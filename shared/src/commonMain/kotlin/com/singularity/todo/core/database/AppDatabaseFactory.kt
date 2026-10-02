@@ -1,6 +1,7 @@
 package com.singularity.todo.core.database
 
 import androidx.room3.Room
+import androidx.room3.migration.Migration
 import androidx.sqlite.SQLiteDriver
 import com.singularity.todo.core.database.contract.PlatformPragmas
 
@@ -37,7 +38,7 @@ object AppDatabaseFactory {
         PlatformPragmas.applyTo(driver, dbPath)
         return Room.databaseBuilder<AppDatabase>(name = dbPath)
             .setDriver(driver)
-            // .fallbackToDestructiveMigration(dropAllTables = true) // TEMP: re-add while writing migration, REMOVE before commit
+            .addMigrations(Migration(startVersion = 25, endVersion = 26, migrate = Migration25To26Runner::invoke))
             .build()
     }
 }

@@ -3,6 +3,7 @@ package com.singularity.todo.core.database
 import androidx.room3.ColumnInfo
 import androidx.room3.Embedded
 import androidx.room3.Entity
+import androidx.room3.ForeignKey
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -99,6 +100,14 @@ data class TaskDependencyCrossRef(
         Index("archived_at"),
         Index("sort_order"),
         Index("task_id"),
+    ],
+    foreignKeys = [
+        ForeignKey(
+            entity = TaskEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["task_id"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
 )
 data class NoteEntity(
