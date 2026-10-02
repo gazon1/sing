@@ -122,11 +122,17 @@ class Nav3State internal constructor(
         }
     }
 
-    private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
-        listOf(startRoute)
-    } else {
-        listOf(startRoute, topLevelRoute)
-    }
+    /**
+     * Returns all top-level routes whose back stacks are non-empty.
+     *
+     * Previously returned at most 2 routes (`startRoute` and `topLevelRoute`), which caused
+     * nested back stacks to be lost on tab switch: when a tab's entry lambda called
+     * `rememberInMemoryNavBackStack` internally, that `remember` died when the tab's entries
+     * were excluded from decoration, losing the nested stack. Returning all non-empty stacks
+     * keeps all nested navigation state alive regardless of which tab is active.
+     */
+    private fun getTopLevelRoutesInUse(): List<NavKey> =
+        backStacks.filter { (_, stack) -> stack.isNotEmpty() }.keys.toList()
 }
 
 /**
