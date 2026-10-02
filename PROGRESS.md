@@ -168,8 +168,30 @@ See `eb85ce54`
 - Detekt `FunctionSignature` rule rejects multi-line parameter lists — code must use `param: Type,` style even for 4+ parameters
 - `LongMethod` suppression works but needs `@Suppress` annotation, not baseline
 
-### Phase 4 — Logbook merge (MR-4) ⏳ NOT STARTED
+### Phase 4 — Logbook merge (MR-4) ✅ DONE
+`b3ae74b9` (LogbookEntry sealed interface + time entry rendering)
 Time entries + notes in one chronological stream
+
+**What was done:**
+- `LogbookEntry` sealed interface (`NoteEntry | TimeEntryRow`) in `TaskLogbookState.kt`
+- `TaskLogbookCollector` now takes `timeTrackingRepo`, combines notes + time entries via `combine()`, sorted by timestamp descending
+- `LogbookSection` rewritten: receives `List<LogbookEntry>`, renders both `LogbookNoteRow` and `LogbookTimeEntryRow` in day groups
+- `formatElapsed()` inlined locally (was `internal` in `TimeTrackingSection.kt`, can't cross module boundary)
+- `TaskDetailViewScreen` updated: `logbookNotes` → `logbookEntries` parameter
+
+**What went well:**
+- Sealed interface cleanly models the two entry types with pattern matching in `when`
+- Day grouping logic reused cleanly, extracted timestamp via `when` on sealed type
+
+**What didn't go well:**
+- `formatElapsed` was `internal` in a different module — had to duplicate the helper
+
+**Critical fixes:**
+- `LogbookSection` signature: `entries: List<LogbookEntry>` — was passing `notes = ui.logbookNotes`
+- `TaskDetailCoordinator` already assigned `logbookEntries = logState.allEntries` from prior MR-3
+
+**Findings for ADR:**
+- `internal` functions in Compose UI modules can't be imported across feature boundaries — consider extracting shared UI helpers into `core/ui/` to avoid duplication
 
 ### Phase 5 — Insights tab (MR-5) ⏳ NOT STARTED
 ### Phase 6 — Agenda section headers '+' (MR-6) ⏳ NOT STARTED

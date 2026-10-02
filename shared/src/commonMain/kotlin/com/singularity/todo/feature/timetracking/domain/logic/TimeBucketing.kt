@@ -2,6 +2,7 @@ package com.singularity.todo.feature.timetracking.domain.logic
 
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
@@ -223,6 +224,51 @@ fun groupByDay(entries: List<TimeEntry>, zone: TimeZone): Map<String, List<TimeE
     }
 
 /**
+ * A day bucket for the Insights time-series chart.
+ *
+ * @property date YYYY-MM-DD string.
+ * @property totalMs Total merged work time on this day in milliseconds.
+ */
+data class DayInsightsBucket(val date: String, val totalMs: Long)
+
+/**
+ * Buckets pre-split [TimeInterval]s by calendar day, filling in missing days with zero.
+ *
+ * @param intervals Intervals to bucket (already split at midnight).
+ * @param nowMs Current epoch millis — used to determine the range.
+ * @param rangeDays Number of past days to include (including today).
+ * @param zone Time zone for computing calendar dates.
+ */
+fun bucketByDay(intervals: List<TimeInterval>, nowMs: Long, rangeDays: Int, zone: TimeZone): List<DayInsightsBucket> {
+    val cutoffMs = nowMs - (rangeDays * TimeConstants.MILLIS_PER_DAY)
+
+    // Build all days in range
+    val dayMap = mutableMapOf<String, Long>()
+    for (i in 0 until rangeDays) {
+        val dayMs = nowMs - (i * TimeConstants.MILLIS_PER_DAY)
+        val date = Instant.fromEpochMilliseconds(dayMs)
+            .toLocalDateTime(zone).date
+            .toString()
+        dayMap[date] = 0L
+    }
+
+    // Sum durations per day from intervals
+    intervals.forEach { interval ->
+        // interval is guaranteed not to cross midnight (splitAtMidnight guarantees this)
+        val date = Instant.fromEpochMilliseconds(interval.startMs)
+            .toLocalDateTime(zone).date
+            .toString()
+        if (date in dayMap) {
+            dayMap[date] = dayMap[date]!! + interval.durationMs
+        }
+    }
+
+    return dayMap.entries
+        .sortedBy { it.key }
+        .map { (date, ms) -> DayInsightsBucket(date, ms) }
+}
+
+/**
  * Groups time entries by project.
  *
  * @param entries Entries to group.
@@ -233,3 +279,21 @@ fun groupByProject(entries: List<TimeEntry>, taskProjectMap: Map<String, String?
     entries
         .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
         .groupBy { entry -> taskProjectMap[entry.taskId.value] }
+
+/**
+ * Aggregates [TimeEntry] durations by project, returning total milliseconds per project.
+ *
+ * @param entries Entries to aggregate (should be unsplit — project totals are correct without midnight splitting).
+ * @param taskProjectMap Map from taskId to projectId (or null for no project).
+ * @return Map from projectId (or null) to total milliseconds.
+ */
+fun bucketByProject(entries: List<TimeEntry>, taskProjectMap: Map<String, String?>): Map<String?, Long> {
+    val grouped = groupByProject(entries, taskProjectMap)
+    return grouped.mapValues { (_, groupEntries) ->
+        groupEntries.sumOf { entry ->
+            val start = entry.startedAt.toEpochMilliseconds()
+            val end = entry.endedAt!!.toEpochMilliseconds()
+            end - start
+        }
+    }
+}

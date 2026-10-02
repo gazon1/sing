@@ -74,4 +74,10 @@ interface TimeTrackingRepository {
      * Soft-delete a time entry.
      */
     suspend fun delete(entryId: TimeEntryId): Result<Unit>
+
+    /**
+     * Watch all time entries for [userId] within the given time range, ordered by [startedAt] descending.
+     * Soft-deleted entries are excluded.
+     */
+    fun watchEntriesInRange(userId: UserId, startMs: Long, endMs: Long): Flow<List<TimeEntry>>
 }

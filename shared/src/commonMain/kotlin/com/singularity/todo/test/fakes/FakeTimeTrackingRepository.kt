@@ -104,4 +104,16 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
         entries.value = entries.value - entryId.value
         return Result.success(Unit)
     }
+
+    override fun watchEntriesInRange(userId: UserId, startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
+        entries.map { map ->
+            map.values
+                .filter {
+                    it.userId == userId &&
+                        it.startedAt.toEpochMilliseconds() >= startMs &&
+                        it.startedAt.toEpochMilliseconds() < endMs &&
+                        it.deletedAt == null
+                }
+                .sortedByDescending { it.startedAt }
+        }
 }
