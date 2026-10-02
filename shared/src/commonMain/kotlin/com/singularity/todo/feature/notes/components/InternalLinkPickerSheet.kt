@@ -27,7 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +37,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkResult
@@ -96,7 +96,7 @@ fun InternalLinkPickerSheet(
             // Search field
             val focusManager = LocalFocusManager.current
             OutlinedTextField(
-                value = queryFlow.collectAsState().value,
+                value = queryFlow.collectAsStateWithLifecycle().value,
                 onValueChange = { queryFlow.value = it },
                 placeholder = { Text("Search notes and tasks...") },
                 leadingIcon = {
@@ -141,7 +141,7 @@ fun InternalLinkPickerSheet(
                         )
                     }
 
-                    queryFlow.collectAsState().value.isBlank() -> {
+                    queryFlow.collectAsStateWithLifecycle().value.isBlank() -> {
                         Text(
                             "Type to search notes and tasks",
                             style = MaterialTheme.typography.bodyMedium,

@@ -33,7 +33,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +46,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.SharePort
@@ -118,7 +118,7 @@ private object AiStatusColors {
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SettingsViewModel = koinViewModel()
-    val uiState by viewModel.state.collectAsState()
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -200,7 +200,7 @@ private fun SettingsContent(
 
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
-                        val tagsState by tagsVm.state.collectAsState()
+                        val tagsState by tagsVm.state.collectAsStateWithLifecycle()
                         TagsScreen(
                             state = tagsState,
                             onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
@@ -211,7 +211,7 @@ private fun SettingsContent(
 
                     SettingsTab.TagGroups -> {
                         val tagGroupsVm: TagGroupsViewModel = koinViewModel()
-                        val tagGroupsState by tagGroupsVm.state.collectAsState()
+                        val tagGroupsState by tagGroupsVm.state.collectAsStateWithLifecycle()
                         TagGroupsScreen(
                             state = tagGroupsState,
                             onDelete = { id -> tagGroupsVm.onIntent(TagGroupsIntent.Delete(id)) },
@@ -234,7 +234,7 @@ private fun SettingsContent(
 @Composable
 private fun BackupScreenWrapper(onBack: () -> Unit) {
     val backupVm: BackupViewModel = koinViewModel()
-    val backupState by backupVm.state.collectAsState()
+    val backupState by backupVm.state.collectAsStateWithLifecycle()
 
     // The restore / settings-import flows need the *path* the user picked, not just the
     // fact that they picked. `rememberAppFilePicker` hands the path straight to the
