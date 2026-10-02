@@ -50,7 +50,6 @@ import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.MainScope
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module

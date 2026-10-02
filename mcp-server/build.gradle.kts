@@ -26,7 +26,6 @@ dependencies {
     implementation(libs.kotlin.sdk)
     implementation(project(":shared"))
     implementation(libs.koog.agents)
-    implementation(libs.koin.annotations.runtime)
     implementation(libs.koin.core)
     implementation(libs.kermit.koin)
     implementation(libs.androidx.room3.runtime)
@@ -45,7 +44,6 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.koin.test)
     testImplementation(kotlin("reflect"))
 
     // detektPlugins(libs.detekt.formatting) — removed: mcp-server uses detekt-minimal.yml

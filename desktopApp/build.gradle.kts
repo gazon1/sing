@@ -21,7 +21,6 @@ sourceSets {
             implementation(libs.compose.ui.tooling.preview)
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
-            implementation(libs.koin.test)
             implementation(libs.koin.core)
             // KoinContext — the per-test KoinApplication host the desktop flow
             // tests mount the production App() inside. :shared declares koin-compose

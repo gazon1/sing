@@ -57,14 +57,21 @@ echo -e "${YELLOW}=== [4/6] desktopApp:test ===${NC}"
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [5/6] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [5/7] androidApp:assembleDebug ===${NC}"
 ./gradlew :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}assembleDebug passed${NC}"
 
-echo -e "${GREEN}=== [6/6] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${YELLOW}=== [6/7] mcp-server:compileKotlin (DI graph validation) ===${NC}"
+./gradlew :mcp-server:compileKotlin --quiet || {
+    echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
+    exit 1
+}
+echo -e "${GREEN}mcp-server DI graph validated${NC}"
+
+echo -e "${GREEN}=== [7/7] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.

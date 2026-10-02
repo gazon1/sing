@@ -83,7 +83,6 @@ kotlin {
 			implementation(libs.koin.core)
 			implementation(libs.koin.compose)
 			implementation(libs.koin.compose.viewmodel)
-			implementation(libs.koin.annotations.runtime)
 			implementation(libs.koin.compose.navigation3)
 
 			// Navigation 3 multiplatform runtime (NavKey, NavBackStack, NavEntry)
@@ -241,7 +240,6 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.androidx.room3.testing)
-            implementation(libs.koin.test)
             // Architecture boundary tests (ArchitectureTest) — structural assertions
             // over commonMain sources, enforced as part of the regular test run.
             implementation(libs.konsist)
@@ -322,7 +320,6 @@ dependencies {
     // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
     add("androidHostTestImplementation", libs.robolectric)
     add("androidHostTestImplementation", libs.compose.ui.test.junit4)
-    add("androidHostTestImplementation", libs.koin.test)
     // ApplicationProvider + the instrumentation registry the Koin graph test needs.
     add("androidHostTestImplementation", libs.androidx.test.core)
     add("androidHostTestImplementation", libs.androidx.testExt.junit)
