@@ -1,9 +1,13 @@
 ---
 title: "Card-level AI actions are deferred: they mutate without preview or undo"
 date: 2026-09-30
-status: accepted
+status: superseded
+superseded-by: 2026-10-02-ai-proposal-confirmation
 tags: [tasks, ai, ux, gap]
 ---
+
+> **⚠️ SUPERSEDED** — see [2026-10-02-ai-proposal-confirmation](2026-10-02-ai-proposal-confirmation.md)
+> which implements the preview-and-confirm layer this ADR required as a prerequisite.
 
 ## Context
 

@@ -250,6 +250,40 @@ Time entries + notes in one chronological stream
 
 **Findings for ADR:**
 - `2026-10-02-mr6-mr7-breakage-post-mortem.md` — documents the full post-mortem including agent rules and MR-0-B prerequisite for MR-7
-### Phase 7 — AI proposal data layer (MR-7) ⏳ NOT STARTED
+### Phase 7 — AI proposal data layer (MR-7) ✅ DONE
+**Commit:** `ab6404bc` (27 files, 6780 insertions)
+
+**What was done:**
+- `ai_proposal` + `ai_proposal_item` Room tables with `user_id` ownership and `@Embedded sync: SyncColumns`
+- `ProposalRepository`: CAS confirm/reject via `claimAndRead@Transaction`, fingerprint deduplication via `rejectedFingerprints` query
+- `ApplyProposalItemUseCase`: `plan() → claim() → dispatch(plan, userId) → refreshStatus()` — all validation before any claim
+- `ProposalFingerprint`: FNV-1a 64-bit hash, 16 hex chars, stable across JVM and Android
+- `ProposalItemKind`: single sealed dispatch point — `when` on `ProposalItemKind` is the only one in the entire codebase
+- DAO split: `ProposalDao` (proposal aggregate, 8 methods) + `ProposalItemDao` (item aggregate, 8 methods) — satisfies `TooManyFunctions` threshold
+- Ownership via SQL subquery: `WHERE proposal_id IN (SELECT id FROM ai_proposal WHERE user_id = :userId)`
+- `claimAndRead@Transaction`: re-read after CAS to confirm what was actually claimed (no stale read between decision and dispatch)
+- `FakeProposalRepository` + `FakeAppDatabase` faithfully reproducing ownership subquery logic
+- `ApplyProposalItemUseCaseTest`: 17 cases — double-tap, parse-before-claim, dispatch (tags/tasks/subtasks/time entries/checklist), batch partial success, rejection fingerprints
+
+**What went well:**
+- `fingerprintTarget` as extension property cleanly sidesteps interface property dispatch limitation in Kotlin
+- CAS claim in `@Transaction` DAO method means double-tap protection is database-enforced, not application logic
+- Splitting DAO early kept detekt `TooManyFunctions` violation from becoming a last-minute blocker
+
+**What didn't go well:**
+- Agent's first MR-7 attempt produced incomplete code that had to be fully deleted and rewritten
+- `Section.id` non-nullable caused backward-compat risk for saved agendas — needed emergency fix between MR-6 and MR-7
+- Two-pass Room schema generation (v28 → generate → v29 → generate) was non-obvious
+
+**Critical fixes (MR-0穿插):**
+- `AgendaDefinition.Section.id` → `String? = null` with `effectiveId` computed property — fixes `MissingFieldException` for legacy saved agendas
+- `AndroidPomodoroTimer` + `JvmPomodoroTimer`: `source = TimeEntrySource.Pomodoro` (was defaulting to `Manual`)
+- `CalendarSyncWorker`: stale imports (`domain.repository` → `domain.port`, `reminders.ReminderRepository` → `reminders.domain.port.ReminderRepository`)
+- Duplicate `TimeTrackingRepository` in `data/` deleted — domain version is correct; Koin bound the right one but 3 consumers used the wrong one
+
+**Findings for ADR:**
+- `fingerprintTarget` must be an extension property, not an interface property — Kotlin's interface dispatch doesn't support `when(this)`
+- `encodeToByteArray()` explicitly named (not `encodeToByte()`) — Kotlin String has both overloads
+- Room `@Transaction` on a `suspend fun` that calls another `@Transaction` internally is valid — Kotlin coroutines preserve transaction semantics across suspend boundaries
 ### Phase 8 — Checklist sovereignty + tag suppression (MR-8) ⏳ NOT STARTED
 ### Phase 9 — ProposalCard + AI redirect (MR-9) ⏳ NOT STARTED

@@ -38,6 +38,10 @@ import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.proposals.data.AiProposalEntity
+import com.singularity.todo.feature.proposals.data.ProposalDao
+import com.singularity.todo.feature.proposals.data.ProposalItemDao
+import com.singularity.todo.feature.proposals.data.ProposalItemEntity
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.coroutines.flow.Flow
@@ -84,6 +88,12 @@ class FakeAppDatabase : AppDatabase() {
     @Suppress("BackingPropertyNaming") // Internal store, no matching public property
     private val _timeEntries = MutableStateFlow<Map<String, TimeEntryEntity>>(emptyMap())
 
+    @Suppress("BackingPropertyNaming")
+    private val _proposals = MutableStateFlow<Map<String, AiProposalEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _proposalItems = MutableStateFlow<Map<String, ProposalItemEntity>>(emptyMap())
+
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
@@ -105,6 +115,8 @@ class FakeAppDatabase : AppDatabase() {
         _projectTagGroups,
     )
     override fun timeEntryDao(): TimeEntryDao = FakeTimeEntryDao(_timeEntries)
+    override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals)
+    override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -128,6 +140,8 @@ class FakeAppDatabase : AppDatabase() {
         _tagGroups.value = emptyMap()
         _projectTagGroups.value = emptyList()
         _timeEntries.value = emptyMap()
+        _proposals.value = emptyMap()
+        _proposalItems.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -1451,5 +1465,120 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
         if (before.userId != userId) return 0
         store.update { map -> map - id }
         return 1
+    }
+}
+
+/**
+ * In-memory [ProposalDao].
+ *
+ * The compare-and-set in [claimItem] is reproduced faithfully — it is the property
+ * under test in `ApplyProposalItemUseCaseTest` (a second tap must apply nothing), so
+ * a fake that always returned 1 would make that test lie.
+ */
+private class FakeProposalDao(private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>) : ProposalDao {
+
+    override suspend fun upsertProposal(entity: AiProposalEntity) {
+        proposals.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun getProposal(id: String): AiProposalEntity? = proposals.value[id]
+
+    override fun watchProposal(id: String): Flow<AiProposalEntity?> = proposals.map { it[id] }
+
+    override fun watchProposalsForTask(taskId: String, userId: String): Flow<List<AiProposalEntity>> =
+        proposals.map { map ->
+            map.values.filter { it.taskId == taskId && it.userId == userId }
+                .sortedByDescending { it.createdAt }
+        }
+
+    override fun watchProposalsByStatus(userId: String, status: String): Flow<List<AiProposalEntity>> =
+        proposals.map { map ->
+            map.values.filter { it.userId == userId && it.status == status }
+                .sortedByDescending { it.createdAt }
+        }
+
+    override suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long, userId: String): Int {
+        val before = proposals.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        proposals.update { it + (id to before.copy(status = status, updatedAt = updatedAt)) }
+        return 1
+    }
+}
+
+/**
+ * In-memory [ProposalItemDao].
+ *
+ * The compare-and-set in [claimItem] is reproduced faithfully — it is the property
+ * under test in `ApplyProposalItemUseCaseTest` (a second tap must apply nothing), so
+ * a fake that always returned 1 would make that test lie. The ownership check is
+ * likewise real: a fake that skipped it would hide a cross-user decision.
+ */
+private class FakeProposalItemDao(
+    private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>,
+    private val items: MutableStateFlow<Map<String, ProposalItemEntity>>,
+) : ProposalItemDao {
+    override suspend fun upsertItem(entity: ProposalItemEntity) {
+        items.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun getItem(id: String): ProposalItemEntity? = items.value[id]
+
+    override fun watchItemsForProposal(proposalId: String): Flow<List<ProposalItemEntity>> =
+        items.map { map -> map.values.filter { it.proposalId == proposalId }.sortedBy { it.sortOrder } }
+
+    override suspend fun getItemsForProposal(proposalId: String): List<ProposalItemEntity> =
+        items.value.values.filter { it.proposalId == proposalId }.sortedBy { it.sortOrder }
+
+    override suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int =
+        items.value.values.count { it.proposalId == proposalId && it.fingerprint == fingerprint }
+
+    override suspend fun claimItem(
+        userId: String,
+        id: String,
+        status: String,
+        decidedAt: Long,
+        actor: String,
+        reason: String?,
+    ): Int {
+        val before = items.value[id] ?: return 0
+        // The whole point: only a row still in Pending can transition.
+        if (before.status != "Pending") return 0
+        if (proposals.value[before.proposalId]?.userId != userId) return 0
+        items.update { map ->
+            map + (
+                id to before.copy(
+                    status = status,
+                    decidedAt = decidedAt,
+                    decidedActor = actor,
+                    rejectionReason = reason,
+                )
+            )
+        }
+        return 1
+    }
+
+    override suspend fun retractPendingItems(proposalId: String, userId: String): Int {
+        val owned = proposals.value[proposalId]?.userId == userId
+        val affected = if (owned) {
+            items.value.values.filter { it.proposalId == proposalId && it.status == "Pending" }
+        } else {
+            emptyList()
+        }
+        if (affected.isEmpty()) return 0
+        items.update { map ->
+            map.mapValues { (key, value) ->
+                if (affected.any { it.id == key }) value.copy(status = "Retracted") else value
+            }
+        }
+        return affected.size
+    }
+
+    override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> {
+        val ownerIds = proposals.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        return items.value.values
+            .filter { it.proposalId in ownerIds && it.status == "Rejected" }
+            .sortedByDescending { it.decidedAt ?: 0L }
+            .take(limit)
+            .map { it.fingerprint }
     }
 }

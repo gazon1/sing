@@ -15,6 +15,10 @@ import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.proposals.data.AiProposalEntity
+import com.singularity.todo.feature.proposals.data.ProposalDao
+import com.singularity.todo.feature.proposals.data.ProposalItemDao
+import com.singularity.todo.feature.proposals.data.ProposalItemEntity
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 
@@ -45,8 +49,10 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         TagGroupEntity::class,
         ProjectInheritedTagGroupCrossRef::class,
         TimeEntryEntity::class,
+        AiProposalEntity::class,
+        ProposalItemEntity::class,
     ],
-    version = 27,
+    version = 29,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -70,6 +76,8 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AutoMigration(from = 24, to = 25, spec = Migration24To25::class),
         AutoMigration(from = 25, to = 26, spec = Migration25To26::class),
         AutoMigration(from = 26, to = 27, spec = Migration26To27::class),
+        AutoMigration(from = 27, to = 28, spec = Migration27To28::class),
+        AutoMigration(from = 28, to = 29, spec = Migration28To29::class),
     ],
     exportSchema = true,
 )
@@ -94,4 +102,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagGroupDao(): TagGroupDao
     abstract fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao
     abstract fun timeEntryDao(): TimeEntryDao
+    abstract fun proposalDao(): ProposalDao
+    abstract fun proposalItemDao(): ProposalItemDao
 }
