@@ -28,7 +28,7 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
 
     suspend fun record(event: ToolUsageEvent) {
         val entity = LlmUsageEntity(
-            id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${(0..9999).random()}",
+            id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${java.util.UUID.randomUUID()}",
             profileId = event.profileId,
             toolName = event.toolName,
             modelId = event.modelId,

@@ -54,7 +54,7 @@ class OpenSavedViewShowsMatchingTasksFlowTest {
         // Leave via top bar back — draft is dirty → discard guard.
         awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
         awaitTag("Discard changes?").assertIsDisplayed()
-        onNodeWithTag("dialog_dismiss").performClick()
+        onNodeWithTag(TestTags.Dialog.DISMISS).performClick()
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).assertIsDisplayed()
 
         // ── 3. Open Saved Views list ─────────────────────────────────────────
