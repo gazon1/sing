@@ -105,6 +105,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().calendarSyncTaskMapDao() }
     single { get<AppDatabase>().savedSearchDao() }
+    single { get<AppDatabase>().timeEntryDao() }
 
     // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
 

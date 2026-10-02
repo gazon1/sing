@@ -15,6 +15,8 @@ import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.timetracking.data.TimeEntryDao
+import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 
 /**
  * Room database for Android.
@@ -42,8 +44,9 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         RemoteConfigCacheEntity::class,
         TagGroupEntity::class,
         ProjectInheritedTagGroupCrossRef::class,
+        TimeEntryEntity::class,
     ],
-    version = 26,
+    version = 27,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -66,6 +69,7 @@ import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
         AutoMigration(from = 23, to = 24, spec = Migration23To24::class),
         AutoMigration(from = 24, to = 25, spec = Migration24To25::class),
         AutoMigration(from = 25, to = 26, spec = Migration25To26::class),
+        AutoMigration(from = 26, to = 27, spec = Migration26To27::class),
     ],
     exportSchema = true,
 )
@@ -89,4 +93,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun savedSearchDao(): SavedSearchDao
     abstract fun tagGroupDao(): TagGroupDao
     abstract fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao
+    abstract fun timeEntryDao(): TimeEntryDao
 }

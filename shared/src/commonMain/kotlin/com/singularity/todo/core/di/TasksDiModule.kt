@@ -64,6 +64,14 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<DependencyValidator> { DependencyValidatorImpl(get(), get<ProfileAwareCurrentUser>()) }
 
+    single<com.singularity.todo.feature.timetracking.data.TimeTrackingRepository> {
+        com.singularity.todo.feature.timetracking.data.TimeTrackingRepositoryImpl(
+            get(),
+            get(),
+            get(),
+        )
+    }
+
     single { RecurrenceCalculator }
 
     singleOf(::TaskDaoArchiveRepository)

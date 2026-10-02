@@ -38,6 +38,8 @@ import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.timetracking.data.TimeEntryDao
+import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -78,6 +80,7 @@ class FakeAppDatabase : AppDatabase() {
     private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
     private val _tagGroups = MutableStateFlow<Map<String, TagGroupEntity>>(emptyMap())
     private val _projectTagGroups = MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>(emptyList())
+    private val _timeEntries = MutableStateFlow<Map<String, TimeEntryEntity>>(emptyMap())
 
     override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
@@ -99,6 +102,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(
         _projectTagGroups,
     )
+    override fun timeEntryDao(): TimeEntryDao = FakeTimeEntryDao(_timeEntries)
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -121,6 +125,7 @@ class FakeAppDatabase : AppDatabase() {
         _savedSearches.value = emptyMap()
         _tagGroups.value = emptyMap()
         _projectTagGroups.value = emptyList()
+        _timeEntries.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -1390,5 +1395,58 @@ private class FakeProjectInheritedTagGroupDao(
         val before = store.value.count { it.tagGroupId == tagGroupId }
         store.update { list -> list.filter { it.tagGroupId != tagGroupId } }
         return before
+    }
+}
+
+private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, TimeEntryEntity>>) : TimeEntryDao {
+    override fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>> =
+        store.map { map -> map.values.filter { it.taskId == taskId && it.deletedAt == null }.sortedByDescending { it.startedAt } }
+
+    override fun watchOpenEntry(userId: String): Flow<TimeEntryEntity?> =
+        store.map { map -> map.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null } }
+
+    override suspend fun getOpenEntry(userId: String): TimeEntryEntity? =
+        store.value.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null }
+
+    override fun watchForUserInRange(userId: String, startMs: Long, endMs: Long): Flow<List<TimeEntryEntity>> =
+        store.map { map ->
+            map.values.filter {
+                it.userId == userId &&
+                    it.startedAt >= startMs &&
+                    it.startedAt < endMs &&
+                    it.deletedAt == null
+            }.sortedByDescending { it.startedAt }
+        }
+
+    override suspend fun upsert(entity: TimeEntryEntity) {
+        store.update { map -> map + (entity.id to entity) }
+    }
+
+    override suspend fun stopEntry(id: String, endedAt: Long, updatedAt: Long, userId: String): Int {
+        val before = store.value[id]
+        if (before == null || before.userId != userId) return 0
+        store.update { map -> map + (id to before.copy(endedAt = endedAt, updatedAt = updatedAt)) }
+        return 1
+    }
+
+    override suspend fun updateNote(id: String, note: String?, updatedAt: Long, userId: String): Int {
+        val before = store.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        store.update { map -> map + (id to before.copy(note = note, updatedAt = updatedAt)) }
+        return 1
+    }
+
+    override suspend fun softDelete(id: String, deletedAt: Long, userId: String): Int {
+        val before = store.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        store.update { map -> map + (id to before.copy(deletedAt = deletedAt, updatedAt = deletedAt)) }
+        return 1
+    }
+
+    override suspend fun delete(id: String, userId: String): Int {
+        val before = store.value[id] ?: return 0
+        if (before.userId != userId) return 0
+        store.update { map -> map - id }
+        return 1
     }
 }
