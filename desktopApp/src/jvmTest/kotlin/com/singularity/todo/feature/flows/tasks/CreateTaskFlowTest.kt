@@ -16,6 +16,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
+import kotlinx.coroutines.flow.first
 import org.junit.Test
 
 /**
@@ -97,17 +98,19 @@ class CreateTaskFlowTest {
      * section — a header that the Today preset does not define at all. That makes
      * this the one assertion in the desktop suite that fails if the agenda ever
      * falls back to a stale ViewModel again.
+     *
+     * The FAB is opened from the **Inbox** tab on purpose: the resolver pre-fills
+     * `dueDate = Today` when creating from the Today tab (MR-13 source-tab prefill),
+     * which would put the task in the Today bucket instead.
      */
     @Test
     fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() = runDesktopAppTest(checkA11y = true) {
+        tapTab("Inbox")
         onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
         onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Call the dentist")
         onNodeWithTag(TestTags.TASK_EDITOR_SAVE).performClick()
 
-        // Saving pops the editor back to the agenda, so the drawer is reachable
-        // again and no explicit goBack() is needed before changing tab.
-        tapTab("Inbox")
-
+        // Saving pops the editor back to the Inbox agenda it was opened from.
         awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
         awaitTag(TestTags.taskItem("Call the dentist")).assertIsDisplayed()
     }

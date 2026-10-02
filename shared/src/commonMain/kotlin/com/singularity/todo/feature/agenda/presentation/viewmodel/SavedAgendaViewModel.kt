@@ -15,6 +15,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
+import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -246,10 +247,7 @@ class SavedAgendaViewModel(
         scope.launch {
             val draft = draftState.state
             val nameToSave = draft.name.trim()
-            val sectionsJson = StableJson.encodeToString(
-                AgendaDefinition.serializer(),
-                AgendaDefinition(nameToSave, draft.sections),
-            )
+            val sectionsJson = AgendaDefinition(nameToSave, draft.sections).toSectionsJson()
             val now = deps.clock.now()
             when (mode) {
                 is SavedAgendaScreenMode.View -> { /* no-op — results screen has no save action */ }

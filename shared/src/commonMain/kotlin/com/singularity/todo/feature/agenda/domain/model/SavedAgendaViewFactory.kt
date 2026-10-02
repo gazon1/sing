@@ -17,6 +17,7 @@
 package com.singularity.todo.feature.agenda.domain.model
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlin.time.Instant
 
@@ -64,3 +65,12 @@ object SavedAgendaViewFactory {
         updatedAt = now,
     )
 }
+
+/**
+ * Encodes this definition into the stored `sectionsJson` column format.
+ *
+ * The single encode site for the view's section payload — the decode half lives
+ * in the view model (`decodeSections`), and test fixtures seed views through
+ * this function so both halves stay format-coupled in one place.
+ */
+fun AgendaDefinition.toSectionsJson(): String = StableJson.encodeToString(AgendaDefinition.serializer(), this)

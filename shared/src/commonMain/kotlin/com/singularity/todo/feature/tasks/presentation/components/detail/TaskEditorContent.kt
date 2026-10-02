@@ -186,7 +186,7 @@ fun TaskEditorContent(
             // Priority row
             TaskEditorPriorityRow(
                 priority = priority,
-                onPriorityClick = onPriorityClick,
+                onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
                 onPriorityClear = onPriorityClear,
             )
 
@@ -195,7 +195,7 @@ fun TaskEditorContent(
                 TaskEditorDueDateRow(
                     dueDate = dueDate,
                     dueTime = dueTime,
-                    onDueDateClick = onDueDateClick,
+                    onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
                 )
             }

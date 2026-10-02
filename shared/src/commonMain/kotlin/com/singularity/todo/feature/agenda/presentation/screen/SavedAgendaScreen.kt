@@ -112,8 +112,12 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
         events = viewModel.events,
         mapper = { event: SavedAgendaEvent ->
             when (event) {
-                is SavedAgendaEvent.SaveSuccess -> Notification.Text("Saved", null)
+                // The contract (SavedAgendaCreateFlowTest): saving leaves the editor —
+                // the write resolved, so pop back instead of parking on a dialog.
+                is SavedAgendaEvent.SaveSuccess -> Notification.NavigateBack
+
                 is SavedAgendaEvent.DeleteSuccess -> Notification.NavigateBack
+
                 is SavedAgendaEvent.ShowError -> Notification.Error(event.message)
             }
         },

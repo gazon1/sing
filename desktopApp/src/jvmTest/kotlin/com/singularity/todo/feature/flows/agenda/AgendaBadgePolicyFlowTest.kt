@@ -45,7 +45,7 @@ import org.junit.Test
 class AgendaBadgePolicyFlowTest {
 
     @Test
-    fun pinned_task_shows_pinned_badge() = runDesktopAppTest(checkA11y = false) { koin ->
+    fun pinned_task_shows_pinned_badge() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
         tasks(koin).given(due = today, title = "Pinned task", isPinned = true)
 
@@ -59,7 +59,7 @@ class AgendaBadgePolicyFlowTest {
     // @Test fun recurring_task_shows_recurring_badge() = ...
 
     @Test
-    fun completed_task_shows_completed_badge() = runDesktopAppTest(checkA11y = false) { koin ->
+    fun completed_task_shows_completed_badge() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
         tasks(koin).given(due = today, title = "Done task", completed = true)
 
@@ -68,7 +68,7 @@ class AgendaBadgePolicyFlowTest {
     }
 
     @Test
-    fun overdue_task_shows_overdue_badge() = runDesktopAppTest(checkA11y = false) { koin ->
+    fun overdue_task_shows_overdue_badge() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
         val yesterday = today.minus(1, DateTimeUnit.DAY)
         tasks(koin).given(due = yesterday, title = "Overdue task")
@@ -78,7 +78,7 @@ class AgendaBadgePolicyFlowTest {
     }
 
     @Test
-    fun undated_task_shows_no_date_badge() = runDesktopAppTest(checkA11y = false) { koin ->
+    fun undated_task_shows_no_date_badge() = runDesktopAppTest(checkA11y = true) { koin ->
         tasks(koin).givenUndated(title = "Undated task")
 
         tapTab("Inbox")
@@ -86,7 +86,7 @@ class AgendaBadgePolicyFlowTest {
     }
 
     @Test
-    fun blocked_task_shows_blocked_badge() = runDesktopAppTest(checkA11y = false) { koin ->
+    fun blocked_task_shows_blocked_badge() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
         val depId = TaskId("robot-dep-0")
 
