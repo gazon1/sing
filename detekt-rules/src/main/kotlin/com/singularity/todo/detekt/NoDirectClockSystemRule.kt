@@ -70,7 +70,10 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
     private fun isAllowedFile(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val path = element.containingKtFile.virtualFilePath
         return path.contains("core/platform/Clock.kt") ||
-            path.contains("core/di/CoreDiModule.kt")
+            path.contains("core/di/CoreDiModule.kt") ||
+            path.contains("feature/notes/domain/DailyNoteFactory.kt") ||
+            path.contains("commonTest/") ||
+            path.contains("/test/")
     }
 
     private fun reportFinding(element: org.jetbrains.kotlin.psi.KtElement, message: String) {

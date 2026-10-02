@@ -6,12 +6,15 @@ import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 class DailyNoteFactoryTest {
 
@@ -20,13 +23,17 @@ class DailyNoteFactoryTest {
 
     @Test
     fun `dailyKey formats date as ISO string`() {
-        val date = LocalDate.of(2024, 3, 15)
+        val date = LocalDate(2024, 3, 15)
         assertEquals("2024-03-15", factory.dailyKey(date))
     }
 
     @Test
     fun `todayKey returns today's ISO date`() {
-        assertEquals(LocalDate.now().toString(), factory.todayKey())
+        val today = Clock.System.now()
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
+            .toString()
+        assertEquals(today, factory.todayKey())
     }
 
     @Test
@@ -78,8 +85,8 @@ class DailyNoteFactoryTest {
 
     @Test
     fun `prevDay returns null when previous would be before minDate`() {
-        assertNull(factory.prevDay("2024-01-01", minDate = LocalDate.of(2024, 1, 1)))
-        assertEquals("2024-01-01", factory.prevDay("2024-01-02", minDate = LocalDate.of(2024, 1, 1)))
+        assertNull(factory.prevDay("2024-01-01", minDate = LocalDate(2024, 1, 1)))
+        assertEquals("2024-01-01", factory.prevDay("2024-01-02", minDate = LocalDate(2024, 1, 1)))
     }
 
     @Test
@@ -89,7 +96,7 @@ class DailyNoteFactoryTest {
 
     @Test
     fun `nextDay returns null when next would be after maxDate`() {
-        assertNull(factory.nextDay("2100-12-31", maxDate = LocalDate.of(2100, 12, 31)))
-        assertEquals("2100-12-31", factory.nextDay("2100-12-30", maxDate = LocalDate.of(2100, 12, 31)))
+        assertNull(factory.nextDay("2100-12-31", maxDate = LocalDate(2100, 12, 31)))
+        assertEquals("2100-12-31", factory.nextDay("2100-12-30", maxDate = LocalDate(2100, 12, 31)))
     }
 }
