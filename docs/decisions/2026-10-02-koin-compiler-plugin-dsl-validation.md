@@ -86,7 +86,7 @@ The plugin was evaluated via spike on `feat/koin-compiler-plugin`:
   `:androidApp:compileDebugKotlin` with Kotlin 2.3.21 (warning: proceeds with
   2.3.20 adapter; not a hard fail).
 - Sabotage test confirmed KOIN-D003 fires on desktopApp and androidApp when a
-  binding is removed; mcp-server produces W003 (acceptable, dynamic param).
+  binding is removed; mcp-server is now fully static (no W003).
 
 ## Consequences
 
@@ -115,23 +115,23 @@ The plugin was evaluated via spike on `feat/koin-compiler-plugin`:
 
 ### Known issues
 
-- **KOIN-W003 in mcp-server**: `platformModule(profileId)` is dynamically computed
-  (the `profileId` parameter is ignored in the current implementation; the
-  `profileModule` is inlined into `domainModule()` as literal `module {}` blocks).
-  The warning is acceptable — production MCP DI is static; the parameter is a
-  no-op vestige of an earlier design.
 - **Kotlin 2.3.21 compatibility warning**: plugin proceeds with 2.3.20 adapter.
   This is a soft warning, not a hard fail. No action needed unless compilation
   actually breaks.
 - **KSP 2.3.11 vs Kotlin 2.3.21 mismatch**: KSP version does not track Kotlin
-  version (KSP 2.3.11 for Kotlin 2.3.21). Room 3 KSP works (FROM-CACHED);
-  non-Room KSP processors may silently skip. Tracked separately.
-- **Cycle detection gap**: classic DSL does not support cycle detection. If a
-  circular dependency is introduced through `single { Foo(get()) }` form, it will
-  not be caught at compile time. Use `singleOf(::T)` for cycle-prone registrations.
-- **Test harness `DesktopAppHarness`**: uses a runtime `overrides: Module = module {}`
-  parameter loaded last into `koinApplication`. This produces a KOIN-W003 in
-  test compilation — acceptable, documented, no action needed.
+  version. Room 3 KSP works (FROM-CACHED); non-Room KSP processors may silently
+  skip. Tracked separately.
+- **Cycle detection gap**: classic DSL does not expose constructor relationships to the
+  plugin's cycle detector. A circular dependency through `single { Foo(get()) }` form
+  will not be caught. Declare with `singleOf(::T)` or `single<T>()` for full detection.
+- **KOIN-W003 in test harnesses**: `ScopeIsolationTest` and `TaskDetailCoordinatorGraphTest`
+  use `koinApplication { modules(overrides, *domainModule().toTypedArray()) }` with
+  a runtime-computed overrides module. These test semantic correctness of Koin scope
+  isolation, not graph completeness — the W003 is expected and acceptable.
+- **DIGEST exceeds size budget**: 1582 lines (limit: 1550). The ADR count grew since
+  the limit was set. Tracked separately.
+- **`test-helpers` skill exceeds size budget**: 506 lines (limit: 500). Consider a
+  router + leaf split. Tracked separately.
 
 ## Links
 

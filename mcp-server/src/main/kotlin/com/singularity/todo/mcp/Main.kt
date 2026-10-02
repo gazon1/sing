@@ -88,7 +88,7 @@ fun main(args: Array<String>): Unit = runBlocking {
  */
 private fun bootstrapKoin(profileId: String?): Boolean = try {
     startKoin {
-        modules(listOf(platformModule(profileId)) + domainModule())
+        modules(listOf(platformModule()) + domainModule())
     }
     true
 } catch (e: Throwable) {
@@ -240,17 +240,17 @@ private fun Array<String>.parseProfileArg(): String? = find { it.startsWith("--p
 // ─── Profile-aware platformModule ─────────────────────────────────────────────
 
 /**
- * Builds a profile-aware [org.koin.core.module.Module] that overrides per-profile
- * settings (database path) when a --profile=NAME argument is passed.
+ * Builds the MCP server platform [org.koin.core.module.Module].
+ *
+ * Profile data isolation is handled post-Koin by [ProfileBootstrapper.run] via the
+ * `user_id` scope on each DAO query. This module is therefore static — it has no
+ * runtime-computed parameters — and the koin-compiler-plugin validates it fully.
  *
  * IMPORTANT: We inline all platform bindings here rather than using `includes()`
  * because `includes()` inside a `module {}` block creates a child scope in Koin 4,
  * making those bindings invisible to sibling modules at the root scope.
- *
- * When profileId is null, falls back to the default desktop platformModule
- * which uses ~/.singularity-todo/ as the base directory.
  */
-private fun platformModule(profileId: String?): org.koin.core.module.Module = module {
+private fun platformModule(): org.koin.core.module.Module = module {
     // Always use the default DB path so Desktop, Android, and MCP share data.
     // The CLI `--profile=NAME` argument is now a **label** (Personal vs AI Agent),
     // not a directory suffix — profiles are isolated by their `user_id` scope, not
