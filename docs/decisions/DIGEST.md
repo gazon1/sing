@@ -317,15 +317,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }`
 - **@Preview и widget-тесты не затрагиваются** — все preview используют `*Content` helpers (stateless)
+- **Cycle detection gap**: classic DSL does not support cycle detection. If a
+- **KOIN-W003 in mcp-server**: `platformModule(profileId)` is dynamically computed
+- **KSP 2.3.11 vs Kotlin 2.3.21 mismatch**: KSP version does not track Kotlin
+- **Kotlin 2.3.21 compatibility warning**: plugin proceeds with 2.3.20 adapter.
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа
 - **State survives configuration change** on Android — rotation no longer resets these screens
-- **Test impact** — tests that relied on a fresh VM instance per `get()` may need updating; prefer stateful testing over instance-fresh guarantees
-- **`TaskEditorViewModel` special case** — `viewModel { (initialDueDate) -> ... }` + `koinViewModel { parametersOf(initialDueDate) }`
-- **`koinInject()` для репозиториев/сервисов остаётся** — не VM
-- **`koinViewModel()` для VM в Composable** — `koinInject()` для VM антипаттерн
-- **`singleOf` для репозиториев** — architectural limitation; сложные конструкторы не поддерживают constructor-reference форму
-- _... and 18 more items_
+- **Test harness `DesktopAppHarness`**: uses a runtime `overrides: Module = module {}`
+- _... and 28 more items_
 
 ### `koog`
 
@@ -1173,6 +1173,7 @@ _22 entries need attention._
 - `2026-10-02-ai-proposal-confirmation` — ai, proposals, tasks, tags
 - `2026-10-02-desktop-haptic-missing-binding` — incident, desktop, di, testing
 - `2026-10-02-insights-time-bucketing` — insights, timebucketing, database
+- `2026-10-02-koin-compiler-plugin-dsl-validation` — koin, di, compiler-plugin, kotlin
 - `2026-10-02-log-redaction-classification-policy` — _untagged_
 - `2026-10-02-mixed-platform-audit-followups` — platform, audit, android, jvm, desktop
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — _untagged_
@@ -1568,6 +1569,7 @@ _22 entries need attention._
 - `2026-10-02-ai-proposal-confirmation` — AI proposal confirmation: compare-and-set, transactional apply, tag suppression
 - `2026-10-02-desktop-haptic-missing-binding` — _(no title)_
 - `2026-10-02-insights-time-bucketing` — Insights time bucketing: union-merge, midnight split, no SQLite dates on integer columns
+- `2026-10-02-koin-compiler-plugin-dsl-validation` — Compile-time Koin DI graph validation via koin-compiler-plugin 1.2.1
 - `2026-10-02-log-redaction-classification-policy` — Log Message User-Content Classification Policy
 - `2026-10-02-mixed-platform-audit-followups` — Mixed platform audit — MR-0 follow-ups: what was fixed and what was deferred
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — MR-6 / MR-7 Post-mortem — broken preconditions and agent cleanup

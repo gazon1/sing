@@ -1,235 +1,153 @@
 ---
 name: singularity-todo-di-graph-testing
-description: Catch Koin DI missing bindings before the app reaches a device. Use when adding new repositories, ViewModels, AI tools, or platform ports to the DI graph, or after any NoDefinitionFoundException fix. Covers DiGraphTest on JVM (covers coreDomainModule + JVM platformModule + JVM aiToolsModule) and AndroidDiGraphTest on Robolectric (covers Android-specific platformModule + Android-stub aiToolsModule + Robolectric Context).
+description: Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. Use when adding new repositories, ViewModels, AI tools, or platform ports to the DI graph, or after any KOIN-D003 or KOIN-W003 error. Replaces the old runtime checkModules() approach.
 ---
 
-# Singularity TODO — DI Graph Testing
+# Singularity TODO — DI Graph Validation
 
-**Problem this prevents:** Koin `NoDefinitionFoundException` only surfaces at runtime when a Composable first tries to resolve the missing type — i.e. on the user's device. JVM unit tests pass because they don't exercise Android-only stubs; androidHostTest was empty (just `assertEquals(3, 1+2)`). Result: a `KoogAgentService` missing-binding crash shipped to a real device in production.
+**Problem this prevents:** Koin `NoDefinitionFoundException` surfaced at runtime when a
+Composable first tried to resolve a missing type — on the user's device. The old
+runtime `checkModules()` tests had a 55-line hand-written platform module mirror that
+could drift, required a manual `externalTypes` list of 16 DAOs, and were not run in CI
+for `mcp-server`. The koin-compiler-plugin now catches missing bindings at **compile
+time** as a KOIN-D003 error.
 
-## Two-layer graph verification
+## How it works
 
-| Source set                    | Test                 | What it covers                                                                                     |
-|-------------------------------|----------------------|----------------------------------------------------------------------------------------------------|
-| `shared/src/jvmTest/`         | `DiGraphTest`        | `coreDomainModule()` + `PlatformModule.jvm` + `jvmAiToolsModule()`                                 |
-| `shared/src/androidHostTest/` | `AndroidDiGraphTest` | `coreDomainModule()` + `PlatformModule.android` + `androidAiToolsModule()` + Robolectric `Context` |
+The [koin-compiler-plugin](https://insert-koin.io/docs/setup/compiler-plugin/)
+(`id("io.insert-koin.compiler.plugin") version "1.2.1"`) runs as a Kotlin compiler
+plugin (K2). At every build of an app module, it:
 
-Both call `checkModules { modules(...) }` from `org.koin.test.check.checkModules` which walks the entire graph and fails fast on any missing binding.
+1. Detects the `startKoin { modules(...) }` entry point.
+2. Assembles the full resolved graph from all visible `shared` definitions (via Gradle
+   classpath hints).
+3. Validates every `get<T>()` inside every `single { }`, `factory { }`, `viewModel { }`
+   block — plus `singleOf(::T)`, `factoryOf`, `viewModelOf` parameter chains.
+4. Fails the compilation with a KOIN-D003 error naming the missing type and location.
 
-## Reference implementation
+## Entry points validated
 
-### `shared/src/jvmTest/kotlin/com/singularity/todo/test/KoinGraphValidationTest.kt`
+| Module | Entry point | Status |
+|---|---|---|
+| `androidApp` | `SingularityApp.onCreate` → `startKoin { modules(...) }` | ✅ strictSafety |
+| `desktopApp` | `main.kt` → `startKoin { modules(...) }` | ✅ strictSafety |
+| `mcp-server` | `Main.bootstrapKoin()` → `startKoin { modules(...) }` | ⚠️ KOIN-W003 (`platformModule(profileId)` is dynamic) |
 
-```kotlin
-package com.singularity.todo.core.di
+## KOIN error and warning codes
 
-import org.junit.Test
-import org.koin.test.check.checkModules
+| Code | Meaning | Action |
+|---|---|---|
+| **KOIN-D003** | Missing definition: a `get<T>()` call has no binding for `T` | Add the missing binding in the appropriate `*DiModule.kt` |
+| **KOIN-W003** | Graph not verifiable: module set is runtime-computed (spread, conditional, variable) | Use list composition `listOf(...) + domainModule()` instead of `*domainModule().toTypedArray()` |
+| **KOIN-D004** | Cycle detected through reified DSL (`single<T>()`) | Break the cycle or declare through `singleOf(::T)` |
 
-class DiGraphTest {
-    @Test
-    fun `core domain graph verifies on JVM`() {
-        checkModules {
-            modules(coreDomainModule(), platformModule())
-        }
-    }
+## Entry point rule
 
-    @Test
-    fun `AI tools require API key — validated by integration test`() {
-        // AI tools (OpenAI client) need a real API key — checkModules()
-        // throws ExceptionInInitializerError from OpenAILLMClient("")
-        // during singleton creation. Validated by integration tests instead.
-    }
-}
-```
-
-### `shared/src/androidHostTest/kotlin/com/singularity/todo/test/AndroidKoinGraphValidationTest.kt`
-
-This test also carries `externalTypes` — the DAO list the static `verify()`
-needs (see the checklist below) — plus a `key android singletons resolve`
-test that builds the real Koin graph under Robolectric.
+**Never use `*domainModule().toTypedArray()` in `modules()`.** This produces
+KOIN-W003. Use list composition instead:
 
 ```kotlin
-package com.singularity.todo.core.di
+// ❌ KOIN-W003 — spread of runtime list
+modules(platformModule(), *domainModule().toTypedArray(), gateModule(url))
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.singularity.todo.core.security.FakeSecureStorage
-import com.singularity.todo.core.security.SecureStoragePort
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.koin.dsl.module
-import org.koin.test.check.checkModules
-import org.robolectric.annotation.Config
-
-@RunWith(AndroidJUnit4::class)
-@Config(sdk = [36])  // Robolectric 4.16 maxSdkVersion=36
-class AndroidDiGraphTest {
-
-    @Test
-    fun `android graph verifies on Robolectric`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        checkModules {
-            modules(
-                module {
-                    single<Context> { context }
-                    // EncryptedSharedPreferences fails under Robolectric
-                    single<SecureStoragePort> { FakeSecureStorage() }
-                },
-                coreDomainModule(),
-                platformModule(),
-                aiToolsModule(),
-            )
-        }
-    }
-}
+// ✅ KOIN-W003-free — stable list composition
+modules(listOf(platformModule(), coreLoggingModule()) + domainModule() + listOf(gateModule(url)))
 ```
 
-## Required setup
+The `domainModule()` function returns `List<Module>`. The spread operator converts it to a
+vararg, which the plugin cannot resolve at compile time.
 
-### `gradle/libs.versions.toml`
+## New Room DAO checklist (only 2 places now)
 
-```toml
-# Testing
-junit = "4.13.2"
-robolectric = "4.16"   # maxSdkVersion=36
-```
+A new `abstract fun xDao(): XDao` on `AppDatabase` compiles and passes CI, but crashes
+with `NoDefinitionFoundException` the first time a screen resolves the repository that
+needs it. Three DAOs shipped that way (`TagGroupDao`, `ProjectInheritedTagGroupDao`,
+`SavedSearchDao`) — see `docs/decisions/2026-09-29-missing-koin-dao-bindings.md`.
 
-```toml
-# Libraries — Robolectric JUnit runner
-robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
-androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-testExt" }
-```
+With the compiler plugin, the manual `externalTypes` list is **gone** — the plugin
+detects all `get<AppDatabase>().xDao()` calls automatically. Only two files need
+editing:
 
-### `shared/build.gradle.kts`
+1. **`PlatformModule.android.kt`** — add `single { get<AppDatabase>().xDao() }`
+2. **`PlatformModule.jvm.kt`** — add the same, unless the DAO is genuinely Android-only
+   (e.g. `CalendarSyncTaskMapDao`; JVM uses `NoopCalendarProvider`)
+
+**No third file.** The plugin resolves the full graph per target, so `get<AppDatabase>().xDao()`
+in `androidMain` is verified against `PlatformModule.android` and the JVM equivalent against
+`PlatformModule.jvm`.
+
+## New binding checklist
+
+When adding a new repository, use case, or ViewModel:
+
+1. Register it in the appropriate `*DiModule.kt` (e.g. `TasksDiModule.kt`).
+2. If it is a **platform-specific** implementation (Android-only, JVM-only), add the
+   binding to the appropriate `PlatformModule.{android,jvm}.kt` — not commonMain.
+3. If the new type is an **interface** with a concrete implementation, bind the interface:
+   `single<Port> { Impl(get(), get()) }` — not `singleOf(::Impl)`, unless `Impl`
+   already implements `Port`.
+4. If a class needs a platform-specific dep (e.g. `Context` on Android), use
+   `get<Context>()` inside the factory lambda — the plugin resolves it through
+   the `androidContext()` call in `SingularityApp`.
+
+## AI tools and PromptExecutor
+
+AI tools registered via `aiToolsModule()` may depend on `PromptExecutor` from Koog.
+Koog is JVM-only — on Android the dependency must be nullable:
 
 ```kotlin
-android {
-    withHostTest {
-        isIncludeAndroidResources = true
-    }
-}
-
-sourceSets {
-    jvmTest.dependencies {
-        implementation(libs.koin.test)
-    }
-
-    getByName("androidHostTest").dependencies {
-        implementation(libs.kotlin.test)
-        implementation(libs.kotlin.testJunit)
-        implementation(libs.koin.test)
-        implementation(libs.androidx.testExt.junit)
-        implementation(libs.androidx.test.core)
-        implementation(libs.robolectric)
-    }
-}
-```
-
-**Gotcha:** `getByName("androidHostTest")` is required — direct `androidHostTest { ... }` doesn't work in KMP Kotlin DSL.
-
-## Running
-
-```bash
-./gradlew :shared:jvmTest                    # DiGraphTest
-./gradlew :shared:testAndroidHostTest        # AndroidDiGraphTest
-```
-
-## Critical patterns when adding new bindings
-
-### 1. AI tools that depend on `ai.koog.prompt.executor.model.PromptExecutor`
-
-This is the **single most common missing-binding bug** because:
-- JVM `aiToolsModule()` registers the real Koog executor
-- Android `aiToolsModule()` cannot (Koog is JVM-only)
-- An AI tool that depends on `PromptExecutor` will fail `checkModules()` on Android
-
-**Fix:** Make AI dependencies nullable in ViewModels:
-
-```kotlin
-// commonMain — AI use cases are nullable so Android works without Koog
-class TasksViewModel(
-    private val taskRepo: TaskRepository,
-    private val refineTask: RefineTaskUseCase? = null,  // null on Android
+// commonMain — nullable so Android builds without Koog
+class MyViewModel(
+    private val promptExecutor: PromptExecutor? = null,
     // ...
-) : ViewModel() {
-    fun refineTaskTitle(task: Task) = viewModelScope.launch {
-        refineTask?.invoke(task.title, task.description)
-            ?.onSuccess { ... }
-            ?: _aiResult.emit(AiActionResult.Error("AI not available"))
-    }
-}
-```
-
-### 2. Platform-specific implementations that are JVM-only
-
-`JvmPromptExecutorPort` exposes `val executor` so AI tools can use it.
-Don't `as JvmPromptExecutorPort` cast in commonMain — register in JVM `platformModule()`.
-
-### 3. Bindings that exist in JVM `platformModule()` but not Android
-
-**Always run BOTH tests after touching the DI graph.** The JVM test passes if Android `platformModule()` is missing a binding — they have separate registrations. Example: `NotesStore` (Android `RoomNotesStore`, JVM `JdbcNotesStore`) was missing on Android and only caught by `AndroidDiGraphTest`.
-
-### 4. New Room DAO — the three-place checklist
-
-A new `abstract fun xDao(): XDao` accessor on `AppDatabase` compiles, tests
-green, and then throws `NoDefinitionFoundException` the first time a screen
-resolves the repository that needs it. Three Room DAOs shipped that way
-(`TagGroupDao`, `ProjectInheritedTagGroupDao`, `SavedSearchDao`) — the Tag
-Groups settings tab killed the process on open. See
-`docs/decisions/2026-09-29-missing-koin-dao-bindings.md`.
-
-Checklist, every item required:
-
-1. **`PlatformModule.android.kt`** — `single { get<AppDatabase>().xDao() }`.
-2. **`PlatformModule.jvm.kt`** — same, unless the DAO is genuinely Android-only
-   (`CalendarSyncTaskMapDao` is the one deliberate exception: JVM uses
-   `NoopCalendarProvider`).
-3. **`AndroidKoinGraphValidationTest.externalTypes`** — add `XDao::class`, or
-   the static `verify()` treats the type as unknown-by-design and stays silent.
-
-The graph tests cannot fully automate item 3 — deriving the list needs
-reflection unavailable in commonMain — so this checklist is the guard. When
-auditing, diff `AppDatabase` accessors against the `get<AppDatabase>()…`
-bindings in both platform modules; any accessor absent from both is a latent
-crash.
-
-### 5. Robolectric + EncryptedSharedPreferences
-
-`AndroidSecureStorage` uses `EncryptedSharedPreferences` which fails under Robolectric (Tink + Keystore). Override in the test module:
-
-```kotlin
-modules(
-    module {
-        single<SecureStoragePort> { FakeSecureStorage() }
-    },
-    coreDomainModule(),
-    platformModule(),
-    aiToolsModule(),
 )
 ```
 
-## How `checkModules()` fails
+The JVM `aiToolsModule` binds the real executor; the Android one binds `null`.
+The compiler plugin validates the JVM graph; Android gets a null at runtime.
 
-It instantiates every `single`/`factory` definition and recursively resolves `get<T>()` calls. Three failure modes:
+## KOIN-W003 acceptable locations
 
-1. **NoDefinitionFoundException** — type not registered → missing binding (the main bug)
-2. **InstanceCreationException** — type registered but its constructor threw (e.g. `OpenAILLMClient("")`)
-3. **KoinApplicationAlreadyStartedException** — called twice in same JVM (use `@Test` per case)
+`mcp-server` uses `modules(listOf(platformModule(profileId)) + domainModule())`.
+`platformModule(profileId)` is a function that takes a `profileId: String?` — the
+plugin cannot resolve a runtime parameter at compile time, so it produces KOIN-W003.
+This is **acceptable**: the function body is static (`profileId` is ignored), and
+the graph is fully static. The warning documents a known limitation; it does not
+mean the graph is broken.
 
-## Anti-patterns to avoid
+## Anti-patterns
 
-- **Don't use `@Inject` constructor in Koin Annotations** — Koin resolves the primary constructor directly. `@Inject` is for Dagger/Hilt.
-- **Don't call `checkModules { modules(X) }` and `checkModules { modules(Y) }` in same test** — `KoinApplicationAlreadyStartedException`. Use one test per assertion.
-- **Don't `factory { get<X>() }` when X doesn't exist yet** — JVM test will catch this, Android test might not.
+- **Don't use `singleOf(::Impl)` when `Impl` implements an interface** — it registers
+  the concrete type, not the interface. Use `single<Port> { Impl(get(), get()) }`.
+- **Don't use `MainScope()` on Android** — use `createBackgroundScope()`. `MainScope()`
+  is Android-main-thread-specific and will fail in non-Android contexts.
+  `createBackgroundScope()` is the platform-expected scope via `expect/actual`.
+- **Don't bind `CoroutineScope` via `MainScope()`** — `MainScope()` creates a scope
+  tied to `Dispatchers.Main`, which is not available in all contexts. Use
+  `single<CoroutineScope> { createBackgroundScope() }`.
+
+## Bug found during plugin adoption (MR-0)
+
+The plugin revealed a latent bug during spike: `TaskDaoArchiveRepositoryImpl` did **not**
+implement the `ArchiveRepository` interface it was supposed to. `singleOf(::TaskDaoArchiveRepositoryImpl)`
+registered the concrete class, but `ArchiveViewModel` asked for `ArchiveRepository` via
+`get()`. Fixed by adding `: ArchiveRepository` to the class declaration and `override`
+to `archiveCompletedTasks()`.
+
+This is exactly the class of bug the plugin is designed to catch.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `shared/src/jvmTest/.../test/KoinGraphValidationTest.kt` | JVM graph test |
-| `shared/src/androidHostTest/.../test/KoinGraphValidationTest.kt` | Robolectric graph test |
-| `shared/src/commonMain/.../core/di/Modules.kt` | `coreDomainModule()`, `expect fun aiToolsModule()` |
-| `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` + `AiToolsModule.jvm.kt` | JVM platform |
-| `shared/src/androidMain/.../core/di/PlatformModule.android.kt` + `AiToolsModule.android.kt` | Android platform + AI stubs |
+| `gradle/libs.versions.toml` | `koin-compiler-plugin = "1.2.1"` |
+| `shared/build.gradle.kts` | `id("io.insert-koin.compiler.plugin") version "1.2.1"` |
+| `shared/src/commonMain/.../core/di/Modules.kt` | `domainModule()` |
+| `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Android bindings |
+| `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` | JVM bindings |
+| `androidApp/.../SingularityApp.kt` | Android entry point |
+| `desktopApp/.../main.kt` | Desktop entry point |
+| `mcp-server/.../Main.kt` | MCP entry point |
+
+See ADR `docs/decisions/2026-10-02-koin-compiler-plugin-dsl-validation.md` for full
+decision history including the KOIN-W003 limitation.
