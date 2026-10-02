@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -22,6 +23,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskDraftS
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntitySlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLifecycleSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookCollector
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskProposalsCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersSlot
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import com.singularity.todo.feature.timetracking.presentation.slot.TaskTimeSlot
@@ -118,6 +120,15 @@ class TaskDetailCoordinator(
         taskFlow = taskFlow,
     )
 
+    private val proposalsCollector = if (deps.proposals != null) {
+        TaskProposalsCollector(
+            scope = vmScope,
+            proposals = deps.proposals.watchProposalsForTask(taskId, deps.currentUser.scopedUserId.value),
+        )
+    } else {
+        null
+    }
+
     init {
         addCloseable(scope)
         scope.launch {
@@ -139,7 +150,8 @@ class TaskDetailCoordinator(
                 backlinks.state,
                 logbook.state,
                 extrasState,
-            ) { task, draftState, entityState, childrenState, reminderState, backlinkState, logState, extras ->
+                proposalsCollector?.state ?: flowOf(emptyList()),
+            ) { task, draftState, entityState, childrenState, reminderState, backlinkState, logState, extras, _ ->
                 if (task == null) {
                     TaskDetailUiState.Error("Not found")
                 } else {
@@ -178,7 +190,7 @@ class TaskDetailCoordinator(
     }
 
     /**
-     * Combines time tracking, first-run, and (future) proposals into one partition.
+     * Combines time tracking, first-run, and AI proposals into one partition.
      *
      * Deliberately NOT a `stateIn(WhileSubscribed)`: the running timer is one of the
      * inputs, and `WhileSubscribed(5_000)` keeps that upstream alive for five seconds
@@ -193,12 +205,15 @@ class TaskDetailCoordinator(
                     timeSlot.state,
                     children.state,
                     taskFlow,
-                ) { timeState, childrenState, task ->
-                    Triple(timeState, childrenState, task)
-                }.collect { (timeState, childrenState, task) ->
+                    proposalsCollector?.state ?: flowOf(emptyList<AiProposal>()),
+                ) { timeState, childrenState, task, proposals ->
+                    Triple(timeState, childrenState, task) to proposals
+                }.collect { (triple, proposals) ->
+                    val (timeState, childrenState, task) = triple
                     sink.value = TaskDetailExtras.Ready(
                         timeSlotState = timeState,
                         firstRun = resolveFirstRun(childrenState, task),
+                        proposals = proposals,
                     )
                 }
             }
@@ -220,6 +235,7 @@ class TaskDetailCoordinator(
         retryVersion.value++
     }
 
+    @Suppress("LongMethod")
     override fun onIntent(intent: TaskDetailIntent.Domain) {
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> completion.onIntent(intent)
@@ -271,6 +287,47 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.CreateManual,
             is TaskDetailIntent.Domain.Tick,
             -> timeSlot.onIntent(intent)
+
+            is TaskDetailIntent.Domain.ConfirmProposalItem -> {
+                val apply = deps.applyProposal ?: return
+                val userId = deps.currentUser.scopedUserId.value
+                vmScope.launch {
+                    apply.confirm(intent.itemId, userId).onFailure {
+                        reportError("Confirm failed: ${it.message}")
+                    }
+                }
+            }
+
+            is TaskDetailIntent.Domain.RejectProposalItem -> {
+                val apply = deps.applyProposal ?: return
+                val userId = deps.currentUser.scopedUserId.value
+                vmScope.launch {
+                    apply.reject(intent.itemId, userId, intent.reason).onFailure {
+                        reportError("Reject failed: ${it.message}")
+                    }
+                }
+            }
+
+            is TaskDetailIntent.Domain.ConfirmAllProposalItems -> {
+                val apply = deps.applyProposal ?: return
+                val userId = deps.currentUser.scopedUserId.value
+                vmScope.launch {
+                    val batch = apply.confirmAll(intent.proposalId, userId)
+                    if (batch.failed.isNotEmpty()) {
+                        reportError("${batch.failed.size} items could not be applied")
+                    }
+                }
+            }
+
+            is TaskDetailIntent.Domain.DismissProposal -> {
+                val proposals = deps.proposals ?: return
+                val userId = deps.currentUser.scopedUserId.value
+                vmScope.launch {
+                    proposals.retract(intent.proposalId, userId).onFailure {
+                        reportError("Dismiss failed: ${it.message}")
+                    }
+                }
+            }
         }
     }
 }

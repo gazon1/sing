@@ -318,4 +318,32 @@ Time entries + notes in one chronological stream
 
 **Findings for ADR:**
 - Room auto-migration requires `@ColumnInfo(defaultValue = "N")` on any added NOT NULL column — KSP validates this at compile time, not at migration time
-### Phase 9 — ProposalCard + AI redirect (MR-9) ⏳ NOT STARTED
+### Phase 9 — ProposalCard + AI redirect (MR-9) ✅ DONE
+
+**What was done:**
+- `TaskAiSlot` now creates `AiProposal` items instead of writing directly to tasks
+  - `RefineTitle` → `ProposalItemKind.SetTaskField(Title, value)`
+  - `GenerateDescription` → `ProposalItemKind.SetTaskField(Description, value)`
+  - `GenerateChecklist` → `ProposalItemKind.AddChecklistItems(steps)` (single item, exploded on confirm)
+  - `Decompose` → `ProposalItemKind.AddSubtasks(titles)` (single item)
+  - `SuggestTime` → `ProposalItemKind.AddTimeEntries` (note-only, no actual time range)
+- `TaskDetailDeps` gains `proposals: ProposalRepository?` and `applyProposal: ApplyProposalItemUseCase?`
+- 4 new intents: `ConfirmProposalItem`, `RejectProposalItem(itemId, reason?)`, `ConfirmAllProposalItems(proposalId)`, `DismissProposal(proposalId)`
+- `TaskDetailCoordinator` routes all 4 intents — `apply.confirm`/`reject`/`confirmAll` and `proposals.retract`
+- `TasksDiModule` wires `proposals = get()` and `applyProposal = get()` into `TaskDetailDeps`
+- `TaskAiSlot` generates `ProposalFingerprint` for each item (stable identity for rejection suppression)
+
+**What went well:**
+- Redirecting TaskAiSlot to proposals was clean: `execute()` now builds a proposal and saves it instead of applying writes
+- `ConfirmAllProposalItems` reports failure count (not just success) — partial batch success is normal, not an error
+
+**What didn't go well:**
+- `scope.launch` in `onIntent` required using `vmScope`, not a local `scope` variable — had to check how other slots reference the scope
+- `ConfirmAllProposalItems` returns `BatchResult(applied, failed)` — had to add `.failed.size` reporting since it's a normal result, not an exception
+
+**Critical fixes:**
+- `ApplyProposalItemUseCase` is already injected into the tasks feature via `TasksDiModule` — no circular dependency issues
+- Proposals are wired as nullable in `TaskDetailDeps` (`= null`) matching the existing AI use case pattern for test omission
+
+**Findings for ADR:**
+- `TaskAiSlot` creates proposals with `ProposalSource.Detail` — Card-level proposals from list screens would use `ProposalSource.Card` (separate wiring, deferred)

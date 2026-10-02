@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,10 +38,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -155,6 +159,27 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                                     onWriteNote = { /* scroll to body */ },
                                     onAddChecklist = { /* expand checklist */ },
                                     onAskAi = { showAiSheet = true },
+                                )
+                            }
+                            val proposals = when (val ex = extras) {
+                                is TaskDetailExtras.Unresolved -> emptyList()
+                                is TaskDetailExtras.Ready -> ex.proposals
+                            }
+                            if (proposals.isNotEmpty()) {
+                                ProposalSection(
+                                    proposals = proposals,
+                                    onConfirm = { itemId ->
+                                        vm.onIntent(TaskDetailIntent.Domain.ConfirmProposalItem(itemId))
+                                    },
+                                    onReject = { itemId, reason ->
+                                        vm.onIntent(TaskDetailIntent.Domain.RejectProposalItem(itemId, reason))
+                                    },
+                                    onConfirmAll = { proposalId ->
+                                        vm.onIntent(TaskDetailIntent.Domain.ConfirmAllProposalItems(proposalId))
+                                    },
+                                    onDismiss = { proposalId ->
+                                        vm.onIntent(TaskDetailIntent.Domain.DismissProposal(proposalId))
+                                    },
                                 )
                             }
                             TagsSection(
@@ -374,6 +399,136 @@ private fun AttachmentsSection(attachments: List<Attachment>) {
                         modifier = Modifier.padding(vertical = 2.dp),
                     )
                 }
+        }
+    }
+}
+
+// ─── AI Proposals ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun ProposalSection(
+    proposals: List<AiProposal>,
+    onConfirm: (ProposalItemId) -> Unit,
+    onReject: (ProposalItemId, String?) -> Unit,
+    onConfirmAll: (ProposalId) -> Unit,
+    onDismiss: (ProposalId) -> Unit,
+) {
+    proposals.forEach { proposal ->
+        ProposalCard(
+            proposal = proposal,
+            onConfirm = onConfirm,
+            onReject = onReject,
+            onConfirmAll = { onConfirmAll(proposal.id) },
+            onDismiss = { onDismiss(proposal.id) },
+        )
+    }
+}
+
+@Composable
+private fun ProposalCard(
+    proposal: AiProposal,
+    onConfirm: (ProposalItemId) -> Unit,
+    onReject: (ProposalItemId, String?) -> Unit,
+    onConfirmAll: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var rejectingItemId by mutableStateOf<ProposalItemId?>(null)
+    var rejectionText by mutableStateOf("")
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "AI Suggestions",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Row {
+                    TextButton(onClick = onConfirmAll) {
+                        Text("Accept all")
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("Dismiss")
+                    }
+                }
+            }
+
+            proposal.pendingItems.forEach { item ->
+                ProposalItemRow(
+                    item = item,
+                    isRejecting = rejectingItemId == item.id,
+                    rejectionText = if (rejectingItemId == item.id) rejectionText else "",
+                    onConfirm = { onConfirm(item.id) },
+                    onStartReject = { rejectingItemId = item.id },
+                    onSendReject = {
+                        onReject(item.id, rejectionText.takeIf { it.isNotBlank() })
+                        rejectingItemId = null
+                        rejectionText = ""
+                    },
+                    onCancelReject = {
+                        rejectingItemId = null
+                        rejectionText = ""
+                    },
+                    onRejectionTextChange = { rejectionText = it },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProposalItemRow(
+    item: com.singularity.todo.feature.proposals.domain.model.ProposalItem,
+    isRejecting: Boolean,
+    rejectionText: String,
+    onConfirm: () -> Unit,
+    onStartReject: () -> Unit,
+    onSendReject: () -> Unit,
+    onCancelReject: () -> Unit,
+    onRejectionTextChange: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = item.humanSummary,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            if (isRejecting) {
+                TextButton(onClick = onSendReject) { Text("Send") }
+                TextButton(onClick = onCancelReject) { Text("Cancel") }
+            } else {
+                TextButton(onClick = onConfirm) { Text("✓") }
+                TextButton(onClick = onStartReject) { Text("✗") }
+            }
+        }
+        if (isRejecting) {
+            OutlinedTextField(
+                value = rejectionText,
+                onValueChange = onRejectionTextChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Reason (optional)") },
+                singleLine = true,
+            )
         }
     }
 }

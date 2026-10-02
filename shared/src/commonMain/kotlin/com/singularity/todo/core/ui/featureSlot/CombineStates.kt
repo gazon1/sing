@@ -116,6 +116,22 @@ fun <S1, S2, S3, S4, S5, S6, S7, S8, R> combineStates(
 ): Flow<R> = combinePacked(arrayOf(f1, f2, f3, f4, f5, f6, f7, f8)) { it.pack(transform) }
 
 /**
+ * Combines nine flows. See [combineStates].
+ */
+fun <S1, S2, S3, S4, S5, S6, S7, S8, S9, R> combineStates(
+    f1: Flow<S1>,
+    f2: Flow<S2>,
+    f3: Flow<S3>,
+    f4: Flow<S4>,
+    f5: Flow<S5>,
+    f6: Flow<S6>,
+    f7: Flow<S7>,
+    f8: Flow<S8>,
+    f9: Flow<S9>,
+    transform: (S1, S2, S3, S4, S5, S6, S7, S8, S9) -> R,
+): Flow<R> = combinePacked(arrayOf(f1, f2, f3, f4, f5, f6, f7, f8, f9)) { it.pack(transform) }
+
+/**
  * The single place in this file that erases element types.
  *
  * `Flow` is covariant, so widening `Flow<S1>` to `Flow<Any?>` needs no cast — the cast is
@@ -142,7 +158,7 @@ private inline fun <S1, S2, S3, S4, S5, S6, R> Array<Any?>.pack(transform: (S1, 
         this[5] as S6,
     )
 
-/** Unpacks six elements. See [pack]. */
+/** Unpacks seven elements. See [pack]. */
 @Suppress("UNCHECKED_CAST")
 private inline fun <S1, S2, S3, S4, S5, S6, S7, R> Array<Any?>.pack(transform: (S1, S2, S3, S4, S5, S6, S7) -> R): R =
     transform(
@@ -155,7 +171,7 @@ private inline fun <S1, S2, S3, S4, S5, S6, S7, R> Array<Any?>.pack(transform: (
         this[6] as S7,
     )
 
-/** Unpacks seven elements. See [pack]. */
+/** Unpacks eight elements. See [pack]. */
 @Suppress("UNCHECKED_CAST")
 private inline fun <S1, S2, S3, S4, S5, S6, S7, S8, R> Array<Any?>.pack(
     transform: (S1, S2, S3, S4, S5, S6, S7, S8) -> R,
@@ -168,4 +184,20 @@ private inline fun <S1, S2, S3, S4, S5, S6, S7, S8, R> Array<Any?>.pack(
     this[5] as S6,
     this[6] as S7,
     this[7] as S8,
+)
+
+/** Unpacks nine elements. See [pack]. */
+@Suppress("UNCHECKED_CAST")
+private inline fun <S1, S2, S3, S4, S5, S6, S7, S8, S9, R> Array<Any?>.pack(
+    transform: (S1, S2, S3, S4, S5, S6, S7, S8, S9) -> R,
+): R = transform(
+    this[0] as S1,
+    this[1] as S2,
+    this[2] as S3,
+    this[3] as S4,
+    this[4] as S5,
+    this[5] as S6,
+    this[6] as S7,
+    this[7] as S8,
+    this[8] as S9,
 )

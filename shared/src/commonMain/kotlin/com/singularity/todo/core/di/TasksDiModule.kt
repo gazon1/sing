@@ -145,6 +145,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 decomposeTask = get(),
                 pickTime = get(),
                 linkRepo = get(),
+                proposals = get(),
+                applyProposal = get(),
             ),
             taskId = taskId,
         )

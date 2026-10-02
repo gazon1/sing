@@ -11,6 +11,8 @@ import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
+import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
@@ -50,6 +52,10 @@ data class TaskDetailDeps(
     val pickTime: PickTimeUseCase? = null,
     /** Backlink queries — nullable so tests can omit them. */
     val linkRepo: InternalLinkRepository? = null,
+    /** Proposal repository — nullable so tests can omit it. */
+    val proposals: ProposalRepository? = null,
+    /** Apply proposal use case — nullable so tests can omit it. */
+    val applyProposal: ApplyProposalItemUseCase? = null,
     /** Debounce duration for title/description edits. Exposed for tests to use short durations. */
     val debounceMs: Long = 300L,
 )

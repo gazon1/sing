@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -165,6 +167,20 @@ sealed interface TaskDetailIntent : MviIntent {
         data class RunAiAction(val action: TaskAiAction) :
             Domain,
             TaskAiIntent
+
+        // ── Proposals ────────────────────────────────────────────────────
+
+        /** Confirm one proposal item. */
+        data class ConfirmProposalItem(val itemId: ProposalItemId) : Domain
+
+        /** Reject one proposal item, optionally with a reason. */
+        data class RejectProposalItem(val itemId: ProposalItemId, val reason: String? = null) : Domain
+
+        /** Confirm all pending items across all proposals for this task. */
+        data class ConfirmAllProposalItems(val proposalId: ProposalId) : Domain
+
+        /** Dismiss (retract) a proposal and all its pending items. */
+        data class DismissProposal(val proposalId: ProposalId) : Domain
 
         // ── Time Tracking ─────────────────────────────────────────────────
 
