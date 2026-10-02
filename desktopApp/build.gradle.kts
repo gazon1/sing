@@ -125,16 +125,27 @@ tasks.withType<Test>().configureEach {
             excludeTags("slow")
         }
     }
-    // Forward `-Dsingularity.*` from the Gradle CLI into the forked test JVM.
+    // Forward the opt-in test switches from the Gradle CLI into the forked test JVM.
     // A `-D` on the Gradle command line configures the daemon, not the test
     // process, so opt-in test switches would otherwise be silently ignored —
     // the flag parses fine and simply has no effect, which is worse than a
-    // hard failure. Read from System.getProperties rather than
-    // project.findProperty because the CLI form lands on the daemon first.
-    // The prefix keeps it to this project's switches.
-    System.getProperties().stringPropertyNames()
-        .filter { it.startsWith("singularity.") }
-        .forEach { key -> systemProperty(key, System.getProperty(key)) }
+    // hard failure.
+    //
+    // These MUST go through `providers.systemProperty(...)`, not
+    // `System.getProperty(...)`: the configuration cache snapshots plain
+    // System.getProperty reads at configuration time, so a CLI flag added later
+    // silently never reached the test JVM while the cached configuration was
+    // reused. Provider reads are tracked as configuration inputs — changing the
+    // flag invalidates the cache and the new value lands in the fork.
+    listOf(
+        "singularity.test.log",
+        "singularity.test.screenshot",
+        "singularity.ui.dumpTree",
+        "retry.maxAttempts",
+        "retry.failOnPassedAfterRetry",
+    ).forEach { key ->
+        systemProperty(key, providers.systemProperty(key).orElse("").get())
+    }
 
     // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
     // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so

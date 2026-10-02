@@ -428,7 +428,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - A new route must extend `AppNavKey`, not `NavKey`. Declaring against `NavKey`
 - Additional level of indirection for new developers: "where am I?"
 - All 3 projects screens use `LocalProjectsNavigator` — no callback parameters.
-- _... and 19 more items_
+- _... and 23 more items_
 
 ### `navigation`
 
@@ -632,17 +632,17 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ### `tech-debt`
 
+- **FK enforcement** means inserting a note with a non-existent `task_id` now throws `ForeignKeyConstraintException` instead of silently succeeding.
+- **No FK index skip**: the existing `index_notes_task_id` means queries filtering by `task_id` remain efficient.
+- **Ongoing wikilinks**: `outgoing_links` still contains `note://<id>` strings from note-to-note links. These are not enforced by the DB and remain an application-level concern.
 - 0 active violations сверх baseline
 - 0 raw production `runBlocking` outside suppressed boundaries; 2 fewer than
+- All per-connection PRAGMAs are now correctly applied to every connection Room acquires.
 - All three changes are additive-renames only
 - Both "god-VMs" are now honest coordinators; the audit's line-count smell is
 - CI regression устранена: `NoDirectClockSystem = 0`
 - Detekt now actually enforces runBlocking/vmScope bans in `:shared` (report-only
-- Detekt reports 21 pre-existing `VmCloseable` findings + ~340 mostly-formatting
-- Future feature work adds a section by declaring a contributor + one `bind`
-- If Settings grows actual cross-section coupling later, the split decision can
-- MR-2.2 note: `expect object Clock` remains for backward compatibility; production code should use `kotlinx.datetime.Clock` directly
-- _... and 5 more items_
+- _... and 13 more items_
 
 ### `technical-debt`
 
@@ -1176,9 +1176,13 @@ _22 entries need attention._
 - `2026-10-02-log-redaction-classification-policy` — _untagged_
 - `2026-10-02-mixed-platform-audit-followups` — platform, audit, android, jvm, desktop
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — _untagged_
+- `2026-10-02-note-entity-dual-task-linkage` — tech-debt, database, room, migration
+- `2026-10-02-per-connection-pragmas-and-fk-enforcement` — tech-debt, database, room, kmp
+- `2026-10-02-post-tech-debt-audit-findings` — tech-debt, detekt, quality, testing
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 - `2026-10-02-task-time-tracking-and-estimate` — timetracking, tasks, database
 - `2026-10-02-usage-recording-textgen-architecture` — _untagged_
+- `2026-10-03-merge-regression-fixes` — nav3, coroutines, testing, merge
 
 ## Active entries
 
@@ -1566,7 +1570,11 @@ _22 entries need attention._
 - `2026-10-02-log-redaction-classification-policy` — Log Message User-Content Classification Policy
 - `2026-10-02-mixed-platform-audit-followups` — Mixed platform audit — MR-0 follow-ups: what was fixed and what was deferred
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — MR-6 / MR-7 Post-mortem — broken preconditions and agent cleanup
+- `2026-10-02-note-entity-dual-task-linkage` — NoteEntity dual task linkage — FK enforcement and wikilink removal
+- `2026-10-02-per-connection-pragmas-and-fk-enforcement` — Per-connection PRAGMA enforcement and FK constraints
+- `2026-10-02-post-tech-debt-audit-findings` — Post-tech-debt-cleanup audit — remaining findings
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 - `2026-10-02-task-time-tracking-and-estimate` — Task time tracking: estimate, time_entries, timer, Pomodoro
 - `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
+- `2026-10-03-merge-regression-fixes` — Merge regressions: Nav3 rendering contract, property-init-order NPE, test-harness DAOs
 
