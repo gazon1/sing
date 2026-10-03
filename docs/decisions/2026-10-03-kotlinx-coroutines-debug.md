@@ -74,15 +74,31 @@ build/diagnostics/<TestClass>/attempt-N/
 
 ### Known issues & follow-ups (post-phase ritual)
 
+**CC fix — final:**
+The `-javaagent` argument must be passed via `jvmArgs("-javaagent:$path")` with the path
+resolved **eagerly as a plain `String`** at configuration time. `CommandLineArgumentProvider`
+(anonymous class) captures an implicit `this` reference to the Gradle DSL script, which breaks
+CC regardless of where the `Configuration` lookup is placed. The correct pattern:
+
+```kotlin
+val coroutinesDebugAgentPath: String = configurations
+    .named("coroutinesDebugAgent").get()
+    .resolve()
+    .single { it.name.contains("debug") && it.name.endsWith(".jar") }
+    .absolutePath
+jvmArgs("-javaagent:$coroutinesDebugAgentPath")
+```
+
 **MR-2 findings:**
 - `FailureContextExtension` file was present in `shared/src/jvmTest/` (inherited from `main` at commit `5c0c2e9d`) but was **not auto-registered** — its `META-INF/services/org.junit.jupiter.api.extension.Extension` file was added in commit `7985c234` on branch `refactor/test-coverage-ratchet` which was never merged to `main`. Recreated the service registration file to enable auto-registration.
-- Configuration-cache incompatibility: top-level `val` properties capturing Gradle `Configuration` objects (e.g., `val coroutinesDebugAgentJar = providers.provider { configurations.named("coroutinesDebugAgent").get()... }`) cause `cannot serialize Gradle script object references` errors. Fix: inline resolution directly inside `CommandLineArgumentProvider.asArguments()`. Note: desktopApp CC was already broken before MR-2 changes (pre-existing, confirmed by stashing all changes and running — same error). This is a pre-existing issue in the worktree, not introduced by MR-2.
 - In `jvmTest.dependencies {}` (KMP DSL), use `implementation(...)`, not `testImplementation(...)` — the latter is for Gradle non-KMP modules.
 - `ExtensionContext.root["buildDir"]` returns `null` — `ExtensionContext` API does not expose the build directory. Workaround: pass the build directory as `systemProperty("shared.build.dir", layout.buildDirectory.get().asFile.absolutePath)` in Gradle and read it via `System.getProperty()` in the extension.
+- `CoroutineDiagnostics` is duplicated in desktopApp and shared (intentional — no shared test-fixtures module warranted); shared copy lacks tests.
 
 **Follow-ups:**
-- Pre-existing CC issue in worktree: `desktopApp:test` fails configuration cache even without agent code — investigate separately (out of scope for this ADR).
-- `FailureContextExtension` META-INF service file had been orphaned since `7985c234` — consider adding a Konsist test to verify `META-INF/services/org.junit.jupiter.api.extension.Extension` exists for every `*Extension` class in jvmTest.
+- `FailureContextExtension` META-INF service file was orphaned since `7985c234` — add a Konsist test to verify `META-INF/services/org.junit.jupiter.api.extension.Extension` exists for every `*Extension` class in jvmTest.
+- Global test timeout extension (`CoroutinesTimeout` / `@Timeout`) so a hard-hanging test still produces a bundle. Open a separate issue; do not conflate with this change's issue #25.
+- Proposal line 49 misreferenced issue #25 as the follow-up for hard-hang timeouts — issue #25 is this change's own issue; a separate issue is needed for the timeout follow-up.
 
 ## Links
 

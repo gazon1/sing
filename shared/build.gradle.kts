@@ -29,15 +29,6 @@ val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
     isCanBeResolved = true
 }
 
-/** Resolves to the kotlinx-coroutines-debug agent jar at execution time. */
-val coroutinesDebugAgentJar: Provider<RegularFile> = providers.provider {
-    val cfg: Configuration = configurations.named("coroutinesDebugAgent").get()
-    val jarFile = cfg.resolve()
-        .singleOrNull { it.name.contains("debug") && it.name.endsWith(".jar") }
-        ?: error("Expected exactly one kotlinx-coroutines-debug jar in coroutinesDebugAgent, found: ${cfg.resolve().map { it.name }}")
-    layout.projectDirectory.file(jarFile.absolutePath)
-}
-
 kotlin {
     jvm()
 
@@ -329,10 +320,14 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         layout.buildDirectory.get().asFile.absolutePath,
     )
     // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility.
-    jvmArgumentProviders.add(object : org.gradle.process.CommandLineArgumentProvider {
-        override fun asArguments(): List<String> =
-            listOf("-javaagent:${coroutinesDebugAgentJar.get().asFile.absolutePath}")
-    })
+    // Resolved eagerly as a plain String (not via CommandLineArgumentProvider) to avoid
+    // capturing the Gradle script object, which breaks the configuration cache.
+    val coroutinesDebugAgentPath: String = configurations
+        .named("coroutinesDebugAgent").get()
+        .resolve()
+        .single { it.name.contains("debug") && it.name.endsWith(".jar") }
+        .absolutePath
+    jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 }
 
 dependencies {

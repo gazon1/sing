@@ -46,7 +46,7 @@ object CoroutineDiagnostics {
 
 ## Known limitations (documented in ADR, not fixed here)
 
-- Hard-hang test (no exception thrown) produces no bundle at all — the catch block never fires. Follow-up: CoroutinesTimeout / @Timeout global rule (separate issue #25).
+- Hard-hang test (no exception thrown) produces no bundle at all — the catch block never fires. Follow-up: CoroutinesTimeout / @Timeout global rule (open a separate issue).
 - Coroutine dump is a snapshot — it does not show execution history.
 - Dump does not explain TestScheduler semantics (advanceUntilIdle vs runCurrent).
 - Dump does not prove a coroutine is leaked.
