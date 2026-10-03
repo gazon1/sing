@@ -28,8 +28,10 @@ Enrich the FailureBundle so every failure is diagnosed from the bundle alone, wi
 - И2 (unified interception point) — `step()` as the single interception point; hooks for "before/after/on-error" are implicit in the try/catch/finally structure
 - И3 (timeout diagnostics) — poll counter + elapsed time + preserved original exception in `awaitTag` and analogues
 - И4 (visual element binding) — annotated screenshot (`screenshot-annotated.png`) with bounding-box overlays
-- Runtime isolation via `forkEvery = 1` + `same_thread` for both modes
-- `checkA11y` warn-wiring with opt-in fail mode
+- Runtime isolation via `same_thread` for both modes (forkEvery=1 dropped: +93s overhead for 22 tests)
+- `checkA11y` warn-wiring: violations written to stdout and `a11y.txt`; fatal only with `-Dsingularity.test.a11y=fail`
+- Raw selector guard in `HarnessConventionTest`: scans all `*FlowTest.kt` under `src/jvmTest`; raw calls must be in `test/helpers/` or declared in `EXEMPT_RAW_TAGS` with reason; two-way validation (stale exemptions caught)
+- `HarnessConventionTest` scan root expanded from `feature/flows/` to full `src/jvmTest/`
 
 **Not taken:**
 - Soft assertions (`assertAll`) — low value; defer to later
@@ -76,6 +78,14 @@ junit.jupiter.execution.parallel.mode.classes.default = same_thread
 - `onAllNodesWithTag("*")` is a literal tag match, NOT a wildcard — returns empty list. The correct way to traverse all nodes is via `onRoot().fetchSemanticsNode()` + recursive `visit()` using `SemanticsNode.children`, as done in `A11yCheck.scan()`.
 - `fetchSemanticsNode()` on `Root` requires `useUnmergedTree` parameter; `fetchSemanticsNodes()` on collection returned by `onAllNodesWithTag` takes no parameters.
 - Annotated screenshot is written even when no tagged nodes are found (0 is a valid count); the screenshot and nodes.txt are independent artifacts.
+
+**MR-3 findings:**
+
+- `checkA11y` was declared in `runDesktopAppTest` but never wired — added warn-wiring: violations go to stdout + `a11y.txt` always; fatal only with `-Dsingularity.test.a11y=fail`.
+- `SavedAgendaCreateFlowTest` was the only flow without `checkA11y = true` — fixed.
+- `HarnessConventionTest` scan root expanded from `feature/flows/` to `src/jvmTest/kotlin/com/singularity/todo` — now covers all 16 flow tests including the one in `feature/agenda/`.
+- 13 flow tests contain raw selector calls outside helpers — all added to `EXEMPT_RAW_TAGS` with reasons; `HarnessConventionTest` now enforces this.
+- Two-way guard: violations require exemption with reason; exemptions without actual raw calls are caught as stale.
 
 ## Links
 

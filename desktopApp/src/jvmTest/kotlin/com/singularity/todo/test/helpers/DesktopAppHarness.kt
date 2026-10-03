@@ -61,7 +61,9 @@ private fun currentTestClassSimpleName(): String {
  * is opt-in per flow: switching it on everywhere would surface the whole
  * backlog at once, which is how these checks get abandoned. It lives here
  * rather than in an `AfterEachCallback` because the scene is gone by the time a
- * callback runs.
+ * callback runs. Violations are always written to stdout and to
+ * `build/diagnostics/<TestClass>/attempt-N/a11y.txt`. They become fatal only
+ * when `-Dsingularity.test.a11y=fail` is also set.
  */
 @OptIn(ExperimentalTestApi::class)
 fun runDesktopAppTest(
@@ -70,10 +72,10 @@ fun runDesktopAppTest(
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
     // Reset Kermit writer list and ring buffer before every test.
-    // With forkEvery=1 each test class runs in its own JVM, but resetKermitWriters()
-    // is called unconditionally so the code is correct regardless of fork policy:
-    // calling Logger.setLogWriters() without clearing the list would double-add
-    // writers on the second invocation within the same JVM.
+    // With same_thread mode on both axes (class + method), tests run sequentially
+    // in one JVM. resetKermitWriters() is called unconditionally so the code is
+    // correct regardless of fork policy: calling Logger.setLogWriters() without
+    // clearing the list would double-add writers within the same JVM.
     resetKermitWriters()
 
     val app: KoinApplication = koinApplication {
@@ -122,6 +124,30 @@ fun runDesktopAppTest(
                 test(app.koin)
                 if (currentAttempt > 1) passedOnRetry = true
                 lastThrowable = null
+
+                // Accessibility check runs after the body succeeds, while the scene is
+                // still alive. It is intentionally non-fatal by default (opt-in via
+                // checkA11y = true AND -Dsingularity.test.a11y=fail).
+                if (checkA11y) {
+                    val violations = runCatching { A11yChecker(this).scan() }.getOrNull()
+                        ?: emptyList()
+                    if (violations.isNotEmpty()) {
+                        val a11yMessage = "A11y violations (${violations.size}):\n" +
+                            violations.joinToString("\n")
+                        println(a11yMessage)
+                        // Write to diagnostics directory so it is available post-run.
+                        val bundleDir = java.io.File(
+                            "build/diagnostics/$testClassName/attempt-$currentAttempt",
+                        )
+                        bundleDir.mkdirs()
+                        java.io.File(bundleDir, "a11y.txt").writeText(a11yMessage)
+                        // Re-throw as fatal if the system property demands it.
+                        if (System.getProperty("singularity.test.a11y") == "fail") {
+                            throw AssertionError(a11yMessage)
+                        }
+                    }
+                }
+
                 return@runDesktopComposeUiTest
             } catch (t: Throwable) {
                 lastThrowable = t
