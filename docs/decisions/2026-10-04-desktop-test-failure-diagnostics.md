@@ -87,6 +87,52 @@ junit.jupiter.execution.parallel.mode.classes.default = same_thread
 - 13 flow tests contain raw selector calls outside helpers — all added to `EXEMPT_RAW_TAGS` with reasons; `HarnessConventionTest` now enforces this.
 - Two-way guard: violations require exemption with reason; exemptions without actual raw calls are caught as stale.
 
+## Remaining Debt
+
+The following items were identified during implementation but deferred because they require more than minor fixes:
+
+### Raw selector migration (15 EXEMPT_RAW_TAGS entries)
+
+13 flow tests and 2 non-flow tests (`DesktopAppBootTest`, `CelebrationTest`) contain raw `onNodeWithTag`/`onNodeWithText`/`onNodeWithContentDescription` calls outside `test/helpers/`. All are currently exempted with "predates helper migration" reasons. The exemptions are a snapshot of technical debt, not a design decision.
+
+**What to do:** Create helpers for the missing selectors (`awaitTagByText`, `awaitTagByContentDescription`, `awaitTagByRole`) and migrate call sites one file at a time. Each migration removes one exemption and tightens the guard. This is a pure refactor with no behavioral change.
+
+**Why deferred:** Each file has 1–17 raw calls; doing them all in one MR would be a high-risk change. The two-way guard ensures exemptions don't go stale while migration proceeds incrementally.
+
+### Koin KOIN-W003: dynamically-computed module set
+
+`coreLoggingModule()` is loaded with a conditional/spread that the Koin compiler cannot verify at compile time:
+
+```
+w: [Koin][KOIN-W003] Graph not verifiable at compile time: the entry point loading
+coreLoggingModule is loaded with a dynamically-computed module set (a conditional,
+spread, or variable), so the assembled graph is unknowable here.
+```
+
+**Impact:** Compile-time dependency checks are skipped for `TaskDetailCoordinatorGraphTest.kt:47`. The graph is validated at runtime via `checkModules()`.
+
+**What to do:** Refactor `coreLoggingModule` and the module aggregation in `Modules.kt` to use direct `listOf()` construction instead of conditional/spread. This is a DI architecture change — affects `core/di/Modules.kt` and possibly `CoreDiModule.kt`.
+
+**Why deferred:** Requires understanding the full module dependency graph; could break runtime behavior if the spread is intentional.
+
+### Inter-class Kermit log mixing (same_thread, no forkEvery)
+
+With `same_thread` on both axes, all test classes run sequentially in one JVM. The Kermit ring-buffer writer is shared across classes, so `kermit.log` in a failure bundle may contain log lines from a different test class that ran before or after.
+
+**Current mitigation:** `resetKermitWriters()` is called before each test to clear and re-initialize the writer list.
+
+**What to do:** Either (a) accept the limitation — the mix is harmless for debugging since the ring buffer is small and recent entries dominate, or (b) investigate whether `forkEvery=1` with a reduced suite (e.g. only flow tests) is acceptable if the isolation gate is recalibrated.
+
+**Why deferred:** Requires performance measurement with a realistic subset of tests to determine if isolation cost is justified.
+
+### `CelebrationTest` uses raw `onNodeWithText` for decorative UI
+
+`CelebrationTest` and `DesktopAppBootTest` are not flow tests but contain raw selectors. They are exempt from `EXEMPT_RAW_TAGS` but not covered by `HarnessConventionTest` (which only scans `*FlowTest.kt`). A separate convention test or inclusion criteria should cover them.
+
+**What to do:** Either extend `HarnessConventionTest` to also scan non-flow tests, or create a `NonFlowConventionTest` for `DesktopAppBootTest` and `CelebrationTest`.
+
+**Why deferred:** These tests are structurally different (don't use `runDesktopAppTest` harness) — requires separate guard design.
+
 ## Links
 
 - `2026-09-30-ultron-ideas-evaluation.md` — Ultron ideas evaluation
