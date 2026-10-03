@@ -2,7 +2,6 @@ schema: spec-driven
 
 # ─── Project context ────────────────────────────────────────────────────────────
 # Constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable facts out of this section.
 # Mandatory read order before writing any OpenSpec artifact:
 #   1. Read the real code (not grep — grep misses wiring and initialization order)
 #   2. Run `openspec list --specs` to see what already exists
@@ -10,84 +9,41 @@ schema: spec-driven
 #   4. Read docs/decisions/DIGEST.md for architecture rationale
 #   5. Read relevant ADRs in docs/decisions/
 #   6. Read relevant skills in .agents/skills/
-#
-context: |
-  ## Technology stack
-  Kotlin Multiplatform: Android + JVM Desktop only (no iOS).
-  Compose Multiplatform for UI, Koin 4.x for DI, MVI pattern for ViewModels,
-  Room for persistence, Nav3 for navigation, Kotlin Flow for async.
-  KMP port convention: interface in commonMain → two platform implementations
-  (androidMain/jvmMain) → single<Port> { Impl(get()) } in both PlatformModule.*.kt.
-  The only expect/actual seam in the project is platformModule() itself — do not
-  create additional expect/actual pairs for ports.
 
-  ## DI conventions (Koin 4.x)
-  - single { Repo(get()) }           → singleton repository
-  - single<Port> { Impl(get()) }     → port with platform implementation
-  - viewModelOf(::Vm)                → all ViewModels without runtime parameters (prefer)
-  - viewModel { (p: P) -> Vm(...) } → ViewModel with runtime parameters
-  - factory { }                       → NEVER for ViewModels (memory leak)
-  - koinViewModel() / koinViewModel { parametersOf(p) } → injection in Composables
-  - koinInject()                     → repositories and services only (not ViewModels)
-  All bindings live in per-domain *DiModule.kt files aggregated by
-  core/di/Modules.kt. Never use *.toTypedArray() in modules() — causes KOIN-W003.
+context: "Kotlin Multiplatform: Android + JVM Desktop only (no iOS). Compose Multiplatform for UI, Koin 4.x for DI, MVI pattern for ViewModels, Room for persistence, Nav3 for navigation, Kotlin Flow for async. KMP port convention: interface in commonMain, two platform implementations in androidMain/jvmMain, single<Port> { Impl(get()) } in both PlatformModule.*.kt. The only expect/actual seam is platformModule() itself. DI: single { Repo(get()) } singleton; single<Port> { Impl(get()) } port; viewModelOf(::Vm) VM no params; viewModel { (p) -> Vm(get(), p) } VM with params; factory { } NEVER for ViewModels; koinViewModel() in Composables; koinInject() repositories/services only. All bindings in per-domain *DiModule.kt aggregated by core/di/Modules.kt. Never *.toTypedArray() in modules(). Testing: use fakes from test/fakes/FakeRepositories.kt; virtual time via advanceUntilIdle(); canonical VM: MutableStateFlow + scope.launch { }.collect {} (never stateIn)."
 
-  ## Testing
-  Use fakes from test/fakes/FakeRepositories.kt instead of mocks.
-  Virtual time via advanceUntilIdle() instead of delay().
-  Canonical VM pattern: MutableStateFlow + scope.launch { }.collect {} (never stateIn).
-
-  ## When behavior changes
-  Always create an OpenSpec change BEFORE modifying observable behavior.
-  Always read existing specs (openspec list --specs) before writing a proposal.
-  Never duplicate ADR rationale in specs — reference the ADR instead.
-  Never describe Kotlin/Koin/Compose/ViewModel/DAO names in specs — describe
-  observable behavior only.
-
-# ─── Artifact rules ────────────────────────────────────────────────────────────
 rules:
   proposal:
-    - One coherent change per proposal; no multiple unrelated changes in one proposal
-    - No duplication of ADR rationale — reference the ADR by slug
-    - Always state what is explicitly out of scope
-    - Check openspec list --specs before writing — if a spec for this behavior
-      already exists, write a change to modify it instead of a new proposal
-
+    - "One coherent change per proposal; no multiple unrelated changes in one proposal"
+    - "No duplication of ADR rationale — reference the ADR by slug"
+    - "Always state what is explicitly out of scope"
+    - "Check openspec list --specs before writing — if a spec already exists, write a change to modify it instead of a new proposal"
   specs:
-    - Describe only observable behavior; use SHALL/MUST for requirements
-    - Every requirement has at least one scenario (given/when/then)
-    - Zero references to Kotlin type names, function names, class names, DAO names,
-      or Compose component names
-    - If a spec requires describing implementation to be clear, the spec is too
-      detailed — refactor the spec instead
-
+    - "Describe only observable behavior; use SHALL/MUST for requirements"
+    - "Every requirement has at least one scenario (given/when/then)"
+    - "Zero references to Kotlin type names, function names, class names, DAO names, or Compose component names"
+    - "If a spec requires describing implementation to be clear, the spec is too detailed — refactor the spec instead"
   design:
-    - Required only for: cross-cutting concerns, new architectural patterns,
-      new data models, security-sensitive changes, or rollback-risk changes
-    - Must reference an existing ADR; never duplicate ADR rationale in design.md
-    - Must flag rollback risk explicitly
-    - Omit design.md for purely additive, low-risk changes
-
+    - "Required only for: cross-cutting concerns, new architectural patterns, new data models, security-sensitive changes, or rollback-risk changes"
+    - "Must reference an existing ADR; never duplicate ADR rationale in design.md"
+    - "Must flag rollback risk explicitly"
+    - "Omit design.md for purely additive, low-risk changes"
   tasks:
-    - Each task that changes behavior must name a test that verifies it
-    - Task names use module prefixes: shared/, androidApp/, desktopApp/, mcp-server/
-    - No speculative refactoring tasks — only tasks required by the change
+    - "Each task that changes behavior must name a test that verifies it"
+    - "Task names use module prefixes: shared/, androidApp/, desktopApp/, mcp-server/"
+    - "No speculative refactoring tasks — only tasks required by the change"
 
-# ─── Operation guidance ───────────────────────────────────────────────────────
 operations:
   apply:
     guidance:
-      - Read the relevant ADR and skills before editing any code
-      - After each group of tasks, run the narrowest test that covers the change
-      - Do not mark a task done until the test passes
-      - If a test fails in an unexpected way, investigate before continuing
-      - Keep the change focused: if you discover work not in the original proposal,
-        create a follow-up change rather than expanding scope
-
+      - "Read the relevant ADR and skills before editing any code"
+      - "After each group of tasks, run the narrowest test that covers the change"
+      - "Do not mark a task done until the test passes"
+      - "If a test fails in an unexpected way, investigate before continuing"
+      - "Keep the change focused: if you discover work not in the original proposal, create a follow-up change rather than expanding scope"
   archive:
     guidance:
-      - Verify the implementation against the final spec before archiving
-      - Do not move architecture rationale out of the ADR and into the spec;
-        the spec describes what was built, the ADR explains why
-      - Update PROGRESS.md: mark the change epic phase as completed
-      - If the spec and implementation diverge, fix the spec — not the tests
+      - "Verify the implementation against the final spec before archiving"
+      - "Do not move architecture rationale out of the ADR and into the spec"
+      - "Update PROGRESS.md: mark the change epic phase as completed"
+      - "If the spec and implementation diverge, fix the spec — not the tests"
