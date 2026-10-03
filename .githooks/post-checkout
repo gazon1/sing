@@ -1,54 +1,19 @@
 #!/usr/bin/env bash
-# Post-checkout hook: cleans stale Gradle outputs after branch/checkout changes.
-#
-# Triggered after `git checkout`, `git switch`, and `git worktree add`.
-# Arguments: $1=previous_HEAD $2=new_HEAD $3=1 (branch) or $3=0 (file)
-#
-# In worktrees this is especially important — switching branches in a worktree
-# can leave stale .class / build/ artifacts that cause incremental compilation
-# to produce incorrect output (e.g., class file for a deleted class lingers).
-#
-# Only runs when checking out a branch (not individual files).
-# Fast: cleans only stale build dirs, not the entire build/.
-# Use `git clean -df` manually for a full reset.
-
+# post-checkout hook: regenerate DIGEST.md when switching branches or checking out files
+# Triggers when moving between branches (checkout) OR after a clone.
 set -euo pipefail
 
-if [ "$3" != "1" ]; then
-    # File-level checkout — skip (e.g., `git checkout -- file.txt`)
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# Only regenerate when checking out a branch (not individual files).
+# $1 = previous HEAD, $2 = new HEAD, $3 = 1 if checking out branch, 0 if checking out file
+if [[ "${3:-0}" != "1" ]]; then
     exit 0
 fi
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
-
-PREV="$1"
-NEW="$2"
-
-echo "=== Post-checkout: cleaning stale build outputs ==="
-
-# Clean build/ directories that might contain stale incremental-compilation artifacts
-# for the shared module (KMP compiles to jvmTest/ and androidHostTest/ variants).
-# This is safe — Gradle will rebuild what's needed on next `./gradlew`.
-find "$REPO_ROOT/shared/build" \
-    -maxdepth 1 \
-    -type d \
-    \( -name "classes" -o -name "tmp" -o -name "generated" -o -name "reports" \) \
-    -prune \
-    -exec rm -rf {} + 2>/dev/null || true
-
-find "$REPO_ROOT/desktopApp/build" \
-    -maxdepth 1 \
-    -type d \
-    \( -name "classes" -o -name "tmp" -o -name "generated" -o -name "reports" \) \
-    -prune \
-    -exec rm -rf {} + 2>/dev/null || true
-
-find "$REPO_ROOT/mcp-server/build" \
-    -maxdepth 1 \
-    -type d \
-    \( -name "classes" -o -name "tmp" -o -name "generated" -o -name "reports" \) \
-    -prune \
-    -exec rm -rf {} + 2>/dev/null || true
-
-echo "=== Post-checkout done ==="
+# Run only when DIGEST.md exists locally (repo was cloned before it was gitignored)
+if [[ -f "docs/decisions/DIGEST.md" ]]; then
+    echo "=== Post-checkout: regenerating DIGEST.md ==="
+    ./scripts/refresh-decisions-digest.sh --quiet
+fi

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# post-merge hook: regenerate DIGEST.md after a merge or pull
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# Run only when DIGEST.md exists locally (repo was cloned before it was gitignored)
+if [[ -f "docs/decisions/DIGEST.md" ]]; then
+    echo "=== Post-merge: regenerating DIGEST.md ==="
+    ./scripts/refresh-decisions-digest.sh --quiet
+fi

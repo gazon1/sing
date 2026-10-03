@@ -87,3 +87,6 @@ target/
 *.png
 scripts/__pycache__/
 .zcode
+
+# Auto-generated decision digest (regenerated via post-checkout / post-merge hooks)
+docs/decisions/DIGEST.md
