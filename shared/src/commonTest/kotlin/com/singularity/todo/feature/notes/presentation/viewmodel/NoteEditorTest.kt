@@ -13,6 +13,8 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
@@ -86,12 +88,10 @@ class NoteEditorTest {
         val applyProposal = ApplyProposalItemUseCase(
             proposals = proposals,
             tasks = tasks,
-            tags = tags,
-            checklist = checklist,
-            timeTracking = timeTracking,
             notes = notes,
-            deleteProject = deleteProject,
-            clock = clock,
+            tags = tags,
+            planner = ProposalPlanner(clock),
+            dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, deleteProject, clock),
         )
         return NoteEditor(
             repo = notes,
