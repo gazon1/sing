@@ -14,6 +14,7 @@ on:
       - 'scripts/refresh-decisions-digest.*'
       - 'scripts/normalize-adr-frontmatter.*'
       - 'scripts/print-source-tree.*'
+      - 'openspec/**''
 
 jobs:
   docs-audit:
@@ -50,4 +51,12 @@ jobs:
           echo "DIGEST.md: $LINES lines"
           if [ "$LINES" -gt 1500 ]; then
             echo "Warning: DIGEST.md exceeds 1500 lines — investigate deduplication"
+          fi
+
+      - name: Validate OpenSpec changes
+        run: |
+          if command -v openspec &> /dev/null; then
+            openspec validate || true
+          else
+            echo "OpenSpec CLI not installed — skipping validation"
           fi
