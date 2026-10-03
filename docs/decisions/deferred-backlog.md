@@ -341,3 +341,76 @@ a `jvmTest` file no longer fires — that is the cheap reading, and it matches w
 sentence and treat the 47 existing suppressions as the real backlog. Do not
 change this while the "47 suppressions" item from
 `2026-09-30-test-infra-known-gaps` is still open — the two decisions interact.
+
+---
+
+## usage-recording-text-gen-requires-cross-cutting-architecture
+
+**Status: RESOLVED** (tech-debt session, 2026-10-02).
+
+ADR `2026-10-02-usage-recording-textgen-architecture.md` defines the pattern:
+decorator lives in `feature/ai/chat/`, receives `RoomUsageRecorder` and
+`ProfileAwareCurrentUser` via Koin DI (feature→core dependency allowed).
+`AiToolsModule.jvm.kt` binds `Clock.System` locally; the decorator replaces
+the raw `KoogAgentService` binding. `UsageRecordingTextGen` now records
+every `TextGenPort.generate()` and `streamChat()` call to `RoomUsageRecorder`.
+
+## log-messages-user-content-sweep-deferred
+
+**Found in:** MR-D (tech-debt batch). The redaction decorator scrubs credential
+shapes; it does not catch task titles, note bodies, or AI prompt fragments.
+**Status: RESOLVED** (tech-debt session, 2026-10-02).
+
+All `e.message` exposures fixed: `ProfileSwitcherViewModel` (lines 99, 106),
+`SavedAgendaViewModel` (line 325), `SyncBootstrapper` (line 143) — `${e.message}`
+removed from error logs. `AuthRepository` (lines 57, 69) now uses shared
+`Redaction.redactEmail()` helper. `Redaction.kt` created in `core/log/` with
+`redactEmail()`. Remaining 33 interpolation sites use only ids and technical
+metadata.
+
+---
+
+## no-empty-onclick-lambda-rule-findings-sweep-pending
+
+**Status: RESOLVED** (tech-debt session, 2026-10-02).
+
+The rule now excludes `/preview/` directory via `filePath.contains("/preview/")`
+check. 37 findings absorbed into baseline after regen. Rule enabled:
+`active: true` in `detekt.yml`. The sweep confirmed all non-preview findings
+are intentional empty-lambda patterns that need wiring.
+---
+
+## no-direct-dispatchers-rule-one-whitelisted-case
+
+**Found in:** MR-B (tech-debt batch). `NoDirectDispatchersRule` bans
+`Dispatchers.IO/Default/Main` in production. One legitimate case was
+identified: `core/log/FileLogWriter.kt:50` uses
+`Dispatchers.IO.limitedParallelism(1)` to guarantee sequential writes.
+
+**Status:** the whitelisting is already done in the rule code
+(`isAllowedFile` for `FileLogWriter.kt`). The rule is `active: false`
+pending the sweep of any other callers. If no other callers exist, the
+rule can stay `active: false` indefinitely — the whitelist is the fix,
+not a signal to search for more cases.
+
+**Try next:** confirm no other `Dispatchers` calls in `commonMain` production
+code outside `FileLogWriter` and the existing test/fakes whitelists. If
+clean, the rule is a documentation asset rather than an active gate.
+
+---
+
+## nav-display-debug-border-not-found
+
+**Found in:** MR-C (tech-debt batch). The plan proposed adding a red-border
+debug overlay to `NavDisplay` when `entries.isEmpty()` as a diagnostic for
+`desktop-nav-goBack-blank-screen`. Investigation showed no such modifier
+exists in the codebase and no obvious place to add it that would survive
+the blank-screen bug (the compose tree is empty at that point, so any
+modifier on `NavDisplay` would not render either).
+
+**Try next:** this item is closed as "not implementable as described". The
+diagnostic approach should instead target the shell layer —
+`DesktopShellNav3Root` or `DesktopShellNav3` — where a `LaunchedEffect` or
+`remember` on `currentRoute` can be observed before the tree goes blank.
+A visible diagnostic there (before the blank) would confirm whether the
+route change itself is the trigger.

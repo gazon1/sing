@@ -96,14 +96,14 @@ class ProfileSwitcherViewModel(
 
     private fun delete(id: ProfileId) {
         catchTo("Failed to delete profile", { msg -> _errorMessage.value = msg }) {
-            profileRepository.delete(id).onFailure { log.w { "Failed to delete profile ${id.value}: ${it.message}" } }
+            profileRepository.delete(id).onFailure { log.w { "Failed to delete profile ${id.value}" } }
         }
     }
 
     private fun switchTo(id: ProfileId) {
         catchTo("Failed to switch profile", { msg -> _errorMessage.value = msg }) {
             profileRepository.switchTo(id)
-                .onFailure { log.w { "Failed to switch to profile ${id.value}: ${it.message}" } }
+                .onFailure { log.w { "Failed to switch to profile ${id.value}" } }
         }
     }
 }

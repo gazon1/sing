@@ -166,150 +166,24 @@ All fakes are in `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/F
 | `FakeAuthRepository` | Auth-related VMs |
 | `FakeTextGen` | AI feature VMs — use `FakeTextGen(failureMessage = "...")` for failure scenarios |
 
-**Creating a scoped user ID:**
-```kotlin
-private val fakeCurrentUser = FakeProfileAwareCurrentUser()
-private val userId = fakeCurrentUser.currentUserId
-```
+**Creating a scoped user ID:** `FakeProfileAwareCurrentUser()` → access via `.currentUserId`.
+**Seeding data:** `fakeRepo.upsertSync(task.copy(id = TaskId.generate()))`.
 
-**Seeding data synchronously:**
-```kotlin
-fakeRepo.upsertSync(task.copy(id = TaskId.generate(), title = "Test Task"))
-```
-
-### FakeTaskRepository — `recurrence` and `dependsOn`
-
-`FakeTaskRepository` stores `Task` objects directly (bypassing `TaskEntity` → `toTask()` mapping). When you seed a `Task` with `tags` or `dependsOn`, those fields are returned as-is by `observeAll()`:
-
-```kotlin
-@Test
-fun `observeAll returns tasks with tags and dependsOn`() = runTest {
-    val tag1 = TagId.fromString("tag-1")
-    val dep1 = TaskId.fromString("dep-1")
-
-    repo.seed(
-        Task(..., tags = listOf(tag1), dependsOn = setOf(dep1)),
-        Task(..., tags = emptyList()),
-    )
-
-    val tasks = repo.observeAll().first()
-    val t1 = tasks.first { it.id.value == "t1" }
-    assertEquals(listOf(tag1), t1.tags)
-    assertEquals(setOf(dep1), t1.dependsOn)
-}
-```
-
-**Note**: `FakeTaskRepository` does NOT simulate loading `tags`/`dependsOn` from a Room query (the production `userTasksWithExtras` path). `TaskExtrasLoadingTest` validates the production integration. The fake tests the repository contract — what you seed is what you get back.
-
-**For `CompleteRecurringTaskUseCase` tests**: use a **real** `RecurrenceCalculator` — it has no state and is fully deterministic. Only fake the parts that have I/O (the repository):
-
-```kotlin
-class CompleteRecurringTaskUseCaseTest {
-    private val repo = FakeTaskRepository()
-    private val clock = FixedClock(...)          // injected, not static
-    private val zone = TimeZone.of("UTC")
-    private val calculator = RecurrenceCalculator // real — pure, no fake needed
-
-    private val useCase = CompleteRecurringTaskUseCase(repo, clock, zone, calculator)
-
-    @Test
-    fun `FROM_DUE rolls forward to next due date`() = runTest {
-        repo.seed(Task(..., recurrence = Interval(FROM_DUE, 1, WEEK), dueDate = d(2026, 1, 15)))
-
-        val result = useCase(taskId)
-        assertEquals(d(2026, 1, 22), result.getOrThrow().dueDate)
-    }
-}
-```
+For `CompleteRecurringTaskUseCase`, fake only the repository — use a real `RecurrenceCalculator` (pure, deterministic).
 
 ---
 
 ## Three Test Shapes
 
-### Shape 1: Initial State (Smoke Test)
+Every VM test falls into one of three canonical shapes. See the
+[singularity-todo-test-shapes](../singularity-todo-test-shapes/SKILL-shapes.md) leaf skill
+for the full description, annotated examples, and guidance on choosing the right shape.
 
-```kotlin
-@Test
-fun initialState_isLoading() = runTest {
-    val vm = createVm(param1, testScope(this))
-    advanceUntilIdle()
-
-    assertIs<MyUiState.Loading>(vm.state.value)
-}
-
-@Test
-fun afterSeed_dataIsLoaded() = runTest {
-    fakeRepo.upsertSync(makeTask(title = "Existing"))
-
-    val vm = createVm(param1, testScope(this))
-    advanceUntilIdle()
-
-    val state = vm.state.value
-    assertIs<MyUiState.Content>(state)
-    assertEquals(1, state.items.size)
-}
-```
-
-**Use for:** Every new VM — minimal smoke test that the constructor doesn't crash and the initial state is as expected.
-
-### Shape 2: Intent → State Transition
-
-```kotlin
-@Test
-fun setName_isDirty() = runTest {
-    fakeRepo.upsertSync(makeTask())
-
-    val vm = createVm(param1, testScope(this))
-    advanceUntilIdle()
-
-    vm.onIntent(FooIntent.SetName("New Name"))
-
-    val state = vm.state.value
-    assertTrue((state as? FooUiState.Editing)?.draft?.isDirty == true)
-}
-
-@Test
-fun save_emitsSavedEvent() = runTest {
-    fakeRepo.upsertSync(makeTask())
-
-    val vm = createVm(param1, testScope(this))
-    advanceUntilIdle()
-
-    vm.onIntent(FooIntent.Save)
-    advanceUntilIdle()
-
-    val event = vm.events.filterIsInstance<FooEvent.Saved>().first()
-    assertNotNull(event)
-}
-```
-
-**Use for:** Feature VMs with intents. Test the intent handler and the resulting state change.
-
-### Shape 3: Regression (Draft Clobbering)
-
-```kotlin
-@Test
-fun secondUpstreamEmission_doesNotClobberUserDraft() = runTest {
-    // Seed with initial task
-    fakeRepo.upsertSync(makeTask(id = taskId, title = "Original"))
-
-    val vm = createVm(taskId, testScope(this))
-    advanceUntilIdle()
-
-    // User edits the draft
-    vm.onIntent(TaskDetailIntent.Domain.SetTitle("User's edit"))
-    assertEquals("User's edit", vm._draftTitle.value)
-
-    // Simulate second upstream emission (e.g., reminder tick, pull-to-refresh)
-    fakeTaskRepo.emitTask(taskId, makeTask(id = taskId, title = "Remote update"))
-    advanceUntilIdle()
-
-    // Draft must remain unchanged — this is the regression test
-    assertEquals("User's edit", vm._draftTitle.value)
-}
-```
-
-**Use for:** VMs with draft/editing state where upstream emissions could overwrite user edits. This is the critical regression test for `TaskDetailViewModel` and `ProjectDetailViewModel` after the side-effects-in-combine fix.
+| Shape | Purpose |
+|---|---|
+| Shape 1 — Initial State | Smoke test: VM loads, initial state is correct |
+| Shape 2 — Intent → State | Transition: user intent produces correct state change |
+| Shape 3 — Regression | Draft clobbering: upstream events do not overwrite user edits |
 
 ---
 
@@ -467,18 +341,6 @@ This is needed because `runTest` is experimental in older coroutines versions, a
 
 ---
 
-## Key Files (from v3 audit)
-
-| File | Purpose |
-|---|---|
-| `shared/src/jvmTest/.../test/helpers/AwaitState.kt` | Virtual-time waiter (pending merge from `refactor/test-standards-v2`) |
-| `shared/src/jvmTest/.../test/helpers/RunVmTest.kt` | `testVm` factory (pending merge from `refactor/test-standards-v2`) |
-| `shared/src/jvmTest/.../test/helpers/TestVmInfrastructure.kt` | `TestVmContext` + `testVmContext` |
-| `shared/src/commonTest/.../test/helpers/TestAssertions.kt` | `StateFlow.assertIs` extension |
-| `shared/src/commonMain/.../core/coroutines/testScope.kt` | `testScope` wrapper |
-
----
-
 ## See Also
 
 - `singularity-todo-testable-vm` — canonical VM constructor shape (what the tests test)
@@ -486,21 +348,3 @@ This is needed because `runTest` is experimental in older coroutines versions, a
 - `singularity-todo-vm-intent-pattern` — sealed Intent + onIntent pattern
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template with test patterns
 - `docs/decisions/2026-09-23-test-standards-enforcement.md` — full ADR documenting all v3 findings
-
-
-## VM scope wiring in tests (coroutines 1.11 semantics)
-
-`backgroundScope` coroutines do NOT execute under `advanceUntilIdle()`/`runCurrent()` —
-they execute only while the test body is suspended (`delay`) or when virtual time
-advances (`advanceTimeBy`). `advanceTimeBy` also skips tasks scheduled exactly at the
-current instant — follow it with `runCurrent()`. Pick wiring by VM type:
-
-| VM launches | Scope wiring | Pump |
-|---|---|---|
-| Completing work only | `AutoCloseableCoroutineScope(scope.coroutineContext)` — direct, no child Job | `advanceUntilIdle()` |
-| Infinite collectors | `AutoCloseableCoroutineScope(backgroundScope.coroutineContext)` — direct background child | `advanceTimeBy(N); runCurrent()` after each intent |
-| Infinite collectors + per-test teardown | child-Job `testScope(scope)` + explicit `vmScope.job?.cancel()` | `advanceTimeBy(N); runCurrent()` |
-
-Never wrap with `testScope(this)` for completing-only VMs: the wrapper's child Job
-never completes and fails the test body with `UncompletedCoroutinesError`
-(SavedAgendaViewModelTest root cause, fixed 2026-09-26).

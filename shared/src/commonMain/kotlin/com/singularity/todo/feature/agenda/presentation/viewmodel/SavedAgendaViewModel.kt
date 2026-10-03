@@ -322,7 +322,7 @@ class SavedAgendaViewModel(
             StableJson.decodeFromString<AgendaDefinition>(
                 json,
             ).sections
-        }.onFailure { e -> deps.log.w("agenda decode failed: ${e.message}") }
+        }.onFailure { deps.log.w { "agenda decode failed" } }
             .getOrNull()
     }
 }

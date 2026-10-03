@@ -141,8 +141,6 @@
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
-    <ID>Indentation:FakeRepositories.kt: </ID>
-    <ID>Indentation:FakeRepositories.kt:FakeTaskRepository$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -217,6 +215,9 @@
     <ID>MayBeConstant:OAuthTokenRefreshTest.kt:OAuthTokenRefreshTest.Companion$val NOW = 1_700_000_000_000L</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
     <ID>NoDirectClockSystem:AgendaViewModelTest.kt:AgendaViewModelTest$Clock.System</ID>
+    <ID>NoEmptyOnClickLambda:ArchiveScreen.kt:{ }</ID>
+    <ID>NoEmptyOnClickLambda:BackupScreen.kt:{}</ID>
+    <ID>NoEmptyOnClickLambda:PomodoroScreen.kt:{ }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -373,7 +374,6 @@
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
     <ID>TopLevelPropertyNaming:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
-    <ID>TrailingCommaOnCallSite:FakeRepositories.kt:FakeTaskRepository$( compareBy({ it.dueDate?.toString() ?: "\uFFFF" }, { !it.isPinned }) )</ID>
     <ID>UnusedParameter:AgendaEvaluator.kt:AgendaEvaluator$selector: Selector</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>

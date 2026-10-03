@@ -1,4 +1,5 @@
 ---
+title: Desktop test suite hangs — task detail composition crashed on missing Haptic binding
 date: 2026-10-02
 status: accepted
 tags: [incident, desktop, di, testing]
