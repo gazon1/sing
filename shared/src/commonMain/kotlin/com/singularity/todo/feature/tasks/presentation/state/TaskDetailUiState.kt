@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.state
 import androidx.compose.runtime.Immutable
 
+import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.notes.Note
@@ -48,6 +49,7 @@ data class TaskDetailUi(
  * UI state экрана просмотра задачи.
  * [Loading] и [Error] — терминальные; [Loaded] — основной.
  */
+@Immutable
 sealed interface TaskDetailUiState {
     data object Loading : TaskDetailUiState
     data class Error(val message: String) : TaskDetailUiState

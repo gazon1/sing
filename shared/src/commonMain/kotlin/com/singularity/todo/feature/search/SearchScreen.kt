@@ -175,7 +175,7 @@ private fun SearchResultsList(
     ) {
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
-            items(results.tasks.take(5)) { task ->
+            items(results.tasks.take(5), key = { it.id }) { task ->
                 TaskCard(
                     task = task,
                     onClick = { navigator.openTask(task.id) },
@@ -188,7 +188,7 @@ private fun SearchResultsList(
         }
         if (results.notes.isNotEmpty()) {
             item { SectionHeader("Notes") }
-            items(results.notes.take(5)) { note ->
+            items(results.notes.take(5), key = { it.id }) { note ->
                 SimpleResultCard(
                     title = note.title.ifBlank { "Untitled" },
                     onClick = { navigator.openNote(note.id) },
@@ -197,7 +197,7 @@ private fun SearchResultsList(
         }
         if (results.projects.isNotEmpty()) {
             item { SectionHeader("Projects") }
-            items(results.projects.take(5)) { project ->
+            items(results.projects.take(5), key = { it.id }) { project ->
                 SimpleResultCard(
                     title = project.name,
                     onClick = { navigator.openProject(project.id) },
@@ -206,7 +206,7 @@ private fun SearchResultsList(
         }
         if (results.tags.isNotEmpty()) {
             item { SectionHeader("Tags") }
-            items(results.tags.take(5)) { tag ->
+            items(results.tags.take(5), key = { it.id }) { tag ->
                 SimpleResultCard(title = tag.name, onClick = { navigator.openTag(tag.id) })
             }
         }

@@ -56,7 +56,7 @@ fun TaskFilterChips(
             vertical = TaskListSpacing.Sm,
         ),
     ) {
-        items(filters) { (filter, label) ->
+        items(filters, key = { it.first }) { (filter, label) ->
             FilterChip(
                 label = label,
                 count = counts[filter] ?: 0,

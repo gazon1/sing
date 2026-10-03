@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.calendar.presentation.state
 import androidx.compose.runtime.Immutable
 
+import androidx.compose.runtime.Immutable
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import kotlinx.datetime.LocalDate
@@ -8,6 +9,7 @@ import kotlinx.datetime.LocalDate
 /**
  * UI state for the Calendar screen.
  */
+@Immutable
 sealed interface CalendarUiState {
     /** Initial load. */
     data object Loading : CalendarUiState

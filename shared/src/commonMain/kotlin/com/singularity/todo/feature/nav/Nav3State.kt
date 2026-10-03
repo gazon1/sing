@@ -8,6 +8,10 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 /**
  * State holder for Navigation 3 multi-back-stack navigation.
@@ -29,6 +33,26 @@ class Nav3State internal constructor(
 ) {
     private var _previousTopLevelRoute: NavKey = initialPreviousTopLevelRoute
 
+    /**
+     * Emits the top-level route each time the user taps the tab they are already on.
+     *
+     * Tapping the active tab is a no-op for navigation — [topLevelRoute] is already that
+     * route, so no state change fires and the tab bar looks unresponsive. Screens use this
+     * to reset their scroll position on reselect, matching the platform behaviour users
+     * expect from a bottom bar.
+     *
+     * `extraBufferCapacity = 1` with [BufferOverflow.DROP_OLDEST] is the upstream recipe:
+     * a reselect arriving while no screen is collecting (the tab is not composed) must not
+     * suspend the tap handler or grow an unbounded queue.
+     */
+    private val _reselectEvents = MutableSharedFlow<NavKey>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** Reselect events for the active tab. See [_reselectEvents]. */
+    val reselectEvents: SharedFlow<NavKey> = _reselectEvents.asSharedFlow()
+
     /** The previously active top-level route (before the last tab switch). */
     val previousTopLevelRoute: NavKey get() = _previousTopLevelRoute
 
@@ -36,6 +60,20 @@ class Nav3State internal constructor(
     internal fun setPreviousTopLevelRoute(route: NavKey) {
         _previousTopLevelRoute = route
     }
+
+    /**
+     * Handles a tab-bar tap. Reselecting the active tab emits [reselectEvents] instead of
+     * navigating; tapping a different tab switches to it.
+     */
+    internal fun onTabTapped(route: NavKey) {
+        if (route == topLevelRoute) {
+            _reselectEvents.tryEmit(route)
+        } else {
+            setPreviousTopLevelRoute(topLevelRoute)
+            topLevelRoute = route
+        }
+    }
+
     init {
         require(startRoute in backStacks) {
             "Nav3State: startRoute=$startRoute has no back stack. " +
@@ -152,8 +190,7 @@ class Navigator(private val state: Nav3State) {
      */
     fun navigate(route: NavKey) {
         if (route in state.topLevelRoutes) {
-            state.setPreviousTopLevelRoute(state.topLevelRoute)
-            state.topLevelRoute = route
+            state.onTabTapped(route)
         } else {
             state.requireBackStackFor(state.topLevelRoute).add(route)
         }

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.domain.model
 import androidx.compose.runtime.Immutable
 
+import androidx.compose.runtime.Immutable
 import kotlinx.datetime.LocalDate
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.datetime.LocalDate
  * @param sections The evaluated and rendered sections with their tasks.
  * @param today The current date at the time of evaluation, used to label relative buckets.
  */
+@Immutable
 sealed interface AgendaUiState {
     data object Loading : AgendaUiState
     data class Loaded(val sections: List<RenderedSection>, val today: LocalDate) : AgendaUiState

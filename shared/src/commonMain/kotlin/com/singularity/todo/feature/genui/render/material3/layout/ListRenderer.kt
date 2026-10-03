@@ -20,11 +20,11 @@ internal fun ComponentRegistry.registerList(): Unit = register("list") { node, c
         UiNode.Direction.Vertical -> LazyColumn(
             verticalArrangement = Arrangement.spacedBy(ITEM_SPACING),
             modifier = modifier.genuiTag("list_v", "List").heightIn(max = MAX_LIST_HEIGHT),
-        ) { items(l.children) { ref -> RenderSingle(ref, ctx) } }
+        ) { items(l.children, key = { it.id }) { ref -> RenderSingle(ref, ctx) } }
 
         UiNode.Direction.Horizontal -> LazyRow(
             horizontalArrangement = Arrangement.spacedBy(ITEM_SPACING),
             modifier = modifier.genuiTag("list_h", "List"),
-        ) { items(l.children) { ref -> RenderSingle(ref, ctx) } }
+        ) { items(l.children, key = { it.id }) { ref -> RenderSingle(ref, ctx) } }
     }
 }
