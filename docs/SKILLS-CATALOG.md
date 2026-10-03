@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-97 skills: 84 project-specific, 13 generic/meta.
+98 skills: 85 project-specific, 13 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -65,6 +65,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-note-ai-multi-op` | 324 | Note AI multi-operation implementation guide for Singularity Todo. |
 | `singularity-todo-notes-ux-patterns` | 417 | Complete collection of Notes-specific UX patterns for the Singularity Todo KMP app. |
 | `singularity-todo-notifications` | 134 | Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. |
+| `singularity-todo-openspec-workflow` | 115 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
 | `singularity-todo-quality-tools` | 280 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
@@ -97,7 +98,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-vm-pattern-overview` | 80 | Router skill — index to all ViewModel-related skills. |
 | `singularity-todo-workflow-evals` | 102 | Run workflow evals to measure agent quality — run tasks, compare against baseline, report results. |
 | `singularity-todo-worktree-isolation` | 135 | Run a refactor in an isolated git worktree so the main checkout stays clean and parallel work is unaffected. |
-| `singularity-todo-write-pipeline` | 201 | Canonical write pipeline for user-scoped repositories. |
+| `singularity-todo-write-pipeline` | 203 | Canonical write pipeline for user-scoped repositories. |
 
 ## Generic / meta skills
 
@@ -114,7 +115,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `progress-journal` | 111 | Update PROGRESS.md during and after an epic — retro entries, PR status, blockers. |
 | `security-review` | 134 | Security review checklist for security-sensitive changes — credentials, tokens, auth, data export, encryption. |
 | `ux-a11y-review` | 124 | Accessibility and UX review checklist for UI changes — contrast, touch targets, content descriptions, keyboard navigation, screen reader support. |
-| `wayfinder` | 126 | Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear. |
+| `wayfinder` | 136 | Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear. |
 | `writing-for-agents` | 80 | Writing documents for agents. |
 
 ## Retired

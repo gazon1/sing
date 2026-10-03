@@ -38,6 +38,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Always** mark every `NavKey` subtype that may appear in a stack as `@Serializable`. Without it, there is no `.serializer()` to pass to `subclass(...)`. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - **Always** provide a `serializersModule` that calls `polymorphic(NavKey::class) { subclass(...) }` for every concrete route type in the stack. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
 - **Never** write `SavedStateConfiguration { }` for any `rememberNavBackStack` call — the empty body silently falls back to `DEFAULT.serializersModule` and breaks the polymorphism contract. _(from `2026-09-16-nav3-savedstate-serializers-required`)_
+- **Always** create an OpenSpec change before modifying observable behavior. _(from `2026-10-03-openspec-adoption`)_
+- **Always** run `openspec list --specs` before creating a proposal; do not _(from `2026-10-03-openspec-adoption`)_
+- **Always** update `PROGRESS.md` after archiving a change (progress-journal skill). _(from `2026-10-03-openspec-adoption`)_
+- **Always** use `skip_specs: true` for mechanical/tooling changes that do not _(from `2026-10-03-openspec-adoption`)_
+- **Always** verify implementation against the final spec before marking tasks _(from `2026-10-03-openspec-adoption`)_
+- **Always** write a baseline spec from actual code behavior, not from the _(from `2026-10-03-openspec-adoption`)_
+- **Never** describe implementation classes (Kotlin, Koin, Compose, ViewModel, _(from `2026-10-03-openspec-adoption`)_
+- **Never** duplicate ADR architectural rationale in a spec — `design.md` references _(from `2026-10-03-openspec-adoption`)_
+- **Never** skip `verify` even when the change feels obvious. _(from `2026-10-03-openspec-adoption`)_
 - **Always** read entity state from the write-through `_latest<Entity>` cache, never from `state.value` snapshot in mutation methods. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Always** update `_latest<Entity>` before any async operation that reads it. _(from `2026-09-09-projectdetail-write-through-fix`)_
 - **Never** emit `Saved` events for debounced inline edits — update `_lastEditedAt` only. _(from `2026-09-09-projectdetail-write-through-fix`)_
@@ -362,13 +371,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - All new `catch` blocks in ViewModels, repositories, and use cases should inject `Logger` and call `log.e(e) { "..." }` or use `runCatchingLogged`.
 - Android cannot flush on termination — `Application.onTerminate()` is never
 - Existing silent `catch (_: Exception)` (e.g., in `ToolFactories.kt` lines 58, 126, 181) remain unfixed — these require separate investigation (some appear to be copy-paste bugs, not intentional suppression).
+- Exported log bundles may contain credential-shaped substrings in exception stack traces.
 - Koin logs (`NoDefinitionFoundException`, etc.) now appear in Kermit's output via `KermitKoinLogger`.
 - Log files are local-only, so **a bug report from a user still cannot come
+- On Android, log entries written between the last write buffer flush and process termination are not in `log.0.txt`.
 - On JVM, `ColorizedWriter` uses `\u001B` ANSI escapes. Older Windows terminals (pre-10) will print escape sequences literally. `NO_COLOR` env var is respected.
 - Redaction is best-effort, not a guarantee — a credential in an unrecognised
-- Release builds write the same `Warn`-and-above stream as debug builds.
-- The `log-writer` form is a heuristic, not a proof. A writer stored in a
-- _... and 9 more items_
+- _... and 13 more items_
 
 ### `maestro`
 
@@ -490,6 +499,11 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - Do NOT introduce `koinViewModel()` inside any `@Preview` — CI/preview harness does not start Koin
 - FakeRepositories live in `commonMain/test/fakes/` (not `commonTest`) so `commonMain` previews can access them
 - `@Preview` composables are always `private` and call the `*Content` variant with manually constructed VMs
+
+### `process`
+
+- OpenSpec changes are reviewed **before** code, not after.
+- The writer/reviewer pattern (ADR process) extends to OpenSpec: the reviewer
 
 ### `profile`
 
@@ -778,7 +792,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_22 entries need attention._
+_24 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -802,6 +816,8 @@ _22 entries need attention._
 - `2026-09-30-repository-naming-and-package-convention` — **open** — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — **open** — MR-2 Repository Read-Path Isolation
 - `2026-10-01-remaining-tech-debt` — **open** — Remaining tech debt — post-v4 audit
+- `2026-10-03-android-shutdown-log-tail-lost` — **open** — Android log tail may be lost — beginShutdown never called
+- `2026-10-03-log-writer-redaction-gaps` — **open** — Log writer redaction gaps — cause chain and tag fields not redacted
 
 ## Recently superseded
 
@@ -1208,10 +1224,13 @@ _22 entries need attention._
 - `2026-10-02-task-time-tracking-and-estimate` — Task time tracking: estimate, time_entries, timer, Pomodoro
 - `2026-10-02-tech-debt-metrics-tracking` — Tech Debt Metrics — October 2026 Follow-up
 - `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
+- `2026-10-03-android-shutdown-log-tail-lost` — Android log tail may be lost — beginShutdown never called
 - `2026-10-03-entity-mapper-completeness` — Entity-mapper completeness — guard against silent data destruction
+- `2026-10-03-log-writer-redaction-gaps` — Log writer redaction gaps — cause chain and tag fields not redacted
 - `2026-10-03-merge-regression-fixes` — Merge regressions: Nav3 rendering contract, property-init-order NPE, test-harness DAOs
 - `2026-10-03-mvi-deferred-followup` — MVI deferred follow-up — routing-when, CurrentProjectContent, @Immutable, lazy keys, tab reselect
 - `2026-10-03-mvi-refactor-residuals-mr-a` — MVI Refactor Residuals — After MR-A
+- `2026-10-03-openspec-adoption` — OpenSpec adoption — capability specs as the behavior source of truth
 - `2026-10-03-post-merge-debt` — Post-merge debt: deferred fixes and accepted risks from the time-hub merge
 - `2026-10-03-repository-delete-guard-gap` — Repository delete/restore/archive — assertCanWrite vs DAO-level guard
 - `2026-10-03-synccolumns-live-field-set` — SyncColumns: which fields the client writes back
