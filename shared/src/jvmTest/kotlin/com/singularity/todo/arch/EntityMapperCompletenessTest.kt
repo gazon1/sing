@@ -20,7 +20,7 @@ import kotlin.test.fail
  * columns — they are loaded from join tables by the repository and merged separately.
  * The phantom-param check uses [SUPPLEMENTAL_PARAMS] to exclude these intentionally.
  *
- * See: `docs/decisions/2026-10-02-entity-mapper-completeness.md`
+ * See: `docs/decisions/2026-10-03-entity-mapper-completeness.md`
  */
 class EntityMapperCompletenessTest {
 

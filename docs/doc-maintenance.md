@@ -116,7 +116,34 @@ This is automated by `just docs-audit`.
 
 ---
 
-## Running maintenance checks
+## OpenSpec Change Policy
+
+Behavioural changes follow the OpenSpec artifact lifecycle (`proposal → specs → design → tasks →
+apply → verify → archive`). The `openspec-workflow` skill (`singularity-todo-openspec-workflow`)
+governs the full process. This section resolves conflicts between OpenSpec and other policies.
+
+### Resolution rules
+
+| Conflict | Resolution |
+|---|---|
+| ADR vs spec | Both are written: ADR for the architectural decision, spec for the behavioural surface. Never duplicate ADR reasoning into a spec. |
+| `skip_specs` vs `doc-maintenance.md` | `skip_specs` in `openspec/config.yaml` takes precedence for OpenSpec changes. Bug-fix PRs, dependency bumps, doc-only changes, and use cases that follow an existing pattern are exempt from OpenSpec even if they touch behaviour. |
+| OpenSpec `verify` gate vs `just docs-audit` | Both must pass. `openspec validate --all --json --strict` is the verify gate; `just docs-audit` runs the doc hygiene checks. Neither waives the other. |
+| Skill reference vs spec | Specs must not describe Kotlin/Koin/Compose/ViewModel/DAO names. Skills may describe them. The `check-doc-dead-refs.py` detector 8 (`skill-dangling-symbol`) guards skills, not specs. |
+| `design.md` requirement | Required only for cross-cutting changes, new architecture, new data models, or security-sensitive surfaces. Not required for straightforward feature specs. |
+
+### When a spec is required vs a skip
+
+Use the `skip_specs` table in `openspec/config.yaml`. A change that modifies observable behaviour
+requires a spec; a change that doesn't (bug fix, test-only, rename, dependency update, doc-only)
+does not. Architecture changes always require both an ADR and a spec.
+
+### Spec naming
+
+- `proposal.md` — one coherent change, no duplication of existing ADR content
+- `spec.md` — observable behaviour only; SHALL/MUST requirements; every requirement has ≥1 scenario
+- `design.md` — architecture and risk only; references ADR by slug, never copies it
+- `tasks.md` — one task per module; every behavioural change has a test; no speculative refactoring
 
 ```bash
 # Full audit (dry-run)

@@ -330,6 +330,102 @@ def _check_expect_unwired(
     return findings
 
 
+# ── Detector 7 — dead symbol (tested, never called from production) ──────────────
+
+
+_TOP_LEVEL_DECL = re.compile(
+    r"^(?:object|class|val)\s+(\w+)\s*(?:<[^>]*>)?\s*(?::[^{]*?)?(?:\(|$)",
+    re.M,
+)
+_SKIP_INHERITANCE = frozenset({
+    "Analytics", "NoopAnalytics",
+    "SubscriptionProvider", "NoopSubscriptionProvider",
+    "rememberNotificationPermissionRequester",
+})
+
+
+def _precompute_dead_symbol(
+    code: dict[pathlib.Path, str],
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Returns (prod_ref_counts, test_ref_counts) for every top-level declaration."""
+    prod_refs: dict[str, int] = {}
+    test_refs: dict[str, int] = {}
+    prod_sources: dict[pathlib.Path, str] = {}
+    test_sources: dict[pathlib.Path, str] = {}
+
+    for path, text in code.items():
+        if "/test/" in str(path) or "/jvmTest/" in str(path):
+            test_sources[path] = text
+        else:
+            prod_sources[path] = text
+
+    for path, text in prod_sources.items():
+        decls = _TOP_LEVEL_DECL.findall(text)
+        for name in decls:
+            if name.startswith("Noop") and name[4:] in prod_refs:
+                continue  # NoopX mirrors X
+            prod_refs[name] = prod_refs.get(name, 0)
+
+    prod_corpus = "\n".join(prod_sources.values())
+    test_corpus = "\n".join(test_sources.values())
+
+    for m in re.finditer(r"\b(\w+)\b", prod_corpus):
+        name = m.group(1)
+        prod_refs[name] = prod_refs.get(name, 0) + 1
+
+    for m in re.finditer(r"\b(\w+)\b", test_corpus):
+        name = m.group(1)
+        test_refs[name] = test_refs.get(name, 0) + 1
+
+    return prod_refs, test_refs
+
+
+def _check_dead_symbol(
+    code: dict[pathlib.Path, str],
+    corpus: str,
+    pre: tuple[dict[str, int], dict[str, int]],
+) -> list[tuple[str, str]]:
+    prod_refs, test_refs = pre
+    findings: list[tuple[str, str]] = []
+    baseline = _load_baseline()
+
+    prod_sources: dict[pathlib.Path, str] = {
+        p: t for p, t in code.items() if "/test/" not in str(p) and "/jvmTest/" not in str(p)
+    }
+
+    for path, text in prod_sources.items():
+        for m in _TOP_LEVEL_DECL.finditer(text):
+            name = m.group(1)
+            if name in _SKIP_INHERITANCE:
+                continue
+            prod_count = prod_refs.get(name, 0)
+            test_count = test_refs.get(name, 0)
+            # prod_count <= 1: the declaration itself (1) counts as a reference
+            if prod_count <= 1 and test_count > 0:
+                backlog_ref = baseline.get(name, "no backlog entry")
+                findings.append((
+                    "dead-symbol",
+                    f"{rel(path)}: {name} has {test_count} test reference(s) but "
+                    f"{prod_count} production reference(s) — {backlog_ref}",
+                ))
+    return findings
+
+
+def _load_baseline() -> dict[str, str]:
+    path = ROOT / "scripts" / "find-unwired-surfaces-baseline.txt"
+    if not path.exists():
+        return {}
+    result: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("|")
+        if len(parts) >= 3:
+            result[parts[0].strip()] = parts[2].strip()
+    return result
+
+
 # ── Detector 6 — orphan Koin binding (no get/inject/viewModel call) ──────────
 
 
@@ -394,14 +490,14 @@ def _check_orphan_binding(
     # Allowlist: intentional orphans declared as known-dead or stubbed-for-future-use.
     # Each entry here is a class name that was audited and intentionally left unwired.
     DECLARED_INTENT: set[str] = {
-        # Analytics stub — wired in MR-D
+        # Analytics — off by default (GDPR). NoopAnalytics is a safe all-no-op.
+        # Wired in CoreDiModule.kt; no production call site exists yet.
         "Analytics",
         "NoopAnalytics",
-        # Billing stub — wired in MR-D
+        # Billing — NoopSubscriptionProvider is the safe stub until a real SDK is wired.
+        # No production call site exists yet.
         "SubscriptionProvider",
         "NoopSubscriptionProvider",
-        # Notification permission — wired in MR-E
-        "rememberNotificationPermissionRequester",
         # Consumed via constructor injection (val repo: Repo) — static scan can't track
         "AttachmentRepository",
         "BackupRepository",
@@ -470,6 +566,11 @@ DETECTORS: list[Detector] = [
         kind="orphan-binding",
         check=_check_orphan_binding,
         precompute=_precompute_orphan_binding,
+    ),
+    Detector(
+        kind="dead-symbol",
+        check=_check_dead_symbol,
+        precompute=_precompute_dead_symbol,
     ),
 ]
 

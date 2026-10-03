@@ -3,8 +3,15 @@ name: CI
 on:
   push:
     branches: [main, "refactor/**"]
+    paths:
+      - "openspec/**"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "openspec/**"
+      - ".github/workflows/ci.yml"
+      - "scripts/check-openspec-stale.py"
 
 jobs:
   test-and-check:
@@ -64,6 +71,14 @@ jobs:
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
 
+      - name: Check doc sizes
+        run: python3 scripts/check-doc-sizes.py
+        # blocking: AGENTS.md budget (250 lines) or DIGEST.md budget exceeded
+
+      - name: Check dead doc references
+        run: python3 scripts/check-doc-dead-refs.py
+        # blocking: new dead file/symbol references in docs, skills and KDoc
+
       # Replaced by com.singularity.todo.arch.MaestroFlowTagsTest in :shared:jvmTest
       # (blocking — any unknown id fails the build). Retained here as a non-blocking
       # lint for ad-hoc local use; continues-on-error so it never blocks a PR.
@@ -93,6 +108,18 @@ jobs:
         with:
           name: kover-report
           path: shared/build/reports/kover/xml-report.xml
+
+  openspec-validate:
+    runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.message, 'openspec') || contains(github.event.pull_request.title, 'openspec') || github.event_name == 'push' || github.event_name == 'pull_request'"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Node.js
+        run: node --version
+      - name: OpenSpec validate (advisory)
+        run: |
+          python3 scripts/check-openspec-stale.py || true
+          node /home/max/.nvm/versions/node/v24.14.0/lib/node_modules/@fission-ai/openspec/bin/openspec.js validate --all --json --strict || true
 
   mcp-server-check:
     runs-on: ubuntu-latest

@@ -12,12 +12,15 @@ import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.files.AndroidFileRevealer
 import com.singularity.todo.core.files.AndroidFileSourceFactory
+import com.singularity.todo.core.files.AndroidFileSharePort
 import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.AndroidSharePort
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
@@ -182,11 +185,17 @@ actual fun platformModule(): Module = module {
 
     single<SharePort> { AndroidSharePort(get()) }
 
+    single<FileSharePort> { AndroidFileSharePort(get()) }
+
     single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
 
     single<String> { get<Context>().filesDir.absolutePath + "/backups" }
+
+    single<String> { get<Context>().filesDir.absolutePath + "/logs" }
+
+    single { LogBundleExporter(get(), get(), get()) }
 
     // ─── Notifications ─────────────────────────────────────────────────
 

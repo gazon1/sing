@@ -221,6 +221,8 @@ private fun SettingsContent(
                     SettingsTab.Files -> FilesSettingsScreen(
                         attachmentsPath = attachmentsPath,
                         onOpenAttachmentsFolder = onOpenAttachmentsFolder,
+                        logExportEphemeral = state.logExportEphemeral,
+                        onExportLogs = { onIntent(SettingsIntent.ExportLogs) },
                     )
 
                     SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })

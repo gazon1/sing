@@ -66,6 +66,9 @@ alias docs-regen  := tests::docs-regen
 # ----- Agent workflow evals -----
 alias tcheck-evals := tests::tcheck-evals
 
+# ----- OpenSpec -----
+alias os-validate := scripts::os-validate
+
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage
 

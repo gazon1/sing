@@ -11,9 +11,14 @@ import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileRevealer
+import com.singularity.todo.core.files.JvmFileSharePort
 import com.singularity.todo.core.files.JvmFileSystem
+import com.singularity.todo.core.files.JvmSharePort
+import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
@@ -113,8 +118,12 @@ class KoinGraphValidationTest {
         single<NotificationPort> { JvmNotificationPort() }
         single<FileSystem> { JvmFileSystem() }
         single<FileRevealer> { JvmFileRevealer() }
+        single<SharePort> { JvmSharePort() }
+        single<FileSharePort> { JvmFileSharePort() }
         single<BackupCodec> { JvmBackupCodec() }
         single<String> { "$userHome/.singularity-todo/backups" }
+        single<String> { "$userHome/.singularity-todo/logs" }
+        single { LogBundleExporter(get(), get(), get()) }
 
         // ─── Pomodoro ──────────────────────────────────────────────────
         single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }

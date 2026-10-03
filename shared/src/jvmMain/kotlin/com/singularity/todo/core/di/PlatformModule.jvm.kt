@@ -10,13 +10,16 @@ import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileRevealer
 import com.singularity.todo.core.files.JvmFileSourceFactory
+import com.singularity.todo.core.files.JvmFileSharePort
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -131,9 +134,15 @@ actual fun platformModule(): Module = module {
 
     single<SharePort> { JvmSharePort() }
 
+    single<FileSharePort> { JvmFileSharePort() }
+
     single<BackupCodec> { JvmBackupCodec() }
 
     single<String> { userHome + "/.singularity-todo/backups" }
+
+    single<String> { userHome + "/.singularity-todo/logs" }
+
+    single { LogBundleExporter(get(), get(), get()) }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 

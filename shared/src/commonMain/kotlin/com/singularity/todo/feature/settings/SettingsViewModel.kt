@@ -3,6 +3,8 @@ package com.singularity.todo.feature.settings
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSharePort
+import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
@@ -42,6 +44,8 @@ class SettingsViewModel(
     private val defaultAgendaViewContributor: DefaultAgendaViewContributor?,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
     private val fileRevealer: FileRevealer,
+    private val logBundleExporter: LogBundleExporter,
+    private val fileSharePort: FileSharePort,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<SettingsUiState.Content, SettingsIntent, Nothing>(
         initialState = SettingsUiState.Content(),
@@ -63,6 +67,7 @@ class SettingsViewModel(
 
     private val aiEphemeral = MutableStateFlow(EphemeralState.Ai())
     private val agendaEphemeral = MutableStateFlow(EphemeralState.Agenda())
+    private val logExportEphemeral = MutableStateFlow(EphemeralState.LogExport())
 
     // ─── UI state ────────────────────────────────────────────────────────────
     // Owned by [MviViewModel]; the per-section flows above are the inputs that
@@ -124,6 +129,7 @@ class SettingsViewModel(
                 greeting = greetingFlow.value,
                 ai = aiFlow.value,
                 defaultAgendaView = defaultAgendaViewFlow.value,
+                logExportEphemeral = logExportEphemeral.value,
             )
         }
     }
@@ -151,6 +157,8 @@ class SettingsViewModel(
             SettingsIntent.DismissError -> { /* ephemeral; cleared on next emit */ }
 
             SettingsIntent.OpenAttachmentsFolder -> openAttachmentsFolder()
+
+            SettingsIntent.ExportLogs -> exportLogs()
         }
     }
 
@@ -176,6 +184,34 @@ class SettingsViewModel(
     private fun openAttachmentsFolder() {
         vmScope.launch {
             fileRevealer.revealAttachmentsFolder(fileRevealer.attachmentsBasePath())
+        }
+    }
+
+    private fun exportLogs() {
+        vmScope.launch {
+            logExportEphemeral.value = EphemeralState.LogExport(isExporting = true)
+            rebuildState()
+
+            val result = logBundleExporter.export()
+
+            val newState = result.fold(
+                onSuccess = { path ->
+                    EphemeralState.LogExport(isExporting = false, exportedPath = path)
+                },
+                onFailure = { error ->
+                    EphemeralState.LogExport(
+                        isExporting = false,
+                        errorMessage = error.message ?: "Export failed",
+                    )
+                },
+            )
+            logExportEphemeral.value = newState
+            rebuildState()
+
+            // Share the archive if export succeeded
+            result.getOrNull()?.let { path ->
+                fileSharePort.shareFile(path, "application/zip")
+            }
         }
     }
 

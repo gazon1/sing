@@ -92,6 +92,13 @@ sealed interface EphemeralState {
     ) : EphemeralState
 
     data class Agenda(val savedViews: List<SavedAgendaView> = emptyList()) : EphemeralState
+
+    /** Ephemeral state for the log export flow. */
+    data class LogExport(
+        val isExporting: Boolean = false,
+        val exportedPath: String? = null,
+        val errorMessage: String? = null,
+    ) : EphemeralState
 }
 
 /**
@@ -160,4 +167,7 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     /** Opens the file manager at the attachments folder. */
     data object OpenAttachmentsFolder : SettingsIntent
+
+    /** Triggers log bundle export and share. */
+    data object ExportLogs : SettingsIntent
 }

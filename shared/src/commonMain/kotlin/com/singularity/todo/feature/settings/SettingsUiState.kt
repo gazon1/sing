@@ -47,6 +47,8 @@ sealed interface SettingsUiState {
         val aiEphemeral: EphemeralState.Ai = EphemeralState.Ai(),
         /** Saved agenda views list — refreshed from DB on each observation. */
         val agendaEphemeral: EphemeralState.Agenda = EphemeralState.Agenda(),
+        /** Log export loading / result — UI-only state. */
+        val logExportEphemeral: EphemeralState.LogExport = EphemeralState.LogExport(),
 
         // ── Error state ─────────────────────────────────────────────────────────
         /** Shown as a snackbar; cleared on next successful action. */

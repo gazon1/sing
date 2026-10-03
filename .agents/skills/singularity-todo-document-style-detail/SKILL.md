@@ -79,7 +79,7 @@ The VM has **no** `MutableStateFlow<Sheet?>` and **no** `SharedFlow` routing eve
 Sheet composables receive callbacks for domain actions (e.g. `onColorSelected: (Color) -> Unit`),
 not routing commands.
 
-See `routing-state-on-screen.md` (ADR 2026-10-02) for the full rationale and the
+See `docs/decisions/2026-10-02-routing-state-on-screen.md` for the full rationale and the
 contradiction this resolves.
 
 ## Inline Edit Pattern (Debounced)

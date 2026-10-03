@@ -24,7 +24,7 @@ DIGEST_MD = ROOT / "docs" / "decisions" / "DIGEST.md"
 AGENTS_MAX = 250
 SKILL_MAX = 500
 DESCRIPTION_MAX = 1024
-DIGEST_MAX = 1550  # raised to match MAX_DIGEST_LINES in refresh-decisions-digest.py
+DIGEST_MAX = 1250  # matches MAX_DIGEST_LINES in refresh-decisions-digest.py; DIGEST.md ~1219 lines at 2026-10-03
 
 
 def count_lines(path: pathlib.Path) -> int:
