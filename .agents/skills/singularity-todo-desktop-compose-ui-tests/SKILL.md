@@ -132,6 +132,36 @@ at the real problem. `TestTagsWiringTest` fails the build on an unapplied
 constant, and also fails on a *stale* allowlist entry — so when a tag becomes
 applied, removing it from the allowlist is enforced, not optional.
 
+**Use helpers, not raw selectors.** `onNodeWithTag`, `onNodeWithText`,
+`onNodeWithContentDescription`, and `onAllNodesWithTag` belong in `test/helpers/`.
+`HarnessConventionTest` enforces this: raw calls outside helpers require a reason
+in `EXEMPT_RAW_TAGS`; exemptions without actual raw calls are caught as stale.
+
+## Reading a failure bundle
+
+When a flow test fails, a bundle is written to
+`build/diagnostics/<TestClass>/attempt-N/`. Read it in this order:
+
+```
+steps.txt        → what the test was doing (step name, detail, duration, OK/FAIL)
+screenshot-annotated.png  → bounding-box overlays: red = failed/highlight, gray = others
+nodes.txt        → all tagged semantics nodes: tag / text / contentDescription / bounds
+tree.txt         → raw semantics tree (unmerged)
+kermit.log      → app logs
+db-state.txt    → FakeAppDatabase contents
+a11y.txt        → (only when checkA11y = true) accessibility violations
+```
+
+For a timeout failure, `steps.txt` shows which `awaitTag` timed out and after how
+many polls; `nodes.txt` shows what tags *were* present.
+
+New `-D` flags for the suite:
+
+| Flag | Effect |
+|---|---|
+| `-Dsingularity.test.screenshot=false` | Skip screenshot capture |
+| `-Dsingularity.test.a11y=fail` | Make a11y violations fatal (warn + a11y.txt always) |
+
 **Do not build a tag from localized text.** `TestTags.taskAction(action)` takes
 a stable id, not the label. A label-derived tag breaks in every locale but the
 one it was written in.
