@@ -319,6 +319,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "shared.build.dir",
         layout.buildDirectory.get().asFile.absolutePath,
     )
+    // Global test timeout: makes CoroutinesTimeoutExtension fire on a hard-hang
+    // (Extension catches the exception and writes coroutines-timeout.txt before the harness
+    // marks the test as failed). 5 minutes is long enough for any real test; it exists
+    // to catch infinite loops and deadlocks, not to bound normal execution.
+    systemProperty("junit.jupiter.timeout.default", "300000")
     // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility.
     // Resolved eagerly as a plain String (not via CommandLineArgumentProvider) to avoid
     // capturing the Gradle script object, which breaks the configuration cache.
