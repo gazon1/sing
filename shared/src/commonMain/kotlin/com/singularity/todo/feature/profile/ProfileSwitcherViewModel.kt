@@ -85,12 +85,11 @@ class ProfileSwitcherViewModel(
 
     private fun rename(id: ProfileId, name: String) {
         catchTo("Failed to rename profile", { msg -> _errorMessage.value = msg }) {
-            runCatching {
-                val profile = profileRepository.get(id) ?: return@runCatching Result.failure<Unit>(
+            val profile = profileRepository.get(id)
+                ?: return@catchTo Result.failure<Unit>(
                     IllegalArgumentException("Profile not found"),
                 )
-                profileRepository.update(profile.copy(name = name))
-            }
+            profileRepository.update(profile.copy(name = name))
         }
     }
 

@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * Read-only ViewModel for the NotePreview (view) screen.
@@ -52,6 +53,8 @@ class NotePreview(
                 .first()
             val backlinks = try {
                 linkRepo.getBacklinkNotes(noteId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.w(e) { "Failed to load backlink notes" }
                 emptyList()

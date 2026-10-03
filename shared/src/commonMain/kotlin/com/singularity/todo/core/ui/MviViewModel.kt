@@ -2,6 +2,7 @@ package com.singularity.todo.core.ui
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -126,7 +127,7 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      */
     protected fun catchTo(errorLabel: String, onError: suspend (String) -> Unit, block: suspend () -> Result<*>): Job =
         vmScope.launch {
-            runCatching { block() }.fold(
+            runCatchingCancellable { block() }.fold(
                 onSuccess = { result -> result.onFailure { onError(it.toMessage(errorLabel)) } },
                 onFailure = { e -> onError(e.toMessage(errorLabel)) },
             )

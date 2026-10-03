@@ -20,6 +20,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import kotlinx.serialization.serializer
+import kotlinx.coroutines.CancellationException
 
 /**
  * Bootstraps the sync engine: registers pull handlers for all syncable entity types.
@@ -156,6 +157,8 @@ internal class SyncBootstrapper(
                     ApplyOutcome.Applied
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             log.e(e) { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: apply failed" }
             ApplyOutcome.Conflict("Apply failed: ${e.message ?: e::class.simpleName}")

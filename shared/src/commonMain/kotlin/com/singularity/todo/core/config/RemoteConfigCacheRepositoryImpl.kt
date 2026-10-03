@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonObject
+import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 
 /**
@@ -73,6 +74,8 @@ internal class RemoteConfigCacheRepositoryImpl(
                 log.d { "Remote config refreshed, schemaVersion=${validated.schemaVersion}" }
                 Result.success(validated)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             log.w(e) { "Remote config refresh failed, using cache" }
             snapshot() // ensure _snapshot is updated to cached/defaults on network error

@@ -19,6 +19,7 @@ import com.singularity.todo.feature.calendar_sync.error.FailureType
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -173,6 +174,8 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             } else {
                 Result.retry()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             syncRepo.setStatus(CalendarSyncStatus.Failed(e.message ?: "Unknown error", FailureType.Unknown))
             Result.retry()

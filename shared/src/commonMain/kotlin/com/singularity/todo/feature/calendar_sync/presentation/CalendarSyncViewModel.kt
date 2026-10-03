@@ -13,6 +13,7 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncReposi
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * UI state for the calendar sync settings screen.
@@ -118,6 +119,8 @@ class CalendarSyncViewModel(
             // Load calendar apps and calendars in parallel
             val apps = try {
                 appQueries.listInstalled()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Logger.w(e) { "Failed to list installed calendar apps" }
                 emptyList()

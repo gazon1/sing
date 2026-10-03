@@ -104,6 +104,8 @@ private fun bootstrapKoin(profileId: String?): Boolean = try {
 private suspend fun verifyDatabase(): Boolean = try {
     GlobalContext.get().get<AppDatabase>().profileDao().count()
     true
+} catch (e: CancellationException) {
+    throw e
 } catch (e: Throwable) {
     log.e(e) { "Database initialization failed: ${e.message}" }
     writeJsonRpcError(code = -32001, message = "Database initialization failed: ${e.message}")
@@ -148,6 +150,8 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
                 newUserId = "$agentId/$localUserId",
             )
         }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Throwable) {
         log.e(e) { "Profile bootstrap failed: ${e.message}" }
         // Non-fatal: the rest of the server can still operate against the

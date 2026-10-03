@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
@@ -62,7 +63,7 @@ class TaskAiSlot(
     private fun run(action: TaskAiAction) = scope.launch {
         val task = taskFlow.value ?: return@launch
         _state.update { it.copy(isRunning = true) }
-        val result = runCatching { execute(action, task) }
+        val result = runCatchingCancellable { execute(action, task) }
         _state.update { it.copy(isRunning = false) }
         result.onFailure { onError("AI action failed: ${it.message}") }
     }

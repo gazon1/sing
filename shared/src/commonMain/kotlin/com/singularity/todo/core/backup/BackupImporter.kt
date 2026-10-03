@@ -9,6 +9,7 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.jsonObject
+import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 
 class BackupImporter(
@@ -127,6 +128,8 @@ class BackupImporter(
                     val ext = att.mimeType?.substringAfterLast('/') ?: ""
                     attachmentStorage.saveBytes(att.taskId, att.id, bytes, ext)
                     restoredCount++
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     log.w(e) { "Attachment restore failed [id=${att.id}]" }
                     missingIds.add(att.id)

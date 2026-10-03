@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * Summary of a push operation.
@@ -208,6 +209,8 @@ internal class SyncEngine(
             _lastPush.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             val err: AppError = e as? AppError
                 ?: AppError.Unknown(
@@ -257,6 +260,8 @@ internal class SyncEngine(
             _lastPull.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             val err: AppError = e as? AppError
                 ?: AppError.Unknown(

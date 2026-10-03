@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
@@ -128,7 +129,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
             draftState.current.drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
-                    runCatching { autosave(current) }.onSuccess { onAutosaved(current) }
+                    runCatchingCancellable { autosave(current) }.onSuccess { onAutosaved(current) }
                         .onFailure { onAutosaveError(it) }
                 }
         }
