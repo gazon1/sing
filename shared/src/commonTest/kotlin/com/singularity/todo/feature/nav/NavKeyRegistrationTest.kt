@@ -38,8 +38,8 @@ class NavKeyRegistrationTest {
 
     @Test
     fun `top-level destinations are registered`() {
-        assertRoundTrips(AppDestination.Inbox)
-        assertRoundTrips(AppDestination.Today)
+        assertRoundTrips(AppDestination.AgendaGraph(AgendaStartRoute.Inbox))
+        assertRoundTrips(AppDestination.AgendaGraph(AgendaStartRoute.Today))
         assertRoundTrips(AppDestination.Statistics)
     }
 
@@ -53,7 +53,7 @@ class NavKeyRegistrationTest {
         assertRoundTrips(AppDestination.NotesGraph())
         assertRoundTrips(AppDestination.CalendarGraph())
         assertRoundTrips(AppDestination.AgendaGraph(AgendaStartRoute.Today))
-        assertRoundTrips(AppDestination.TaskDetail("t1"))
+        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail("t1")))
     }
 
     @Test

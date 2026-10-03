@@ -35,8 +35,8 @@ class DestinationKindTest {
 
     @Test
     fun isTabRejectsSubRoutes() {
-        assertFalse(DestinationKind.isTab(AppDestination.TaskDetail("42")))
-        assertFalse(DestinationKind.isTab(AppDestination.TaskDetailCreate()))
+        assertFalse(DestinationKind.isTab(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create())))
+        assertFalse(DestinationKind.isTab(AppDestination.ProjectEditor()))
     }
 
     @Test
@@ -53,14 +53,14 @@ class DestinationKindTest {
     fun isMenuEntryRejectsTabsAndSubRoutes() {
         assertFalse(DestinationKind.isMenuEntry(AppDestination.AgendaGraph(AgendaStartRoute.Today)))
         assertFalse(DestinationKind.isMenuEntry(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming)))
-        assertFalse(DestinationKind.isMenuEntry(AppDestination.TaskDetailCreate()))
+        assertFalse(DestinationKind.isMenuEntry(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create())))
     }
 
     @Test
     fun isSubRouteOnlyMatchesSubRoutes() {
-        assertTrue(DestinationKind.isSubRoute(AppDestination.TaskDetail("1")))
-        assertTrue(DestinationKind.isSubRoute(AppDestination.TaskDetailCreate()))
+        assertTrue(DestinationKind.isSubRoute(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create())))
         assertTrue(DestinationKind.isSubRoute(AppDestination.ProjectEditor()))
+        assertTrue(DestinationKind.isSubRoute(AppDestination.ProjectDetail("1")))
     }
 
     @Test
@@ -84,8 +84,8 @@ class DestinationKindTest {
             AppDestination.Search,
             AppDestination.Archive,
             AppDestination.Settings,
-            AppDestination.TaskDetail("x"),
-            AppDestination.TaskDetailCreate(),
+            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+            AppDestination.ProjectEditor(),
         )
         all.forEach { dest ->
             val tab = DestinationKind.isTab(dest)

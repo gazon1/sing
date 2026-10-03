@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -53,12 +54,10 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
     var isNavigatingBack by remember { mutableStateOf(false) }
     val sheets = rememberDialogState<TaskEditorSheet>()
 
-    LaunchedEffect(vm) {
-        vm.events.collect { event ->
-            if (event is com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent.Saved) {
-                isNavigatingBack = true
-                navigator.back()
-            }
+    CollectEvents(vm.events) { event ->
+        if (event is com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent.Saved) {
+            isNavigatingBack = true
+            navigator.back()
         }
     }
 

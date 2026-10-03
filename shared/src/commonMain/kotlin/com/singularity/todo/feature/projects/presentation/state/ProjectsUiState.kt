@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.projects.presentation.state
+import androidx.compose.runtime.Immutable
 
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 

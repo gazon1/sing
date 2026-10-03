@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.first
 /**
  * Production [DependencyValidator].
  *
- * [assertNoCycles] checks only for self-loop (task depending on itself).
+ * [assertNoCycles] performs a full BFS from each new dependency to detect any
+ * path that would lead back to [taskId] — catching self-loops AND multi-node cycles.
  *
  * [analyzeDependencies] performs a full BFS of the transitive dependency graph
  * rooted at [taskId], returning whether any path leads back to [taskId] (a directed cycle).
@@ -23,10 +24,45 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
     DependencyValidator {
 
     override suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Result<Unit> {
+        // Self-loop check
         if (taskId.value in newDeps.map { it.value }) {
             return Result.failure(IllegalArgumentException("Task cannot depend on itself: ${taskId.value}"))
         }
+        // Multi-node cycle check: for each new dep, BFS to see if taskId is reachable
+        val uid = currentUser.scopedUserId.value
+        for (dep in newDeps) {
+            val reachable = bfsReachableFrom(dep.value, taskId.value, uid.value)
+            if (taskId.value in reachable) {
+                return Result.failure(
+                    IllegalArgumentException(
+                        "Adding dependency ${taskId.value} → ${dep.value} would create a cycle",
+                    ),
+                )
+            }
+        }
         return Result.success(Unit)
+    }
+
+    /**
+     * BFS from [startId] following outgoing dependency edges.
+     * Returns the set of all task IDs reachable from [startId].
+     */
+    private suspend fun bfsReachableFrom(startId: String, targetId: String, uid: String): Set<String> {
+        val visited = mutableSetOf<String>()
+        val worklist = ArrayDeque<String>()
+        worklist.add(startId)
+
+        while (worklist.isNotEmpty()) {
+            val current = worklist.removeFirst()
+            if (current in visited) continue
+            if (current == targetId) return setOf(targetId) // early exit: target reachable
+            visited.add(current)
+            val deps = taskDao.getDependencyIdsForUser(current, uid).first()
+            for (depId in deps) {
+                if (depId !in visited) worklist.add(depId)
+            }
+        }
+        return visited
     }
 
     /**

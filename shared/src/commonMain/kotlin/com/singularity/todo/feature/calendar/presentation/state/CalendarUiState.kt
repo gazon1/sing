@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.calendar.presentation.state
+import androidx.compose.runtime.Immutable
 
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode

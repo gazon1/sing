@@ -1,17 +1,12 @@
 
 package com.singularity.todo.feature.notes.presentation.screen
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -19,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,11 +24,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,9 +33,9 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.detail.SavedIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.EditorSession
@@ -63,13 +54,6 @@ import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import org.koin.compose.viewmodel.koinViewModel
-
-// ─── Link overlay types ─────────────────────────────────────────────────────────
-
-private sealed class NoteLinkSheet {
-    data object External : NoteLinkSheet()
-    data class InternalPicker(val query: String = "") : NoteLinkSheet()
-}
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
@@ -126,15 +110,6 @@ fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewM
     )
 }
 
-private fun NotesUiEvent.toNotification(): Notification = when (this) {
-    is NotesUiEvent.AiResult -> Notification.Text(title = "AI Result", text = text)
-    is NotesUiEvent.SaveFailed -> Notification.Error(message)
-    is NotesUiEvent.Error -> Notification.Error(message)
-    is NotesUiEvent.NavigateToEditor -> Notification.None
-    NotesUiEvent.NavigateBack -> Notification.None
-    NotesUiEvent.SavedPulse -> Notification.None
-}
-
 // ─── Content ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -153,12 +128,6 @@ fun NoteEditorScreenContent(
     showAiSheet: Boolean = false,
     onDismissAiSheet: () -> Unit = {},
 ) {
-    val savedAlpha by animateFloatAsState(
-        targetValue = if (savedVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "savedAlpha",
-    )
-
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
     var linkUrl by rememberSaveable { mutableStateOf("") }
     val linkQueryFlow = remember { MutableStateFlow("") }
@@ -176,17 +145,7 @@ fun NoteEditorScreenContent(
                     }
                 },
                 actions = {
-                    if (savedVisible || savedAlpha > 0f) {
-                        Text(
-                            text = "Saved",
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp)
-                                .alpha(savedAlpha),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
+                    SavedIndicator(visible = savedVisible)
                     IconButton(onClick = onSaveNow, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE)) {
                         Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
@@ -311,62 +270,6 @@ private fun EditorTitleAndBody(session: EditorSession, onTitleChange: (String) -
             placeholder = { Text("Start writing...") },
         )
     }
-}
-
-// ─── Link URL Dialog ──────────────────────────────────────────────────────────
-
-@Composable
-private fun LinkUrlDialog(
-    url: String,
-    onUrlChange: (String) -> Unit,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val focusManager = LocalFocusManager.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Insert Link") },
-        text = {
-            OutlinedTextField(
-                value = url,
-                onValueChange = onUrlChange,
-                label = { Text("URL") },
-                placeholder = { Text("https://example.com") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (url.isNotBlank()) onConfirm(url.trim())
-                    },
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    focusManager.clearFocus()
-                    if (url.isNotBlank()) onConfirm(url.trim())
-                },
-                enabled = url.isNotBlank(),
-            ) {
-                Text("Insert")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                focusManager.clearFocus()
-                onDismiss()
-            }) {
-                Text("Cancel")
-            }
-        },
-    )
 }
 
 // ─── Preview ─────────────────────────────────────────────────────────────────

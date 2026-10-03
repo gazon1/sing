@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.agenda.domain.model
+import androidx.compose.runtime.Immutable
 
 import kotlinx.datetime.LocalDate
 
