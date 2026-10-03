@@ -125,10 +125,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check Node.js
         run: node --version
-      - name: OpenSpec validate (advisory)
-        run: |
-          python3 scripts/check-openspec-stale.py || true
-          node /home/max/.nvm/versions/node/v24.14.0/lib/node_modules/@fission-ai/openspec/bin/openspec.js validate --all --json --strict || true
+      - name: OpenSpec stale check (advisory)
+        run: python3 scripts/check-openspec-stale.py || true
+      - name: OpenSpec validate
+        run: npx @fission-ai/openspec validate --all --json --strict
 
   mcp-server-check:
     runs-on: ubuntu-latest

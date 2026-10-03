@@ -75,8 +75,10 @@ data class FailureBundle(
         }
 
         /**
-         * Prepares the output directory for [testClassSimpleName]/[attempt], deleting any
-         * prior content so retries always write fresh artifacts.
+         * Returns the output directory for [testClassSimpleName]/[attempt].
+         * Creates the directory if it does not exist. Prior content is NOT deleted —
+         * retry artifacts overwrite files with the same name, but any artifact
+         * present only in an earlier attempt persists.
          */
         fun prepareOutputDir(testClassSimpleName: String, attempt: Int): File {
             val dir = diagnosticsRoot
