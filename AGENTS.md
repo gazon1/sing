@@ -193,6 +193,17 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 > `singularity-todo-emulator-launch` skill и ADR
 > `2026-09-29-emulator-crash-recovery-runner.md`.
 
+## 🤖 Coroutine test failures
+
+On any desktop or shared JVM test failure, `build/diagnostics/<TestClass>/coroutines.txt`
+is written automatically — it contains the full coroutine snapshot (state, context, job
+hierarchy, creation and last-observed stack traces). Read it first: application frames
+before kotlinx internals indicate where the coroutine was; `lastObservedStackTrace` is
+where it died. Do NOT conclude a leak from identical stack traces alone — repeated
+stacks are normal for background collectors. See
+`docs/decisions/2026-10-03-kotlinx-coroutines-debug.md` for the canonical investigation
+order and known limitations.
+
 ## ❌ Что НЕ делать
 
 1. **`runBlocking` в ViewModel init** — вместо этого `combine(...)` + `flatMapLatest`

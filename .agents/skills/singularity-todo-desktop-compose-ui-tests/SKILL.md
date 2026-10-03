@@ -152,11 +152,21 @@ one it was written in.
 ## Debugging
 
 **When a test fails**, the harness bundles diagnostics automatically into
-`desktopApp/build/diagnostics/<TestClass>/attempt-N/`: `screenshot.png` (the last
-composed frame), `db-state.txt` (FakeAppDatabase dump), `kermit.log`. Read those
-before reading source — a screenshot answering "what was actually on screen" in one
-glance beats an hour of source review. The semantics tree also rides on the failure
-itself as a suppressed exception, so it is in the test XML too.
+`desktopApp/build/diagnostics/<TestClass>/attempt-N/`:
+
+| Artifact | What it contains |
+|---|---|
+| `db-state.txt` | FakeAppDatabase dump |
+| `kermit.log` | Kermit log (logcat equivalent) |
+| `coroutines.txt` | Coroutine snapshot — all coroutines, states, stack traces |
+| `screenshot.png` | Last composed frame |
+
+Read them before reading source — a screenshot answering "what was actually on screen"
+in one glance beats an hour of source review. The semantics tree also rides on the
+failure itself as a suppressed exception, so it is in the test XML too.
+
+Capture order (hang-proof first): db-state → kermit → coroutines → screenshot.
+If the screenshot path hangs, the first three artifacts are already written.
 
 Two contracts baked into the bundle:
 
@@ -204,8 +214,9 @@ test worker while it is stuck and follow the hang protocol in
 `debugging-investigation` (step 4): test thread in `EventQueue.invokeAndWait` plus a
 100%-busy `AWT-EventQueue-0` in `RenderNode_nDrawInto` means a never-idle
 composition; for silent coroutine death (VM stuck on its initial state, no events),
-`DebugProbes.dumpCoroutines()` prints the uncaught throw that killed it. The
-headless probe pattern — build `domainModule()` + `testPlatformModule()` in a plain
+read `build/diagnostics/<TestClass>/coroutines.txt` — the coroutine snapshot shows
+the last observed stack trace of every active coroutine and flags the one that died.
+The headless probe pattern — build `domainModule()` + `testPlatformModule()` in a plain
 `runTest`, construct the VM directly, wait for `Loaded` — splits "VM never resolves"
 from "screen does not render it" in one run; see
 `TaskDetailCoordinatorGraphTest` for the shape.

@@ -265,23 +265,36 @@ Two rules that cost real time to learn:
   instantly while real workers are still moving. Wrap real-time waits in
   `withContext(Dispatchers.Default)`.
 
-## Step 5 — silent coroutine death: DebugProbes
+## Step 5 — silent coroutine death: coroutines.txt
 
 Symptom: a VM/slot stays on its initial state, emits NO events, throws nothing
 observable, and the headless probe (step 3) reproduces it. A coroutine that dies
-BEFORE its first emission leaves no trace in state or events. Add
+BEFORE its first emission leaves no trace in state or events.
 
-```kotlin
-kotlinx.coroutines.debug.DebugProbes.install()   // coroutines-debug on the test classpath
-kotlinx.coroutines.debug.DebugProbes.dumpCoroutines()
-```
+The `kotlinx-coroutines-debug` Java agent is attached automatically to all
+`desktopApp:test` and `shared:jvmTest` JVM forks. On failure, the harness writes
+`build/diagnostics/<TestClass>/coroutines.txt` as part of the FailureBundle — look
+there first. The dump shows every active coroutine's state, context, job hierarchy,
+creation stack trace, and last observed stack trace. Read it before adding manual
+`DebugProbes` calls.
 
-and read stdout for `Exception in thread DefaultDispatcher-worker-N` — the
-uncaught throw that killed the coroutine prints THERE, not into any state.
-Concrete instance: an `init` block launched a `combine` over a property declared
-AFTER it; Kotlin initialises properties in declaration order, the init block saw
-null, the coroutine died with `NullPointerException: parameter f8 is null`. Rule:
-**a property read from `init` must be declared before it** (see
+Common patterns in the dump:
+- `state=SUSPENDED` + `lastObservedStackTrace` pointing at a blocking call —
+  the coroutine is waiting; check if the wait is bounded.
+- `state=RUNNING` on a `DefaultDispatcher` thread at a `delay()` call —
+  normal during a `runTest` auto-advance.
+- A coroutine with no `lastObservedStackTrace` died before it last suspended;
+  the `creationStackTrace` shows where it was created and
+  `Exception in thread …` from stdout is the killing throw.
+
+Manual `DebugProbes` invocation is no longer needed for diagnostics — the agent
+captures everything automatically. It remains useful for REPL-style exploration
+in a live test session.
+
+Concrete example of silent death: an `init` block launched a `combine` over a
+property declared AFTER it; Kotlin initialises properties in declaration order, the
+init block saw null, the coroutine died with `NullPointerException: parameter f8
+is null`. Rule: **a property read from `init` must be declared before it** (see
 `singularity-todo-testable-vm`).
 
 ## Step 6 — shared state and the remaining traps
