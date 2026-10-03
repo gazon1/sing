@@ -125,28 +125,13 @@ fun runDesktopAppTest(
                 if (currentAttempt > 1) passedOnRetry = true
                 lastThrowable = null
 
-                // Accessibility check runs after the body succeeds, while the scene is
-                // still alive. It is intentionally non-fatal by default (opt-in via
-                // checkA11y = true AND -Dsingularity.test.a11y=fail).
-                if (checkA11y) {
-                    val violations = runCatching { A11yChecker(this).scan() }.getOrNull()
-                        ?: emptyList()
-                    if (violations.isNotEmpty()) {
-                        val a11yMessage = "A11y violations (${violations.size}):\n" +
-                            violations.joinToString("\n")
-                        println(a11yMessage)
-                        // Write to diagnostics directory so it is available post-run.
-                        val bundleDir = java.io.File(
-                            "build/diagnostics/$testClassName/attempt-$currentAttempt",
-                        )
-                        bundleDir.mkdirs()
-                        java.io.File(bundleDir, "a11y.txt").writeText(a11yMessage)
-                        // Re-throw as fatal if the system property demands it.
-                        if (System.getProperty("singularity.test.a11y") == "fail") {
-                            throw AssertionError(a11yMessage)
-                        }
-                    }
-                }
+                runPostBodyDiagnostics(
+                    test = this,
+                    checkA11y = checkA11y,
+                    testClassName = testClassName,
+                    currentAttempt = currentAttempt,
+                    recorder = recorder,
+                )
 
                 return@runDesktopComposeUiTest
             } catch (t: Throwable) {
@@ -195,5 +180,53 @@ fun runDesktopAppTest(
         throw lastThrowable ?: error("unreachable")
     } finally {
         clearStepRecorder()
+    }
+}
+
+/**
+ * Diagnostics that run after the test body succeeds, while the scene is alive.
+ *
+ * Extracted from [runDesktopAppTest] to keep the harness function readable; both
+ * halves are best-effort — a diagnostics problem must not fail a passing test
+ * (except the explicit opt-in fatal a11y mode).
+ *
+ * The accessibility check is intentionally non-fatal by default; violations go to
+ * stdout and `a11y.txt`, and become fatal only with `-Dsingularity.test.a11y=fail`.
+ *
+ * The opt-in step-duration write (`-Dsingularity.test.steps=true`) records steps.txt
+ * for passing tests too, so the timing profile covers the whole suite instead of
+ * only failures.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun runPostBodyDiagnostics(
+    test: DesktopComposeUiTest,
+    checkA11y: Boolean,
+    testClassName: String,
+    currentAttempt: Int,
+    recorder: StepRecorder,
+) {
+    if (checkA11y) {
+        val violations = runCatching { A11yChecker(test).scan() }.getOrNull() ?: emptyList()
+        if (violations.isNotEmpty()) {
+            val a11yMessage = "A11y violations (${violations.size}):\n" +
+                violations.joinToString("\n")
+            println(a11yMessage)
+            // Write to diagnostics directory so it is available post-run.
+            val bundleDir = java.io.File("build/diagnostics/$testClassName/attempt-$currentAttempt")
+            bundleDir.mkdirs()
+            java.io.File(bundleDir, "a11y.txt").writeText(a11yMessage)
+            // Re-throw as fatal if the system property demands it.
+            if (System.getProperty("singularity.test.a11y") == "fail") {
+                throw AssertionError(a11yMessage)
+            }
+        }
+    }
+
+    if (System.getProperty("singularity.test.steps") == "true") {
+        runCatching {
+            val dir = java.io.File("build/diagnostics/$testClassName/attempt-$currentAttempt")
+            dir.mkdirs()
+            java.io.File(dir, "steps.txt").writeText(recorder.format())
+        }
     }
 }
