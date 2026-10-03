@@ -3,10 +3,9 @@
 package com.singularity.todo.core.ui.celebration
 
 import androidx.compose.material3.Text
-import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi

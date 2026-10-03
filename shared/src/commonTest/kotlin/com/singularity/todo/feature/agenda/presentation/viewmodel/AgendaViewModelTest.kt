@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import co.touchlab.kermit.Logger

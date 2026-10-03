@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.core.ui.featureSlot
 
 import kotlinx.coroutines.flow.MutableStateFlow

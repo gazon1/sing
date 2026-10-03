@@ -1,5 +1,7 @@
 @file:Suppress("NoDirectClockSystem")
 
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.auth.Session

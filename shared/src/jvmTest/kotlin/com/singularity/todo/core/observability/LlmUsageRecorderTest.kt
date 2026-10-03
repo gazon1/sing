@@ -1,5 +1,7 @@
 @file:Suppress("NoDirectClockSystem")
 
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.core.observability
 
 import com.singularity.todo.test.fakes.FakeAppDatabase

@@ -45,9 +45,9 @@ class TaskDetailCoordinatorGraphTest {
     fun coordinator_built_from_di_graph_leaves_loading() = runTest {
         val app = koinApplication {
             modules(
-                coreLoggingModule(),
-                *domainModule().toTypedArray(),
-                testPlatformModule(),
+                listOf(coreLoggingModule()) +
+                    domainModule() +
+                    listOf(testPlatformModule()),
             )
         }
         try {

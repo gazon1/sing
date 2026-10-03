@@ -124,10 +124,12 @@ The plugin was evaluated via spike on `feat/koin-compiler-plugin`:
 - **Cycle detection gap**: classic DSL does not expose constructor relationships to the
   plugin's cycle detector. A circular dependency through `single { Foo(get()) }` form
   will not be caught. Declare with `singleOf(::T)` or `single<T>()` for full detection.
-- **KOIN-W003 in test harnesses**: `ScopeIsolationTest` and `TaskDetailCoordinatorGraphTest`
-  use `koinApplication { modules(overrides, *domainModule().toTypedArray()) }` with
-  a runtime-computed overrides module. These test semantic correctness of Koin scope
-  isolation, not graph completeness — the W003 is expected and acceptable.
+- **KOIN-W003 in test harnesses (2026-10-03 update)**: `TaskDetailCoordinatorGraphTest`
+  now uses list composition — spread eliminated, W003 gone. `DesktopAppHarness` still
+  carries W003 because `overrides: Module` parameter is a runtime variable; the harness
+  design requires dynamic overrides to swap bindings per-test. Acceptable — graph
+  completeness is validated in production entry points; test harness validates
+  semantic correctness of scope isolation.
 - **DIGEST exceeds size budget**: 1582 lines (limit: 1550). The ADR count grew since
   the limit was set. Tracked separately.
 - **`test-helpers` skill exceeds size budget**: 506 lines (limit: 500). Consider a

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.sync
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope

@@ -80,18 +80,16 @@ fun runDesktopAppTest(
 
     val app: KoinApplication = koinApplication {
         modules(
-            coreLoggingModule(),
-            *domainModule().toTypedArray(),
-            // Loaded after domainModule() on purpose. Koin resolves duplicate
-            // definitions last-wins, so coreModule()'s SupabaseAuthRepository
-            // would otherwise override the fake here — and its userId resolves
-            // from "anonymous" to a generated ULID a moment after startup, which
-            // orphans anything written in that window and makes the row invisible
-            // to every subsequent read.
-            testPlatformModule(),
-            testKermitModule(),
-            gateModule(RELEASES_URL),
-            overrides,
+            listOf(coreLoggingModule()) +
+                domainModule() +
+                // Loaded after domainModule() on purpose. Koin resolves duplicate
+                // definitions last-wins, so coreModule()'s SupabaseAuthRepository
+                // would otherwise override the fake here — and its userId resolves
+                // from "anonymous" to a generated ULID a moment after startup, which
+                // orphans anything written in that window and makes the row invisible
+                // to every subsequent read.
+                listOf(testPlatformModule(), testKermitModule(), gateModule(RELEASES_URL)) +
+                listOf(overrides),
         )
     }
 

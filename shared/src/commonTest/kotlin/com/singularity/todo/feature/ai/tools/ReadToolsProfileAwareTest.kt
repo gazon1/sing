@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.CurrentUser

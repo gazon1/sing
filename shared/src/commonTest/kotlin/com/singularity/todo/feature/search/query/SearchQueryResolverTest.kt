@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter

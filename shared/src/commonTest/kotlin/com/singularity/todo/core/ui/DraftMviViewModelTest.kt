@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.core.ui
 
 import androidx.compose.runtime.Immutable
@@ -40,7 +42,7 @@ private class TestDraftVm(
         autosaveDebounceMs = autosaveDebounceMs,
         scope = scope,
     ) {
-    private val validateImpl: (TestDraft) -> String? = validateBlock ?: { null }
+    private val validateImpl: (TestDraft) -> String? = validateBlock
     private val persistImpl: suspend (TestDraft) -> Either<AppError, Unit> = persistBlock
     private val onSavedImpl: (suspend () -> Unit)? = onSavedBlock
     override fun validate(draft: TestDraft): String? = validateImpl(draft)

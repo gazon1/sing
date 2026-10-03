@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.EventBus

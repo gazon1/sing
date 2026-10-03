@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.testScope

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.singularity.todo.feature.notes.domain.editor
 
 import com.singularity.todo.feature.notes.NoteAiResult
