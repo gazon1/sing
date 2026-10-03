@@ -60,7 +60,13 @@ maxParallelForks = 2
 
 ### Debt
 
-[TBD — populated from MR retrospectives]
+**MR-1 findings:**
+
+- Raw selector calls (`onNodeWithTag`, `onNodeWithText`, `onNodeWithContentDescription`) exist throughout flow tests — these are the target of the guard in MR-3. Count: ~40 call sites in `feature/flows/` (confirmed by grep). All must be either migrated to helpers or declared in `EXEMPT_RAW_TAGS` with reasons. The guard in `HarnessConventionTest` will enforce this.
+- `DesktopAppBootTest` and `CelebrationTest` also contain raw selectors — these are not flow tests but are in `src/jvmTest`. The guard should cover all of `src/jvmTest`.
+- `savedAgendaCreateFlowTest` is outside the current `HarnessConventionTest` scan root (`feature/flows/` only) and passes no `checkA11y` — the MR-3 guard expansion will catch it.
+
+**Performance note (TBD):** `:desktopApp:test` suite duration was not measured before the forkEvery/same_thread change. First post-change run completed in ~34s with 22 tests. Before-compare baseline needed for the 25% gate decision.
 
 ## Links
 
