@@ -20,7 +20,12 @@ import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
+import com.singularity.todo.core.files.FileSource
+import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.files.MapFileSystem
+import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.repository.observeForCurrentUser
@@ -2113,6 +2118,46 @@ class FakeFileRevealer : FileRevealer {
  */
 class FakeFileSharePort : FileSharePort {
     override fun shareFile(filePath: String, mimeType: String): Boolean = true
+}
+
+/**
+ * No-op [LogBundleExporter] for tests — always returns a fake path.
+ */
+class FakeLogBundleExporter :
+    LogBundleExporter(
+        logDirectory = "/fake/logs",
+        backupCodec = NoOpBackupCodec,
+        fileSystem = MapFileSystem(),
+        fileCount = 4,
+    ) {
+    var exportCalls = 0
+        private set
+    var lastExportPath: String? = null
+        private set
+
+    override suspend fun export(): Result<String> {
+        exportCalls++
+        lastExportPath = "/fake/logs/singularity-logs-fake.zip"
+        return Result.success(lastExportPath!!)
+    }
+}
+
+private val NoOpBackupCodec = object : BackupCodec {
+    override suspend fun export(
+        manifestBytes: ByteArray,
+        payloadBytes: ByteArray,
+        attachments: List<Pair<String, ByteArray>>,
+        destPath: String,
+        fs: FileSystem,
+    ): Result<Unit> = Result.success(Unit)
+
+    override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> {
+        error("not used")
+    }
+
+    override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> {
+        error("not used")
+    }
 }
 
 /**

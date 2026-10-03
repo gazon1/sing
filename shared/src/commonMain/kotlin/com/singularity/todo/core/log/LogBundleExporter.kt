@@ -24,7 +24,7 @@ import java.util.Locale
  * [RedactingLogWriter] does not currently redact `cause` chain or `tag` fields.
  * Exported logs may contain sensitive data in these fields.
  */
-class LogBundleExporter(
+open class LogBundleExporter(
     private val logDirectory: String,
     private val backupCodec: BackupCodec,
     private val fileSystem: FileSystem,
@@ -40,7 +40,7 @@ class LogBundleExporter(
      * @return the path to the created archive, or a failure if the archive
      *   could not be written.
      */
-    suspend fun export(): Result<String> = runCatching {
+    open suspend fun export(): Result<String> = runCatching {
         val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         val archiveName = "singularity-logs-$timestamp.zip"
         val archivePath = "$logDirectory/$archiveName"
@@ -72,10 +72,11 @@ class LogBundleExporter(
     }
 
     private suspend fun collectLogFiles(): List<Pair<String, ByteArray>> {
-        return (0 until fileCount)
+        val files = (0 until fileCount)
             .map { "log.$it.txt" }
             .map { "$logDirectory/$it" }
             .filter { fileSystem.exists(it) }
             .map { path -> path.substringAfterLast('/') to fileSystem.readBytes(path) }
+        return files
     }
 }

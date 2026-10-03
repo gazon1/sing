@@ -14,9 +14,7 @@ import androidx.core.content.FileProvider
  * @param context Used to create the `FileProvider` URI. Injected as `Context`
  *   from Koin, matching the pattern used by [AndroidFileRevealer].
  */
-class AndroidFileSharePort(
-    private val context: Context,
-) : FileSharePort {
+class AndroidFileSharePort(private val context: Context) : FileSharePort {
 
     override fun shareFile(filePath: String, mimeType: String): Boolean {
         val file = java.io.File(filePath)
@@ -36,7 +34,7 @@ class AndroidFileSharePort(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooser = Intent.createChooser(intent, /* title */ null)
+        val chooser = Intent.createChooser(intent, null)
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return runCatching {
             context.startActivity(chooser)

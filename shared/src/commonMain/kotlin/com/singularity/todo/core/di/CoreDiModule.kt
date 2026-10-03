@@ -273,6 +273,8 @@ fun coreModule(): org.koin.core.module.Module = module {
             defaultAgendaViewContributor = getOrNull<DefaultAgendaViewContributor>(),
             savedAgendaViewsRepo = get(),
             fileRevealer = get(),
+            logBundleExporter = get(),
+            fileSharePort = get(),
         )
     }
 

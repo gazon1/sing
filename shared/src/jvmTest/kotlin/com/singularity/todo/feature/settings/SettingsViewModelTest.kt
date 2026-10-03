@@ -23,6 +23,8 @@ import com.singularity.todo.feature.ai.AiSettingsContributor
 import com.singularity.todo.feature.ai.FakeTextGen
 import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.test.fakes.FakeFileRevealer
+import com.singularity.todo.test.fakes.FakeFileSharePort
+import com.singularity.todo.test.fakes.FakeLogBundleExporter
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -84,6 +86,8 @@ class SettingsViewModelTest {
             defaultAgendaViewContributor = defaultAgendaViewContributor,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             fileRevealer = FakeFileRevealer(),
+            logBundleExporter = FakeLogBundleExporter(),
+            fileSharePort = FakeFileSharePort(),
         )
     }
 
@@ -261,6 +265,8 @@ class SettingsViewModelTest {
             defaultAgendaViewContributor = defaultAgendaViewContributor,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             fileRevealer = FakeFileRevealer(),
+            logBundleExporter = FakeLogBundleExporter(),
+            fileSharePort = FakeFileSharePort(),
         )
         // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
