@@ -117,7 +117,9 @@ Throws `CrossUserWriteException` when `entityUserId` is neither the current scop
 | `create` generates entity internally (e.g., `TagGroupRepositoryImpl`) | No external input; `userId` is stamped from `scopedUserId` |
 | Sync bootstrap / pull handler calls `dao.upsert()` directly | Already validated by upstream sync protocol |
 | `apply` (remote upsert) | Server signature already validated |
-| `restore` re-creates from deleted state | Stamps with current user, entity is already owned |
+| `delete`, `archive`, `unarchive`, `restore` | DAO `*ForUser` filter (`WHERE user_id = :scopedUserId`) already prevents cross-user writes; `require(rows > 0)` throws if entity not found or not owned. No external `userId` to validate — the operation is scoped to the current user by construction. |
+
+**Note on error semantics:** These methods throw `IllegalArgumentException` ("not found") rather than `CrossUserWriteException` (authorization). Both prevent the write, just with different error types. If you prefer `CrossUserWriteException` semantics, add a read-first `assertCanWrite` call — but it costs an extra DB read per operation.
 
 ## Guard vs DAO-level filter
 

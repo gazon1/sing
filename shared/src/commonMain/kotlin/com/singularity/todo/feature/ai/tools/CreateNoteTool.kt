@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.serialization.Serializable
@@ -13,6 +14,7 @@ import kotlin.time.Clock
 @Serializable
 data class CreateNoteInput(
     val title: String = "",
+    /** Markdown body. Stored as canonical HTML via [NoteContentMapper.toHtml]. */
     val bodyMarkdown: String? = null,
     val isFolder: Boolean = false,
     val parentNoteId: String? = null,
@@ -31,10 +33,16 @@ class CreateNoteTool(
         val now = clock.now()
         val noteId = NoteId.generate()
         val userId = currentUser.scopedUserId.value
+        // Convert markdown to canonical HTML: notes are stored with bodyHtml as the
+        // canonical representation. Without this, AI-created notes have bodyMarkdown
+        // set but bodyHtml=null, and the editor falls back to toHtml() on open —
+        // which works but stores the markdown in the legacy field forever.
+        val bodyHtml = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
         val note = Note(
             id = noteId,
             title = args.title,
-            bodyMarkdown = args.bodyMarkdown,
+            bodyMarkdown = null,  // markdown stored only as HTML
+            bodyHtml = bodyHtml,
             isFolder = args.isFolder,
             parentNoteId = args.parentNoteId?.let { NoteId.fromString(it) },
             createdAt = now,

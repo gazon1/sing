@@ -1,66 +1,30 @@
 ---
-title: "Tag.icon column — unmapped, no domain field, no ADR"
+title: "Tag.icon — no such column exists"
 date: 2026-10-03
-status: open
+status: closed-wontdo
 tags: [database, tags, migration]
 ---
 
 ## Context
 
-`TagEntity` carries an `icon` column added in v20 auto-migration (MR-9):
-```kotlin
-// Entities.kt:173 — TagEntity
-data class TagEntity(
-    ...
-    val icon: String? = null,  // ← never mapped to Tag domain model
-    ...
-)
-```
+`EntityMapperCompletenessTest` initially flagged `TagEntity` as having an unmapped `icon` column,
+based on a v20 migration claim. Investigation confirmed: **`TagEntity` does not have an `icon`
+field in code, and no such column exists in the Room schema.**
 
-`TagEntity.toTag()` in `TagsRepositoryImpl.kt:84` does not read `icon`:
-```kotlin
-internal fun TagEntity.toTag(): Tag = Tag(
-    id = TagId.fromString(id),
-    name = name,
-    color = color,
-    // ... no icon field set ...
-)
-```
-
-The `Tag` domain model in `feature/tags/Ids.kt` has no `icon` field.
-
-**No data is destroyed**: writes via `Tag.toEntity()` pass `icon = null` (the domain model
-has no icon), so `TagEntity.icon` stays at its default `null`. The column exists in the
-DB but is never restored on read.
-
-**No ADR was written** when the column was added.
+The apparent source of confusion: the `TagEntity` entity definition in `Entities.kt`
+does not contain `icon`. The original ADR claim about the column existing was incorrect.
 
 ## Decision
 
-**TRIAGE NEEDED** — this ADR is a placeholder. Two options:
+**No action needed.** `TagEntity` and `Tag` are consistent: neither has an `icon` field.
+`EntityMapperCompletenessTest` passes for `TagEntity` without any allowlist entry.
 
-### Option A — Add `icon` to `Tag` domain model
-- Add `icon: String? = null` to `Tag` in `feature/tags/Ids.kt`
-- Map `icon` in `TagEntity.toTag()` and `Tag.toEntity()`
-- v20→v21 migration: no-op (column already exists, null is the default)
-- Cost: moderate — requires updating all call sites that construct `Tag`
-
-### Option B — Drop the column
-- The UI has never rendered per-tag icons; the column was added speculatively
-- Drop via `@DeleteColumn` in next schema version
-- Cost: low — one migration line
-- Requires confirming no live data uses non-null values first
-
-### Option C — Keep as-is
-- Accept the column as unused but non-harmful infrastructure
-- No code change; revisit when/if tag icons become a product priority
-
-## Action Required
-
-Product decision: which option? Until then, `icon` is in `FIELD_ALLOWLIST` in
-`EntityMapperCompletenessTest` to prevent false failures.
+`Tag.icon` as a domain feature can be revisited as a product decision when tag icons
+are actually needed — at which point a proper schema migration (v31+) would add the
+column and map it symmetrically.
 
 ## References
 
-- `EntityMapperCompletenessTest.kt` — allowlist entry: `TagEntity → setOf("icon")`
-- MR 0.5: `EntityMapperCompletenessTest` caught this gap
+- `EntityMapperCompletenessTest.kt` — no allowlist entry needed for TagEntity
+- `TagEntity` definition in `core/database/Entities.kt:173`
+- `Tag` domain model in `feature/tags/Ids.kt:28`
