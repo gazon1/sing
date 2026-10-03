@@ -36,19 +36,27 @@ instead of re-deriving them.
 
 ## Deferred
 
-### 1. `scopedUserId.value` snapshots at construction time
+### 1. `scopedUserId.value` snapshots at construction time — ✅ RESOLVED (Phase A)
 
-`TaskProposalsCollector` receives
-`deps.proposals.watchProposalsForTask(taskId, deps.currentUser.scopedUserId.value)` —
-the user id is read ONCE when the coordinator is constructed. `ProfileAwareCurrentUser`'s
-scoped id can change moments after startup (the real auth resolves `anonymous` → a
-generated ULID), and anything that snapshots too early watches the wrong partition
-until the VM is recreated. The flow harness even documents this pattern for writes.
+Fixed in `feature/proposal-target-sweep` (MR-A1). The root cause was a **contract
+violation in `ProposalRepository`** — its observe methods accepted `userId` as a
+parameter, which violates `GenericUserScopedRepository`'s rule that observations are
+self-scoped via `ProfileAwareCurrentUser`. Callers were forced to pass the ambient id,
+creating an eager-snapshot bug in every caller.
 
-Impact: low — the window is short and proposals are local-only. Fix direction: pass
-the `scopedUserId` flow into the collector and `flatMapLatest` inside it (the same
-shape `observeForCurrentUser` already uses). Same review applies to any future slot
-that takes a user id eagerly.
+Changes:
+- `ProposalRepository.watchProposalsForTask(taskId)` / `watchProposalsByStatus(status)` —
+  removed `userId` param; impl uses `currentUser.scopedUserId.flatMapLatest { ... }`
+- `ProposalDiModule` — injects `ProfileAwareCurrentUser` into `ProposalRepositoryImpl`
+- `TaskDetailCoordinator` — removed `deps.currentUser.scopedUserId.value` at call site
+- `InsightsViewModel` — same fix applied to `watchEntriesInRange(userId, ...)`
+- `TimeTrackingRepository.watchEntriesInRange(startMs, endMs)` — same contract violation
+  found and fixed in same MR (same root cause, same pattern)
+
+**Same pattern exists in no other repository** — grep confirms all other observe methods
+are already self-scoped.
+
+A Konsist rule (`ProhibitUserIdInObserve`) is added to prevent regression.
 
 ### 2. DIGEST over the 1550-line budget
 

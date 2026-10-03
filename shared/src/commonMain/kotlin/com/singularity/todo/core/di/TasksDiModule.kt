@@ -21,7 +21,6 @@ import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.TagLookup
-import com.singularity.todo.feature.statistics.InsightsViewModel
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
@@ -76,7 +75,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get(), get()) }
 
     // ─── Time tracking ──────────────────────────────────────────────────
-    single<com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository> {
+    single<com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository> {
         com.singularity.todo.feature.timetracking.data.TimeTrackingRepositoryImpl(
             get(),
             get(),
@@ -168,12 +167,10 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
 
-    viewModel { StatisticsViewModel(taskRepository = get(), clock = get()) }
-
-    viewModel<InsightsViewModel> {
-        InsightsViewModel(
-            timeTrackingRepo = get(),
+    viewModel<StatisticsViewModel> {
+        StatisticsViewModel(
             taskRepository = get(),
+            timeTrackingRepo = get(),
             projectsRepo = get(),
             currentUser = get(),
             clock = get(),

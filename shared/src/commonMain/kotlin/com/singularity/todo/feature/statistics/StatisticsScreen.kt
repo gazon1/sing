@@ -1,3 +1,5 @@
+@file:Suppress("FunctionSignature")
+
 package com.singularity.todo.feature.statistics
 
 import androidx.compose.foundation.Canvas
@@ -71,7 +73,7 @@ fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
 
         when (selectedTab) {
             0 -> TasksTabContent(state = state)
-            1 -> InsightsTabContent()
+            1 -> InsightsTabContent(viewModel = viewModel, insightsState = state.insights, rangeDays = state.rangeDays)
         }
     }
 }
@@ -129,7 +131,8 @@ private fun TasksTabContent(state: StatisticsUiState) {
 
 @Composable
 private fun TasksBarChart(buckets: List<DayBucket>) {
-    val maxCount = buckets.maxOfOrNull { it.completedCount } ?: 1
+    val maxCount = (buckets.maxOfOrNull { it.completedCount } ?: 1)
+        .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(
@@ -147,17 +150,28 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
             val chartHeight = size.height
 
             buckets.forEachIndexed { index, bucket ->
-                val barHeight = if (maxCount > 0) {
-                    (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                } else {
-                    0f
-                }
+                if (maxCount > 0) {
+                    // Completed: green bar from bottom
+                    val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
+                    drawRect(
+                        color = Color(0xFF4CAF50),
+                        topLeft = Offset(index * (barWidth + spacing), chartHeight - completedHeight),
+                        size = Size(barWidth, completedHeight),
+                    )
 
-                drawRect(
-                    color = Color(0xFF4CAF50),
-                    topLeft = Offset(index * (barWidth + spacing), chartHeight - barHeight),
-                    size = Size(barWidth, barHeight),
-                )
+                    // Overdue: amber bar below completed
+                    val overdueHeight = (bucket.overdueCount.toFloat() / maxCount) * chartHeight
+                    if (overdueHeight > 0) {
+                        drawRect(
+                            color = Color(0xFFFF9800),
+                            topLeft = Offset(
+                                index * (barWidth + spacing),
+                                chartHeight - completedHeight - overdueHeight,
+                            ),
+                            size = Size(barWidth, overdueHeight),
+                        )
+                    }
+                }
             }
         }
     }
@@ -189,10 +203,12 @@ private val INSIGHTS_COLORS = listOf(
 )
 
 @Composable
-private fun InsightsTabContent(viewModel: InsightsViewModel = koinViewModel<InsightsViewModel>()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-
-    if (state.loading) {
+private fun InsightsTabContent(
+    viewModel: StatisticsViewModel,
+    insightsState: StatisticsUiState.InsightsData,
+    rangeDays: Int,
+) {
+    if (insightsState.loading) {
         Text("Loading…", style = MaterialTheme.typography.bodyLarge)
         return
     }
@@ -203,27 +219,42 @@ private fun InsightsTabContent(viewModel: InsightsViewModel = koinViewModel<Insi
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Total time header
+        // Total time header + range selector
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Last 7 days",
+                text = "Last $rangeDays days",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = formatDuration(state.totalMs),
+                text = formatDuration(insightsState.totalMs),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
 
+        // Range selector chips
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(7, 30, 90).forEach { days ->
+                val selected = rangeDays == days
+                androidx.compose.material3.FilterChip(
+                    selected = selected,
+                    onClick = { viewModel.onIntent(StatisticsIntent.SetRange(days)) },
+                    label = { Text("${days}d") },
+                )
+            }
+        }
+
         // Stacked bar chart by day
-        val buckets = state.dayBuckets
+        val buckets = insightsState.dayBuckets
         if (buckets.isNotEmpty()) {
             InsightsStackedBarChart(
                 buckets = buckets,
@@ -232,7 +263,7 @@ private fun InsightsTabContent(viewModel: InsightsViewModel = koinViewModel<Insi
         } else {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "No time entries in the last 7 days",
+                    text = "No time entries in the last $rangeDays days",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp),
@@ -241,34 +272,45 @@ private fun InsightsTabContent(viewModel: InsightsViewModel = koinViewModel<Insi
         }
 
         // Project breakdown
-        if (state.projectBuckets.isNotEmpty()) {
-            Text(
-                text = "By project",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
+        ProjectBreakdown(
+            projectBuckets = insightsState.projectBuckets,
+            totalMs = insightsState.totalMs,
+        )
+    }
+}
 
-            val topProjects = state.projectBuckets.take(6)
-            val overflow = state.projectBuckets.size - topProjects.size
+@Composable
+private fun ProjectBreakdown(
+    projectBuckets: List<ProjectInsightsBucket>,
+    totalMs: Long,
+) {
+    if (projectBuckets.isEmpty()) return
 
-            topProjects.forEachIndexed { index, bucket ->
-                val color = INSIGHTS_COLORS[index % INSIGHTS_COLORS.size]
-                ProjectTimeRow(
-                    name = bucket.projectName,
-                    totalMs = bucket.totalMs,
-                    color = color,
-                    fraction = if (state.totalMs > 0) bucket.totalMs.toDouble() / state.totalMs else 0.0,
-                )
-            }
+    Text(
+        text = "By project",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
 
-            if (overflow > 0) {
-                Text(
-                    text = "+$overflow more",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+    val topProjects = projectBuckets.take(6)
+    val overflow = projectBuckets.size - topProjects.size
+
+    topProjects.forEachIndexed { index, bucket ->
+        val color = INSIGHTS_COLORS[index % INSIGHTS_COLORS.size]
+        ProjectTimeRow(
+            name = bucket.projectName,
+            totalMs = bucket.totalMs,
+            color = color,
+            fraction = if (totalMs > 0) bucket.totalMs.toDouble() / totalMs else 0.0,
+        )
+    }
+
+    if (overflow > 0) {
+        Text(
+            text = "+$overflow more",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -37,6 +38,7 @@ class WriteToolsTest {
     private val userId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeNotesRepo = FakeNotesRepository()
+    private val fakeProposalRepo = FakeProposalRepository(clock)
     private val existingTaskId = TaskId.generate()
     private val profileAwareUser = FakeProfileAwareCurrentUser(
         authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
@@ -181,39 +183,43 @@ class WriteToolsTest {
     // ─── DeleteTaskTool ─────────────────────────────────────────────────────────
 
     @Test
-    fun `DeleteTaskTool soft-deletes existing task`() = runTest {
-        val tool = DeleteTaskTool(fakeTaskRepo)
+    fun `DeleteTaskTool creates a delete proposal for existing task`() = runTest {
+        val tool = DeleteTaskTool(fakeProposalRepo, profileAwareUser, clock)
         val input = DeleteTaskInput(taskId = existingTaskId.value)
         val outputJson = tool.execute(input)
 
         val output = Json.decodeFromString(DeleteTaskOutput.serializer(), outputJson)
         assertEquals(existingTaskId.value, output.taskId)
-        assertTrue(output.deleted)
+        assertTrue(output.proposalCreated)
+        assertNotNull(output.proposalId)
         assertNull(output.error)
     }
 
     @Test
-    fun `DeleteTaskTool is idempotent — returns deleted=true for non-existent task`() = runTest {
-        // softDelete is idempotent: succeeds even if the task doesn't exist.
-        // This is intentional so agents can retry without error.
-        val tool = DeleteTaskTool(fakeTaskRepo)
+    fun `DeleteTaskTool creates proposal even for non-existent task`() = runTest {
+        // Proposal creation is idempotent: a proposal is created even if the task
+        // doesn't exist — the confirm step will fail gracefully.
+        val tool = DeleteTaskTool(fakeProposalRepo, profileAwareUser, clock)
         val input = DeleteTaskInput(taskId = "does-not-exist")
         val outputJson = tool.execute(input)
 
         val output = Json.decodeFromString(DeleteTaskOutput.serializer(), outputJson)
         assertEquals("does-not-exist", output.taskId)
-        assertTrue(output.deleted) // idempotent — succeeds even for missing task
+        assertTrue(output.proposalCreated)
         assertNull(output.error)
     }
 
     @Test
-    fun `DeleteTaskTool sets archivedAt on the task`() = runTest {
-        val tool = DeleteTaskTool(fakeTaskRepo)
+    fun `DeleteTaskTool does not directly archive the task`() = runTest {
+        // Deletion is deferred: the tool creates a proposal but does NOT directly archive.
+        // Archiving happens when the proposal is confirmed via ApplyProposalItemUseCase.
+        val tool = DeleteTaskTool(fakeProposalRepo, profileAwareUser, clock)
         assertNull(fakeTaskRepo.tasks.value[existingTaskId.value]!!.archivedAt)
 
         tool.execute(DeleteTaskInput(taskId = existingTaskId.value))
 
-        assertNotNull(fakeTaskRepo.tasks.value[existingTaskId.value]!!.archivedAt)
+        // Task is NOT archived directly — only the proposal is created
+        assertNull(fakeTaskRepo.tasks.value[existingTaskId.value]!!.archivedAt)
     }
 
     // ─── CreateNoteTool ─────────────────────────────────────────────────────────

@@ -2,7 +2,6 @@ package com.singularity.todo.feature.proposals.domain.model
 
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
 
 /**
@@ -45,13 +44,16 @@ enum class ProposalStatus {
 }
 
 /**
- * A batch of proposed changes awaiting confirmation on one task.
+ * A batch of proposed changes awaiting confirmation on one entity.
  *
- * Proposals exist so the AI never writes to a task directly: it produces this, the
- * user confirms or rejects each [ProposalItem], and only then does anything change.
+ * Proposals exist so the AI never writes to a task or note directly: it produces this,
+ * the user confirms or rejects each [ProposalItem], and only then does anything change.
+ *
+ * Proposals may target a task, note, project, or tag identified by `targetKind` / `targetId`.
  *
  * @param id Unique identity.
- * @param taskId The task every item in this proposal applies to.
+ * @param targetKind The entity kind each item in this proposal applies to.
+ * @param targetId The entity id each item applies to.
  * @param userId Owner.
  * @param source Which surface produced the proposal.
  * @param status Aggregate status, derived from the items.
@@ -61,7 +63,8 @@ enum class ProposalStatus {
  */
 data class AiProposal(
     val id: ProposalId,
-    val taskId: TaskId,
+    val targetKind: String,
+    val targetId: String,
     val userId: UserId,
     val source: ProposalSource,
     val status: ProposalStatus,
@@ -71,6 +74,13 @@ data class AiProposal(
 ) {
     /** Items still awaiting a decision. */
     val pendingItems: List<ProposalItem> get() = items.filter { it.status.isPending }
+
+    companion object {
+        const val TARGET_KIND_TASK = "TASK"
+        const val TARGET_KIND_NOTE = "NOTE"
+        const val TARGET_KIND_PROJECT = "PROJECT"
+        const val TARGET_KIND_TAG = "TAG"
+    }
 }
 
 /** True while the item has not been decided. */

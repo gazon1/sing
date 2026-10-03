@@ -8,8 +8,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
@@ -115,6 +116,8 @@ class TimeTrackingRepositoryImpl(
         require(rows > 0) { "Entry $entryId not found or not owned" }
     }
 
-    override fun watchEntriesInRange(userId: UserId, startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
-        dao.watchForUserInRange(userId.value, startMs, endMs).map { list -> list.map { it.toDomain() } }
+    override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
+        currentUser.scopedUserId.flatMapLatest { userId ->
+            dao.watchForUserInRange(userId.value, startMs, endMs).map { list -> list.map { it.toDomain() } }
+        }
 }

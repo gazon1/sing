@@ -2,27 +2,18 @@ package com.singularity.todo.feature.proposals.domain.usecase
 
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
-import com.singularity.todo.feature.proposals.domain.model.TaskField
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
-import com.singularity.todo.feature.tags.domain.model.TagEditActor
-import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
-import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
 import kotlinx.coroutines.flow.first
-import kotlinx.datetime.LocalDate
-import kotlin.time.Clock
 
 /**
  * Applies or refuses one AI-proposed change.
@@ -34,9 +25,9 @@ import kotlin.time.Clock
  *    proposed; writing its conclusion over a field that has since changed would
  *    silently clobber the user's edit. This mirrors the `writeOnStored` discipline
  *    in ADR 0103.
- * 2. **Plan.** Every parse and every precondition check happens here, *before*
- *    anything is claimed. A malformed or unapplicable proposal therefore leaves the
- *    item `Pending` and re-tryable, rather than half-applied with a decision recorded.
+ * 2. **Plan.** Every parse and every precondition check happens in [ProposalPlanner],
+ *    *before* anything is claimed. A malformed or unapplicable proposal therefore leaves
+ *    the item `Pending` and re-tryable, rather than half-applied with a decision recorded.
  * 3. **Claim.** A compare-and-set moves the item out of `Pending`. Losing that race
  *    means another tap already decided it, and this call then does nothing at all.
  * 4. **Dispatch** against the row the claim read back, not an earlier read.
@@ -44,17 +35,14 @@ import kotlin.time.Clock
  *
  * Reject is steps 1, 3 and 5 — no dispatch, but the reason is persisted so the
  * prompt's "recently rejected" list can quote it back.
- *
- * This is the only `when` over [ProposalItemKind] in the codebase; adding a variant
- * makes the compiler point here.
  */
 class ApplyProposalItemUseCase(
     private val proposals: ProposalRepository,
     private val tasks: TaskRepository,
+    private val notes: NotesRepository,
     private val tags: TagsRepository,
-    private val checklist: ChecklistRepository,
-    private val timeTracking: TimeTrackingRepository,
-    private val clock: Clock,
+    private val planner: ProposalPlanner,
+    private val dispatch: ProposalDispatch,
 ) {
 
     /**
@@ -70,13 +58,13 @@ class ApplyProposalItemUseCase(
         }
 
         // Plan first: a proposal that cannot be applied must not consume its one
-        // irreversible decision.
-        val task = tasks.get(taskIdOf(stored)) ?: error("Task ${stored.targetId} not found")
-        val plan = plan(stored, task)
+        // irreversible decision. All I/O (fetch task/note, resolve tag ids) happens here
+        // before the claim, so bad proposals fail fast.
+        val plan = buildPlan(stored)
 
         val claimed = proposals.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, userId)
             ?: return@runCatching stored // lost the race — someone else decided it
-        dispatch(plan, userId)
+        dispatch.dispatch(plan, userId)
         proposals.refreshStatus(claimed.proposalId, userId)
         claimed
     }
@@ -132,188 +120,63 @@ class ApplyProposalItemUseCase(
     // ── Planning ──────────────────────────────────────────────────────────────
 
     /**
-     * Turns a stored item into a validated, ready-to-apply plan.
+     * Builds a [ProposalPlan] from a stored item.
      *
-     * All validation lives here so that [dispatch] cannot fail on a parse: between
-     * the claim and the dispatch there is nothing left that can throw.
+     * All I/O (fetching the target task/note, resolving tag ids) happens here,
+     * before the claim. This lets the planner fail fast without burning the
+     * one irreversible decision.
      */
-    private suspend fun plan(item: ProposalItem, task: Task): ProposalPlan {
-        val taskId = TaskId(item.targetId.ifBlank { task.id.value })
-        return when (val kind = item.kind) {
-            // Resolved here, not in dispatch: a value the task cannot hold must fail
-            // *before* the claim, or the item burns its one decision on a write that
-            // then throws.
-            is ProposalItemKind.SetTaskField -> ProposalPlan.WriteTask(withField(task, kind.field, kind.value))
-
-            is ProposalItemKind.AddTags -> {
-                val resolved = resolveTagIds(kind.names)
-                ProposalPlan.AddTags(taskId, resolved)
+    private suspend fun buildPlan(item: ProposalItem): ProposalPlan {
+        return when {
+            item.kind.isNoteBound -> {
+                // SetNoteField needs the note; DeleteNote and ExtractActions don't but
+                // passing the note for SetNoteField is what the planner needs.
+                val note = notes.get(NoteId(item.targetId))
+                planner.planNoteItem(item, note)
             }
 
-            is ProposalItemKind.RemoveTags -> {
-                val ids = kind.tagIds.map(TagId::fromString).toSet()
-                require(ids.isNotEmpty()) { "RemoveTags has no tag ids" }
-                ProposalPlan.RemoveTags(taskId, ids)
-            }
+            item.kind.isDeleteVariant -> planner.planDeleteItem(item)
 
-            is ProposalItemKind.AddChecklistItems -> {
-                val texts = kind.texts.cleaned()
-                require(texts.isNotEmpty()) { "AddChecklistItems is empty after cleaning" }
-                ProposalPlan.AddChecklistItems(taskId, texts)
-            }
-
-            is ProposalItemKind.AddSubtasks -> {
-                val titles = kind.titles.cleaned()
-                require(titles.isNotEmpty()) { "AddSubtasks is empty after cleaning" }
-                ProposalPlan.AddSubtasks(taskId, titles)
-            }
-
-            is ProposalItemKind.AddTimeEntries -> {
-                kind.entries.forEach { entry ->
-                    require(entry.endedAt > entry.startedAt) {
-                        "Proposed time entry ends (${entry.endedAt}) before it starts (${entry.startedAt})"
-                    }
-                }
-                require(kind.entries.isNotEmpty()) { "AddTimeEntries is empty" }
-                ProposalPlan.AddTimeEntries(taskId, kind.entries)
+            else -> {
+                // Fetch task and resolve tag ids before calling the planner.
+                val task = tasks.get(TaskId(item.targetId))
+                val resolvedTagIds = item.kind.resolveTagIds()
+                planner.planTaskItem(item, task, resolvedTagIds)
             }
         }
     }
 
-    // ── Dispatch ──────────────────────────────────────────────────────────────
+    /** True when this kind targets a note rather than a task. */
+    private val ProposalItemKind.isNoteBound: Boolean
+        get() = this is ProposalItemKind.SetNoteField ||
+            this is ProposalItemKind.DeleteNote ||
+            this is ProposalItemKind.ExtractActions
+
+    /** True when this kind is a delete operation for a non-note entity. */
+    private val ProposalItemKind.isDeleteVariant: Boolean
+        get() = this is ProposalItemKind.DeleteTask ||
+            this is ProposalItemKind.DeleteProject ||
+            this is ProposalItemKind.DeleteTag
 
     /**
-     * Applies a plan.
+     * Resolves tag ids for AddTags/RemoveTags kinds.
      *
-     * Called only after a successful claim, against the row the claim read back.
+     * Called only during planning, before the claim — same as the original
+     * `resolveTagIds` method. The tag names are looked up here so the planner
+     * remains pure.
      */
-    private suspend fun dispatch(plan: ProposalPlan, userId: UserId) {
-        when (plan) {
-            is ProposalPlan.WriteTask -> tasks.update(plan.task).getOrThrow()
-
-            is ProposalPlan.AddTags -> {
-                val current = tasks.getTagIds(plan.taskId).first().toSet()
-                tasks.setTags(plan.taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
-            }
-
-            is ProposalPlan.RemoveTags -> {
-                val current = tasks.getTagIds(plan.taskId).first().toSet()
-                tasks.setTags(plan.taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
-            }
-
-            is ProposalPlan.AddChecklistItems -> plan.texts.forEach { text ->
-                checklist.addItem(plan.taskId.value, text).getOrThrow()
-            }
-
-            is ProposalPlan.AddSubtasks -> plan.titles.forEach { title ->
-                val now = clock.now()
-                tasks.create(
-                    Task(
-                        id = TaskId.generate(),
-                        title = title,
-                        parentTaskId = plan.taskId,
-                        userId = userId,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                ).getOrThrow()
-            }
-
-            is ProposalPlan.AddTimeEntries -> plan.entries.forEach { entry ->
-                timeTracking.createManualEntry(
-                    taskId = plan.taskId,
-                    userId = userId,
-                    startedAt = entry.startedAt,
-                    endedAt = entry.endedAt,
-                    kind = TimeEntryKind.Work,
-                    note = entry.note,
-                    source = TimeEntrySource.AiProposal,
-                ).getOrThrow()
-            }
+    private suspend fun ProposalItemKind.resolveTagIds(): Set<TagId> {
+        val names = when (this) {
+            is ProposalItemKind.AddTags -> names
+            else -> return emptySet()
         }
-    }
-
-    /**
-     * Returns [task] with [field] set to [rawValue], or throws if the value is not
-     * something the task can hold.
-     *
-     * Pure: reads nothing and writes nothing, so every rejection reason is
-     * reachable from a unit test without a repository.
-     */
-    private fun withField(task: Task, field: TaskField, rawValue: String): Task = when (field) {
-        TaskField.Title -> {
-            val value = rawValue.trim()
-            require(value.isNotEmpty()) { "Proposed title is blank" }
-            task.copy(title = value)
-        }
-
-        TaskField.Description -> task.copy(description = rawValue.trim().takeIf(String::isNotEmpty))
-
-        TaskField.Priority -> task.copy(
-            priority = runCatching { TaskPriority.valueOf(rawValue.trim()) }
-                .getOrElse { error("Unknown priority '$rawValue'") },
-        )
-
-        TaskField.DueDate -> {
-            val value = rawValue.trim()
-            task.copy(dueDate = if (value.isEmpty()) null else parseDate(value))
-        }
-
-        TaskField.Status -> {
-            val status = runCatching { TaskStatus.valueOf(rawValue.trim()) }
-                .getOrElse { error("Unknown status '$rawValue'") }
-            task.copy(completedAt = if (status == TaskStatus.Completed) clock.now() else null)
-        }
-
-        TaskField.EstimateMinutes -> {
-            val value = rawValue.trim().toIntOrNull()
-                ?: error("Estimate '$rawValue' is not a whole number of minutes")
-            require(value >= 0) { "Estimate cannot be negative" }
-            task.copy(estimateMinutes = value)
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private fun taskIdOf(item: ProposalItem): TaskId = TaskId(item.targetId)
-
-    /** Resolves proposed tag names to ids, ignoring names no tag matches. */
-    private suspend fun resolveTagIds(names: List<String>): Set<TagId> {
-        val cleaned = names.cleaned()
-        if (cleaned.isEmpty()) return emptySet()
+        if (names.isEmpty()) return emptySet()
         val byName = tags.observeAll().first().associateBy { it.name.trim().lowercase() }
-        return cleaned.mapNotNull { byName[it.trim().lowercase()]?.id }.toSet()
+        return names.mapNotNull { byName[it.trim().lowercase()]?.id }.toSet()
     }
-
-    private fun parseDate(raw: String): LocalDate = runCatching { LocalDate.parse(raw) }
-        .getOrElse { error("'$raw' is not an ISO date (yyyy-mm-dd)") }
-
-    private fun List<String>.cleaned(): List<String> = map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
     /** Shortest rejection reason worth feeding back to the model. */
     companion object {
         const val MIN_REASON_LENGTH = 20
     }
 }
-
-/**
- * A validated, ready-to-apply change. Built by [ApplyProposalItemUseCase.plan] so
- * that nothing between the claim and the dispatch can fail on a parse.
- */
-private sealed interface ProposalPlan {
-    val taskId: TaskId
-
-    /** A fully-resolved task write. Every parse already happened in `plan`. */
-    data class WriteTask(val task: Task) : ProposalPlan {
-        override val taskId: TaskId get() = task.id
-    }
-
-    data class AddTags(override val taskId: TaskId, val tagIds: Set<TagId>) : ProposalPlan
-    data class RemoveTags(override val taskId: TaskId, val tagIds: Set<TagId>) : ProposalPlan
-    data class AddChecklistItems(override val taskId: TaskId, val texts: List<String>) : ProposalPlan
-    data class AddSubtasks(override val taskId: TaskId, val titles: List<String>) : ProposalPlan
-    data class AddTimeEntries(override val taskId: TaskId, val entries: List<ProposedEntry>) : ProposalPlan
-}
-
-/** Alias so the plan type does not leak the serializable model into the private API. */
-private typealias ProposedEntry = com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry

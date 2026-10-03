@@ -31,6 +31,16 @@ import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.notes.formatSuggestTagsResult
 import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
+import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.launch
@@ -61,6 +71,8 @@ internal class NoteEditor(
     private val linkRepo: InternalLinkRepository,
     private val idGen: IdGenerator,
     private val ai: NoteAiController,
+    private val proposals: ProposalRepository,
+    private val applyProposal: ApplyProposalItemUseCase,
     private val log: Logger,
     private val currentUser: ProfileAwareCurrentUser,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
@@ -266,23 +278,115 @@ internal class NoteEditor(
 
     private fun runAiAction(action: NoteAiAction) {
         if (!ai.isActionAvailable(action)) return
+
+        // Note-field mutations (Improve, Summarize, Rewrite) and action-extraction go through
+        // proposals. SuggestTags is a read-only event (no direct write to the note).
+        when (action) {
+            NoteAiAction.Improve,
+            NoteAiAction.RewriteOneLiner,
+            NoteAiAction.RewriteTldr,
+            NoteAiAction.RewriteStructured,
+            NoteAiAction.Summarize,
+            NoteAiAction.ExtractActions,
+            -> runAiThroughProposal(action)
+
+            NoteAiAction.SuggestTags,
+            -> runAiThroughEvent(action)
+        }
+    }
+
+    /**
+     * AI actions that produce a note-field change or extract tasks: creates a proposal
+     * instead of writing directly.
+     */
+    private fun runAiThroughProposal(action: NoteAiAction) = vmScope.launch {
+        val current = state.value.draft
+        if (current.isNew) return@launch
+
+        val noteId = current.id
+        val userId = currentUser.scopedUserId.value
+        val now = Clock.System.now()
+
+        val result = ai.run(action, current.title, current.html).getOrNull()
+        val (kind, summary) = when (action) {
+            NoteAiAction.Summarize -> {
+                val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
+                val kind = ProposalItemKind.SetNoteField(NoteField.Summary, summary)
+                kind to "Summarize: $summary"
+            }
+
+            NoteAiAction.ExtractActions -> {
+                val actions = (result as? ExtractActionsResult.Ok)?.actions ?: return@launch
+                if (actions.isEmpty()) return@launch
+                val kind = ProposalItemKind.ExtractActions(actions)
+                kind to "Extract ${actions.size} action(s)"
+            }
+
+            NoteAiAction.Improve -> {
+                val improved = result as? Improved ?: return@launch
+                val kind = ProposalItemKind.SetNoteField(NoteField.Body, improved.body)
+                kind to formatNoteAiResult(improved)
+            }
+
+            NoteAiAction.RewriteOneLiner,
+            NoteAiAction.RewriteTldr,
+            NoteAiAction.RewriteStructured,
+            -> {
+                val improved = result as? Improved ?: return@launch
+                val tone = when (action) {
+                    NoteAiAction.RewriteOneLiner -> "OneLiner"
+                    NoteAiAction.RewriteTldr -> "Tldr"
+                    NoteAiAction.RewriteStructured -> "Structured"
+                    else -> return@launch
+                }
+                val kind = ProposalItemKind.SetNoteField(NoteField.Body, improved.body)
+                kind to "Rewrite as $tone: ${improved.title}"
+            }
+
+            else -> return@launch
+        }
+
+        val item = ProposalItem(
+            id = com.singularity.todo.core.ids.ProposalItemId.generate(),
+            proposalId = com.singularity.todo.core.ids.ProposalId.generate(),
+            kind = kind,
+            targetId = noteId,
+            humanSummary = summary,
+            status = ProposalItemStatus.Pending,
+            fingerprint = ProposalFingerprint.of(kind, noteId),
+            sortOrder = 0,
+        )
+        val proposal = AiProposal(
+            id = item.proposalId,
+            targetKind = AiProposal.TARGET_KIND_NOTE,
+            targetId = noteId,
+            userId = userId,
+            source = ProposalSource.Detail,
+            status = ProposalStatus.Pending,
+            createdAt = now,
+            updatedAt = now,
+            items = listOf(item),
+        )
+        proposals.save(proposal).onFailure {
+            emit(NotesUiEvent.AiResult("AI error: ${it.message}"))
+        }
+        // On success, the UI watches proposals and shows the proposal card to the user
+    }
+
+    /**
+     * AI actions that don't mutate the note directly (read-only): emit through events.
+     */
+    private fun runAiThroughEvent(action: NoteAiAction) {
         launchDraftEffect(
             key = "ai-$action",
             operation = { current: Editing ->
                 ai.run(action, current.title, current.html)
                     .getOrThrow()
             },
-            onResult = { before, success ->
-                @Suppress("UNCHECKED_CAST")
-                when (success) {
-                    is Improved -> before.copy(title = success.title, html = success.body, isDirty = true)
-                    else -> null
-                }
-            },
+            onResult = { _, _ -> null },
             onEvent = { result ->
                 @Suppress("UNCHECKED_CAST")
                 when (result) {
-                    is Improved -> NotesUiEvent.AiResult(formatNoteAiResult(result))
                     is SummarizeResult -> NotesUiEvent.AiResult(formatSummarizeResult(result))
                     is ExtractActionsResult -> NotesUiEvent.AiResult(formatExtractActionsResult(result))
                     is SuggestTagsResult -> NotesUiEvent.AiResult(formatSuggestTagsResult(result))

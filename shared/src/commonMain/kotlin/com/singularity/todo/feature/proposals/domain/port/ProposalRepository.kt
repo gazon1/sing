@@ -18,20 +18,31 @@ import kotlinx.coroutines.flow.Flow
  * agreed to, and an unagreed change has no business existing on another device, so
  * nothing here writes to the sync outbox. The `sync` columns exist so that changing
  * this decision later is a code change, not a schema migration.
+ *
+ * ## Observation scoping
+ *
+ * All observe methods are self-scoped via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
+ * Callers MUST NOT pass `userId`/`scopedUserId` as parameters to observe methods — the
+ * repository reads it from the ambient current user. This contract is enforced by
+ * [com.singularity.todo.core.detekt.ProhibitUserIdInObserve] (Konsist).
  */
 interface ProposalRepository {
 
     /**
-     * Watch every proposal on [taskId] for [userId], newest first, with their items
-     * resolved. Emits again whenever a proposal or any of its items changes.
+     * Watch every proposal on [taskId], newest first, with their items resolved.
+     * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
+     * Emits again whenever a proposal or any of its items changes.
      */
-    fun watchProposalsForTask(taskId: TaskId, userId: UserId): Flow<List<AiProposal>>
+    fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>>
 
     /** Watch one proposal with its items. Emits null if it does not exist. */
     fun watchProposal(id: ProposalId): Flow<AiProposal?>
 
-    /** Watch proposals in a given aggregate [status]. */
-    fun watchProposalsByStatus(userId: UserId, status: ProposalStatus): Flow<List<AiProposal>>
+    /**
+     * Watch proposals in a given aggregate [status].
+     * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
+     */
+    fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>>
 
     /**
      * Persist a proposal together with its items, replacing any items already stored

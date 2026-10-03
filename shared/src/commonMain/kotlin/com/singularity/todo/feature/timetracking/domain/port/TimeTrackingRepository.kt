@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.timetracking.domain
+package com.singularity.todo.feature.timetracking.domain.port
 
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
@@ -77,8 +77,9 @@ interface TimeTrackingRepository {
     suspend fun delete(entryId: TimeEntryId): Result<Unit>
 
     /**
-     * Watch all time entries for [userId] within the given time range, ordered by [startedAt] descending.
+     * Watch all time entries within the given time range, ordered by [startedAt] descending.
+     * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
      * Soft-deleted entries are excluded.
      */
-    fun watchEntriesInRange(userId: UserId, startMs: Long, endMs: Long): Flow<List<TimeEntry>>
+    fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>>
 }

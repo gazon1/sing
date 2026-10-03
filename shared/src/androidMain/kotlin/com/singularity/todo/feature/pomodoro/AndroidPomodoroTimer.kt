@@ -4,7 +4,7 @@ import com.singularity.todo.feature.pomodoro.recomputeRemaining
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

@@ -136,7 +136,7 @@ class TaskDetailCoordinator(
     private val proposalsCollector = if (deps.proposals != null) {
         TaskProposalsCollector(
             scope = vmScope,
-            proposals = deps.proposals.watchProposalsForTask(taskId, deps.currentUser.scopedUserId.value),
+            proposals = deps.proposals.watchProposalsForTask(taskId),
         )
     } else {
         null

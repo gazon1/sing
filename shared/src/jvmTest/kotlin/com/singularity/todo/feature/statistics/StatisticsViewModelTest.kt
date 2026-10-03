@@ -1,4 +1,5 @@
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:Suppress("FunctionSignature")
 
 package com.singularity.todo.feature.statistics
 
@@ -7,7 +8,10 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -40,12 +44,22 @@ class StatisticsViewModelTest {
         )
     }
 
-    private fun TestScope.createVm(repo: FakeTaskRepository = FakeTaskRepository()): StatisticsViewModel =
-        StatisticsViewModel(
+    private fun TestScope.createVm(
+        repo: FakeTaskRepository = FakeTaskRepository(),
+    ): StatisticsViewModel {
+        val clock = FakeClock(testNow)
+        val currentUser = FakeProfileAwareCurrentUser()
+        val timeTracking = FakeTimeTrackingRepository(clock)
+        val projects = FakeProjectsRepository(currentUser)
+        return StatisticsViewModel(
             taskRepository = repo,
-            clock = FakeClock(testNow),
+            timeTrackingRepo = timeTracking,
+            projectsRepo = projects,
+            currentUser = currentUser,
+            clock = clock,
             scope = testScope(backgroundScope),
         )
+    }
 
     @Test
     fun `marks task complete and statistics reactively update`() = runTest {
@@ -59,7 +73,6 @@ class StatisticsViewModelTest {
         repo.toggleComplete(TaskId.fromString("t1"))
 
         // Without active collection the state stays at initial loading=true.
-        // The viewModel uses stateIn which stops upstream when there are no collectors.
         assertTrue(vm.state.value.loading, "Without active collection, loading=true stays")
     }
 
@@ -67,8 +80,6 @@ class StatisticsViewModelTest {
     fun `state exposes StateFlow shape`() = runTest {
         val vm = createVm()
         advanceUntilIdle()
-        // stateIn uses WhileSubscribed(5000) — upstream only starts when a collector subscribes.
-        // Without a collector, the StateFlow holds its initial value.
         assertTrue(vm.state.value.loading)
     }
 }

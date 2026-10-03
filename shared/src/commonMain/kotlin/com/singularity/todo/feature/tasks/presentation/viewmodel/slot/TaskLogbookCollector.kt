@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

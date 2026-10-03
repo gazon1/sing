@@ -8,7 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

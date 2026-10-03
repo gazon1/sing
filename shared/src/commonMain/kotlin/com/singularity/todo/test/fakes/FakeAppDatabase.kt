@@ -1508,11 +1508,33 @@ private class FakeProposalDao(private val proposals: MutableStateFlow<Map<String
 
     override fun watchProposal(id: String): Flow<AiProposalEntity?> = proposals.map { it[id] }
 
-    override fun watchProposalsForTask(taskId: String, userId: String): Flow<List<AiProposalEntity>> =
-        proposals.map { map ->
-            map.values.filter { it.taskId == taskId && it.userId == userId }
-                .sortedByDescending { it.createdAt }
-        }
+    override fun watchProposalsForTarget(
+        targetId: String,
+        targetKind: String,
+        userId: String,
+    ): Flow<List<AiProposalEntity>> = proposals.map { map ->
+        map.values
+            .filter {
+                it.targetId == targetId &&
+                    it.targetKind == targetKind &&
+                    it.userId == userId
+            }
+            .sortedByDescending { it.createdAt }
+    }
+
+    override fun watchProposalsByTargetKind(
+        userId: String,
+        targetKind: String,
+        status: String,
+    ): Flow<List<AiProposalEntity>> = proposals.map { map ->
+        map.values
+            .filter {
+                it.userId == userId &&
+                    it.targetKind == targetKind &&
+                    it.status == status
+            }
+            .sortedByDescending { it.createdAt }
+    }
 
     override fun watchProposalsByStatus(userId: String, status: String): Flow<List<AiProposalEntity>> =
         proposals.map { map ->

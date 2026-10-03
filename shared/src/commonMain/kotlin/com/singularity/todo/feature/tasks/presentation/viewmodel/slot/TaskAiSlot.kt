@@ -77,7 +77,8 @@ class TaskAiSlot(
         val items = buildProposalItems(action, task, proposalId)
         val proposal = AiProposal(
             id = proposalId,
-            taskId = task.id,
+            targetKind = AiProposal.TARGET_KIND_TASK,
+            targetId = task.id.value,
             userId = userId,
             source = ProposalSource.Detail,
             status = ProposalStatus.Pending,
