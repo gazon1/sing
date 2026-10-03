@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
-# Pre-commit hook: compile main + test sources before commit
-# Fails fast on compilation errors (does NOT run tests or lint — use check.sh for that)
+# Pre-commit hook: auto-fix formatting, then compile before commit.
+#
+# Runs detekt --auto-correct FIRST (fixes ktlint formatting), THEN compiles.
+# This way formatting changes are included in the commit and don't cause
+# compilation failures downstream.
+#
+# Use `git commit --no-verify` to skip when needed.
 
 set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Skip compile check when inside a git worktree — the hook runs against the main
+# Skip when inside a git worktree — the hook runs against the main
 # checkout's source set, so any worktree that is API-ahead of main will produce
 # spurious "unresolved reference" errors and block the worktree commit.
-# Detect by comparing --git-dir (per-worktree) with --git-common-dir (shared .git):
-# they differ in worktrees, are identical in the main checkout.
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-commit: skipped (worktree) ==="
     exit 0
 fi
+
+echo "=== Pre-commit: auto-fix detekt + ktlint formatting ==="
+./gradlew :shared:detekt :desktopApp:detekt --auto-correct --no-daemon --quiet || {
+    echo "detekt --auto-correct FAILED"
+    exit 1
+}
 
 echo "=== Pre-commit: compiling shared (main + test) ==="
 ./gradlew :shared:compileKotlinJvm :shared:compileTestKotlinJvm --no-daemon --quiet || {
