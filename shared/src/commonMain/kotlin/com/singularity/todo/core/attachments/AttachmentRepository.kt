@@ -186,6 +186,8 @@ private fun AttachmentEntity.toAttachment(): Attachment = Attachment(
     createdAt = kotlin.time.Instant.fromEpochMilliseconds(createdAt),
     updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
     deletedAt = deletedAt?.let { kotlin.time.Instant.fromEpochMilliseconds(it) },
+    serverVersion = serverVersion,
+    hlc = hlc,
 )
 
 private fun Attachment.toEntity(): AttachmentEntity = AttachmentEntity(

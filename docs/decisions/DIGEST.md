@@ -150,7 +150,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Cross-feature imports are now compile-time errors if they bypass domain
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks
-- _... and 65 more items_
+- _... and 71 more items_
 
 ### `auth`
 
@@ -227,6 +227,21 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - Fake implementations in `FakeProjectDao` add `mutateForUser` that guards by `userId` before mutating, returning 0 if the entity belongs to a different user.
 - Old non-`*ForUser` DAO methods remain in the interface for binary compatibility but are no longer called by production code.
+
+### `data-integrity`
+
+- Multi-node cycles (A→B→C→A) are now rejected at write time, not just at UI-time
+- Test coverage for `assertNoCycles` multi-node case should be added to `DependencyValidatorTest`
+- `DependencyValidatorImpl.analyzeDependencies` unchanged — continues to support the cycle-detection UI (Phase 7b)
+- `bfsReachableFrom` is private and is NOT a public API change
+
+### `database`
+
+- Any future mapper that drops a column fails the build, not production
+- Positive control test ensures the rule itself doesn't silently stop detecting
+- Test requires manual synchronization when schema changes — a comment in the test
+- The allowlist documents known gaps (e.g. `TagEntity.icon`) and forces a decision
+- `ChecklistItemEntity` is excluded because its `toItem()` mapper is private and
 
 ### `datastore`
 
@@ -317,15 +332,15 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - **4 VM registrations** (`TaskEditorViewModel`, `TasksByProjectViewModel`, `ProjectEditorViewModel`, `ProjectDetailViewModel`) now use `viewModel { (p) → ... }` instead of `factory { (p) → ... }`
 - **@Preview и widget-тесты не затрагиваются** — все preview используют `*Content` helpers (stateless)
-- **Cycle detection gap**: classic DSL does not support cycle detection. If a
-- **KOIN-W003 in mcp-server**: `platformModule(profileId)` is dynamically computed
+- **Cycle detection gap**: classic DSL does not expose constructor relationships to the
+- **DIGEST exceeds size budget**: 1582 lines (limit: 1550). The ADR count grew since
+- **KOIN-W003 in test harnesses (2026-10-03 update)**: `TaskDetailCoordinatorGraphTest`
 - **KSP 2.3.11 vs Kotlin 2.3.21 mismatch**: KSP version does not track Kotlin
 - **Kotlin 2.3.21 compatibility warning**: plugin proceeds with 2.3.20 adapter.
 - **No call-site changes** — `koinViewModel { parametersOf(...) }` works with both forms
 - **Raw `runBlocking` в модулях** — не допускается, `koinBridge` как единая точка входа
 - **State survives configuration change** on Android — rotation no longer resets these screens
-- **Test harness `DesktopAppHarness`**: uses a runtime `overrides: Module = module {}`
-- _... and 28 more items_
+- _... and 29 more items_
 
 ### `koog`
 
@@ -597,7 +612,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Persistent `lastLsn` enables incremental pull — server sends only new events.
 - **Positive**: Simple, predictable push model; HLC provides causal ordering; outbox is durable (Room)
 - **Positive**: Supabase credentials never touch Room — `SecureStoragePort` is hardware-backed on both platforms.
-- _... and 8 more items_
+- _... and 12 more items_
 
 ### `tags`
 
@@ -757,7 +772,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 ## Open / Deferred
 
-_22 entries need attention._
+_23 entries need attention._
 
 - `2026-09-08-instant-migration` — **deferred** — Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant
 - `2026-09-25-remaining-test-debt` — **open** — Remaining Test Debt — post JUnit/suite-acceleration audit
@@ -781,6 +796,7 @@ _22 entries need attention._
 - `2026-09-30-repository-naming-and-package-convention` — **open** — MR-4 Repository naming and package convention
 - `2026-09-30-repository-read-isolation` — **open** — MR-2 Repository Read-Path Isolation
 - `2026-10-01-remaining-tech-debt` — **open** — Remaining tech debt — post-v4 audit
+- `2026-10-03-tag-icon-unmapped` — **open** — Tag.icon column — unmapped, no domain field, no ADR
 
 ## Recently superseded
 
@@ -1171,20 +1187,27 @@ _22 entries need attention._
 - `2026-10-01-test-ratchet-findings` — test-coverage, architecture, mr-followup
 - `2026-10-01-typed-task-dependency-links` — _untagged_
 - `2026-10-02-ai-proposal-confirmation` — ai, proposals, tasks, tags
+- `2026-10-02-cycle-detection-fix-b5` — data-integrity, dependency-validation, bugfix
 - `2026-10-02-desktop-haptic-missing-binding` — incident, desktop, di, testing
 - `2026-10-02-insights-time-bucketing` — insights, timebucketing, database
 - `2026-10-02-koin-compiler-plugin-dsl-validation` — koin, di, compiler-plugin, kotlin
 - `2026-10-02-log-redaction-classification-policy` — _untagged_
 - `2026-10-02-mixed-platform-audit-followups` — platform, audit, android, jvm, desktop
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — _untagged_
+- `2026-10-02-nav-entries-dedup-deferred` — architecture, navigation, android, desktop
 - `2026-10-02-note-entity-dual-task-linkage` — tech-debt, database, room, migration
 - `2026-10-02-per-connection-pragmas-and-fk-enforcement` — tech-debt, database, room, kmp
 - `2026-10-02-post-tech-debt-audit-findings` — tech-debt, detekt, quality, testing
+- `2026-10-02-routing-state-on-screen` — architecture, ui, android, desktop
 - `2026-10-02-tag-registry-single-source` — testing, maestro, testtags, ci, gates
 - `2026-10-02-task-time-tracking-and-estimate` — timetracking, tasks, database
+- `2026-10-02-tech-debt-metrics-tracking` — _untagged_
 - `2026-10-02-usage-recording-textgen-architecture` — _untagged_
+- `2026-10-03-entity-mapper-completeness` — database, write-path, room, testing
 - `2026-10-03-merge-regression-fixes` — nav3, coroutines, testing, merge
 - `2026-10-03-post-merge-debt` — debt, tasks, testing, profiles
+- `2026-10-03-synccolumns-live-field-set` — sync, database, write-path
+- `2026-10-03-tag-icon-unmapped` — database, tags, migration
 
 ## Active entries
 
@@ -1567,18 +1590,25 @@ _22 entries need attention._
 - `2026-10-01-test-ratchet-findings` — Post-test-ratchet findings: structural gaps found during MR-10..14
 - `2026-10-01-typed-task-dependency-links` — Typed Task Dependency Links — verb column
 - `2026-10-02-ai-proposal-confirmation` — AI proposal confirmation: compare-and-set, transactional apply, tag suppression
-- `2026-10-02-desktop-haptic-missing-binding` — _(no title)_
+- `2026-10-02-cycle-detection-fix-b5` — Fix B5: assertNoCycles uses full BFS, not just self-loop check
+- `2026-10-02-desktop-haptic-missing-binding` — Desktop test suite hangs — task detail composition crashed on missing Haptic binding
 - `2026-10-02-insights-time-bucketing` — Insights time bucketing: union-merge, midnight split, no SQLite dates on integer columns
 - `2026-10-02-koin-compiler-plugin-dsl-validation` — Compile-time Koin DI graph validation via koin-compiler-plugin 1.2.1
 - `2026-10-02-log-redaction-classification-policy` — Log Message User-Content Classification Policy
 - `2026-10-02-mixed-platform-audit-followups` — Mixed platform audit — MR-0 follow-ups: what was fixed and what was deferred
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — MR-6 / MR-7 Post-mortem — broken preconditions and agent cleanup
+- `2026-10-02-nav-entries-dedup-deferred` — AndroidNavEntries and JvmNavEntries are intentionally NOT fully deduplicated
 - `2026-10-02-note-entity-dual-task-linkage` — NoteEntity dual task linkage — FK enforcement and wikilink removal
 - `2026-10-02-per-connection-pragmas-and-fk-enforcement` — Per-connection PRAGMA enforcement and FK constraints
 - `2026-10-02-post-tech-debt-audit-findings` — Post-tech-debt-cleanup audit — remaining findings
+- `2026-10-02-routing-state-on-screen` — Routing state lives on the screen, not in the ViewModel
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 - `2026-10-02-task-time-tracking-and-estimate` — Task time tracking: estimate, time_entries, timer, Pomodoro
+- `2026-10-02-tech-debt-metrics-tracking` — Tech Debt Metrics — October 2026 Follow-up
 - `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
+- `2026-10-03-entity-mapper-completeness` — Entity-mapper completeness — guard against silent data destruction
 - `2026-10-03-merge-regression-fixes` — Merge regressions: Nav3 rendering contract, property-init-order NPE, test-harness DAOs
 - `2026-10-03-post-merge-debt` — Post-merge debt: deferred fixes and accepted risks from the time-hub merge
+- `2026-10-03-synccolumns-live-field-set` — SyncColumns: which fields the client writes back
+- `2026-10-03-tag-icon-unmapped` — Tag.icon column — unmapped, no domain field, no ADR
 

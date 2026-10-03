@@ -65,6 +65,7 @@ fun Reminder.toEntity(now: Long) = TaskReminderEntity(
     fireAt = fireAt,
     recurringPattern = recurringPattern,
     viewId = viewId?.raw,
+    lastFiredAt = lastFiredAt,
     createdAt = now,
     updatedAt = now,
 )

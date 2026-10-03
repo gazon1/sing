@@ -92,6 +92,7 @@ internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), dependsOn: Set<T
     recurrence = recurrenceRule?.let {
         StableJson.decodeFromString<RecurrenceSpec>(it)
     },
+    estimateMinutes = estimateMinutes,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),
     userId = userId.toId(),

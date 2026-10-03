@@ -1,13 +1,61 @@
 package com.singularity.todo.core.backup
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 object BackupMigrations {
     const val CURRENT = BackupFormat.SCHEMA_VERSION
 
+    /**
+     * v1 → v2: Add fields that were missing from TaskDto and NoteDto in v1.
+     *
+     * TaskDto gained: parentTaskId, estimateMinutes, recurrenceRule, outgoingLinks,
+     *                  aiSuppressedTagIds
+     * NoteDto gained:  isPinned, pinnedAt, color, sortOrder, wordCount, charCount,
+     *                  outgoingLinks, taskId
+     *
+     * All new fields default to null/empty-string/0 so that a v1 backup is fully
+     * restorable on a v2 client.
+     */
+    private val v1ToV2: (JsonObject) -> JsonObject = { payload ->
+        val tasks = payload["tasks"]?.jsonArray?.map { task ->
+            val obj = task.jsonObject
+            JsonObject(obj + mapOf(
+                "parentTaskId" to JsonPrimitive(null),
+                "estimateMinutes" to JsonPrimitive(null),
+                "recurrenceRule" to JsonPrimitive(null),
+                "outgoingLinks" to JsonArray(listOf()),
+                "aiSuppressedTagIds" to JsonArray(listOf()),
+            ))
+        } ?: emptyList()
+        val notes = payload["notes"]?.jsonArray?.map { note ->
+            val obj = note.jsonObject
+            JsonObject(obj + mapOf(
+                "isPinned" to JsonPrimitive(false),
+                "pinnedAt" to JsonPrimitive(null),
+                "color" to JsonPrimitive(null),
+                "sortOrder" to JsonPrimitive(0),
+                "wordCount" to JsonPrimitive(0),
+                "charCount" to JsonPrimitive(0),
+                "outgoingLinks" to JsonArray(listOf()),
+                "taskId" to JsonPrimitive(null),
+            ))
+        } ?: emptyList()
+        JsonObject(payload + mapOf(
+            "tasks" to JsonArray(tasks),
+            "notes" to JsonArray(notes),
+            "schemaVersion" to JsonPrimitive(2),
+        ))
+    }
+
     // Map<fromVersion, transform>
-    // Add as: migrations[1] = { obj -> migrateV1ToV2(obj) }
-    private val migrations: Map<Int, (JsonObject) -> JsonObject> = emptyMap()
+    private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        1 to v1ToV2,
+    )
 
     /**
      * Migrate a payload from `from` to `to` schema version.
