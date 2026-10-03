@@ -118,6 +118,7 @@ jobs:
         run: node --version
       - name: OpenSpec validate (advisory)
         run: |
+          python3 scripts/check-openspec-stale.py || true
           node /home/max/.nvm/versions/node/v24.14.0/lib/node_modules/@fission-ai/openspec/bin/openspec.js validate --all --json --strict || true
 
   mcp-server-check:
