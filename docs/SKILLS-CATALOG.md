@@ -31,11 +31,11 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cross-feature-navigation` | 196 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
-| `singularity-todo-desktop-compose-ui-tests` | 230 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
+| `singularity-todo-desktop-compose-ui-tests` | 269 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 381 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
-| `singularity-todo-di-graph-testing` | 234 | Catch Koin DI missing bindings before the app reaches a device. |
-| `singularity-todo-document-style-detail` | 211 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
+| `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. |
+| `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
 | `singularity-todo-domain-logic-pattern` | 203 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
 | `singularity-todo-draft-restoration` | 427 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
@@ -85,26 +85,26 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-task-snapshot-testing` | 175 | NOT ADOPTED — research notes only. |
 | `singularity-todo-tech-debt-refactor` | 125 | High-level plan for the tech-debt refactor epic (3 epics x 10 PRs), with per-PR pointers to the skill that carries the detail. |
 | `singularity-todo-test-flaky-prevention` | 193 | Rules to prevent test flakiness in the Singularity Todo project. |
-| `singularity-todo-test-helpers` | 505 | Standardized test helpers and patterns for ViewModel tests in this project. |
+| `singularity-todo-test-helpers` | 349 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 162 | JUnit tag-based test filtering strategy for the Singularity Todo project. |
-| `singularity-todo-testable-vm` | 434 | Testable ViewModel pattern for Singularity Todo KMP app. |
+| `singularity-todo-testable-vm` | 461 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
-| `singularity-todo-unwired-surface-audit` | 109 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
+| `singularity-todo-unwired-surface-audit` | 113 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
 | `singularity-todo-vm-intent-pattern` | 286 | The house ViewModel pattern for this project: sealed Intent + single onIntent dispatcher, routing vs domain intent separation, _latestTask cache, and when to use (or skip) a pure reducer. |
 | `singularity-todo-vm-lifecycle-addcloseable` | 218 | Migrate a ViewModel from manual 'override fun onCleared() { scope.cancel() }' to AutoCloseableCoroutineScope + ViewModel.addCloseable() (lifecycle 2.8+). |
 | `singularity-todo-vm-migration-playbook` | 355 | Step-by-step playbook for migrating an existing ViewModel from stateIn/combine/scopeOverride to the canonical scope-as-default-param pattern. |
 | `singularity-todo-vm-pattern-overview` | 80 | Router skill — index to all ViewModel-related skills. |
 | `singularity-todo-workflow-evals` | 102 | Run workflow evals to measure agent quality — run tasks, compare against baseline, report results. |
 | `singularity-todo-worktree-isolation` | 135 | Run a refactor in an isolated git worktree so the main checkout stays clean and parallel work is unaffected. |
-| `singularity-todo-write-pipeline` | 130 | Canonical write pipeline for user-scoped repositories: assertCanWrite guard → Room upsert → SyncRepository.enqueue. |
+| `singularity-todo-write-pipeline` | 201 | Canonical write pipeline for user-scoped repositories. |
 
 ## Generic / meta skills
 
 | Skill | Lines | Description |
 |---|---:|---|
 | `code-review-pr-workflow` | 191 | Author and review a pull request in this project. |
-| `debugging-investigation` | 226 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis, common patterns. |
+| `debugging-investigation` | 311 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
 | `domain-glossary` | 89 | Decide whether a term belongs in docs/CONTEXT.md and add it correctly. |
 | `domain-modeling` | 73 | Build and sharpen a project's domain model. |
 | `grill-me-RETIRED` | 5 | RETIRED. |

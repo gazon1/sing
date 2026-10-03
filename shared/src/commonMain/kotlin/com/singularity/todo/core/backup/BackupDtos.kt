@@ -12,6 +12,21 @@ import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
+
+/**
+ * Deserializes a JSON array column (`"[]"`, `"["a","b"]"`) into a list.
+ * Tolerates legacy/corrupt payloads instead of aborting a whole backup restore.
+ */
+private fun decodeLinkList(raw: String): List<String> = runCatching {
+    Json.decodeFromString(ListSerializer(String.serializer()), raw)
+}.getOrDefault(emptyList())
+
+/** Serializes a link list back into the JSON array column representation. */
+private fun encodeLinkList(links: List<String>): String =
+    Json.encodeToString(ListSerializer(String.serializer()), links)
 
 // ─── TaskDto ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +55,11 @@ data class TaskDto(
     val isPinned: Boolean = false,
     /** MR-1: denormalized snapshot of depends-on task IDs at backup time. */
     val dependsOn: List<String>? = null,
+    val estimateMinutes: Int? = null,
+    val recurrenceRule: String? = null,
+    /** Wikilink targets of this task, stored as a list in JSON and as a JSON array column in Room. */
+    val outgoingLinks: List<String> = emptyList(),
+    val aiSuppressedTagIds: List<String> = emptyList(),
     val createdAt: Long,
     val updatedAt: Long,
 )
@@ -53,6 +73,10 @@ fun TaskEntity.toDto(): TaskDto = TaskDto(
     accentColor = accentColor, emoji = emoji,
     completedAt = completedAt, someday = someday,
     archivedAt = archivedAt, isPinned = isPinned,
+    estimateMinutes = estimateMinutes,
+    recurrenceRule = recurrenceRule,
+    outgoingLinks = decodeLinkList(outgoingLinks),          // JSON string → List
+    aiSuppressedTagIds = decodeLinkList(aiSuppressedTagIds), // JSON string → List
     createdAt = createdAt, updatedAt = updatedAt,
 )
 
@@ -67,6 +91,10 @@ fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
     accentColor = accentColor, emoji = emoji,
     completedAt = completedAt, someday = someday,
     archivedAt = archivedAt, isPinned = isPinned,
+    estimateMinutes = estimateMinutes,
+    recurrenceRule = recurrenceRule,
+    outgoingLinks = encodeLinkList(outgoingLinks),          // List → JSON string
+    aiSuppressedTagIds = encodeLinkList(aiSuppressedTagIds), // List → JSON string
     createdAt = createdAt, updatedAt = updatedAt,
     userId = userId,
     sync = SyncColumns(),
@@ -83,6 +111,14 @@ data class NoteDto(
     val isFolder: Boolean = false,
     val kind: String = "Plain",
     val parentNoteId: String? = null,
+    val isPinned: Boolean = false,
+    val pinnedAt: Long? = null,
+    val color: Int? = null,
+    val sortOrder: Int = 0,
+    val wordCount: Int = 0,
+    val charCount: Int = 0,
+    val outgoingLinks: List<String> = emptyList(),
+    val taskId: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,
@@ -93,6 +129,14 @@ fun NoteEntity.toDto(): NoteDto = NoteDto(
     id = id, title = title, bodyMarkdown = bodyMarkdown,
     bodyHtml = bodyHtml, isFolder = isFolder,
     kind = kind.name, parentNoteId = parentNoteId,
+    isPinned = isPinned,
+    pinnedAt = pinnedAt,
+    color = color,
+    sortOrder = sortOrder,
+    wordCount = wordCount,
+    charCount = charCount,
+    outgoingLinks = decodeLinkList(outgoingLinks), // JSON string → List
+    taskId = taskId,
     createdAt = createdAt, updatedAt = updatedAt,
     deletedAt = deletedAt, archivedAt = archivedAt,
 )
@@ -103,6 +147,14 @@ fun NoteDto.toEntity(userId: String): NoteEntity = NoteEntity(
     isFolder = isFolder,
     kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind),
     parentNoteId = parentNoteId,
+    isPinned = isPinned,
+    pinnedAt = pinnedAt,
+    color = color,
+    sortOrder = sortOrder,
+    wordCount = wordCount,
+    charCount = charCount,
+    outgoingLinks = encodeLinkList(outgoingLinks), // List → JSON string
+    taskId = taskId,
     createdAt = createdAt, updatedAt = updatedAt,
     deletedAt = deletedAt, archivedAt = archivedAt,
     sync = SyncColumns(),

@@ -57,7 +57,9 @@ class ChecklistRepositoryImpl(
         }
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
-        dao.upsert(item.toEntity())
+        val now = clock.now().toEpochMilliseconds()
+        val existing = dao.watchByTask(item.taskId).first().find { it.id == item.id.value }
+        dao.upsert(item.toEntity(now = now, existing = existing))
     }
 
     override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
@@ -99,15 +101,18 @@ private fun ChecklistItemEntity.toItem() = ChecklistItem(
     checkedAt = checkedAt,
 )
 
-private fun ChecklistItem.toEntity() = ChecklistItemEntity(
+private fun ChecklistItem.toEntity(
+    now: Long,
+    existing: ChecklistItemEntity? = null,
+) = ChecklistItemEntity(
     id = id.value,
     taskId = taskId,
     title = title,
     isCompleted = isCompleted,
     sortOrder = sortOrder,
-    createdAt = 0L, // filled by repository
-    updatedAt = 0L,
-    checkedBy = checkedBy,
-    checkedAt = checkedAt,
-    rowVersion = 1,
+    createdAt = existing?.createdAt ?: now,
+    updatedAt = now,
+    checkedBy = checkedBy ?: existing?.checkedBy,
+    checkedAt = checkedAt ?: existing?.checkedAt,
+    rowVersion = existing?.rowVersion ?: 1,
 )

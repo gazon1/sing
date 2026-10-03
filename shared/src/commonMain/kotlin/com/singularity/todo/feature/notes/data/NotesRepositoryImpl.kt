@@ -54,6 +54,14 @@ class NotesRepositoryImpl(
 
     override suspend fun update(item: Note): Result<Note> = runCatching {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+        // Read-before-write guard: reject updates to non-existent entities.
+        // Prevents silent data loss from upsert-on-missing.
+        noteDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
+            ?: throw IllegalArgumentException("Note not found: ${item.id.value}")
+        // Re-stamp after the guard, exactly as `create` does: the guard has just
+        // established that userId is either current or anonymous, so normalising
+        // anonymous -> current cannot lose information, whereas upserting the
+        // caller's anonymous id verbatim would orphan the row.
         val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
         noteDao.upsert(toUpdate.toEntity())
         toUpdate.also { syncRepository.enqueue(it) }

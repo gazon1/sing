@@ -6,6 +6,9 @@ import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -65,6 +68,13 @@ class BackupDtoTest {
         assertEquals(0L, restored.sync.serverVersion)
         assertEquals("LOCAL_ONLY", restored.sync.syncStatus)
         assertNull(restored.sync.syncError)
+
+        // Fields that used to be dropped by the backup round-trip
+        assertEquals(entity.parentTaskId, restored.parentTaskId)
+        assertEquals(entity.estimateMinutes, restored.estimateMinutes)
+        assertEquals(entity.recurrenceRule, restored.recurrenceRule)
+        assertEquals(entity.outgoingLinks, restored.outgoingLinks)
+        assertEquals(entity.aiSuppressedTagIds, restored.aiSuppressedTagIds)
     }
 
     @Test
@@ -78,6 +88,14 @@ class BackupDtoTest {
             bodyHtml = "<h1>Hello</h1>",
             isFolder = false,
             parentNoteId = null,
+            isPinned = true,
+            pinnedAt = now,
+            color = 0xFF0000,
+            sortOrder = 5,
+            wordCount = 42,
+            charCount = 200,
+            outgoingLinks = "[]",
+            taskId = "task-linked",
             createdAt = now,
             updatedAt = now,
             deletedAt = null,
@@ -92,6 +110,19 @@ class BackupDtoTest {
         assertEquals(entity.title, restored.title)
         assertEquals(entity.bodyMarkdown, restored.bodyMarkdown)
         assertEquals("user-1", restored.userId)
+
+        // Fields that used to be dropped by the backup round-trip
+        assertEquals(entity.isPinned, restored.isPinned)
+        assertEquals(entity.pinnedAt, restored.pinnedAt)
+        assertEquals(entity.color, restored.color)
+        assertEquals(entity.sortOrder, restored.sortOrder)
+        assertEquals(entity.wordCount, restored.wordCount)
+        assertEquals(entity.charCount, restored.charCount)
+        assertEquals(entity.taskId, restored.taskId)
+        assertEquals(
+            Json.decodeFromString(ListSerializer(String.serializer()), entity.outgoingLinks),
+            Json.decodeFromString(ListSerializer(String.serializer()), restored.outgoingLinks),
+        )
     }
 
     @Test

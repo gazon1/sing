@@ -18,6 +18,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteAiAction
 import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteAiResult.Improved
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.SuggestTagsResult
@@ -41,7 +42,11 @@ import kotlin.time.Clock
  * Draft type is [Editing] — the editing session including title, body HTML, and
  * isDirty/isNew flags.
  *
- * Autosave uses [NotesRepository.upsert] with 500ms debounce.
+ * Autosave uses [NotesRepository.update] via [buildPersistedNote] with 500ms debounce.
+ * The builder merges draft changes into the full note read from the DB (or the
+ * cached note for opened notes), preserving every field: kind, isPinned, color,
+ * taskId, outgoingLinks, wordCount, charCount, etc.
+ *
  * Restore returns null since notes are opened by ID, not from draft store.
  *
  * @param repo Note persistence.
@@ -51,7 +56,7 @@ import kotlin.time.Clock
  * @param log Logger.
  * @param scope Coroutine scope (lifecycle-owned).
  */
-class NoteEditor(
+internal class NoteEditor(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
     private val idGen: IdGenerator,
@@ -59,30 +64,36 @@ class NoteEditor(
     private val log: Logger,
     private val currentUser: ProfileAwareCurrentUser,
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    // Constructor PARAMETER (not body property) so the autosave lambda can capture it.
+    // The default is evaluated before the supercall; the lambda body is NOT executed then.
+    autosaveCtx: AutosaveContext = AutosaveContext(repo, currentUser, log, scope),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
         initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
+        // The lambda body is stored (not executed) during default parameter evaluation.
+        // It captures autosaveCtx from the constructor parameter scope — no 'this' access.
         autosave = { draft ->
-            // Autosave reads from DB to preserve createdAt. Debounced to 500ms, so the
-            // extra round-trip on every keystroke is acceptable.
-            // Note: taskId is NOT preserved here — it is only set via editingAsNote
-            // (the explicit-save path) which is guaranteed to have cachedNote set.
-            val noteId = NoteId.fromString(draft.id)
-            val existing = repo.get(noteId)
-            val now: kotlin.time.Instant = Clock.System.now()
-            repo.upsert(
-                Note(
-                    id = noteId,
-                    userId = currentUser.scopedUserId.value,
-                    title = draft.title,
-                    bodyHtml = draft.html,
-                    bodyMarkdown = null,
-                    createdAt = existing?.createdAt
-                        ?: now,
-                    updatedAt = now,
-                    isFolder = false,
-                    // taskId is preserved via cachedNote in the explicit-save path only
-                ),
-            )
+            autosaveCtx.scope.launch {
+                val noteId = NoteId.fromString(draft.id)
+                val result = if (draft.isNew) {
+                    // New note: create it first so we get a proper createdAt + full row.
+                    autosaveCtx.repo.createWithContent(
+                        id = noteId,
+                        title = draft.title,
+                        bodyMarkdown = "",
+                        bodyHtml = draft.html,
+                    )
+                } else {
+                    // Existing note: targeted UPDATE — preserves all other fields
+                    // (isPinned, color, sortOrder, taskId, outgoingLinks, serverVersion, etc.).
+                    autosaveCtx.repo.updateContent(
+                        id = noteId,
+                        title = draft.title,
+                        bodyMarkdown = "",
+                        bodyHtml = draft.html,
+                    )
+                }
+                result.onFailure { e -> autosaveCtx.log.e(e) { "autosave failed: ${e.message}" } }
+            }
         },
         restore = { null },
         logger = log,
@@ -90,33 +101,32 @@ class NoteEditor(
         scope = scope,
     ) {
 
-    /** Caches the existing note when opening to preserve createdAt across saves. */
-    private var cachedNote: Note? = null
+    // Capture the parameter as a property for use by createNoteForTask.
+    private val autosaveCtx: AutosaveContext = autosaveCtx
 
-    /** Converts an Editing draft to Note using the cached note to preserve createdAt. */
-    private fun editingAsNote(draft: Editing): Note {
-        val noteId = NoteId.fromString(draft.id)
-        val existing = cachedNote
-        val now: kotlin.time.Instant = Clock.System.now()
-        return Note(
-            id = noteId,
-            userId = currentUser.scopedUserId.value,
-            title = draft.title,
-            bodyHtml = draft.html,
-            bodyMarkdown = null,
-            createdAt = existing?.createdAt
-                ?: now,
-            updatedAt = now,
-            isFolder = false,
-        )
-    }
+    /**
+     * All dependencies required by the autosave lambda.
+     * [internal] — not part of the public API but accessible within the same package.
+     */
+    internal data class AutosaveContext(
+        val repo: NotesRepository,
+        val currentUser: ProfileAwareCurrentUser,
+        val log: Logger,
+        val scope: AutoCloseableCoroutineScope,
+    )
+
+    // Exposed for createNoteForTask which needs to pre-populate the repo before opening.
+    val autosaveContext: AutosaveContext get() = autosaveCtx
+
+    /** Caches the existing note when opening to preserve every field across saves. */
+    private var cachedNote: Note? = null
 
     /** Opens an existing note for editing. */
     fun openEditor(noteId: String) {
         vmScope.launch {
             val note = repo.get(NoteId.fromString(noteId))
                 ?: return@launch
-            cachedNote = note // cache for autosave to preserve createdAt
+            cachedNote = note // preserve ALL fields for autosave/persist
             val html = note.bodyHtml
                 ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
                 ?: ""
@@ -138,12 +148,14 @@ class NoteEditor(
 
     /**
      * Creates a new note and returns the generated ID.
+     * The note is saved to the DB immediately (via autosave) with an empty title;
+     * the caller opens the editor which will set isDirty on first keystroke.
+     *
      * @param preExistingId When non-null, uses this ID instead of generating a new one.
      *                      Used by [createNoteForTask] to keep the editor ID in sync with
      *                      the note already created in the repository.
      */
     fun createNote(preExistingId: String? = null): String {
-        cachedNote = null // no existing note for new notes
         val id = NoteId.fromString(
             preExistingId
                 ?: idGen.next(),
@@ -163,14 +175,14 @@ class NoteEditor(
     /**
      * Creates a new note attached to [taskId] and opens it in the editor.
      * The note is first persisted via [NotesRepository.createForTask] so it exists
-     * in the DB before autosave triggers the first `upsert`. The editor draft uses
-     * the same ID so subsequent autosave updates the already-created note.
+     * in the DB before autosave. The editor draft uses the same ID.
+     * [cachedNote] is preserved so autosave uses [buildPersistedNote] update path.
      */
     suspend fun createNoteForTask(taskId: TaskId) {
         val newNoteId = repo.createForTask(taskId, title = "", bodyMarkdown = null, bodyHtml = null)
-            .getOrThrow() // propagate failure via exception
+            .getOrThrow()
         val note = repo.get(newNoteId)!! // createForTask guarantees the note exists
-        cachedNote = note // preserve taskId + createdAt for autosave
+        cachedNote = note // preserve taskId + createdAt for autosave — DO NOT reset below
         createNote(preExistingId = note.id.value)
     }
 
@@ -181,14 +193,32 @@ class NoteEditor(
     override fun validate(draft: Editing): String? = null
 
     override suspend fun onSaved() {
-        // Explicit save persists the note: it is no longer "new" — a subsequent
-        // save must go through update, not create.
+        // Explicit save: draft is no longer "new" — subsequent saves go through update.
         updateDraft { it.copy(isNew = false) }
         emit(NotesUiEvent.SavedPulse)
     }
 
     override suspend fun persist(draft: Editing): Either<AppError, Unit> = try {
-        repo.upsert(editingAsNote(draft))
+        // For new notes: createWithContent (INSERT). For existing: updateContent (UPDATE).
+        // updateContent is a targeted UPDATE — preserves all other fields:
+        // isPinned, pinnedAt, color, sortOrder, kind, isFolder, parentNoteId, taskId,
+        // outgoingLinks, serverVersion, hlc, deletedAt, archivedAt, createdAt.
+        val noteId = NoteId.fromString(draft.id)
+        if (draft.isNew) {
+            autosaveContext.repo.createWithContent(
+                id = noteId,
+                title = draft.title,
+                bodyMarkdown = "",
+                bodyHtml = draft.html,
+            ).getOrThrow()
+        } else {
+            autosaveContext.repo.updateContent(
+                id = noteId,
+                title = draft.title,
+                bodyMarkdown = "",
+                bodyHtml = draft.html,
+            ).getOrThrow()
+        }
         Either.Right(Unit)
     } catch (e: Exception) {
         Either.Left(AppError.Persistence(e.toMessage()))

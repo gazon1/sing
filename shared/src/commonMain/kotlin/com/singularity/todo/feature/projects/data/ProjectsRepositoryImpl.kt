@@ -11,6 +11,7 @@ import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -172,6 +173,8 @@ internal fun ProjectEntity.toProject(): Project = Project(
     idempotencyKey = idempotencyKey,
     externalId = externalId,
     userId = UserId(userId),
+    serverVersion = sync.serverVersion,
+    hlc = sync.hlc?.let { Hlc(it) },
 )
 
 internal fun Project.toEntity(): ProjectEntity = ProjectEntity(
