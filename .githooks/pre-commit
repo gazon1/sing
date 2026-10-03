@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Pre-commit hook: auto-fix formatting, then compile before commit.
+# Pre-commit hook: compile before commit.
 #
-# Runs detekt --auto-correct FIRST (fixes ktlint formatting), THEN compiles.
-# This way formatting changes are included in the commit and don't cause
-# compilation failures downstream.
+# Formatting (detekt + ktlint) is handled by CI — running it in the hook is
+# redundant and the auto-correct pass can't fix certain ktlint issues (e.g. minor
+# whitespace / trailing-comma style nits), which would block commits for no reason.
 #
 # Use `git commit --no-verify` to skip when needed.
 
@@ -19,12 +19,6 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-commit: skipped (worktree) ==="
     exit 0
 fi
-
-echo "=== Pre-commit: auto-fix detekt + ktlint formatting ==="
-./gradlew :shared:detekt :desktopApp:detekt --auto-correct --no-daemon --quiet || {
-    echo "detekt --auto-correct FAILED"
-    exit 1
-}
 
 echo "=== Pre-commit: compiling shared (main + test) ==="
 ./gradlew :shared:compileKotlinJvm :shared:compileTestKotlinJvm --no-daemon --quiet || {

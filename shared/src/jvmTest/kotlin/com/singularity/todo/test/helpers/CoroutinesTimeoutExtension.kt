@@ -27,7 +27,9 @@ import java.time.Instant
  * The build directory is read lazily from the `shared.build.dir` system property
  * (set in `shared/build.gradle.kts` for the jvmTest task).
  */
-class CoroutinesTimeoutExtension : TestWatcher, TestExecutionExceptionHandler {
+class CoroutinesTimeoutExtension :
+    TestWatcher,
+    TestExecutionExceptionHandler {
 
     private val buildDirPath: String by lazy {
         System.getProperty("shared.build.dir")
