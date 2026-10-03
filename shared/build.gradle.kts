@@ -1,3 +1,4 @@
+import org.gradle.api.artifacts.Configuration
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -20,6 +21,21 @@ plugins {
 
 koinCompiler {
     // userLogs = true // uncomment to see detected definitions during development
+}
+
+/** kotlinx-coroutines-debug agent for jvmTest only. */
+val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+/** Resolves to the kotlinx-coroutines-debug agent jar at execution time. */
+val coroutinesDebugAgentJar: Provider<RegularFile> = providers.provider {
+    val cfg: Configuration = configurations.named("coroutinesDebugAgent").get()
+    val jarFile = cfg.resolve()
+        .singleOrNull { it.name.contains("debug") && it.name.endsWith(".jar") }
+        ?: error("Expected exactly one kotlinx-coroutines-debug jar in coroutinesDebugAgent, found: ${cfg.resolve().map { it.name }}")
+    layout.projectDirectory.file(jarFile.absolutePath)
 }
 
 kotlin {
@@ -243,6 +259,8 @@ kotlin {
             // Architecture boundary tests (ArchitectureTest) — structural assertions
             // over commonMain sources, enforced as part of the regular test run.
             implementation(libs.konsist)
+            // kotlinx-coroutines-debug for coroutine dump on failure (FailureContextExtension).
+            implementation(libs.kotlinx.coroutines.debug)
         }
     }
 }
@@ -305,9 +323,20 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     if (project.findProperty("updateGoldens")?.toString() == "true") {
         systemProperty("update.goldens", "true")
     }
+    // Build directory path for FailureContextExtension coroutine dump output.
+    systemProperty(
+        "shared.build.dir",
+        layout.buildDirectory.get().asFile.absolutePath,
+    )
+    // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility.
+    jvmArgumentProviders.add(object : org.gradle.process.CommandLineArgumentProvider {
+        override fun asArguments(): List<String> =
+            listOf("-javaagent:${coroutinesDebugAgentJar.get().asFile.absolutePath}")
+    })
 }
 
 dependencies {
+    coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
     androidRuntimeClasspath(libs.compose.ui.tooling)
 
     // Room 3 KSP compiler — per-target so AppDatabase_Impl is generated

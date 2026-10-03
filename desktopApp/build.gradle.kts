@@ -19,14 +19,9 @@ val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
     isCanBeResolved = true
 }
 
-/** Resolves to the kotlinx-coroutines-debug agent jar at execution time. */
-val coroutinesDebugAgentJar: Provider<RegularFile> = providers.provider {
-    val cfg: Configuration = configurations.named("coroutinesDebugAgent").get()
-    val jarFile = cfg.resolve()
-        .singleOrNull { it.name.contains("debug") && it.name.endsWith(".jar") }
-        ?: error("Expected exactly one kotlinx-coroutines-debug jar in coroutinesDebugAgent, found: ${cfg.resolve().map { it.name }}")
-    layout.projectDirectory.file(jarFile.absolutePath)
-}
+// NOTE: kotlinx-coroutines-debug agent is resolved inline in the jvmArgumentProviders
+// block below to avoid capturing a top-level Configuration reference, which breaks
+// the Gradle configuration cache (disallowed_types error).
 
 sourceSets {
     test {
@@ -174,9 +169,16 @@ tasks.withType<Test>().configureEach {
     )
     // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility;
     // DebugProbes.install() emits a dynamic-loading warning on JDK 21 and fails on JDK 22+.
+    // Resolved inline (not via top-level val) to avoid capturing Configuration in a
+    // script-level val, which breaks the Gradle configuration cache.
     jvmArgumentProviders.add(object : org.gradle.process.CommandLineArgumentProvider {
-        override fun asArguments(): List<String> =
-            listOf("-javaagent:${coroutinesDebugAgentJar.get().asFile.absolutePath}")
+        override fun asArguments(): List<String> {
+            val cfg = configurations.named("coroutinesDebugAgent").get()
+            val jarFile = cfg.resolve()
+                .singleOrNull { it.name.contains("debug") && it.name.endsWith(".jar") }
+                ?: error("Expected exactly one kotlinx-coroutines-debug jar in coroutinesDebugAgent, found: ${cfg.resolve().map { it.name }}")
+            return listOf("-javaagent:${jarFile.absolutePath}")
+        }
     })
 }
 

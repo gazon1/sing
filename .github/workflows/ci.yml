@@ -59,6 +59,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Upload shared failure bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-failure-bundle-${{ github.run_id }}
+          path: shared/build/diagnostics/**
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Assemble Android debug
         run: ./gradlew :androidApp:assembleDebug --no-daemon
         continue-on-error: true
