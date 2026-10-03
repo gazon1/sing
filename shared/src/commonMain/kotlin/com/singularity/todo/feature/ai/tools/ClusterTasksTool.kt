@@ -13,6 +13,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CancellationException
 
 @Serializable
 data class ClusterTasksInput(val tasks: List<String>)
@@ -36,7 +37,7 @@ class ClusterTasksTool(private val promptExecutor: PromptExecutor, private val m
             Json.decodeFromString<ClusterTasksOutput>(text).let { out ->
                 Json.encodeToString(ClusterTasksOutput.serializer(), out)
             }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
             logger.w(e) { "failed" }
             "{}"
         }

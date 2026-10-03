@@ -13,6 +13,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CancellationException
 
 /**
  * Factory functions for creating Koog [SimpleTool] instances.
@@ -56,7 +57,7 @@ inline fun <reified I : @Serializable Any, reified O : @Serializable Any> llmToo
             val text = extractText(response)
             return try {
                 Json.encodeToString(outputSerializer, outputBlock(text))
-            } catch (e: Exception) {
+            } catch (e: CancellationException) { throw e } catch (e: Exception) {
                 logger.w(e) { "failed" }
                 // Fallback: try direct decode
                 Json.encodeToString(outputSerializer, outputBlock(text))

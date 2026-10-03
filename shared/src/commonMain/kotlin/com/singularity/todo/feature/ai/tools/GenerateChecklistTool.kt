@@ -13,6 +13,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CancellationException
 
 @Serializable
 data class GenerateChecklistInput(val title: String, val description: String? = null)
@@ -35,7 +36,7 @@ class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private 
         return try {
             val steps = Json.decodeFromString<GenerateChecklistOutput>(text).steps
             Json.encodeToString(GenerateChecklistOutput.serializer(), GenerateChecklistOutput(steps))
-        } catch (e: Exception) {
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
             logger.w(e) { "failed" }
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }

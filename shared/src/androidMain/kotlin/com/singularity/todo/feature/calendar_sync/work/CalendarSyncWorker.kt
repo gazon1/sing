@@ -159,6 +159,8 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             )
 
             if (errors > 0) Result.retry() else Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: CalendarSyncException) {
             val type = when (e) {
                 is CalendarSyncException.PermissionRevokedException -> FailureType.PermissionRevoked
