@@ -41,10 +41,11 @@ Before writing any OpenSpec artifact, read in this order:
 
 1. **The real code** — not grep, not a skill. Read the actual source files that implement the behavior. Grep misses wiring, initialization order, and implicit dependencies.
 2. **`openspec list --specs`** — what specs already exist for this area?
-3. **`docs/CONTEXT.md`** — project-level constraints and conventions.
+3. **`docs/agents/domain.md`** — single-context layout: domain docs at `docs/decisions/`, skills at `.agents/skills/`.
 4. **`docs/decisions/DIGEST.md`** — architecture rules that already apply.
 5. **Relevant ADRs** — the `Context/Decision/Rationale/Consequences` for this area.
 6. **Relevant skills** — `.agents/skills/singularity-todo-*/SKILL.md`.
+7. **`docs/agents/issue-tracker.md`** — for filing and tracking issues related to the change.
 
 Agents that skipped step 1 produced plans that were wrong. The plans said "grep shows X" but grep doesn't show wiring.
 
