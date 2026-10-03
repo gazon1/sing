@@ -258,6 +258,9 @@ class NotesRepositoryImpl(
     }
 
     override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatching {
+        // Structural guard: DAO filter already restricts to current user's note (by scopedUserId).
+        // assertCanWrite is called for consistency with the write-pipeline audit checklist.
+        currentUser.assertCanWrite(entityId = id.value, entityUserId = currentUser.scopedUserId.value)
         val rows = noteDao.setOutgoingLinksForUser(
             id = id.value,
             linksJson = links.toLinksJson(),

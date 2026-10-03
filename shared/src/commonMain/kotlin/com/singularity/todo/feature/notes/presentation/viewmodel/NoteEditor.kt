@@ -202,7 +202,7 @@ internal class NoteEditor(
         // For new notes: createWithContent (INSERT). For existing: updateContent (UPDATE).
         // updateContent is a targeted UPDATE — preserves all other fields:
         // isPinned, pinnedAt, color, sortOrder, kind, isFolder, parentNoteId, taskId,
-        // outgoingLinks, serverVersion, hlc, deletedAt, archivedAt, createdAt.
+        // serverVersion, hlc, deletedAt, archivedAt, createdAt.
         val noteId = NoteId.fromString(draft.id)
         if (draft.isNew) {
             autosaveContext.repo.createWithContent(
@@ -219,6 +219,11 @@ internal class NoteEditor(
                 bodyHtml = draft.html,
             ).getOrThrow()
         }
+        // Extract outgoing links from the rendered HTML and persist them.
+        // This is the write path for the backlinks feature: without this, outgoing_links
+        // is never written and [[note://...]] / [[task://...]] links are dead.
+        val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html)
+        autosaveContext.repo.setOutgoingLinks(noteId, linkUrls)
         Either.Right(Unit)
     } catch (e: Exception) {
         Either.Left(AppError.Persistence(e.toMessage()))
