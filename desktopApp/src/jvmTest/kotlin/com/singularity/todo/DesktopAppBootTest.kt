@@ -1,15 +1,14 @@
 package com.singularity.todo
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.Test
 
@@ -52,16 +51,16 @@ class DesktopAppBootTest {
         // Past the version gate and auth: the agenda's own empty state is only
         // rendered once AppVersionGateScreen resolves to Allowed and AuthGuard
         // lets its content through.
-        onNodeWithText("No tasks").assertIsDisplayed()
+        assertTextDisplayed("No tasks")
 
         // The desktop chrome, not the Android bottom bar.
-        onNodeWithContentDescription(DesktopShell.HAMBURGER).assertIsDisplayed()
-        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).assertIsDisplayed()
+        assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
+        assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
         assertCurrentTab("Today")
 
         // The agenda top bar's own actions.
-        onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).assertIsDisplayed()
-        onNodeWithTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON).assertIsDisplayed()
+        assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+        assertTagDisplayed(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
     }
 
     private companion object {

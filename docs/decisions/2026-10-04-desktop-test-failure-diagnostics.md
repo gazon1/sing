@@ -99,7 +99,7 @@ The following items were identified during implementation but deferred because t
 
 **Why deferred:** Each file has 1–17 raw calls; doing them all in one MR would be a high-risk change. The two-way guard ensures exemptions don't go stale while migration proceeds incrementally.
 
-### Koin KOIN-W003: dynamically-computed module set
+### Koin KOIN-W003: dynamically-computed module set — ACCEPTED TRADEOFF (reclassified)
 
 `coreLoggingModule()` is loaded with a conditional/spread that the Koin compiler cannot verify at compile time:
 
@@ -107,13 +107,17 @@ The following items were identified during implementation but deferred because t
 w: [Koin][KOIN-W003] Graph not verifiable at compile time: the entry point loading
 coreLoggingModule is loaded with a dynamically-computed module set (a conditional,
 spread, or variable), so the assembled graph is unknowable here.
+  at: TaskDetailCoordinatorGraphTest.kt:47
 ```
 
-**Impact:** Compile-time dependency checks are skipped for `TaskDetailCoordinatorGraphTest.kt:47`. The graph is validated at runtime via `checkModules()`.
+**Investigation result (this MR):** NOT a defect. The warning fires identically at the production entry point (`main.kt:33`, same list-composition shape) and in `DesktopAppHarness`. It is the unavoidable consequence of the **accepted** aggregator pattern from ADR `2026-09-27-di-module-aggregator-narrative.md`: `domainModule(): List<Module>` exists precisely to avoid `includes()`'s Koin 4 scope-isolation bug (child-scope bindings invisible to sibling modules). The two "fixes" are both worse:
 
-**What to do:** Refactor `coreLoggingModule` and the module aggregation in `Modules.kt` to use direct `listOf()` construction instead of conditional/spread. This is a DI architecture change — affects `core/di/Modules.kt` and possibly `CoreDiModule.kt`.
+- `includes()` — reintroduces the isolation bug the aggregator was built to kill;
+- inlining all per-domain `*Module()` calls at every entry point — duplicates the facade and drifts from it.
 
-**Why deferred:** Requires understanding the full module dependency graph; could break runtime behavior if the spread is intentional.
+**Mitigations already in place:** the compiler plugin still verifies every entry point that does pass a static module set, and `TaskDetailCoordinatorGraphTest` exercises the real graph end-to-end at runtime (a broken binding fails the test with a timeout + error state, not silently).
+
+**What to do:** nothing, unless the Koin compiler plugin gains support for tracing list-returning aggregator functions. No refactor scheduled.
 
 ### Inter-class Kermit log mixing (same_thread, no forkEvery)
 
