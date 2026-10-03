@@ -10,11 +10,11 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.NoteField
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskField
 import com.singularity.todo.feature.proposals.domain.model.stringOrNull
 import com.singularity.todo.feature.proposals.domain.model.toJsonObject
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlin.time.Instant
@@ -39,7 +39,8 @@ private val payloadJson = Json { ignoreUnknownKeys = true }
 /** Converts a persisted proposal row to the domain model. */
 internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()): AiProposal = AiProposal(
     id = ProposalId(id),
-    taskId = TaskId(taskId),
+    targetKind = targetKind,
+    targetId = targetId ?: error("ai_proposal $id has no target_id"),
     userId = UserId(userId),
     source = enumOrDefault(source, ProposalSource.Detail),
     status = enumOrDefault(status, ProposalStatus.Pending),
@@ -111,6 +112,29 @@ internal fun decodeKind(raw: String): ProposalItemKind? = runCatching {
                         note = parts.getOrNull(2)?.takeIf { it.isNotEmpty() },
                     )
                 },
+        )
+
+        "SetNoteField" -> ProposalItemKind.SetNoteField(
+            field = NoteField.valueOf(obj.requireString("field")),
+            value = obj.stringOrNull("value").orEmpty(),
+        )
+
+        "DeleteNote" -> ProposalItemKind.DeleteNote(
+            reason = obj.stringOrNull("reason"),
+        )
+
+        "ExtractActions" -> ProposalItemKind.ExtractActions(obj.list("actions"))
+
+        "DeleteTask" -> ProposalItemKind.DeleteTask(
+            reason = obj.stringOrNull("reason"),
+        )
+
+        "DeleteProject" -> ProposalItemKind.DeleteProject(
+            reason = obj.stringOrNull("reason"),
+        )
+
+        "DeleteTag" -> ProposalItemKind.DeleteTag(
+            reason = obj.stringOrNull("reason"),
         )
 
         else -> return null

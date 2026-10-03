@@ -15,7 +15,14 @@ import org.koin.dsl.module
  * [com.singularity.todo.core.di.domainModule].
  */
 fun proposalModule(): Module = module {
-    single<ProposalRepository> { ProposalRepositoryImpl(dao = get(), items = get(), clock = get()) }
+    single<ProposalRepository> {
+        ProposalRepositoryImpl(
+            dao = get(),
+            items = get(),
+            clock = get(),
+            currentUser = get(),
+        )
+    }
 
     factory<ApplyProposalItemUseCase> {
         ApplyProposalItemUseCase(

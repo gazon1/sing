@@ -22,16 +22,17 @@ import kotlinx.coroutines.flow.Flow
 @Entity(
     tableName = "ai_proposal",
     indices = [
-        Index("task_id"),
+        Index(value = ["user_id", "target_kind", "target_id"]),
         Index("user_id"),
     ],
 )
 data class AiProposalEntity(
     @PrimaryKey val id: String,
-    @ColumnInfo("task_id") val taskId: String,
     @ColumnInfo("user_id") val userId: String,
     @ColumnInfo("source") val source: String,
     @ColumnInfo("status") val status: String,
+    @ColumnInfo("target_kind", defaultValue = "TASK") val targetKind: String,
+    @ColumnInfo("target_id") val targetId: String,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @Embedded val sync: SyncColumns = SyncColumns(),
@@ -102,11 +103,20 @@ interface ProposalDao {
     @Query(
         """
         SELECT * FROM ai_proposal
-        WHERE task_id = :taskId AND user_id = :userId
+        WHERE target_id = :targetId AND target_kind = :targetKind AND user_id = :userId
         ORDER BY created_at DESC
         """,
     )
-    fun watchProposalsForTask(taskId: String, userId: String): Flow<List<AiProposalEntity>>
+    fun watchProposalsForTarget(targetId: String, targetKind: String, userId: String): Flow<List<AiProposalEntity>>
+
+    @Query(
+        """
+        SELECT * FROM ai_proposal
+        WHERE user_id = :userId AND target_kind = :targetKind AND status = :status
+        ORDER BY created_at DESC
+        """,
+    )
+    fun watchProposalsByTargetKind(userId: String, targetKind: String, status: String): Flow<List<AiProposalEntity>>
 
     @Query(
         """

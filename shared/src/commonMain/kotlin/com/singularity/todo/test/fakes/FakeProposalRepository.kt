@@ -30,8 +30,8 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     private val proposals = MutableStateFlow<Map<String, AiProposal>>(emptyMap())
     private val items = MutableStateFlow<Map<String, ProposalItem>>(emptyMap())
 
-    override fun watchProposalsForTask(taskId: TaskId, userId: UserId): Flow<List<AiProposal>> = proposals.map { map ->
-        map.values.filter { it.taskId == taskId && it.userId == userId }
+    override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> = proposals.map { map ->
+        map.values.filter { it.targetKind == AiProposal.TARGET_KIND_TASK && it.targetId == taskId.value }
             .sortedByDescending { it.createdAt }
             .map(::withItems)
     }
@@ -39,9 +39,15 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
         proposals.map { map -> map[id.value]?.let(::withItems) }
 
-    override fun watchProposalsByStatus(userId: UserId, status: ProposalStatus): Flow<List<AiProposal>> =
+    override fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>> = proposals.map { map ->
+        map.values.filter { it.status == status }
+            .sortedByDescending { it.createdAt }
+            .map(::withItems)
+    }
+
+    override fun watchProposalsByTargetKind(targetKind: String, status: ProposalStatus): Flow<List<AiProposal>> =
         proposals.map { map ->
-            map.values.filter { it.userId == userId && it.status == status }
+            map.values.filter { it.targetKind == targetKind && it.status == status }
                 .sortedByDescending { it.createdAt }
                 .map(::withItems)
         }

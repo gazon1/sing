@@ -20,7 +20,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlin.time.Clock
 
 /**

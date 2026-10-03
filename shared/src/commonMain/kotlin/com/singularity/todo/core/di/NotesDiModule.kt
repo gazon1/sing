@@ -14,6 +14,8 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
+import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.search.data.InternalLinkRepositoryImpl
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import org.koin.core.module.dsl.viewModel
@@ -52,6 +54,7 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     // NoteEditor: ai is optional — improveNote is null when AI is not configured
     // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
+    // proposals + applyProposal wire the note-AI-through-proposals flow (MR-A3).
     viewModel {
         NoteEditor(
             repo = get(),
@@ -72,6 +75,8 @@ fun notesModule(): org.koin.core.module.Module = module {
                     ::suggestTagsLambda,
                 ),
             ),
+            proposals = get<ProposalRepository>(),
+            applyProposal = get<ApplyProposalItemUseCase>(),
             log = get<Logger>(),
             currentUser = get<ProfileAwareCurrentUser>(),
             // scope omitted — default AutoCloseableCoroutineScope() applies

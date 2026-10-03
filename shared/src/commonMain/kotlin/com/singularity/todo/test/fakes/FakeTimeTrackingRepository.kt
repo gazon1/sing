@@ -6,7 +6,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
-import com.singularity.todo.feature.timetracking.domain.TimeTrackingRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -106,15 +106,13 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
         return Result.success(Unit)
     }
 
-    override fun watchEntriesInRange(userId: UserId, startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
-        entries.map { map ->
-            map.values
-                .filter {
-                    it.userId == userId &&
-                        it.startedAt.toEpochMilliseconds() >= startMs &&
-                        it.startedAt.toEpochMilliseconds() < endMs &&
-                        it.deletedAt == null
-                }
-                .sortedByDescending { it.startedAt }
-        }
+    override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> = entries.map { map ->
+        map.values
+            .filter {
+                it.startedAt.toEpochMilliseconds() >= startMs &&
+                    it.startedAt.toEpochMilliseconds() < endMs &&
+                    it.deletedAt == null
+            }
+            .sortedByDescending { it.startedAt }
+    }
 }

@@ -67,9 +67,11 @@ import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.transport.GenuiTransport
 import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
@@ -77,6 +79,7 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * JVM actual for [aiToolsModule].
@@ -175,16 +178,16 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::SearchTasksTool)
     factoryOf(::CreateTaskTool)
     factoryOf(::UpdateTaskTool)
-    factoryOf(::DeleteTaskTool)
+    factory { DeleteTaskTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     factoryOf(::CreateNoteTool)
     factoryOf(::UpdateNoteTool)
-    factoryOf(::DeleteNoteTool)
+    factory { DeleteNoteTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     factoryOf(::CreateProjectTool)
     factoryOf(::UpdateProjectTool)
-    factoryOf(::DeleteProjectTool)
+    factory { DeleteProjectTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     factoryOf(::ListProjectsTool)
     factoryOf(::CreateTagTool)
-    factoryOf(::DeleteTagTool)
+    factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     factoryOf(::ListAdrsTool)
     factoryOf(::ReadAdrTool)
     factoryOf(::WriteAdrTool)

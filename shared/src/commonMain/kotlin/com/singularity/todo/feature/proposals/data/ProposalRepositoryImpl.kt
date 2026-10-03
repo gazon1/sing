@@ -4,6 +4,7 @@ import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
@@ -14,44 +15,62 @@ import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 
 /**
  * Room-backed [ProposalRepository].
  *
- * Every read is scoped to a user id passed in by the caller rather than read from an
- * ambient current user, because a proposal is written and decided within a single
- * request and must not be able to observe a profile switch halfway through.
+ * All observe methods are self-scoped via [ProfileAwareCurrentUser.scopedUserId].
+ * When the current profile switches, `flatMapLatest` automatically re-subscribes
+ * with the new user partition — callers do NOT pass `userId` as a parameter.
+ *
+ * The `scopedUserId.value` snapshot inside `save` is intentional: a proposal is
+ * written and decided within a single request and must not observe a profile
+ * switch halfway through.
  */
+@Suppress("TooManyFunctions")
 class ProposalRepositoryImpl(
     private val dao: ProposalDao,
     private val items: ProposalItemDao,
     private val clock: Clock,
+    private val currentUser: ProfileAwareCurrentUser,
 ) : ProposalRepository {
 
-    override fun watchProposalsForTask(taskId: TaskId, userId: UserId): Flow<List<AiProposal>> =
-        dao.watchProposalsForTask(taskId.value, userId.value)
-            .map { rows -> rows.map { hydrate(it) } }
+    override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> =
+        currentUser.scopedUserId.flatMapLatest { userId ->
+            dao.watchProposalsForTarget(taskId.value, AiProposal.TARGET_KIND_TASK, userId.value)
+                .map { rows -> rows.map { row -> hydrate(row) } }
+        }
 
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
         combine(dao.watchProposal(id.value), items.watchItemsForProposal(id.value)) { row, items ->
             row?.let { it.toDomain(items.mapNotNull(ProposalItemEntity::toDomainOrNull)) }
         }
 
-    override fun watchProposalsByStatus(userId: UserId, status: ProposalStatus): Flow<List<AiProposal>> =
-        dao.watchProposalsByStatus(userId.value, status.name)
-            .map { rows -> rows.map { hydrate(it) } }
+    override fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>> =
+        currentUser.scopedUserId.flatMapLatest { userId ->
+            dao.watchProposalsByStatus(userId.value, status.name)
+                .map { rows -> rows.map { row -> hydrate(row) } }
+        }
+
+    override fun watchProposalsByTargetKind(targetKind: String, status: ProposalStatus): Flow<List<AiProposal>> =
+        currentUser.scopedUserId.flatMapLatest { userId ->
+            dao.watchProposalsByTargetKind(userId.value, targetKind, status.name)
+                .map { rows -> rows.map { row -> hydrate(row) } }
+        }
 
     override suspend fun save(proposal: AiProposal): Result<Unit> = runCatching {
         val now = clock.now().toEpochMilliseconds()
         dao.upsertProposal(
             AiProposalEntity(
                 id = proposal.id.value,
-                taskId = proposal.taskId.value,
                 userId = proposal.userId.value,
                 source = proposal.source.name,
                 status = ProposalStatusReducer.reduce(proposal.items.map { it.status }).name,
+                targetKind = proposal.targetKind,
+                targetId = proposal.targetId,
                 createdAt = proposal.createdAt.toEpochMilliseconds(),
                 updatedAt = now,
                 sync = SyncColumns(),

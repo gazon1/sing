@@ -14,6 +14,8 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
@@ -22,7 +24,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProposalRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
@@ -55,6 +60,9 @@ class ApplyProposalItemUseCaseTest {
     private val tags = FakeTagsRepository()
     private val checklist = FakeChecklistRepository()
     private val timeTracking = FakeTimeTrackingRepository(clock)
+    private val notes = FakeNotesRepository()
+    private val projects: ProjectsRepository = FakeProjectsRepository(FakeProfileAwareCurrentUser(user))
+    private val deleteProject = DeleteProjectUseCase(projects, tasks)
 
     private val useCase = ApplyProposalItemUseCase(
         proposals = proposals,
@@ -62,6 +70,8 @@ class ApplyProposalItemUseCaseTest {
         tags = tags,
         checklist = checklist,
         timeTracking = timeTracking,
+        notes = notes,
+        deleteProject = deleteProject,
         clock = clock,
     )
 
@@ -101,7 +111,8 @@ class ApplyProposalItemUseCaseTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                taskId = TaskId(target),
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = target,
                 userId = user,
                 source = ProposalSource.Detail,
                 status = ProposalStatus.Pending,
@@ -313,7 +324,8 @@ class ApplyProposalItemUseCaseTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                taskId = taskId,
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = taskId.value,
                 userId = user,
                 source = ProposalSource.Card,
                 status = ProposalStatus.Pending,
@@ -355,7 +367,8 @@ class ApplyProposalItemUseCaseTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                taskId = taskId,
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = taskId.value,
                 userId = user,
                 source = ProposalSource.Card,
                 status = ProposalStatus.Pending,

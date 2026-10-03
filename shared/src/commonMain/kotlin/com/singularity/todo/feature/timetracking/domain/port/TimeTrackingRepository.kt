@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.timetracking.domain
+package com.singularity.todo.feature.timetracking.domain.port
 
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId

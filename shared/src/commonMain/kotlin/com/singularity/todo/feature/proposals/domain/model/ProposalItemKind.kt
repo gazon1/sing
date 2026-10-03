@@ -36,6 +36,24 @@ enum class TaskField {
 }
 
 /**
+ * The note fields a [ProposalItemKind.SetNoteField] item may propose to change.
+ *
+ * Mirrors [TaskField] for notes, enabling the same enum-based dispatch pattern.
+ */
+@Serializable
+enum class NoteField {
+    @SerialName("title")
+    Title,
+
+    @SerialName("body")
+    Body,
+
+    /** Summary of the note content, written to the body as HTML. */
+    @SerialName("summary")
+    Summary,
+}
+
+/**
  * A time range proposed by [ProposalItemKind.AddTimeEntries].
  *
  * @param startedAt Epoch millis when the work started.
@@ -96,6 +114,46 @@ sealed interface ProposalItemKind {
     @Serializable
     @SerialName("AddTimeEntries")
     data class AddTimeEntries(val entries: List<ProposedTimeEntry>) : ProposalItemKind
+
+    /**
+     * Set a scalar field on the owning note to [value].
+     *
+     * [value] is the raw string the model produced; the use case parses and validates
+     * it against [NoteField] before writing, so an unparseable value leaves the item
+     * pending rather than writing garbage.
+     */
+    @Serializable
+    @SerialName("SetNoteField")
+    data class SetNoteField(val field: NoteField, val value: String) : ProposalItemKind
+
+    /** Delete the owning note. */
+    @Serializable
+    @SerialName("DeleteNote")
+    data class DeleteNote(val reason: String? = null) : ProposalItemKind
+
+    /**
+     * Extract task-like actions from a note's content.
+     *
+     * [actions] is a list of action texts proposed to become tasks.
+     */
+    @Serializable
+    @SerialName("ExtractActions")
+    data class ExtractActions(val actions: List<String>) : ProposalItemKind
+
+    /** Soft-delete (archive) the owning task. */
+    @Serializable
+    @SerialName("DeleteTask")
+    data class DeleteTask(val reason: String? = null) : ProposalItemKind
+
+    /** Soft-delete (archive) the owning project. */
+    @Serializable
+    @SerialName("DeleteProject")
+    data class DeleteProject(val reason: String? = null) : ProposalItemKind
+
+    /** Soft-delete the owning tag. */
+    @Serializable
+    @SerialName("DeleteTag")
+    data class DeleteTag(val reason: String? = null) : ProposalItemKind
 }
 
 /**
@@ -124,6 +182,18 @@ val ProposalItemKind.fingerprintTarget: String
                 .map { "${it.startedAt}-${it.endedAt}" }
                 .sorted()
                 .joinToString("|")
+
+        is ProposalItemKind.SetNoteField -> field.name
+
+        is ProposalItemKind.DeleteNote -> ""
+
+        is ProposalItemKind.ExtractActions -> actions.normalized()
+
+        is ProposalItemKind.DeleteTask -> ""
+
+        is ProposalItemKind.DeleteProject -> ""
+
+        is ProposalItemKind.DeleteTag -> ""
     }
 
 /** Trimmed, blank-free, de-duplicated, sorted — the canonical form for hashing. */
@@ -158,6 +228,23 @@ fun ProposalItemKind.toJsonObject(): JsonObject = buildJsonObject {
                 entries.joinToString("\u001E") { "${it.startedAt}\u001D${it.endedAt}\u001D${it.note.orEmpty()}" },
             )
         }
+
+        is ProposalItemKind.SetNoteField -> {
+            put("field", field.name)
+            put("value", value)
+        }
+
+        is ProposalItemKind.DeleteNote -> {
+            reason?.let { put("reason", it) }
+        }
+
+        is ProposalItemKind.ExtractActions -> put("actions", actions.joinToString("\u001F"))
+
+        is ProposalItemKind.DeleteTask -> reason?.let { put("reason", it) }
+
+        is ProposalItemKind.DeleteProject -> reason?.let { put("reason", it) }
+
+        is ProposalItemKind.DeleteTag -> reason?.let { put("reason", it) }
     }
 }
 
