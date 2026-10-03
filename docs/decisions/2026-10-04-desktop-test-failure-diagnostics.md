@@ -69,6 +69,14 @@ junit.jupiter.execution.parallel.mode.classes.default = same_thread
 - `savedAgendaCreateFlowTest` is outside the current `HarnessConventionTest` scan root (`feature/flows/` only) and passes no `checkA11y` — the MR-3 guard expansion will catch it.
 - forkEvery=1 was tried and removed: 22 tests × JVM fork = 93s overhead. Not worth the isolation benefit for the current suite size.
 
+**MR-2 findings:**
+
+- `SemanticsProperties.TestTag` access via `node.config.getOrNull()` requires importing from `androidx.compose.ui.semantics` — importing from `androidx.compose.ui.test` causes silent shadowing and unresolved-reference errors at call sites.
+- `Color.toRgba()` in Compose 1.12.0 returns `BigInteger`, not `IntArray` — use `java.awt.Color` directly for AWT rendering (Red/Gray constants also unavailable on the aliased type; use RGB constructors).
+- `onAllNodesWithTag("*")` is a literal tag match, NOT a wildcard — returns empty list. The correct way to traverse all nodes is via `onRoot().fetchSemanticsNode()` + recursive `visit()` using `SemanticsNode.children`, as done in `A11yCheck.scan()`.
+- `fetchSemanticsNode()` on `Root` requires `useUnmergedTree` parameter; `fetchSemanticsNodes()` on collection returned by `onAllNodesWithTag` takes no parameters.
+- Annotated screenshot is written even when no tagged nodes are found (0 is a valid count); the screenshot and nodes.txt are independent artifacts.
+
 ## Links
 
 - `2026-09-30-ultron-ideas-evaluation.md` — Ultron ideas evaluation

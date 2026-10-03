@@ -36,7 +36,9 @@ internal fun DesktopComposeUiTest.dumpSemantics(): String =
  *     coroutines.txt   — kotlinx-coroutines-debug snapshot
  *     steps.txt        — StepRecorder log (empty when no steps recorded)
  *     tree.txt         — semantics tree at failure
+ *     nodes.txt         — tagged nodes: tag/text/contentDescription/bounds
  *     screenshot.png    — screen capture
+ *     screenshot-annotated.png — screen capture with bounding-box overlays
  *   attempt-2/         — retry only
  *     …
  * ```
@@ -67,12 +69,18 @@ data class FailureBundle(
     /** Semantics tree at the moment of failure. */
     val treeFile: File get() = outputDir.resolve("tree.txt")
 
+    /** Nodes with testTag: tag / text / contentDescription / bounds. */
+    val nodesFile: File get() = outputDir.resolve("nodes.txt")
+
+    /** Screenshot with bounding-box overlays and tag labels. */
+    val screenshotAnnotatedFile: File get() = outputDir.resolve("screenshot-annotated.png")
+
     /**
      * Adds all captured artifacts to [throwable] as suppressed exceptions so the
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile, stepsFile, treeFile).forEach { file ->
+        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile, stepsFile, treeFile, nodesFile, screenshotAnnotatedFile).forEach { file ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
             } else {
@@ -121,6 +129,8 @@ data class FailureBundle(
          *                             if any; may be null when logging was never enabled.
          * @param steps               The [StepRecorder] for the current test, if any;
          *                             used to write steps.txt in the bundle.
+         * @param highlightTag        Tag of the last failed step, if any; passed to
+         *                             [captureAnnotated] for red highlighting.
          */
         @OptIn(ExperimentalTestApi::class)
         suspend fun capture(
@@ -130,6 +140,7 @@ data class FailureBundle(
             attempt: Int,
             kermitBuffer: RingBufferLogWriter?,
             steps: StepRecorder? = null,
+            highlightTag: String? = null,
         ): FailureBundle {
             val bundle = FailureBundle(
                 testClassSimpleName = testClassSimpleName,
@@ -205,6 +216,26 @@ data class FailureBundle(
                     val bitmap = testInstance.captureToImage()
                     val bufferedImage: BufferedImage = bitmap.toAwtImage()
                     ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
+                }
+                // Annotated screenshot: bounding-box overlays on the same frame.
+                // Writes nodes.txt unconditionally (text fallback) and screenshot-annotated.png
+                // when screenshot is enabled. Both are independent runCatching blocks so one
+                // failure does not affect the other.
+                runCatching {
+                    testInstance.captureAnnotated(
+                        highlightTag = highlightTag,
+                        file = bundle.screenshotAnnotatedFile,
+                        nodesFile = bundle.nodesFile,
+                    )
+                }
+            } else {
+                // Still write nodes.txt even when screenshot is disabled.
+                runCatching {
+                    testInstance.captureAnnotated(
+                        highlightTag = highlightTag,
+                        file = bundle.screenshotAnnotatedFile,
+                        nodesFile = bundle.nodesFile,
+                    )
                 }
             }
 

@@ -134,6 +134,7 @@ fun runDesktopAppTest(
                     attempt = currentAttempt,
                     kermitBuffer = ringBuffer,
                     steps = recorder,
+                    highlightTag = recorder.lastFailedStepDetail(),
                 )
                 bundle.addSuppressedTo(t)
 
