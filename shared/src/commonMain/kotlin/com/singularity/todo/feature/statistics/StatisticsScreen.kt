@@ -131,7 +131,8 @@ private fun TasksTabContent(state: StatisticsUiState) {
 
 @Composable
 private fun TasksBarChart(buckets: List<DayBucket>) {
-    val maxCount = buckets.maxOfOrNull { it.completedCount } ?: 1
+    val maxCount = (buckets.maxOfOrNull { it.completedCount } ?: 1)
+        .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(
@@ -149,17 +150,28 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
             val chartHeight = size.height
 
             buckets.forEachIndexed { index, bucket ->
-                val barHeight = if (maxCount > 0) {
-                    (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                } else {
-                    0f
-                }
+                if (maxCount > 0) {
+                    // Completed: green bar from bottom
+                    val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
+                    drawRect(
+                        color = Color(0xFF4CAF50),
+                        topLeft = Offset(index * (barWidth + spacing), chartHeight - completedHeight),
+                        size = Size(barWidth, completedHeight),
+                    )
 
-                drawRect(
-                    color = Color(0xFF4CAF50),
-                    topLeft = Offset(index * (barWidth + spacing), chartHeight - barHeight),
-                    size = Size(barWidth, barHeight),
-                )
+                    // Overdue: amber bar below completed
+                    val overdueHeight = (bucket.overdueCount.toFloat() / maxCount) * chartHeight
+                    if (overdueHeight > 0) {
+                        drawRect(
+                            color = Color(0xFFFF9800),
+                            topLeft = Offset(
+                                index * (barWidth + spacing),
+                                chartHeight - completedHeight - overdueHeight,
+                            ),
+                            size = Size(barWidth, overdueHeight),
+                        )
+                    }
+                }
             }
         }
     }

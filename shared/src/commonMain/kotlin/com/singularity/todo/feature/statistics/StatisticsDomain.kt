@@ -29,15 +29,17 @@ internal fun computeStatistics(
     val recentCompleted = completedTasks.filter { it.second >= cutoffEpoch }
     val recentOverdue = overdueTasks.filter { it.second < nowEpochMs }
 
-    // Group by day
-    val perDayMap = mutableMapOf<String, Int>()
+    // Build day slots
+    val completedPerDay = mutableMapOf<String, Int>()
+    val overduePerDay = mutableMapOf<String, Int>()
     for (i in 0 until rangeDays) {
         val dayMs = nowEpochMs - (i * TimeConstants.MILLIS_PER_DAY)
         val day = Instant.fromEpochMilliseconds(dayMs)
             .toLocalDateTime(TimeZone.currentSystemDefault())
             .date
             .toString()
-        perDayMap[day] = 0
+        completedPerDay[day] = 0
+        overduePerDay[day] = 0
     }
 
     recentCompleted.forEach { (_, completedAt) ->
@@ -45,12 +47,20 @@ internal fun computeStatistics(
             .toLocalDateTime(TimeZone.currentSystemDefault())
             .date
             .toString()
-        perDayMap[day] = (perDayMap[day] ?: 0) + 1
+        completedPerDay[day] = (completedPerDay[day] ?: 0) + 1
     }
 
-    val buckets = perDayMap.entries
-        .sortedBy { it.key }
-        .map { (date, count) -> DayBucket(date, count, 0) }
+    recentOverdue.forEach { (_, dueAt) ->
+        val day = Instant.fromEpochMilliseconds(dueAt)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
+            .toString()
+        overduePerDay[day] = (overduePerDay[day] ?: 0) + 1
+    }
+
+    val buckets = completedPerDay.keys.sorted().map { date ->
+        DayBucket(date, completedPerDay[date] ?: 0, overduePerDay[date] ?: 0)
+    }
 
     return StatisticsSnapshot(
         tasksPerDay = buckets,
