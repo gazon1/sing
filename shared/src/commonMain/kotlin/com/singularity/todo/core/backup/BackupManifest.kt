@@ -27,4 +27,6 @@ data class EntityCounts(
     val attachments: Int = 0,
     val taskTags: Int = 0,
     val taskDependencies: Int = 0,
+    /** MR-1: saved agenda views. */
+    val agendaViews: Int = 0,
 )

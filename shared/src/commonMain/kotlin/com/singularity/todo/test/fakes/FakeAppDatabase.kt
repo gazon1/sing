@@ -1292,6 +1292,9 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<AgendaViewEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 // ─── RemoteConfigDao ────────────────────────────────────────────────────────

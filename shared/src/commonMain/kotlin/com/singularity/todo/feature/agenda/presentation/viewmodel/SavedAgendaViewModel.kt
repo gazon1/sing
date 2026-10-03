@@ -231,11 +231,13 @@ class SavedAgendaViewModel(
 
     private fun emitEditingState() {
         val current = currentState
+        val existingIsSaving = (current as? SavedAgendaViewState.Editing)?.isSaving ?: false
         setState(
             SavedAgendaViewState.Editing(
                 view = (current as? SavedAgendaViewState.Editing)?.view,
                 draft = draftState.state,
                 sectionCount = draftState.state.sections.size,
+                isSaving = existingIsSaving,
             ),
         )
     }

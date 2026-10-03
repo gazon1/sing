@@ -15,6 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -22,7 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -61,6 +66,8 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     val navigator = LocalAgendaNavigator.current
     val viewModel: SavedAgendaListViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     var pendingCopyViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
 
@@ -69,7 +76,15 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         mapper = { e ->
             when (e) {
                 is SavedAgendaListEvent.ShowError -> Notification.Error(e.message)
-                is SavedAgendaListEvent.CopySuccess -> Notification.Text("Copied to ${e.targetProfileName}", null)
+                is SavedAgendaListEvent.CopySuccess -> {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Copied to ${e.targetProfileName}",
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                    Notification.None
+                }
             }
         },
     )
@@ -99,6 +114,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
                 Icon(Icons.Default.Add, contentDescription = "Create view")
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier,
     ) { paddingValues ->
         SavedAgendaListContent(

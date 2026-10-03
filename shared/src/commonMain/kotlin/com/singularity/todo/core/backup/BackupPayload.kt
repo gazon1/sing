@@ -13,4 +13,6 @@ data class BackupPayload(
     val taskTags: List<TaskTagDto> = emptyList(),
     /** MR-1: task dependency edges (task_id → depends_on_task_id). */
     val taskDependencies: List<TaskDependencyDto> = emptyList(),
+    /** MR-1: saved agenda views. */
+    val agendaViews: List<AgendaViewDto> = emptyList(),
 )

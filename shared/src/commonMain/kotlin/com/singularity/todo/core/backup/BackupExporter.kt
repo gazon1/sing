@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.attachments.AttachmentDao
+import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.TagDao
@@ -15,6 +16,7 @@ class BackupExporter(
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
     private val attachmentDao: AttachmentDao,
+    private val agendaViewDao: AgendaViewDao,
     private val codec: BackupCodec,
     private val clock: Clock,
     private val fs: FileSystem,
@@ -32,6 +34,7 @@ class BackupExporter(
         val attachments = attachmentDao.listAllForUser(options.userId.value)
         val taskDeps = taskDao.listAllDependenciesForUser(options.userId.value)
         val taskTagRefs = taskDao.listAllTagsForUser(options.userId.value)
+        val agendaViews = agendaViewDao.listAllForUser(options.userId.value)
 
         // 2. Map to DTOs
         val payload = BackupPayload(
@@ -43,6 +46,7 @@ class BackupExporter(
             attachments = attachments.map { it.toDto() },
             taskTags = taskTagRefs.map { it.toDto() },
             taskDependencies = taskDeps.map { it.toDto() },
+            agendaViews = agendaViews.map { it.toDto() },
         )
 
         // 3. Serialize payload
@@ -58,6 +62,7 @@ class BackupExporter(
             attachments = attachments.size,
             taskTags = taskTagRefs.size,
             taskDependencies = taskDeps.size,
+            agendaViews = agendaViews.size,
         )
         val manifest = BackupDomain.buildManifest(
             appVersion = options.appVersion,

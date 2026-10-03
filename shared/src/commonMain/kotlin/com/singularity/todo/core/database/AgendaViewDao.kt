@@ -22,4 +22,7 @@ interface AgendaViewDao {
 
     @Query("DELETE FROM agenda_views WHERE user_id = :userId AND id = :id")
     suspend fun delete(userId: String, id: String)
+
+    @Query("SELECT * FROM agenda_views WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<AgendaViewEntity>
 }

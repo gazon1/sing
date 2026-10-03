@@ -77,14 +77,13 @@ import org.koin.core.parameter.parametersOf
 fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) {
     val vm: TaskDetailCoordinator = koinViewModel { parametersOf(taskId) }
     val navigator = LocalTasksNavigator.current
-
     val state by vm.state.collectAsStateWithLifecycle()
 
     NotificationHost(
         events = vm.events,
         mapper = { event: TaskDetailUiEvent ->
             when (event) {
-                is TaskDetailUiEvent.Saved -> Notification.Text(event.message, null)
+                is TaskDetailUiEvent.Saved -> Notification.None
 
                 is TaskDetailUiEvent.Error -> Notification.Error(event.message)
 

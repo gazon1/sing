@@ -8,8 +8,12 @@ import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -45,6 +49,12 @@ import kotlin.time.Clock
 class AgendaViewModelTest {
 
     private val fakeRepo = FakeTaskRepository()
+    private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
+    private val fakeReminderScheduler = object : ReminderScheduler {
+        override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
+        override suspend fun cancel(id: ReminderId, userId: UserId) {}
+        override suspend fun cancelByTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId) {}
+    }
 
     private fun task(id: String, title: String) = Task(
         id = TaskId(id),
@@ -55,7 +65,14 @@ class AgendaViewModelTest {
     )
 
     private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
-        deps = AgendaDeps(taskRepo = fakeRepo, clock = Clock.System, logger = Logger, draftStore = FakeDraftStore()),
+        deps = AgendaDeps(
+            taskRepo = fakeRepo,
+            clock = Clock.System,
+            logger = Logger,
+            draftStore = FakeDraftStore(),
+            reminderScheduler = fakeReminderScheduler,
+            currentUser = fakeCurrentUser,
+        ),
         definition = AgendaPresets.Inbox,
         scope = scope,
     )

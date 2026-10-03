@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
@@ -293,4 +294,32 @@ fun TaskDependencyCrossRef.toDto(): TaskDependencyDto = TaskDependencyDto(
 fun TaskDependencyDto.toEntity(): TaskDependencyCrossRef = TaskDependencyCrossRef(
     taskId = taskId,
     dependsOnTaskId = dependsOnTaskId,
+)
+
+// ─── AgendaViewDto (MR-1: agenda_views in backup) ─────────────────────────────
+
+@Serializable
+data class AgendaViewDto(
+    val id: String,
+    val name: String,
+    val sectionsJson: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+fun AgendaViewEntity.toDto(): AgendaViewDto = AgendaViewDto(
+    id = id,
+    name = name,
+    sectionsJson = sectionsJson,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun AgendaViewDto.toEntity(userId: String): AgendaViewEntity = AgendaViewEntity(
+    id = id,
+    userId = userId,
+    name = name,
+    sectionsJson = sectionsJson,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
 )

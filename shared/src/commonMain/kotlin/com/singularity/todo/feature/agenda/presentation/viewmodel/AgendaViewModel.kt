@@ -9,9 +9,14 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -54,6 +59,16 @@ class AgendaViewModel(
      */
     val definition: AgendaDefinition = definition
 
+    /**
+     * Tracks a soft-deleted task pending undo, so the snackbar can offer a 5-second window.
+     * Null when no delete is pending.
+     */
+    private val _pendingDelete = MutableStateFlow<PendingDelete?>(null)
+    val pendingDelete = _pendingDelete.asStateFlow()
+
+    /** Cooldown job for clearing [_pendingDelete] after the undo window expires. */
+    private var pendingDeleteJob: Job? = null
+
     init {
         scope.launch {
             todayFlow().flatMapLatest { today ->
@@ -95,7 +110,7 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.TaskDeleteClicked -> with(intent) {
-                scope.launch { deps.taskRepo.softDelete(taskId) }
+                scope.launch { handleTaskDelete(intent.taskId) }
             }
 
             is AgendaIntent.TaskExpandClicked -> with(intent) {
@@ -106,6 +121,58 @@ class AgendaViewModel(
                 scope.launch { handleCreateInSection(intent.sectionId) }
             }
         }
+    }
+
+    /**
+     * Soft-deletes a task and emits [AgendaUiEvent.UndoDelete] so the UI can show a snackbar.
+     * The snackbar offers a 5-second undo window; if not tapped, the pending delete is cleared.
+     * If the user taps Undo, [onUndoDelete] calls [restore] to reverse the delete.
+     */
+    private suspend fun handleTaskDelete(taskId: TaskId) {
+        // Find the task title from the current state for the snackbar label.
+        val taskTitle = findTaskTitle(taskId)
+
+        // Cancel any existing undo window — a new delete supersedes it.
+        pendingDeleteJob?.cancel()
+
+        // Store the pending delete and emit the event.
+        _pendingDelete.value = PendingDelete(taskId, taskTitle)
+        emit(AgendaUiEvent.UndoDelete(taskId, taskTitle))
+
+        // Kick off the 5-second undo window.
+        pendingDeleteJob = scope.launch {
+            delay(UNDO_WINDOW_MS)
+            _pendingDelete.value = null
+        }
+    }
+
+    /**
+     * Restores the last soft-deleted task, cancelling the undo window.
+     * Called when the user taps "Undo" on the snackbar.
+     */
+    private suspend fun onUndoDelete(taskId: TaskId) {
+        pendingDeleteJob?.cancel()
+        _pendingDelete.value = null
+        deps.taskRepo.restore(taskId)
+    }
+
+    /**
+     * Call this from the UI when the user taps "Undo" on the snackbar.
+     * The UI layer holds the snackbar reference and invokes this method directly.
+     */
+    fun onUndoDeleteIntent() {
+        val pending = _pendingDelete.value ?: return
+        scope.launch { onUndoDelete(pending.taskId) }
+    }
+
+    private fun findTaskTitle(taskId: TaskId): String {
+        val loaded = state.value as? AgendaUiState.Loaded ?: return "Task"
+        for (section in loaded.sections) {
+            for (row in section.tasks) {
+                if (row.task.id == taskId) return row.task.title.ifEmpty { "Task" }
+            }
+        }
+        return "Task"
     }
 
     private suspend fun handleCreateInSection(sectionId: String) {
@@ -126,4 +193,20 @@ class AgendaViewModel(
 
         emit(AgendaUiEvent.CreateInSection(sectionId))
     }
+
+    companion object {
+        /** 5-second undo window, matching the snackbar duration. */
+        const val UNDO_WINDOW_MS = 5_000L
+    }
 }
+
+/**
+ * A task that has been soft-deleted and is pending an undo window.
+ *
+ * @param taskId The deleted task id.
+ * @param taskTitle Short label for the snackbar.
+ */
+data class PendingDelete(
+    val taskId: TaskId,
+    val taskTitle: String,
+)

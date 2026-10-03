@@ -45,7 +45,7 @@ class BackupDomainTest {
         )
 
         assertEquals(1, manifest.formatVersion)
-        assertEquals(2, manifest.schemaVersion)
+        assertEquals(BackupFormat.SCHEMA_VERSION, manifest.schemaVersion)
         assertEquals("singularity-todo", manifest.appName)
         assertEquals("1.0.0", manifest.appVersion)
         assertEquals(1000L, manifest.createdAtEpochMillis)

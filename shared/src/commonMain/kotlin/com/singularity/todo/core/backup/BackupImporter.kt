@@ -2,6 +2,7 @@ package com.singularity.todo.core.backup
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.TagDao
@@ -18,6 +19,7 @@ class BackupImporter(
     private val noteDao: NoteDao,
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
+    private val agendaViewDao: AgendaViewDao,
     private val attachmentStorage: AttachmentStorage,
     private val codec: BackupCodec,
     private val clock: Clock,
@@ -114,6 +116,14 @@ class BackupImporter(
         }
         for (dep in migratedPayload.taskDependencies) {
             taskDao.upsertDependency(dep.toEntity())
+        }
+        for (view in migratedPayload.agendaViews) {
+            agendaViewDao.upsert(
+                view.toEntity(options.targetUserId.value).copy(
+                    updatedAt = now,
+                    createdAt = view.createdAt,
+                ),
+            )
         }
 
         // 6. Restore attachment files
