@@ -2,8 +2,6 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.App
 import com.singularity.todo.core.di.coreLoggingModule
@@ -68,14 +66,14 @@ private fun currentTestClassSimpleName(): String {
 @OptIn(ExperimentalTestApi::class)
 fun runDesktopAppTest(
     overrides: Module = module {},
-    attempt: Int = 1,
     checkA11y: Boolean = false,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
-    // Reset Kermit writer list and ring buffer before every test — each test
-    // runs in its own forked JVM so there is no cross-test contamination, but
-    // calling Logger.setLogWriters() multiple times within the same JVM without
-    // clearing the list would double-add writers on the second invocation.
+    // Reset Kermit writer list and ring buffer before every test.
+    // With forkEvery=1 each test class runs in its own JVM, but resetKermitWriters()
+    // is called unconditionally so the code is correct regardless of fork policy:
+    // calling Logger.setLogWriters() without clearing the list would double-add
+    // writers on the second invocation within the same JVM.
     resetKermitWriters()
 
     val app: KoinApplication = koinApplication {
@@ -104,6 +102,10 @@ fun runDesktopAppTest(
 
     val testClassName = currentTestClassSimpleName()
 
+    // Step recorder lives across retries so the full step history is available on failure.
+    val recorder = StepRecorder()
+    setStepRecorder(recorder)
+
     var lastThrowable: Throwable? = null
     var passedOnRetry = false
 
@@ -113,60 +115,58 @@ fun runDesktopAppTest(
     val maxAttempts = (System.getProperty("retry.maxAttempts") ?: "1").toIntOrNull() ?: 1
     val failOnPassedAfterRetry = (System.getProperty("retry.failOnPassedAfterRetry") ?: "true").toBoolean()
 
-    repeat(maxAttempts) { attemptIndex ->
-        val currentAttempt = attempt + attemptIndex
-        try {
-            test(app.koin)
-            if (currentAttempt > 1) passedOnRetry = true
-            lastThrowable = null
-            return@runDesktopComposeUiTest
-        } catch (t: Throwable) {
-            lastThrowable = t
-            // Bundle first: screenshot, FakeAppDatabase state and the Kermit
-            // ring-buffer, written to build/diagnostics/<TestClass>/attempt-N.
-            val bundle = FailureBundle.capture(
-                testClassSimpleName = testClassName,
-                testInstance = this,
-                app = app.koin,
-                attempt = currentAttempt,
-                kermitBuffer = ringBuffer,
-            )
-            bundle.addSuppressedTo(t)
+    try {
+        repeat(maxAttempts) { attemptIndex ->
+            val currentAttempt = 1 + attemptIndex
+            try {
+                test(app.koin)
+                if (currentAttempt > 1) passedOnRetry = true
+                lastThrowable = null
+                return@runDesktopComposeUiTest
+            } catch (t: Throwable) {
+                lastThrowable = t
+                // Bundle first: screenshot, FakeAppDatabase state and the Kermit
+                // ring-buffer, written to build/diagnostics/<TestClass>/attempt-N.
+                val bundle = FailureBundle.capture(
+                    testClassSimpleName = testClassName,
+                    testInstance = this,
+                    app = app.koin,
+                    attempt = currentAttempt,
+                    kermitBuffer = ringBuffer,
+                    steps = recorder,
+                )
+                bundle.addSuppressedTo(t)
 
-            // Then the semantics tree, attached to the failure rather than printed.
-            // A `println` lands in stdout and gets lost when only the XML report is
-            // read; a suppressed exception rides along with the stack trace in every
-            // runner, which is the difference between re-running with a flag and
-            // reading the report the run already produced.
-            t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
+                // Last steps summary rides on the failure for CI visibility without
+                // opening the bundle directory.
+                val lastSteps = recorder.summary()
+                if (lastSteps.isNotEmpty()) {
+                    t.addSuppressed(AssertionError("Last steps:\n$lastSteps"))
+                }
 
-            // If more attempts remain, re-run without propagating the failure yet.
-            if (attemptIndex < maxAttempts - 1) {
-                // Continue to next attempt
-            } else {
-                throw t
+                // Then the semantics tree, attached to the failure rather than printed.
+                // A `println` lands in stdout and gets lost when only the XML report is
+                // read; a suppressed exception rides along with the stack trace in every
+                // runner, which is the difference between re-running with a flag and
+                // reading the report the run already produced.
+                t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
+
+                // If more attempts remain, re-run without propagating the failure yet.
+                if (attemptIndex < maxAttempts - 1) {
+                    // Continue to next attempt
+                } else {
+                    throw t
+                }
             }
         }
-    }
 
-    // All attempts exhausted without a definitive pass/fail — decide based on policy.
-    if (passedOnRetry && !failOnPassedAfterRetry) {
-        // Test passed on retry: suppress failure, report as green.
-        return@runDesktopComposeUiTest
+        // All attempts exhausted without a definitive pass/fail — decide based on policy.
+        if (passedOnRetry && !failOnPassedAfterRetry) {
+            // Test passed on retry: suppress failure, report as green.
+            return@runDesktopComposeUiTest
+        }
+        throw lastThrowable ?: error("unreachable")
+    } finally {
+        clearStepRecorder()
     }
-    // failOnPassedAfterRetry=true or never passed: propagate last failure.
-    throw lastThrowable ?: error("unreachable")
 }
-
-/**
- * The current Compose semantics tree, or a note explaining why it could not be
- * read.
- *
- * Uses the unmerged tree: the whole point of debugging a selector is to see the
- * raw nodes before Compose folds them, and a merged tree hides exactly the
- * duplicate `Text` that makes `onNodeWithText` fail on ambiguity.
- */
-@OptIn(ExperimentalTestApi::class)
-private fun DesktopComposeUiTest.dumpSemantics(): String =
-    runCatching { onRoot(useUnmergedTree = true).printToString(maxDepth = 25) }
-        .getOrElse { "<semantics tree unavailable: ${it.message}>" }

@@ -113,15 +113,13 @@ detekt {
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
-    useJUnitPlatform {
+        useJUnitPlatform {
         // Desktop UI tests mount the whole production App(). The graph is built
         // per test from testPlatformModule() — FakeAppDatabase plus inert ports —
-        // so no test reads or writes ~/.singularity-todo and no test mutates a
-        // process-global property, which is what made parallel execution safe.
+        // so no test reads or writes ~/.singularity-todo.
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")
-        systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
-        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
-        systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
+        systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
+        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
 
         val tags = (project.findProperty("test.tags") as String?)
             ?.split(",")?.orEmpty() ?: emptyList()
@@ -132,6 +130,16 @@ tasks.withType<Test>().configureEach {
             excludeTags("slow")
         }
     }
+    // forkEvery = 1 ensures each test class runs in its own JVM process. This
+    // guarantees Kermit ring-buffer logs and FailureBundle directories cannot be
+    // corrupted by concurrent tests in other classes (parallel modes are both
+    // same_thread so this is a safety net against any future parallel changes).
+    // Performance gate: if suite duration grows > 25%, degrade to methods-only
+    // (keep mode.default=same_thread, restore classes to concurrent) and document
+    // the remaining cross-class Kermit mixing as a known limitation.
+    forkEvery = 1
+    maxParallelForks = 2
+
     // Forward the opt-in test switches from the Gradle CLI into the forked test JVM.
     // A `-D` on the Gradle command line configures the daemon, not the test
     // process, so opt-in test switches would otherwise be silently ignored —
