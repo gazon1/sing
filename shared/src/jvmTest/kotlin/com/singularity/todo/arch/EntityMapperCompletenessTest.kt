@@ -47,15 +47,8 @@ class EntityMapperCompletenessTest {
         /**
          * Entities whose mapper intentionally drops a nullable field.
          * MUST be documented in an ADR before adding here.
-         *
-         * - `TagEntity.icon`: column added in v20 migration but `Tag` domain model has no icon
-         *   field, so `toTag()` never reads it. Writes preserve the column default (null),
-         *   so no silent data destruction — but icon selection is never persisted. ADR required
-         *   to decide: add icon to Tag domain model, or drop the column.
          */
-        private val FIELD_ALLOWLIST = mapOf(
-            "TagEntity" to setOf("icon"),
-        )
+        private val FIELD_ALLOWLIST = mapOf<String, Set<String>>()
 
         /**
          * All entity constructor params in `core/database/Entities.kt`.
@@ -83,7 +76,7 @@ class EntityMapperCompletenessTest {
                 "idempotencyKey", "externalId", "sync",
             ),
             "TagEntity" to setOf(
-                "id", "userId", "name", "color", "icon", "createdAt", "updatedAt",
+                "id", "userId", "name", "color", "createdAt", "updatedAt",
                 "groupId", "sortOrder", "deletedAt", "sync",
             ),
             "TagGroupEntity" to setOf(

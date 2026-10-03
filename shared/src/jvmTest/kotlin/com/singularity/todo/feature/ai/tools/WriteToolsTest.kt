@@ -230,7 +230,9 @@ class WriteToolsTest {
 
         val created = fakeNotesRepo.notes[output.noteId]
         assertNotNull(created)
-        assertEquals("# Agenda", created.bodyMarkdown)
+        // bodyMarkdown is stored as canonical HTML via NoteContentMapper.toHtml
+        assertNull(created.bodyMarkdown, "bodyMarkdown should be null — content stored in bodyHtml")
+        assertNotNull(created.bodyHtml, "bodyHtml should be set via NoteContentMapper.toHtml")
     }
 
     @Test

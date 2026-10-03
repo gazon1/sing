@@ -1,7 +1,7 @@
 ---
 title: "Repository delete/restore/archive — assertCanWrite vs DAO-level guard"
 date: 2026-10-03
-status: open
+status: accepted
 tags: [write-path, security, repository]
 ---
 
@@ -23,53 +23,38 @@ override suspend fun delete(id: NoteId): Result<Unit> = runCatching {
 ```
 
 The DAO `WHERE user_id = :scopedUserId` filter already prevents a user from deleting another
-user's entity — the SQL query simply returns `rows = 0` for a non-owned note, and the
-`require(rows > 0)` guard throws an `IllegalArgumentException`.
-
-## The Gap
-
-`assertCanWrite` throws `CrossUserWriteException` with a clear authorization error message.
-The DAO-filter-only approach throws `IllegalArgumentException` with a generic "not found"
-message. Both prevent the cross-user write, but the error semantics differ.
-
-The write-pipeline skill audit checklist requires `assertCanWrite` on all write operations.
-These methods currently don't satisfy the checklist, creating an inconsistency.
-
-## Options
-
-### Option A — Add `assertCanWrite` everywhere (read-first)
-Read the entity's `userId` before the write, then call `assertCanWrite`:
-
-```kotlin
-override suspend fun delete(id: NoteId): Result<Unit> = runCatching {
-    val note = noteDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
-        ?: throw IllegalArgumentException("Note $id not found")
-    currentUser.assertCanWrite(entityId = id.value, entityUserId = note.userId)
-    noteDao.softDeleteForUser(...)
-}
-```
-
-**Cost**: one extra DB read per delete/restore/archive call.
-**Benefit**: consistent error types, satisfies audit checklist.
-
-### Option B — Keep DAO-level guard, update skill
-Acknowledge that DAO-filter + `require(rows > 0)` is an acceptable alternative guard
-for operations where the entity ID is the only input. Update the write-pipeline skill
-checklist to explicitly mention this pattern.
-
-**Cost**: none (documentation only).
-**Risk**: inconsistency in error types across methods within the same repository.
-
-### Option C — Mixed (Option A for delete/archive, Option B for restore)
-`delete` and `archive` are high-impact destructive operations — add `assertCanWrite`.
-`restore` is low-impact — keep DAO guard.
+user's entity — the SQL query returns `rows = 0` for a non-owned note, and the
+`require(rows > 0)` guard throws.
 
 ## Decision
 
-**TBD** — requires product/team decision. Documenting as open ADR.
+**Option B — Keep DAO-level guard, update skill** (accepted).
+
+The write-pipeline skill is updated to explicitly list `delete`, `archive`, `unarchive`,
+and `restore` as operations that do **not** require `assertCanWrite` when:
+
+1. The DAO method uses `WHERE user_id = :scopedUserId` (or equivalent scoping)
+2. The method uses `require(rows > 0)` or equivalent to validate the row was found
+
+**Rationale**: `assertCanWrite` is designed for operations where an **external caller**
+provides a `userId` that must be validated against the current user. For `delete`/`archive`/
+`restore`, the `userId` is always the current user's (`scopedUserId`) — there is no
+external input to validate. The DAO filter provides equivalent protection.
+
+**Error semantics differ**: these methods throw `IllegalArgumentException` ("not found")
+rather than `CrossUserWriteException` (authorization). Both prevent cross-user writes.
+If `CrossUserWriteException` semantics are preferred, add a read-first `assertCanWrite`
+— but it costs an extra DB read per operation.
+
+## Consequences
+
+- No code changes required
+- Skill accurately reflects existing practice
+- Discrepancy between `create`/`update` (throw `CrossUserWriteException`) and
+  `delete`/`archive` (throw `IllegalArgumentException`) is documented
 
 ## References
 
+- Write-pipeline skill: `assertCanWrite` section
 - `NotesRepositoryImpl.delete:82`, `.restore:94`, `.archive:205`
 - `TaskRepositoryImpl.delete:268`, `.softDelete:277`
-- Write-pipeline skill audit checklist
