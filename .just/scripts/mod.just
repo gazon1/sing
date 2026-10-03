@@ -1,7 +1,9 @@
 # ==============================================================================
-# 📜 SCRIPTS — bench, refresh-decisions, android-ui-tests
+# 📜 SCRIPTS — bench, refresh-decisions, android-ui-tests, os-validate
 # Wrappers around existing project scripts in ./scripts/
 # ==============================================================================
+
+OPENSPEC_BIN := "/home/max/.nvm/versions/node/v24.14.0/lib/node_modules/@fission-ai/openspec/bin/openspec.js"
 
 [group('scripts')]
 [doc('Measure RSS/VmPeak of running desktop app (auto-detects PID)')]
@@ -34,3 +36,11 @@ android-ui-tests serial="":
     else
         ./scripts/run-android-ui-tests.sh {{serial}}
     fi
+
+[group('scripts')]
+[doc('Validate all OpenSpec change artifacts (advisory — does not block)')]
+[working-directory(justfile_directory())]
+os-validate:
+    #!/bin/bash
+    set -euo pipefail
+    node {{OPENSPEC_BIN}} validate --all --json --strict

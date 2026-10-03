@@ -126,3 +126,13 @@ User invokes with a map (URL or number). A ticket is **optional**: without one, 
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
+
+## OpenSpec integration
+
+When wayfinding surfaces a **behavioural change** (not a pure investigation or research), the map's
+destination should be an OpenSpec change rather than a set of direct code commits. Use
+`singularity-todo-openspec-workflow` instead of charting tickets for any change that modifies
+how the system behaves from the user's perspective — even if a map already exists. The ticket
+types (`research`, `prototype`, `grilling`, `task`) still apply within the OpenSpec workflow, but
+the artifact lifecycle (proposal → specs → design → tasks → apply → verify → archive) replaces
+direct commit-based delivery.

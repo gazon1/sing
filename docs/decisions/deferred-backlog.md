@@ -18,9 +18,8 @@ not a regression from the desktop UI work.
 `feature/sync/presentation/SyncConfigScreen.kt` was a public `@Composable` with no
 call site. `SyncViewModel` was fully built and registered.
 
-**Status: RESOLVED.** `SyncConfigScreen.kt` was deleted. The script now reports
-zero findings. The `find-unwired-surfaces` gate is clean and can be added to
-`check.sh` as-is — no baseline needed since nothing is suppressed.
+**Status: RESOLVED.** `SyncConfigScreen.kt` was deleted. The `find-unwired-surfaces`
+gate is now blocking in CI (Phase 1.1, PR-2).
 
 ---
 
@@ -242,8 +241,9 @@ So the script can never gate a check, and "no new findings" is verified by
 reading output manually — which means it will not be.
 
 **Status: RESOLVED.** `SyncConfigScreen.kt` was deleted — the sole standing finding
-is gone. The script now reports zero findings, exits 0, and is wired into
-`check.sh` as step [2/6]. No baseline needed.
+is gone. Phase 1.2 (PR-2) added `find-unwired-surfaces-baseline.txt` and
+wired `find-unwired-surfaces` as a blocking CI gate. The script exits 0 when
+baseline is current and new findings exist.
 
 ---
 
@@ -276,26 +276,22 @@ headroom at 351 entries.
 **Found in:** `refactor/tag-registry-and-robots`, while wiring `check-tags.sh`
 into `.github/workflows/ci.yml`.
 
-**Symptom:** every gate step in the `build` job carries
+**Symptom:** every gate step in the `build` job carried
 `continue-on-error: true` — `Build version catalog gate`, `Run detekt`,
 `Assemble Android debug`, `Find unwired surfaces`. Only `jvmTest`,
-`desktopApp:test` and the new `Check Maestro test tags` can fail the workflow.
-So "CI is green" says nothing about detekt, unwired surfaces, or version
-literals; a regression in any of them is a red line in the log that a reviewer
-has to notice by eye.
+`desktopApp:test` and `Check Maestro test tags` could fail the workflow.
+So "CI is green" said nothing about detekt, unwired surfaces, or version
+literals.
 
-**Already checked:** `:shared:detekt` does enforce locally
-(`ignoreFailures = false` in `shared/build.gradle.kts`, and `check.sh` step
-`[6/6]` fails on it) — this is a CI-policy gap, not a detekt gap. The new
-`Check Maestro test tags` step was added following the existing convention
-rather than flipping the policy inside an unrelated MR.
+**Already checked:** `:shared:detekt` enforced locally
+(`ignoreFailures = false` in `shared/build.gradle.kts` and `check.sh` step
+`[6/6]` fails on it) — this was a CI-policy gap, not a detekt gap.
 
-**Try next:** decide the policy first, then flip one gate at a time, oldest
-debt first. `Find unwired surfaces` is the natural candidate for a baseline
-(see `find-unwired-surfaces-has-no-baseline` above) before it can go blocking.
-Flip with a full `--rerun-tasks` pass first so the backlog is known, not
-discovered by whoever pushes next. Do not flip several at once — the point is
-to make each regression visible, and a six-way red is not visible.
+**Status: PARTIALLY RESOLVED.** Phase 1.1 (PR-2) flipped three gates to blocking:
+`Find unwired surfaces`, `Check doc sizes`, `Check dead doc references`.
+The remaining `continue-on-error` gates (`Run detekt`, `Assemble Android debug`)
+should be evaluated after 3 successful PRs with the current blocking gates,
+one at a time, oldest debt first.
 
 ---
 
@@ -414,3 +410,36 @@ diagnostic approach should instead target the shell layer —
 `remember` on `currentRoute` can be observed before the tree goes blank.
 A visible diagnostic there (before the blank) would confirm whether the
 route change itself is the trigger.
+
+---
+
+## skill-symbol-clusters-many-fixes-pending
+
+**Found in:** Phase 1.7 (`refactor/openspec-adoption`), via
+`check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
+in 9 skill files are accepted in `config/docs/skill-symbol-baseline.txt`.
+Zero NEW findings at baseline creation.
+
+The top clusters identified:
+
+1. **`ai-tool` + `llm-usage-tracking` + `cli-tool-surface` + `mcp-server`**:
+   `UsageRecorder` (interface, exists), `RoomUsageRecorder` (class, exists),
+   `ModelPricing`, `LlmUsageEntity`, `UsageExtractor` — describe an architecture
+   that was partially built; the AI usage screen was never completed.
+2. **`nav3-nested-graphs` + `cross-feature-navigation`**:
+   `AppNavHost.kt` (file does not exist), `AgendaNavGraph` (exists but
+   described differently), `NavKey` vs `AppNavKey` (same concept, inconsistent
+   naming), `NavDisplay` (exists in `desktopShellNav3`).
+3. **`icon-registry`**:
+   `TagIconRegistry`, `PriorityIconRegistry`, `NoteColorRegistry` (none exist;
+   only `ProjectIconRegistry` is real).
+4. **`task-callback-groups`**:
+   `NoteCardActions` (should be `NotesActions`), `TaskDetailActions`
+   (check if this file actually exists in `feature/tasks/components/`).
+
+**Status:** OPEN. These skills describe an architecture that no longer matches
+the code. Fixing them requires reading the actual code and rewriting the
+skills — too large for a single PR. They are guarded by the baseline:
+if an agent adds a NEW dangling symbol reference in any of these skills,
+CI will fail. The backlog owner should prioritize `nav3-nested-graphs`
+(first referenced by `wayfinder`) and `ai-tool` (most complex).

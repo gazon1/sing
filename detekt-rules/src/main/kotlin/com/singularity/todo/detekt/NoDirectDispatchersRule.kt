@@ -57,10 +57,8 @@ class NoDirectDispatchersRule(config: Config) : Rule(config, "", null) {
 
         // Allow `Dispatchers.IO.limitedParallelism(n)` even outside FileLogWriter
         // (limitedParallelism is a safe wrapper)
-        if (callee.text == "IO" &&
-            selector.valueArguments.isNotEmpty() &&
-            selector.calleeExpression?.text == "limitedParallelism"
-        ) {
+        // Note: callee.text is "limitedParallelism" here (the outer selector), not "IO".
+        if (callee.text == "limitedParallelism" && selector.valueArguments.isNotEmpty()) {
             return
         }
 

@@ -16,6 +16,7 @@ Historical ADRs are checked but reported separately, because their whole purpose
 record what was true at the time.
 
 Usage: python3 scripts/check-doc-dead-refs.py [--include-adr] [--max N]
+     python3 scripts/check-doc-dead-refs.py --skill-symbols   # check Kotlin symbol references in skills
 """
 from __future__ import annotations
 
@@ -174,7 +175,12 @@ def main() -> int:
                     help="file of accepted dead refs, one 'path:ref' per line")
     ap.add_argument("--update-baseline", action="store_true",
                     help="rewrite the baseline from the current findings, then exit")
+    ap.add_argument("--skill-symbols", action="store_true",
+                    help="check Kotlin symbol references in skill files (detector 8)")
     args = ap.parse_args()
+
+    if args.skill_symbols:
+        return _skill_symbols_main(args)
 
     rel_paths, by_name = build_index()
     targets: list[pathlib.Path] = [
@@ -263,6 +269,152 @@ def main() -> int:
         print("\nDRIFT: the file exists but moved. Update the path; basename matches are")
         print("accepted, so drift is a warning unless --strict is passed.")
     return 1 if (new_dead or (drift_total and args.strict)) else 0
+
+
+# ── Detector 8 — skill-dangling-symbol ───────────────────────────────────────
+
+
+_SYMBOL_RE = re.compile(r"`([^`]+)`")
+_TOP_LEVEL_KT = re.compile(
+    r"^(?:object|class|interface|enum\s+class|value\s+class|"
+    r"annotation\s+class|fun|val|var)\s+(\w+)",
+    re.M,
+)
+# Types that are framework-allocated and never have production call sites.
+_FRAMEWORK_ALLOCATED = frozenset({
+    "App", "SingularityApp",  # Application/main entry
+    "SingularityDatabase",    # Room database
+    "PlatformDatabase",       # Koin graph entry
+    "MainScreen",             # Desktop main screen
+    "androidApp",             # package name
+    "desktopApp",             # package name
+})
+
+
+def _build_kt_symbol_index() -> dict[str, str]:
+    """Scan production .kt files; return {symbol_name → file_rel_path}."""
+    index: dict[str, str] = {}
+    prod_roots = [
+        ROOT / "shared/src/commonMain",
+        ROOT / "shared/src/androidMain",
+        ROOT / "shared/src/jvmMain",
+        ROOT / "androidApp/src/main",
+        ROOT / "desktopApp/src",
+        ROOT / "mcp-server/src/main",
+    ]
+    for base in prod_roots:
+        if not base.exists():
+            continue
+        for path in base.rglob("*.kt"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for m in _TOP_LEVEL_KT.finditer(text):
+                name = m.group(1)
+                if name in _FRAMEWORK_ALLOCATED:
+                    continue
+                # First-wins: commonMain is the canonical declaration
+                if name not in index:
+                    index[name] = path.relative_to(ROOT).as_posix()
+    return index
+
+
+def _scan_skill_symbol_refs(
+    skill_md: pathlib.Path,
+) -> list[tuple[int, str]]:
+    """Return [(line, backtick-quoted-symbol)] from a SKILL.md file."""
+    text = skill_md.read_text(encoding="utf-8", errors="replace")
+
+    # Strip code-fence blocks so content inside ``` ``` doesn't pollute symbol scan.
+    text = re.sub(r"```[\s\S]*?```", "", text)
+
+    # Skip known non-symbol patterns:
+    KOTLIN_BUILTINS = frozenset({
+        "println", "print", "readLine", "error", "exit",
+        "null", "true", "false", "this", "super",
+        "try", "catch", "finally", "throw", "return",
+        "when", "is", "as", "in", "out", "by",
+        "get", "set", "field", "delegate",
+        "init", "combine", "await", "async", "launch", "run", "delay",
+        "suspend", "yield", "lock", "synchronized",
+    })
+    ANDROID_CONSTANTS = frozenset({
+        "KEYCODE_MENU", "KEYCODE_WAKEUP", "KEYCODE_BACK", "KEYCODE_HOME",
+        "MODE_PRIVATE", "PERMISSION_DENIED", "POST_NOTIFICATIONS",
+        "REQUEST_CODE", "RESULT_OK", "RESULT_CANCELED",
+    })
+    PROSE_WORDS = frozenset({
+        "accepted", "completed", "tasks", "sync", "di", "detekt",
+        "skills", "build", "test", "feat", "fix", "refactor",
+        "docs", "chore", "grilling", "section", "discard",
+    })
+
+    refs: list[tuple[int, str]] = []
+    for m in _SYMBOL_RE.finditer(text):
+        sym = m.group(1)
+        # Skip multi-line spans (tables, etc.)
+        if "\n" in sym:
+            continue
+        stripped = sym.strip()
+        # Skip empty / code-fence-like / shell-var / special-prefix content
+        if (not stripped or stripped.startswith("```") or stripped.startswith("#")
+                or stripped.startswith("$") or stripped.startswith("-")):
+            continue
+        # Skip file-path-like backticks
+        if "/" in sym or sym.endswith(".md") or sym.startswith("shared/"):
+            continue
+        # Skip non-identifier content (punctuation, spaces)
+        if not re.match(r"[a-zA-Z_$][a-zA-Z0-9_$]*$", stripped):
+            continue
+        # Skip known non-symbol categories
+        if stripped in KOTLIN_BUILTINS | ANDROID_CONSTANTS | PROSE_WORDS:
+            continue
+        # Only report PascalCase symbols (class/interface/type names) —
+        # these are what skills reference for architecture documentation.
+        # Skip mixed-case (camelCase) as these are often testing APIs or prose words.
+        if not re.match(r"[A-Z][a-zA-Z0-9_$]*$", stripped):
+            continue
+        line = text.count("\n", 0, m.start()) + 1
+        refs.append((line, sym))
+    return refs
+
+
+def _skill_symbols_main(_args) -> int:
+    """Check that Kotlin symbols referenced in skill files exist in production code."""
+    index = _build_kt_symbol_index()
+    skill_dir = ROOT / ".agents" / "skills"
+    baseline_path = ROOT / "config" / "docs" / "skill-symbol-baseline.txt"
+    accepted: set[str] = set()
+    if baseline_path.exists():
+        accepted = {
+            l.strip()
+            for l in baseline_path.read_text().splitlines()
+            if l.strip() and not l.startswith("#")
+        }
+
+    def _rel(path: pathlib.Path) -> str:
+        try:
+            return path.relative_to(ROOT).as_posix()
+        except ValueError:
+            return str(path)
+
+    new_findings: list[str] = []
+    for skill_md in sorted(skill_dir.glob("*/SKILL.md")):
+        refs = _scan_skill_symbol_refs(skill_md)
+        for line, sym in refs:
+            key = f"{skill_md.relative_to(ROOT).as_posix()}:{sym}"
+            if sym not in index and key not in accepted:
+                new_findings.append(
+                    f"  {_rel(skill_md)}:{line}: `{sym}` — not in production code"
+                )
+
+    if new_findings:
+        print("NEW skill symbol references (not baselined):")
+        for f in new_findings:
+            print(f)
+        print(f"\n{len(new_findings)} new dangling symbol(s).")
+        return 1
+
+    print("No new dangling symbols found in skill files.")
+    return 0
 
 
 if __name__ == "__main__":

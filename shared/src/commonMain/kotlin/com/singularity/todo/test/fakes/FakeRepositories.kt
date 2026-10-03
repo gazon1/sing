@@ -19,6 +19,7 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.reminders.ReminderOffset
@@ -2105,6 +2106,13 @@ class FakeFileRevealer : FileRevealer {
     }
 
     override fun attachmentsBasePath(): String = "/fake/attachments"
+}
+
+/**
+ * No-op [FileSharePort] for tests.
+ */
+class FakeFileSharePort : FileSharePort {
+    override fun shareFile(filePath: String, mimeType: String): Boolean = true
 }
 
 /**

@@ -100,23 +100,10 @@ class MyViewModel(
 
 ### Testing notes
 
-**`kotlin.test.assertTrue` does NOT accept a lambda as message.**
-Use `assertTrue(condition, "description")` — the lambda form is a JUnit/kotest idiom,
-not kotlin.test. The lambda will not compile or will silently ignore the message.
-
-**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule.**
-Detekt's rule resolves `kotlin.io.path` as a package wrapping stdlib extensions, not a
-wildcard import. Use explicit imports: `kotlin.io.path.exists`, `kotlin.io.path.readText`,
-`kotlin.io.path.isRegularFile`, `kotlin.io.path.extension`. The wildcard form will pass
-detekt silently.
-
-**Tests relying on `systemProperty` need `--rerun-tasks` after edits.**
-`--rerun-tasks` forces Gradle to re-execute task up-to-date checks, bypassing the
-task history cache. This is separate from the configuration cache (`org.gradle.configuration-cache`):
-if a test reads `System.getProperty(...)` and the config-cache entry was built before your edit,
-the stale compiled test class may still be used. Run `./gradlew :shared:compileTestKotlinJvm --rerun-tasks`
-and retry. The configuration cache itself is invalidated by any change to tracked inputs
-(`inputs.property` declarations in build scripts).
+**`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
+**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
+(`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
+**`--rerun-tasks`** required after editing systemProperty tests — config-cache may serve stale compiled classes.
 
 ## expect/actual порты
 
@@ -124,9 +111,11 @@ and retry. The configuration cache itself is invalidated by any change to tracke
 |---|---|---|---|
 | `SecureStoragePort` | интерфейс | secret-tool + AES-GCM | EncryptedSharedPreferences |
 | `NotificationPort` | интерфейс | notify-send + at | AlarmManager + NotificationManager |
+| `SharePort` | интерфейс | JvmSharePort | AndroidSharePort |
+| `FileSharePort` | интерфейс | JvmFileSharePort | AndroidFileSharePort |
+| `FileRevealer` | интерфейс | JvmFileRevealer | AndroidFileRevealer |
 | `FileSystem` | интерфейс | JvmFileSystem | AndroidFileSystem |
 | `BackupCodec` | интерфейс | JvmBackupCodec (java.util.zip) | AndroidBackupCodec |
-| `MarkdownHtmlPort` | интерфейс | RichEditorMarkdownHtmlPort | — (shared) |
 | `AttachmentStorage` | **класс** (не интерфейс) | — | — |
 | `TimeZoneProvider` | expect val | actual | actual |
 
@@ -150,19 +139,15 @@ AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
 ## Сборка
 
 ```bash
-./check.sh                              # тесты + Android сборка (локальный check)
-./gradlew :shared:jvmTest               # быстрая проверка
-./gradlew :androidApp:assembleDebug     # полная Android сборка
-./gradlew :desktopApp:run               # Desktop (headless: xvfb-run -a)
-./gradlew :desktopApp:test              # Desktop Compose UI tests (задача `test`, не `jvmTest`)
+./check.sh                    # тесты + Android
+./gradlew :shared:jvmTest     # быстрая проверка
+./gradlew :androidApp:assembleDebug   # Android
+./gradlew :desktopApp:run      # Desktop (xvfb-run -a)
+./gradlew :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
 
-just lint              # detekt (shared + desktopApp), enforcing
-just detekt-fix        # auto-fix detekt + ktlint in-place
-just detekt-baseline   # пересоздать baseline
-just coverage          # kover XML → shared/build/reports/kover/
-just tcheck            # tests + assembleDebug + lint (полный pipeline)
-just tcheck-evals      # workflow evals (agent behaviour regression)
-just docs-audit        # нормализация frontmatter + DIGEST + stale-ref/size/supersede чеки
+just lint        # detekt (shared + desktopApp), enforcing
+just detekt-fix  # auto-fix detekt + ktlint in-place
+just detekt-baseline; just coverage; just tcheck; just tcheck-evals; just docs-audit
 ```
 
 ## 🤖 Dogfooding: MCP Server
@@ -180,29 +165,33 @@ timestamps — `kotlin.time.Instant`; business errors → `isError:true`, intern
 Каждый AI-вызов пишет в `llm_usage` (tokens, `cost_usd_micros`, `duration_ms`, `profile_id`).
 Профили изолируют данные: `ai-agent` (🤖) для dogfooding, `personal` (🏠) для своих задач.
 
+## 🔄 OpenSpec
+
+Spec-driven workflow: `proposal → specs → design → tasks → apply → verify → archive`.
+Use `singularity-todo-openspec-workflow` skill. `openspec/config.yaml` has project context
+(KMP conventions, DI rules, testing patterns) and artifact rules.
+
+**When to use:** behavior changes. **When NOT:** bug fix, test-only, dependency update,
+doc-only, rename without contract change. Run `openspec list --specs` before proposing —
+existing spec → write a change to modify it, not a new proposal.
+└─ verify: `openspec validate --all --strict` (after apply, before archive)
+
 ## 🔧 Run-loop (UI-верификация)
 
 **Android:** `mcp__android_emulator__android_{preflight,build_and_run,ui_status,screenshot,
 ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия,
-`android_logs` для крейшей. **Desktop:** `./gradlew :desktopApp:test` (быстро) или
+`android_logs` для крашей. **Desktop:** `./gradlew :desktopApp:test` или
 `xvfb-run -a ./gradlew :desktopApp:run`.
 
 **DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/`
 + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android);
 `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"` (desktop).
 
-> **Эмулятор**: `./scripts/ensure-emulator.sh` печатает готовый serial (или
-> поднимает AVD и ждёт загрузки); `scripts/run-maestro.sh` сам перезапустит
-> эмулятор, если устройство пропало. Не подкручивайте `-gpu`: единственный
-> рабочий режим — дефолтный host GPU, а он периодически падает в gfxstream
-> (баг хоста, лечения нет). Подробности — ADR
-> `2026-09-29-emulator-crash-recovery-runner.md` и скилл
-> `singularity-todo-emulator-launch`.
-
-> **Если эмулятор падает на старте** (`amdgpu: The CS has been rejected (-22)` +
-> `IOT instruction (core dumped)`) — это регрессия связки Mesa + ядро на AMD
-> Renoir, лечится обновлением системы, а не флагами `-gpu`/`-accel`. ADR:
-> `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`.
+> **Эмулятор**: `./scripts/ensure-emulator.sh` → готовый serial или поднимает AVD и ждёт;
+> `scripts/run-maestro.sh` перезапустит если устройство пропало. Не подкручивайте `-gpu` —
+> дефолтный host GPU периодически падает в gfxstream (лечения нет). Подробности —
+> `singularity-todo-emulator-launch` skill и ADR
+> `2026-09-29-emulator-crash-recovery-runner.md`.
 
 ## ❌ Что НЕ делать
 
@@ -238,17 +227,13 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 `feature-scaffold` · `test-helpers` · `nav3-nested-graphs` · `nav3-savedstate` · `koin-di` ·
 `ai-tool` · `mcp-server` · `sync` · `room-migration` · `quality-tools` (detekt/ktlint/kover) ·
 `clean-architecture-audit` · `worktree-isolation` · `code-review-pr-workflow` ·
-`decisions-workflow` · `maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
+`decisions-workflow` · `openspec-workflow` · `maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
 
 > **Фича «готова», но ничего не делает** — самый частый дефект проекта: код
 > компилируется, покрыт тестами и **не вызывается никем**. Проверка:
 > `scripts/find-unwired-surfaces.py`. Подробности — скилл
 > `singularity-todo-unwired-surface-audit`.
 
-**Удалённые skill-ы** (информация в `docs/decisions/`): ~~`koin-suspend-bridge~~
-`2026-09-05-koin-suspend-bridge.md` · ~~`ai-provider-settings~~
-`2026-09-05-llm-provider-settings.md` · ~~`secret-migration~~
-`2026-09-05-secret-storage-split.md` · ~~`koog-test-workarounds~~
-`2026-09-05-koog-test-workarounds.md` · ~~`koog-both-platforms~~
-`2026-09-05-koog-both-platforms.md` · ~~`vm-koin-scoping~~
-`2026-09-27-vm-koin-scoping-retired.md`
+Retired skills (superseded or merged; information in `docs/decisions/`):
+~~`koin-suspend-bridge`~~ · ~~`ai-provider-settings`~~ · ~~`secret-migration`~~
+~~`koog-test-workarounds`~~ · ~~`koog-both-platforms`~~ · ~~`vm-koin-scoping`~~
