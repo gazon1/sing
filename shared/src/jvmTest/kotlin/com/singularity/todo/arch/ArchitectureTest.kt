@@ -389,4 +389,87 @@ class ArchitectureTest {
         "TaskDao.getDependencyIdsForUser",
         "TaskDao.getBlockingTaskIdsForTask",
     )
+
+    /**
+     * Nav3 backStack seed must match the start route, or Detail must be explicitly added.
+     *
+     * [NavDisplay] renders based on `backStack.top`, not the `start` parameter.
+     * When a graph entry creates a stack seeded with `Create(null)` but passes
+     * `Detail` as `start`, the editor shows an empty `Create` screen.
+     *
+     * The fix: when `start` resolves to a route type that differs from the stack seed,
+     * the entry block MUST call `backStack.add(startRoute)` before rendering so that
+     * `NavDisplay` dispatches to the correct entry immediately.
+     *
+     * This rule scans `JvmNavEntries.kt` for the problematic pattern:
+     * `rememberInMemoryNavBackStack(TasksRoute.Create(...))` + `start = ...Detail(...)`
+     * without a corresponding `backStack.add(detail)` call.
+     *
+     * Allowlist: `AgendaNavGraph` where seed = `route.start` (identical by construction,
+     * no explicit add needed). Documented in ADR 2026-10-03-nav3-backstack-top-vs-start-dispatch.
+     */
+    @Test
+    fun `nav3 backStack seed mismatch requires explicit add for Detail routes`() {
+        val jvmNavEntries = scope.files
+            .filter { it.path.replace('\\', '/').endsWith("feature/nav/JvmNavEntries.kt") }
+            .firstOrNull()
+            ?: return // Not found on Android — rule is JVM-only
+
+        val source = jvmNavEntries.text
+
+        // Find every entry<AppDestination.Xxx> block and its body
+        val entryBlockPattern = Regex(
+            """entry<AppDestination\.(\w+)> \{ route ->\s*\n(.*?)\n\s+\}""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
+
+        val offenders = mutableListOf<String>()
+
+        entryBlockPattern.findAll(source).forEach { match ->
+            val graphName = match.groupValues[1] // e.g. "TasksGraph", "AgendaGraph"
+            val body = match.groupValues[2]
+
+            // Skip AgendaNavGraph — seed = route.start by construction (ADR 2026-10-03)
+            if (graphName == "AgendaGraph") return@forEach
+
+            // Find rememberInMemoryNavBackStack(seed) in this block
+            val seedMatch = Regex(
+                """rememberInMemoryNavBackStack\(\s*(\w+)\s*\(""",
+            ).find(body)
+
+            // Find the start = ... expression in the NavGraph call
+            val startMatch = Regex(
+                """start\s*=\s*(.+?),""",
+            ).find(body)
+
+            if (seedMatch != null && startMatch != null) {
+                val seedType = seedMatch.groupValues[1] // e.g. "TasksRoute.Create"
+                val startExpr = startMatch.groupValues[1].trim()
+
+                // Detect mismatch: seed is Create(null) but start contains Detail
+                val seedIsCreate = seedType.contains("Create")
+                val startIsDetail = startExpr.contains("Detail")
+
+                if (seedIsCreate && startIsDetail) {
+                    // Must have a backStack.add() call for the Detail route
+                    val hasAddCall = Regex("""backStack\.add\(""").containsMatchIn(body)
+                    if (!hasAddCall) {
+                        offenders.add(
+                            "JvmNavEntries entry<AppDestination.$graphName>: " +
+                                "stack seeded with $seedType but start=$startExpr — " +
+                                "NavDisplay renders stack.top, not start. " +
+                                "Add 'backStack.add(startRoute)' before TasksNavGraph(...) " +
+                                "when startRoute is TasksRoute.Detail. " +
+                                "See ADR 2026-10-03-nav3-backstack-top-vs-start-dispatch.",
+                        )
+                    }
+                }
+            }
+        }
+
+        assertNoOffenders(
+            offenders,
+            "Nav3 backStack seed / start mismatch must be resolved with explicit backStack.add()",
+        ) { it }
+    }
 }

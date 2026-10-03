@@ -147,8 +147,14 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
     entry<AppDestination.TasksGraph> { route ->
         val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))
+        val startRoute = route.start.toTasksRoute(route.initialDueDate)
+        // NavDisplay renders based on stack.top, not the start parameter. When starting
+        // with Detail, add it to the stack so the correct entry is rendered immediately.
+        if (startRoute is TasksRoute.Detail) {
+            tasksStack.add(startRoute)
+        }
         TasksNavGraph(
-            start = tasksStack.lastOrNull() ?: route.start.toTasksRoute(route.initialDueDate),
+            start = startRoute,
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)
@@ -183,8 +189,9 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     // AgendaGraph entry
     entry<AppDestination.AgendaGraph> { route ->
         val agendaStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(route.start)
+        // agendaStack.top (seed = route.start) always equals route.start, so no add() needed.
         AgendaNavGraph(
-            start = agendaStack.lastOrNull() ?: route.start,
+            start = route.start,
             onExitGraph = { dest ->
                 when (dest) {
                     is AppDestination.ProjectDetail -> nav.navigate(dest)

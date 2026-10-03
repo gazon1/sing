@@ -111,7 +111,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Detekt clean**: 14 false-positive warnings gone; baseline shrinks.
 - **Duplicate snackbar on settings export.** `exportSettingsSnapshot` emitted both
 - **Every ViewModel in the project is now on `MviViewModel` or `DraftMviViewModel`.**
-- _... and 397 more items_
+- _... and 408 more items_
 
 ### `agenda`
 
@@ -1216,6 +1216,7 @@ _24 entries need attention._
 - `2026-10-02-mixed-platform-audit-followups` — Mixed platform audit — MR-0 follow-ups: what was fixed and what was deferred
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — MR-6 / MR-7 Post-mortem — broken preconditions and agent cleanup
 - `2026-10-02-nav-entries-dedup-deferred` — AndroidNavEntries and JvmNavEntries are intentionally NOT fully deduplicated
+- `2026-10-02-note-body-canonical-html` — NoteBody canonical HTML — single source of truth for note body
 - `2026-10-02-note-entity-dual-task-linkage` — NoteEntity dual task linkage — FK enforcement and wikilink removal
 - `2026-10-02-per-connection-pragmas-and-fk-enforcement` — Per-connection PRAGMA enforcement and FK constraints
 - `2026-10-02-post-tech-debt-audit-findings` — Post-tech-debt-cleanup audit — remaining findings
@@ -1225,14 +1226,20 @@ _24 entries need attention._
 - `2026-10-02-tech-debt-metrics-tracking` — Tech Debt Metrics — October 2026 Follow-up
 - `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
 - `2026-10-03-android-shutdown-log-tail-lost` — Android log tail may be lost — beginShutdown never called
+- `2026-10-03-cancellable-result-capture` — _(no title)_
 - `2026-10-03-entity-mapper-completeness` — Entity-mapper completeness — guard against silent data destruction
 - `2026-10-03-log-writer-redaction-gaps` — Log writer redaction gaps — cause chain and tag fields not redacted
 - `2026-10-03-merge-regression-fixes` — Merge regressions: Nav3 rendering contract, property-init-order NPE, test-harness DAOs
 - `2026-10-03-mvi-deferred-followup` — MVI deferred follow-up — routing-when, CurrentProjectContent, @Immutable, lazy keys, tab reselect
 - `2026-10-03-mvi-refactor-residuals-mr-a` — MVI Refactor Residuals — After MR-A
+- `2026-10-03-nav3-backstack-top-vs-start-dispatch` — Nav3 backStack.top vs start parameter dispatch mismatch in JvmNavEntries
 - `2026-10-03-openspec-adoption` — OpenSpec adoption — capability specs as the behavior source of truth
 - `2026-10-03-post-merge-debt` — Post-merge debt: deferred fixes and accepted risks from the time-hub merge
 - `2026-10-03-repository-delete-guard-gap` — Repository delete/restore/archive — assertCanWrite vs DAO-level guard
 - `2026-10-03-synccolumns-live-field-set` — SyncColumns: which fields the client writes back
 - `2026-10-03-tag-icon-unmapped` — Tag.icon — no such column exists
+- `2026-10-04-apply-proposal-refactor` — ApplyProposalItemUseCase — Refactor Strategy
+- `2026-10-04-consolidate-proposal-target` — Consolidate ProposalTarget — Remove Legacy taskId from AiProposal
+- `2026-10-04-note-proposal-ui-path` — Note Proposal UI Path — How to Add Proposals to New Surfaces
+- `2026-10-05-phase-a-retrospective` — _(no title)_
 

@@ -55,6 +55,7 @@
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _queryString = MutableStateFlow("")</ID>
     <ID>BackingPropertyNaming:SessionStore.kt:DataStoreSessionStore$private val _deviceIdFlow = MutableStateFlow("")</ID>
+    <ID>ClassSignature:LogBundleExporterTest.kt:FakeBackupCodec : BackupCodec</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
@@ -141,6 +142,7 @@
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
+    <ID>FunctionSignature:LogBundleExporterTest.kt:FakeBackupCodec$override suspend fun importFromSource: Result&lt;BackupCodec.CodecReadResult&gt;</ID>
     <ID>Indentation:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest.Companion$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
@@ -175,6 +177,7 @@
     <ID>LongMethod:NotesListScreen.kt:@Composable private fun NoteList</ID>
     <ID>LongMethod:NotesListScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NotesScreenContent</ID>
     <ID>LongMethod:PlatformModule.android.kt:actual fun platformModule: Module</ID>
+    <ID>LongMethod:PlatformModule.jvm.kt:actual fun platformModule: Module</ID>
     <ID>LongMethod:PomodoroScreen.kt:@Composable fun PomodoroScreen</ID>
     <ID>LongMethod:PomodoroScreen.kt:@Composable private fun PomodoroContentPreview</ID>
     <ID>LongMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectDetailContent</ID>
@@ -203,6 +206,7 @@
     <ID>MaximumLineLength:IdTokenTest.kt:IdTokenTest$"</ID>
     <ID>MaximumLineLength:KoogAgentService.kt:FakeTextGen$,</ID>
     <ID>MaximumLineLength:LlmUseCase.kt:ImproveNoteUseCase$(</ID>
+    <ID>MaximumLineLength:LogBundleExporterTest.kt:FakeBackupCodec${</ID>
     <ID>MaximumLineLength:NoteContentMapperTest.kt:NoteContentMapperTest$"""</ID>
     <ID>MaximumLineLength:ProfileSwitcherScreen.kt:// Preview pattern: construct VM with Fake* deps directly</ID>
     <ID>MaximumLineLength:SavedAgendaViewModelTest.kt:SavedAgendaViewModelTest$,</ID>
@@ -220,6 +224,7 @@
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
     <ID>NoUnusedImports:BackupMigrations.kt:com.singularity.todo.core.backup.BackupMigrations.kt</ID>
+    <ID>NoUnusedImports:LogBundleExporterTest.kt:com.singularity.todo.core.log.LogBundleExporterTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
