@@ -41,7 +41,7 @@ class CreateNoteTool(
         val note = Note(
             id = noteId,
             title = args.title,
-            bodyMarkdown = null,  // markdown stored only as HTML
+            bodyMarkdown = null, // markdown stored only as HTML
             bodyHtml = bodyHtml,
             isFolder = args.isFolder,
             parentNoteId = args.parentNoteId?.let { NoteId.fromString(it) },

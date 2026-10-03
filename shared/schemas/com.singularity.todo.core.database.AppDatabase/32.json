@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 32,
-    "identityHash": "58bf50f1ddd30336554a338b36ce3110",
+    "identityHash": "d95aaf836f36f2e9a9b1c002da575498",
     "entities": [
       {
         "tableName": "tasks",
@@ -338,7 +338,7 @@
       },
       {
         "tableName": "notes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `title` TEXT NOT NULL, `body_markdown` TEXT, `body_html` TEXT, `is_folder` INTEGER NOT NULL, `kind` TEXT NOT NULL DEFAULT 'Plain', `parent_note_id` TEXT, `is_pinned` INTEGER NOT NULL DEFAULT 0, `pinned_at` INTEGER, `color` INTEGER, `sort_order` INTEGER NOT NULL DEFAULT 0, `word_count` INTEGER NOT NULL DEFAULT 0, `char_count` INTEGER NOT NULL DEFAULT 0, `outgoing_links` TEXT NOT NULL DEFAULT '[]', `task_id` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, `archived_at` INTEGER, `server_version` INTEGER NOT NULL, `sync_status` TEXT NOT NULL, `sync_error` TEXT, `last_synced_at` INTEGER, `device_id` TEXT, `hlc` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `title` TEXT NOT NULL, `body_markdown` TEXT, `body_html` TEXT, `is_folder` INTEGER NOT NULL, `kind` TEXT NOT NULL DEFAULT 'Plain', `parent_note_id` TEXT, `is_pinned` INTEGER NOT NULL DEFAULT 0, `pinned_at` INTEGER, `color` INTEGER, `sort_order` INTEGER NOT NULL DEFAULT 0, `word_count` INTEGER NOT NULL DEFAULT 0, `char_count` INTEGER NOT NULL DEFAULT 0, `outgoing_links` TEXT NOT NULL DEFAULT '[]', `task_id` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, `archived_at` INTEGER, `server_version` INTEGER NOT NULL, `sync_status` TEXT NOT NULL, `sync_error` TEXT, `last_synced_at` INTEGER, `device_id` TEXT, `hlc` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`task_id`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -560,6 +560,19 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_task_id` ON `${TABLE_NAME}` (`task_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tasks",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "task_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
           }
         ]
       },
@@ -2240,7 +2253,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '58bf50f1ddd30336554a338b36ce3110')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd95aaf836f36f2e9a9b1c002da575498')"
     ]
   }
 }

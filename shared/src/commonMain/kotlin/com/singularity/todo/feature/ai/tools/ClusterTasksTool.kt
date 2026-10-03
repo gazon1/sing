@@ -37,7 +37,9 @@ class ClusterTasksTool(private val promptExecutor: PromptExecutor, private val m
             Json.decodeFromString<ClusterTasksOutput>(text).let { out ->
                 Json.encodeToString(ClusterTasksOutput.serializer(), out)
             }
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             "{}"
         }

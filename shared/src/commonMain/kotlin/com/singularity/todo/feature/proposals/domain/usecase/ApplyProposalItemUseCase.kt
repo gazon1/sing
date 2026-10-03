@@ -126,23 +126,21 @@ class ApplyProposalItemUseCase(
      * before the claim. This lets the planner fail fast without burning the
      * one irreversible decision.
      */
-    private suspend fun buildPlan(item: ProposalItem): ProposalPlan {
-        return when {
-            item.kind.isNoteBound -> {
-                // SetNoteField needs the note; DeleteNote and ExtractActions don't but
-                // passing the note for SetNoteField is what the planner needs.
-                val note = notes.get(NoteId(item.targetId))
-                planner.planNoteItem(item, note)
-            }
+    private suspend fun buildPlan(item: ProposalItem): ProposalPlan = when {
+        item.kind.isNoteBound -> {
+            // SetNoteField needs the note; DeleteNote and ExtractActions don't but
+            // passing the note for SetNoteField is what the planner needs.
+            val note = notes.get(NoteId(item.targetId))
+            planner.planNoteItem(item, note)
+        }
 
-            item.kind.isDeleteVariant -> planner.planDeleteItem(item)
+        item.kind.isDeleteVariant -> planner.planDeleteItem(item)
 
-            else -> {
-                // Fetch task and resolve tag ids before calling the planner.
-                val task = tasks.get(TaskId(item.targetId))
-                val resolvedTagIds = item.kind.resolveTagIds()
-                planner.planTaskItem(item, task, resolvedTagIds)
-            }
+        else -> {
+            // Fetch task and resolve tag ids before calling the planner.
+            val task = tasks.get(TaskId(item.targetId))
+            val resolvedTagIds = item.kind.resolveTagIds()
+            planner.planTaskItem(item, task, resolvedTagIds)
         }
     }
 

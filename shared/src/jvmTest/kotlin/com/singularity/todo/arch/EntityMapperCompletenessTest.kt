@@ -80,8 +80,14 @@ class EntityMapperCompletenessTest {
                 "groupId", "sortOrder", "deletedAt", "sync",
             ),
             "TagGroupEntity" to setOf(
-                "id", "userId", "name", "color", "createdAt",
-                "updatedAt", "deletedAt", "sync",
+                "id",
+                "userId",
+                "name",
+                "color",
+                "createdAt",
+                "updatedAt",
+                "deletedAt",
+                "sync",
             ),
             "TaskReminderEntity" to setOf(
                 "id", "taskId", "userId", "type", "offsetMinutes",
@@ -100,39 +106,57 @@ class EntityMapperCompletenessTest {
          * handled via SUPPLEMENTAL_PARAMS to avoid false phantom-param positives.
          */
         private val MAPPER_ENTITY_FIELDS_ACCESSED = mapOf(
-            "toTask" to ("TaskEntity" to setOf(
+            "toTask" to (
+                "TaskEntity" to setOf(
                 "id", "title", "description", "priority", "kind", "projectId",
                 "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
                 "endDate", "endTime", "accentColor", "emoji", "completedAt",
                 "someday", "archivedAt", "isPinned", "recurrenceRule",
                 "outgoingLinks", "aiSuppressedTagIds", "estimateMinutes",
                 "createdAt", "updatedAt", "userId", "sync",
-            )),
-            "toNote" to ("NoteEntity" to setOf(
+            )
+            ),
+            "toNote" to (
+                "NoteEntity" to setOf(
                 "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
                 "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
                 "sortOrder", "wordCount", "charCount", "outgoingLinks",
                 "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
-            )),
-            "toProject" to ("ProjectEntity" to setOf(
+            )
+            ),
+            "toProject" to (
+                "ProjectEntity" to setOf(
                 "id", "name", "color", "icon", "description",
                 "createdAt", "updatedAt", "isDefault", "dueDate", "team",
                 "isDeleted", "deletedAt", "parentId", "sortOrder",
                 "idempotencyKey", "externalId", "userId", "sync",
-            )),
-            "toTag" to ("TagEntity" to setOf(
+            )
+            ),
+            "toTag" to (
+                "TagEntity" to setOf(
                 "id", "name", "color", "createdAt", "updatedAt",
                 "groupId", "sortOrder", "deletedAt", "userId", "sync",
-            )),
-            "toTagGroup" to ("TagGroupEntity" to setOf(
-                "id", "name", "color", "createdAt", "updatedAt",
-                "deletedAt", "userId", "sync",
-            )),
-            "toReminder" to ("TaskReminderEntity" to setOf(
+            )
+            ),
+            "toTagGroup" to (
+                "TagGroupEntity" to setOf(
+                "id",
+                "name",
+                "color",
+                "createdAt",
+                "updatedAt",
+                "deletedAt",
+                "userId",
+                "sync",
+            )
+            ),
+            "toReminder" to (
+                "TaskReminderEntity" to setOf(
                 "id", "taskId", "userId", "type", "offsetMinutes",
                 "fireAt", "recurringPattern", "viewId", "lastFiredAt",
                 "createdAt", "updatedAt",
-            )),
+            )
+            ),
         )
 
         /**
@@ -153,7 +177,7 @@ class EntityMapperCompletenessTest {
     fun positiveControlDetectsMissingField() {
         // Synthetic: entity has 3 fields, mapper accesses only title — missing id and missing
         val entityParams = setOf("id", "title", "missing")
-        val accessedFields = setOf("title")  // only title
+        val accessedFields = setOf("title") // only title
         val missing = entityParams - accessedFields
         if (missing != setOf("id", "missing")) {
             fail(

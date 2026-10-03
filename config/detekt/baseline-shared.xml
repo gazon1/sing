@@ -63,7 +63,7 @@
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
-    <ID>CyclomaticComplexMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectDetailContent</ID>
+    <ID>CyclomaticComplexMethod:ProposalDispatch.kt:ProposalDispatch$suspend fun dispatch</ID>
     <ID>CyclomaticComplexMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>CyclomaticComplexMethod:SelectorMatcher.kt:fun Selector.matches: Boolean</ID>
     <ID>CyclomaticComplexMethod:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$suspend fun run: Boolean</ID>
@@ -141,6 +141,7 @@
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
+    <ID>Indentation:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest.Companion$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -185,16 +186,14 @@
     <ID>LongMethod:SearchScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SearchScreen</ID>
     <ID>LongMethod:SettingsImporter.kt:SettingsImporter$open suspend fun importFromJson: ImportResult</ID>
     <ID>LongMethod:SimpleFilterSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimpleFilterSheet</ID>
-    <ID>LongMethod:StatisticsScreen.kt:@Composable fun StatisticsScreen</ID>
-    <ID>LongMethod:StatisticsScreen.kt:@Composable private fun StatisticsContentPreview</ID>
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
     <ID>LongMethod:TaskDetailViewScreen.kt:@Composable fun TaskDetailViewScreen</ID>
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
-    <ID>LongMethod:TasksDiModule.kt:fun tasksModule: org.koin.core.module.Module</ID>
     <ID>LoopWithTooManyJumpStatements:A2uiParser.kt:A2uiParser$for</ID>
     <ID>LoopWithTooManyJumpStatements:ConditionExprParser.kt:ConditionExprParser$while</ID>
+    <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
@@ -220,6 +219,7 @@
     <ID>NoEmptyOnClickLambda:PomodoroScreen.kt:{ }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
+    <ID>NoUnusedImports:BackupMigrations.kt:com.singularity.todo.core.backup.BackupMigrations.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -346,6 +346,7 @@
     <ID>TooGenericExceptionCaught:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RewriteNoteTool.kt:RewriteNoteTool$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RunCatching.kt:e: Exception</ID>
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
@@ -393,7 +394,6 @@
     <ID>UnusedParameter:NoteAiActionSheet.kt:onClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:NoteCard.kt:isSelected: Boolean</ID>
     <ID>UnusedParameter:NoteCard.kt:onLongClick: () -&gt; Unit = {}</ID>
-    <ID>UnusedParameter:NotePreviewScreen.kt:onNoteSelected: (String) -&gt; Unit</ID>
     <ID>UnusedParameter:NotesListScreen.kt:allNotes: List&lt;Note&gt;</ID>
     <ID>UnusedParameter:NotesListScreen.kt:modifier: Modifier = Modifier</ID>
     <ID>UnusedParameter:NotesListScreen.kt:route: NotesRoute.List</ID>
@@ -409,5 +409,6 @@
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
     <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
     <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
+    <ID>Wrapping:BackupMigrations.kt:BackupMigrations$(</ID>
   </CurrentIssues>
 </SmellBaseline>

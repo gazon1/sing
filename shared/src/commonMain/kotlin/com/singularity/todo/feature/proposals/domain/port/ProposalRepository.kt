@@ -45,6 +45,13 @@ interface ProposalRepository {
     fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>>
 
     /**
+     * Watch proposals for a specific [targetKind] (e.g. [com.singularity.todo.feature.proposals.domain.model.AiProposal.TARGET_KIND_TASK])
+     * in a given aggregate [status].
+     * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
+     */
+    fun watchProposalsByTargetKind(targetKind: String, status: ProposalStatus): Flow<List<AiProposal>>
+
+    /**
      * Persist a proposal together with its items, replacing any items already stored
      * for the same proposal id.
      *

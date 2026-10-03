@@ -2,7 +2,6 @@ package com.singularity.todo.feature.proposals.domain.usecase
 
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.proposals.domain.model.NoteField
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.TaskField
@@ -86,11 +85,7 @@ class ProposalPlanner(private val clock: Clock) {
      * @param resolvedTagIds For [ProposalItemKind.AddTags] and [ProposalItemKind.RemoveTags]:
      *                       pre-resolved tag IDs from the caller's tag lookup.
      */
-    fun planTaskItem(
-        item: ProposalItem,
-        task: Task?,
-        resolvedTagIds: Set<TagId> = emptySet(),
-    ): ProposalPlan {
+    fun planTaskItem(item: ProposalItem, task: Task?, resolvedTagIds: Set<TagId> = emptySet()): ProposalPlan {
         val taskId = TaskId(item.targetId.ifBlank { task?.id?.value ?: error("No task id") })
         val t = task ?: error("Task ${item.targetId} not found")
         return when (val kind = item.kind) {
@@ -133,7 +128,7 @@ class ProposalPlanner(private val clock: Clock) {
                 ProposalPlan.AddTimeEntries(taskId, kind.entries)
             }
 
-            else -> error("Unexpected task-bound kind: ${kind}")
+            else -> error("Unexpected task-bound kind: $kind")
         }
     }
 

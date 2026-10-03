@@ -36,7 +36,9 @@ class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private 
         return try {
             val steps = Json.decodeFromString<GenerateChecklistOutput>(text).steps
             Json.encodeToString(GenerateChecklistOutput.serializer(), GenerateChecklistOutput(steps))
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }

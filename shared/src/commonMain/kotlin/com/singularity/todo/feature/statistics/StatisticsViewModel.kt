@@ -50,11 +50,7 @@ data class StatisticsUiState(
 
 /** A single project's time total. */
 @Suppress("ClassSignature")
-data class ProjectInsightsBucket(
-    val projectId: String?,
-    val projectName: String,
-    val totalMs: Long,
-)
+data class ProjectInsightsBucket(val projectId: String?, val projectName: String, val totalMs: Long)
 
 sealed interface StatisticsIntent : MviIntent {
     data class SetRange(val days: Int) : StatisticsIntent

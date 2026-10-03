@@ -57,7 +57,9 @@ inline fun <reified I : @Serializable Any, reified O : @Serializable Any> llmToo
             val text = extractText(response)
             return try {
                 Json.encodeToString(outputSerializer, outputBlock(text))
-            } catch (e: CancellationException) { throw e } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 logger.w(e) { "failed" }
                 // Fallback: try direct decode
                 Json.encodeToString(outputSerializer, outputBlock(text))

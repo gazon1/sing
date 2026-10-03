@@ -36,7 +36,9 @@ class ExtractActionsTool(private val promptExecutor: PromptExecutor, private val
             kotlinx.serialization.json.Json.decodeFromString<ExtractActionsOutput>(text).let { out ->
                 kotlinx.serialization.json.Json.encodeToString(ExtractActionsOutput.serializer(), out)
             }
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             kotlinx.serialization.json.Json.encodeToString(
                 ExtractActionsOutput.serializer(),

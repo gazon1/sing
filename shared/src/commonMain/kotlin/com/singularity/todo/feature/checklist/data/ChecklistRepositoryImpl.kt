@@ -101,10 +101,7 @@ private fun ChecklistItemEntity.toItem() = ChecklistItem(
     checkedAt = checkedAt,
 )
 
-private fun ChecklistItem.toEntity(
-    now: Long,
-    existing: ChecklistItemEntity? = null,
-) = ChecklistItemEntity(
+private fun ChecklistItem.toEntity(now: Long, existing: ChecklistItemEntity? = null) = ChecklistItemEntity(
     id = id.value,
     taskId = taskId,
     title = title,

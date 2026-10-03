@@ -125,18 +125,16 @@ object ProposalBuilder {
         targetId: String,
         itemId: ProposalItemId,
         proposalId: ProposalId,
-    ): ProposalItem {
-        return ProposalItem(
-            id = itemId,
-            proposalId = proposalId,
-            kind = kind,
-            targetId = targetId,
-            humanSummary = kind.humanSummary,
-            status = ProposalItemStatus.Pending,
-            fingerprint = ProposalFingerprint.of(kind, targetId),
-            sortOrder = 0,
-        )
-    }
+    ): ProposalItem = ProposalItem(
+        id = itemId,
+        proposalId = proposalId,
+        kind = kind,
+        targetId = targetId,
+        humanSummary = kind.humanSummary,
+        status = ProposalItemStatus.Pending,
+        fingerprint = ProposalFingerprint.of(kind, targetId),
+        sortOrder = 0,
+    )
 }
 
 /** Human-readable summary derived from a [ProposalItemKind]. */

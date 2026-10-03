@@ -57,7 +57,9 @@ class RewriteNoteTool(private val promptExecutor: PromptExecutor, private val mo
             kotlinx.serialization.json.Json.decodeFromString<RewriteNoteOutput>(text).let { out ->
                 kotlinx.serialization.json.Json.encodeToString(RewriteNoteOutput.serializer(), out)
             }
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             kotlinx.serialization.json.Json.encodeToString(
                 RewriteNoteOutput.serializer(),

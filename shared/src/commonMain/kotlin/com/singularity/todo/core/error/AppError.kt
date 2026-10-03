@@ -9,14 +9,13 @@ sealed class AppError(message: String) : RuntimeException(message) {
     class Unknown(message: String) : AppError(message)
 }
 
-inline fun <T> runCatchingResult(block: () -> T): Result<T> =
-    runCatchingCancellable(block).recoverCatching { e ->
-        throw when (e) {
-            is AppError -> e
+inline fun <T> runCatchingResult(block: () -> T): Result<T> = runCatchingCancellable(block).recoverCatching { e ->
+    throw when (e) {
+        is AppError -> e
 
-            else -> AppError.Unknown(
-                e.message
-                    ?: "",
-            )
-        }
+        else -> AppError.Unknown(
+            e.message
+                ?: "",
+        )
     }
+}

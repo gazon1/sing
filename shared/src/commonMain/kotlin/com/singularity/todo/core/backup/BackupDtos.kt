@@ -75,7 +75,7 @@ fun TaskEntity.toDto(): TaskDto = TaskDto(
     archivedAt = archivedAt, isPinned = isPinned,
     estimateMinutes = estimateMinutes,
     recurrenceRule = recurrenceRule,
-    outgoingLinks = decodeLinkList(outgoingLinks),          // JSON string → List
+    outgoingLinks = decodeLinkList(outgoingLinks), // JSON string → List
     aiSuppressedTagIds = decodeLinkList(aiSuppressedTagIds), // JSON string → List
     createdAt = createdAt, updatedAt = updatedAt,
 )
@@ -93,7 +93,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity = TaskEntity(
     archivedAt = archivedAt, isPinned = isPinned,
     estimateMinutes = estimateMinutes,
     recurrenceRule = recurrenceRule,
-    outgoingLinks = encodeLinkList(outgoingLinks),          // List → JSON string
+    outgoingLinks = encodeLinkList(outgoingLinks), // List → JSON string
     aiSuppressedTagIds = encodeLinkList(aiSuppressedTagIds), // List → JSON string
     createdAt = createdAt, updatedAt = updatedAt,
     userId = userId,

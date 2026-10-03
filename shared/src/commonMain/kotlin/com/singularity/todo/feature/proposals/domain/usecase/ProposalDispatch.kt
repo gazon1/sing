@@ -2,12 +2,9 @@ package com.singularity.todo.feature.proposals.domain.usecase
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
-import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.NoteField
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.Task

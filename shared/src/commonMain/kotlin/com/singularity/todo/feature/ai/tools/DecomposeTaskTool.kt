@@ -36,7 +36,9 @@ class DecomposeTaskTool(private val promptExecutor: PromptExecutor, private val 
         return try {
             val items = Json.decodeFromString<DecomposeTaskOutput>(text).subTasks
             Json.encodeToString(DecomposeTaskOutput.serializer(), DecomposeTaskOutput(items))
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }

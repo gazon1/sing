@@ -32,11 +32,7 @@ import androidx.navigation3.runtime.NavKey
  */
 @Suppress("FunctionSignature")
 @Composable
-fun TabReselectScrollReset(
-    route: NavKey,
-    listState: LazyListState,
-    state: Nav3State = LocalNav3State.current,
-) {
+fun TabReselectScrollReset(route: NavKey, listState: LazyListState, state: Nav3State = LocalNav3State.current) {
     val currentState = rememberUpdatedState(state)
     LaunchedEffect(route) {
         currentState.value.reselectEvents.collect { reselected ->

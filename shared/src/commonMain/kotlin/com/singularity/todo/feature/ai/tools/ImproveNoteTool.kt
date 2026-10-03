@@ -37,7 +37,9 @@ class ImproveNoteTool(private val promptExecutor: PromptExecutor, private val mo
             kotlinx.serialization.json.Json.decodeFromString<ImproveNoteOutput>(text).let { out ->
                 kotlinx.serialization.json.Json.encodeToString(ImproveNoteOutput.serializer(), out)
             }
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             // Fallback: return original if parsing fails
             kotlinx.serialization.json.Json.encodeToString(

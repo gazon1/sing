@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ForbiddenComment:RuStoreUpdateStore.kt:RuStoreUpdateStore$// TODO: replace with SDK call when rustore-appupdate dependency is added.</ID>
+    <ID>MaxLineLength:UpdateStorePort.kt:UpdateStorePort$*</ID>
+    <ID>ReturnCount:AppUpdateGate.kt:AppUpdateGate$private fun checkAndOfferUpdate: Boolean</ID>
+    <ID>ReturnCount:GooglePlayUpdateStore.kt:GooglePlayUpdateStore$override fun isUpdateAvailable: Boolean</ID>
+    <ID>ReturnCount:GooglePlayUpdateStore.kt:GooglePlayUpdateStore$override fun offerUpdate: Boolean</ID>
+    <ID>SwallowedException:DirectUrlUpdateStore.kt:DirectUrlUpdateStore$e: Throwable</ID>
+    <ID>SwallowedException:RuStoreUpdateStore.kt:RuStoreUpdateStore$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:DirectUrlUpdateStore.kt:DirectUrlUpdateStore$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:RuStoreUpdateStore.kt:RuStoreUpdateStore$e: Throwable</ID>
+  </CurrentIssues>
+</SmellBaseline>

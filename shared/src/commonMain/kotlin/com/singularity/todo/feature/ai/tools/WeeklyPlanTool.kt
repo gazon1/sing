@@ -36,7 +36,9 @@ class WeeklyPlanTool(private val promptExecutor: PromptExecutor, private val mod
         return try {
             val items = Json.decodeFromString<WeeklyPlanOutput>(text).items
             Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(items))
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             logger.w(e) { "failed" }
             val lines = text.lines()
                 .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
