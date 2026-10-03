@@ -1,0 +1,63 @@
+# Agenda reachability: the saved-views entry and the agenda itself must be
+# reachable from every agenda-carrying bottom tab (Inbox, Today, Upcoming).
+#
+# Complements the desktop AgendaReachabilityFlowTest: on Android the shell is a
+# bottom bar with nav_tab_* tags, and Plans/Pomodoro/Calendar are non-agenda
+# destinations, so only the three agenda tabs are exercised here.
+appId: com.singularity.todo
+name: agenda-reachability
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Today tab (boot landing) → saved views reachable.
+- assertVisible:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+
+# Inbox tab → agenda + saved views reachable.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "Saved Views"
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_list_back
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+
+# Upcoming tab → agenda + saved views reachable.
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "Saved Views"
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_list_back
+
+# Round trip back to Today.
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
