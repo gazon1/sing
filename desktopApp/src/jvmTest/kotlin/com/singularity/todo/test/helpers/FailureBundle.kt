@@ -76,9 +76,8 @@ data class FailureBundle(
 
         /**
          * Returns the output directory for [testClassSimpleName]/[attempt].
-         * Creates the directory if it does not exist. Prior content is NOT deleted —
-         * retry artifacts overwrite files with the same name, but any artifact
-         * present only in an earlier attempt persists.
+         * Creates the directory if it does not exist. Any prior content is deleted
+         * when [capture] starts, so every attempt begins with a clean directory.
          */
         fun prepareOutputDir(testClassSimpleName: String, attempt: Int): File {
             val dir = diagnosticsRoot
@@ -118,6 +117,12 @@ data class FailureBundle(
                 attempt = attempt,
                 outputDir = prepareOutputDir(testClassSimpleName, attempt),
             )
+
+            // Delete prior content so this attempt starts clean — stale files from a
+            // previous attempt that crashed before writing some artifacts must not mislead
+            // investigation (e.g., old screenshot showing a different failure state).
+            runCatching { bundle.outputDir.deleteRecursively() }
+            bundle.outputDir.mkdirs()
 
             // Order: hang-proof artifacts first, screenshot last.
             // captureToImage blocks on EventQueue.invokeAndWait — if the failure left an
