@@ -52,11 +52,13 @@ Enrich the FailureBundle so every failure is diagnosed from the bundle alone, wi
 ```
 junit.jupiter.execution.parallel.mode.default = same_thread
 junit.jupiter.execution.parallel.mode.classes.default = same_thread
-forkEvery = 1
-maxParallelForks = 2
+# forkEvery = 1 NOT used: 22 tests × JVM fork = +93s overhead (2m53s vs 80s)
+# maxParallelForks not set (governs concurrent forks, irrelevant without forkEvery)
 ```
 
-**Performance gate:** if `:desktopApp:test` duration grows > 25%, degrade to methods-only (`mode.default = same_thread` only). Document the remaining cross-class Kermit log mixing as a known limitation.
+**Performance:** measured with warm config cache. Baseline 34s → with same_thread 80s (~2.4×). `forkEvery=1` alone adds ~93s overhead (173s total). Decision: keep same_thread (intra-class safety), drop forkEvery (cost too high).
+
+**Known limitation:** `same_thread` on both axes prevents intra-class races. Inter-class Kermit log mixing remains possible (classes run sequentially in one JVM, but without forkEvery each class reuses the same Kermit writer list). This is documented as a known limitation.
 
 ### Debt
 
@@ -65,8 +67,7 @@ maxParallelForks = 2
 - Raw selector calls (`onNodeWithTag`, `onNodeWithText`, `onNodeWithContentDescription`) exist throughout flow tests — these are the target of the guard in MR-3. Count: ~40 call sites in `feature/flows/` (confirmed by grep). All must be either migrated to helpers or declared in `EXEMPT_RAW_TAGS` with reasons. The guard in `HarnessConventionTest` will enforce this.
 - `DesktopAppBootTest` and `CelebrationTest` also contain raw selectors — these are not flow tests but are in `src/jvmTest`. The guard should cover all of `src/jvmTest`.
 - `savedAgendaCreateFlowTest` is outside the current `HarnessConventionTest` scan root (`feature/flows/` only) and passes no `checkA11y` — the MR-3 guard expansion will catch it.
-
-**Performance note (TBD):** `:desktopApp:test` suite duration was not measured before the forkEvery/same_thread change. First post-change run completed in ~34s with 22 tests. Before-compare baseline needed for the 25% gate decision.
+- forkEvery=1 was tried and removed: 22 tests × JVM fork = 93s overhead. Not worth the isolation benefit for the current suite size.
 
 ## Links
 
