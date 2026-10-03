@@ -2,11 +2,11 @@ package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithTag
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
@@ -87,7 +87,7 @@ class AgendaTabDefinitionFlowTest {
         org.junit.Assert.assertEquals(
             "Upcoming must not render an Inbox 'No Date' section",
             0,
-            onAllNodesWithTag(TestTags.agendaSection("No Date")).fetchSemanticsNodes().size,
+            countNodes(TestTags.agendaSection("No Date")),
         )
     }
 }

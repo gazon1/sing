@@ -97,40 +97,10 @@ class HarnessConventionTest {
          * `exempted files actually contain raw selectors` test.
          */
         val EXEMPT_RAW_TAGS: Map<String, String> = mapOf(
-            // CalendarFlowTest: DatePicker cells emit untagged Text nodes for weekday
-            // abbreviations ("Mon", "Sun") — no testTag available.
-            "CalendarFlowTest.kt" to "DatePicker cells use untagged Text nodes; no TestTag to query",
-            // ProfileFlowTest: ProfileSwitcher trigger has no testTag; contentDescription
-            // "Profiles" is the only accessible identifier.
-            "ProfileFlowTest.kt" to "ProfileSwitcher trigger has no testTag; contentDescription is the identifier",
-            // DesktopAppBootTest: Boot screen has no task tags — tests production App startup
-            // without seeded data, so task-based helpers are inapplicable.
+            // DesktopAppBootTest: Boot screen has no task tags — tests production App
+            // startup without seeded data, so task-based helpers are inapplicable.
+            // (Not a FlowTest; listed for when the guard's scan root widens.)
             "DesktopAppBootTest.kt" to "Boot screen has no task tags; tests production App startup without seeded data",
-            // SavedAgendaCreateFlowTest: uses AGENDA_SAVE_CURRENT_BUTTON, SAVED_AGENDA_SAVE_BUTTON,
-            // SAVED_AGENDA_NAME_INPUT — these tags exist but the test predates the helper migration.
-            "SavedAgendaCreateFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // OpenTaskFromAgendaFlowTest: raw selectors for tag-based navigation and assertions.
-            "OpenTaskFromAgendaFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // SavedViewsFlowTest: raw selectors for saved view creation and selection flow.
-            "SavedViewsFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // NavigationFlowTest: raw selectors for desktop navigation (drawer, tabs).
-            "NavigationFlowTest.kt" to "Desktop navigation uses contentDescription selectors not in helpers",
-            // NotesFlowTest: raw selectors for note creation and display flow.
-            "NotesFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // PomodoroFlowTest: raw selectors for pomodoro timer and settings flow.
-            "PomodoroFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // ProjectsFlowTest: raw selectors for project creation and management flow.
-            "ProjectsFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // AgendaTabDefinitionFlowTest: one raw call for agenda tab assertions.
-            "AgendaTabDefinitionFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // SetDueDateFlowTest: raw selectors for due date picker interactions.
-            "SetDueDateFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // SetPriorityFlowTest: raw selectors for priority selection UI.
-            "SetPriorityFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // TaskRowFlowTest: raw selectors for task row interactions.
-            "TaskRowFlowTest.kt" to "Uses known TestTags but predates helper migration",
-            // CreateTaskFlowTest: the main task creation flow with many assertions.
-            "CreateTaskFlowTest.kt" to "Uses known TestTags but predates helper migration",
         )
 
         /**

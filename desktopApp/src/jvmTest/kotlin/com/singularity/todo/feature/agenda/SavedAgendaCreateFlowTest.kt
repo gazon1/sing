@@ -3,14 +3,12 @@
 package com.singularity.todo.feature.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextClearance
-import androidx.compose.ui.test.performTextInput
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.clearAndTypeIntoTag
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import kotlinx.coroutines.flow.first
 import org.junit.Test
@@ -37,13 +35,12 @@ class SavedAgendaCreateFlowTest {
         waitForIdle()
 
         // Boot lands on the Today agenda; its top bar carries the bookmark-add control.
-        onNodeWithTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON).performClick()
+        clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
         awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
         // The seeded draft is pristine, so Save is disabled — rename to dirty it.
-        onNodeWithTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextClearance()
-        onNodeWithTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextInput("Saved By Test")
-        onNodeWithTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
+        clearAndTypeIntoTag(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
+        clickTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
         // SaveSuccess navigates back to the agenda. This is the assertion that fails
         // on the pre-fix code: the editor stayed on screen with the spinner running.
