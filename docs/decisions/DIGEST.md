@@ -150,7 +150,7 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 - **Positive**: Cross-feature imports are now compile-time errors if they bypass domain
 - **Positive**: Strict layer boundaries enforced by package structure; pure domain logic testable without Android instrumentation
 - **Positive**: `TaskDetailUiState.reduce()` is a pure function — covered by unit tests without mocks
-- _... and 65 more items_
+- _... and 71 more items_
 
 ### `auth`
 
@@ -227,6 +227,13 @@ Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.s
 
 - Fake implementations in `FakeProjectDao` add `mutateForUser` that guards by `userId` before mutating, returning 0 if the entity belongs to a different user.
 - Old non-`*ForUser` DAO methods remain in the interface for binary compatibility but are no longer called by production code.
+
+### `data-integrity`
+
+- Multi-node cycles (A→B→C→A) are now rejected at write time, not just at UI-time
+- Test coverage for `assertNoCycles` multi-node case should be added to `DependencyValidatorTest`
+- `DependencyValidatorImpl.analyzeDependencies` unchanged — continues to support the cycle-detection UI (Phase 7b)
+- `bfsReachableFrom` is private and is NOT a public API change
 
 ### `datastore`
 
@@ -1171,17 +1178,21 @@ _22 entries need attention._
 - `2026-10-01-test-ratchet-findings` — Post-test-ratchet findings: structural gaps found during MR-10..14
 - `2026-10-01-typed-task-dependency-links` — Typed Task Dependency Links — verb column
 - `2026-10-02-ai-proposal-confirmation` — AI proposal confirmation: compare-and-set, transactional apply, tag suppression
-- `2026-10-02-desktop-haptic-missing-binding` — _(no title)_
+- `2026-10-02-cycle-detection-fix-b5` — Fix B5: assertNoCycles uses full BFS, not just self-loop check
+- `2026-10-02-desktop-haptic-missing-binding` — Desktop test suite hangs — task detail composition crashed on missing Haptic binding
 - `2026-10-02-insights-time-bucketing` — Insights time bucketing: union-merge, midnight split, no SQLite dates on integer columns
 - `2026-10-02-koin-compiler-plugin-dsl-validation` — Compile-time Koin DI graph validation via koin-compiler-plugin 1.2.1
 - `2026-10-02-log-redaction-classification-policy` — Log Message User-Content Classification Policy
 - `2026-10-02-mixed-platform-audit-followups` — Mixed platform audit — MR-0 follow-ups: what was fixed and what was deferred
 - `2026-10-02-mr6-mr7-breakage-post-mortem` — MR-6 / MR-7 Post-mortem — broken preconditions and agent cleanup
+- `2026-10-02-nav-entries-dedup-deferred` — AndroidNavEntries and JvmNavEntries are intentionally NOT fully deduplicated
 - `2026-10-02-note-entity-dual-task-linkage` — NoteEntity dual task linkage — FK enforcement and wikilink removal
 - `2026-10-02-per-connection-pragmas-and-fk-enforcement` — Per-connection PRAGMA enforcement and FK constraints
 - `2026-10-02-post-tech-debt-audit-findings` — Post-tech-debt-cleanup audit — remaining findings
+- `2026-10-02-routing-state-on-screen` — Routing state lives on the screen, not in the ViewModel
 - `2026-10-02-tag-registry-single-source` — Tag registry: один источник истины, и почему нет ProjectsRobot
 - `2026-10-02-task-time-tracking-and-estimate` — Task time tracking: estimate, time_entries, timer, Pomodoro
+- `2026-10-02-tech-debt-metrics-tracking` — Tech Debt Metrics — October 2026 Follow-up
 - `2026-10-02-usage-recording-textgen-architecture` — UsageRecordingTextGen — Ownership and DI Shape
 - `2026-10-03-merge-regression-fixes` — Merge regressions: Nav3 rendering contract, property-init-order NPE, test-harness DAOs
 - `2026-10-03-mvi-deferred-followup` — MVI deferred follow-up — routing-when, CurrentProjectContent, @Immutable, lazy keys, tab reselect
