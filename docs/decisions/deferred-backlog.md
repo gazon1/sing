@@ -443,3 +443,135 @@ skills — too large for a single PR. They are guarded by the baseline:
 if an agent adds a NEW dangling symbol reference in any of these skills,
 CI will fail. The backlog owner should prioritize `nav3-nested-graphs`
 (first referenced by `wayfinder`) and `ai-tool` (most complex).
+
+---
+
+## agenda-section-add-button-noop
+
+**Found in:** MR-0, при написании тест-плана agenda-views (кодовая разведка).
+
+**Symptom:** кнопка «+» в заголовке секции в `AgendaScreen` при тапе вызывает `AgendaIntent.CreateInSection` → `handleCreateInSection(sectionId)`. Функция делает `scope.launch { handleCreateInSection(intent.sectionId) }`, внутри:
+```kotlin
+val section = definition.sections.find { it.effectiveId == sectionId } ?: return
+val sectionPrefill = section.prefill ?: return   // ← early return, prefill == null
+```
+Ни один preset в `AgendaPresets` не задаёт `SectionPrefill`; `Section.prefill` всегда `null`. Тап на «+» silently no-op.
+
+**Status: OPEN.** Фиксируется в MR-1 (батч-фикс). SectionPrefill должен быть добавлен в `AgendaPresets.Inbox` и другие preset'ы (MR-6 контракт: `Section.effectiveId` → prefill-дате).
+
+**Try next:** добавить `prefill = SectionPrefill.Date` в каждую секцию Inbox/Today/Upcoming с `RelativeBucket`-compatible датой.
+
+---
+
+## notification-text-null-invisible
+
+**Found in:** MR-0, свип `Notification.Text(x, null)` по production commonMain.
+
+**Symptom:** `NotificationHost.kt:72-78` роутит `Notification.Text(title, text?)` в `ResultDialog`, у которого `if (text == null) return` — ничего не рендерится. Три живых сайта:
+
+1. `TaskDetailContent.kt:58` и `TaskDetailViewScreen.kt:87`: `is TaskDetailUiEvent.Saved → Notification.Text(event.message, null)`.
+2. `SavedAgendaListScreen.kt:72`: `is SavedAgendaListEvent.CopySuccess → Notification.Text("Copied to ${e.targetProfileName}", null)`.
+
+Копирование view в профиль показывает пользователю **ничего**.
+
+**Status: OPEN.** Фиксируется в MR-1: заменить `Notification.Text(…, null)` на `Notification.Undo` для copy и на `Notification.Snackbar`/`Notification.Undo` для task-saved.
+
+---
+
+## is-saving-clobber
+
+**Found in:** MR-0, кодовая разведка `SavedAgendaViewModel.emitEditingState()`.
+
+**Symptom:** `onIntent(NameChanged)` вызывает `emitEditingState()`, который делает `setState(Editing(..., isSaving = current.isSaving))`. Если `NameChanged` приходит во время in-flight `save` (пока `isSaving = true`), новый state перезаписывает `isSaving` в `false` — кнопка Save снова enabled, пользователь может нажать повторно и создать дубликат.
+
+**Status: OPEN.** Фиксируется в MR-1: `emitEditingState` должен сохранять `isSaving` из текущего state, или `NameChanged` не должен вызывать `emitEditingState` если `isSaving == true`.
+
+---
+
+## agenda-views-not-in-backup
+
+**Found in:** MR-0, свип BackupPayload vs Room tables.
+
+**Symptom:** `agenda_views` таблица (Room) не входит в `BackupPayload`. При restore из backup все saved views теряются. Также отсутствуют: `task_reminders`, `project_reminders`, `checklist_items`, `tag_groups`, `project_tag_groups`, `saved_searches`, `time_entries`, `profiles`.
+
+**Status: OPEN.** `agenda_views` фиксируется в MR-1 (backup SCHEMA_VERSION 2→3). Остальные 8 таблиц — отдельный backlog-issue.
+
+---
+
+## delete-without-confirm-or-undo
+
+**Found in:** MR-0, свип delete flows по всем screens.
+
+**Symptom:** `ConfirmActionDialog` используется только в 2 местах: `SavedAgendaScreen` delete-view и `ProfileSwitcherScreen` delete-profile. Остальные 10 delete flow'ов удаляют мгновенно и молча:
+
+- `AgendaContent.kt:314` → `AgendaViewModel.kt:98` (`TaskDeleteClicked`, no event)
+- `SavedAgendaListScreen.kt:107` → `SavedAgendaListViewModel.kt:78`
+- `ProjectDetailBody.kt:111` → `ProjectDetailViewModel.kt:349`
+- `NotesListScreen.kt` × 5 мест → `NotesListViewModel.kt:250`
+- `ProjectsScreen.kt:80` → `ProjectsViewModel.kt:104`
+- `TagsScreen.kt:149` → `TagsViewModel.kt:102`
+- `TagGroupsScreen.kt:103` → `TagGroupsViewModel.kt:78` (каскадное!)
+- `SearchScreen.kt:143` → `SearchViewModel.kt:314`
+- `SettingsScreen.kt:261` → `BackupViewModel.kt:193`
+- `AttachmentTile.kt:76` → `AttachmentsViewModel.kt:60`
+
+KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для deletes. Паттерн существует в `TaskDetailViewScreen.kt` для task delete.
+
+**Status: OPEN.** Политика: строчные deletes (tasks, notes, tags, views, searches, attachments) → `Notification.Undo`; каскадные/невозвратные (проект, группа тегов, backup-файл) → `ConfirmActionDialog`. Фиксируется в MR-1.
+
+---
+
+## fake-clock-unused-in-desktop-harness
+
+**Found in:** MR-0, свип desktop harness и FakeClock.
+
+**Symptom:** `FakeClock` существует (`shared/src/commonMain/.../test/fakes/FakeClock.kt`) с API `advance(Duration)`, `setNow(Instant)`, `today(zone)`. Имеет **0 упоминаний** в `desktopApp/src/jvmTest`. `runDesktopAppTest` не принимает clock-параметр. Все desktop flow-тесты используют `todayInSystemZone()` → реальное время хоста → date-dependent тесты флакиют на границах месяца/недели.
+
+`CalendarFlowTest` так уже падал: «passed on September 30th, failed on October 1st».
+
+**Status: OPEN.** Фиксируется в MR-2 (тест-инфраструктура): добавить `fakeClock: FakeClock? = null` параметр в `runDesktopAppTest`, подключать через `overrides = module { single<Clock> { fakeClock } }` (Koin last-wins). Закрыть backlog-пункт `no-direct-clock-system-kdoc-claims-tests-are-exempt`.
+
+---
+
+## vm-without-unit-tests
+
+**Found in:** MR-0, свип ViewModel vs *ViewModelTest.
+
+**Symptom:** 12 production ViewModel'ов не имеют выделенного `*ViewModelTest`:
+`SavedAgendaListViewModel`, `TagGroupsViewModel`, `TagsViewModel`, `SearchViewModel`, `ArchiveViewModel`, `AttachmentsViewModel`, `AuthViewModel`, `CalendarSyncViewModel`, `AccountSettingsViewModel`, `ProfileSwitcherViewModel`, `AppVersionGateViewModel`, `AiUsageViewModel`.
+
+`SavedAgendaListViewModel` относится к agenda-views фиче и будет покрыт в MR-3.
+
+**Status: OPEN.** В скоупе MR-0/MR-3: `SavedAgendaListViewModelTest` + Konsist-правило «каждый VM имеет `*ViewModelTest`» (allowlist = 12 существующих, ratchet = новые падают). Остальные 11 — отдельный backlog-issue.
+
+---
+
+## docs-rot-agenda-selector-count
+
+**Found in:** MR-0, кодовая разведка Selector.kt.
+
+**Symptom:** KDoc в `SelectorDescriptor.kt:16` и `SelectorMatcher.kt:25` говорит «All 13 Selector variants». Реальное количество: **14** (Selector.kt: 11 leaf + 3 composite). ADR `2026-09-17-selector-serializer-plain-kserializer.md:10` говорит «15 concrete subtypes» (тоже stale). Docs-decision `2026-10-01-post-mr-10-findings.md:75`, `post-mr-14-findings.md:117`, `post-mr-11-findings.md:63` упоминают `-PtestIncludes` — флаг **не существует** в build scripts (Gradle silently ignores unknown `-P` flags).
+
+**Status: OPEN.** Doc-only фикс, включается автоматически в MR-0: поправить KDoc и ADR.
+
+---
+
+## agenda-reachability-byTags-no-ui-entry
+
+**Found in:** MR-0, кодовая разведка навигации.
+
+**Symptom:** `AgendaPresets.byTags(ids: Set<TagId>)` существует (multi-tag), но UI-входа нет. `byTag(single)` доступен через Search → tag chip → `AgendaStartRoute.Tag`. Multi-tag view (matchAll и any-tag) недоступен через UI.
+
+**Status: OPEN.** Известный продуктовый гэп. Тест A1 падает на строке byTags. Known-gap тест помечен `// TODO: known gap — no UI entry for byTags`.
+
+---
+
+## agenda-editor-no-selector-parameter-configuration
+
+**Found in:** MR-0, кодовая разведка SavedAgendaScreen.kt AddSection sheet.
+
+**Symptom:** `ListPickerSheet<Selector>` в `SavedAgendaScreen.kt:190-198` предлагает **7 жёстко зашитых шаблонов** (Active, Completed, Due today, Overdue, No date, This week, Next week). Редактор **не позволяет** пользователю задать параметры селектора: тег/проект/приоритеты/regexp/диапазон дат. `SectionEditorCard` — read-only display, только Move Up/Down и Delete.
+
+`Selector.Tags`, `Selector.Projects`, `Selector.Priorities`, `Selector.Regexp`, `Selector.DateRange` доступны в движке, но **не в UI**.
+
+**Status: OPEN.** Known gap. Тесты F-04…F-07 живут только на unit-уровне. Тест C-12 фиксирует факт: параметры селекторов не конфигурируются.

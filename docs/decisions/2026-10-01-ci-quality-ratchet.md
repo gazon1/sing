@@ -112,6 +112,7 @@ if (retryMax > 0) {
   is a pre-existing failure (noted in `nodate-fix.md:101`). With `maxRetries=0`
   on main, this test will fail the main build and should be addressed separately.
   See `projects-flow-one-time-flake` in `deferred-backlog.md`.
+  *(Note: the test body was later rewritten to assert `awaitAnyDisplayed(calendarDay(midMonth.toString()))` and today's cell — the original failure mode was addressed. The test may now be green; verify with a run.)*
 - **Known limitation:** `Find unwired surfaces` and `Run detekt` still run under
   `continue-on-error: true` in the `test-and-check` job. The roadmap for
   flipping them one-by-one with a baseline is in `deferred-backlog.md` under

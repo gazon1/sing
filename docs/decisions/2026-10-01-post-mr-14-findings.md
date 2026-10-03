@@ -114,7 +114,7 @@ Updated the file-level and `DefaultBadgeRules` KDoc to reflect the new 6-badge c
 ```bash
 ./gradlew :shared:jvmTest                        # green
 ./gradlew :shared:detekt                          # green
-./gradlew :desktopApp:test -PtestIncludes="**/computeAgendaBadgeFlowTest"  # green
+./gradlew :desktopApp:test --tests "**/AgendaBadgePolicyFlowTest"  # green
 ```
 
 ### Related
