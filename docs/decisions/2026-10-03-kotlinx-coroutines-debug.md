@@ -2,7 +2,7 @@
 title: JVM coroutine diagnostics via kotlinx-coroutines-debug
 tags: [testing, jvm, desktop, coroutines, tooling]
 created: 2026-10-03
-status: draft
+status: accepted
 ---
 
 # Context
@@ -95,10 +95,15 @@ jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 - `ExtensionContext.root["buildDir"]` returns `null` — `ExtensionContext` API does not expose the build directory. Workaround: pass the build directory as `systemProperty("shared.build.dir", layout.buildDirectory.get().asFile.absolutePath)` in Gradle and read it via `System.getProperty()` in the extension.
 - `CoroutineDiagnostics` is duplicated in desktopApp and shared (intentional — no shared test-fixtures module warranted); shared copy lacks tests.
 
-**Follow-ups:**
-- `FailureContextExtension` META-INF service file was orphaned since `7985c234` — add a Konsist test to verify `META-INF/services/org.junit.jupiter.api.extension.Extension` exists for every `*Extension` class in jvmTest.
-- Global test timeout extension (`CoroutinesTimeout` / `@Timeout`) so a hard-hanging test still produces a bundle. Open a separate issue; do not conflate with this change's issue #25.
-- Proposal line 49 misreferenced issue #25 as the follow-up for hard-hang timeouts — issue #25 is this change's own issue; a separate issue is needed for the timeout follow-up.
+**Follow-ups (all implemented unless noted):**
+- ✅ `ExtensionServiceRegistrationTest` added — architecture test verifying every extension in `META-INF/services` resolves to a real loadable class; prevents orphaned registration.
+- ✅ `CoroutinesTimeoutExtension` added — writes `coroutines-timeout.txt` when a timeout exception is thrown; closes the hard-hang gap. A global `@Timeout` or `CoroutinesTimeout` configuration is still needed to make this fire (see below).
+- OpenSpec CI gate (`|| true` + hardcoded `/home/max/.nvm` path) was fixed — now uses `npx @fission-ai/openspec` without swallow.
+- `FailureBundle.prepareOutputDir` KDoc corrected — it creates directories, not deletes prior content.
+- build-logic/convention wiring: the `jvmArgs("-javaagent:...")` + eager String pattern should be extracted into a convention plugin once `includeBuild("build-logic/convention")` is wired (currently blocked by README criteria; revisit when 6th module needs JVM test agent).
+- Global `@Timeout` configuration: `CoroutinesTimeoutExtension` catches timeout exceptions but does not cause them. A JUnit `Timeout` configuration or `@Timeout` annotation on every test class is still needed for the extension to fire. Consider a Jupiter `Configuration` that sets `junit.jupiter.timeout.default` globally.
+- `CoroutineDiagnostics` is intentionally duplicated between desktopApp and shared (no shared test-fixtures module warranted); both copies are now tested.
+- Proposal line 49 misreference fixed: timeout follow-up is NOT issue #25.
 
 ## Links
 
