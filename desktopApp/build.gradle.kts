@@ -1,3 +1,4 @@
+import org.gradle.api.artifacts.Configuration
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -12,6 +13,20 @@ plugins {
 
 val desktopAppVersion = "0.1.0"
 val desktopAppVersionCode = 0
+
+val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+/** Resolves to the kotlinx-coroutines-debug agent jar at execution time. */
+val coroutinesDebugAgentJar: Provider<RegularFile> = providers.provider {
+    val cfg: Configuration = configurations.named("coroutinesDebugAgent").get()
+    val jarFile = cfg.resolve()
+        .singleOrNull { it.name.contains("debug") && it.name.endsWith(".jar") }
+        ?: error("Expected exactly one kotlinx-coroutines-debug jar in coroutinesDebugAgent, found: ${cfg.resolve().map { it.name }}")
+    layout.projectDirectory.file(jarFile.absolutePath)
+}
 
 sourceSets {
     test {
@@ -38,6 +53,7 @@ sourceSets {
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
+            testImplementation(libs.kotlinx.coroutines.debug)
         }
     }
 }
@@ -156,11 +172,18 @@ tasks.withType<Test>().configureEach {
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
     )
+    // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility;
+    // DebugProbes.install() emits a dynamic-loading warning on JDK 21 and fails on JDK 22+.
+    jvmArgumentProviders.add(object : org.gradle.process.CommandLineArgumentProvider {
+        override fun asArguments(): List<String> =
+            listOf("-javaagent:${coroutinesDebugAgentJar.get().asFile.absolutePath}")
+    })
 }
 
 dependencies {
     detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
     detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
+    coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
 }
 
 // ---------------------------------------------------------------------------

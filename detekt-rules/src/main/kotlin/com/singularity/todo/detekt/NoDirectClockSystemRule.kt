@@ -24,9 +24,9 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  *   wrap Clock.System behind the public `Clock` interface.
  * - [CoreDiModule][com.singularity.todo.core.di] — where the singleton binding is declared.
  *
- * Note: test sources are not exempted — the rule runs in all source sets; callers
- * that need `Clock.System` in test helpers should use `testDispatchersClock` from
- * `test/helpers/TestDispatchers.kt` rather than direct `Clock.System` access.
+ * Note: test sources are not exempted — the rule runs in all source sets.
+ * For wall-clock timestamps in test helpers use `java.time.Instant.now()`
+ * directly; it is not subject to this rule.
  * ## Migration
  * Instead of `Clock.System.now()`, inject `Clock` as a constructor or module parameter:
  * ```kotlin

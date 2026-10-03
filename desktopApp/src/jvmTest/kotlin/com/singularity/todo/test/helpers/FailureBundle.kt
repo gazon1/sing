@@ -17,9 +17,10 @@ import javax.imageio.ImageIO
  * ```
  * build/diagnostics/<TestClassSimpleName>/
  *   attempt-1/
- *     screenshot.png    — screen capture
  *     db-state.txt     — FakeAppDatabase dump
  *     kermit.log       — Kermit ring-buffer contents
+ *     coroutines.txt   — kotlinx-coroutines-debug snapshot
+ *     screenshot.png   — screen capture
  *   attempt-2/         — retry only
  *     …
  * ```
@@ -47,12 +48,15 @@ data class FailureBundle(
     /** Kermit ring-buffer contents. */
     val kermitLogFile: File get() = outputDir.resolve("kermit.log")
 
+    /** Coroutine dump via kotlinx-coroutines-debug agent. */
+    val coroutinesFile: File get() = outputDir.resolve("coroutines.txt")
+
     /**
      * Adds all captured artifacts to [throwable] as suppressed exceptions so the
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        listOf(screenshotFile, dbStateFile, kermitLogFile).forEach { file ->
+        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile).forEach { file ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
             } else {
@@ -113,6 +117,35 @@ data class FailureBundle(
                 outputDir = prepareOutputDir(testClassSimpleName, attempt),
             )
 
+            // Order: hang-proof artifacts first, screenshot last.
+            // captureToImage blocks on EventQueue.invokeAndWait — if the failure left an
+            // endless redraw loop running, the EDT never releases and the screenshot hangs.
+            // The other artifacts (db, kermit, coroutines) are all non-blocking.
+
+            // Database state — testPlatformModule() binds the database under the
+            // `AppDatabase` interface, NOT under its implementation type, so this must
+            // resolve by the interface and cast. Resolving `getOrNull<FakeAppDatabase>()`
+            // always returned null and silently produced a placeholder file.
+            runCatching {
+                val db = app.getOrNull<AppDatabase>() as? FakeAppDatabase
+                writeFile(bundle.dbStateFile) {
+                    db?.dumpAll() ?: "<no FakeAppDatabase in the test Koin graph>"
+                }
+            }
+
+            // Kermit ring buffer
+            runCatching {
+                val logs = kermitBuffer?.drain() ?: "<ring buffer not available>"
+                writeFile(bundle.kermitLogFile) { logs }
+            }
+
+            // Coroutine dump — kotlinx-coroutines-debug agent snapshot; see CoroutineDiagnostics
+            runCatching {
+                writeFile(bundle.coroutinesFile) {
+                    CoroutineDiagnostics.dump(testClassSimpleName, attempt)
+                }
+            }
+
             // Screenshot — captureToImage() on SkikoComposeUiTest is available in 1.12.0.
             //
             // captureToImage blocks on EventQueue.invokeAndWait, so a failure that left
@@ -131,23 +164,6 @@ data class FailureBundle(
                     val bufferedImage: BufferedImage = bitmap.toAwtImage()
                     ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
                 }
-            }
-
-            // Database state — testPlatformModule() binds the database under the
-            // `AppDatabase` interface, NOT under its implementation type, so this must
-            // resolve by the interface and cast. Resolving `getOrNull<FakeAppDatabase>()`
-            // always returned null and silently produced a placeholder file.
-            runCatching {
-                val db = app.getOrNull<AppDatabase>() as? FakeAppDatabase
-                writeFile(bundle.dbStateFile) {
-                    db?.dumpAll() ?: "<no FakeAppDatabase in the test Koin graph>"
-                }
-            }
-
-            // Kermit ring buffer
-            runCatching {
-                val logs = kermitBuffer?.drain() ?: "<ring buffer not available>"
-                writeFile(bundle.kermitLogFile) { logs }
             }
 
             return bundle
