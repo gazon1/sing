@@ -575,3 +575,82 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 `Selector.Tags`, `Selector.Projects`, `Selector.Priorities`, `Selector.Regexp`, `Selector.DateRange` доступны в движке, но **не в UI**.
 
 **Status: OPEN.** Known gap. Тесты F-04…F-07 живут только на unit-уровне. Тест C-12 фиксирует факт: параметры селекторов не конфигурируются.
+
+---
+
+## section-prefill-dynamic-date
+
+**Found in:** MR-1, `AgendaPresets.kt`. `SectionPrefill.dueDate` is `LocalDate` — a
+compile-time constant in an `object`. `Today` section uses `LocalDate(2026, 10, 3)`
+which matches the AGENDA_SEED but not the actual date.
+
+**Checks already performed:**
+- `handleCreateInSection` correctly maps `LocalDate` → `DueDateOption.Custom`
+- Draft is saved to `DraftStore` with correct key
+- `TaskCreateViewModel` correctly reads the draft back
+
+**Ruled out:** Runtime `Clock` is not accessible from `object` initializer.
+
+**Fix:** Add `DueDateOption.Relative(RelativeBucket)` that defers date resolution to
+`todayFlow()` at render time; or make `AgendaPresets` a factory with `clock` parameter.
+**Do this first:** Check if `RelativeBucket` already has a `toDueDateOption(today: LocalDate)`
+extension — if so, the fix is a one-liner in `handleCreateInSection`.
+
+---
+
+## undo-restore-failure-notify
+
+**Found in:** MR-1 retro-gate, `AgendaViewModel.onUndoDelete`.
+
+When `taskRepo.restore(taskId)` fails, `_pendingDelete` is already set to `null`
+and the snackbar has dismissed. The user gets no feedback.
+
+**Checks already performed:** `restore` returns `Result<Unit>`, failure is caught
+but only logged.
+
+**Fix:** On restore failure, re-set `_pendingDelete` with an error flag and show
+an error snackbar; or emit a `AgendaUiEvent.ShowError` event.
+
+---
+
+## task-detail-scaffold-refactor
+
+**Found in:** MR-1, attempting to add `Scaffold` + `SnackbarHost` to `TaskDetailViewScreen`.
+Private composables (`LoadingState`, `ErrorState`, etc.) are defined at file level and
+become inaccessible inside `Scaffold.content` lambda.
+
+**Checks already performed:** `Box` structure works. Snackbars via `Notification.None`
+pattern (LaunchedEffect) work correctly.
+
+**Fix:** Extract private composables into a separate internal composable function
+`private fun TaskDetailLoadedScaffold(...)` that takes `snackbarHostState` as parameter,
+or move them to a companion object. Alternative: use a `SnackbarHostState` at the
+parent nav-graph level and pass it down.
+
+---
+
+## countdown-snackbar
+
+**Found in:** MR-1 retro-gate. `LaunchedEffect(pendingDelete)` only re-triggers on
+value changes, not on a timer. The snackbar shows no visual countdown.
+
+**Ruled out:** Standard Material3 `SnackbarHost` does not support countdown. Custom
+`Snackbar` with `ProgressIndicator` is non-trivial.
+
+**Fix:** Replace `SnackbarHost` with a custom composable that shows a `LinearProgressIndicator`
+inside the snackbar, animated from 100% to 0% over 5 seconds using `animateFloatAsState`.
+
+---
+
+## bulk-import-port
+
+**Found in:** MR-1, `BackupImporter` class KDoc and architecture review.
+
+`BackupImporter` writes directly to DAOs to bypass `assertCanWrite` guards, targeting
+`options.targetUserId` without going through repositories. This is documented
+technical debt.
+
+**Fix:** Create a `BulkImportPort` interface that takes an explicit `targetUserId: UserId`
+and routes writes through repositories. Replace DAO calls in `BackupImporter` with
+`BulkImportPort.import(payload, targetUserId)`. Track in `docs/decisions/2026-09-27-write-layer-soundness.md`.
+
