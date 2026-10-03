@@ -252,3 +252,13 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 `2026-09-05-koog-test-workarounds.md` · ~~`koog-both-platforms~~
 `2026-09-05-koog-both-platforms.md` · ~~`vm-koin-scoping~~
 `2026-09-27-vm-koin-scoping-retired.md`
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (git@github.com/gazon1/singularity-clone-kmp.git). See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context layout: one `CONTEXT.md` at the repo root, ADRs at `docs/decisions/`. See `docs/agents/domain.md`.
