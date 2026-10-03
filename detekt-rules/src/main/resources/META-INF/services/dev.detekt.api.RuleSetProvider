@@ -13,3 +13,5 @@ com.singularity.todo.detekt.NoCombineSideEffectProvider
 com.singularity.todo.detekt.NoEmptyOnClickLambdaProvider
 com.singularity.todo.detekt.NoDirectDispatchersRuleProvider
 com.singularity.todo.detekt.UserScopedRepositoryRulesProvider
+com.singularity.todo.detekt.NoSwallowedCancellationProvider
+com.singularity.todo.detekt.NoRunCatchingInSuspendProvider

@@ -44,6 +44,7 @@ import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUs
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 
 /**
@@ -237,6 +238,8 @@ internal class NoteEditor(
         val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html)
         autosaveContext.repo.setOutgoingLinks(noteId, linkUrls)
         Either.Right(Unit)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Either.Left(AppError.Persistence(e.toMessage()))
     }

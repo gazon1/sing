@@ -12,6 +12,7 @@ import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.CancellationException
 
 @Serializable
 data class SummarizeNoteInput(val title: String, val body: String)
@@ -35,7 +36,7 @@ class SummarizeNoteTool(private val promptExecutor: PromptExecutor, private val 
             kotlinx.serialization.json.Json.decodeFromString<SummarizeNoteOutput>(text).let { out ->
                 kotlinx.serialization.json.Json.encodeToString(SummarizeNoteOutput.serializer(), out)
             }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
             logger.w(e) { "failed" }
             kotlinx.serialization.json.Json.encodeToString(
                 SummarizeNoteOutput.serializer(),

@@ -6,6 +6,7 @@ import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
@@ -163,7 +164,7 @@ class SettingsViewModel(
     private fun dispatch(contributor: SettingsContributor<*, *>?, errorLabel: String, intent: SettingsIntent) {
         updateState { it.copy(errorMessage = null) }
         catchTo(errorLabel, { msg -> updateState { it.copy(errorMessage = msg) } }) {
-            runCatching {
+            runCatchingCancellable {
                 @Suppress("UNCHECKED_CAST")
                 (contributor as SettingsContributor<SettingsSection, SettingsIntent>).process(intent)
             }

@@ -20,6 +20,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 
 /**
@@ -89,6 +90,8 @@ class DecomposeAndCreateTool(
             val parsed = parsePlan(text)
             subTitles = parsed
             planSource = if (parsed.isEmpty()) "empty" else "llm"
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Throwable) {
             // LLM unavailable (no API key, network down, quota). Behave like
             // decompose_task itself: return an empty list so the caller knows

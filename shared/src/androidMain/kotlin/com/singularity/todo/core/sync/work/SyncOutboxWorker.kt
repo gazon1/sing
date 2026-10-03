@@ -5,6 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.sync.PushSummary
+import kotlinx.coroutines.CancellationException
 import com.singularity.todo.core.sync.SyncEngine
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -52,6 +53,8 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
                 }
             },
         )
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         log.e(e) { "Push work failed" }
         if (runAttemptCount < MAX_ATTEMPTS) {

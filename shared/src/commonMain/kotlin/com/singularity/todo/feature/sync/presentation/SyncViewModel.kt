@@ -12,6 +12,7 @@ import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -133,6 +134,8 @@ class SyncViewModel(
                 updateState { it.copy(isLoading = true, errorMessage = null, connectionTestResult = null) }
                 try {
                     repository.syncOnce()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Throwable) {
                     // Exception from syncOnce() (e.g. getOrThrow() on a Failure Result).
                     // Ensure the snackbar shows after this sync completes.

@@ -12,6 +12,7 @@ import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.CancellationException
 
 enum class RewriteTone {
     OneLiner,
@@ -56,7 +57,7 @@ class RewriteNoteTool(private val promptExecutor: PromptExecutor, private val mo
             kotlinx.serialization.json.Json.decodeFromString<RewriteNoteOutput>(text).let { out ->
                 kotlinx.serialization.json.Json.encodeToString(RewriteNoteOutput.serializer(), out)
             }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
             logger.w(e) { "failed" }
             kotlinx.serialization.json.Json.encodeToString(
                 RewriteNoteOutput.serializer(),

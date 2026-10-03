@@ -112,10 +112,9 @@ exceptions:
   # re-enabled the button after a thrown persist() and the user saw a save that
   # did nothing, with no error state and no log.
   #
-  # Allowed: the `allowedExceptionNameRegex` covers CancellationException,
-  # which must be rethrown rather than reported; a catch that rethrows is not a
-  # finding either, and the rule is deliberately not extended to the coroutines
-  # ruleset, whose heuristics produced more noise than signal when trialled.
+  # CancellationException must NOT be in ignoredExceptionTypes — it must propagate
+  # to abort the calling coroutine; the no-swallowed-cancellation custom rule
+  # enforces this specifically inside suspend functions.
   SwallowedException:
     active: true
     ignoredExceptionTypes:
@@ -139,6 +138,17 @@ exceptions:
       - 'Exception'
       - 'Throwable'
       - 'Error'
+
+# ---------------------------------------------------------------------------
+# cancellation-integrity rules (Phase 2)
+
+no-swallowed-cancellation:
+  NoSwallowedCancellation:
+    active: true
+
+no-run-catching-in-suspend:
+  NoRunCatchingInSuspend:
+    active: false
 
 # ---------------------------------------------------------------------------
 # naming

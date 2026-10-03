@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.chat
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -61,7 +62,7 @@ class ChatViewModel(
         }
 
         val collected = StringBuilder()
-        runCatching {
+        runCatchingCancellable {
             agent.streamChat(text).collect { chunk ->
                 collected.append(chunk)
                 updateState {
