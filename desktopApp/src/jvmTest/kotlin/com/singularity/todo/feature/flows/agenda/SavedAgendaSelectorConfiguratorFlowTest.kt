@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import org.junit.Test
 import org.koin.core.Koin
 import kotlin.time.Instant
+import org.junit.jupiter.api.Tag
 
 /**
  * The "add section" configurator: pick a section *type*, then — for the types
@@ -42,6 +43,7 @@ import kotlin.time.Instant
  * The mapping from chosen values to a [Selector] is covered by
  * `SelectorTemplateTest` in commonTest; this covers the UI that feeds it.
  */
+@Tag("slow")
 @OptIn(ExperimentalTestApi::class)
 class SavedAgendaSelectorConfiguratorFlowTest {
 

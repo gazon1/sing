@@ -6,6 +6,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
+import org.junit.jupiter.api.Tag
 
 /**
  * Verifies all desktop shell tabs are reachable and switch correctly.
@@ -17,6 +18,7 @@ import org.junit.Test
  * - No tab crashes or hangs
  * - Tab order matches DesktopShell.TABS contract
  */
+@Tag("slow")
 @OptIn(ExperimentalTestApi::class)
 class AgendaReachabilityFlowTest {
 

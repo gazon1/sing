@@ -6,6 +6,7 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import org.junit.jupiter.api.Tag
 
 /**
  * Pins the sanctioned cross-user write list.
@@ -23,6 +24,7 @@ import kotlin.test.fail
  * 3. Every method that bypasses the guard says so in its own KDoc, so someone
  *    reading the write — not the registry — learns that it is an exception.
  */
+@Tag("fast")
 class CrossUserWriteRegistryTest {
 
     @Test

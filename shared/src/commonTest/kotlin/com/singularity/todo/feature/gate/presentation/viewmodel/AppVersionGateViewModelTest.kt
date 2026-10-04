@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import org.junit.jupiter.api.Tag
 
 /**
  * [AppVersionGateViewModel] decides whether the app opens or shows a blocking
@@ -80,6 +81,7 @@ private fun TestScope.newVm(
     return vm to scope
 }
 
+@Tag("fast")
 class AppVersionGateViewModelTest {
 
     @Test

@@ -27,6 +27,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Comprehensive matrix of the agenda evaluator against the [AgendaSeed] fixture.
@@ -50,6 +51,7 @@ import kotlin.test.assertTrue
  * Reference date is `today = LocalDate(2026, 10, 14)` from [AgendaSeed.TODAY].
  * Week runs Mon–Sun (ISO convention).
  */
+@Tag("fast")
 class AgendaEvaluatorMatrixTest {
 
     /** Reference "today" matching the AgendaSeed fixture. */

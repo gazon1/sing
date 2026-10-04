@@ -17,6 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests [computeAgendaBadge] and [isBlocked] for all [AgendaBadge] variants.
@@ -30,6 +31,7 @@ import kotlin.test.assertTrue
  * 6. NoDate    — dueDate == null
  * (null — normal in-date task)
  */
+@Tag("fast")
 class AgendaBadgePolicyTest {
 
     private val today = LocalDate(2026, 10, 14) // reference "today"

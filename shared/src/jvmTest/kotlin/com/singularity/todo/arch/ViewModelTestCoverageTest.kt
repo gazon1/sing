@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import org.junit.jupiter.api.Tag
 
 /**
  * Every production ViewModel has a test — or is on a list, with a reason.
@@ -92,6 +93,7 @@ private val KNOWN_UNCOVERED = setOf(
     "TagsViewModel",
 )
 
+@Tag("fast")
 class ViewModelTestCoverageTest {
 
     private val tested: Set<String> by lazy {

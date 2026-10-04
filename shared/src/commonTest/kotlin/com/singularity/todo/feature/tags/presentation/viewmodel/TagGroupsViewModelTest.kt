@@ -28,6 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import org.junit.jupiter.api.Tag
 
 /**
  * The ViewModel's own state machine, which was untested while the repository
@@ -39,6 +40,7 @@ import kotlin.time.Instant
  * - a failing stream → [TagGroupsUiState.Error] rather than a silent stop
  * - `Create` / `Delete` reach the use case with the argument the intent carried
  */
+@Tag("fast")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TagGroupsViewModelTest {
 

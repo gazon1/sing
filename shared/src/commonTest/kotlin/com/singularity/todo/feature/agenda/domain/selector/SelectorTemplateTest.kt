@@ -10,6 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * The selector-parameter configurator: the editor picks a [SelectorTemplate],
@@ -21,6 +22,7 @@ import kotlin.test.assertTrue
  * unavailable — selection must produce `null` rather than a section that renders
  * as a permanently empty header.
  */
+@Tag("fast")
 class SelectorTemplateTest {
 
     @Test

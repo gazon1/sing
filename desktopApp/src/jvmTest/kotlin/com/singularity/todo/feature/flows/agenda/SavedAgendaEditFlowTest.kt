@@ -28,6 +28,7 @@ import com.singularity.todo.test.helpers.tasks
 import kotlinx.coroutines.flow.first
 import org.junit.Test
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Desktop Compose UI test for editing an existing saved agenda view.
@@ -52,6 +53,7 @@ import kotlin.test.assertTrue
  * The results screen hides empty sections, so the card-tap test seeds an
  * undated task to make the Inbox preset's "No Date" section render.
  */
+@Tag("slow")
 @OptIn(ExperimentalTestApi::class)
 class SavedAgendaEditFlowTest {
 

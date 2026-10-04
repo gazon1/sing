@@ -21,6 +21,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * Catalog test for all [AgendaPresets] and factory functions.
@@ -35,6 +36,7 @@ import kotlin.test.assertTrue
  * - StableJson round-trip preserves preset structure
  * - Each preset sections are sorted by order
  */
+@Tag("fast")
 class AgendaPresetsCatalogTest {
 
     private val epoch0 = kotlin.time.Instant.fromEpochMilliseconds(0)

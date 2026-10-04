@@ -30,6 +30,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [SavedAgendaListViewModel] (saved agenda views list screen).
@@ -41,6 +42,7 @@ import kotlin.time.Instant
  *   job are still driven by the shared test scheduler via [runCurrent].
  * - In-memory fakes implement the repository ports directly (no mocks).
  */
+@Tag("fast")
 @OptIn(ExperimentalCoroutinesApi::class)
 class SavedAgendaListViewModelTest {
 
