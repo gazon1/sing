@@ -42,7 +42,7 @@ tags:
     id: profile_create_button
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_name_input
+      id: profile_create_name_input
     timeout: 5000
 - inputText: "Work"
 - tapOn:

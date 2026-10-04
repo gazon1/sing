@@ -1,7 +1,12 @@
 # Tasks: deleting a task shows an Undo snackbar, and Undo restores the task.
 #
-# Covers: task detail open -> overflow Delete -> snackbar with Undo action ->
-# Undo tap -> task back in the list.
+# Covers: task detail open -> overflow Delete -> Undo snackbar on the detail
+# screen -> Undo tap -> back -> task is back in the list.
+#
+# The snackbar is hosted by the detail screen (its NotificationHost owns the
+# event flow), so deletion does NOT pop back by itself — 04-delete covers the
+# manual-back path. This flow proves the undo write actually lands by backing
+# out and finding the row again.
 #
 # Uses the "Buy milk" task from seed-task helper (slug: `buy_milk`).
 appId: com.singularity.todo
@@ -26,14 +31,16 @@ tags:
     timeout: 5000
 - tapOn:
     id: overflow_delete
-# After deletion the screen pops back to the list; a snackbar appears with Undo.
+# The undo snackbar appears over the detail screen — the screen the user is
+# still on after deletion.
 - extendedWaitUntil:
     visible:
       text: "Undo"
     timeout: 8000
-# Undo restores the task.
+# Undo restores the task in place; leave the screen and check the list.
 - tapOn:
     text: "Undo"
+- back
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk

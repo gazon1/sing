@@ -36,7 +36,7 @@ fun ChildProjectsSheet(children: List<Project>, onShowChildren: (Project) -> Uni
                 )
             } else {
                 LazyColumn {
-                    items(children, key = { it.id }) { child ->
+                    items(children, key = { it.id.value }) { child ->
                         FilterChip(
                             selected = false,
                             onClick = {

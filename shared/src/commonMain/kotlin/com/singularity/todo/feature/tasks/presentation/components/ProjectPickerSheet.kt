@@ -98,7 +98,7 @@ fun ProjectPickerSheet(selectedId: ProjectId?, onSelect: (ProjectId?) -> Unit, o
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(activeProjects, key = { it.id }) { project ->
+                items(activeProjects, key = { it.id.value }) { project ->
                     ProjectItem(
                         project = project,
                         isSelected = selectedId == project.id,

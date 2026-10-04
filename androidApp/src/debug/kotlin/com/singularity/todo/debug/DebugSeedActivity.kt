@@ -46,7 +46,9 @@ import kotlinx.datetime.toLocalDateTime
  * ```
  *
  * Lives in `src/debug/` — excluded from release APKs.
- * Requires the app to already be running so Koin is initialised.
+ * Works warm or cold: Koin is started by the Application onCreate, and after
+ * seeding the activity always brings [com.singularity.todo.MainActivity] up
+ * (CLEAR_TOP|SINGLE_TOP), whether it was already beneath us or not.
  */
 class DebugSeedActivity : Activity(), KoinComponent {
 
@@ -62,6 +64,16 @@ class DebugSeedActivity : Activity(), KoinComponent {
         } catch (e: Throwable) {
             android.util.Log.e("DebugSeedActivity", "Seed failed", e)
         } finally {
+            // Bring the real app up in every case. When the seed link arrived
+            // warm, MainActivity is already beneath us and CLEAR_TOP|SINGLE_TOP
+            // just re-activates it; when the link cold-started the process, we
+            // are the only activity in the task and finishing alone would dump
+            // the user (and the UI test) on the home screen.
+            startActivity(
+                Intent(this, com.singularity.todo.MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                },
+            )
             finish()
         }
     }

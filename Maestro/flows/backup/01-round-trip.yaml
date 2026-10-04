@@ -12,9 +12,10 @@ tags:
   - smoke
 ---
 # 1. Seed a task while online.
-- runFlow: ../../helpers/seed.yaml
-  env:
-    QUERY: "task=BackupRoundTripTask&due=today"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BackupRoundTripTask&due=today"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:

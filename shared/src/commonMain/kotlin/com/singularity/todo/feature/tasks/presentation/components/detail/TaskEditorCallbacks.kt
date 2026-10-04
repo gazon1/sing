@@ -63,8 +63,13 @@ data class AttachmentsCallbacks(
     val onDelete: (AttachmentId) -> Unit,
 )
 
-/** A dropdown menu item for archive/delete actions in View mode. */
-data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit)
+/**
+ * A dropdown menu item for archive/delete actions in View mode.
+ *
+ * [testTag] carries the stable [TestTags.EditorOverflow] id so UI automation can
+ * address the row regardless of the localized [label] shown on screen.
+ */
+data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit, val testTag: String? = null)
 
 /**
  * All callbacks for [TaskEditorContent], grouped by attribute.
