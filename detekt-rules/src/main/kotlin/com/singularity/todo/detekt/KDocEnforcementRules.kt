@@ -9,7 +9,6 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
 
 private class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null) {
@@ -37,9 +36,15 @@ private class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null)
         )
     }
 
-    private fun hasKDoc(declaration: KtDeclaration): Boolean {
-        val docText = declaration.docComment?.text
-        return !docText.isNullOrBlank()
+    private fun hasKDoc(clazz: KtClass): Boolean {
+        // A KDoc written above `class Foo( … )` is the class's documentation by
+        // Kotlin convention, but PSI attaches it to the *primary constructor* when
+        // there is a parameter list, leaving `clazz.docComment` null. Both two
+        // ViewModels that were baselined in 2026-10-04 were documented exactly
+        // this way and were being reported as undocumented — the rule was narrower
+        // than its own intent.
+        val text = clazz.docComment?.text ?: clazz.primaryConstructor?.docComment?.text
+        return !text.isNullOrBlank()
     }
 }
 
@@ -67,9 +72,9 @@ private class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config,
         )
     }
 
-    private fun hasKDoc(declaration: KtDeclaration): Boolean {
-        val docText = declaration.docComment?.text
-        return !docText.isNullOrBlank()
+    private fun hasKDoc(clazz: KtClass): Boolean {
+        val text = clazz.docComment?.text ?: clazz.primaryConstructor?.docComment?.text
+        return !text.isNullOrBlank()
     }
 }
 

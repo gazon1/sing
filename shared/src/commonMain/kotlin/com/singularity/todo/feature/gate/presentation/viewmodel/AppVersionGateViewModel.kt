@@ -13,6 +13,17 @@ import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
 
 /**
+ * Intent for [AppVersionGateViewModel].
+ *
+ * [CheckAgain][AppVersionGateIntent.CheckAgain] re-reads remote config without
+ * restarting the app, which is what the "Check again" button on the blocked screen
+ * sends.
+ */
+sealed interface AppVersionGateIntent : MviIntent {
+    data object CheckAgain : AppVersionGateIntent
+}
+
+/**
  * ViewModel for [AppVersionGateScreen][com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen].
  *
  * Observes [RemoteConfigPort.observe] and compares [RemoteConfigSnapshot.minSupportedVersion]
@@ -28,10 +39,6 @@ import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
  *   releases page on Desktop). Used in the [AppVersionGateState.Blocked] state.
  * @param scope Coroutine scope for collecting [RemoteConfigPort.observe].
  */
-sealed interface AppVersionGateIntent : MviIntent {
-    data object CheckAgain : AppVersionGateIntent
-}
-
 class AppVersionGateViewModel(
     private val remoteConfigPort: RemoteConfigPort,
     private val appVersion: AppVersion,

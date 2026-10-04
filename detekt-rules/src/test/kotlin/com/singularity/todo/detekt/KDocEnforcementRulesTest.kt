@@ -113,6 +113,44 @@ class KDocEnforcementRulesTest {
     }
 
     @Test
+    fun `ViewModel with KDoc above a parameterised constructor is not flagged`() {
+        // The convention in this repo: the KDoc sits immediately above
+        // `class Foo( … )`. PSI attaches that to the *primary constructor*, so
+        // `clazz.docComment` is null and the rule reported two fully documented
+        // ViewModels (AppVersionGateViewModel, TagGroupsViewModel) as undocumented.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            /**
+             * ViewModel for the task list.
+             *
+             * Watches the repository and maps to UiState.
+             */
+            class TaskViewModel(
+                private val repository: TaskRepository,
+            ) {
+                val tasks = 0
+            }
+        """
+        assertEquals(0, count(viewModelRule, code))
+    }
+
+    @Test
+    fun `ViewModel with parameters and no KDoc is still flagged`() {
+        // The fix must not become a hole: no doc at all is still a violation.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            class TaskViewModel(
+                private val repository: TaskRepository,
+            ) {
+                val tasks = 0
+            }
+        """
+        assertEquals(1, count(viewModelRule, code))
+    }
+
+    @Test
     fun `non-ViewModel class is not flagged`() {
         val code = """
             package com.singularity.todo.feature.tasks
