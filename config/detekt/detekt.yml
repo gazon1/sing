@@ -569,6 +569,12 @@ no-unreported-failure-path:
   # class-level rule reads a different file and kept passing.
   NoUnwiredReporterInBinding:
     active: true
+  # The third half: the class and the binding can both be correct and the two failure paths
+  # still diverge, because a `scope` supplied alongside `crashReporter` is chosen
+  # independently. Found by reading code, not by a gate. Two sites on `main` had the shape —
+  # both resolving the same singleton, so no failure was misplaced, and nothing checking.
+  NoDivergentScopeAndReporter:
+    active: true
 
 # Added 2026-10-05. All 29 AppError construction sites in commonMain shipped with the
 # subtype-wide default code, so the crash dashboard held one `error.validation` group with

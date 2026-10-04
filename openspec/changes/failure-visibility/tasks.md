@@ -9,7 +9,7 @@
 > |---|---|
 > | REQ-1 `emit` is total | **done** — `48becc79`. One task below is not: the test that proves "does not report" with a *real* reporter rather than a no-op. |
 > | REQ-2 a user-initiated failure reaches the user | **not started.** The agenda toggle work (#132). Nothing in this session touched it. |
-> | REQ-3 the bypass is recorded | **half done** — the breadcrumb landed in `a068b432`; the test that asserts a throwing read produces *both* report and breadcrumb did not. Filed as #144. |
+> | REQ-3 the bypass is recorded | **done** — and it was not done when it looked done. The breadcrumb landed in `a068b432` and the test filed as #144 found a real ordering defect: the record was written from the funnel's error handler, which runs *after* the report, so it rode on the next event instead of on the outage it explained. Fixed by an explicit pre-report step in the funnel; see below. |
 > | REQ-4 (in `crash-reporting`) | **done** — the reporter is real; see `openspec/specs/crash-reporting/`. |
 >
 > The two unfinished halves are filed rather than left here, because a checklist nobody works from
@@ -48,12 +48,26 @@ one.
 
 ## REQ-3 — the bypass is recorded
 
-- [ ] Breadcrumb the version-gate fail-open path, using the same key the failure is reported
+- [x] Breadcrumb the version-gate fail-open path, using the same key the failure is reported
       under, so the two are greppable in the same report.
-- [ ] **Filed as #144** — Test: a throwing `snapshot()` produces both the report and the breadcrumb.
-      A breadcrumb asserted only by reading the code is not a breadcrumb. Must read a *recording*
-      port, not assert that `recordBypass()` was called: the latter passes against a no-op port,
-      which is the mistake this repository has already made twice.
+- [x] **#144 — the test, and the defect it found.** A throwing `snapshot()` produces both the
+      report and the breadcrumb, asserted through a *recording* port rather than by checking
+      that a method was called. It failed on the first run, on an assertion nothing had ever
+      made: the record must be written **before** the report, because the backend attaches the
+      breadcrumb buffer to a report as it stands when the report is made. The shipped code
+      wrote it from the funnel's error handler, which runs after the report — so the bypass was
+      attached to whatever event came next, and during a config outage there is no next event.
+      That is the exact silence the record was added to remove.
+
+      The fix is an explicit pre-report step in the funnel rather than a reorder inside the
+      ViewModel, because "annotate this failure so the record travels with it" is a capability
+      and the funnel is where it belongs. The default is empty, so every other call site keeps
+      the existing guarantee that an error handler's breadcrumb cannot jump ahead of its report.
+
+      The returned-failure route had the same defect and had been hand-rolled around it — the
+      ViewModel reported and breadcrumbmed `refresh()` itself, precisely because a returned
+      failure never reaches the funnel. It now goes through the same path, so the two routes
+      cannot drift apart again. `AppVersionGateViewModelTest`: 5 new cases, 12 total.
 
 ## Cross-checks before merging
 

@@ -304,6 +304,29 @@ coverage-html:
 coverage-ratchet *args="":
     #!/bin/bash
     set -euo pipefail
+    # RERUN=1 forces the instrumented test task to execute rather than being served from
+    # cache. ALLOW_CACHED=1 downgrades that to a warning — for deliberate re-measurement
+    # only. Neither is a default: the point of this recipe is that a floor means something.
+    #
+    # Both are ENVIRONMENT variables, and they have to be set as `RERUN=1 just cr`, not
+    # `just cr RERUN=1`. In this environment the latter does not assign — the whole token
+    # arrives as a positional argument (issue #86), so the flag is silently absent and the
+    # run is quiet about why it did not do what was asked. That failure is expensive precisely
+    # because the run still succeeds; it just measures less. Caught here.
+    # Note for the next editor: inside a recipe body, just interpolates anything in double
+    # braces, so a literal brace pair in a comment is a parse error. The shell's own
+    # `$RERUN` forms are written with a single brace and are safe under `set -u` even unset.
+    case "{{args}}" in
+        *=*)
+            echo "coverage-ratchet: got '{{args}}' as an argument." >&2
+            echo "  NAME=value does not assign in this environment (issue #86) — the whole token" >&2
+            echo "  arrives as a positional argument, so the flag was silently ignored and the" >&2
+            echo "  run measured less than you asked for. Set it in the environment instead:" >&2
+            echo "    RERUN=1 just cr" >&2
+            echo "    ALLOW_CACHED=1 just cr" >&2
+            exit 64
+            ;;
+    esac
     # Kover merges binary reports incrementally, so a report produced after other
     # runs carries coverage from tests outside the current filter. The floors are
     # only reproducible from a clean state, hence the wipe.
@@ -313,13 +336,34 @@ coverage-ratchet *args="":
     # and a previous one. The find keeps this a rule rather than a list that has to be
     # extended every time a module is added.
     find . -maxdepth 4 -type d -name kover -not -path './.git/*' -prune -exec rm -rf {} +
+    # The wipe above removes the binary reports, but it does NOT invalidate the *test task*.
+    # Gradle decides jvmTest's outcome from its own inputs, so a task served UP-TO-DATE or
+    # FROM-CACHE re-executes nothing and contributes no fresh .bin — and the report that
+    # follows is then thinner than the truth, with no way to tell from the number alone.
+    #
+    # That is not hypothetical: it is the leading hypothesis for #138, where a Koin definition
+    # body sits at 4/18 lines after a test that genuinely resolves it. And it applies to every
+    # floor, not just that one file.
+    #
+    # So the run is captured and checked rather than trusted. The ratchet refuses to compare
+    # floors against a report it cannot show was produced by executing tests. Being slow is
+    # the lesser problem here; being confidently wrong is the one this repository keeps paying
+    # for.
+    #
+    # Override with RERUN=0 when you are deliberately re-measuring without re-executing (a
+    # known-stale report, a bisect) — the gate then says so instead of implying a measurement.
+    log=$(mktemp)
+    trap 'rm -f "$log"' EXIT
     # `:shared:koverXmlReport` does not exist — Kover is configured at settings level, so
     # only the root project registers the report tasks, and this recipe died on the
     # missing-task error before running anything. `koverReport` is the entry point that is
-    # correct by construction: it puts the test tasks in the graph itself and then merges,
-    # so the report cannot be produced from a stale binary set. Same call ci.yml makes;
-    # its comment there warns off the two wrong invocations, which is where the old one
-    # came from.
+    # correct by construction: it puts the test tasks in the graph itself and then merges.
+    # Same call ci.yml makes; its comment there warns off the two wrong invocations, which is
+    # where the old one came from.
+    #
+    # "In the graph" is not "executed" — that correction is the whole point of the capture
+    # below, and it is why the comment that used to sit here ("so the report cannot be produced
+    # from a stale binary set") was wrong.
     # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default. That
     # flag is a speed choice, not a safety one: the OOM that originally justified
     # disabling instrumentation was misattributed (2026-09-27-write-layer-soundness.md
@@ -328,7 +372,15 @@ coverage-ratchet *args="":
     # on every run.
     ./gw koverReport \
         -Pkover.jvmTest=true \
-        --console=plain
+        ${RERUN:+--rerun-tasks} \
+        --console=plain 2>&1 | tee "$log"
+    # `set -o pipefail` above means a Gradle failure still fails the recipe — but only because
+    # pipefail is on. Without it a failing build would be swallowed by `tee` and the ratchet
+    # would happily compare floors against a report that was never finished being written.
+    #
+    # Then the log is read back. A floor is only meaningful if the tests ran, and the wipe at
+    # the top of this recipe cannot guarantee that.
+    python3 scripts/check-coverage-measurement.py "$log" ${ALLOW_CACHED:+--allow-cached}
     python3 scripts/coverage-ratchet.py {{args}}
 
 # ---------------------------------------------------------------------------

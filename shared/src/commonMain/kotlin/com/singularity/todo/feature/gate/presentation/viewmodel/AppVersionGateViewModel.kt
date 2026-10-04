@@ -66,27 +66,36 @@ class AppVersionGateViewModel(
      * state is `Allowed(defaults)`, which is byte-for-byte what a healthy read produces. A
      * config outage would read as a healthy dashboard for as long as it lasted. The report
      * says the read failed; only the breadcrumb says the gate was let through anyway.
+     *
+     * The breadcrumb goes through `onBeforeReport`, not `onError`, and the distinction is the
+     * whole point. The backend attaches the breadcrumb buffer to a report as it stands when the
+     * report is made, so a record written from `onError` is attached to the *next* event — and
+     * during a config outage there is no next event, which is exactly the silence the record
+     * exists to prevent.
      */
     private fun check() {
-        catchTo("Failed to read remote config", { onReadFailed() }) {
+        catchTo(
+            errorLabel = "Failed to read remote config",
+            onError = { onReadFailed() },
+            onBeforeReport = { recordBypass() },
+        ) {
             runCatchingResult { evaluate(remoteConfigPort.snapshot()) }
         }
     }
 
     /**
-     * Records that the gate was let through on defaults, then does exactly that.
+     * Admits on the default snapshot, then does exactly that.
      *
-     * Called from both read paths, and they fail differently: a *thrown* read reaches
-     * `catchTo`'s error arm, while `refresh()` returns a `Result` whose failure never
-     * throws. A bypass recorded from only one of them is a bypass that is invisible
-     * half the time.
+     * The breadcrumb is already recorded by the time this runs: [check] passes it to
+     * `onBeforeReport`, so the record rides on the report rather than trailing it. This
+     * function is only the *decision* to continue, which is the part that has no ordering
+     * requirement.
      */
     private fun onReadFailed() {
-        recordBypass()
         evaluate(RemoteConfigSnapshot.defaults())
     }
 
-    /** The bypass itself. Kept separate so both failure paths record it identically. */
+    /** The bypass itself. Kept separate so every failure path records it identically. */
     private fun recordBypass() {
         crashReporter.addBreadcrumb("Version gate bypassed — remote config unreadable, admitted on defaults")
     }
@@ -95,21 +104,17 @@ class AppVersionGateViewModel(
         when (intent) {
             is AppVersionGateIntent.CheckAgain -> {
                 setState(AppVersionGateState.Checking)
-                catchTo("Failed to refresh remote config", { onReadFailed() }) {
-                    runCatchingResult {
-                        val snapshot = remoteConfigPort.refresh()
-                            // A returned failure is not a throw, so catchTo never sees it.
-                            // It still has to reach the reporter — and the bypass still has
-                            // to be visible, which the shared path handles.
-                            .onFailure {
-                                crashReporter.report(it, REFRESH_FAILED)
-                                // This path admits on defaults without throwing, so it never
-                                // reaches `onReadFailed`. The bypass is still a bypass.
-                                recordBypass()
-                            }
-                            .getOrElse { RemoteConfigSnapshot.defaults() }
-                        evaluate(snapshot)
-                    }
+                // A *returned* failure is not a throw, so it never reaches the funnel's error
+                // arm on its own. `mapCatching` turns it into one, which is what puts it on
+                // the same path as a thrown read — same grouping key, same ordering, one
+                // place where a bypass can be recorded. It was previously reported and
+                // breadcrumbmed by hand, which is exactly how the two drifted apart.
+                catchTo(
+                    errorLabel = REFRESH_FAILED,
+                    onError = { onReadFailed() },
+                    onBeforeReport = { recordBypass() },
+                ) {
+                    remoteConfigPort.refresh().mapCatching { evaluate(it) }
                 }
             }
         }

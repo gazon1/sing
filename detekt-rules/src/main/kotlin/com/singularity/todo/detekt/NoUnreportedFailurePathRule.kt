@@ -4,10 +4,6 @@ import dev.detekt.api.Config
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
 import dev.detekt.api.Rule
-import dev.detekt.api.RuleName
-import dev.detekt.api.RuleSet
-import dev.detekt.api.RuleSetId
-import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtCatchClause
 import org.jetbrains.kotlin.psi.KtClass
@@ -222,32 +218,4 @@ internal object NoUnreportedFailurePathPolicy {
         "${klass.name} can fail but never passes a CrashReportingPort, so its failures are " +
             "silently dropped. Add `crashReporter: CrashReportingPort` to the constructor " +
             "(before `scope`) and `crashReporter = get()` to the Koin binding."
-}
-
-/**
- * Registers [NoUnreportedFailurePathRule] in the `no-unreported-failure-path` rule set.
- */
-class NoUnreportedFailurePathProvider : RuleSetProvider {
-    override val ruleSetId: RuleSetId = RuleSetId("no-unreported-failure-path")
-
-    /**
-     * Two rules, one invariant. They are separate because they read different files and answer
-     * different questions — "does this class have somewhere to report?" and "does this binding
-     * let it?" — and because suppressing one without the other is a real decision: a class that
-     * cannot fail is a different statement from a binding that forgets to wire a reporter.
-     *
-     * @see NoUnwiredReporterInBindingRule for the second half, which shipped after two
-     *      production bindings proved the first half insufficient on its own.
-     */
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoUnreportedFailurePath") to { cfg: Config ->
-                NoUnreportedFailurePathRule(cfg)
-            },
-            RuleName("NoUnwiredReporterInBinding") to { cfg: Config ->
-                NoUnwiredReporterInBindingRule(cfg)
-            },
-        ),
-    )
 }

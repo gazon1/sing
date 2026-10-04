@@ -228,6 +228,35 @@ and that was proven by reintroducing one. This is the third time in this reposit
 history that a shape check passed for the wrong reason; the pattern is consistent enough to be
 worth naming as its own failure mode.
 
+## Amended 2026-10-05 — the guard needed a third rule, and the audit needed correcting
+
+Two more rules landed against this invariant over the following day, and the reason is worth
+recording because it is a limit on what the first two can do, not a new idea.
+
+`NoUnwiredReporterInBinding` was written because the class-level rule passed for two production
+bindings that shipped a no-op reporter. It asks whether the *binding* passes a reporter. It still
+cannot ask whether the scope on the adjacent line points at the **same** reporter — and comparing
+two `get()` calls for identity is a type-resolution question, which a detekt rule does not have.
+
+`NoDivergentScopeAndReporter` therefore does not compare. It removes the possibility: the scope is
+derived from the reporter in the constructor's default, so there is no second argument to
+correlate. What is left to check is whether that is still true, which is two findings — the
+constructor's default, and a binding that passes both arguments anyway.
+
+**The second finding is not redundant, and that is the point.** `SettingsViewModel` had a correct
+constructor and a binding that replaced the derived scope with a graph-supplied one. A
+constructor-only check passes it forever. The rule reported it on its first run against the real
+tree.
+
+**The audit was wrong by a factor of two.** The site count recorded when this was filed said two
+and was four. The two extra ones — `SearchViewModel` (a derived *secondary* constructor that left
+the *primary* one requiring a scope) and `SettingsViewModel` above — are both shapes that look
+correct when you read the binding, which is what the audit had done. This is the same failure mode
+as the two above it: a check that covers the case you happened to look at is indistinguishable from
+one that covers the case you did not. The count is left in the change's tasks file rather than
+rewritten, because "do not add `SearchViewModel` to the consistent list" is the instruction the
+next person needs.
+
 ## Links
 
 - `2026-10-05-positive-tests-for-every-detekt-rule.md` — why the guard is a rule and not a regex

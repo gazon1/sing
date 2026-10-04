@@ -216,8 +216,10 @@ fun coreModule(): org.koin.core.module.Module = module {
         SyncViewModel(
             repository = get(),
             prefs = get(),
+            // No `scope =` here on purpose. The ViewModel derives its own from crashReporter,
+            // so the two failure paths cannot end up at different destinations. Passing both
+            // independently is what NoDivergentScopeAndReporter reports.
             crashReporter = get(),
-            scope = reportingScope(get()),
         )
     }
 
@@ -280,7 +282,9 @@ fun coreModule(): org.koin.core.module.Module = module {
     // registered individually in its own feature module and injected here via getOrNull.
     viewModel {
         SettingsViewModel(
-            scope = get(),
+            // No `scope =` here on purpose — see SyncViewModel above. The ViewModel derives
+            // its own from crashReporter; this used to override that with a graph-supplied
+            // one, which is the divergence NoDivergentScopeAndReporter exists to catch.
             appearanceContributor = getOrNull<AppearanceContributor>(),
             notificationsContributor = getOrNull<NotificationsContributor>(),
             workScheduleContributor = getOrNull<WorkScheduleContributor>(),

@@ -13,6 +13,7 @@
 | `NoCombineSideEffect` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | Bans side effects inside `combine(...) { ... | `NoCombineSideEffectRuleTest` | yes |
 | `NoDirectClockSystem` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | Bans direct references to `Clock.System` in commonMain production code. | `NoDirectClockSystemRuleTest` | yes |
 | `NoDirectDispatchers` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | Bans direct references to `Dispatchers.IO`, `Dispatchers.Default` and | `NoDirectDispatchersRuleTest` | yes |
+| `NoDivergentScopeAndReporter` | `NoDivergentScopeAndReporterRule.kt` | `no-unreported-failure-path` | A component whose two failure paths are chosen independently can send them to two different | `NoDivergentScopeAndReporterRuleTest` | yes |
 | `NoEmptyOnClickLambda` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | Bans empty lambda placeholders passed as event handlers in composable calls, | `NoEmptyOnClickLambdaRuleTest` | yes |
 | `NoFactoryViewModel` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | Bans registering ViewModels in Koin via the per-injection `factory { }` / `factoryOf(::...)` | `NoFactoryViewModelRuleTest` | yes |
 | `NoOpUpdateState` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | Bans `updateState { it }` — a reducer that returns its input unchanged. | `NoOpUpdateStateRuleTest` | yes |
@@ -33,6 +34,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**25 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**26 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

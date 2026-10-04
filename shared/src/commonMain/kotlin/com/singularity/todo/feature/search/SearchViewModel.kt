@@ -102,14 +102,21 @@ class SearchViewModel(
     private val parseQuery: (String) -> Query,
     private val clock: Clock,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SearchUiState, SearchIntent, SearchUiEvent>(
         initialState = SearchUiState(),
         crashReporter = crashReporter,
         scope = scope,
     ) {
 
-    /** Secondary constructor used by Koin — creates its own [AutoCloseableCoroutineScope]. */
+    /**
+     * Secondary constructor used by Koin, which does not supply a query parser.
+     *
+     * The scope default lives on the *primary* constructor, not here. It used to live only
+     * here, which meant the primary still required a scope and any caller reaching it directly
+     * had to choose one independently of [crashReporter] — the divergence
+     * `NoDivergentScopeAndReporter` was written to catch, and which it did catch here.
+     */
     constructor(
         searchUseCase: SearchUseCase,
         savedSearchRepo: SavedSearchRepository,
@@ -122,7 +129,6 @@ class SearchViewModel(
         taskRepo = taskRepo,
         parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
         clock = clock,
-        scope = reportingScope(crashReporter),
         crashReporter = crashReporter,
     )
 

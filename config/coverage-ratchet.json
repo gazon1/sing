@@ -20,9 +20,9 @@
     {
       "label": "whole codebase (com/singularity/todo/, every module)",
       "scope": "com/singularity/todo/",
-      "min_line_percent": 25.45,
-      "measured_covered_lines": 11832,
-      "measured_total_lines": 46492,
+      "min_line_percent": 25.47,
+      "measured_covered_lines": 11847,
+      "measured_total_lines": 46512,
       "whole_scope_percent": 25.33,
       "note": "The floor that makes the per-feature floors mean something: without it, deleting every test in feature/tasks would leave the gate green. The scope is a package prefix, and the aggregate report covers every module, so this is the whole codebase — desktopApp and androidApp included — not just :shared. Named for what it measures; the old label said 'whole shared module' while measuring the app."
     },
@@ -65,9 +65,9 @@
     {
       "label": "feature/search (per-feature floor)",
       "scope": "com/singularity/todo/feature/search",
-      "min_line_percent": 37.47,
+      "min_line_percent": 37.49,
       "measured_covered_lines": 562,
-      "measured_total_lines": 1500,
+      "measured_total_lines": 1499,
       "whole_scope_percent": 37.47,
       "note": "Best-covered feature; the floor exists to keep it that way as code is added."
     },
@@ -87,7 +87,7 @@
       "measured_covered_lines": 181,
       "measured_total_lines": 769,
       "whole_scope_percent": 23.94,
-      "note": "Dropped from 23.94% to 23.54% on 2026-10-05, and the drop is understood: the background-handler migration replaced two one-line Koin bindings in CalendarSyncDiModule with multi-line ones that compose a failure handler from the injected CrashReportingPort, taking that file from 4/4 to 4/18 lines covered. The 14 uncovered lines are the bodies of `single {}` / `viewModel {}` definitions, which run at *resolution* time, not at module-definition time. KoinGraphValidationTest now resolves both definitions for real — and doing so found that the test's own platform mirror was missing a CrashReportingPort binding, which is the defect class this file exists to catch. The coverage number did not move as a result, which is unexplained and is why this is recorded rather than assumed away: the resolution is kept because it is correct on its own terms, and the floor was adopted to the measured value rather than by reasoning about what should have been covered.\n\n**This note is a loan against issue #138 and must be deleted in the same commit that closes it.** It exists so a reader of this floor is not misled into thinking the movement was understood. A hedge written for one reader becomes a permanent mystery for the next."
+      "note": "Dropped from 23.94% to 23.54% on 2026-10-05, and the drop is understood: the background-handler migration replaced two one-line Koin bindings in CalendarSyncDiModule with multi-line ones that compose a failure handler from the injected CrashReportingPort, taking that file from 4/4 to 4/17 lines covered. The 13 uncovered lines are the bodies of `single {}` / `viewModel {}` definitions, which run at *resolution* time, not at module-definition time. KoinGraphValidationTest resolves both definitions for real — and doing so found that the test's own platform mirror was missing a CrashReportingPort binding, which is the defect class this file exists to catch. The coverage number did not move as a result. **The obvious explanation has since been eliminated.** #138's leading hypothesis was that the report came from a `:shared:jvmTest` served `FROM-CACHE` after this recipe's kover wipe — which was true of some runs, and is now prevented by `scripts/check-coverage-measurement.py`. But under `RERUN=1 just cr`, where every test task provably executed, this file still reads 4/17. So the number does describe the run; something about Koin definition bodies is what is not being attributed. Two hypotheses remain, both unexamined: line attribution, and resolution being satisfied without executing the lambda.\n\n**This note is a loan against issue #138 and must be deleted in the same commit that closes it.** It exists so a reader of this floor is not misled into thinking the movement was understood. A hedge written for one reader becomes a permanent mystery for the next."
     }
   ]
 }

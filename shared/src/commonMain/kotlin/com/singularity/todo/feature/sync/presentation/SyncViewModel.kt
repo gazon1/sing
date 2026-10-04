@@ -11,6 +11,7 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,14 +51,16 @@ data class SyncState(
  * - Error messages are embedded in state ([SyncState.errorMessage]) — callers handle snackbar display
  * - [SyncIntent.process] handles all user actions
  *
- * @param scope CoroutineScope — injected by Koin (view model scope), NOT viewModelScope.
- *              See [singularity-todo-coroutine-scopes] skill.
+ * @param scope CoroutineScope — one built from [crashReporter] unless a test supplies its own.
+ *              See [singularity-todo-coroutine-scopes] skill. It is **not** injected from the
+ *              graph: a scope supplied here alongside [crashReporter] is chosen independently,
+ *              so nothing would guarantee the two report to the same place.
  */
 class SyncViewModel(
     private val repository: SyncRepository,
     private val prefs: SyncPrefs,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope,
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
         initialState = SyncState(
             autoSyncEnabled = prefs.autoSyncEnabled,

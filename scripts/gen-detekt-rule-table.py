@@ -244,7 +244,33 @@ def main() -> int:
             print(f"{INVENTORY.name} rule table is stale. Run:", file=sys.stderr)
             print("  python3 scripts/gen-detekt-rule-table.py", file=sys.stderr)
             return 1
-        print(f"rule inventory: OK — {len(rows)} rules, table matches source")
+        untested = sorted(rule for row in rows for rule, test in ((row[0], row[4]),) if test == "—")
+        if untested:
+            # This is the enforcement half of #135. The column has always reported an untested
+            # rule; until now `--check` passed on it, which made the finding something a person
+            # had to notice rather than something the build refused.
+            #
+            # Both accepted shapes count as tested: a dedicated class, or the shared smoke test
+            # (weaker — it proves the rule constructs, not that it fires — and the column says
+            # so). Only a rule with neither is reported. A dedicated-filename-only match is the
+            # mistake #135 opened with: it reported five untested rules and should have
+            # reported zero, because the smoke test covered them.
+            print(
+                f"rule inventory: {len(untested)} rule(s) with no positive control, so `--check` "
+                "cannot fail for the reason it exists:",
+                file=sys.stderr,
+            )
+            for rule in untested:
+                print(f"  {rule} — no dedicated *RuleTest and not named in RuleFiresSmokeTest", file=sys.stderr)
+            print(
+                "\nAdd a positive test (one that makes the rule report something), or name the rule "
+                "in RuleFiresSmokeTest if a dedicated class is not warranted. A rule nobody tests is "
+                "indistinguishable from a rule that cannot fire — which is how NoDirectDispatchers "
+                "shipped registered, ADR-referenced and green.",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"rule inventory: OK — {len(rows)} rules, table matches source, all have a positive control")
         return 0
 
     INVENTORY.write_text(updated, encoding="utf-8")
