@@ -113,7 +113,7 @@ ever intentional.
 # Links
 
 - ADR `2026-09-25-test-suite-tag-defaults` — the fast/slow convention being enforced
-- ADR `2026-09-30-testtag-registry-honesty` — the sibling "declared but never applied" contract
+- ADR `2026-09-30-draft-save-failure-and-testtag-honesty` — the sibling "declared but never applied" contract
 - ADR `2026-10-04-navigation-policy` — the epic whose B0 baseline this invalidated
 - `scripts/check-test-runs.py`, `config/docs/test-runs-baseline.txt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/TestTagCoverageTest.kt`

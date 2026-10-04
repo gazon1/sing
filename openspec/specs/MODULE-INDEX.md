@@ -11,14 +11,18 @@ Which modules have an OpenSpec capability spec, and — more importantly — whi
 So an entry under **Not covered** is not debt to pay down on its own. It means: the
 first change that touches this module should add the spec as part of that change.
 
-Nested spec paths are supported — ids are `area/capability`
-(e.g. `openspec/specs/nav/nav3-entry-dispatch/spec.md` → `nav/nav3-entry-dispatch`).
+Nested spec paths are supported — ids are `area/capability`, so a spec at
+`specs/<area>/<capability>/spec.md` has the id `<area>/<capability>`. Every spec
+in the tree is currently flat, so every id below has no `/`. Renaming a spec to
+nest it changes its id, and every reference to the old id breaks with it.
 
 ## Covered
 
 | Spec id | Source of truth | Notes |
 |---|---|---|
-| `nav3-desktop-jvm-entry-dispatch` | `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` | Renaming to `nav/nav3-entry-dispatch` is pending; see the change in flight. |
+| `nav3-desktop-jvm-entry-dispatch` | `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` | Entry-dispatch contract shared by the Android and JVM shells. |
+| `navigation-open-policy` | the archived `navigation-open-policy` change (2026-10-04) | Every screen open resolved through one policy. |
+| `test-execution-integrity` | `docs/decisions/2026-10-04-test-execution-integrity.md` | The "tests ran" floors, and why a green pass/fail is not a baseline. |
 
 ## Not covered
 
