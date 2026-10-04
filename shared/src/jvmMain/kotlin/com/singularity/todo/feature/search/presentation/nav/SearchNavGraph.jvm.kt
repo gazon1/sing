@@ -34,13 +34,7 @@ import com.singularity.todo.feature.search.SearchScreen
 actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier, backStack: NavBackStack<Search>?) {
     val stack: NavBackStack<Search> = backStack ?: rememberInMemoryNavBackStack(Search)
 
-    val onExitGraph: (AppDestination?) -> Unit = { dest ->
-        if (dest != null) {
-            navCallbacks.navigate(dest)
-        } else {
-            navCallbacks.goBack()
-        }
-    }
+    val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
 
     val navigator = remember(onExitGraph) {
         SearchNavigator(onExitGraph)

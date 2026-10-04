@@ -77,7 +77,7 @@ fun SavedSearchesRow(
         // Saved search chips
         items(
             items = savedSearches,
-            key = { it.id },
+            key = { it.id.raw },
         ) { saved ->
             SavedSearchChipWithMenu(
                 saved = saved,

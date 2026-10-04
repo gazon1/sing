@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.nav
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -10,6 +11,7 @@ import kotlin.test.assertTrue
  * [AppDestination] is a sealed interface, so we test via [DestinationKind.tabs]
  * and [DestinationKind.menuEntries] which enumerate all top-level destinations.
  */
+@Tag("fast")
 class NavigationLabelsTest {
 
     @Test

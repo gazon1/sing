@@ -25,6 +25,7 @@ import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.rememberNav3State
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import org.koin.compose.koinInject
 
@@ -96,17 +97,27 @@ private fun AppContent(
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {
-        NavCallbacks(navigate = navigator::navigate, goBack = navigator::goBack)
+        NavCallbacks(
+            navigate = navigator::open,
+            goBack = navigator::goBack,
+            close = navigator::close,
+        )
     }
 
     LaunchedEffect(deeplinkViewId, deeplinkTaskId, navigator) {
         when {
             deeplinkTaskId != null -> {
-                navigator.navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(deeplinkTaskId)))
+                // Deep-link boundary: the raw String from the intent becomes a TaskId here,
+                // so every route past this point is typed (REQ-NAV-005).
+                navigator.open(
+                    AppDestination.TasksGraph(
+                        AppDestination.TasksStartRoute.Detail(TaskId(deeplinkTaskId)),
+                    ),
+                )
             }
 
             deeplinkViewId != null -> {
-                navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
+                navigator.open(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
             }
         }
     }

@@ -9,11 +9,11 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.rememberNavBackStackTyped
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
 
@@ -38,14 +38,7 @@ actual fun TasksNavGraph(
     modifier: Modifier,
     @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<TasksRoute>?,
 ) {
-    // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
-    // (which concrete NavKey subtypes exist), not a value to persist. It is constant
-    // across process death — only the NavBackStack content is serialized.
-    val savedStateConfig = navSavedStateConfig()
-
-    @Suppress("UNCHECKED_CAST")
-    val stack: NavBackStack<TasksRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<TasksRoute>
+    val stack: NavBackStack<TasksRoute> = rememberNavBackStackTyped(navSavedStateConfig(), start)
 
     val navigator = remember(stack, onExitGraph) {
         TasksNavigator(stack, onExitGraph)

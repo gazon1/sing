@@ -9,12 +9,12 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.CalendarRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.rememberNavBackStackTyped
 
 /**
  * Android implementation of [CalendarNavGraph].
@@ -37,11 +37,7 @@ actual fun CalendarNavGraph(
     modifier: Modifier,
     @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<CalendarRoute>?,
 ) {
-    val savedStateConfig = navSavedStateConfig()
-
-    @Suppress("UNCHECKED_CAST")
-    val stack: NavBackStack<CalendarRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<CalendarRoute>
+    val stack: NavBackStack<CalendarRoute> = rememberNavBackStackTyped(navSavedStateConfig(), start)
 
     val navigator = remember(stack, onExitGraph) {
         CalendarNavigator(stack, onExitGraph)

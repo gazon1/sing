@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.nav
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -11,6 +12,7 @@ import kotlin.test.assertTrue
  * on every platform. Verifies the **contract** (which destinations are
  * tabs/menu/sub-routes), not the implementation.
  */
+@Tag("slow")
 class DestinationKindTest {
 
     @Test

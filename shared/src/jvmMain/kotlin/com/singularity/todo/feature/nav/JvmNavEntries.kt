@@ -11,7 +11,6 @@ import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
 import com.singularity.todo.feature.archive.ArchiveScreen
 import com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
@@ -22,7 +21,6 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
 import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
 import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
 import com.singularity.todo.feature.statistics.StatisticsScreen
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
 import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
@@ -31,176 +29,184 @@ import org.koin.compose.koinInject
  * Creates the app-wide entry provider for JVM Desktop, using the same [entryProvider] DSL
  * as Android.
  *
- * The returned lambda is stable across recompositions. Inside each [entry][entryProvider.entry]
- * block, [rememberInMemoryNavBackStack] is called to create the NavBackStack for nested graphs.
- * Because the entry { } content is a @Composable lambda, [remember] is stable across
- * recomposition of the entry's content — the stack is created once per route entry,
- * preventing the "nested stack lost on tab switch" bug.
+ * **Stack hoisting (desktop only).** Top-level graph stacks are created *here*, in the
+ * shell's composition, and passed into the graphs via their `backStack` parameter —
+ * never with `remember` inside the entry { } content. Desktop recomposes NavDisplay's
+ * entries wholesale on tab switches and on every outer push above a top-level entry, so
+ * an entry-local `remember { NavBackStack }` is destroyed and the nested stack reseeds at
+ * its start route (ADR `2026-10-01-desktop-nav-followup`, Bug 3: "nested back stack dies
+ * on tab switch"). Hoisting makes nested state survive: a cross-feature open that pushes
+ * above Plans and a tab round-trip both return to the frame the user was on.
  *
- * [rememberInMemoryNavBackStack] uses the seed route as its remember key. For nested
- * graphs (Agenda, Tasks, Calendar), passing `stack.lastOrNull() ?: route.start` ensures
- * the graph always uses the current top of the stack as its seed, preserving nested
- * navigation state when the parent recomposes.
+ * Android keeps its entry-local `rememberNavBackStack(navSavedStateConfig(), start)` —
+ * it is saveable-backed, so entry recreation restores it.
+ *
+ * Sub-route entries (`TasksGraph`, `ProjectsGraph`, `AgendaGraph` as a pushed target, …)
+ * still seed a per-entry stack: their entry key carries the start route, so recreation
+ * re-seeds to the right frame; only the plain top-level graph entries need hoisting.
+ *
+ * [AgendaStartRoute.SavedAgendaEdit] and other non-tab agenda starts fall back to a
+ * per-entry stack — they are never top-level routes, so there is nothing to hoist.
  */
 @Composable
-fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
-    // ─── Top-level tabs ────────────────────────────────────────────────
-
-    entry<AppDestination.Plans> {
-        ProjectsNavGraph(
-            start = ProjectsRoute.List,
-            onExitGraph = { nav.goBack() },
+fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> {
+    // Hoisted top-level graph stacks — see the KDoc above for why they must live in the
+    // shell composition rather than inside the entry content.
+    val projectsStack = remember { NavBackStack<ProjectsRoute>(ProjectsRoute.List) }
+    val calendarStack = remember {
+        NavBackStack<CalendarRoute>(CalendarRoute.Month(todayInSystemZone().toString()))
+    }
+    val notesStack = remember { NavBackStack<NotesRoute>(NotesRoute.List) }
+    val searchStack = remember { NavBackStack<Search>(Search) }
+    val settingsStack = remember { NavBackStack<Settings>(Settings) }
+    val agendaStacks = remember {
+        mapOf(
+            AgendaStartRoute.Today to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Today),
+            AgendaStartRoute.Upcoming to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Upcoming),
+            AgendaStartRoute.Inbox to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Inbox),
         )
     }
 
-    entry<AppDestination.Pomodoro> {
-        PomodoroScreen(
-            timer = koinInject<PomodoroTimer>(),
-            taskListProvider = koinInject<PomodoroTaskListProvider>(),
-        )
-    }
+    return entryProvider {
+        // ─── Top-level tabs ────────────────────────────────────────────────
 
-    entry<AppDestination.Statistics> {
-        StatisticsScreen()
-    }
-
-    entry<AppDestination.Calendar> {
-        CalendarNavGraph(
-            start = CalendarRoute.Month(
-                todayInSystemZone().toString(),
-            ),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
-
-    // ─── Menu destinations ─────────────────────────────────────────────
-
-    entry<AppDestination.Notes> {
-        NotesNavGraph(
-            navCallbacks = nav,
-            start = NotesRoute.List,
-        )
-    }
-
-    entry<AppDestination.AiChat> {
-        ChatScreen()
-    }
-
-    entry<AppDestination.Search> {
-        SearchNavGraph(
-            navCallbacks = nav,
-        )
-    }
-
-    entry<AppDestination.Archive> {
-        ArchiveScreen(onBack = { nav.goBack() })
-    }
-
-    entry<AppDestination.Settings> {
-        SettingsNavGraph(
-            navCallbacks = nav,
-        )
-    }
-
-    entry<AppDestination.AiUsage> {
-        AiUsageScreen()
-    }
-
-    entry<AppDestination.ProfileSwitcher> {
-        ProfileSwitcherScreen(onBack = { nav.goBack() })
-    }
-
-    // ─── Sub-routes ────────────────────────────────────────────────────
-
-    entry<AppDestination.ProjectEditor> { route ->
-        ProjectsNavGraph(
-            start = ProjectsRoute.Editor(route.projectId?.let { ProjectId.fromString(it) }),
-            onExitGraph = { nav.goBack() },
-        )
-    }
-
-    entry<AppDestination.ProjectDetail> { route ->
-        ProjectsNavGraph(
-            start = ProjectsRoute.Detail(ProjectId.fromString(route.projectId)),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.AgendaGraph -> nav.navigate(dest)
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
-
-    entry<AppDestination.ProjectsGraph> { route ->
-        ProjectsNavGraph(
-            start = route.start.toProjectsRoute(),
-            onExitGraph = { nav.goBack() },
-        )
-    }
-
-    // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
-    entry<AppDestination.TasksGraph> { route ->
-        val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))
-        val startRoute = route.start.toTasksRoute(route.initialDueDate)
-        // NavDisplay renders based on stack.top, not the start parameter. When starting
-        // with Detail, add it to the stack so the correct entry is rendered immediately.
-        if (startRoute is TasksRoute.Detail) {
-            tasksStack.add(startRoute)
+        entry<AppDestination.Plans> {
+            ProjectsNavGraph(
+                start = ProjectsRoute.List,
+                onExitGraph = nav.graphExit,
+                backStack = projectsStack,
+            )
         }
-        TasksNavGraph(
-            start = startRoute,
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-            backStack = tasksStack,
-        )
-    }
 
-    // NotesGraph entry: converts NotesStartRoute to NotesRoute for the inner graph
-    entry<AppDestination.NotesGraph> { route ->
-        NotesNavGraph(
-            navCallbacks = nav,
-            start = route.start.toNotesRoute(),
-        )
-    }
+        entry<AppDestination.Pomodoro> {
+            PomodoroScreen(
+                timer = koinInject<PomodoroTimer>(),
+                taskListProvider = koinInject<PomodoroTaskListProvider>(),
+            )
+        }
 
-    // CalendarGraph entry
-    entry<AppDestination.CalendarGraph> { route ->
-        CalendarNavGraph(
-            start = route.start.toCalendarRoute(),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-        )
-    }
+        entry<AppDestination.Statistics> {
+            StatisticsScreen()
+        }
 
-    // AgendaGraph entry
-    entry<AppDestination.AgendaGraph> { route ->
-        val agendaStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(route.start)
-        // agendaStack.top (seed = route.start) always equals route.start, so no add() needed.
-        AgendaNavGraph(
-            start = route.start,
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
-            backStack = agendaStack,
-        )
+        entry<AppDestination.Calendar> {
+            CalendarNavGraph(
+                start = CalendarRoute.Month(
+                    todayInSystemZone().toString(),
+                ),
+                onExitGraph = nav.graphExit,
+                backStack = calendarStack,
+            )
+        }
+
+        // ─── Menu destinations ─────────────────────────────────────────────
+
+        entry<AppDestination.Notes> {
+            NotesNavGraph(
+                navCallbacks = nav,
+                start = NotesRoute.List,
+                backStack = notesStack,
+            )
+        }
+
+        entry<AppDestination.AiChat> {
+            ChatScreen()
+        }
+
+        entry<AppDestination.Search> {
+            SearchNavGraph(
+                navCallbacks = nav,
+                backStack = searchStack,
+            )
+        }
+
+        entry<AppDestination.Archive> {
+            ArchiveScreen(onBack = { nav.goBack() })
+        }
+
+        entry<AppDestination.Settings> {
+            SettingsNavGraph(
+                navCallbacks = nav,
+                backStack = settingsStack,
+            )
+        }
+
+        entry<AppDestination.AiUsage> {
+            AiUsageScreen()
+        }
+
+        entry<AppDestination.ProfileSwitcher> {
+            ProfileSwitcherScreen(onBack = { nav.goBack() })
+        }
+
+        // ─── Sub-routes ────────────────────────────────────────────────────
+
+        entry<AppDestination.ProjectEditor> { route ->
+            ProjectsNavGraph(
+                start = ProjectsRoute.Editor(route.projectId?.let { ProjectId.fromString(it) }),
+                onExitGraph = nav.graphExit,
+            )
+        }
+
+        entry<AppDestination.ProjectDetail> { route ->
+            ProjectsNavGraph(
+                start = ProjectsRoute.Detail(ProjectId.fromString(route.projectId)),
+                onExitGraph = nav.graphExit,
+            )
+        }
+
+        entry<AppDestination.ProjectsGraph> { route ->
+            ProjectsNavGraph(
+                start = route.start.toProjectsRoute(),
+                onExitGraph = nav.graphExit,
+            )
+        }
+
+        // TasksGraph entry: converts TasksStartRoute to TasksRoute for the inner graph
+        entry<AppDestination.TasksGraph> { route ->
+            val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))
+            val startRoute = route.start.toTasksRoute(route.initialDueDate)
+            // NavDisplay renders based on stack.top, not the start parameter. When starting
+            // with Detail, add it to the stack so the correct entry is rendered immediately.
+            if (startRoute is TasksRoute.Detail) {
+                tasksStack.add(startRoute)
+            }
+            TasksNavGraph(
+                start = startRoute,
+                onExitGraph = nav.graphExit,
+                backStack = tasksStack,
+            )
+        }
+
+        // NotesGraph entry: converts NotesStartRoute to NotesRoute for the inner graph
+        entry<AppDestination.NotesGraph> { route ->
+            NotesNavGraph(
+                navCallbacks = nav,
+                start = route.start.toNotesRoute(),
+            )
+        }
+
+        // CalendarGraph entry
+        entry<AppDestination.CalendarGraph> { route ->
+            CalendarNavGraph(
+                start = route.start.toCalendarRoute(),
+                onExitGraph = nav.graphExit,
+            )
+        }
+
+        // AgendaGraph entry — the three tab starts share their hoisted stacks so an inner
+        // push (SavedAgendaEdit, …) survives a tab round-trip; any other start falls back
+        // to a per-entry stack, as before.
+        entry<AppDestination.AgendaGraph> { route ->
+            val agendaStack: NavBackStack<AgendaStartRoute> =
+                agendaStacks[route.start] ?: rememberInMemoryNavBackStack(route.start)
+            // agendaStack.top (seed = route.start) always equals route.start, so no add() needed.
+            AgendaNavGraph(
+                start = route.start,
+                onExitGraph = nav.graphExit,
+                backStack = agendaStack,
+            )
+        }
     }
 }
 
@@ -210,31 +216,24 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
  */
 private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
     is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
-    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
-    is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Create(null)
-    is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Create(null)
+    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(taskId)
 }
 
 /** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */
 private fun AppDestination.ProjectsStartRoute.toProjectsRoute(): ProjectsRoute = when (this) {
     is AppDestination.ProjectsStartRoute.List -> ProjectsRoute.List
-
-    is AppDestination.ProjectsStartRoute.Editor -> ProjectsRoute.Editor(
-        projectId?.let { ProjectId.fromString(it) },
-    )
+    is AppDestination.ProjectsStartRoute.Editor -> ProjectsRoute.Editor(projectId)
 }
 
 /** Converts [AppDestination.NotesStartRoute] to the inner [NotesRoute]. */
 private fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (this) {
     is AppDestination.NotesStartRoute.List -> NotesRoute.List
 
-    is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(
-        NoteId.fromString(noteId),
-    )
+    is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(noteId)
 
     is AppDestination.NotesStartRoute.EditorForTask -> NotesRoute.Editor(
         noteId = null,
-        taskId = TaskId.fromString(taskId),
+        taskId = taskId,
     )
 }
 

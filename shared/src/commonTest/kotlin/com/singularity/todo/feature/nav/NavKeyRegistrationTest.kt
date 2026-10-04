@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclassesOfSealed
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -22,6 +23,7 @@ import kotlin.test.assertEquals
  * The module below mirrors [navSavedStateConfig] exactly. Keep the two in step:
  * if the app's registration changes, change this with it.
  */
+@Tag("fast")
 class NavKeyRegistrationTest {
 
     private val json = Json {
@@ -47,13 +49,13 @@ class NavKeyRegistrationTest {
     fun `nested graph destinations are registered`() {
         // These are the leaves of a *nested* sealed hierarchy. They are the ones
         // that broke when the app switched to registering AppNavKey alone.
-        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Inbox))
-        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail("t1")))
+        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
+        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))))
         assertRoundTrips(AppDestination.ProjectsGraph())
         assertRoundTrips(AppDestination.NotesGraph())
         assertRoundTrips(AppDestination.CalendarGraph())
         assertRoundTrips(AppDestination.AgendaGraph(AgendaStartRoute.Today))
-        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail("t1")))
+        assertRoundTrips(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))))
     }
 
     @Test

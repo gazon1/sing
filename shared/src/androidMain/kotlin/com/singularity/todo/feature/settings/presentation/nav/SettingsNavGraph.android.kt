@@ -8,12 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.rememberNavBackStackTyped
 import com.singularity.todo.feature.settings.SettingsScreen
 
 /**
@@ -35,21 +35,9 @@ actual fun SettingsNavGraph(
     modifier: Modifier,
     @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<Settings>?,
 ) {
-    // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
-    // (which concrete NavKey subtypes exist), not a value to persist.
-    val savedStateConfig = navSavedStateConfig()
+    val stack: NavBackStack<Settings> = rememberNavBackStackTyped(navSavedStateConfig(), Settings)
 
-    @Suppress("UNCHECKED_CAST")
-    val stack: NavBackStack<Settings> = rememberNavBackStack(savedStateConfig, Settings)
-        as NavBackStack<Settings>
-
-    val onExitGraph: (AppDestination?) -> Unit = { dest ->
-        if (dest != null) {
-            navCallbacks.navigate(dest)
-        } else {
-            navCallbacks.goBack()
-        }
-    }
+    val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
 
     val navigator = remember(onExitGraph) {
         SettingsNavigator(onExitGraph)
