@@ -1,0 +1,14 @@
+{
+  "scope": "com/singularity/todo/feature/agenda",
+  "excluded_subtrees": [
+    "com/singularity/todo/feature/agenda/presentation/screen",
+    "com/singularity/todo/feature/agenda/presentation/nav",
+    "com/singularity/todo/feature/agenda/presentation/components"
+  ],
+  "min_line_percent": 68.29,
+  "measured_covered_lines": 687,
+  "measured_total_lines": 1006,
+  "whole_package_percent": 31.6,
+  "measurement": "./gradlew :shared:jvmTest :shared:koverXmlReport -Pkover.jvmTest=true -Pcoverage.tests=\"com.singularity.todo.feature.agenda.**\" (from a clean shared/build/kover)",
+  "note": "Excluded subtrees are Compose-only and are covered by the desktopApp flow tests, which kover cannot see. Including them would report 31.6% and say more about the harness than about the tests."
+}

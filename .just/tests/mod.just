@@ -173,6 +173,28 @@ coverage-html:
     set -euo pipefail
     ./gradlew :shared:koverHtmlReport :desktopApp:koverHtmlReport
 
+[group('coverage')]
+[doc('Coverage ratchet for feature/agenda: fail if line coverage drops below the baseline')]
+[working-directory(justfile_directory())]
+coverage-ratchet *args="":
+    #!/bin/bash
+    set -euo pipefail
+    # Kover merges binary reports incrementally, so a report produced after other
+    # runs carries coverage from tests outside the current filter. The baseline is
+    # only reproducible from a clean state, hence the wipe. The alternative —
+    # comparing against whatever the last run happened to leave — is not a gate.
+    rm -rf shared/build/kover shared/build/reports/kover
+    # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default (see the
+    # kover block in shared/build.gradle.kts). `-Pcoverage.tests` narrows the run:
+    # the whole suite under instrumentation is both slow and memory-hungry, and
+    # `--tests` on the command line is rejected when koverXmlReport is in the same
+    # invocation.
+    ./gradlew :shared:jvmTest :shared:koverXmlReport \
+        -Pkover.jvmTest=true \
+        -Pcoverage.tests="com.singularity.todo.feature.agenda.**" \
+        --console=plain
+    python3 scripts/coverage-ratchet.py {{args}}
+
 # ---------------------------------------------------------------------------
 # check — run tests + lint (report-only initially)
 # ---------------------------------------------------------------------------

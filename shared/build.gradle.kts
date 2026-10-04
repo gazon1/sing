@@ -300,6 +300,23 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "desktopAppJvmTest.root",
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // Test source roots for ViewModelTestCoverageTest (VM ⇒ test rule).
+    systemProperty(
+        "commonTest.root",
+        layout.projectDirectory.dir("src/commonTest/kotlin").asFile.absolutePath,
+    )
+    systemProperty(
+        "jvmTest.root",
+        layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
+    )
+    // Restrict this run to a test subset via -Pcoverage.tests="…", so the same
+    // configuration applies when koverXmlReport pulls jvmTest in as a dependency.
+    // A `--tests` flag on the command line cannot be used for that: Gradle
+    // rejects it for a non-Test task in the same invocation, and without the
+    // filter the report task re-runs the *whole* suite under instrumentation.
+    (project.findProperty("coverage.tests") as String?)?.let { pattern ->
+        filter { includeTestsMatching(pattern) }
+    }
     // Enable TAGS.md golden regeneration:
     //   ./gradlew :shared:jvmTest -PupdateGoldens=true
     if (project.findProperty("updateGoldens")?.toString() == "true") {
@@ -366,11 +383,25 @@ kover {
             // `:shared:jvmTest`, the heavy Koog/classpath causes the IntelliJ
             // coverage runtime to accumulate 3000+ ClassData + 59000+ LineData
             // entries (42% of heap) — exhausting 3-5 GB and OOMing in
-            // TaskOutgoingLinksTest.
-            // Coverage is still collected for jvmTest via the
-            // `koverXmlReport` / `koverHtmlReport` tasks when explicitly
-            // requested. See ADR-1 for heap-dump analysis.
-            disabledForTestTasks.add("jvmTest")
+            // TaskOutgoingLinksTest. See ADR-1 for heap-dump analysis.
+            //
+            // That OOM was later shown to be misattributed: it reproduces with
+            // Kover off and in complete isolation, so the tests were switched
+            // off rather than the cause fixed (2026-09-27-write-layer-soundness.md,
+            // ledger #11). The disable is therefore kept as the default — it
+            // must not be lifted for the whole suite on a maybe — but it is now
+            // opt-in so the coverage ratchet can measure a *filtered* agenda
+            // run, which loads far fewer classes than the full jvmTest classpath.
+            //
+            //   ./gradlew :shared:jvmTest koverXmlReport -Pkover.jvmTest=true \
+            //       --tests "com.singularity.todo.feature.agenda.*"
+            //
+            // Without the flag the report is generated but every counter is 0,
+            // because the agenda tests live in jvmTest and nothing instrumented
+            // them. A ratchet on that number would ratchet on nothing.
+            if (project.findProperty("kover.jvmTest")?.toString() != "true") {
+                disabledForTestTasks.add("jvmTest")
+            }
         }
     }
     reports {
