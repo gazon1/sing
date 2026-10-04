@@ -20,11 +20,11 @@ import kotlin.test.assertTrue
  * project's. Each step compiles, each looks local, and by the end the vendor's
  * types are in the domain model and a version bump is a migration.
  *
- * The boundary is drawn at **two files** because the SDK is needed in exactly two
- * places: to own a client ([SupabaseClientProvider]) and to speak PostgREST
- * ([PostgrestSyncRpc]). Everything else the SDK offers — auth calls, the session
- * flow, the rest of the plugin surface — is reached through a project interface, so
- * it can be replaced or tested without a network.
+ * The boundary is drawn at **three files**, because the SDK is needed in exactly
+ * three places: to own a client (`SupabaseClientProvider`), to speak PostgREST
+ * (`PostgrestSyncRpc`), and to speak auth (`SupabaseAuthGateway`). Everything else
+ * the SDK offers — the session flow, the plugin surface, the user model — is reached
+ * through a project interface, so it can be replaced or tested without a network.
  *
  * ## Why this is a scan
  *
@@ -122,6 +122,7 @@ class VendorSdkConfinementTest {
 
         val ALLOWED_SUFFIXES = listOf(
             "auth/SupabaseClientProvider.kt",
+            "auth/SupabaseAuthGateway.kt",
             "sync/PostgrestSyncRpc.kt",
         )
     }

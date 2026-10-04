@@ -1067,7 +1067,7 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
         _currentSession.value = Session.SignedOut
     }
 
-    override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = Result.success(Unit)
+    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> = Result.success(Unit)
 
     /**
      * Switches the session to a new anonymous user with [userId].

@@ -9,7 +9,9 @@ import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
+import com.singularity.todo.core.auth.AuthGateway
 import com.singularity.todo.core.auth.SecureSessionStore
+import com.singularity.todo.core.auth.SupabaseAuthGateway
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.SupabaseClientProvider
@@ -106,9 +108,14 @@ fun coreModule(): org.koin.core.module.Module = module {
     // keychain once and then erases. It is deliberately not bound as the
     // SessionStore — PlaintextTokenIsolationTest fails if one ever is.
     single { DataStoreSessionStore(get(), get()) }
-    single<SessionStore> {
-        SecureSessionStore(log = Logger.withTag("SecureSessionStore"), secure = get<SecureStorage>(), legacy = get())
+    single {
+        SecureSessionStore(
+            log = Logger.withTag("SecureSessionStore"),
+            secure = get<SecureStorage>(),
+            legacy = get(),
+        )
     }
+    single<SessionStore> { get<SecureSessionStore>() }
 
     // Which Supabase project to talk to. The resolver owns the precedence rule
     // (a stored value beats a build-time one) and the provider owns the client,
@@ -118,11 +125,14 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SecureStorage> { SecureStorageAdapter(get()) }
     single { SupabaseClientProvider(resolver = get(), store = get<SecureStorage>()) }
 
+    single<AuthGateway> { SupabaseAuthGateway(auth = get(), log = Logger.withTag("AuthGateway")) }
+
     single<AuthRepository> {
         SupabaseAuthRepository(
-            Logger.withTag("AuthRepository"),
-            get(),
-            get(),
+            log = Logger.withTag("AuthRepository"),
+            gateway = get<AuthGateway>(),
+            sessionStore = get<SecureSessionStore>(),
+            scope = get(),
         )
     }
 

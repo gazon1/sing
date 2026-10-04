@@ -163,11 +163,31 @@ invisible and with one they become irreversible data loss on the user's own data
       still declared, so renaming them cannot make the rule vacuously true, and
       carries a positive control. Verified against a real injected violation, not
       only against its own sample
-- [ ] 8.1 `shared/` — implement the authentication repository: sign-up, sign-in,
-      anonymous, sign-out, ownership transfer; clear the pending flag on both success
-      and failure. Verified by: `AuthRepositoryTest` (REQ-UA-001, REQ-UA-007)
-- [ ] 8.2 `shared/` — signed-out on an unrecoverable session; queued changes survive.
-      Verified by: `AuthRepositoryTest` (REQ-UA-003, REQ-UA-006)
+- [x] 8.1 `shared/` — implement the authentication repository over an `AuthGateway`
+      port, so the domain sees a `RemoteSession` rather than the SDK's `UserSession`
+      and the repository is testable without a network (REQ-UA-008). Sign-up,
+      sign-in, anonymous, sign-out, ownership transfer; the pending flag is cleared
+      in a `finally` on every path, because a spinner that outlives its operation is
+      indistinguishable from a hang.
+      The transfer argument is worth reading: an anonymous user's data is claimed by
+      *not moving it*. The provider attaches credentials to the identity that already
+      exists, so the owner does not change and the rows are already the new account's.
+      A move would be a second, redundant operation with its own failure mode. The id
+      is checked anyway, because that is a property of the provider and not of this
+      code — and a provider that issued a different id would orphan every row with no
+      error from either side.
+      `migrateAnonymousTo` takes the credentials rather than an expected id: the
+      earlier shape left nothing to attach and a standing temptation to pass a
+      placeholder address, which the provider would have accepted.
+      Verified by: `AuthRepositoryTest` (20)
+- [x] 8.2 `shared/` — signed-out on an unrecoverable session; queued changes survive.
+      A refresh the *server rejects* signs out; a refresh that fails *on the network*
+      keeps the stored session, because an unreachable server says nothing about
+      whether a token is valid. Sign-out clears credentials even when the server is
+      unreachable — the user asked, and refusing would mean they cannot sign out on a
+      plane. Nothing in the repository writes the outbox on any path.
+      Verified by: `AuthRepositoryTest` — the rejected-refresh, offline-refresh and
+      unreachable-sign-out cases (REQ-UA-003, REQ-UA-006)
 
 ## Phase 9–10 — Identity and seeding
 

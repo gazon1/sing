@@ -83,7 +83,7 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
 
     override suspend fun signOut(): Result<Unit> = notImplemented()
 
-    override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = notImplemented()
+    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> = notImplemented()
 
     private fun notImplemented(): Result<Unit> =
         Result.failure(UnsupportedOperationException("not used by sync engine tests"))

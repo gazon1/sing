@@ -5,10 +5,6 @@ package com.singularity.todo.core.auth
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
-import co.touchlab.kermit.Logger
-import com.singularity.todo.core.ids.IdGenerator
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -35,7 +31,7 @@ class SecureSessionStoreTest {
     @Test
     fun `a token left in preferences is moved into the keychain and erased`() = runTest {
         val prefs = seededPreferences(access = "old-access", refresh = "old-refresh", email = "a@b.c")
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         assertEquals("old-access", store.currentAccessToken())
@@ -50,7 +46,7 @@ class SecureSessionStoreTest {
     @Test
     fun `nothing is erased when there was nothing to move`() = runTest {
         val prefs = seededPreferences()
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         assertNull(store.currentAccessToken())
@@ -64,14 +60,14 @@ class SecureSessionStoreTest {
         // leaves the user with no token anywhere: signed out of their own account,
         // with the copy that would have let them back already deleted.
         val prefs = seededPreferences(access = "old-access")
-        val secure = RecordingSecureStorage(failWrites = true)
+        val secure = MapSecureStorage(failWrites = true)
         val store = newStore(prefs, secure)
 
         assertNull(store.currentAccessToken())
 
-        assertEquals(
-            "old-access",
-            plaintextAccess(prefs),
+        assertEquals("old-access", plaintextAccess(prefs))
+        assertTrue(
+            plaintextAccess(prefs) == "old-access",
             "a keychain that refused the write must not cost the user their session",
         )
     }
@@ -79,7 +75,7 @@ class SecureSessionStoreTest {
     @Test
     fun `the migration happens once, not on every read`() = runTest {
         val prefs = seededPreferences(access = "old-access")
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         assertEquals("old-access", store.currentAccessToken())
@@ -96,7 +92,7 @@ class SecureSessionStoreTest {
     @Test
     fun `saving a session writes to the keychain and never to preferences`() = runTest {
         val prefs = seededPreferences()
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         store.save(Session.SignedIn(userId(), "x@y.z", "fresh-access", "fresh-refresh"))
@@ -115,7 +111,7 @@ class SecureSessionStoreTest {
         // sign-in, must end up holding the new token — not the old one that a
         // late migration wrote afterwards.
         val prefs = seededPreferences(access = "stale-access")
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         store.save(Session.SignedIn(userId(), "x@y.z", "fresh-access", "fresh-refresh"))
@@ -127,7 +123,7 @@ class SecureSessionStoreTest {
     @Test
     fun `saving removes a plain-text copy a pre-upgrade build left behind`() = runTest {
         val prefs = seededPreferences(access = "old-access", refresh = "old-refresh", email = "a@b.c")
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         store.save(Session.SignedIn(userId(), "x@y.z", "fresh-access", "fresh-refresh"))
@@ -140,7 +136,7 @@ class SecureSessionStoreTest {
     @Test
     fun `clearing removes the token from both homes`() = runTest {
         val prefs = seededPreferences(access = "old-access")
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
         store.currentAccessToken()
 
@@ -153,7 +149,7 @@ class SecureSessionStoreTest {
     @Test
     fun `the device id is served from preferences, not the keychain`() = runTest {
         val prefs = seededPreferences()
-        val secure = RecordingSecureStorage()
+        val secure = MapSecureStorage()
         val store = newStore(prefs, secure)
 
         val id = store.getOrInitDeviceId()
@@ -169,7 +165,7 @@ class SecureSessionStoreTest {
     // ── Infrastructure ───────────────────────────────────────────────────────
 
     private fun newStore(prefs: DataStore<Preferences>, secure: SecureStorage) = SecureSessionStore(
-        log = Logger.withTag("test"),
+        log = testLogger(),
         secure = secure,
         legacy = DataStoreSessionStore(prefs, FixedIdGenerator("device-fixed")),
     )
@@ -178,7 +174,7 @@ class SecureSessionStoreTest {
         access: String? = null,
         refresh: String? = null,
         email: String? = null,
-    ): DataStore<Preferences> = newDataStore().apply {
+    ): DataStore<Preferences> = newPreferencesStore().apply {
         edit { p ->
             access?.let { p[DataStoreSessionStore.ACCESS_TOKEN] = it }
             refresh?.let { p[DataStoreSessionStore.REFRESH_TOKEN] = it }
@@ -196,40 +192,4 @@ class SecureSessionStoreTest {
         prefs.data.first()[DataStoreSessionStore.USER_EMAIL]
 
     private fun userId() = com.singularity.todo.core.ids.UserId.fromString("user-1")
-}
-
-/** A [SecureStorage] that records what it holds and can be made to refuse writes. */
-private class RecordingSecureStorage(private val failWrites: Boolean = false) : SecureStorage {
-    val values = mutableMapOf<String, String>()
-    private val deleted = mutableSetOf<String>()
-
-    override suspend fun read(key: String): String? = values[key]
-
-    override suspend fun write(key: String, value: String) {
-        if (failWrites) error("keychain unavailable")
-        values[key] = value
-    }
-
-    override suspend fun delete(key: String) {
-        values.remove(key)
-        deleted += key
-    }
-}
-
-private class FixedIdGenerator(private val id: String) : IdGenerator {
-    private var n = 0
-    override fun next(): String = "$id-${n++}"
-}
-
-/** Minimal in-memory [DataStore]; the same shape as the settings migration test uses. */
-private fun newDataStore(): DataStore<Preferences> {
-    val state = MutableStateFlow<Preferences>(emptyPreferences())
-    return object : DataStore<Preferences> {
-        override val data = state
-        override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
-            val next = transform(state.value)
-            state.value = next
-            return next
-        }
-    }
 }

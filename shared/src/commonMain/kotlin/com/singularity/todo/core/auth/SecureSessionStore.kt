@@ -81,6 +81,7 @@ class SecureSessionStore(
         secure.write(KEY_ACCESS, session.accessToken)
         secure.write(KEY_REFRESH, session.refreshToken)
         secure.write(KEY_EMAIL, session.email)
+        secure.write(KEY_USER_ID, session.userId.value)
         // A previously migrated install may still have the old copies if an
         // earlier version wrote them after a sign-in. Removing is idempotent.
         legacy.forgetTokens()
@@ -93,6 +94,7 @@ class SecureSessionStore(
         secure.delete(KEY_ACCESS)
         secure.delete(KEY_REFRESH)
         secure.delete(KEY_EMAIL)
+        secure.delete(KEY_USER_ID)
         legacy.forgetTokens()
         publish()
     }
@@ -151,6 +153,30 @@ class SecureSessionStore(
         return secure.read(KEY_ACCESS)
     }
 
+    /**
+     * The refresh token, or null when the session is anonymous.
+     *
+     * A separate reader rather than a flow because the restore path needs all
+     * three values at one moment: reading three flows independently can observe
+     * a half-written session, and would then persist a mixture of two.
+     */
+    suspend fun currentRefreshToken(): String? {
+        migrateOnce()
+        return secure.read(KEY_REFRESH)
+    }
+
+    /** The owner id stored beside the tokens, or null when there is no session. */
+    suspend fun currentUserId(): String? {
+        migrateOnce()
+        return secure.read(KEY_USER_ID)
+    }
+
+    /** The stored email, or null. Part of the same snapshot as the tokens. */
+    suspend fun currentEmail(): String? {
+        migrateOnce()
+        return secure.read(KEY_EMAIL)
+    }
+
     companion object {
         /**
          * Secure-store keys. Not the tokens themselves — the values under them
@@ -159,5 +185,18 @@ class SecureSessionStore(
         const val KEY_ACCESS = "auth.access_token"
         const val KEY_REFRESH = "auth.refresh_token"
         const val KEY_EMAIL = "auth.user_email"
+
+        /**
+         * The owner id, stored beside the tokens.
+         *
+         * Not derivable from them: a JWT's subject is, but decoding it here to
+         * recover an id the client already knows would mean trusting a token to
+         * tell the client who it is, on a path where the token may be expired and
+         * unverifiable. The alternative — publishing a session whose owner is
+         * unknown, or inventing a placeholder — puts a wrong id in front of the
+         * sync scope provider, and every row it then writes is attributed to an
+         * owner that does not exist.
+         */
+        const val KEY_USER_ID = "auth.user_id"
     }
 }
