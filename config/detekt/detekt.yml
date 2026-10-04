@@ -317,6 +317,19 @@ ktlint:
     # `TimeTrackingSection.kt`) is fixed, so no baseline entry remains.
     # Related: #56, #57.
     active: true
+  BlankLineBetweenWhenConditions:
+    # Declared 2026-10-05 after the rebase onto 45896461: main added a `when` in
+    # SavedAgendaListScreen.kt whose baseline entry made this rule the first one
+    # in this section that was reporting without ever appearing in this file.
+    # The rule is a real formatting choice — ktlint's `blank-line-between-when-
+    # conditions` under ktlint_official wants a blank line between branches that
+    # are not both single-line — so it is declared `active: true` rather than
+    # switched off, and the existing baseline entry keeps the code as written.
+    #
+    # Same caveat as NoConsecutiveBlankLines above: a misspelling in this section
+    # is silently ignored, so the spelling was confirmed by watching the
+    # baseline entry survive rather than by reading documentation.
+    active: true
   active: true
   code_style: ktlint_official
   auto_correct: true

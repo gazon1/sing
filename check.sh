@@ -31,7 +31,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== [1/18] build version catalog gate ===${NC}"
+echo -e "${YELLOW}=== [1/19] build version catalog gate ===${NC}"
 # Fast: no JVM startup. Fails before Gradle if a *.gradle.kts contains a
 # hardcoded group:artifact:version literal that should come from libs.versions.toml.
 python3 scripts/build-version-catalog-gate.py --quiet . || {
@@ -39,7 +39,7 @@ python3 scripts/build-version-catalog-gate.py --quiet . || {
     exit 1
 }
 
-echo -e "${YELLOW}=== [2/18] detekt rule registry (fast) ===${NC}"
+echo -e "${YELLOW}=== [2/19] detekt rule registry (fast) ===${NC}"
 # Runs before Gradle: a duplicated or missing rule registration otherwise surfaces
 # minutes later as a YAML parse error pointing at detekt.yml rather than the cause.
 ./scripts/check-detekt-registrations.sh || {
@@ -47,7 +47,7 @@ echo -e "${YELLOW}=== [2/18] detekt rule registry (fast) ===${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [3/18] Find unwired surfaces ===${NC}"
+echo -e "${YELLOW}=== [3/19] Find unwired surfaces ===${NC}"
 # Detects implemented-but-unreachable code: screens with no call site, noop callbacks
 # that defeat a `?:` fallback, unbound DAOs, LogWriter subclasses never registered.
 # Zero findings means the project has no dormant code. Exits 0; findings are printed.
@@ -56,7 +56,7 @@ python3 scripts/find-unwired-surfaces.py --quiet || {
     exit 1
 }
 
-echo -e "${YELLOW}=== [4/18] unwired-surface backlog references ===${NC}"
+echo -e "${YELLOW}=== [4/19] unwired-surface backlog references ===${NC}"
 # Every exemption in find-unwired-surfaces-baseline.txt must name a real
 # deferred-backlog.md heading. The baseline header documents this rule; before
 # this check nothing implemented it and 4 of 5 anchors did not exist.
@@ -65,13 +65,16 @@ python3 scripts/check-unwired-backlog-refs.py || {
     exit 1
 }
 
-echo -e "${YELLOW}=== [5/18] detekt baseline ratchet ===${NC}"
+echo -e "${YELLOW}=== [5/19] detekt baseline ratchet ===${NC}"
 # A baseline may shrink, never grow. Without this the baseline was a place to
 # park new violations silently — "0 findings" then meant "0 findings outside
 # a 341-entry file that nothing compared to anything".
 python3 scripts/check-baseline-ratchet.py || {
     echo -e "${RED}detekt baseline grew - fix the finding or justify the growth${NC}"
-echo -e "${YELLOW}=== [6/18] gates are wired and can fail ===${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [6/19] gates are wired and can fail ===${NC}"
 # Part A: every configured Gradle check task is named by a gate — catches the
 # :androidApp:detekt instance, which had a full config block and no invoker.
 # Part B: every registered script gate is run against a sabotaged input and must
@@ -82,27 +85,30 @@ python3 scripts/check-gate-wiring.py || {
     exit 1
 }
 
-=======
+echo -e "${YELLOW}=== [7/19] lint rules are declared decisions ===${NC}"
+# A rule absent from detekt.yml runs on detekt's built-in default, which means
+# nobody chose it. 18 such rules produced 247 of 428 baseline entries, and two
+# contradicted AGENTS.md. Now declared, and the next one has to be declared too.
+python3 scripts/check-rule-intent.py || {
+    echo -e "${RED}rule intent check FAILED — a lint rule is running on defaults${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [7/18] shared:jvmTest ===${NC}"
+echo -e "${YELLOW}=== [8/19] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-=======
-echo -e "${YELLOW}=== [8/18] desktopApp:test ===${NC}"
+echo -e "${YELLOW}=== [9/19] desktopApp:test ===${NC}"
 ./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-=======
-echo -e "${YELLOW}=== [9/18] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [10/19] androidApp:assembleDebug ===${NC}"
 ./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
@@ -112,8 +118,7 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
-=======
-echo -e "${YELLOW}=== [10/18] executed test counts ===${NC}"
+echo -e "${YELLOW}=== [11/19] executed test counts ===${NC}"
 # "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
@@ -124,8 +129,7 @@ python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
 }
 echo -e "${GREEN}test run floors met${NC}"
 
-=======
-echo -e "${YELLOW}=== [11/18] gate script self-tests ===${NC}"
+echo -e "${YELLOW}=== [12/19] gate script self-tests ===${NC}"
 # check-test-runs.py is the only thing that catches a partial skip, and
 # check-coverage.py is the only thing that catches coverage loss. A regression
 # inside either disables the gate silently — the same failure shape the gates
@@ -136,8 +140,7 @@ python3 -m unittest discover -s scripts/tests 2>&1 | tail -3 || {
 }
 echo -e "${GREEN}gate script self-tests passed${NC}"
 
-=======
-echo -e "${YELLOW}=== [12/18] detekt rule unit tests ===${NC}"
+echo -e "${YELLOW}=== [13/19] detekt rule unit tests ===${NC}"
 # A custom rule that cannot fire is indistinguishable from a rule that has
 # nothing to match. These tests are the only evidence either way.
 ./gw :detekt-rules:test --quiet || {
@@ -145,8 +148,7 @@ echo -e "${YELLOW}=== [12/18] detekt rule unit tests ===${NC}"
     exit 1
 }
 
-=======
-echo -e "${YELLOW}=== [13/18] workflow YAML parses ===${NC}"
+echo -e "${YELLOW}=== [14/19] workflow YAML parses ===${NC}"
 # A malformed workflow is invisible: not a test failure, not a lint error, just a
 # workflow that silently does not exist.
 python3 -c "
@@ -166,8 +168,7 @@ print('all workflow files parse')
     exit 1
 }
 
-=======
-echo -e "${YELLOW}=== [14/18] coverage floors (when a report exists) ===${NC}"
+echo -e "${YELLOW}=== [15/19] coverage floors (when a report exists) ===${NC}"
 # --if-present because koverReport instruments every test task and roughly
 # triples the local loop; CI runs it in the kover job on every push.
 #
@@ -186,8 +187,7 @@ else
     echo "    no Kover report — run ./gw koverReport (skipped)"
 fi
 
-=======
-echo -e "${YELLOW}=== [15/18] doc sizes + dead doc references ===${NC}"
+echo -e "${YELLOW}=== [16/19] doc sizes + dead doc references ===${NC}"
 # Both are blocking CI gates; a local loop that skipped them let the DIGEST
 # budget fail unnoticed until the next CI run.
 python3 scripts/refresh-decisions-digest.py >/dev/null
@@ -201,10 +201,10 @@ python3 scripts/check-doc-dead-refs.py || {
 }
 echo -e "${GREEN}doc gates passed${NC}"
 
-echo -e "${YELLOW}=== [16/18] test-task input declarations ===${NC}"
+echo -e "${YELLOW}=== [17/19] test-task input declarations ===${NC}"
 # A test task that reads a tree outside its own module must declare it as an input.
 # Without that declaration the task goes UP-TO-DATE on an edit to that tree and an
-# architecture gate re-reports its previous verdict — green, about a file it never
+# architecture gate re-reports its previous verdict - green, about a file it never
 # re-read. Measured on MaestroFlowTagsTest; see
 # docs/decisions/2026-10-05-test-task-external-inputs.md. 20 ms, no JVM.
 python3 scripts/check-test-task-inputs.py || {
@@ -212,15 +212,14 @@ python3 scripts/check-test-task-inputs.py || {
     exit 1
 }
 
-=======
-echo -e "${YELLOW}=== [17/18] mcp-server:compileKotlin (DI graph validation) ===${NC}"
+echo -e "${YELLOW}=== [18/19] mcp-server:compileKotlin (DI graph validation) ===${NC}"
 ./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}mcp-server DI graph validated${NC}"
 
-echo -e "${GREEN}=== [18/18] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${GREEN}=== [19/19] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
