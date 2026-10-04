@@ -22,7 +22,6 @@ import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
 import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
 import com.singularity.todo.feature.statistics.StatisticsScreen
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
-import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 
 /**
@@ -208,36 +207,4 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
             )
         }
     }
-}
-
-/**
- * Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute].
- * Only [Create] and [Detail] remain — the other deprecated variants were removed.
- */
-private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
-    is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
-    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(taskId)
-}
-
-/** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */
-private fun AppDestination.ProjectsStartRoute.toProjectsRoute(): ProjectsRoute = when (this) {
-    is AppDestination.ProjectsStartRoute.List -> ProjectsRoute.List
-    is AppDestination.ProjectsStartRoute.Editor -> ProjectsRoute.Editor(projectId)
-}
-
-/** Converts [AppDestination.NotesStartRoute] to the inner [NotesRoute]. */
-private fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (this) {
-    is AppDestination.NotesStartRoute.List -> NotesRoute.List
-
-    is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(noteId)
-
-    is AppDestination.NotesStartRoute.EditorForTask -> NotesRoute.Editor(
-        noteId = null,
-        taskId = taskId,
-    )
-}
-
-/** Converts [AppDestination.CalendarStartRoute] to the inner [CalendarRoute]. */
-private fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute = when (this) {
-    is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
 }
