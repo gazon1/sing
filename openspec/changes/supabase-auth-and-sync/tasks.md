@@ -43,10 +43,14 @@ invisible and with one they become irreversible data loss on the user's own data
       owner and profile; Room 33 → 34; adopt the existing values once, at first read.
       Verified by: `SyncStateMigrationTest` — cursor for one profile is invisible to
       another (REQ-OS-009)
-- [ ] 2.5 `shared/` — build patches as a diff against the last uploaded state, with a
-      logical clock; remove the row checksum and the code computing it.
+- [x] 2.5 `shared/` — build patches as a diff against the last uploaded state, with a
+      logical clock; remove the row checksum and the code computing it. The base is
+      `sync_shadow` (Room 34 → 35), holding both the confirmed state and the
+      in-flight one so a queued patch's fields are not re-sent. `ConflictResolver` and
+      its JVM-only SHA-256 are deleted; the outbox now coalesces per entity.
       Verified by: `BuildPatchDiffTest` — a one-field edit yields exactly one field
-      operation (REQ-OS-002)
+      operation, and a stale response cannot promote a superseded patch's state
+      (REQ-OS-002); `SyncEnginePushTest` — the shadow advances only on acceptance
 - [x] 2.6 `shared/`, `androidApp/` — one sync driver per platform; remove the
       alarm-based scheduler. Verified by: architecture test asserting one driver per
       platform source set

@@ -4,6 +4,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -187,3 +188,90 @@ class FakeSyncScopeProvider(scope: SyncScope? = null) : SyncScopeProvider {
         scopes.value = scope
     }
 }
+
+/**
+ * In-memory [SyncShadowDao] for the sync-engine tests.
+ *
+ * A second copy of the one inside `FakeAppDatabase`, which is private there because
+ * the database owns it. This one exists because these tests build an engine without
+ * a database, and the shadow's `in_flight_patch_id` guard is behaviour worth having
+ * a handle on rather than only asserting through.
+ */
+class FakeSyncShadowDao : SyncShadowDao {
+
+    private data class Key(val ownerId: String, val profileId: String, val entityType: String, val entityId: String)
+
+    private val rows = mutableMapOf<Key, SyncShadowEntity>()
+
+    fun state(ownerId: String, profileId: String, entityType: String, entityId: String): SyncShadowEntity? =
+        rows[Key(ownerId, profileId, entityType, entityId)]
+
+    override suspend fun get(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+    ): SyncShadowEntity? = state(ownerId, profileId, entityType, entityId)
+
+    override suspend fun upsert(entity: SyncShadowEntity) {
+        rows[Key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)] = entity
+    }
+
+    override suspend fun confirm(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        patchId: String,
+        json: String,
+    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
+        it.copy(confirmedJson = json, inFlightJson = null, inFlightPatchId = null)
+    }
+
+    override suspend fun release(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        patchId: String,
+    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
+        it.copy(inFlightJson = null, inFlightPatchId = null)
+    }
+
+    override suspend fun clearScope(ownerId: String, profileId: String) {
+        rows.keys.filter { it.ownerId == ownerId && it.profileId == profileId }.forEach(rows::remove)
+    }
+
+    override suspend fun clearAll() {
+        rows.clear()
+    }
+
+    private fun mutateIfOwned(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        patchId: String,
+        transform: (SyncShadowEntity) -> SyncShadowEntity,
+    ): Int {
+        val key = Key(ownerId, profileId, entityType, entityId)
+        val row = rows[key] ?: return 0
+        if (row.inFlightPatchId != patchId) return 0
+        rows[key] = transform(row)
+        return 1
+    }
+}
+
+/**
+ * A real [SyncPatchBuilder] over [FakeSyncShadowDao] and [FakeHlcFactory].
+ *
+ * Real rather than a stub, because the diff is the thing under test in more than
+ * one place, and a stubbed builder would let every engine test stay green with a
+ * broken diff — the same rule as the deleted `SyncRepositoryCoalescingTest`, in its
+ * second form.
+ */
+internal fun fakeSyncPatchBuilder(shadowDao: SyncShadowDao = FakeSyncShadowDao()): SyncPatchBuilder = SyncPatchBuilder(
+    shadowDao = shadowDao,
+    hlcFactory = FakeHlcFactory(),
+    idGenerator = SequentialIdGenerator(),
+)

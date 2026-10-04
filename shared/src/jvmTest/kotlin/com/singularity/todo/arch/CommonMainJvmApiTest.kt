@@ -23,8 +23,9 @@ import kotlin.test.fail
  *
  * - `core/files/FileChecksum.kt` — `java.security.MessageDigest`, on the attachment
  *   upload path and the backup integrity path. **Fixed** (okio).
- * - `core/sync/ConflictResolver.kt` — the same, and it dies with the checksum removal
- *   in the sync work anyway.
+ * - `core/sync/ConflictResolver.kt` — the same, on the sync push path. **Fixed**
+ *   (deleted with the row checksum, whose removal is the point: the checksum chose
+ *   a whole-row conflict winner, and per-field LWW replaces it).
  * - `core/ids/IdGenerator.kt` — `java.util.concurrent.atomic.AtomicInteger`.
  * - `core/ui/DraftMviViewModel.kt` — `java.util.concurrent.ConcurrentHashMap`.
  * - `core/attachments/AttachmentId.kt` — `java.util.UUID`.
@@ -63,12 +64,6 @@ class CommonMainJvmApiTest {
     private data class KnownFinding(val file: String, val importLine: String, val why: String)
 
     private val baseline = listOf(
-        KnownFinding(
-            "core/sync/ConflictResolver.kt",
-            "import java.security.MessageDigest",
-            "row checksum for the row-level conflict gate. Removed together with " +
-                "ConflictResolver in the per-field-LWW sync work; until then it is dead weight.",
-        ),
         KnownFinding(
             "core/ids/IdGenerator.kt",
             "import java.util.concurrent.atomic.AtomicInteger",

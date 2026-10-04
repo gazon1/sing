@@ -44,6 +44,7 @@ import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncBootstrapper
 import com.singularity.todo.core.sync.SyncCoordinator
+import com.singularity.todo.core.sync.SyncPatchBuilder
 import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
@@ -146,10 +147,14 @@ fun coreModule(): org.koin.core.module.Module = module {
     // SyncPrefs: DataStore-backed (not in-memory).
     single<SyncPrefs> { DataStoreSyncPrefs(get(), get()) }
 
+    // Patches are built here rather than inside SyncEngine, so the diff has one
+    // owner and can be tested without a push path.
+    single { SyncPatchBuilder(shadowDao = get(), hlcFactory = get(), idGenerator = get()) }
+
     // SyncEngine is internal — feature modules must use SyncRepository.
     // Takes the per-scope state repository (for LSN tracking), the scope provider
-    // (whose (owner, profile) the cycle applies to) and SyncWorkScheduler (for
-    // auth-session init).
+    // (whose (owner, profile) the cycle applies to), the shadow store (the base a
+    // diff is taken against) and SyncWorkScheduler (for auth-session init).
     single {
         SyncEngine(
             log = Logger.withTag("SyncEngine"),
@@ -160,6 +165,8 @@ fun coreModule(): org.koin.core.module.Module = module {
             idGenerator = get(),
             stateRepository = get(),
             scopeProvider = get(),
+            shadowDao = get(),
+            patchBuilder = get(),
             scheduler = get(),
             retryPolicy = get(),
             scope = get(),

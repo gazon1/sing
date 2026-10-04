@@ -15,6 +15,8 @@ import com.singularity.todo.core.sync.SyncDeadLetterDao
 import com.singularity.todo.core.sync.SyncDeadLetterEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncStateDao
+import com.singularity.todo.core.sync.SyncShadowDao
+import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
@@ -38,7 +40,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 34
+const val SCHEMA_VERSION = 35
 
 /**
  * Room database for Android.
@@ -71,6 +73,7 @@ const val SCHEMA_VERSION = 34
         TimeEntryEntity::class,
         AiProposalEntity::class,
         ProposalItemEntity::class,
+        SyncShadowEntity::class,
     ],
     version = SCHEMA_VERSION,
     autoMigrations = [
@@ -102,6 +105,7 @@ const val SCHEMA_VERSION = 34
         AutoMigration(from = 30, to = 31, spec = Migration30To31::class),
         AutoMigration(from = 32, to = 33, spec = Migration32To33::class),
         AutoMigration(from = 33, to = 34, spec = Migration33To34::class),
+        AutoMigration(from = 34, to = 35, spec = Migration34To35::class),
     ],
     exportSchema = true,
 )
@@ -114,6 +118,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun syncDeadLetterDao(): SyncDeadLetterDao
     abstract fun syncStateDao(): SyncStateDao
+
+    abstract fun syncShadowDao(): SyncShadowDao
     abstract fun remoteConfigDao(): RemoteConfigDao
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao

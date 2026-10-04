@@ -340,6 +340,13 @@ class EntityMapperCompletenessTest {
                 "a transport shelf, not an entity: rows are moved between it and " +
                     "sync_outbox verbatim, never mapped to a domain model. Nothing " +
                     "upserts it, so there is no column to be silently reset.",
+            "SyncShadowEntity" to
+                "transport bookkeeping, not domain data: the state the server is known to " +
+                    "hold for one entity, and the state a queued patch will bring it to. " +
+                    "Written by narrow column-level UPDATEs that name every column they " +
+                    "change, so the 'unchecked column is reset by @Upsert' rule this gate " +
+                    "protects against cannot bite — the one write that is an upsert, " +
+                    "build(), sets all seven columns together.",
             "SyncStateEntity" to
                 "sync bookkeeping, not domain data: the download cursor, the last " +
                     "successful sync time, the device id and the sync preferences. It " +

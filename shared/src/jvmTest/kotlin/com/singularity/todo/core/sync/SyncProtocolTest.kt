@@ -24,7 +24,7 @@ class SyncProtocolTest {
             entityType = DocType.Task,
             baseVersion = 5L,
             isDelete = false,
-            shadowChecksum = "abc123",
+            hlc = Hlc("1000:0:node-a"),
             ops = listOf(
                 FieldChange("title", FieldOp.SET, JsonPrimitive("New Title")),
             ),
@@ -37,7 +37,7 @@ class SyncProtocolTest {
         assertEquals("e1", deserialized.entityId)
         assertEquals(DocType.Task, deserialized.entityType)
         assertEquals(5L, deserialized.baseVersion)
-        assertEquals("abc123", deserialized.shadowChecksum)
+        assertEquals(Hlc("1000:0:node-a"), deserialized.hlc)
         assertEquals(1, deserialized.ops.size)
         assertEquals("title", deserialized.ops[0].field)
         assertEquals(FieldOp.SET, deserialized.ops[0].op)

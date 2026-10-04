@@ -177,6 +177,10 @@ class ArchitectureTest {
             // scope, because leaving the previous account's cursor behind would make
             // the next sign-in resume inside its history.
             "SyncStateDao.clearAll",
+            // A sign-out drops every scope's shadow at once, like the state table. A
+            // scoped drain would leave the next account diffing against a base that
+            // describes the previous one's uploads.
+            "SyncShadowDao.clearAll",
             // calendar_sync_task_map has no user_id column: it is device-local
             // bookkeeping mapping calendar events, not user-owned data. Making it
             // per-profile would need a schema migration — ledger #17.

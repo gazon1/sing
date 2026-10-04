@@ -67,6 +67,8 @@ class SyncBootstrapperDispatchTest {
             deadLetterDao = FakeSyncDeadLetterDao(),
             idGenerator = SequentialIdGenerator(),
             stateRepository = FakeSyncStateRepository(),
+            shadowDao = FakeSyncShadowDao(),
+            patchBuilder = fakeSyncPatchBuilder(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             scope = testScope(scope.backgroundScope),

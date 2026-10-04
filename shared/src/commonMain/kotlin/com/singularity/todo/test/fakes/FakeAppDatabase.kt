@@ -39,6 +39,8 @@ import com.singularity.todo.core.sync.SyncDeadLetterDao
 import com.singularity.todo.core.sync.SyncDeadLetterEntity
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncStateDao
+import com.singularity.todo.core.sync.SyncShadowDao
+import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
@@ -81,6 +83,9 @@ class FakeAppDatabase : AppDatabase() {
 
     @Suppress("BackingPropertyNaming")
     private val _syncState = MutableStateFlow<Map<SyncScope, SyncStateEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _syncShadow = MutableStateFlow<Map<SyncShadowKey, SyncShadowEntity>>(emptyMap())
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
     private val _reminders =
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
@@ -114,6 +119,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
     override fun syncDeadLetterDao(): SyncDeadLetterDao = FakeSyncDeadLetterDao(_deadLetter)
     override fun syncStateDao(): SyncStateDao = FakeSyncStateDao(_syncState)
+    override fun syncShadowDao(): SyncShadowDao = FakeSyncShadowDao(_syncShadow)
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
     override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
@@ -983,6 +989,94 @@ private class FakeSyncStateDao(private val store: MutableStateFlow<Map<SyncScope
             val existing = current[k] ?: SyncStateEntity(ownerId = ownerId, profileId = profileId)
             current + (k to fn(existing))
         }
+    }
+}
+
+/**
+ * Composite key of [SyncShadowEntity], modelled as a real key rather than a filter.
+ *
+ * Two entities of the same type under two profiles share a type and nothing else;
+ * a fake that stored rows in a list keyed by entity id could not tell them apart.
+ */
+private data class SyncShadowKey(
+    val ownerId: String,
+    val profileId: String,
+    val entityType: String,
+    val entityId: String,
+)
+
+/**
+ * In-memory [SyncShadowDao].
+ *
+ * The `AND in_flight_patch_id = :patchId` guard on [confirm] and [release] is
+ * reproduced rather than approximated: it is the entire reason a stale response
+ * cannot promote a superseded patch's state, and a fake without it would let a test
+ * assert that the guard works.
+ */
+private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShadowKey, SyncShadowEntity>>) :
+    SyncShadowDao {
+
+    private fun key(ownerId: String, profileId: String, entityType: String, entityId: String) =
+        SyncShadowKey(ownerId, profileId, entityType, entityId)
+
+    override suspend fun get(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+    ): SyncShadowEntity? = store.value[key(ownerId, profileId, entityType, entityId)]
+
+    override suspend fun upsert(entity: SyncShadowEntity) {
+        val k = key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)
+        store.value = store.value + (k to entity)
+    }
+
+    override suspend fun confirm(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        patchId: String,
+        json: String,
+    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
+        row.copy(confirmedJson = json, inFlightJson = null, inFlightPatchId = null)
+    }
+
+    override suspend fun release(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        patchId: String,
+    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
+        row.copy(inFlightJson = null, inFlightPatchId = null)
+    }
+
+    /**
+     * Applies [transform] only while [patchId] still owns the in-flight marker, and
+     * reports whether it did — the same contract the SQL guard gives.
+     */
+    private fun mutateIfOwned(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        patchId: String,
+        transform: (SyncShadowEntity) -> SyncShadowEntity,
+    ): Int {
+        val k = key(ownerId, profileId, entityType, entityId)
+        val row = store.value[k]
+        if (row == null || row.inFlightPatchId != patchId) return 0
+        store.value = store.value + (k to transform(row))
+        return 1
+    }
+
+    override suspend fun clearScope(ownerId: String, profileId: String) {
+        store.update { current -> current.filterKeys { it.ownerId != ownerId || it.profileId != profileId } }
+    }
+
+    override suspend fun clearAll() {
+        store.value = emptyMap()
     }
 }
 

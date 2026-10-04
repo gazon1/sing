@@ -103,6 +103,8 @@ internal class SyncEngine(
     private val idGenerator: IdGenerator,
     private val stateRepository: SyncStateRepository,
     private val scopeProvider: SyncScopeProvider,
+    private val shadowDao: SyncShadowDao,
+    private val patchBuilder: SyncPatchBuilder,
     private val scheduler: SyncWorkScheduler,
     private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     private val scope: AutoCloseableCoroutineScope,
@@ -151,9 +153,18 @@ internal class SyncEngine(
      * Enqueues an entity change for sync.
      */
     suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
-        val patch = buildPatch(entity)
+        val active = scopeProvider.current.first()
+            ?: return@runCatchingResult
+        val patch = patchBuilder.build(entity, active, System.currentTimeMillis())
         val payload = json.encodeToString(patch)
 
+        // Coalesce per entity before inserting, so an entity has at most one patch
+        // in flight. The new patch is built against the previous in-flight state, so
+        // it carries every field the one it replaces carried — replacing loses
+        // nothing. Without this the outbox grows without bound under fast editing,
+        // and the shadow's "promote only if this patch still owns the marker" guard
+        // could never fire.
+        outboxDao.deleteByEntity(entity.syncId)
         outboxDao.insert(
             SyncOutboxEntity(
                 patchId = patch.patchId,
@@ -207,9 +218,12 @@ internal class SyncEngine(
             var succeeded = 0
             var failed = 0
 
+            val active = scopeProvider.current.first()
             response.results.forEach { result ->
+                val patch = patches.firstOrNull { it.patchId == result.patchId }
                 if (result.ok) {
                     outboxDao.delete(result.patchId)
+                    if (active != null && patch != null) settleShadow(patch, applied = true, scope = active)
                     succeeded++
                 } else {
                     failed++
@@ -217,8 +231,12 @@ internal class SyncEngine(
                         deferOrDeadLetter(pending.firstOrNull { it.patchId == result.patchId }, result)
                     } else {
                         // The server will never accept this patch. Keeping it would
-                        // block every patch behind it, forever.
+                        // block every patch behind it, forever. Releasing the shadow
+                        // marker is what makes the next local edit re-send the
+                        // fields this one was carrying, instead of diffing against a
+                        // state the server never reached.
                         outboxDao.delete(result.patchId)
+                        if (active != null && patch != null) settleShadow(patch, applied = false, scope = active)
                     }
                 }
             }
@@ -260,6 +278,20 @@ internal class SyncEngine(
         val reason = result.error ?: "Unknown error"
 
         if (retryPolicy.isExhausted(attempts)) {
+            // The patch is set aside, not lost — see SyncDeadLetterEntity. Its in-flight
+            // shadow marker is released with it, so the confirmed state stays at what
+            // the server really has and the next local edit re-sends these fields.
+            scopeProvider.current.first()?.let { active ->
+                json.decodeFromString<DeltaPatch>(entity.payload).let { patch ->
+                    shadowDao.release(
+                        ownerId = active.ownerId,
+                        profileId = active.profileId,
+                        entityType = patch.entityType.key,
+                        entityId = patch.entityId,
+                        patchId = patch.patchId,
+                    )
+                }
+            }
             deadLetterDao.insert(
                 SyncDeadLetterEntity(
                     patchId = entity.patchId,
@@ -364,31 +396,34 @@ internal class SyncEngine(
     }
 
     /**
-     * Builds a DeltaPatch from a SyncableEntity.
+     * Moves the in-flight shadow to confirmed, or releases it.
      *
-     * `isDelete` is deliberately always `false`. Deletions propagate as **state**:
-     * repositories re-read the entity after a soft delete and enqueue it, so
-     * `archivedAt` / `isDeleted` ride along in the snapshot that `ops = emptyList()` +
-     * `shadowChecksum` already carries. That needs no server-side change, and — unlike
-     * a tombstone — it also covers `restore` through the same path.
-     *
-     * `deltaPatchDelete` exists in the protocol and would express a true tombstone,
-     * but it has never been exercised against the server; adopting it is a separate
-     * protocol decision. See docs/decisions/2026-09-27-write-layer-soundness.md.
+     * Called for every patch the server answers for, and never for one it did not:
+     * a patch that is still in the outbox owns its in-flight marker, and a shadow
+     * promoted for a patch the server never saw would make the next edit diff
+     * against a state the server does not have, which is silent divergence rather
+     * than a visible failure.
      */
-    private fun buildPatch(entity: SyncableEntity): DeltaPatch {
-        val state = entity.toJson()
-        val checksum = ConflictResolver.checksum(state)
-
-        return DeltaPatch(
-            patchId = idGenerator.next(),
-            entityId = entity.syncId,
-            entityType = entity.docType,
-            baseVersion = entity.syncServerVersion,
-            isDelete = false,
-            shadowChecksum = checksum,
-            ops = emptyList(),
-            timestampMs = System.currentTimeMillis(),
-        )
+    private suspend fun settleShadow(patch: DeltaPatch, applied: Boolean, scope: SyncScope) {
+        val typeKey = patch.entityType.key
+        if (applied) {
+            shadowDao.confirm(
+                ownerId = scope.ownerId,
+                profileId = scope.profileId,
+                entityType = typeKey,
+                entityId = patch.entityId,
+                patchId = patch.patchId,
+                json = shadowDao.get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
+                    ?.inFlightJson ?: return,
+            )
+        } else {
+            shadowDao.release(
+                ownerId = scope.ownerId,
+                profileId = scope.profileId,
+                entityType = typeKey,
+                entityId = patch.entityId,
+                patchId = patch.patchId,
+            )
+        }
     }
 }

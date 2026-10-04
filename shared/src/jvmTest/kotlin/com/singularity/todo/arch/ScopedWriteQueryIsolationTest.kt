@@ -276,6 +276,10 @@ class ScopedWriteQueryIsolationTest {
                 "same transport queue, same absence of a user dimension; patch_id is a UUID",
             "DELETE FROM sync_dead_letter" to
                 "full dead-letter drain — deliberately cross-profile",
+            "DELETE FROM sync_shadow" to
+                "drains every scope at once, alongside sync_state; leaving another " +
+                "account's shadow behind would make the next sign-in diff against a " +
+                "base describing someone else's uploads",
             "DELETE FROM sync_state" to
                 "drains every scope at once — used on sign-out; leaving another " +
                 "account's cursor behind would resume it inside the wrong history",

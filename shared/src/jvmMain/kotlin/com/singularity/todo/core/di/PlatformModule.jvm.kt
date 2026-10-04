@@ -80,6 +80,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().syncOutboxDao() }
     single { get<AppDatabase>().syncDeadLetterDao() }
     single { get<AppDatabase>().syncStateDao() }
+    single { get<AppDatabase>().syncShadowDao() }
     single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }

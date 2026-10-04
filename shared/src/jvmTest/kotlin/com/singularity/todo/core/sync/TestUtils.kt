@@ -34,7 +34,7 @@ class DeltaPatchBuilder {
     var entityType = DocType.Task
     var baseVersion = 0L
     var isDelete = false
-    var shadowChecksum: String? = null
+    var hlc: Hlc? = null
     val ops = mutableListOf<FieldChange>()
 
     fun set(field: String, value: String) {
@@ -51,7 +51,7 @@ class DeltaPatchBuilder {
         entityType = entityType,
         baseVersion = baseVersion,
         isDelete = isDelete,
-        shadowChecksum = shadowChecksum,
+        hlc = hlc,
         ops = ops,
     )
 }

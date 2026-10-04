@@ -45,6 +45,7 @@ class SyncEnginePushTest {
         scope: TestScope,
         outbox: FakeSyncOutboxDao = FakeSyncOutboxDao(),
         deadLetter: FakeSyncDeadLetterDao = FakeSyncDeadLetterDao(),
+        shadow: FakeSyncShadowDao = FakeSyncShadowDao(),
         policy: PatchRetryPolicy = PatchRetryPolicy(),
     ): Triple<SyncEngine, FakeSyncOutboxDao, FakeSyncDeadLetterDao> {
         val engine = SyncEngine(
@@ -60,6 +61,11 @@ class SyncEnginePushTest {
             // wired. Supplied here rather than defaulted so that a future push() that
             // does read the cursor is testing a real row, not a fresh one.
             stateRepository = FakeSyncStateRepository(),
+            // One shadow for both: the builder writes the in-flight marker and the
+            // engine settles it, so two instances would test a system where the
+            // halves cannot see each other.
+            shadowDao = shadow,
+            patchBuilder = fakeSyncPatchBuilder(shadow),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = policy,
@@ -240,5 +246,103 @@ class SyncEnginePushTest {
         assertEquals(2, summary.succeeded)
         assertEquals(1, summary.failed)
         assertEquals(listOf("bad1"), outbox.rows.map { it.patchId })
+    }
+
+    // ─── Shadow settling ──────────────────────────────────────────────────────
+    //
+    // The shadow is the only copy the client has of what the server holds, so how
+    // it moves on a push result decides whether the next edit is a diff or a
+    // re-upload. Advancing it optimistically is the tempting version and it loses
+    // data: a patch the server never accepted would leave the client diffing against
+    // a state that does not exist there.
+
+    @Test
+    fun `a rejected patch leaves the shadow where the server is`() = runTest {
+        val shadow = FakeSyncShadowDao()
+        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+        val (engine, outbox, _) = engine(api, this, shadow = shadow)
+        outbox.seed("p1")
+        shadow.upsert(
+            SyncShadowEntity(
+                ownerId = "owner-push",
+                profileId = "profile-1",
+                entityType = DocType.Task.key,
+                entityId = "entity-p1",
+                confirmedJson = "{\"title\":\"A\"}",
+                inFlightJson = "{\"title\":\"B\"}",
+                inFlightPatchId = "p1",
+            ),
+        )
+
+        engine.push()
+
+        val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
+        assertEquals("{\"title\":\"A\"}", row?.confirmedJson, "a rejected patch must not advance it")
+        // The marker is still held: the patch is only deferred, and a retry of the same
+        // patch must still be able to promote.
+        assertEquals("p1", row?.inFlightPatchId)
+    }
+
+    @Test
+    fun `a dead-lettered patch releases its in-flight marker`() = runTest {
+        val shadow = FakeSyncShadowDao()
+        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+        val policy = PatchRetryPolicy()
+        val (engine, outbox, dead) = engine(
+            api = api,
+            scope = this,
+            shadow = shadow,
+            policy = policy,
+        )
+        outbox.seed("p1", attempts = policy.maxAttempts)
+        shadow.upsert(
+            SyncShadowEntity(
+                ownerId = "owner-push",
+                profileId = "profile-1",
+                entityType = DocType.Task.key,
+                entityId = "entity-p1",
+                confirmedJson = "{\"title\":\"A\"}",
+                inFlightJson = "{\"title\":\"B\"}",
+                inFlightPatchId = "p1",
+            ),
+        )
+
+        engine.push()
+
+        assertEquals(1, dead.rows.size, "the patch must be set aside, not dropped")
+        val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
+        assertEquals(null, row?.inFlightPatchId, "an abandoned patch must not keep the marker")
+        assertEquals(
+            "{\"title\":\"A\"}",
+            row?.confirmedJson,
+            "the next edit re-diffs from what the server really has, so those fields go again",
+        )
+    }
+
+    @Test
+    fun `a permanently rejected patch releases its marker too`() = runTest {
+        val shadow = FakeSyncShadowDao()
+        val api = FakeSyncApiClient(
+            pushResponse = BatchPushResponse(listOf(PatchResult("p1", ok = false, error = "too_old"))),
+        )
+        val (engine, outbox, dead) = engine(api, this, shadow = shadow)
+        outbox.seed("p1")
+        shadow.upsert(
+            SyncShadowEntity(
+                ownerId = "owner-push",
+                profileId = "profile-1",
+                entityType = DocType.Task.key,
+                entityId = "entity-p1",
+                confirmedJson = "{\"title\":\"A\"}",
+                inFlightJson = "{\"title\":\"B\"}",
+                inFlightPatchId = "p1",
+            ),
+        )
+
+        engine.push()
+
+        assertTrue(dead.rows.isEmpty(), "a non-retriable rejection is not a dead letter")
+        val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
+        assertEquals(null, row?.inFlightPatchId, "the row is gone, so the marker must go with it")
     }
 }

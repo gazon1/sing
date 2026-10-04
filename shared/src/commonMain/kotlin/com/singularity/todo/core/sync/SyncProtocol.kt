@@ -19,7 +19,12 @@ data class BatchPushResponse(val results: List<PatchResult>)
 
 /**
  * A delta patch representing a single entity change.
- * Matches Flutter sync_core DeltaPatch.
+ *
+ * Carries field operations and a logical clock, not a snapshot and a row checksum.
+ * The checksum is gone: it existed so the server could reject a patch whose base had
+ * moved, which resolves a whole-row conflict by arrival order. Per-field merge
+ * (REQ-OS-003) needs the patch to say which fields changed, and a checksum says the
+ * opposite — that the row as a whole did.
  */
 @Serializable
 data class DeltaPatch(
@@ -29,8 +34,9 @@ data class DeltaPatch(
     val baseVersion: Long,
     val protocolVersion: Int = 1,
     val isDelete: Boolean = false,
-    val shadowChecksum: String? = null,
     val ops: List<FieldChange> = emptyList(),
+    /** Hybrid logical clock the server orders this patch by. */
+    val hlc: Hlc? = null,
     val timestampMs: Long? = null,
 )
 
