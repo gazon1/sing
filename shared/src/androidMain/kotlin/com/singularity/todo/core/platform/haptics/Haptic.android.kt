@@ -26,7 +26,3 @@ internal object AndroidHaptic {
         }
     }
 }
-
-private object NoOpHaptic : Haptic {
-    override suspend fun perform() { /* no-op — real instance created by PlatformModule */ }
-}

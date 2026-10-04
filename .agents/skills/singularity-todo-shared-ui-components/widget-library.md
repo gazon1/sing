@@ -34,6 +34,47 @@ Add to `core/ui/components/` when the widget:
 
 If a widget renders a domain entity (`Task`, `Note`, `Project`, `Tag`), put it in `feature/<feature>/components/` instead. Example: `TaskCard` lives in `feature/tasks/components/`, but `AiActionButton` lives in `core/ui/components/` because every feature needs it.
 
+### Getting a platform capability: `Local*` vs `koinInject`
+
+A shared widget that needs a **platform capability** — haptics, a file revealer, a share port —
+reads it from a `CompositionLocal`, not from `koinInject`.
+
+```kotlin
+// WRONG — throws in @Preview, so every call site grows a guard and a null
+val haptic = if (LocalInspectionMode.current) null else koinInject<Haptic>()
+
+// RIGHT — a meaningful default, no guard, no null
+val haptic = LocalHaptic.current
+```
+
+Use `staticCompositionLocalOf` for a capability that never changes within a composition (haptics,
+theme-independent platform services) — it skips per-read change tracking and says "this is
+stable". Use `compositionLocalOf` only when the value genuinely varies down the tree, the way
+`LocalAccentColor` does.
+
+**The boundary, and it is not a preference:**
+
+| Goes in a `Local*` | Stays in DI / Koin |
+|---|---|
+| A platform capability needed deep inside a shared widget | Repositories and DAOs |
+| A value with no meaningful no-op — a theme accent, a palette | ViewModels (`koinViewModel`) |
+| Anything a widget would otherwise have to take as a parameter through 3+ levels | Use cases, services, anything with a Koin lifetime |
+
+Moving a repository into a `Local*` is a service locator with extra steps: it is resolved at
+composition time, has no lifetime story, and cannot be swapped in a test without a container.
+`NoStaticProfileAwareCurrentUserRule` bans that shape for exactly this reason. If a widget needs
+data, it takes it as a parameter; if a screen needs a repository, the screen's ViewModel owns it.
+
+`Celebration(haptic: Haptic? = null)` is the shape to recognise. That nullability was not a
+design decision — it was `koinInject` crashing in previews, leaking a DI framework's limitation
+into a public API. When you see a nullable capability on a shared widget, check whether a
+`Local*` with a real default removes it.
+
+Do not confuse this with the framework's own `androidx.compose.ui.platform.LocalHapticFeedback`,
+which is already used for typed feedback (long-press during a drag). The two coexist: the
+framework one cannot express this project's cross-platform port, and the port cannot express a
+feedback *type*.
+
 ### The `UiEvent` contract
 
 `UiEvent` is the standard one-shot event channel between ViewModel and Screen. Every screen that needs to show a dialog / toast / navigate-back uses this — never a local `mutableStateOf<String?>(null)`.

@@ -15,5 +15,20 @@ interface Haptic {
     suspend fun perform()
 }
 
+/**
+ * The [Haptic] that does nothing.
+ *
+ * Lives in `commonMain` rather than in each actual because it is three things at once: the JVM
+ * implementation, the Android fallback when no vibrator is available, and the default for
+ * `com.singularity.todo.core.ui.LocalHaptic` — which is what makes previews and desktop
+ * previews work without a container. It was `private` in every actual, so nothing could share
+ * it and the default had to be faked at each call site.
+ */
+object NoOpHaptic : Haptic {
+    override suspend fun perform() {
+        // no-op — nothing to vibrate
+    }
+}
+
 /** Creates the platform-specific [Haptic] instance. */
 expect fun createHaptic(): Haptic

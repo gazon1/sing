@@ -16,16 +16,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import org.koin.compose.koinInject
 
 /**
  * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
@@ -40,16 +37,12 @@ fun TaskTitleRow(
     onCheckToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Guard: koinInject crashes in @Preview (no Koin app started). Skip when in preview mode.
-    val haptic = if (LocalInspectionMode.current) null else koinInject<Haptic>()
-
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Celebration(
             triggerKey = if (isCompleted) taskId else "",
-            haptic = haptic,
         ) {
             IconButton(onClick = onCheckToggle) {
                 Icon(

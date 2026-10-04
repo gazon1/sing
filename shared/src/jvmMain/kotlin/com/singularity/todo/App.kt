@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
+import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
@@ -77,6 +78,10 @@ private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeS
     SingularityTheme(darkTheme = darkTheme, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
+            // One provider for the whole tree, so shared components can pulse haptics without
+            // resolving the port — and without a preview guard. Default is NoOpHaptic, which is
+            // also what desktop binds, so this line changes nothing there.
+            LocalHaptic provides koinInject(),
         ) {
             AuthGuard(koinInject()) {
                 PlatformShell(state, navigator, navCallbacks)

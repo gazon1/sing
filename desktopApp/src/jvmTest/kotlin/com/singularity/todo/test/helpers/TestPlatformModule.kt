@@ -12,6 +12,8 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.SecureStoragePort
@@ -109,9 +111,17 @@ fun testPlatformModule(): Module = module {
     single<SharePort> { InertSharePort() }
     single<BackupCodec> { UnusedBackupCodec() }
     single<String> { tempRoot().resolve("backups").absolutePath }
-    // Mirrors PlatformModule.jvm.kt — TaskTitleRow / ChecklistItemRow inject it
-    // unconditionally, and a missing definition hangs the flow in failure capture.
+    // Mirrors PlatformModule.jvm.kt. Note the *reason* has changed: when TaskTitleRow and
+    // ChecklistItemRow resolved this through koinInject they needed it bound here, because
+    // koinInject throws in a preview. They now read LocalHaptic, whose default is NoOpHaptic,
+    // so nothing in the UI injects this any more — but the App root does, and a missing
+    // definition still hangs the flow in failure capture.
     single<Haptic> { createHaptic() }
+
+    // Same reason, same failure mode. AppTracer is Android-only, so the JVM port is inert;
+    // the definition still has to exist because the gate ViewModel resolves it in a binding
+    // that a flow test instantiates.
+    single<CrashReportingPort> { JvmCrashReportingPort() }
 
     // ─── Schedulers ─────────────────────────────────────────────────────────
     // NoopCalendarSyncRepository / NoopCalendarProvider are JVM-ready production

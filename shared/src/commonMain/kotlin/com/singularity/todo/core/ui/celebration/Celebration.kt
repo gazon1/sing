@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.ui.LocalHaptic
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -41,8 +43,11 @@ import kotlinx.coroutines.launch
  *        or an empty string `""` when not — the empty key never fires.
  * @param animationsEnabled Whether to play the scale + glow animation.
  * @param hapticsEnabled Whether to fire a haptic pulse on celebration.
- * @param haptic The [com.singularity.todo.core.platform.haptics.Haptic] platform capability.
- *        When `null` (e.g. JVM), haptics are silently skipped regardless of [hapticsEnabled].
+ * @param haptic The haptic capability to pulse. Defaults to
+ *        [com.singularity.todo.core.ui.LocalHaptic], which is a no-op in a preview and on
+ *        desktop — so callers do not pass one, and this parameter is only for a test that
+ *        needs to observe the pulse. It was `Haptic?` while callers resolved the port through
+ *        `koinInject` and had to guard for previews; see `LocalHaptic` for why that went away.
  * @param content The composable to wrap — the checkbox, button, or card being celebrated.
  */
 @Composable
@@ -50,7 +55,7 @@ fun Celebration(
     triggerKey: String,
     animationsEnabled: Boolean = true,
     hapticsEnabled: Boolean = true,
-    haptic: com.singularity.todo.core.platform.haptics.Haptic? = null,
+    haptic: Haptic = LocalHaptic.current,
     content: @Composable () -> Unit,
 ) {
     if (triggerKey.isBlank()) {
@@ -71,8 +76,9 @@ fun Celebration(
     LaunchedEffect(triggerKey) {
         if (triggerKey.isBlank()) return@LaunchedEffect
 
-        // Fire haptic immediately on trigger
-        if (hapticsEnabled && haptic != null) {
+        // Fire haptic immediately on trigger. The capability is never null: the default is
+        // NoOpHaptic, so "no vibrator here" is a no-op implementation, not a missing one.
+        if (hapticsEnabled) {
             scope.launch { haptic.perform() }
         }
 
