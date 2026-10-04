@@ -2788,3 +2788,53 @@ zero, then delete the baseline entry.
 
 Related: `autocorrect-touches-files-outside-the-change` — the same file is one of
 the five `--auto-correct` wanted to rewrite.
+
+---
+
+## an-untagged-test-class-is-invisible-to-a-tag-filtered-run
+
+**Found in:** 2026-10-04, on the first CI run of the verifiability branch — the
+run that finally executes `testAndroidHostTest`, which the old
+`-Ptest.tags=fast,slow` filter had meant never ran at all.
+
+**Tracked as:** #74 (fixed in the same branch); the open question below is the
+gate, not the test.
+
+**Symptom.** `ReadToolsProfileAwareTest` has five structurally identical tests, and
+which ones fail changes every run: 2 of 970 on a forced `main` run, 1 of 980 on
+this branch, a *different* one each time. A probe of the same scenario in
+isolation passes.
+
+**Root cause — a race the test had with itself, not a tool bug.** The tool
+correctly returned nothing. `ProfileAwareCurrentUser` seeds `scopedUserId`
+synchronously in its constructor, so the construction-time value is right. The
+race is one line later: `profiles.switchTo(...)` changes an upstream, and the only
+thing that propagates that into `scopedUserId` is a collector on the **injected
+scope**. The test injected `createBackgroundScope()` — `Dispatchers.Default` — so
+whether the tool's `scopedUserId.flatMapLatest { … }` read the profile-scoped value
+or the stale pre-switch one was a race. The task was stored under `profile/user`,
+the filter used `user`, and the result was `expected: <1> but was: <0>`.
+
+The class's own KDoc states the contract that was broken — *"In tests, inject a
+`TestScope` or `backgroundScope`"* — and the test carried a comment justifying the
+violation on a premise that is false: the tools under test **do** subscribe.
+
+**The finding that outlives the fix.** The class carries **no `@Tag`**. A
+tag-filtered run skips an untagged class silently, and nothing records the
+omission. `TestTagsWiringTest` verifies that every *tag* is applied by a
+composable; it does not verify that every test class carries one. So the class
+could be arbitrarily broken — as it was — for as long as nobody added a tag.
+
+**Try next — the open question.** Should an untagged test class fail a gate?
+
+A class with no tag is not a test that is deliberately deferred; it is a test that
+is *unrunnable* in a tag-filtered build, and the difference is invisible from the
+source. If tag filtering is going away, the question is moot. If it stays for the
+slow suite, an untagged class is a hole with no marker.
+
+Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
+`kover-report` job was **red on `main`** for this reason. A job that is red for a
+reason nobody reads is the same failure as a gate that is green for a reason nobody
+checks.
+
+
