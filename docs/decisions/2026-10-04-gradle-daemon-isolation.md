@@ -124,9 +124,35 @@ Two things that look like solutions and are not:
   accepted: it is a lock wait, not a corrupted cache or a killed build.
 - CI is unaffected — it has one checkout, one build, and a fresh runner.
 
+## One more shared-config trap: the hooks path
+
+Found while verifying the above, and the same shape of failure. `core.hooksPath`
+is read by Git before any hook runs, so a hook cannot correct its own path — and
+a wrong one is silent. This repository carried a single absolute
+`core.hooksPath` in its shared config, so all 38 worktrees executed the hooks of
+one checkout: `post-merge` regenerated that checkout's `DIGEST.md` after a merge
+performed elsewhere, and `pre-commit` compiled that checkout's sources. Nothing
+errored.
+
+The global fix is `core.hooksPath = .githooks`, which Git resolves relative to
+each worktree. It is deliberately **not** applied: 7 of the 38 worktrees sit on
+branches that predate the `.githooks` directory, and flipping the shared value
+would leave them with no hooks at all — one silent misdirection traded for a
+larger silent absence. Measured (`git worktree list` plus a `.githooks`
+existence check per worktree), not guessed.
+
+`scripts/setup-worktree.sh` therefore sets the value through the worktree-scoped
+config (`extensions.worktreeConfig` + `git config --worktree`), which overrides
+the shared value for one worktree and touches nothing else. Verified: after
+running it in one worktree, `git rev-parse --git-path hooks` returns `.githooks`
+there and `.git/hooks` in a sibling worktree of the same clone, and
+`GIT_TRACE=1` shows `.githooks/post-checkout` executing from the right directory.
+
 # Links
 
 - `gw` — the wrapper, with the recipe and the don't-do-this list in its header
+- `scripts/setup-gradle-home.sh` — the home setup, shared by `gw` and the hook
+- `scripts/setup-worktree.sh` — per-worktree hooks path plus the Gradle home
 - `.envrc` — the same isolation for `direnv` users
 - `docs/decisions/2026-10-04-configuration-cache-hardening.md` — the project-local
   configuration-cache store, a different problem
