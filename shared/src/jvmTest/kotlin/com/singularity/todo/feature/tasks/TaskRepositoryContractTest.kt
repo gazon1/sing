@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -273,16 +274,28 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // `Room.inMemoryDatabaseBuilder<T>()`, which is a JVM-only API — unreachable from
     // the commonMain `AppDatabaseFactory`. A temp file exercises the production path
     // end to end, including `applyOnceToFile` (WAL) and the registered migrations.
-    private val tempDir: File by lazy {
+    private val tempDirLazy = lazy {
         Files.createTempDirectory("singularity-task-contract-").toFile()
-            .also { it.deleteOnExit() }
     }
+    private val tempDir: File by tempDirLazy
 
-    private val db: AppDatabase by lazy {
+    private val dbLazy = lazy {
         AppDatabaseFactory.build(
             driver = createSqlDriver(),
             dbPath = File(tempDir, "tasks.db").absolutePath,
         )
+    }
+    private val db: AppDatabase by dbLazy
+
+    // A @AfterTest rather than deleteOnExit: the database holds a SQLite file
+    // handle, so closing it is part of cleaning up, and deleteOnExit only runs
+    // on a clean JVM shutdown — which is exactly what a forked test worker with
+    // a crash is not. Checking the lazy delegates means a class whose body never
+    // ran is not charged for creating a database just to close it.
+    @AfterTest
+    fun tearDown() {
+        if (dbLazy.isInitialized()) db.close()
+        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
     override suspend fun newRepository(userId: UserId): TaskRepository {
