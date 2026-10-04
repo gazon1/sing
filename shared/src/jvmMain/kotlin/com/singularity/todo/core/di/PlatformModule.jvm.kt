@@ -29,8 +29,9 @@ import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
-import com.singularity.todo.core.sync.JvmSyncScheduler
-import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
+import com.singularity.todo.core.sync.SyncCoordinator
+import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
@@ -171,8 +172,15 @@ actual fun platformModule(): Module = module {
 
     // ─── Sync Scheduler ─────────────────────────────────────────────────
 
-    // Legacy scheduler (used by SyncRunner push loop)
-    single<SyncScheduler> { JvmSyncScheduler() }
+    // Periodic sync on the JVM: a delay loop. The desktop has no background job
+    // scheduler, and this is the trigger that actually runs — the previous type test
+    // (`scheduler is NoOpSyncScheduler`) never selected it on the JVM binding.
+    single<SyncPeriodicTrigger> {
+        DelayLoopSyncPeriodicTrigger(
+            request = { get<SyncCoordinator>().request() },
+            scope = get(),
+        )
+    }
 
     // WorkManager scheduler — JVM no-op stub (sync is not supported on desktop).
     single<SyncWorkScheduler> { NoopSyncWorkScheduler() }

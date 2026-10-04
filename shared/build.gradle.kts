@@ -389,6 +389,16 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "maestro.root",
         layout.projectDirectory.dir("../Maestro").asFile.absolutePath,
     )
+    // SyncPeriodicTriggerWiringTest reads the androidMain and jvmMain platform
+    // modules. Same staleness hazard as above: edit a platform module, leave
+    // :shared:jvmTest UP-TO-DATE, and the gate re-reports a verdict about the
+    // binding it was supposed to have caught missing.
+    inputs.dir(layout.projectDirectory.dir("src/androidMain/kotlin"))
+        .withPropertyName("androidMainSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(layout.projectDirectory.dir("src/jvmMain/kotlin"))
+        .withPropertyName("jvmMainSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Scan roots for ViewModelTestCoverageTest: it matches a production ViewModel
     // against the test classes that mention it, so it needs the commonTest and
     // jvmTest trees as well as commonMain. Absent properties make its top-level
@@ -401,6 +411,23 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     systemProperty(
         "jvmTest.root",
         layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
+    )
+    // Per-platform source roots for SyncPeriodicTriggerWiringTest, which checks that
+    // each platform module binds exactly one SyncPeriodicTrigger.
+    //
+    // Narrower than a single repo-root property on purpose. A property pointing at the
+    // worktree root would satisfy check-test-task-inputs.py only by declaring the whole
+    // repository as an input of :shared:jvmTest — which makes the task re-run on a
+    // change to any file anywhere, and re-introduces at module scale the staleness that
+    // gate exists to prevent. These two paths are inside :shared, so the trees they
+    // name are declared as inputs above and nothing else is dragged in.
+    systemProperty(
+        "androidMain.root",
+        layout.projectDirectory.dir("src/androidMain/kotlin").asFile.absolutePath,
+    )
+    systemProperty(
+        "jvmMain.root",
+        layout.projectDirectory.dir("src/jvmMain/kotlin").asFile.absolutePath,
     )
     // Enable TAGS.md golden regeneration:
     //   ./gradlew :shared:jvmTest -PupdateGoldens=true

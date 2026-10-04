@@ -31,8 +31,8 @@ import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.security.AndroidSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
-import com.singularity.todo.core.sync.AndroidSyncScheduler
-import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.AndroidSyncPeriodicTrigger
+import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
@@ -215,8 +215,8 @@ actual fun platformModule(): Module = module {
 
     // ─── Sync Scheduler ─────────────────────────────────────────────────
 
-    // Legacy scheduler (used by SyncRunner push loop)
-    single<SyncScheduler> { AndroidSyncScheduler(get()) }
+    // Periodic sync on Android: WorkManager periodic work.
+    single<SyncPeriodicTrigger> { AndroidSyncPeriodicTrigger(get()) }
 
     // WorkManager scheduler (reacts to auth session changes, survives process death)
     single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }

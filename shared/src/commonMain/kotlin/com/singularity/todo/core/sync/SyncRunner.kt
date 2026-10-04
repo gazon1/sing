@@ -6,30 +6,25 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 
 /**
- * Orchestrates the polling loop for sync.
- *
- * Implements Orgzly's "global sync button" pattern: a single scheduled job
- * that drives [SyncEngine.syncOnce] periodically when signed in.
+ * Owns the lifecycle of periodic sync: start it when a session appears, stop it when
+ * the session goes away, and route every cycle through [SyncCoordinator].
  *
  * This class is [internal] — constructed in the sync Koin module and hidden
  * from feature modules behind [SyncRepository].
  *
- * Scheduling strategy:
- * - **Android**: [SyncScheduler.schedule] calls [AlarmManager][android.app.AlarmManager]
- *   `setInexactRepeating` → [SyncAlarmReceiver] → [SyncRepository.syncOnce].
- *   The [SyncRunner] loop is NOT started on Android.
- * - **JVM**:   No [AlarmManager] equivalent. [SyncRunner] owns a [delay] loop instead,
- *   and [SyncScheduler] is a [NoOpSyncScheduler].
+ * "When to fire" belongs to a [SyncPeriodicTrigger], which is a per-platform binding.
+ * This class does not know which platform it is on, and neither does anything else
+ * in the sync core: the previous version asked `scheduler is NoOpSyncScheduler` and
+ * that question was answered wrongly on desktop for the entire life of the feature.
  */
 internal class SyncRunner(
     private val engine: SyncEngine,
-    private val scheduler: SyncScheduler,
+    private val coordinator: SyncCoordinator,
+    private val periodicTrigger: SyncPeriodicTrigger,
     private val authRepository: AuthRepository,
     private val prefs: SyncPrefs,
     scope: AutoCloseableCoroutineScope,
@@ -65,27 +60,24 @@ internal class SyncRunner(
     }
 
     /**
-     * Starts periodic [syncOnce] at the given [interval].
+     * Starts periodic [SyncCoordinator.request] at the given [interval].
      *
-     * On Android: delegates to [SyncScheduler] which arms [AlarmManager].
-     * On JVM:   launches a daemon [delay] loop in [SyncRunner].
+     * The periodic trigger is a platform concern, so it is delegated to
+     * [periodicTrigger] rather than sniffed from the scheduler's type. A type test
+     * is the wrong tool twice over: it makes the *bindings* decide behaviour, and
+     * it is wrong in a way that fails silently.
+     *
+     * The previous version asked `scheduler is NoOpSyncScheduler` and ran the delay
+     * loop on that answer. The JVM module binds [JvmSyncScheduler], not
+     * [NoOpSyncScheduler] — see `PlatformModule.jvm.kt` — so the test was always
+     * false on desktop, the loop was never created, and `startScheduledSync` reduced
+     * to a log line inside a no-op. Desktop auto-sync had never run. A comment in
+     * this file asserted the opposite for as long as that bug existed.
      */
     fun startScheduledSync(interval: Duration) {
         scheduledJob?.cancel()
-
-        // On Android, AlarmManager drives the sync — SyncScheduler.schedule() is non-blocking.
-        // On JVM, we run our own delay loop since there's no AlarmManager.
         scheduledJob = scopeRef.launch {
-            if (scheduler is NoOpSyncScheduler) {
-                // JVM path: own the delay loop
-                while (scopeRef.isActive) {
-                    syncOnce()
-                    delay(interval)
-                }
-            } else {
-                // Android path: AlarmManager drives sync via broadcast
-                scheduler.schedule(interval)
-            }
+            periodicTrigger.start(interval)
         }
         log.d { "Scheduled sync started (interval=$interval)" }
     }
@@ -96,18 +88,23 @@ internal class SyncRunner(
     fun stopScheduledSync() {
         scheduledJob?.cancel()
         scheduledJob = null
-        scheduler.cancel()
+        periodicTrigger.stop()
         log.d { "Scheduled sync stopped" }
     }
 
     /**
      * Runs one push + pull cycle if the user is signed in.
+     *
+     * Goes through [SyncCoordinator], not straight to the engine. Calling the engine
+     * directly — as this did — was a second, unguarded path to the cycle: the
+     * desktop delay loop could run a cycle concurrently with one started from the
+     * settings screen, and the repository's coalescing guard could not see it.
      */
     suspend fun syncOnce() {
         if (authRepository.currentSession.value !is Session.SignedIn) {
             log.d { "syncOnce skipped: not signed in" }
             return
         }
-        engine.syncOnce()
+        coordinator.request()
     }
 }

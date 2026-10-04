@@ -5,71 +5,79 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.sync.PushSummary
+import com.singularity.todo.core.sync.SyncOutcome
+import com.singularity.todo.core.sync.SyncRepository
 import kotlinx.coroutines.CancellationException
-import com.singularity.todo.core.sync.SyncEngine
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 /**
- * WorkManager worker that runs [SyncEngine.push] in the background.
+ * WorkManager worker that runs one full sync cycle — push **and** pull — in the
+ * background.
  *
  * Constraints:
  * - `setRequiresBatteryNotLow(true)` — don't run when battery is critical
- * - No network constraint — push handles its own auth/session checks internally
+ * - No network constraint — the cycle handles its own auth/session checks internally
  *
- * Retry policy: exponential back-off, max 4 attempts (matches existing outbox
- * `markFailed` approach). On the 5th failure the work is marked `BLOCKED`
- * and won't retry automatically; a subsequent `enqueuePush()` call from
- * `SyncEngine.enqueue()` will restart it.
+ * The worker goes through [SyncRepository], not straight to the engine, so a
+ * background cycle and a foreground one are the same cycle as far as coalescing is
+ * concerned. A worker that called the engine directly would be a second unguarded
+ * path to the cycle, which is how the desktop delay loop used to run alongside a
+ * user-initiated sync.
+ *
+ * Retry policy: exponential back-off for transport failures, up to [MAX_ATTEMPTS].
+ * A patch-level failure is the outbox's business and is retried with its own backoff
+ * there, so it is not turned into a job-level retry here.
+ *
+ * Every escape route reports to [CrashReportingPort]. A worker that fails silently
+ * looks exactly like a worker that never ran, and the only evidence of either is a
+ * log line nobody is watching at three in the morning.
  */
 class SyncOutboxWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
     KoinComponent {
 
-    private val syncEngine: SyncEngine by inject()
-    private val log = Logger.withTag("SyncOutboxWorker")
+    private val syncRepository: SyncRepository by inject()
     private val crashReporter: CrashReportingPort by inject()
+    private val log = Logger.withTag("SyncOutboxWorker")
 
     override suspend fun doWork(): Result = try {
-        val pushResult = syncEngine.push()
-        pushResult.fold(
-            onSuccess = { summary: PushSummary ->
+        when (val outcome = syncRepository.syncOnce()) {
+            is SyncOutcome.Success -> {
+                val push = outcome.push.getOrNull()
                 log.d {
-                    "Push completed: processed=${summary.processed}, succeeded=${summary.succeeded}, failed=${summary.failed}"
+                    "Sync cycle: push processed=${push?.processed}, " +
+                        "succeeded=${push?.succeeded}, failed=${push?.failed}"
                 }
-                when {
-                    // Terminal failures — don't retry
-                    summary.processed == 0 && summary.failed > 0 -> Result.failure()
-
-                    // Partial success or retriable errors — retry with back-off
-                    else -> Result.success()
-                }
-            },
-            onFailure = { e ->
-                log.e(e) { "Push work failed" }
-                crashReporter.report(e, "sync.worker_failed")
-                if (runAttemptCount < MAX_ATTEMPTS) {
-                    Result.retry()
+                if (outcome.push.isFailure || outcome.pull.isFailure) {
+                    retryOrFail()
                 } else {
-                    Result.failure()
+                    Result.success()
                 }
-            },
-        )
+            }
+
+            is SyncOutcome.Skipped -> {
+                // Absorbed into another cycle, or the coordinator is closed.
+                // Retrying is right for the former; for the latter a retry would
+                // spin, and the runAttemptCount cap stops it.
+                log.d { "Sync cycle skipped: ${outcome.reason}" }
+                retryOrFail()
+            }
+        }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        log.e(e) { "Push work failed" }
+        log.e(e) { "Sync work failed" }
         crashReporter.report(e, "sync.worker_failed")
-        if (runAttemptCount < MAX_ATTEMPTS) {
-            Result.retry()
-        } else {
-            Result.failure()
-        }
+        retryOrFail()
     }
+
+    private fun retryOrFail(): Result =
+        if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
 
     companion object {
         const val WORK_NAME = "sync_outbox_push"
+        const val PERIODIC_WORK_NAME = "sync_periodic"
         private const val MAX_ATTEMPTS = 4
     }
 }

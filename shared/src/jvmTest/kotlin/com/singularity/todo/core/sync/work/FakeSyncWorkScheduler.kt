@@ -1,7 +1,5 @@
 package com.singularity.todo.core.sync.work
 
-import com.singularity.todo.core.sync.work.SyncWorkScheduler
-
 /**
  * In-memory fake for [SyncWorkScheduler] — records calls for assertions in tests.
  * Does not actually schedule any background work.
@@ -20,6 +18,12 @@ class FakeSyncWorkScheduler : SyncWorkScheduler {
     var cancelPushCalled: Boolean = false
         private set
 
+    /** Intervals passed to [enqueuePeriodic], in order. */
+    val periodicIntervals = mutableListOf<Long>()
+
+    var cancelPeriodicCalled: Boolean = false
+        private set
+
     override fun enqueuePush() {
         enqueuePushCalled = true
         _enqueueCalls.add(Unit)
@@ -30,10 +34,20 @@ class FakeSyncWorkScheduler : SyncWorkScheduler {
         _cancelCalls.add(Unit)
     }
 
+    override fun enqueuePeriodic(intervalMillis: Long) {
+        periodicIntervals += intervalMillis
+    }
+
+    override fun cancelPeriodic() {
+        cancelPeriodicCalled = true
+    }
+
     fun reset() {
         enqueuePushCalled = false
         cancelPushCalled = false
         _enqueueCalls.clear()
         _cancelCalls.clear()
+        periodicIntervals.clear()
+        cancelPeriodicCalled = false
     }
 }

@@ -40,6 +40,7 @@ import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncBootstrapper
+import com.singularity.todo.core.sync.SyncCoordinator
 import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
@@ -158,11 +159,24 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
+    // Single owner of the sync cycle. Every trigger — periodic, user-initiated,
+    // WorkManager — requests through it, so two cycles cannot overlap.
+    //
+    // The engine is resolved to a local rather than looked up inside the lambda:
+    // a `get()` nested in a lambda argument is outside what the Koin compiler
+    // plugin can verify, and an unverifiable graph is exactly the state this
+    // project refuses to build with.
+    single {
+        val engine = get<SyncEngine>()
+        SyncCoordinator(runCycle = { engine.syncOnce() }, scope = get())
+    }
+
     // SyncRunner is internal.
     single {
         SyncRunner(
             engine = get(),
-            scheduler = get(),
+            coordinator = get(),
+            periodicTrigger = get(),
             authRepository = get(),
             prefs = get(),
             scope = get(),
@@ -174,10 +188,10 @@ fun coreModule(): org.koin.core.module.Module = module {
         SyncRepositoryImpl(
             engine = get(),
             runner = get(),
+            coordinator = get(),
             prefs = get(),
             api = get(),
             authRepository = get(),
-            scope = get(),
         )
     }
 

@@ -2,6 +2,8 @@ package com.singularity.todo.test
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
@@ -23,8 +25,8 @@ import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.core.sync.JvmSyncScheduler
-import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
+import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
@@ -136,7 +138,9 @@ class KoinGraphValidationTest {
         single<ReminderScheduler> { JvmReminderScheduler() }
 
         // ─── Sync (disabled on desktop) ────────────────────────────────
-        single<SyncScheduler> { JvmSyncScheduler() }
+        single<SyncPeriodicTrigger> {
+            DelayLoopSyncPeriodicTrigger(request = { }, scope = CoroutineScope(Dispatchers.Unconfined))
+        }
         single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
         single<CalendarSyncRepository> { NoopCalendarSyncRepositoryImpl() }
         single<CalendarProviderPort> { NoopCalendarProvider() }
@@ -167,7 +171,7 @@ class KoinGraphValidationTest {
             // Key singletons that are the most failure-prone.
             // If these resolve, the graph is healthy for the desktop app.
             assertNotNull(app.koin.get<RemoteConfigPort>())
-            assertNotNull(app.koin.get<SyncScheduler>())
+            assertNotNull(app.koin.get<SyncPeriodicTrigger>())
             assertNotNull(app.koin.get<SyncWorkScheduler>())
             assertNotNull(app.koin.get<CalendarSyncRepository>())
         } finally {
