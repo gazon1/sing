@@ -1,9 +1,15 @@
 ---
 title: Post-MR-4 findings — Repository naming and package convention
 date: 2026-09-30
-status: open
+status: archived
 tags: [mr-post-review, repository, tech-debt]
 ---
+
+**Archived 2026-10-05.** This is a post-MR-4 findings list, not an architectural
+decision. It left the decision corpus because its content is inventory
+that nothing will migrate into a spec, and keeping it in `docs/decisions/`
+made findings files look like decisions with pending status.
+
 
 # Post-MR-4 findings — Repository naming and package convention
 

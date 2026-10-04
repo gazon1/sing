@@ -55,17 +55,9 @@ jobs:
       - name: Refresh DIGEST
         run: python3 scripts/refresh-decisions-digest.py
 
-      - name: Check for stale open/deferred ADRs
-        run: |
-          set -uo pipefail
-          STALE=$(find docs/decisions -maxdepth 1 -name "*.md" -newer docs/doc-maintenance.md \
-                  -exec grep -l "^status: open$\|^status: deferred$" {} \; 2>/dev/null || true)
-          if [ -n "$STALE" ]; then
-            echo "::error::open/deferred ADRs older than doc-maintenance.md (rule 3: none older than 30 days):"
-            echo "$STALE" | sed 's/^/  /'
-            exit 1
-          fi
-          echo "No stale open/deferred ADRs."
+      # The stale open/deferred ADR rule used to live here as an inline find+grep that
+      # only warned. It is now scripts/check_adr_status.py, which enforces the status
+      # vocabulary and the superseded-by chains as well, and fails.
 
       - name: Verify DIGEST has no double-suffix bugs
         run: |
@@ -102,6 +94,9 @@ jobs:
 
       - name: Dangling ADR references
         run: python3 scripts/check-adr-references.py
+
+      - name: ADR status policy
+        run: python3 scripts/check_adr_status.py
 
       - name: Custom detekt rule registrations
         run: ./scripts/check-detekt-registrations.sh

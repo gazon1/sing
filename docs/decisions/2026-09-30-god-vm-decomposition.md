@@ -1,7 +1,7 @@
 ---
 title: MR-5 God-VM Decomposition
 date: 2026-09-30
-status: open
+status: accepted
 tags: [mr, vm, long-method, tech-debt]
 ---
 
@@ -50,3 +50,13 @@ Extract each `when` branch of `resolveCondition` into a dedicated private method
 
 - `./check.sh` — **PASS**
 - `resolveCondition` reduced from 155 lines to ~40 lines
+
+## Resolution (accepted)
+
+Resolved 2026-10-05: the extraction landed.
+
+Verified: `DefaultSearchQueryResolver` no longer exists; search query resolution is now
+`feature/search/query/SearchQueryResolver.kt`, declared as interfaces (`SearchQueryResolver`,
+`TagLookup`, `ProjectLookup`) with the lookup collaborators split out rather than resolved
+inside a single VM. `AgendaViewModel.kt` is 129 lines, consistent with the coordinator
+shape this ADR set as the target.

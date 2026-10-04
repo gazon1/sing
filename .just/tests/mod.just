@@ -171,6 +171,9 @@ docs-audit:
     echo "=== Dangling ADR references (slugs that no longer resolve) ==="
     python3 scripts/check-adr-references.py || status=1
     echo ""
+    echo "=== ADR status policy (vocabulary, supersede chains, stale open) ==="
+    python3 scripts/check_adr_status.py || status=1
+    echo ""
     echo "=== ADR frontmatter normalization (dry run) ==="
     ./scripts/normalize-adr-frontmatter.sh --dry-run || status=1
     echo ""

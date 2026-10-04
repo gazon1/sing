@@ -94,5 +94,32 @@ class CorpusTest(unittest.TestCase):
         self.assertEqual(new, [], f'{len(new)} unbaselined dangling ref(s): {new[:5]}')
 
 
+    def test_baseline_keys_are_line_independent(self):
+        """A baselined reference must stay baselined when an unrelated line shifts.
+
+        A line-keyed baseline turns any edit above a cited token into a spurious
+        failure. On 2026-10-05 a single status-normalization shifted one line and the
+        gate went red for a reference that had not changed.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            d = root / 'docs' / 'decisions'
+            d.mkdir(parents=True)
+            (d / '2026-01-01-real.md').write_text('x')
+            doc = root / 'AGENTS.md'
+            saved = (mod.DECISIONS_DIR, mod.ROOT, mod.SCAN_FILES, mod.SCAN_GLOBS)
+            mod.DECISIONS_DIR, mod.ROOT = d, root
+            mod.SCAN_FILES, mod.SCAN_GLOBS = [doc], []
+            try:
+                doc.write_text('line one\nsee 2026-01-02-missing-adr for detail\n')
+                before = mod.find_dangling(mod.existing_slugs())
+                doc.write_text('a\nb\nc\nd\nsee 2026-01-02-missing-adr for detail\n')
+                after = mod.find_dangling(mod.existing_slugs())
+            finally:
+                mod.DECISIONS_DIR, mod.ROOT, mod.SCAN_FILES, mod.SCAN_GLOBS = saved
+        self.assertEqual(before, after, 'finding changed when only line numbers shifted')
+        self.assertEqual(before, ['AGENTS.md:2026-01-02-missing-adr'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

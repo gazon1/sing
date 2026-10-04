@@ -84,21 +84,40 @@ def iter_sources() -> list[pathlib.Path]:
 
 
 def find_dangling(slugs: set[str]) -> list[str]:
-    """Return 'file:line:token' for every dated-ADR token with no matching file."""
+    """Return 'file:token' for every dated-ADR token with no matching file.
+
+    Deliberately not keyed by line number. A line-keyed baseline breaks the moment an
+    unrelated edit shifts a line, which turns a baselined exception into a spurious
+    failure — the gate then gets ignored rather than fixed. A token reference is a
+    property of the sentence, not of its position.
+    """
     dangling: list[str] = []
     for path in iter_sources():
         try:
             text = path.read_text()
+            rel = path.relative_to(ROOT)
         except (UnicodeDecodeError, OSError):
+            # Unreadable file: nothing to scan, and not a finding.
             continue
-        for lineno, line in enumerate(text.splitlines(), start=1):
+        except ValueError:
+            # A scanned path outside ROOT would make relative_to raise. Report it
+            # rather than swallowing it, which previously made the gate silently
+            # return zero findings for any ROOT/source mismatch.
+            print(f'ERROR: {path} is outside ROOT ({ROOT}); fix SCAN_FILES/SCAN_GLOBS',
+                  file=sys.stderr)
+            continue
+        seen: set[str] = set()
+        for line in text.splitlines():
             for match in TOKEN_RE.finditer(line):
                 token = match.group(1)
                 # Tolerate an explicit .md suffix and a docs/decisions/ prefix.
                 token = token.removesuffix('.md')
                 if token in slugs:
                     continue
-                dangling.append(f'{path.relative_to(ROOT)}:{lineno}:{token}')
+                key = f'{rel}:{token}'
+                if key not in seen:
+                    seen.add(key)
+                    dangling.append(key)
     return sorted(dangling)
 
 
@@ -119,7 +138,7 @@ def main() -> None:
         header = (
             '# Accepted dangling ADR references.\n'
             '#\n'
-            '# Each line is <file>:<line>:<token>. A token is a dated ADR slug that no\n'
+            '# Each line is <file>:<token>. A token is a dated ADR slug that no\n'
             '# longer resolves to a file in docs/decisions/ (or its archive/).\n'
             '#\n'
             '# Seeded at 2026-10-05 with the pre-existing set, so the gate starts green\n'
@@ -156,7 +175,7 @@ def main() -> None:
         print(f'check_adr_references.py: {len(new)} dangling ADR reference(s) '
               f'({len(dangling) - len(new)} baselined)')
         print('Fix: repoint the reference at the current slug, or drop it. If it is a '
-              'legitimate exception, add the exact "<file>:<line>:<token>" line to '
+              'legitimate exception, add the exact "<file>:<token>" line to '
               f'{baseline_path.relative_to(ROOT)}.')
         sys.exit(1)
 

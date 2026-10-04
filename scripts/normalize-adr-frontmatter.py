@@ -32,7 +32,7 @@ KNOWN_KEYS = frozenset({
     'deciders', 'decider', 'authors', 'author', 'reviewedBy', 'owner', 'profile',
     'epic', 'description', 'summary', 'id', 'slug', 'type', 'impact', 'review',
     'supersedes', 'superseded-by', 'superseded_by', 'doesNotSupersede', 'replaces',
-    'follows', 'decides', 'adr', 'adr-number', 'end-date', 'labels',
+    'follows', 'decides', 'adr', 'adr-number', 'end-date', 'labels', 'status-was',
     'issuesRelated', 'related', 'references', 'skills', 'context', 'Context',
     'Decision', 'Rationale', 'Consequences', 'Links', 'deprecated-by',
 })

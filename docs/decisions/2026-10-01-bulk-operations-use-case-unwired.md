@@ -1,6 +1,7 @@
 ---
 title: Bulk Operations Use Case — Unwired in ViewModel
-status: pending
+status: deferred
+status-was: pending  # non-vocabulary value, normalized 2026-10-05
 deciders: product owner
 impact: medium
 date: 2026-10-01

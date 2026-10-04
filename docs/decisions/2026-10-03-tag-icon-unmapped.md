@@ -1,7 +1,8 @@
 ---
 title: "Tag.icon — no such column exists"
 date: 2026-10-03
-status: closed-wontdo
+status: accepted
+status-was: closed-wontdo  # non-vocabulary value, normalized 2026-10-05
 tags: [database, tags, migration]
 ---
 

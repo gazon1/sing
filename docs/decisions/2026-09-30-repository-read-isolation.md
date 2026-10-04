@@ -1,7 +1,7 @@
 ---
 title: "MR-2 Repository Read-Path Isolation"
 date: 2026-09-30
-status: open
+status: accepted
 tags: [mr, architecture, repository]
 ---
 
@@ -36,3 +36,11 @@ Both cross-ref tables (`task_dependencies`) have no `user_id` column of their ow
 - `TaskRepositoryImpl` now correctly scopes dependency reads to the current user
 - New Konsist rule will catch future unscoped reads at PR level
 - `getBlockingTaskIdsForUser` required a new DAO method (schema unchanged — Room migration not needed, the cross-ref table has no userId column)
+
+## Resolution (accepted)
+
+Resolved 2026-10-05: the Konsist rule landed and is live.
+
+Verified: `arch/ArchitectureTest.kt:354` declares `repository read methods are user-scoped`
+— the rule named in this ADR's Decision section, with the allowlist this ADR specified.
+It runs in `:shared:jvmTest`, which passes.

@@ -1,8 +1,14 @@
 ---
 title: R21: Notes Clean Architecture — deferred
 date: 2026-09-26
-status: deferred
+status: archived
 ---
+
+**Archived 2026-10-05.** This is a R21 notes refactor inventory, not an architectural
+decision. It left the decision corpus because its content is inventory
+that nothing will migrate into a spec, and keeping it in `docs/decisions/`
+made findings files look like decisions with pending status.
+
 
 # R21: Notes Clean Architecture — deferred
 

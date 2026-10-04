@@ -1,7 +1,8 @@
 ---
 title: Note Proposal UI Path — How to Add Proposals to New Surfaces
 date: 2026-10-04
-status: draft
+status: deferred
+status-was: draft  # non-vocabulary value, normalized 2026-10-05
 deciders: 
 deciders: 
 ---

@@ -2,8 +2,14 @@
 title: "Remaining tech debt — post-v4 audit"
 date: 2026-10-01
 tags: [tech-debt, architecture, audit]
-status: open
+status: archived
 ---
+
+**Archived 2026-10-05.** This is a post-v4 tech-debt inventory, not an architectural
+decision. It left the decision corpus because its content is inventory
+that nothing will migrate into a spec, and keeping it in `docs/decisions/`
+made findings files look like decisions with pending status.
+
 
 # Remaining tech debt — post-v4 audit
 

@@ -1,12 +1,18 @@
 ---
 title: Remaining Test Debt — post JUnit/suite-acceleration audit
-status: open
+status: archived
 date: 2026-09-25
 authors: ZCode Agent
 deciders: Singularity Developer
 tags: [testing, junit, detekt, epic2]
 epic: refactor/test-suite-acceleration
 ---
+
+**Archived 2026-10-05.** This is a test-debt inventory (post suite-acceleration audit), not an architectural
+decision. It left the decision corpus because its content is inventory
+that nothing will migrate into a spec, and keeping it in `docs/decisions/`
+made findings files look like decisions with pending status.
+
 
 # Remaining Test Debt
 

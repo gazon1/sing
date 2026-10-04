@@ -47,6 +47,8 @@ superseded-by: YYYY-MM-DD-slug  # optional
 
 ### Status values
 
+Exactly these four. No ad-hoc values.
+
 | Status | Meaning |
 |---|---|
 | `accepted` | Decision is implemented and current |
@@ -54,12 +56,22 @@ superseded-by: YYYY-MM-DD-slug  # optional
 | `superseded` | Replaced by another ADR; must have `superseded-by` |
 | `open` | Under active discussion or implementation — avoid new `open` ADRs |
 
+`archived` is a fifth value, used only for files under `docs/decisions/archive/`. It marks
+a document that was never an architectural decision (a retro, audit, findings list or
+triage list) and therefore has no status to resolve.
+
+`status-was:` records the value an ADR carried before normalization, so a nuance like
+"won't do" or "draft" is not lost when the value is mapped onto the vocabulary. On
+2026-10-05, 13 ADRs using ad-hoc statuses (`noted`, `resolved`, `closed`,
+`closed-wontdo`, `proposed`, `pending`, `draft`) were normalized this way.
+
 ### Rules
 
 1. **Single source of truth**: DIGEST.md is auto-generated. Never edit it by hand — run `scripts/refresh-decisions-digest.py`
 2. **No orphaned `superseded-by`**: If an ADR has `superseded-by`, the target ADR must exist
-3. **No `open` ADRs older than 30 days**: If `open`, either resolve or defer it
-4. **All ADRs must have `status:`**: Run `scripts/normalize-adr-frontmatter.sh --dry-run` to check
+3. **No `open` ADRs older than 30 days**: If `open`, either resolve it to `accepted` or move it to `deferred` with a revisit trigger. Enforced by `docs-audit.yml`.
+4. **All ADRs must have `status:`** from the vocabulary above: Run `scripts/normalize-adr-frontmatter.sh --dry-run` to check
+5. **Deleting or moving an ADR requires the reference gate**: run `python3 scripts/check-adr-references.py` first. A dated-ADR slug cited in prose carries no path, so `check-doc-dead-refs.py` cannot see it.
 
 ---
 

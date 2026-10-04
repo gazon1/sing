@@ -1,7 +1,8 @@
 ---
 title: Emulator crash on Renoir — Mesa 25.3.6 + kernel 6.17 regression
 date: 2026-09-28
-status: resolved
+status: accepted
+status-was: resolved  # non-vocabulary value, normalized 2026-10-05
 ---
 
 # Emulator crash on Renoir — Mesa 25.3.6 + kernel 6.17 regression

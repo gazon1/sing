@@ -1,7 +1,8 @@
 ---
 title: "Эмулятор падает с SIGSEGV в gfxstream при создании ColorBuffer (триггер — soft IME)"
 date: 2026-09-28
-status: resolved
+status: accepted
+status-was: resolved  # non-vocabulary value, normalized 2026-10-05
 ---
 
 > **Control run added (2026-09-29).** The IME mitigation below is **insufficient** and

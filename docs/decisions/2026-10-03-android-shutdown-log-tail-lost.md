@@ -2,7 +2,7 @@
 title: "Android log tail may be lost — beginShutdown never called"
 date: 2026-10-03
 tags: [logging, android, deferred]
-status: open
+status: deferred
 ---
 
 ## Context
@@ -36,3 +36,14 @@ Alternative: expose the log directory path via a `LogDirectoryProvider` port, al
 - `core/log/LogBootstrap.android.kt`
 - `core/log/LogBundleExporter.kt`
 - `deferred-backlog.md`: `android-log-shutdown-drain`
+
+## Resolution (deferred)
+
+Confirmed deferred 2026-10-05; revisit trigger recorded.
+
+Verified still outstanding: `FileLogWriter.beginShutdown` is defined
+(`core/log/FileLogWriter.kt:78`) and is called on JVM via a shutdown hook
+(`core/log/LogBootstrap.kt:14`), but no Android-side caller exists — `beginShutdown`
+appears in no `androidApp` source file. The log tail can therefore still be lost on Android.
+Revisit when log export lands, since the fix depends on the same wiring
+(`LogBundleExporter` injection ordering). Tracked in `deferred-backlog.md`.

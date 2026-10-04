@@ -1,7 +1,7 @@
 ---
 title: "MR-3 Nav2 Deprecation Removal"
 date: 2026-09-30
-status: open
+status: accepted
 tags: [mr, navigation, deprecation]
 ---
 
@@ -33,3 +33,13 @@ Full removal of deprecated `AppDestination` singletons and `TasksStartRoute` var
 - Remove `entry<AppDestination.Inbox>` / `entry<AppDestination.Today>` / `entry<AppDestination.Upcoming>` from `AndroidNavEntries` and `JvmNavEntries`
 - Update NavKeyRegistrationTest and NavSavedStateConfigTest to use AgendaGraph equivalents
 - Update `toTasksRoute` to remove deprecated fallbacks
+
+## Resolution (accepted)
+
+Resolved 2026-10-05: the work landed.
+
+Verified: no `androidx.navigation2` reference remains in `shared/src`, `androidApp/src`
+or `desktopApp/src`, and no `nav2` entry remains in any version catalog. The only
+occurrence of the removed destinations is a KDoc line in `shell/FabActionResolver.kt:20`
+that documents the removal — the `@Suppress("DEPRECATION")` annotation and the dead
+`Inbox`/`Today` when-branches are gone, which is what this ADR asked for.
