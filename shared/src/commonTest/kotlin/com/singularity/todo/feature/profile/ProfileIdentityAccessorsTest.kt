@@ -2,6 +2,7 @@ package com.singularity.todo.feature.profile
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -39,9 +40,9 @@ class ProfileIdentityAccessorsTest {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(localUserId))
         val profiles = FakeProfileRepository()
         val currentUser = ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth, scope = createBackgroundScope()),
+            currentUser = CurrentUser(auth, scope = createBackgroundScope(loggingBackgroundFailureHandler())),
             profileRepository = profiles,
-            scope = createBackgroundScope(),
+            scope = createBackgroundScope(loggingBackgroundFailureHandler()),
         )
         return Triple(currentUser, auth, profiles)
     }

@@ -8,6 +8,7 @@ import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.StateFlow
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.launch
 
 /**
@@ -33,7 +34,7 @@ sealed interface AuthIntent : MviIntent {
 class AuthViewModel(
     private val authRepository: AuthRepository,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AuthUiState, AuthIntent, AuthUiEvent>(
         initialState = AuthUiState.Idle,
         crashReporter = crashReporter,

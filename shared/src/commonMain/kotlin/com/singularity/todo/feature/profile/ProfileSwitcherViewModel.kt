@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
@@ -32,7 +33,7 @@ data class ProfileSwitcherUiState(
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProfileSwitcherUiState, ProfileSwitcherIntent, Nothing>(
         initialState = ProfileSwitcherUiState(),
         crashReporter = crashReporter,

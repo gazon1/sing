@@ -135,6 +135,7 @@ class DetektConfigWiringTest {
 
         /** Mirrors META-INF/services/dev.detekt.api.RuleSetProvider. */
         val PROVIDERS: List<RuleSetProvider> = listOf(
+            AppErrorCodeProvider(),
             KDocEnforcementRulesProvider(),
             MviViewModelRulesProvider(),
             NoCombineSideEffectProvider(),

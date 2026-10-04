@@ -22,6 +22,7 @@ class DeleteProjectUseCase(private val projectRepo: ProjectsRepository, private 
         if (tasks.isNotEmpty()) {
             throw AppError.Validation(
                 "Cannot delete a project that has tasks. Archive or delete the tasks first.",
+                code = "project.delete.has_tasks",
             )
         }
         projectRepo.delete(id).getOrThrow()

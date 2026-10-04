@@ -45,10 +45,16 @@ internal class SyncRepositoryImpl(
 
     override suspend fun testConnection(): ConnectionTestResult {
         val session = authRepository.currentSession.value as? Session.SignedIn
-            ?: return ConnectionTestResult.Failure(AppError.Validation("Not signed in"))
+            ?: return ConnectionTestResult.Failure(
+                AppError.Validation("Not signed in", code = "sync.connection.not_signed_in"),
+            )
         return api.testConnection(session.userId.value).fold(
             onSuccess = { ConnectionTestResult.Success },
-            onFailure = { ConnectionTestResult.Failure(it as? AppError ?: AppError.Unknown(it.toMessage())) },
+            onFailure = {
+                ConnectionTestResult.Failure(
+                    it as? AppError ?: AppError.Unknown(it.toMessage(), code = "sync.connection.failed"),
+                )
+            },
         )
     }
 

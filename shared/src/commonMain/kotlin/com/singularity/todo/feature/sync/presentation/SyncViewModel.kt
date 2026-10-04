@@ -150,7 +150,9 @@ class SyncViewModel(
                     updateState {
                         it.copy(
                             isLoading = false,
-                            status = SyncEngineStatus.Failure(e as? AppError ?: AppError.Unknown(e.toMessage())),
+                            status = SyncEngineStatus.Failure(
+                                e as? AppError ?: AppError.Unknown(e.toMessage(), code = "sync.status.failed"),
+                            ),
                         )
                     }
                     return@launch

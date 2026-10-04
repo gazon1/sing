@@ -89,6 +89,9 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun migrateAnonymousTo(newUserId: UserId): Result<Unit> = runCatchingResult {
-        throw AppError.Unauthorized("Anonymous-to-user migration not yet implemented")
+        throw AppError.Unauthorized(
+            "Anonymous-to-user migration not yet implemented",
+            code = "auth.migration.unimplemented",
+        )
     }
 }

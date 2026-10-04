@@ -16,3 +16,4 @@ com.singularity.todo.detekt.UserScopedRepositoryRulesProvider
 com.singularity.todo.detekt.NoSwallowedCancellationProvider
 com.singularity.todo.detekt.NoRunCatchingInSuspendProvider
 com.singularity.todo.detekt.NoUnreportedFailurePathProvider
+com.singularity.todo.detekt.AppErrorCodeProvider

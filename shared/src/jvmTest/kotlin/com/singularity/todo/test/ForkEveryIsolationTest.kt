@@ -4,33 +4,41 @@ import org.junit.jupiter.api.Tag
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
-import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
- * `forkEvery = 1` is not only about Koin globals.
+ * `forkEvery = 1` is a build setting that other things silently depend on.
  *
- * `BackgroundFailureHandler` is process-wide mutable state: `install { … }` replaces a
- * target that every background scope in the JVM reads per failure. `forkEvery = 1` gives
- * each test class its own JVM, which is what stops one class's target from receiving a
- * failure raised in a class running at the same moment. The build file states that as an
- * incidental consequence of isolating Koin; it is also a precondition for a test's
- * correctness, and an unstated precondition is one that a future change to the test task
- * silently removes.
+ * ## It used to be load-bearing for the failure handler, and no longer is
  *
- * The second half is the same dependency one level down. JUnit runs test *methods* within
- * a class concurrently, so a class that installs a target has to pin itself to
- * `SAME_THREAD` or two of its own methods race. That is a convention, and a convention
- * needs a check.
+ * `BackgroundFailureHandler` was process-wide mutable state: `install { … }` replaced a target
+ * that every background scope in the JVM read per failure. A test of that global was only
+ * correct because each test class had its own JVM — and because the class itself pinned
+ * `@Execution(SAME_THREAD)`, because JUnit runs methods within a class concurrently. Two
+ * preconditions for one test's correctness, neither of them visible at the call site. The
+ * build file stated `forkEvery = 1` as an incidental way to isolate Koin globals; it was also
+ * a precondition, and an unstated precondition is one a future change to the test task
+ * removes without anyone noticing.
+ *
+ * The handler is a value now, so that whole hazard is gone: a test builds its own handler and
+ * nothing running beside it can capture its failures. This test no longer exists to protect
+ * the handler.
+ *
+ * ## What it protects now
+ *
+ * Koin's graph is still process-wide state in every test, and `forkEvery = 1` is still what
+ * makes a Koin-global assertion in one class independent of another. That dependence is real
+ * and equally invisible, so the setting stays asserted. What is *not* asserted any more is
+ * the `@Execution` pin, because there is no global left to race on — a convention with nothing
+ * behind it is just a line to keep deleting.
  */
 @Tag("fast")
 class ForkEveryIsolationTest {
 
     @Test
-    fun `jvmTest forks a fresh JVM per class, which is what makes a process-wide target safe`() {
+    fun `jvmTest forks a fresh JVM per class, which is what keeps Koin graph state per class`() {
         val configured = System.getProperty("jvmTest.forkEvery")
             ?: error(
                 "jvmTest.forkEvery is not published as a system property — " +
@@ -40,27 +48,9 @@ class ForkEveryIsolationTest {
         assertEquals(
             "1",
             configured,
-            "The background-failure handler test is only correct because no other test class " +
-                "shares its JVM. Without per-class forking, its installed target can capture " +
-                "a failure from a class running concurrently, and that failure is reported " +
-                "against the wrong test — or not at all.",
-        )
-    }
-
-    @Test
-    fun `every test class that installs a background failure target runs its methods in sequence`() {
-        val offenders = testFiles()
-            .filter { "BackgroundFailureHandler.install" in it.code }
-            .filterNot { "@Execution(" in it.code }
-            .map { it.path.name }
-
-        assertTrue(
-            offenders.isEmpty(),
-            "These classes install a process-wide failure target but do not pin their " +
-                "execution mode. JUnit runs methods within a class concurrently, so two of " +
-                "their own methods can race on the same target:\n  " +
-                offenders.joinToString("\n  ") +
-                "\nAdd @Execution(ExecutionMode.SAME_THREAD).",
+            "Koin's graph is process-wide state. Without per-class forking, a module loaded by " +
+                "one class is visible to every class running concurrently, and a test that " +
+                "asserts on 'no definition is bound' becomes a coin flip.",
         )
     }
 
@@ -93,7 +83,7 @@ class ForkEveryIsolationTest {
             }
     }
 
-    /** Comments are not code: a KDoc that *mentions* the call must not count as one. */
+    /** Comments are not code: a KDoc that *mentions* a call must not count as one. */
     private fun stripComments(text: String): String = text
         .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
         .replace(Regex("""//[^\n]*"""), "")

@@ -8,6 +8,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
@@ -136,7 +137,7 @@ class SavedAgendaViewModel(
     private val mode: SavedAgendaScreenMode,
     private val seedStore: SavedAgendaSeedStore,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SavedAgendaViewState, SavedAgendaIntent, SavedAgendaEvent>(
         initialState = SavedAgendaViewState.Loading,
         crashReporter = crashReporter,

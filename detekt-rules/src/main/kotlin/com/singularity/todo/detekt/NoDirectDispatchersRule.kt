@@ -112,7 +112,29 @@ internal object NoDirectDispatchersPolicy {
 
     private val BANNED_DISPATCHERS = setOf("IO", "Default", "Main")
 
-    /** Narrow whitelist: only FileLogWriter may use a bare Dispatchers reference. */
+    /**
+     * Narrow whitelist: only the two files that *are* the composition points may use a bare
+     * `Dispatchers` reference.
+     *
+     * `core/log/FileLogWriter.kt` was already here. `core/coroutines/BackgroundScope.kt`
+     * joined it on 2026-10-05, and the reason is a move rather than a new exemption: that
+     * file used to declare `expect fun createBackgroundScope()` with `Dispatchers.Default`
+     * mentioned only in prose, and the two actuals that really used it lived in `jvmMain` and
+     * `androidMain` — which this rule exempts wholesale, as it should. Collapsing the
+     * expect/actual into one commonMain function moved a deliberate, already-documented
+     * decision into the source set the ban applies to.
+     *
+     * The rule's own KDoc has always listed `createBackgroundScope` among the operations that
+     * intentionally hardcode the dispatcher. Exempting the file is the narrow way to make the
+     * code match the documentation; the broad way — allowing `Dispatchers.Default` anywhere in
+     * `core/coroutines` — would re-open the ban for every future file in that package.
+     */
+    val ALLOWED_FILES = setOf(
+        "core/log/FileLogWriter.kt",
+        "core/coroutines/BackgroundScope.kt",
+    )
+
+    /** Kept as a named constant for the single-file case in existing callers and messages. */
     const val ALLOWED_FILE = "core/log/FileLogWriter.kt"
 
     private val PLATFORM_SOURCE_SETS = listOf("jvmMain", "androidMain", "iosMain", "jsMain", "nativeMain")
@@ -139,7 +161,7 @@ internal object NoDirectDispatchersPolicy {
 
         if (receiver != "Dispatchers") return null
         if (selector == null || selector !in BANNED_DISPATCHERS) return null
-        if (path.contains(ALLOWED_FILE)) return null
+        if (ALLOWED_FILES.any { path.contains(it) }) return null
         if (limitedWrapper) return null
 
         return "Direct `Dispatchers.$selector` is banned in commonMain. " +

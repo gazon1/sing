@@ -11,7 +11,7 @@ import com.singularity.todo.core.log.debugInfo
 import com.singularity.todo.core.log.flushLogs
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.installBackgroundCrashReporting
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.gate.gateModule
@@ -114,11 +114,10 @@ class SingularityApp :
         // and the unwired-surface audit cannot see it (that script only matches
         // uppercase-initial names), so it was dead code exactly when it became useful.
         getKoin().get<CrashReportingPort>().addBreadcrumb(debugInfo(version, BuildConfig.DEBUG))
-        // Close the funnel's foundation: every createBackgroundScope() scope — the 9 ViewModels
-        // that launch outside MviViewModel's error funnel among them — gets its unhandled
-        // failures reported here instead of escalating to the platform's uncaught-exception
-        // handler, which kills the process.
-        installBackgroundCrashReporting(getKoin().get<CrashReportingPort>())
+        // No install step: every background scope composes its own failure handler from the
+        // CrashReportingPort it is constructed with, so there is nothing to wire up here and
+        // nothing for a later call to overwrite. The Koin-resolved port reaches the scopes
+        // that need it through the bindings that build them.
         // Installed after startKoin so the Koin graph is available to the handler if it
         // needs to report — and after the SDK, which initializes in the
         // attachBaseContext..onCreate window, so `previous` is AppTracer's own handler.
@@ -130,7 +129,9 @@ class SingularityApp :
         // profile switcher and the saved-view copy-to-profile picker list
         // ProfileRepository rows; without a seeded row both start empty on a
         // fresh install because nothing else writes to the profiles table.
-        createBackgroundScope().launch {
+        createBackgroundScope(
+            crashReportingFailureHandler(getKoin().get()),
+        ).launch {
             getKoin().get<ProfileBootstrapper>().run()
         }
     }

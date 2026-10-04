@@ -24,6 +24,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.JvmSecureStorage
@@ -159,7 +160,7 @@ actual fun platformModule(): Module = module {
             get(),
             get(),
             get(),
-            com.singularity.todo.core.coroutines.createBackgroundScope(),
+            com.singularity.todo.core.coroutines.createBackgroundScope(crashReportingFailureHandler(get())),
             get(),
             get(),
         )

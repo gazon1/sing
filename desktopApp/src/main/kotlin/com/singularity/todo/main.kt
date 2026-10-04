@@ -7,6 +7,7 @@ import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import okio.Path
 import okio.Path.Companion.toPath
@@ -45,7 +46,11 @@ fun main() = singleWindowApplication(
     // profile switcher and the saved-view copy-to-profile picker list
     // ProfileRepository rows; without a seeded row both start empty on a
     // fresh install because nothing else writes to the profiles table.
-    createBackgroundScope().launch {
+    // Desktop has no crash-reporting backend (JvmCrashReportingPort is a deliberate
+    // no-op), so the only sink for an unhandled background failure is the Kermit file
+    // log. The policy is still chosen here rather than inherited: a scope with no
+    // handler escalates to the platform's uncaught-exception handler.
+    createBackgroundScope(loggingBackgroundFailureHandler()).launch {
         ProfileBootstrapper(GlobalContext.get().get()).run()
     }
 

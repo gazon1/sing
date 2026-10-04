@@ -4,6 +4,7 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -52,6 +53,10 @@ class CrashReportingWiringTest {
         private val files: List<KoFileDeclaration> =
             Konsist.scopeFromExternalDirectory(commonMainRoot).files
 
+        private fun stripComments(text: String): String =
+            text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+                .replace(Regex("""//[^\n]*"""), "")
+
         private fun KoFileDeclaration.codeOnly(): String =
             text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
                 .replace(Regex("""//[^\n]*"""), "")
@@ -75,15 +80,33 @@ class CrashReportingWiringTest {
     }
 
     @Test
-    fun `the scope factory carries the background failure handler`() {
-        // The ViewModel check assumes background work reports somewhere. This is that
-        // somewhere, and the only place the assumption is written down.
-        val factory = files.single { it.name == "BackgroundScope" }
+    fun `the scope factory requires a failure policy rather than supplying one`() {
+        // A scope with no CoroutineExceptionHandler escalates a failed launch to the
+        // platform's uncaught-exception handler, which kills an Android process. That is
+        // invisible in a test run, so the invariant is asserted on the source: the factory
+        // takes a handler as a required argument, so a caller cannot get a scope without
+        // naming a policy.
+        val factory = stripComments(files.single { it.name == "BackgroundScope" }.text)
+        // The parameter must be a CoroutineExceptionHandler AND must carry no default value.
+        //
+        // The first half alone was the bug in the first version of this check: it passed
+        // against `failureHandler: CoroutineExceptionHandler = loggingBackgroundFailureHandler()`,
+        // which is exactly the process-wide policy this migration removed. Asserting the type
+        // and not the absence of a default is the same heuristic mistake the regexes made.
+        val param = Regex(
+            """fun createBackgroundScope\(\s*(\w+):\s*CoroutineExceptionHandler\s*([,)=])""",
+        ).find(factory)
         assertTrue(
-            factory.text.contains("BackgroundFailureHandler"),
-            "The expect declaration must document — and the actuals must apply — " +
-                "BackgroundFailureHandler, or a failed launch escalates to the platform's " +
-                "uncaught-exception handler",
+            param != null,
+            "createBackgroundScope must take its CoroutineExceptionHandler. A scope without " +
+                "one escalates a failed launch to the platform's uncaught-exception handler.",
+        )
+        assertEquals(
+            ")",
+            param!!.groupValues[2],
+            "createBackgroundScope must REQUIRE its failure handler — got a default value. " +
+                "A default puts back the process-wide policy this was migrated away from, and " +
+                "it fails silently: every call site keeps compiling.",
         )
     }
 

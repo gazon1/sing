@@ -124,7 +124,7 @@ class CreateTaskFromDraftUseCase(
                         Either.Right(taskId)
                     },
                     onFailure = { e ->
-                        Either.Left(AppError.Persistence(e.toMessage()))
+                        Either.Left(AppError.Persistence(e.toMessage(), code = "task.draft.persist_failed"))
                     },
                 )
             }

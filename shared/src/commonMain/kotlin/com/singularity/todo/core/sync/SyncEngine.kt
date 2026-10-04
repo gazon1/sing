@@ -218,6 +218,7 @@ internal class SyncEngine(
                 ?: AppError.Unknown(
                     e.message
                         ?: "",
+                    code = "sync.push_failed",
                 )
             _lastPush.value = Result.failure(err)
             log.e(e) { "Batch push failed [count=${pending.size}]" }
@@ -270,6 +271,7 @@ internal class SyncEngine(
                 ?: AppError.Unknown(
                     e.message
                         ?: "",
+                    code = "sync.pull_failed",
                 )
             _lastPull.value = Result.failure(err)
             log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }

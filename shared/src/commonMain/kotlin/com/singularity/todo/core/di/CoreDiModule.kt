@@ -18,13 +18,14 @@ import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
 import com.singularity.todo.core.config.RemoteConfigPort
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.observability.crashReportingFailureHandler
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
@@ -72,8 +73,11 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Background scope для долгоживущих компонентов (репозитории, движки синхронизации).
     // factory, а не single — каждый потребитель получает свой экземпляр,
     // который закрывается вместе с владельцем.
+    // The failure handler is composed from the injected CrashReportingPort, not read from a
+    // process-wide target: a long-lived component's background failures go wherever this
+    // graph's reporter sends them, and that is visible in this file.
     factory {
-        AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)
+        reportingScope(get())
     }
 
     // ─── Settings ────────────────────────────────────────────────────────
@@ -99,7 +103,7 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    single { CurrentUser(get(), createBackgroundScope()) }
+    single { CurrentUser(get(), createBackgroundScope(crashReportingFailureHandler(get()))) }
 
     // ─── Repositories ───────────────────────────────────────────────────
 
@@ -208,7 +212,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
-    viewModel { SyncViewModel(get(), get(), get(), AutoCloseableCoroutineScope()) }
+    viewModel { SyncViewModel(get(), get(), get(), reportingScope(get())) }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
@@ -242,14 +246,14 @@ fun coreModule(): org.koin.core.module.Module = module {
     single {
         BackupImporter(
             Logger.withTag("BackupImporter"),
-            get(),        // taskDao
-            get(),        // noteDao
-            get(),        // projectDao
-            get(),        // tagDao
-            get(),        // agendaViewDao
-            get(),        // attachmentStorage
-            get(),        // codec
-            get(),        // clock
+            get(), // taskDao
+            get(), // noteDao
+            get(), // projectDao
+            get(), // tagDao
+            get(), // agendaViewDao
+            get(), // attachmentStorage
+            get(), // codec
+            get(), // clock
             createFileSource = get(),
         )
     }

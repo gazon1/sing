@@ -2,11 +2,13 @@ package com.singularity.todo.core.ui
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -57,7 +59,12 @@ import kotlinx.coroutines.launch
  * @param E The event type (one-shot UI events sealed hierarchy).
  * @param initialState The initial UI state.
  * @param extraEventCapacity Extra buffer capacity for the event [Channel]. Defaults to [Channel.BUFFERED].
- * @param scope Coroutine scope for collecting flows and launching background work.
+ * @param scope Coroutine scope for collecting flows and launching background work. Defaults
+ *   to a scope whose failure policy is composed from [crashReporter], so an unhandled
+ *   failure in a ViewModel collector is reported to the same place as a `catchTo` failure
+ *   rather than escalating to the platform's uncaught-exception handler — which on Android
+ *   kills the process. Override it to pass a test scope or a shared one; the policy still
+ *   has to be chosen, never inherited from a process-wide default.
  * @param crashReporter Sink for the failures that pass through [catchTo]. Defaults to a
  *   no-op, so a ViewModel built in a test is silent and nothing reaches for a global —
  *   but a ViewModel that handles real errors should pass the injected port instead of
@@ -67,7 +74,9 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     initialState: S,
     extraEventCapacity: Int = Channel.BUFFERED,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(
+        createBackgroundScope(crashReportingFailureHandler(crashReporter)).coroutineContext,
+    ),
 ) : ViewModel() {
 
     init {

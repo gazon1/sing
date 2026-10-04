@@ -9,6 +9,7 @@ import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.EphemeralState
@@ -49,7 +50,7 @@ class SettingsViewModel(
     private val logBundleExporter: LogBundleExporter,
     private val fileSharePort: FileSharePort,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SettingsUiState.Content, SettingsIntent, Nothing>(
         initialState = SettingsUiState.Content(),
         crashReporter = crashReporter,

@@ -20,13 +20,18 @@ object ProjectsDomain {
      */
     fun validateCreateInput(input: CreateProjectInput): Either<AppError.Validation, CreateProjectInput> {
         if (input.name.isBlank()) {
-            return Either.Left(AppError.Validation("Name cannot be blank"))
+            return Either.Left(AppError.Validation("Name cannot be blank", code = "project.name.blank"))
         }
         if (input.name.length > 50) {
-            return Either.Left(AppError.Validation("Name too long (max 50 characters)"))
+            return Either.Left(AppError.Validation("Name too long (max 50 characters)", code = "project.name.too_long"))
         }
         if (input.color ushr 24 == 0) {
-            return Either.Left(AppError.Validation("Invalid color — alpha channel must be set"))
+            return Either.Left(
+                AppError.Validation(
+                    "Invalid color — alpha channel must be set",
+                    code = "project.color.alpha_unset",
+                ),
+            )
         }
         return Either.Right(input)
     }

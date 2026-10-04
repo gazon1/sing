@@ -4,6 +4,7 @@ package com.singularity.todo.feature.statistics
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -75,7 +76,7 @@ class StatisticsViewModel(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
         initialState = StatisticsUiState(),
         crashReporter = crashReporter,

@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -70,9 +73,11 @@ import kotlinx.coroutines.launch
 class TaskDetailCoordinator(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<TaskDetailUiState, TaskDetailIntent.Domain, TaskDetailUiEvent>(
         initialState = TaskDetailUiState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -188,7 +193,7 @@ class TaskDetailCoordinator(
      */
     private val extrasState: StateFlow<TaskDetailExtras> =
         MutableStateFlow<TaskDetailExtras>(TaskDetailExtras.Unresolved).also { sink ->
-            vmScope.launch {
+            scope.launch {
                 combine(
                     timeSlot.state,
                     children.state,

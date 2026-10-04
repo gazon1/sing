@@ -2,30 +2,35 @@
 
 ## Make it run
 
-- [ ] Confirm the before-state rather than trusting this description:
-      `./gw :shared:tasks --all | grep -i kover` and `./gw tasks --all | grep -i kover`. Record
-      both outputs in the PR. The claim is that only the root project registers the report tasks.
-- [ ] In `coverage-ratchet`, replace `:shared:koverXmlReport` with the root `koverReport`, which
+- [x] Confirm the before-state rather than trusting this description:
+      Confirmed: only the root project registers `koverReport` / `koverXmlReport` /
+      `koverHtmlReport`; `:shared` has none, and the settings-level Kover plugin registers
+      them on the root.
+- [x] In `coverage-ratchet`, replace `:shared:koverXmlReport` with the root `koverReport`, which
       is what CI uses and what the root `build.gradle.kts` comment says is correct by
       construction — it also puts the test tasks in the graph.
-- [ ] Keep the `rm -rf shared/build/kover shared/build/reports/kover` wipe. Kover merges binary
-      reports incrementally, and the ratchet floors are only reproducible from clean state. The
-      wipe path may need to change if the report moves to the root project — check where
-      `koverReport` writes, and point `scripts/coverage-ratchet.py` at the same file CI uploads
-      (`build/reports/kover/report.xml`).
-- [ ] Replace `./gradlew` with `./gw` in the recipes touched, so the gate uses the same wrapper
-      as the rest of the project. Do not sweep unrelated recipes in the same change.
-- [ ] Run `just cr` end to end. A gate that is edited but never executed has been changed, not
-      fixed — that is the state this issue was filed from.
+- [x] Keep the kover wipe. It had to **widen**, though: the old one removed only `shared`'s two
+      directories, and the aggregate accumulates every module's binary report, so a partial
+      wipe leaves a number that depends on what happened to be left over. It is now a
+      `find … -name kover -prune -exec` across all modules. `DEFAULT_REPORT` in
+      `scripts/coverage-ratchet.py` moved to `build/reports/kover/report.xml` to match where
+      `koverReport` writes and what CI uploads.
+- [x] Replace `./gradlew` with `./gw` in the recipes touched, so the gate uses the same wrapper
+      as the rest of the project. Did not sweep unrelated recipes in the same change.
+- [x] Run `just cr` end to end — and it *held*, which is the whole point. Re-baselining raised
+      **every** floor, because the old ones were pinned to a blind spot the aggregate does not
+      have: the agenda floor's own note admitted the Compose subtrees it excluded were covered
+      by desktopApp flow tests "which kover cannot see", and now it can. The "whole shared
+      module" label was a lie and is now "whole codebase". The ratchet was then proven alive by
+      a 0.02% rise it caught from the `EventBus` change in the same batch.
 
 ## Leave one authority
 
-- [ ] Make `gate` step 2/4 call the `lint` alias instead of re-listing detekt tasks, so
+- [x] Make `gate` step 2/4 call the `lint` alias instead of re-listing detekt tasks, so
       `:androidApp` and `:detekt-rules` cannot be dropped from one copy again.
-- [ ] Check whether the three scripts `gate` does not run belong there. #116 records four gate
-      scripts that no gate invokes; `gate` already runs `check-detekt-registrations.sh`, so
-      decide deliberately for the other three rather than by omission. Cross-link that issue
-      rather than closing it here.
+- [ ] Check whether the three scripts `gate` does not run belong there. **Left open
+      deliberately** — it needs #116's list and a decision per script, which is its own change
+      rather than a repair of this one. Cross-link that issue rather than closing it here.
 
 ## Verify
 

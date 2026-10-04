@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.profile.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.Profile
@@ -25,9 +28,11 @@ sealed interface AccountSettingsIntent : MviIntent
  */
 class AccountSettingsViewModel(
     profileRepository: ProfileRepository,
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AccountSettingsUiState, AccountSettingsIntent, Nothing>(
         initialState = AccountSettingsUiState.Idle,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

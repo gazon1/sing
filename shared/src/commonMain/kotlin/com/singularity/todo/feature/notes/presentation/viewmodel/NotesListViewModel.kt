@@ -4,6 +4,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
@@ -44,7 +45,7 @@ import kotlinx.datetime.plus
 class NotesListViewModel(
     private val repo: NotesRepository,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
         initialState = NotesUiState.Loading,
         crashReporter = crashReporter,

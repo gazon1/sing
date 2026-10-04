@@ -11,18 +11,33 @@ object AuthDomain {
     private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
 
     /**
+     * Stable grouping codes, named so the call sites below stay readable — the literal is
+     * what the crash dashboard groups by, and it must not be retyped.
+     */
+    private const val EMAIL_BLANK = "auth.email.blank"
+    private const val EMAIL_MALFORMED = "auth.email.malformed"
+    private const val PASSWORD_TOO_SHORT = "auth.password.too_short"
+
+    /**
      * @throws AppError.Validation if email is invalid
      */
     fun validateEmail(email: String) {
-        if (email.isBlank()) throw AppError.Validation("Email cannot be blank")
-        if (!EMAIL_REGEX.matches(email)) throw AppError.Validation("Invalid email format")
+        if (email.isBlank()) throw AppError.Validation("Email cannot be blank", code = EMAIL_BLANK)
+        if (!EMAIL_REGEX.matches(email)) {
+            throw AppError.Validation("Invalid email format", code = EMAIL_MALFORMED)
+        }
     }
 
     /**
      * @throws AppError.Validation if password is too short
      */
     fun validatePassword(password: String) {
-        if (password.length < 8) throw AppError.Validation("Password must be at least 8 characters")
+        if (password.length < 8) {
+            throw AppError.Validation(
+                "Password must be at least 8 characters",
+                code = PASSWORD_TOO_SHORT,
+            )
+        }
     }
 
     /**

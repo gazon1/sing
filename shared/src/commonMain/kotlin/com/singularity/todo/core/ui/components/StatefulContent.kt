@@ -186,7 +186,7 @@ private fun StatefulContentEmptyPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun StatefulContentErrorPreview() = PreviewThemed(darkTheme = true) {
     StatefulContent<String>(
-        state = ContentState.Error(AppError.Network("Timed out")),
+        state = ContentState.Error(AppError.Network("Timed out", code = "content.state.timeout")),
         emptyTitle = "No tasks",
         onRetry = noopClick,
     ) { value, modifier -> Text(value, modifier) }

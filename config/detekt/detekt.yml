@@ -150,6 +150,22 @@ no-swallowed-cancellation:
   NoSwallowedCancellation:
     active: true
 
+# Activated 2026-10-05 as a ratchet.
+#
+# `kotlin.runCatching` catches Throwable, CancellationException included. Inside a suspend
+# function that converts a cancellation into an ordinary failure, so the coroutine keeps
+# running past the boundary that was supposed to stop it. That is a correctness bug, not a
+# style preference, and `runCatchingCancellable` exists precisely to fix it.
+#
+# The rule sat at `active: false` while `db132beb` migrated 199 call sites to
+# `runCatchingCancellable`. That migration was real work, and it left no gate: a new plain
+# `runCatching` inside a suspend function would silently undo it, one reviewer's memory away.
+#
+# The baseline needs no entry for this. With the rule active the tree reports zero violations,
+# verified by planting one and reading the report — which is also why regenerating the baseline
+# is the wrong way to check this: `:shared:detektBaseline` does not load the custom rule set,
+# so it would drop every custom-rule entry and report a clean tree because nothing ran.
+#
 no-run-catching-in-suspend:
   NoRunCatchingInSuspend:
     active: true
@@ -547,3 +563,22 @@ user-scoped-repository:
 no-unreported-failure-path:
   NoUnreportedFailurePath:
     active: true
+
+# Added 2026-10-05. All 29 AppError construction sites in commonMain shipped with the
+# subtype-wide default code, so the crash dashboard held one `error.validation` group with
+# fourteen unrelated failures in it. The default is a placeholder for a value the author has
+# to supply, and nothing was checking.
+app-error-code:
+  AppErrorCode:
+    active: true
+    # Tests are excluded: an `AppError` built in a test never reaches a crash dashboard, so a
+    # grouping code there is a value with no consumer. Requiring one would mean inventing 18
+    # stable identifiers to satisfy a rule, which is the "manufacturing a call to justify a
+    # parameter" mistake in another form — and it would train the eye to type a code without
+    # reading it, which is exactly when a wrong one gets shipped.
+    excludes:
+      - '**/test/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidHostTest/**'
+      - '**/androidTest/**' 

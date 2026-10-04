@@ -4,6 +4,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -121,7 +122,7 @@ class SearchViewModel(
         taskRepo = taskRepo,
         parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
         clock = clock,
-        scope = AutoCloseableCoroutineScope(),
+        scope = reportingScope(crashReporter),
         crashReporter = crashReporter,
     )
 

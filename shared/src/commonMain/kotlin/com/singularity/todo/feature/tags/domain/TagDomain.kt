@@ -14,8 +14,8 @@ object TagDomain {
      * @return null if valid, error message otherwise.
      */
     fun validateName(name: String): AppError.Validation? = when {
-        name.isBlank() -> AppError.Validation("Tag name cannot be blank")
-        name.length > 100 -> AppError.Validation("Tag name too long (max 100 characters)")
+        name.isBlank() -> AppError.Validation("Tag name cannot be blank", code = "tag.name.blank")
+        name.length > 100 -> AppError.Validation("Tag name too long (max 100 characters)", code = "tag.name.too_long")
         else -> null
     }
 
@@ -23,7 +23,7 @@ object TagDomain {
      * Validates tag color (ARGB int).
      */
     fun validateColor(color: Int): AppError.Validation? = when {
-        color == 0 -> AppError.Validation("Color cannot be transparent (ARGB=0)")
+        color == 0 -> AppError.Validation("Color cannot be transparent (ARGB=0)", code = "tag.color.transparent")
         else -> null
     }
 

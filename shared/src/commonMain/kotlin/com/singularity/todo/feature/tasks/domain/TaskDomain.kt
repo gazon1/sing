@@ -31,7 +31,7 @@ object TaskDomain {
     fun validateTitle(title: String): Either<AppError.Validation, String> = if (title.isNotBlank()) {
         Either.Right(title.trim())
     } else {
-        Either.Left(AppError.Validation("Title cannot be blank"))
+        Either.Left(AppError.Validation("Title cannot be blank", code = "task.title.blank"))
     }
 
     /**

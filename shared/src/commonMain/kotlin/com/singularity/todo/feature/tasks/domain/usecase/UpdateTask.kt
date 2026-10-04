@@ -29,7 +29,7 @@ class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clo
      */
     suspend operator fun invoke(id: TaskId, transform: (Task) -> Task): Result<Task> {
         val current = repo.get(id)
-            ?: return Result.failure(AppError.NotFound("Task $id not found"))
+            ?: return Result.failure(AppError.NotFound("Task $id not found", code = "task.not_found"))
         val updated = transform(current).copy(updatedAt = clock.now())
         return repo.update(updated)
     }

@@ -237,7 +237,7 @@ class EntityMapperCompletenessTest {
             "toTag" to ("TagEntity" to setOf()),
             "toTagGroup" to ("TagGroupEntity" to setOf()),
             "toReminder" to ("TaskReminderEntity" to setOf()),
-            )
+        )
 
         // Mappers that are not named `toX()` but map an entity both ways
         // (`TimeEntryEntity.toDomain()` / `TimeEntry.toEntity()`). The completeness rule
@@ -317,10 +317,10 @@ class EntityMapperCompletenessTest {
         private val PARTIAL_MAPPERS = mapOf(
             "CalendarSyncTaskMapEntity" to
                 "toSyncedEventRef() omits `userId` (the scoping column, applied by the " +
-                    "DAO query) and `syncedAt` (a sync audit stamp with no domain meaning)",
+                "DAO query) and `syncedAt` (a sync audit stamp with no domain meaning)",
             "RemoteConfigCacheEntity" to
                 "refresh() omits `id` — the row is the constant 'default' singleton, so " +
-                    "the key is written by the @Insert strategy rather than the mapper",
+                "the key is written by the @Insert strategy rather than the mapper",
         )
 
         // `@Entity` data classes that intentionally have no domain mapper, with the
@@ -329,13 +329,13 @@ class EntityMapperCompletenessTest {
         private val UNMAPPED_ENTITIES = mapOf(
             "LlmUsageEntity" to
                 "usage rows are written by the recorder and read back as projections; " +
-                    "no domain model, so there is no mapper to be incomplete",
+                "no domain model, so there is no mapper to be incomplete",
             "ProfileEntity" to
                 "the profiles table is manipulated directly by the profile bootstrap and " +
-                    "sync; Profile is not a mapped domain entity",
+                "sync; Profile is not a mapped domain entity",
             "ProjectReminderEntity" to
                 "project-level reminders are queried as rows and converted at the call " +
-                    "site; there is no ProjectReminder domain model",
+                "site; there is no ProjectReminder domain model",
         )
     }
 

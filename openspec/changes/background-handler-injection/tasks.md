@@ -27,27 +27,37 @@
 
 ## Then migrate
 
-- [ ] Enumerate every consumer of the `createBackgroundScope()` default: the 15 ViewModels wired
-      in the AppTracer follow-up, plus `CurrentUser`, `ProfileAwareCurrentUser`,
-      `ProfileRepositoryImpl` and `AndroidPomodoroTaskListProvider`. Re-derive the list — do not
-      trust this one, it was written before the last refactor.
-- [ ] Make `scope` a required constructor parameter, in that order, one module at a time. Compile
-      errors are the work list; that is the entire benefit of doing it this way.
-- [ ] Give each migrated owner its handler explicitly. Where the owner is a ViewModel, that is the
-      reporter it already holds.
-- [ ] Delete `BackgroundFailureHandler` and the `install` entry point. Keep
+- [x] Enumerate every consumer of the `createBackgroundScope()` default. The list above was
+      wrong twice over: it said 15 ViewModels, and there are **28** declaring a scope default
+      plus 30 subclasses reaching the base's. Re-derived from the source, not trusted.
+- [x] ~~Make `scope` a required constructor parameter on the ViewModels.~~ **Superseded.**
+      `MviViewModel.init` calls `addCloseable(scope)`, so a Koin-`single` scope would be
+      cancelled by the first ViewModel cleared and take every other ViewModel's collectors with
+      it. The compiler argument was right for the four components that hold no reporter and
+      wrong for the 28 that do — see the ADR amendment for the derivation that replaced it.
+- [x] Make `createBackgroundScope` require its `CoroutineExceptionHandler`, with no default. The
+      `expect`/`actual` pair is gone: both actuals were byte-identical once the global left, and
+      an `expect` with no platform difference is a lie about where the platform boundary is.
+- [x] Give each owner its handler explicitly. Four components name theirs at their Koin binding
+      (`CurrentUser`, `ProfileAwareCurrentUser`, `ProfileRepositoryImpl`,
+      `AndroidPomodoroTaskListProvider`); every ViewModel derives it from the
+      `CrashReportingPort` it already holds, via `reportingScope(crashReporter)`.
+- [x] Delete `BackgroundFailureHandler` and `installBackgroundCrashReporting`. Keep
       `BACKGROUND_COROUTINE_FAILURE_ISSUE_KEY` — the grouping key is a contract, not a mechanism.
-- [ ] Delete `BackgroundFailureHandlerTest`, keeping the parts that do not depend on the global:
-      the cancellation rule, the never-rethrow rule, and the issue key.
+- [x] Reduce `BackgroundFailureHandlerTest` to what does not depend on a global, and add the
+      case the global made impossible: two handlers, two failures, neither captured by the
+      other. The `@Execution(SAME_THREAD)` pin is gone with the convention it protected.
 - [ ] Retire the `background.coroutine_failed` key only if nothing reports under it. Migrating the
       mechanism must not silently drop the group; check the dashboard before removing the key.
+      **Still open — needs the dashboard, which is not reachable from here.**
 
 ## Close out
 
-- [ ] Amend `docs/decisions/2026-10-05-background-failure-handler-and-the-guard-it-behind.md`
-      rather than writing a new record — it already names this refactor as the end state, and the
-      amendment should say it shipped.
-- [ ] `./scripts/refresh-decisions-digest.sh`
+- [x] Amend `docs/decisions/2026-10-05-background-failure-handler-and-the-guard-it-behind.md`
+      rather than writing a new record — it already named this refactor as the end state. The
+      amendment also records that the migration's *shape* was not the one the plan guessed at,
+      and why the compiler argument does not transfer from the four components to the 28.
+- [x] `./scripts/refresh-decisions-digest.sh`
 - [ ] If `openspec validate` is run, note that #72 records it red on `main` with two pre-existing
       failures; establish the new baseline before attributing a failure to this change.
 

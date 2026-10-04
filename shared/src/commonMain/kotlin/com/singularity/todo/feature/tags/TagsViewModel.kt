@@ -6,6 +6,7 @@ import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -67,7 +68,7 @@ class TagsViewModel(
     private val updateTag: UpdateTagUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
         initialState = TagsUiState.Loading,
         crashReporter = crashReporter,
@@ -121,7 +122,9 @@ class TagsViewModel(
     private suspend fun rename(id: TagId, name: String, color: Int) {
         emitError("Rename tag failed", TagsUiEvent::ShowError) {
             val existing = tagRepo.get(id)
-                ?: return@emitError Result.failure<Unit>(AppError.NotFound("Tag $id no longer exists"))
+                ?: return@emitError Result.failure<Unit>(
+                    AppError.NotFound("Tag $id no longer exists", code = "tag.not_found"),
+                )
             updateTag(existing.copy(name = name, color = color))
         }
     }
