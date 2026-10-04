@@ -73,6 +73,18 @@ nothing and share the same deprecated actions, so leaving them would reproduce
 every warning on their next run. They are scheduled rather than per-PR, which is
 why the warnings went unnoticed there.
 
+**Every job, including ones added later.** The pin is a property of the runner
+image, not of the workflow that happens to hold a job, so it does not survive a
+merge that introduces a fifth job on `ubuntu-latest`. A `maestro-smoke` job
+arrived inside `ci.yml` from `main` and was the one job in the repo still on the
+floating label; it is pinned and bumped on the same terms as the rest. An
+emulator job has the strongest claim to a pin of any job here, because a kernel
+bump is exactly what an emulator fails on.
+
+Checking this is mechanical — one pass over `runs-on` and `uses:` per workflow —
+and it is worth doing at the start of any task that touches CI, not only when
+someone remembers that it applies.
+
 **Runner image — pin `ubuntu-24.04`, deliberately.** This is the one choice with
 an asymmetric downside, so it is a decision rather than a detail. GitHub migrates
 `ubuntu-latest` to Ubuntu 26.04 between 2026-10-19 and 2026-11-19, and pinning is
