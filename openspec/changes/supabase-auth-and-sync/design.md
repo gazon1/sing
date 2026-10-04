@@ -35,11 +35,23 @@ Six synchronised document types, one table each, plus a profile table and an
 append-only event log. Every synchronised row carries:
 
 - `owner_id uuid` — the authenticated account
-- `profile_id uuid` — the local profile the row belongs to
-- `field_versions jsonb` — per-field logical clock readings
+- `profile_id text` — the local profile the row belongs to. **Text, not uuid**: the
+  client's `ProfileId` is a value class over a `String` whose default is literally
+  `"default"` and whose other values are ULIDs, so a uuid column would reject every
+  profile the app can produce.
+- `doc jsonb` — the entity's client-serialised field values. **One column, not one
+  native column per field**: the serialisation authority is the client's `toJson()`,
+  for six Kotlin data classes containing enums, `Instant`s and value classes, and a
+  native type per field is a mapping that has to be kept in step with six Kotlin
+  classes forever. The *row* is typed — identity columns, per-field clocks, version
+  counter, timestamps — and the merge is still one statement per table.
+- `field_versions jsonb` — per-field logical clock readings, stored as the parsed
+  triple `{"p": …, "c": …, "n": …}` so the comparison is numeric rather than
+  lexicographic
 - `server_version bigint` — a change counter, kept for diagnostics
-- timestamps as `bigint` epoch millis, mirroring the local database exactly so no
-  conversion happens at the boundary
+- `created_at` / `updated_at` / `deleted_at` as `bigint` epoch millis, parsed from the
+  client's ISO-8601 string by `sync_to_millis`. The parse returns NULL rather than
+  raising: a bad timestamp costs one column, not the whole batch.
 
 `id` is `text`, not `uuid`. Client ids are ULIDs, and the client is the id authority;
 making the server mint ids would be a second source of truth for no gain.
@@ -145,6 +157,20 @@ for a row-level decision that is no longer made.
 
 - Session tokens move to the platform secure store. A plaintext token found there is
   migrated on first read and deleted from the old store.
+- The server derives the acting owner from the session at every level, including the
+  internal helpers. They originally took an owner id as a parameter, which made them a
+  write path into any account for any signed-in client. Both the grant and the
+  signature were changed; the signature is the one that holds.
+- A patch the server refuses — a field outside the allowlist, a row owned by someone
+  else — is reported as a refusal and is *not* recorded in the idempotency ledger.
+  Reporting it as a success would let the client advance its shadow past a value the
+  server never took, and the next diff would be computed against that fiction.
+- Four security-definer functions remain executable by `authenticated`, and the
+  platform's security advisor reports each one. That is the design: they exist to write
+  rows the policies hide. Switching them to invoker to silence the linter would break
+  sync, so the warnings are accepted and recorded in the ADR.
+- Leaked-password protection is disabled on the project. It is an auth setting rather
+  than a migration, so it needs the dashboard; it must be on before sign-up ships.
 - The Supabase URL and anonymous key are not hardcoded. They come from the secure store,
   falling back to build-time properties for development builds. The service-role key
   never reaches the client; every server entry point runs as the authenticated role

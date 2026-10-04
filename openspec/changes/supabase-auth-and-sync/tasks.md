@@ -73,18 +73,31 @@ invisible and with one they become irreversible data loss on the user's own data
 
 ## Phase 3 — Server schema
 
-- [ ] 3.1 server — migration: profile table, six document tables, event log, field
-      allowlist, applied-patch table
-- [ ] 3.2 server — row-level access policies on every synchronised table, keyed on the
-      session's owner id via a scalar subquery so the index is used
-- [ ] 3.3 server — batch application function: idempotent by patch identity, per-field
-      merge, all-or-nothing, security-definer with pinned search path
-- [ ] 3.4 server — event-feed function, owner-scoped; revoke direct access to the log
-- [ ] 3.5 server — ownership-transfer function, refusing any identity that is not the
-      caller's own. Verified by: integration test — another user's data is not
-      claimable (REQ-UA-005)
-- [ ] 3.6 server — health check reachable under a signed-in session
-      Verified by: integration test returns ok
+- [x] 3.1 server — migration: profile table, six document tables, event log, field
+      allowlist, applied-patch table. `profile_id` is text, not uuid, and client field
+      values live in one `doc jsonb` column per table: the client's `toJson()` is the
+      serialisation authority for six Kotlin classes, and a native type per field is
+      drift that fails at runtime on a user's data
+- [x] 3.2 server — row-level access policies on every synchronised table, keyed on the
+      session's owner id via a scalar subquery (`owner_id = (select auth.uid())`) so the
+      (owner_id, …) indexes stay usable. Every synchronised table has one; a table that
+      forgets is readable by every signed-in user
+- [x] 3.3 server — batch application function: idempotent by patch identity, per-field
+      merge in one statement, all-or-nothing, security-definer with pinned search path.
+      Refusals (`field_not_writable`, `row_unavailable`) are reported and NOT recorded
+      in the ledger; a patch that changes nothing changes nothing, so a stale write
+      bumps no version and logs no event
+- [x] 3.4 server — event-feed function, owner-scoped; revoke direct access to the log,
+      because a client that could page the log directly could apply a filter the
+      function does not
+- [x] 3.5 server — ownership-transfer function, refusing any identity that is not the
+      caller's own. Verified by: `docs/sync-server-integration-test.sql` scenario 9 —
+      another user's data is not claimable (REQ-UA-005). A transfer to a *different*
+      account is not implemented; that needs a source-side decision this function is
+      not the place to make
+- [x] 3.6 server — health check reachable under a signed-in session. Verified by the
+      same file, scenario 0; it also proves the session resolves to an owner, which is
+      what a syntax error in one of the other bodies would not
 
 ## Phase 4–6 — Client transport
 
