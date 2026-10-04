@@ -142,6 +142,8 @@ which is why the step produced a finding instead of a change.
 **Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
 deleted instead of implemented.
 
+**Tracked as:** #37
+
 **Symptom:** file logging works on both platforms, so a developer can now read
 logs off a device — but a *user* cannot. There is no way to attach logs to a
 bug report, which is the reason `FileLogWriter` was originally wanted
@@ -175,6 +177,8 @@ not exist.
 **Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
 the deletion list and was **kept** — see the note below.
 
+**Tracked as:** #36
+
 **Symptom:** `bulkComplete(ids)` and `bulkDelete(ids)` are implemented, unit
 tested, and Koin-bound, but no ViewModel injects the use case. There is no
 multi-select in the task list, so the atomicity guarantee those methods exist
@@ -201,6 +205,8 @@ some ids vanished).
 **Found in:** MR-4. The plan listed two dead symbols in
 `core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
 
+**Tracked as:** #67
+
 **Symptom:** `OAuthConfig`, `OAuthResult`, `OAuthTokenData` and
 `toOAuthTokenData` have zero references outside their own file — no ViewModel,
 no repository, no test, no Koin binding. `TokenError` and `RedirectState` were
@@ -223,6 +229,8 @@ MR-4 stopped at the two symbols it was asked to remove.
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 
+**Tracked as:** #68
+
 **Symptom:** a repo-wide sweep of `log.{d,i,w,e} { "...$var..." }` for
 user-derived values has never been done. `ChatViewModel` (AI prompt fragment)
 and `ProfileBootstrapper`/`SyncBootstrapper` (profile name, entity id) were
@@ -241,6 +249,8 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 **Tracked as:** #40
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
+
+**Tracked as:** #40
 
 **Symptom:** `ProjectsFlowTest` failed once with `NullPointerException` from
 `ProjectDetailViewModel.getDraftState()` returning null (draft state read
@@ -291,6 +301,12 @@ baseline is current and new findings exist.
    gitignored, so on a fresh checkout it does not exist and the budget check silently
    skipped the only document whose size is generated. The budget was exceeded locally
    for an unknown stretch precisely because `check.sh` did not run the gate at all.
+**Tracked as:** #52
+
+**Symptom:** the digest indexes every Consequences bullet and creates a
+section per tag, so it grows with every ADR while the limit is fixed. The
+next author who writes a verbose ADR gets a failed `docs-audit` with no
+obvious remedy and will either trim content (bad) or raise the limit (worse).
 
 Remaining pressure is the "Active entries" index — one line per ADR, 421 lines and
 growing by one per decision. It is the lowest-value section in the file (a title
@@ -315,6 +331,14 @@ side touched it — the digest sat at 1255 against a 1250 limit and `AGENTS.md` 
 The `mcp-server` job was the one that mattered: it holds the profile-bootstrap
 identity tests, so the P0 data-corruption fix shipped with the tests that cover it
 unable to fail a build.
+**Tracked as:** #53
+
+**Symptom:** every gate step in the `build` job carried
+`continue-on-error: true` — `Build version catalog gate`, `Run detekt`,
+`Assemble Android debug`, `Find unwired surfaces`. Only `jvmTest`,
+`desktopApp:test` and `Check Maestro test tags` could fail the workflow.
+So "CI is green" said nothing about detekt, unwired surfaces, or version
+literals.
 
 `Check Maestro test tags` stays `continue-on-error: true` on purpose, and the
 comment says why: it is superseded by `MaestroFlowTagsTest` in `:shared:jvmTest`,
@@ -331,6 +355,8 @@ blocking gate and is *believed* to be the gate is.
 **Status:** ✅ RESOLVED (2026-10-04) — fixed by ADR `2026-10-04-navigation-policy`, issue #27 closed.
 
 **Found in:** MR-11, while verifying `OpenSavedViewShowsMatchingTasksFlowTest`.
+
+**Tracked as:** #27
 
 **Symptom:** after tapping the save button in `SavedAgendaScreen` (or `TaskCreateScreen`) and then tapping the back button, the entire desktop app UI goes blank — `SemanticsTree` reports 0 nodes, every `testTag` lookup fails. Navigation itself completes (kermit log shows "Scheduled sync stopped" from clean `onEnd` path), but the compose tree is empty.
 
@@ -360,6 +386,8 @@ what unblocked the Agenda epic's desktop matrix (issue #26).
 
 **Found in:** `refactor/tag-registry-and-robots`, while fixing the
 `NoDirectClockSystem` violation that shipped in `2e99b1d0`.
+
+**Tracked as:** #42
 
 **Symptom:** the KDoc on `NoDirectClockSystemRule` states "Test sources are
 exempt (detekt's standard path filters handle patterns in test directories)".
@@ -444,6 +472,13 @@ identified: `core/log/FileLogWriter.kt:50` uses
 **Status (corrected 2026-10-05):** the whitelisting is in the rule code. The rule had no
 `detekt.yml` block at all, so it never ran; a block was added that day
 (`no-direct-dispatchers` / `NoDirectDispatchers`, `active: true`).
+**Tracked as:** #44
+
+**Status:** the whitelisting is already done in the rule code
+(`isAllowedFile` for `FileLogWriter.kt`). The rule is `active: false`
+pending the sweep of any other callers. If no other callers exist, the
+rule can stay `active: false` indefinitely — the whitelist is the fix,
+not a signal to search for more cases.
 
 **But "0 findings" proved nothing, and this entry previously claimed it proved
 something.** The rule could not fire for any input: it required the dot-qualified
@@ -476,6 +511,8 @@ exists in the codebase and no obvious place to add it that would survive
 the blank-screen bug (the compose tree is empty at that point, so any
 modifier on `NavDisplay` would not render either).
 
+**Tracked as:** #45
+
 **Try next:** this item is closed as "not implementable as described". The
 diagnostic approach should instead target the shell layer —
 `DesktopShellNav3Root` or `DesktopShellNav3` — where a `LaunchedEffect` or
@@ -493,6 +530,8 @@ route change itself is the trigger.
 `check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
 in 9 skill files are accepted in `config/docs/skill-symbol-baseline.txt`.
 Zero NEW findings at baseline creation.
+
+**Tracked as:** #41
 
 The top clusters identified:
 
@@ -1983,6 +2022,8 @@ being managed.
 detector 7 (dead-symbol). The baseline line carried a backlog reference to this
 entry that did not exist, so the reference was unresolvable.
 
+**Tracked as:** #63
+
 **Symptom:** `RecurrenceParser.kt` is 309 lines with 27 `@see` KDoc references
 and zero production call sites. It is the inverse of an unwired forward
 operation — the parsing direction is implemented, the *applying* direction
@@ -2004,6 +2045,8 @@ dead-code sweep should not make the product decision either way.
 
 **Found in:** 2026-10-04 verifiability audit, same detector as above. Three
 baseline lines shared a reference to this entry; none existed.
+
+**Tracked as:** #64
 
 **Symptom:** three classes in `feature/notes/domain/` have test references but no
 production call sites:
@@ -2035,6 +2078,8 @@ its own change, not a sweep.
 `core/ui/TestTags.kt` has 12 test references and zero production composables
 apply it.
 
+**Tracked as:** #65
+
 **Symptom:** the same shape as `SNACKBAR_SAVED`, which was resolved by wiring the
 tag. A test tag that no production code emits is a test asserting a state the app
 can never reach — so those 12 references are either no-ops or they are skipped
@@ -2054,6 +2099,8 @@ all, which is the more interesting finding.
 
 **Found in:** 2026-10-04 verifiability audit. `AwtMenuBarInstaller.kt` in
 `shared/src/jvmMain/` has 3 test references and no call site in JVM main.
+
+**Tracked as:** #66
 
 **Symptom:** a desktop menu-bar installer that nothing installs. Its tests pass
 because they instantiate it directly, which proves the class works, not that the
@@ -2119,6 +2166,8 @@ A rule is only as trustworthy as the test that proves it fires.
 `NoDirectDispatchers` and `NoEmptyOnClickLambda` were made able to fire.
 `find-unwired-surfaces` and the detekt report both said "0 findings" for rules
 whose KDoc promised coverage; neither was true.
+
+**Tracked as:** #61, #32 (closed)
 
 **Symptom:** making the rules effective surfaced **52 pre-existing violations**
 that no gate had ever seen:
@@ -2188,6 +2237,8 @@ of dead gate. It has not been added yet; this entry is the reminder.
 **Found in:** 2026-10-04 verifiability change, while making
 `docs-audit.yml` steps real.
 
+**Tracked as:** #55
+
 **Symptom:** `normalize-adr-frontmatter.sh --dry-run` exits **2** when any ADR's
 frontmatter drifts from the schema, and **8 ADRs** currently do — mostly
 `created:` where the schema wants `date:`, plus a few with no `status:` or
@@ -2217,6 +2268,7 @@ ever drains.
 
 ## kdoc-enforcement-rules-have-no-unit-test
 
+**Status: RESOLVED (2026-10-04).** `KDocEnforcementRulesTest.kt` now exists and covers both rules, including the nested-declaration case that guards the tree-walk fix. The rule suite is 90 tests, 0 failures, and runs in `check.sh` and `ci.yml`.
 **Found in:** 2026-10-04 rule-verifiability inventory — the last rule class in
 `detekt-rules/` with no test file.
 
@@ -2244,6 +2296,7 @@ regressed to top-level for the nested case only in some configurations.
 
 ## audit-figures-that-did-not-survive-measurement
 
+**Status: CLOSED — a correction, not a work item.** The three wrong figures were corrected at the source. Kept in this file because the lesson is the reusable part: an audit is a hypothesis list, and a claim that cannot be confirmed cheaply should be labelled unverified rather than counted.
 **Found in:** 2026-10-04 rule-verifiability inventory, while re-checking the
 audit's claims by execution rather than by reading code.
 
@@ -2275,6 +2328,8 @@ than counted.
 **Found in:** 2026-10-04, immediately after closing the rule-verifiability
 inventory. Asked "what is still unwired?" and found `:androidApp:detekt`.
 
+**Tracked as:** #54
+
 **Symptom:** `androidApp/build.gradle.kts` has had a `detekt { }` block with
 `ignoreFailures = false` and `androidApp/detekt-baseline.xml` (9 entries) since
 the module was added. **No gate ever invoked the task** — not `check.sh`, not
@@ -2295,8 +2350,6 @@ each one needs a name in a gate or it is decoration. Worth doing as a
 deliberate sweep rather than waiting for the next instance to be discovered by
 accident — the cost of a miss is unbounded, since the check is assumed to be
 running.
-=======
-1eb3a9aa (fix(ci): restore verifiability — CI ran 15 of 214 test classes)
 
 ---
 
@@ -2304,6 +2357,8 @@ running.
 
 **Found in:** 2026-10-04, while reformatting the lines the `runCatching` →
 `runCatchingCancellable` migration pushed over the limit.
+
+**Tracked as:** #60
 
 **Symptom:** `.editorconfig` sets `max_line_length = 140`, and `detekt.yml`
 carries the comment "ktlint owns line length via .editorconfig". But ktlint's
@@ -2334,8 +2389,6 @@ argued rather than assumed.
 Option 1 is the lower-risk of the two: it removes a false claim rather than
 loosening a real constraint. Whichever is chosen, the other file has to change
 too — leaving the mismatch in place is what produced the confusion.
-92e55efa (fix(coroutines): migrate 199 runCatching sites to runCatchingCancellable)
->>>>>>> 2e251adb (fix(coroutines): migrate 199 runCatching sites to runCatchingCancellable)
 
 
 
@@ -2343,6 +2396,7 @@ too — leaving the mismatch in place is what produced the confusion.
 
 ## empty-handler-lambdas-were-previews-not-product-gaps-CORRECTED
 
+**Status: RESOLVED (2026-10-04).** The false claim was corrected in place and the empty lambdas in preview helpers were given the project's `noopClick`. No live product defect was ever found. The remaining sweep is tracked in #61.
 **Found in:** 2026-10-04 by `NoEmptyOnClickLambda`, which was made able to fire
 and reported 31 sites.
 
@@ -2392,6 +2446,8 @@ behaviour is exactly the kind that must be read in place before it is recorded.
 **Found in:** 2026-10-04, when `NoDirectDispatchers` was made able to fire. It
 reported 21 sites and the plan proposed constructor-injecting a
 `CoroutineDispatcher` into each, with a Koin change per module.
+
+**Tracked as:** #61
 
 **Symptom:** sampling the 9 baselined `shared` sites shows most of them are the
 **platform port implementations** the `expect`/`actual` section of AGENTS.md
@@ -2450,6 +2506,8 @@ applies: enabling a rule reddens the build, but so does obeying it literally.
 **Found in:** 2026-10-04, while sizing up a campaign to shrink the detekt baseline.
 The plan proposed attacking the top-3 rules mechanically. Two of them are not debt.
 
+**Tracked as:** #62
+
 **`BackingPropertyNaming` — 53 entries, every one of them correct.**
 AGENTS.md's *canonical VM pattern* is:
 
@@ -2503,6 +2561,8 @@ your own architecture is a signal to look at the configuration, not the code.
 **Found in:** 2026-10-04, while trying to shrink the detekt baseline after fixing
 `ViewModelMustHaveKDoc`. Four attempts produced an unchanged file.
 
+**Tracked as:** #58
+
 **Symptom:** `:shared:detektBaseline` is a Gradle task whose output is a tracked
 source file. It gets cached like any other task, and two separate traps stack:
 
@@ -2541,6 +2601,8 @@ only ever grows the file.
 verification run reported `> Task :desktopApp:test FROM-CACHE` and
 `BUILD SUCCESSFUL` — with no test having executed.
 
+**Tracked as:** #59
+
 **Symptom:** a test task whose inputs are unchanged is served from the build cache
 and prints success. After editing configuration (test tags, system properties,
 harness code paths) the local result can therefore be a cache hit from a run that
@@ -2565,13 +2627,12 @@ cold cache anyway, so this costs nothing there).
 
 The same trap bit `:shared:detektBaseline` three separate ways; see
 `detektbaseline-caches-its-output-and-cannot-drain`.
-5d740f0e (fix(detekt): three more rule/doc divergences, and what the baseline is really made of)
-435d5bcb (fix(detekt): three more rule/doc divergences, and what the baseline is really made of)
 
 ---
 
 ## epic-b-readability-now-unblocked-gates-work
 
+**Status: RESOLVED (2026-10-04).** B1 (formatter merge), B2 (`TaskDetailDeps` split) and B5 (desktop harness split) are all done. B3 and B4 were phantom work and are struck in the entry below rather than carried forward.
 **Found in:** 2026-10-04, after the verifiability work. Recorded because the
 ordering argument for it changed, not because the items are new.
 
@@ -2607,8 +2668,6 @@ a count, re-count it.
 `2026-10-04-…` for the formatter merge, which was self-contained). B2–B5 are
 recorded here rather than started, because a 16-file refactor that cannot be run
 to completion and verified leaves the tree worse than not starting it.
-fb90fbc7 (refactor(ui): merge four formatter copies, and correct a finding I misread)
-b911e804 (refactor(ui): merge four formatter copies, and correct a finding I misread)
 **B5 — done (2026-10-04).** `DesktopNavigation.kt` (510 lines, 29 helpers) split
 into `DesktopNavigation.kt` (135, drawer + `DesktopShell`) ·
 `DesktopAssertions.kt` (328, `await*`/`assert*` + `TIMEOUT_MS` + `TAG_PATTERN` +
@@ -2631,8 +2690,6 @@ slot's constructor was narrowed to the bundles it actually reads:
 returns nothing). Either rename the file to `TaskDetailDeps.kt` or restore the
 state class it was named for. Do this together with B2, which edits the file
 anyway.
-0f5bcbfd (refactor(tests): split DesktopNavigation, and fix a gate that was lying)
-930394bb (refactor(tests): split DesktopNavigation, and fix a gate that was lying)
 | Bundle | Fields | Read by |
 |---|---|---|
 | `TaskCoreDeps` | 4 | coordinator, draft, entity, completion, children, lifecycle, reminders |
@@ -2674,6 +2731,8 @@ green throughout, which is the point — the gates now have somewhere to fail.
 **Found in:** 2026-10-04, during the B2 `TaskDetailDeps` split, immediately
 after adding the `check-rule-intent.py` gate.
 
+**Tracked as:** #57
+
 `./gradlew :shared:detekt --auto-correct` rewrote **five files that had nothing
 to do with B2**: `BackupMigrations.kt`, `LogbookSection.kt` (unused
 `java.util.Locale` import), `TimeTrackingSection.kt` (trailing blank line),
@@ -2699,5 +2758,33 @@ file, and `TimeTrackingSection.kt` is the source of the currently-undeclared
 `NoConsecutiveBlankLines` finding that `check-rule-intent.py` reports (verified
 present on a clean `HEAD`, not introduced by B2). A cleanup commit should declare
 that rule rather than leave it on detekt's default.
-b80e63cb (refactor(tasks): split TaskDetailDeps by what actually reads it)
-d8e30ca1 (refactor(tasks): split TaskDetailDeps by what actually reads it)
+
+---
+
+## no-consecutive-blank-lines-was-never-declared
+
+**Tracked as:** #56
+
+**Found in:** 2026-10-04, immediately after `check-rule-intent.py` was wired into a
+run that touched documentation. The gate reported exactly one hit.
+
+**Symptom:** `NoConsecutiveBlankLines` produces one finding
+(`TimeTrackingSection.kt`, present in `baseline-shared.xml`) and is not named
+anywhere in `config/detekt/detekt.yml`. It is running on detekt's built-in default.
+
+Verified present on a clean `HEAD` — not a regression from the B2
+`TaskDetailDeps` work.
+
+**Why one finding is worth a backlog entry.** A rule nobody declared is a rule
+nobody chose. If a future detekt release changes that default, the baseline stops
+matching and the gate fails for a reason nobody can reconstruct. The
+`check-rule-intent.py` gate exists to make that class of invisible decision
+visible, and this is the first real hit it produced — which is also the proof
+that it is doing its job rather than merely passing.
+
+**Try next:** declare it with `active:` and a reason. The honest answer is
+probably to fix the file (it is one trailing blank line) and let the count reach
+zero, then delete the baseline entry.
+
+Related: `autocorrect-touches-files-outside-the-change` — the same file is one of
+the five `--auto-correct` wanted to rewrite.
