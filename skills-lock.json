@@ -85,6 +85,12 @@
       "skillPath": "skills/engineering/retro/SKILL.md",
       "computedHash": "b8d55851a2909e26c2dbb2e8563719c87b3b700559f604e4df344f8c27e21047"
     },
+    "shieldcn-badges": {
+      "source": "jal-co/shieldcn",
+      "sourceType": "github",
+      "skillPath": "skills/shieldcn-badges/SKILL.md",
+      "computedHash": "c648afab8625680b4ea68907162afdd63be5d051f6840551dc39456fb613c1ea"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
