@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.flows.notes
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.Test
@@ -29,15 +28,15 @@ class NotesFlowTest {
     fun the_notes_list_opens_from_the_drawer() = runDesktopAppTest(checkA11y = true) {
         tapTab("Notes")
 
-        onNodeWithTag(TestTags.NOTES_QUICK_ADD_INPUT).assertIsDisplayed()
+        assertTagDisplayed(TestTags.NOTES_QUICK_ADD_INPUT)
     }
 
     @Test
     fun an_empty_notes_list_offers_to_create_the_first_note() = runDesktopAppTest(checkA11y = true) {
         tapTab("Notes")
 
-        onNodeWithText("No notes yet").assertIsDisplayed()
-        onNodeWithText("Create your first note").assertIsDisplayed()
+        assertTextDisplayed("No notes yet")
+        assertTextDisplayed("Create your first note")
     }
 
     @Test
@@ -46,8 +45,8 @@ class NotesFlowTest {
 
         // The chips carry no testTag on either platform, so they are selected by
         // their visible labels — the same choice the Android flow makes.
-        onNodeWithText("All").assertIsDisplayed()
-        onNodeWithText("Pinned").assertIsDisplayed()
-        onNodeWithText("Archived").assertIsDisplayed()
+        assertTextDisplayed("All")
+        assertTextDisplayed("Pinned")
+        assertTextDisplayed("Archived")
     }
 }

@@ -3,12 +3,26 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import org.koin.core.Koin
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
+
+/**
+ * Dumps the current unmerged semantics tree, or a note if unavailable.
+ *
+ * Uses the unmerged tree: the whole point of debugging a selector is to see the
+ * raw nodes before Compose folds them, and a merged tree hides exactly the
+ * duplicate `Text` that makes `onNodeWithText` fail on ambiguity.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun DesktopComposeUiTest.dumpSemantics(): String =
+    runCatching { onRoot(useUnmergedTree = true).printToString(maxDepth = 25) }
+        .getOrElse { "<semantics tree unavailable: ${it.message}>" }
 
 /**
  * The directory under `build/diagnostics/` where this test's artifacts live.
@@ -20,16 +34,14 @@ import javax.imageio.ImageIO
  *     db-state.txt     — FakeAppDatabase dump
  *     kermit.log       — Kermit ring-buffer contents
  *     coroutines.txt   — kotlinx-coroutines-debug snapshot
- *     screenshot.png   — screen capture
+ *     steps.txt        — StepRecorder log (empty when no steps recorded)
+ *     tree.txt         — semantics tree at failure
+ *     nodes.txt         — tagged nodes: tag/text/contentDescription/bounds
+ *     screenshot.png    — screen capture
+ *     screenshot-annotated.png — screen capture with bounding-box overlays
  *   attempt-2/         — retry only
  *     …
  * ```
- *
- * Note: semantics tree dumps are not captured in this version. `toTree()` and
- * `onRoot()` are not available in the Compose 1.12.0 desktop test API. The
- * screenshot alone is usually sufficient for visual diagnosis; for selector
- * debugging, run with `-Dsingularity.ui.dumpTree=true` (see [DesktopAppBootTest]
- * which uses `onRoot().printToString()` successfully in that version).
  */
 data class FailureBundle(
     val testClassSimpleName: String,
@@ -51,12 +63,24 @@ data class FailureBundle(
     /** Coroutine dump via kotlinx-coroutines-debug agent. */
     val coroutinesFile: File get() = outputDir.resolve("coroutines.txt")
 
+    /** Step recorder log — written by StepRecorder. */
+    val stepsFile: File get() = outputDir.resolve("steps.txt")
+
+    /** Semantics tree at the moment of failure. */
+    val treeFile: File get() = outputDir.resolve("tree.txt")
+
+    /** Nodes with testTag: tag / text / contentDescription / bounds. */
+    val nodesFile: File get() = outputDir.resolve("nodes.txt")
+
+    /** Screenshot with bounding-box overlays and tag labels. */
+    val screenshotAnnotatedFile: File get() = outputDir.resolve("screenshot-annotated.png")
+
     /**
      * Adds all captured artifacts to [throwable] as suppressed exceptions so the
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile).forEach { file ->
+        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile, stepsFile, treeFile, nodesFile, screenshotAnnotatedFile).forEach { file ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
             } else {
@@ -103,6 +127,10 @@ data class FailureBundle(
          * @param attempt             Retry count (1-based); determines the subdirectory.
          * @param kermitBuffer        The [RingBufferLogWriter] installed by the harness,
          *                             if any; may be null when logging was never enabled.
+         * @param steps               The [StepRecorder] for the current test, if any;
+         *                             used to write steps.txt in the bundle.
+         * @param highlightTag        Tag of the last failed step, if any; passed to
+         *                             [captureAnnotated] for red highlighting.
          */
         @OptIn(ExperimentalTestApi::class)
         suspend fun capture(
@@ -111,6 +139,8 @@ data class FailureBundle(
             app: Koin,
             attempt: Int,
             kermitBuffer: RingBufferLogWriter?,
+            steps: StepRecorder? = null,
+            highlightTag: String? = null,
         ): FailureBundle {
             val bundle = FailureBundle(
                 testClassSimpleName = testClassSimpleName,
@@ -153,6 +183,22 @@ data class FailureBundle(
                 }
             }
 
+            // Step recorder log — always written (empty when no steps recorded)
+            runCatching {
+                writeFile(bundle.stepsFile) {
+                    steps?.format() ?: ""
+                }
+            }
+
+            // Semantics tree — written as a file so it is available in the bundle
+            // directory without needing to parse the JUnit XML report. The unmerged tree
+            // is used because it shows the raw nodes before Compose folds them.
+            runCatching {
+                writeFile(bundle.treeFile) {
+                    testInstance.dumpSemantics()
+                }
+            }
+
             // Screenshot — captureToImage() on SkikoComposeUiTest is available in 1.12.0.
             //
             // captureToImage blocks on EventQueue.invokeAndWait, so a failure that left
@@ -170,6 +216,37 @@ data class FailureBundle(
                     val bitmap = testInstance.captureToImage()
                     val bufferedImage: BufferedImage = bitmap.toAwtImage()
                     ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
+                }
+                // Annotated screenshot: bounding-box overlays on the same frame.
+                // Writes nodes.txt unconditionally (text fallback) and screenshot-annotated.png
+                // when screenshot is enabled. Both are independent runCatching blocks so one
+                // failure does not affect the other.
+                runCatching {
+                    testInstance.captureAnnotated(
+                        highlightTag = highlightTag,
+                        file = bundle.screenshotAnnotatedFile,
+                        nodesFile = bundle.nodesFile,
+                    )
+                }
+            } else {
+                // Still write nodes.txt even when screenshot is disabled.
+                runCatching {
+                    testInstance.captureAnnotated(
+                        highlightTag = highlightTag,
+                        file = bundle.screenshotAnnotatedFile,
+                        nodesFile = bundle.nodesFile,
+                    )
+                }
+            }
+
+            // Regression diff vs the baseline snapshot written on a passing run with
+            // -Dsingularity.test.baseline=true. Best-effort on both sides: no baseline
+            // (or a failed read) simply means no diff.
+            runCatching {
+                val baselineDir = File("build/diagnostics/$testClassSimpleName/baseline")
+                val diff = testInstance.diffAgainstBaseline(baselineDir)
+                if (diff != null) {
+                    File(bundle.outputDir, "nodes-diff.txt").writeText(diff)
                 }
             }
 
