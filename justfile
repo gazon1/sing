@@ -16,6 +16,7 @@ mod android  '.just/android'
 mod desktop  '.just/desktop'
 mod tests    '.just/tests'
 mod scripts  '.just/scripts'
+mod kiwi     '.just/kiwi'
 
 set shell := ["bash", "-uc"]
 set unstable
@@ -84,6 +85,21 @@ alias cr       := tests::coverage-ratchet
 # ----- DB shortcuts -----
 alias db-a   := android::db-schema
 alias db-d   := desktop::db-schema
+
+# ----- Kiwi TCMS shortcuts -----
+# start/stop — фоновый режим: контейнеры живут между вызовами just.
+alias kiwi-start   := kiwi::start
+alias kiwi-stop    := kiwi::stop
+alias kiwi-wait    := kiwi::wait
+alias kiwi-status  := kiwi::status
+alias kiwi-logs    := kiwi::logs
+alias kiwi-up      := kiwi::up
+alias kiwi-down    := kiwi::stop
+alias kiwi-restart := kiwi::restart
+alias kiwi-purge   := kiwi::purge
+alias ksync        := kiwi::sync-plan
+alias kresults     := kiwi::sync-results
+alias kgaps        := kiwi::gaps
 
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench

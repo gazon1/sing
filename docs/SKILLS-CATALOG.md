@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-113 skills: 85 project-specific, 28 generic/meta.
+114 skills: 86 project-specific, 28 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -31,8 +31,8 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cross-feature-navigation` | 234 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
-| `singularity-todo-desktop-compose-ui-tests` | 333 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
-| `singularity-todo-detekt-rules-authoring` | 470 | How to write and register custom detekt rules in the Singularity Todo project. |
+| `singularity-todo-desktop-compose-ui-tests` | 346 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
+| `singularity-todo-detekt-rules-authoring` | 497 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
@@ -41,16 +41,17 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
 | `singularity-todo-emulator-launch` | 147 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 454 | Feature scaffold pattern for the Singularity Todo KMP app. |
-| `singularity-todo-icon-registry` | 261 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
+| `singularity-todo-icon-registry` | 273 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 103 | JvmInline value class patterns for Singularity Todo. |
+| `singularity-todo-kiwi-tcm-stand` | 123 | Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — mapping repository test classes to test cases, importing Gradle JUnit results as test runs, and reporting what has never been run. |
 | `singularity-todo-kmp-platform-specific` | 263 | KMP expect/actual patterns for AI features and platform-only dependencies. |
 | `singularity-todo-kmp-reorderable` | 226 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
 | `singularity-todo-koin-dsl` | 101 | Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf vs viewModel {}, singleOf / factoryOf, koinBridge for suspend factories, and where bindings live (per-domain *DiModule.kt, with core/di/Modules.kt as an aggregator). |
 | `singularity-todo-koin-overview` | 41 | Router skill — index to all Koin DI skills. |
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
-| `singularity-todo-llm-usage-tracking` | 468 | LLM token usage tracking pattern for Singularity Todo KMP. |
+| `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
 | `singularity-todo-maestro-flows` | 273 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 202 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
@@ -106,7 +107,7 @@ state *which tasks need the skill*, not summarise its contents.
 |---|---:|---|
 | `code-review-pr-workflow` | 191 | Author and review a pull request in this project. |
 | `codebase-design` | 113 | Shared vocabulary for designing deep modules. |
-| `debugging-investigation` | 324 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
+| `debugging-investigation` | 334 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
 | `diagnosing-bugs` | 137 | Diagnosis loop for hard bugs and performance regressions. |
 | `domain-glossary` | 89 | Decide whether a term belongs in docs/CONTEXT.md and add it correctly. |
 | `domain-modeling` | 73 | Build and sharpen a project's domain model. |

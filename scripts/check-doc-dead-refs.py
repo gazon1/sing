@@ -31,7 +31,11 @@ SKILLS_DIR = ROOT / ".agents" / "skills"
 DECISIONS_DIR = ROOT / "docs" / "decisions"
 SRC_DIRS = ["shared/src", "shared", "androidApp", "desktopApp", "mcp-server",
             "detekt-rules", "scripts", "docs", "config", "evals", ".agents", "gradle",
-            "Maestro", "openspec"]
+            "Maestro", "openspec",
+            # infra/ (локальные стенды, в т.ч. Kiwi TCMS). Без него любая
+            # ссылка на infra/kiwi/... из скилла или ADR считалась бы мёртвой
+            # — и либо базилась бы, либо вводила автора в заблуждение.
+            "infra"]
 
 # Top-level files that exist but are not under SRC_DIRS.
 TOP_LEVEL_FILES = [
@@ -394,12 +398,16 @@ _SYMBOL_RE = re.compile(r"`([^`]+)`")
 # companion was invisible. The class name itself is not what documentation
 # quotes, so leading indentation is tolerated deliberately rather than by
 # accident.
+# `[ \t]*(\w+)` — не `[ \t]+`, потому что обобщённый класс пишется без
+# пробела: `abstract class FileSystemContract<F : FileSystem>(...)`. С `+`
+# такое объявление не матчилось, и гейт объявлял висячей ссылку на реально
+# существующий класс FileSystemContract.
 _TOP_LEVEL_KT = re.compile(
     r"^[ \t]*(?:@\w+(?:\([^)]*\))?[ \t]*)*"                # annotations
     r"(?:public|internal|private|protected|abstract|final|open|sealed|data|value|"
     r"inner|enum|annotation|expect|actual|companion|inline|infix|operator|suspend|"
     r"const|lateinit|external|tailrec)*[ \t]*"
-    r"(?:object|class|interface|fun|val|var|typealias)[ \t]+(\w+)",
+    r"(?:object|class|interface|fun|val|var|typealias)[ \t]*(\w+)",
     re.M,
 )
 # Symbols owned by a library or the Kotlin/JDK standard, not by this repository.
@@ -482,6 +490,11 @@ def _build_kt_symbol_index() -> dict[str, str]:
     # directories away. Module-level SCREAMING_SNAKE_CASE names are the Python
     # equivalent of a top-level declaration.
     _PY_CONST = re.compile(r"^([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=", re.M)
+    # Классы и функции верхнего уровня. Методы (с ведущим отступом) и вложенные
+    # определения не ловятся: regex требует def/class в начале строки.
+    _PY_DEF = re.compile(
+        r"^(?:class|def)\s+([A-Za-z_][A-Za-z0-9_]*)", re.M
+    )
 
     for base in prod_roots:
         if not base.exists():
@@ -505,13 +518,30 @@ def _build_kt_symbol_index() -> dict[str, str]:
     if detekt_yml.exists():
         for name in _DETEKT_RULE_KEY.findall(detekt_yml.read_text(encoding="utf-8")):
             index.setdefault(name, "config/detekt/detekt.yml")
-    for base in (ROOT / "scripts", ROOT / ".agents", ROOT / "mcp-server"):
+    # Python: не только константы уровня модуля, но и классы/функции верхнего
+    # уровня. `singularity-todo-kiwi-tcm-stand` документирует `KiwiError`,
+    # `SessionTransport` и подобные имена из infra/kiwi/ — это объявления в
+    # реальном коде, и гейт, видящий только SCREAMING_SNAKE_CASE, объявлял их
+    # висячими, вынуждая либо базилизовать живой символ, либо убрать точное
+    # имя из документации. Оба варианта хуже, чем научить гейт видеть Python.
+    #
+    # infra/ проиндексирован потому же, что и detekt-rules выше: его скрипты —
+    # исполняемый код этого репозитория, а не вспомогательные файлы.
+    for base in (
+        ROOT / "scripts",
+        ROOT / ".agents",
+        ROOT / "mcp-server",
+        ROOT / "infra",
+    ):
         if not base.exists():
             continue
         for path in base.rglob("*.py"):
             text = path.read_text(encoding="utf-8", errors="replace")
+            rel = path.relative_to(ROOT).as_posix()
             for m in _PY_CONST.finditer(text):
-                index.setdefault(m.group(1), path.relative_to(ROOT).as_posix())
+                index.setdefault(m.group(1), rel)
+            for m in _PY_DEF.finditer(text):
+                index.setdefault(m.group(1), rel)
     return index
 
 

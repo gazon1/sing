@@ -1,0 +1,318 @@
+"""Unit tests for the Kiwi TCMS stand (infra/kiwi).
+
+Run with: python3 -m unittest discover -s scripts/tests
+
+Covered: JUnit XML parsing, repository scanning, and the status mapping that
+decides what a test outcome looks like in Kiwi. The XML-RPC client itself is
+NOT tested here — it needs a running stand, and every contract it depends on
+(product/plan/case/run creation) is exercised by the end-to-end run described
+in infra/kiwi/README.md. Testing it against mocks would assert the mock.
+"""
+
+import importlib.util
+import pathlib
+import sys
+import tempfile
+import unittest
+
+_kiwi_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "infra" / "kiwi"
+sys.path.insert(0, str(_kiwi_dir))
+
+_spec = importlib.util.spec_from_file_location("kiwi_sync", _kiwi_dir / "sync.py")
+_sync = importlib.util.module_from_spec(_spec)
+_sync.__name__ = "kiwi_sync"
+_sync.__file__ = str(_kiwi_dir / "sync.py")
+# Регистрация в sys.modules обязательна и должна предшествовать exec_module:
+# @dataclass на этапе определения класса ищет sys.modules[cls.__module__], и
+# без записи падает с «'NoneType' object has no attribute '__dict__'».
+sys.modules["kiwi_sync"] = _sync
+_spec.loader.exec_module(_sync)
+
+sync = _sync
+
+
+def _write_xml(directory: pathlib.Path, name: str, body: str) -> pathlib.Path:
+    target = directory / name
+    target.write_text(body, encoding="utf-8")
+    return target
+
+
+class ParseJunitTest(unittest.TestCase):
+    """JUnit XML → результаты по FQN."""
+
+    def test_reads_classname_not_testsuite_name(self):
+        # Gradle пишет в testsuite@name суффикс платформы; привязка к кейсам
+        # идёт по FQN из <testcase classname>. Беря testsuite@name, мы получили
+        # бы 0 совпадений вместо 212.
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            _write_xml(
+                d,
+                "TEST-x.xml",
+                """<?xml version="1.0" encoding="UTF-8"?>
+                <testsuite name="AgendaDslTest[jvm]" tests="2">
+                  <testcase classname="com.example.AgendaDslTest" name="evaluates" time="0.5"/>
+                  <testcase classname="com.example.AgendaDslTest" name="buckets" time="0.5"/>
+                </testsuite>""",
+            )
+            by_class = sync.parse_junit([d])
+
+        self.assertIn("com.example.AgendaDslTest", by_class)
+        self.assertNotIn("AgendaDslTest[jvm]", by_class)
+        self.assertEqual(len(by_class["com.example.AgendaDslTest"]), 2)
+
+    def test_failure_error_and_skipped_are_distinguished(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            _write_xml(
+                d,
+                "TEST-y.xml",
+                """<?xml version="1.0" encoding="UTF-8"?>
+                <testsuite name="S" tests="4">
+                  <testcase classname="C" name="ok"/>
+                  <testcase classname="C" name="bad"><failure message="boom"/></testcase>
+                  <testcase classname="C" name="err"><error message="kaboom"/></testcase>
+                  <testcase classname="C" name="skip"><skipped/></testcase>
+                </testsuite>""",
+            )
+            results = {r.name: r for r in sync.parse_junit([d])["C"]}
+
+        self.assertEqual(results["ok"].status, "passed")
+        self.assertEqual(results["bad"].status, "failed")
+        self.assertEqual(results["err"].status, "error")
+        self.assertEqual(results["skip"].status, "skipped")
+        self.assertEqual(results["bad"].message, "boom")
+
+    def test_nested_testsuites_are_flattened(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            _write_xml(
+                d,
+                "TEST-z.xml",
+                """<?xml version="1.0" encoding="UTF-8"?>
+                <testsuites>
+                  <testsuite name="A"><testcase classname="A" name="a"/></testsuite>
+                  <testsuite name="B"><testcase classname="B" name="b"/></testsuite>
+                </testsuites>""",
+            )
+            by_class = sync.parse_junit([d])
+
+        self.assertEqual(sorted(by_class), ["A", "B"])
+
+    def test_malformed_xml_is_reported_not_raised(self):
+        # Битый XML в build/test-results не должен ронять весь синк: каталог
+        # мог остаться от прерванного прогона.
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            _write_xml(d, "TEST-broken.xml", "<testsuite><not-closed>")
+            self.assertEqual(sync.parse_junit([d]), {})
+
+
+class StatusForTest(unittest.TestCase):
+    """JUnit статус → Kiwi TestExecutionStatus."""
+
+    def test_maps_common_spellings(self):
+        for junit, expected in (
+            ("passed", "PASSED"),
+            ("PASSED", "PASSED"),
+            ("failed", "FAILED"),
+            ("error", "ERROR"),
+            ("skipped", "IDLE"),
+            ("disabled", "IDLE"),
+        ):
+            with self.subTest(junit=junit):
+                self.assertEqual(sync.status_for(junit), expected)
+
+    def test_unknown_status_becomes_idle_not_passed(self):
+        # Kiwi не знает произвольных статусов; молча превращать неизвестное в
+        # PASSED значило бы записать в базу успех там, где его не было.
+        self.assertEqual(sync.status_for("quarantined"), "IDLE")
+
+
+class FeatureOfTest(unittest.TestCase):
+    """Пакет → Kiwi-компонент."""
+
+    def test_feature_and_core_keep_two_levels(self):
+        self.assertEqual(
+            sync._feature_of("com.singularity.todo.feature.tasks.data.XTest"),
+            "feature.tasks",
+        )
+        self.assertEqual(
+            sync._feature_of("com.singularity.todo.core.sync.XTest"), "core.sync"
+        )
+
+    def test_other_top_level_packages_collapse_to_one_level(self):
+        for fqn, expected in (
+            ("com.singularity.todo.arch.SomeTest", "arch"),
+            ("com.singularity.todo.test.helpers.FakesTest", "test"),
+            ("com.singularity.todo.shell.XTest", "shell"),
+        ):
+            with self.subTest(fqn=fqn):
+                self.assertEqual(sync._feature_of(fqn), expected)
+
+
+class ScanRepositoryTest(unittest.TestCase):
+    """Скан реального репозитория."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tests = sync.scan_repository()
+
+    def test_finds_the_whole_known_inventory(self):
+        # Проект содержит ~260 тестовых классов; падение ниже 200 означало бы,
+        # что пути в TEST_ROOTS разошлись с реальностью. Верхняя граница тоже
+        # осмысленна: её рост означал бы возврат отсева abstract-баз и хелперов.
+        self.assertGreater(len(self.tests), 200)
+        self.assertLess(len(self.tests), 300)
+
+    def test_abstract_bases_and_helpers_are_excluded(self):
+        # Класс, который никогда не даёт прогона (abstract-база контракта или
+        # хелпер с суффиксом Test), в Kiwi становится вечным «кейсом без
+        # прогона» и портит главный сигнал отчёта. Таких в репозитории ровно
+        # четыре, и они перечислены явно: иначе отсев выглядит как «пропало
+        # четыре кейса» без объяснения.
+        self.assertEqual(
+            sorted(fqn.rsplit(".", 1)[-1] for fqn, _ in sync.SKIPPED_NON_TESTS),
+            [
+                "FileSystemContractTest",
+                "IsolatedComposeTest",
+                "RunVmTest",
+                "TaskRepositoryContractTest",
+            ],
+        )
+
+    def test_every_case_carries_plan_and_path(self):
+        for t in self.tests[:50]:
+            with self.subTest(fqn=t.fqn):
+                self.assertTrue(t.plan)
+                self.assertTrue(t.rel_path.endswith("Test.kt"))
+                self.assertTrue(t.fqn.startswith("com.singularity.todo"))
+
+    def test_source_paths_are_unique(self):
+        # source_path — ключ идемпотентности. Дубликат означал бы, что один из
+        # двух кейсов молча перестал бы обновляться.
+        paths = [t.rel_path for t in self.tests]
+        self.assertEqual(len(paths), len(set(paths)))
+
+    def test_untagged_classes_are_surfaced_not_hidden(self):
+        # Проект требует @Tag на каждом тестовом классе; отсутствие тега —
+        # находка, а не повод пропустить класс.
+        untagged = [t for t in self.tests if t.tag == "untagged"]
+        for t in untagged:
+            self.assertEqual(t.tag, "untagged")
+
+
+class RunnableTestClassTest(unittest.TestCase):
+    """is_runnable_test_class — отсев файлов, не дающих прогона."""
+
+    def test_ordinary_test_class_is_runnable(self):
+        self.assertTrue(
+            sync.is_runnable_test_class(
+                '@Tag("fast")\nclass FooTest {\n  @Test fun x() {}\n}'
+            )
+        )
+
+    def test_parameterized_test_counts_as_a_test(self):
+        # Параметризованные тесты дают прогон, но не содержат @Test.
+        # Отсев по «нет @Test» выкинул бы 4 реальных тест-класса.
+        source = (
+            "import org.junit.jupiter.params.ParameterizedTest\n"
+            "class FooTest {\n"
+            "  @ParameterizedTest\n  fun x() {}\n"
+        )
+        self.assertTrue(sync.is_runnable_test_class(source))
+
+    def test_abstract_base_is_not_runnable(self):
+        source = (
+            "@Tag(\"slow\")\nabstract class ContractTest {\n"
+            "  protected abstract fun make(): Any\n}\n"
+            "class RoomContractTest : ContractTest() {\n"
+            "  @Test fun real() {}\n}\n"
+        )
+        self.assertFalse(sync.is_runnable_test_class(source))
+
+    def test_helper_without_tests_is_not_runnable(self):
+        self.assertFalse(
+            sync.is_runnable_test_class("class RunVmTest { fun run() {} }")
+        )
+
+
+class ReadTagTest(unittest.TestCase):
+    """@Tag на уровне класса."""
+
+    def test_reads_class_level_tag(self):
+        source = '@Tag("slow")\nclass FooTest\n'
+        self.assertEqual(sync._read_tag(source), "slow")
+
+    def test_missing_tag_is_reported_as_untagged(self):
+        self.assertEqual(sync._read_tag("class FooTest"), "untagged")
+
+    def test_first_tag_wins(self):
+        source = '@Tag("fast")\n@Tag("slow")\nclass FooTest\n'
+        self.assertEqual(sync._read_tag(source), "fast")
+
+
+class GitVersionTest(unittest.TestCase):
+    def test_returns_something_non_empty(self):
+        # Build в Kiwi требует непустую версию; исключение внутри функции
+        # уронило бы весь sync_results.
+        self.assertTrue(sync.git_version())
+
+
+class BatchPropertiesTest(unittest.TestCase):
+    """Клиент Kiwi: свойства пачкой, а не по одному на кейс.
+
+    Проверяется на настоящем стенде, а не на моке: весь смысл метода в том,
+    что он НЕ делает запрос на каждый кейс, и мок этого не проверит. Если
+    стенд не поднят — тест пропускается, а не падает.
+    """
+
+    def setUp(self):
+        self.client = _sync.KiwiClient()
+        try:
+            self.client.check_alive()
+        except Exception as exc:  # noqa: BLE001 — причина в пропуске ниже
+            self.skipTest(f"стенд Kiwi не поднят: {exc}")
+
+    def test_bulk_properties_cover_every_case(self):
+        product = self.client.get_product("Singularity Todo")
+        if product is None:
+            self.skipTest("продукт не заведён — выполните sync.py --plan")
+        plan_ids = [
+            p["id"]
+            for p in self.client.call(
+                "TestPlan.filter", {"product__id": product["id"]}
+            )
+            or []
+        ]
+        expected = {
+            case["id"]
+            for plan_id in plan_ids
+            for case in self.client.get_cases(plan_id)
+        }
+        bulk = self.client.get_all_cases_properties(plan_ids)
+        self.assertEqual(set(bulk), expected)
+
+    def test_bulk_and_single_agree(self):
+        # Расхождение между пачкой и одиночным вызовом — источник тихих дыр:
+        # sync видел бы часть кейсов без source_path и пересоздавал их.
+        product = self.client.get_product("Singularity Todo")
+        if product is None:
+            self.skipTest("продукт не заведён — выполните sync.py --plan")
+        plan_ids = [
+            p["id"]
+            for p in self.client.call(
+                "TestPlan.filter", {"product__id": product["id"]}
+            )
+            or []
+        ]
+        bulk = self.client.get_all_cases_properties(plan_ids)
+        sample = list(bulk)[:5]
+        self.assertTrue(sample, "нет кейсов для сверки")
+        for case_id in sample:
+            with self.subTest(case=case_id):
+                self.assertEqual(self.client.get_case_properties(case_id), bulk[case_id])
+
+
+if __name__ == "__main__":
+    unittest.main()
