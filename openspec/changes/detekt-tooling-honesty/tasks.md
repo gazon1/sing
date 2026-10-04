@@ -15,6 +15,13 @@
       -Pkover.jvmTest=true -Ptest.tags=fast,slow --tests '…KoinGraphValidationTest' --rerun-tasks`,
       then `koverReport`, then read `CalendarSyncDiModuleKt` out of the XML. Only if it is still
       4/18 is the attribution question real.
+- [ ] **#146 — settle the order, because #138's cheapest hypothesis is the ratchet's own doing.**
+      `coverage-ratchet` wipes every module's `kover` dir and then runs `koverReport`; wiping stale
+      `.bin` is right, but it does not invalidate the test task, and `:shared:jvmTest` can come back
+      `UP-TO-DATE` — re-executing nothing and contributing no fresh data. Settle it as
+      **measure, then ratchet** (or make the wipe invalidate the test task), record the decision in
+      `config/coverage-ratchet.json` next to the floors, and only then re-measure #138. Cross-links
+      #59 and #138; the `feature/calendar_sync` floor's note is a loan against this and says so.
 
 ## Then guard
 
@@ -29,6 +36,13 @@
 - [ ] Until the guard exists: document the safe order in the rule-authoring skill — never run
       `detektBaseline` without `git diff` on the baseline immediately after, and treat a
       *shrinking* custom-rule section as a red flag rather than progress. Cross-link #137 and #58.
+- [ ] **#145 — the visibility half of #135 has landed; the enforcement half has not.**
+      `scripts/gen-detekt-rule-table.py` writes a `Test` column per rule and `--check` is wired into
+      `check.sh` as step `[8b/21]`, but `--check` passes just as happily on an empty cell — it proves
+      the table has not drifted, not that a rule is tested. Fold the enforcement into #135 rather
+      than making it a second gate, and reuse the generator's existing fake-tree harness. Do not
+      rebuild the inventory half: it is generated, so it cannot go stale, and it already answers
+      "which rule lacks a test" without a grep.
 
 ## Close out
 

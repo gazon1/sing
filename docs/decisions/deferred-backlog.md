@@ -2213,3 +2213,121 @@ the same finding from the previous session.
 **Try next.** Rule out (a) first, with `--rerun-tasks` on the single class, because it invalidates
 the other two. If it is genuinely 4/18 after a forced re-run, plant a side effect inside the
 `single { }` body and assert it happened when the definition is resolved.
+
+---
+
+## a-viewmodel-scope-and-its-reporter-can-be-different-ports
+
+**Status: OPEN**
+
+**Tracked as:** [#143](https://github.com/gazon1/singularity-clone-kmp/issues/143)
+
+**Found in:** 2026-10-05, the sweep that followed the crash-reporting migration — asking what
+structural gap the migration left, rather than what it fixed.
+
+**Symptom.** `MviViewModel`'s default scope is derived from the ViewModel's own reporting port,
+so the common case cannot diverge. The default is bypassed when a component supplies a scope
+explicitly, and then the port `catchTo` reports to and the port the scope's failure handler
+reports to are two independent arguments that nothing correlates.
+
+**Counted, because the first count was wrong.** Not exposed: the eleven `slot/` classes (they hold
+no reporter and take `vmScope` from `TaskDetailCoordinator`), `SearchViewModel` (its secondary
+constructor derives the scope from the reporter it was handed), `TaskDetailCoordinator` (defaults
+to `reportingScope(crashReporter)`). Exposed: **two** — `core/di/CoreDiModule.kt:219-220` and
+`feature/calendar_sync/di/CalendarSyncDiModule.kt:64-65`. Both resolve the same singleton today, so
+there is no live bug; the two arguments are equal by coincidence of how they are written.
+
+**Already ruled out.** Not something `NoUnreportedFailurePath` can see (it asks whether a reporter
+exists) and not something `NoUnwiredReporterInBinding` can see (it asks whether the binding passes
+the reporter, which both do — both were converted to the named form for that rule). Correlating two
+sibling arguments in a binding body is not a name-resolution question, so a rule is the wrong tool.
+
+**Try next.** Derive the scope inside those two ViewModels from the reporter they already hold, as
+the other three do — one destination by construction, nothing to check. If a future component
+genuinely needs a scope from elsewhere, fall back to a DI-graph test asserting the resolved scope's
+destination is the injected port. Either way, prove the check can fail by planting a scope built
+from a different port.
+
+---
+
+## version-gate-breadcrumb-has-no-test
+
+**Status: OPEN**
+
+**Tracked as:** [#144](https://github.com/gazon1/singularity-clone-kmp/issues/144)
+
+**Found in:** 2026-10-05, re-reading `openspec/changes/failure-visibility/tasks.md` against the tree
+while deciding whether that change could be archived.
+
+**Symptom.** `a068b432` added the fail-open breadcrumb to `AppVersionGateViewModel` — when a
+remote-config read throws, the gate admits the user on defaults and leaves a record saying it did.
+The code shipped. The test did not, and `tasks.md:12` says so in its own words: *"a breadcrumb
+asserted only by reading the code is not a breadcrumb."*
+
+**Why it matters.** The report and the breadcrumb are two separate calls emitted from one `catchTo`
+block. A regression that drops the report reinstates #126; one that drops the breadcrumb makes the
+gate fail open invisibly, which is the original defect wearing the fix's clothes; one that swaps the
+keys leaves both halves present but no longer greppable together.
+
+**Already ruled out.** Not a missing harness — `AppVersionGateViewModelTest` has 7 cases and
+already drives `onReadFailed()` and `recordBypass()`. This is an addition to a suite that exists.
+
+**Try next.** A recording port, not a no-op: assert both a report and a breadcrumb were recorded
+under the same key, on the failure path. Asserting that `recordBypass()` was *called* would pass
+against `NoOpCrashReportingPort` — the mistake this repository has already made twice.
+
+---
+
+## the-generated-rule-inventory-enforces-nothing
+
+**Status: OPEN**
+
+**Tracked as:** [#145](https://github.com/gazon1/singularity-clone-kmp/issues/145)
+
+**Found in:** 2026-10-05, running `python3 scripts/gen-detekt-rule-table.py --check` to confirm the
+inventory still matched the source. It reported `OK — 25 rules, table matches source`.
+
+**Symptom.** That `OK` proves the table has not drifted. It says nothing about the `Test` column, and
+it passes just as happily when a rule has no positive control and the cell is empty. The column was
+added so an untested rule is *visible* in the file a rule author opens. Visible is not enforced.
+
+**Already ruled out.** Not a gap in the inventory — the inventory is generated, so it cannot go
+stale, and it makes the "which rule lacks a test" question answerable without grepping. #135 already
+scopes the enforcement and already contains the correction about matching: a dedicated-filename
+check reported five untested rules and should have reported zero, because
+`RuleFiresSmokeTest` covers them. Whoever picks up #135 should not rebuild the visibility half.
+
+**Try next.** In #135, not here: make `--check` fail on a rule with no positive control, matching a
+dedicated class *or* a smoke test, and prove it by deleting one control and confirming red.
+
+---
+
+## the-ratchet-wipes-the-evidence-it-measures
+
+**Status: OPEN**
+
+**Tracked as:** [#146](https://github.com/gazon1/singularity-clone-kmp/issues/146)
+
+**Found in:** 2026-10-05, while reasoning about #138's leading hypothesis — that `jvmTest` came back
+`FROM-CACHE` after `just cr`'s kover wipe.
+
+**Symptom.** `coverage-ratchet` wipes every module's `kover` directory and then runs `koverReport`.
+Wiping stale `.bin` is right. But it does not invalidate the *test task*, and `:shared:jvmTest` can
+be served `UP-TO-DATE` — re-executing nothing, contributing no fresh `.bin`, and producing a thinner
+report than the truth. **A measurement gate that deletes the evidence it is about to measure can be
+right for the wrong reason.**
+
+**Why it is not just #138.** #138 asks why one file shows 4/18 and names the cache hypothesis as the
+cheapest to rule out. This is the finding that the ratchet can *manufacture* the condition it is
+investigating, and it applies to all nine floors. The live part: the `feature/calendar_sync` floor
+was adopted to the measured 23.54% with a note saying it is a loan against #138 — if the measurement
+came from a cache-served run, the floor was adopted from a number the code never produced.
+
+**Already ruled out.** Not a claim that any current floor is wrong. The nine floors all *rose* when
+re-baselined, which is the right direction; the point is that a cache-served floor would have looked
+identical in the same run.
+
+**Try next.** Settle the order explicitly and record it in `config/coverage-ratchet.json` next to the
+floors: **measure, then ratchet** — or make the wipe invalidate the test task so the tests re-run.
+Then re-measure #138 under the settled order and delete or re-adopt the `feature/calendar_sync` note
+in the same commit, as that note already requires.

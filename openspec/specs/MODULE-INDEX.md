@@ -23,7 +23,7 @@ nest it changes its id, and every reference to the old id breaks with it.
 | `nav3-desktop-jvm-entry-dispatch` | `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` | Entry-dispatch contract shared by the Android and JVM shells. |
 | `navigation-open-policy` | the archived `navigation-open-policy` change (2026-10-04) | Every screen open resolved through one policy. |
 | `test-execution-integrity` | `docs/decisions/2026-10-04-test-execution-integrity.md` | The "tests ran" floors, and why a green pass/fail is not a baseline. |
-| `crash-reporting` | the archived `background-handler-injection` change (2026-10-05), plus `docs/decisions/2026-10-05-background-failure-handler-and-the-guard-it-behind.md` | Where a background failure goes, and why that is the component's choice rather than a process-wide default. REQ-1..REQ-4 of the `failure-visibility` change also target this capability and are **not** here yet — that change is still open, and this row is not the place to record work that has not shipped. |
+| `crash-reporting` | the archived `background-handler-injection` change (2026-10-05), plus `docs/decisions/2026-10-05-background-failure-handler-and-the-guard-it-behind.md` | Where a background failure goes, and why that is the component's choice rather than a process-wide default. REQ-1..REQ-4 of the `failure-visibility` change and REQ-7/REQ-8 of `scope-reporter-agreement` also target this capability and are **not** here yet — both changes are still open, and this row is not the place to record work that has not shipped. |
 
 ## Not covered
 

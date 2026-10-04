@@ -9,7 +9,7 @@
 > |---|---|
 > | REQ-1 `emit` is total | **done** — `48becc79`. One task below is not: the test that proves "does not report" with a *real* reporter rather than a no-op. |
 > | REQ-2 a user-initiated failure reaches the user | **not started.** The agenda toggle work (#132). Nothing in this session touched it. |
-> | REQ-3 the bypass is recorded | **half done** — the breadcrumb landed in `a068b432`; the test that asserts a throwing read produces *both* report and breadcrumb did not. |
+> | REQ-3 the bypass is recorded | **half done** — the breadcrumb landed in `a068b432`; the test that asserts a throwing read produces *both* report and breadcrumb did not. Filed as #144. |
 > | REQ-4 (in `crash-reporting`) | **done** — the reporter is real; see `openspec/specs/crash-reporting/`. |
 >
 > The two unfinished halves are filed rather than left here, because a checklist nobody works from
@@ -50,8 +50,10 @@ one.
 
 - [ ] Breadcrumb the version-gate fail-open path, using the same key the failure is reported
       under, so the two are greppable in the same report.
-- [ ] Test: a throwing `snapshot()` produces both the report and the breadcrumb. A breadcrumb
-      asserted only by reading the code is not a breadcrumb.
+- [ ] **Filed as #144** — Test: a throwing `snapshot()` produces both the report and the breadcrumb.
+      A breadcrumb asserted only by reading the code is not a breadcrumb. Must read a *recording*
+      port, not assert that `recordBypass()` was called: the latter passes against a no-op port,
+      which is the mistake this repository has already made twice.
 
 ## Cross-checks before merging
 
