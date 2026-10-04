@@ -1,12 +1,18 @@
 ---
 title: Context
 date: 2026-09-29
-status: open
+status: archived
 description: check-tags.sh ALLOW_PATTERNS array is dead code; migrate validation to iterate it
 owner: singularity-dev
 last_updated: 2026-09-29
 labels: maestro, test-automation, technical-debt
 ---
+
+**Archived 2026-10-05.** This is a dead-code allow-pattern inventory, not an architectural
+decision. It left the decision corpus because its content is inventory
+that nothing will migrate into a spec, and keeping it in `docs/decisions/`
+made findings files look like decisions with pending status.
+
 
 # Context
 

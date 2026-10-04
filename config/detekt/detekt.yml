@@ -44,6 +44,7 @@ comments:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   UndocumentedPublicFunction:
     active: false
     excludes:
@@ -51,6 +52,7 @@ comments:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   EndOfSentenceFormat:
     active: true
   AbsentOrWrongFileLicense:
@@ -82,6 +84,7 @@ complexity:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   NestedBlockDepth:
     active: true
     allowedDepth: 5           # bumped from default 4
@@ -129,6 +132,7 @@ exceptions:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
     exceptionNames:
       - 'Exception'
       - 'Throwable'
@@ -170,6 +174,7 @@ naming:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   TopLevelPropertyNaming:
     active: true            # covers top-level constants and properties
   VariableNaming:
@@ -191,6 +196,7 @@ performance:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
 
 # ---------------------------------------------------------------------------
 # potential-bugs
@@ -204,6 +210,7 @@ potential-bugs:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   UnsafeCast:
     active: true
   ElseCaseInsteadOfExhaustiveWhen:
@@ -281,7 +288,10 @@ ktlint:
     active: true
     auto_correct: true
   FunctionSignature:
-    active: false          # ktlint-official style conflicts with project's multi-line override style
+    # ktlint_official code style conflicts with the project's deliberate multi-line
+    # override style; enabling it fights `just detekt-fix` and produces churn on every
+    # Compose function with more than two parameters.
+    active: false
 
 # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
@@ -357,4 +367,16 @@ no-combine-side-effect:
 # MR-3: empty onClick = {} in composable previews
 no-empty-onclick-lambda:
   NoEmptyOnClickLambda:
+    active: true
+
+# Added 2026-10-05: these two rules were implemented and registered in
+# META-INF/services, but had no detekt.yml block, so detekt never loaded them and
+# they had never run. check-detekt-registrations.sh now enforces the invariant that
+# every ruleSetId in source has a block here.
+no-direct-dispatchers:
+  NoDirectDispatchers:
+    active: true
+
+user-scoped-repository:
+  ProhibitUserIdInObserve:
     active: true

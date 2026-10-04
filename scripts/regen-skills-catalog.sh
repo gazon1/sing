@@ -34,7 +34,14 @@ def parse(skill_md: pathlib.Path):
         return None
     d = desc.group(1).strip()
     if len(d) >= 2 and d[0] == d[-1] and d[0] in "\"'":
+        quote = d[0]
         d = d[1:-1]
+        # A YAML single-quoted scalar escapes an embedded quote by doubling it. Without
+        # this, a description like "the project's rules" renders as "the project''s
+        # rules" in the catalog, because the 15 descriptions fixed on 2026-10-05 use
+        # single quotes.
+        if quote == "'":
+            d = d.replace("''", "'")
     n = name.group(1).strip()
     if len(n) >= 2 and n[0] == n[-1] and n[0] in "\"'":
         n = n[1:-1]

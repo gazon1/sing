@@ -6,7 +6,6 @@ import dev.detekt.test.utils.compileContentForTest
 import org.jetbrains.kotlin.config.ExplicitApiMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Tests [NoViewModelScopeInProductionRule].

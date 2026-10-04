@@ -1,8 +1,8 @@
 ---
 title: JVM coroutine diagnostics via kotlinx-coroutines-debug
-tags: [testing, jvm, desktop, coroutines, tooling]
-created: 2026-10-03
+date: 2026-10-03
 status: accepted
+tags: [testing, jvm, desktop, coroutines, tooling]
 ---
 
 # Context

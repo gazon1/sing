@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-clean-architecture-audit
-description: Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. Use after creating or refactoring a feature to verify layer boundaries. Runs automated grep checks + manual checklist.
+description: 'Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. Use after creating or refactoring a feature to verify layer boundaries. Runs automated grep checks + manual checklist.'
 ---
 
 # Clean Architecture Audit

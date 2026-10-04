@@ -34,8 +34,7 @@ them as warnings.
 
 ---
 
-## Decisions
-
+## Decision
 ### 1. Complete the `TasksViewModel` deletion
 
 Execute the existing mandate from `2026-09-16-agenda-engine.md:113`:

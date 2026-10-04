@@ -58,8 +58,7 @@ without setting the other fields, relying on the server to populate them.
   separate ADR candidate: add `icon` to `Tag`, or drop the column. Tracked as a
   Phase 0 retro finding.
 
-## References
-
+## Links
 - Write-path primitives: `write-pipeline` skill
 - MR 0.4 `NotesRepositoryImpl.update` guard — same read-before-write pattern
 - `EntityMapperCompletenessTest` — catches any future mapper asymmetry

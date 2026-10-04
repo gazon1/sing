@@ -20,11 +20,20 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
 AGENTS_MD = ROOT / "AGENTS.md"
 DIGEST_MD = ROOT / "docs" / "decisions" / "DIGEST.md"
+ARCHITECTURE_MD = ROOT / "ARCHITECTURE.md"
+PROGRESS_MD = ROOT / "PROGRESS.md"
 
 AGENTS_MAX = 250
 SKILL_MAX = 500
 DESCRIPTION_MAX = 1024
-DIGEST_MAX = 1250  # matches MAX_DIGEST_LINES in refresh-decisions-digest.py; DIGEST.md ~1219 lines at 2026-10-03
+DIGEST_MAX = 1250  # matches MAX_DIGEST_LINES in refresh-decisions-digest.py
+# Added 2026-10-05. These two files had no budget at all, so they could grow without
+# limit while the files that do have budgets were trimmed to stay under them. A budget
+# that does not exist is worse than a high one: it hides the growth.
+ARCHITECTURE_MAX = 600
+# PROGRESS.md is a chronological journal, not a description of current state. Finished
+# epics are moved to docs/progress-archive/ so this file answers "where are we now".
+PROGRESS_MAX = 300
 
 
 def count_lines(path: pathlib.Path) -> int:
@@ -73,6 +82,8 @@ def main() -> int:
 
     check(AGENTS_MD, AGENTS_MAX, "lines")
     check(DIGEST_MD, DIGEST_MAX, "lines")
+    check(ARCHITECTURE_MD, ARCHITECTURE_MAX, "lines")
+    check(PROGRESS_MD, PROGRESS_MAX, "lines")
 
     for skill_md in sorted(SKILLS_DIR.glob("*/SKILL.md")):
         rel = skill_md.parent.name
@@ -98,6 +109,7 @@ def main() -> int:
 
     print(
         f"Doc sizes OK: AGENTS.md <= {AGENTS_MAX}, DIGEST.md <= {DIGEST_MAX}, "
+        f"ARCHITECTURE.md <= {ARCHITECTURE_MAX}, PROGRESS.md <= {PROGRESS_MAX}, "
         f"SKILL.md <= {SKILL_MAX} lines, description <= {DESCRIPTION_MAX} chars"
     )
     return 0

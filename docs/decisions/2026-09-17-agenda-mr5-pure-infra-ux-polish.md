@@ -15,8 +15,7 @@ MR5 continued the agenda engine refactor from MR1–4, driven by lessons from `2
 
 ---
 
-## Ideas
-
+## Idea
 ### Pure Infrastructure
 
 - `core/tree/Cascade.kt`: Generic `cascadeUp` with cycle detection (`LinkedHashSet` + `IllegalStateException`). Used for `Task.cascadeProjectColor` — ancestor color inheritance.
@@ -45,8 +44,7 @@ MR5 continued the agenda engine refactor from MR1–4, driven by lessons from `2
 
 ---
 
-## Decisions
-
+## Decision
 - Use `@Transient` on `AgendaDefinition.transformers` for backwards compat with legacy JSON.
 - `SelectorMatcher` and `SelectorDescriptor` are extension properties on `Selector`, not newtypes — avoids a breaking change to all call sites.
 - Drag-and-drop uses custom `pointerInput` rather than `sh.calvin.reorderable` (no KMP artifact) or `MultiplatformDragAndDrop` (experimental, unstable as of Sep 2026).

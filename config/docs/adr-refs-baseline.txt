@@ -1,0 +1,46 @@
+# Accepted dangling ADR references.
+#
+# Each line is <file>:<token>. A token is a dated decision-document slug that
+# no longer resolves to a file in docs/decisions/ (or its archive/) or in
+# docs/plans/.
+#
+# Seeded at 2026-10-05 with the pre-existing set, so the gate starts green
+# and every future dangling reference is a hard failure. Entries here are
+# accepted debt, not permission to ignore them: each one should eventually
+# be repointed or removed.
+#
+# Regenerate deliberately: python3 scripts/check-adr-references.py --update-baseline
+
+.agents/skills/singularity-todo-decisions-workflow/SKILL.md:2026-08-12-koin-runblocking
+.agents/skills/singularity-todo-decisions-workflow/SKILL.md:2026-09-05-ai-provider-settings
+.agents/skills/singularity-todo-test-tag-strategy/SKILL.md:2026-09-26-junit-tag-default-semantics
+docs/decisions/2026-09-05-android-bottom-nav.md:2026-09-05-android-bottom-nav-plan
+docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md:2026-09-17-agenda-mr3-saved-views-ui
+docs/decisions/2026-09-22-outbox-workmanager-refactor.md:2026-09-06-koin-suspend-bridge
+docs/decisions/2026-09-23-sync-tier3-fixes.md:2026-09-21-state-embedded-errors
+docs/decisions/2026-09-26-post-p0-retro.md:2026-09-26-pr-0-0-retro
+docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md:2026-09-26-junit-tag-default-semantics
+docs/decisions/2026-09-28-android-cold-start-nav3-serializer-crash.md:2026-09-28-maestro-ui-flows
+docs/decisions/2026-09-28-detekt-daemon-and-crashing-rule.md:2026-09-26-detekt-rules-authoring
+docs/decisions/2026-09-28-setup-hooks-broken-githooks-path.md:2026-09-28-maestro-ui-flows
+docs/decisions/2026-09-29-check-tags-legacy-raw-dead-code.md:2026-09-29-no-direct-clock-system-detekt-rule
+docs/decisions/2026-10-01-phase4-cleanup-findings.md:2026-10-01-r26-kotlin-time-consolidation
+docs/decisions/2026-10-01-post-mr-10-findings.md:2026-09-29-deferred-backlog
+docs/decisions/2026-10-02-note-body-canonical-html.md:2026-09-07-rich-text-encoding
+docs/decisions/2026-10-02-post-tech-debt-audit-findings.md:2026-10-02-tech-debt-cleanup-plan-v3
+openspec/changes/baseline-write-pipeline/proposal.md:2026-10-03-assert-canwrite-adr
+openspec/changes/baseline-write-pipeline/proposal.md:2026-10-03-write-integrity-phase0a
+openspec/changes/baseline-write-pipeline/proposal.md:2026-10-03-write-integrity-phase0b
+
+# Added 2026-10-05, after the backlog triage on main. Five references to ADRs
+# that were *proposed* and never written: four are marked "ADR candidate" in
+# docs/plans/2026-10-03-mr3-retro-gate.md, and the fifth is cited in an
+# OpenSpec design doc as though it existed. The gate is right that the files
+# are absent; it cannot tell a deliberately unwritten decision from a deleted
+# one, and baselining is where that difference belongs. Each line disappears
+# when its ADR is written — which is the point of writing it.
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-defer-fakeclock-harness-wiring
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-discard-false-duplicates-across-sections
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-evaluator-does-not-filter-archived
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-regexp-always-ignore-case
+openspec/changes/bulk-import-port/design.md:2026-10-03-assert-canwrite-adr

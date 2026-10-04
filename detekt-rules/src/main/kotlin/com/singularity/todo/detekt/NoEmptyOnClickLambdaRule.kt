@@ -69,11 +69,9 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
 
     private fun isPreviewContext(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val file = element.containingKtFile
-        val fileName = file.name.lowercase()
-        // Skip files whose name or path contains "preview" (filename or /preview/ directory)
-        if (fileName.contains("preview")) return true
-        val filePath = file.virtualFile?.path ?: ""
-        if (filePath.contains("/preview/", ignoreCase = true)) return true
+        if (NoEmptyOnClickLambdaPolicy.isPreviewPath(file.name, file.virtualFile?.path ?: "")) {
+            return true
+        }
         // Skip functions annotated with @Preview
         var current: org.jetbrains.kotlin.psi.KtElement? = element
         while (current != null) {
@@ -135,6 +133,28 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
             "onCheckedChange",
         )
     }
+}
+
+/**
+ * The file-name/path half of [NoEmptyOnClickLambdaRule]'s preview exemption, as a pure
+ * function so it can be tested.
+ *
+ * It had to be extracted for the same reason as the other two rules: `compileContentForTest`
+ * derives the file name from the package argument, so no fixture can produce a file named
+ * `*Preview*` and the branch was untestable. It was also untested — an earlier version of
+ * this file's test asserted `"taskrowpreview".contains("preview")`, which is true
+ * regardless of the rule and so proved nothing.
+ */
+internal object NoEmptyOnClickLambdaPolicy {
+
+    /**
+     * True when the file looks like preview code: a name containing "preview", or a path
+     * under a `preview/` package. The repo's convention is the latter (there is
+     * `core/ui/preview/` and no `Preview.kt`), so both are accepted.
+     */
+    fun isPreviewPath(fileName: String, filePath: String): Boolean =
+        fileName.lowercase().contains("preview") ||
+            filePath.replace('\\', '/').contains("/preview/", ignoreCase = true)
 }
 
 /**

@@ -9,8 +9,7 @@ status: accepted
 
 After the main Nav3 migration wave (Phases A–H), a review identified six issues that required fixes before merging.
 
-## Decisions
-
+## Decision
 ### 1. `NotesNavGraph` accepts `start` parameter
 
 `NotesNavGraph` always opened on `NotesRoute.List`, ignoring any deep-link target. The `start: NotesRoute` parameter was added to the expect/actual signature:

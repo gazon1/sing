@@ -1,9 +1,10 @@
 ---
 title: ApplyProposalItemUseCase — Refactor Strategy
-status: draft
-deciders:
-  - Singularity Developer
-created: 2026-10-04
+date: 2026-10-04
+status: deferred
+status-was: draft  # non-vocabulary value, normalized 2026-10-05
+deciders: 
+deciders: 
 ---
 
 ## Context

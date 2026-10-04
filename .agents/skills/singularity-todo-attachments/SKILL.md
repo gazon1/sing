@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-attachments
-description: Attachment feature pattern for the Singularity Todo KMP app. Use when adding file attachment support for tasks OR notes. Covers AttachmentEntity (owner_id + owner_kind generalization), AttachmentOwner sealed interface (Task/Note), AttachmentDao, AttachmentRepository interface, AttachmentStorage port, AttachmentUploadService port, AttachmentType enum, AttachmentSyncStatus, AttachmentsViewModel with owner runtime param, and Migration4To5 for schema v4→v5. The storage layer is platform-specific (Android: internal / external storage, JVM: FileSystem port).
+description: 'Attachment feature pattern for the Singularity Todo KMP app. Use when adding file attachment support for tasks OR notes. Covers AttachmentEntity (owner_id + owner_kind generalization), AttachmentOwner sealed interface (Task/Note), AttachmentDao, AttachmentRepository interface, AttachmentStorage port, AttachmentUploadService port, AttachmentType enum, AttachmentSyncStatus, AttachmentsViewModel with owner runtime param, and Migration4To5 for schema v4→v5. The storage layer is platform-specific (Android: internal / external storage, JVM: FileSystem port).'
 ---
 
 # Attachments Feature Pattern

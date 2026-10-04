@@ -9,7 +9,16 @@
 # New dead references are NOT baselined and fail `just docs-audit`.
 # Regenerate with: python3 scripts/check-doc-dead-refs.py --update-baseline
 # Remove a line once the file is written or the example is reworded.
+
+# Added 2026-10-05 when `openspec` was added to SRC_DIRS in check-doc-dead-refs.py.
+# These live in generic upstream skills and are conditional reads ("read GLOSSARY.md
+.agents/skills/diagnosing-bugs/SKILL.md:GLOSSARY.md
 .agents/skills/domain-modeling/SKILL.md:CONTEXT-MAP.md
+.agents/skills/improve-codebase-architecture/SKILL.md:GLOSSARY.md
+.agents/skills/loop-me/SKILL.md:NOTES.md
+.agents/skills/retro/SKILL.md:CLAUDE.md
+.agents/skills/retro/SKILL.md:CODING_STANDARDS.md
+.agents/skills/retro/SKILL.md:package.json
 .agents/skills/singularity-todo-ai-action-registry-pattern/SKILL.md:TaskFormatters.kt
 .agents/skills/singularity-todo-android-release-workflow/SKILL.md:RELEASE.md
 .agents/skills/singularity-todo-attachments/SKILL.md:feature/attachments/AttachmentButton.kt
@@ -34,6 +43,8 @@
 .agents/skills/singularity-todo-tech-debt-refactor/SKILL.md:RunInLifecycle.kt
 .agents/skills/singularity-todo-test-tag-strategy/SKILL.md:docs/decisions/2026-09-26-junit-tag-default-semantics.md
 .agents/skills/singularity-todo-testable-vm/SKILL.md:feature/tasks/presentation/viewmodel/TaskDetailViewModel.kt
+.agents/skills/tdd/SKILL.md:GLOSSARY.md
+.agents/skills/triage/SKILL.md:GLOSSARY.md
 .agents/skills/writing-for-agents/SKILL.md:CLAUDE.md
 .agents/skills/writing-for-agents/SKILL.md:package.json
 PROGRESS.md:StateStrategy.kt
@@ -337,10 +348,3 @@ docs/decisions/2026-10-03-openspec-adoption.md:design.md
 docs/decisions/deferred-backlog.md:SyncConfigScreen.kt
 docs/decisions/deferred-backlog.md:feature/sync/presentation/SyncConfigScreen.kt
 shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/package-info.kt:DateBucketExtensions.kt
-.agents/skills/diagnosing-bugs/SKILL.md:GLOSSARY.md
-.agents/skills/improve-codebase-architecture/SKILL.md:GLOSSARY.md
-.agents/skills/loop-me/SKILL.md:NOTES.md
-.agents/skills/retro/SKILL.md:CLAUDE.md
-.agents/skills/retro/SKILL.md:CODING_STANDARDS.md
-.agents/skills/retro/SKILL.md:package.json
-.agents/skills/tdd/SKILL.md:GLOSSARY.md

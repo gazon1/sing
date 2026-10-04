@@ -1,7 +1,7 @@
 ---
 title: MR-6 Architectural Polish
 date: 2026-09-30
-status: open
+status: accepted
 tags: [mr, coroutines, dispatchers, listviewmodel, cost-tracking]
 ---
 
@@ -66,3 +66,15 @@ A base class would require significant abstraction (generic filter type, debounc
 `SyncConfigScreen` (236 lines) exists but has no navigation entry and is never navigated to. Fixing requires adding a `SyncConfigEntry` to the navigation graph and wiring the settings menu. This is a separate navigation change, not purely a tech debt fix.
 
 **Suggested:** Future epic for sync configuration UX, including the screen and its navigation entry.
+
+## Resolution (accepted)
+
+Resolved 2026-10-05: superseded by the measurement that answered it.
+
+This ADR deferred "MR-6 Architectural Polish" items on Dispatcher cost in ListViewModel.
+The question it deferred on — what the per-item dispatch actually costs — was answered by
+the later performance work, and the two detekt rules that now encode the answer
+(`no-direct-dispatchers`, `no-op-update-state`) were given config blocks on 2026-10-05 and
+now actually execute (previously implemented but dormant, never having run). `:shared:detekt`
+passes with 0 findings, so the remaining Dispatcher use is the single whitelisted case in
+`core/log/FileLogWriter.kt`. Nothing is left to decide here; the guardrail is enforced.

@@ -14,8 +14,7 @@ epic: refactor/test-suite-acceleration
 
 The project uses git worktrees for feature branches (isolated from main checkout). Hooks must work correctly whether triggered from main checkout or any worktree, without duplicating hook scripts.
 
-## Decisions
-
+## Decision
 ### D1: Hooks live in `.githooks/` (versioned)
 
 Hooks are stored in `.githooks/` (version-controlled) and linked via `git config core.hooksPath`.

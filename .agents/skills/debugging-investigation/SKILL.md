@@ -1,6 +1,6 @@
 ---
 name: debugging-investigation
-description: Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death.
+description: 'Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death.'
 ---
 
 # Debugging Investigation

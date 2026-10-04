@@ -92,13 +92,23 @@ class TestTagCoverageTest {
         val relative = file.relativeTo(repoRoot).path
         val offenders = mutableListOf<String>()
 
+        // An aliased `import … Tag as X` means this file writes its tags as `@X(`.
+        // Line by line, not over a joined string: the pattern is anchored at both ends
+        // on purpose (so `@Tag` inside prose is not mistaken for an import), and a
+        // joined string has one start and one end, not one per line.
+        val tagAnnotation = lines.asSequence()
+            .mapNotNull { TAG_ALIAS_IMPORT.find(it) }
+            .firstOrNull()
+            ?.let { Regex("""@${it.groupValues[1]}\(""") }
+            ?: TAG_ANNOTATION
+
         lines.forEachIndexed { index, line ->
             // `find`, not `matchEntire`: a declaration line continues with " {" or " :",
             // and an anchored full match would silently skip every class in the repo.
             val header = CLASS_HEADER.find(line.trim()) ?: return@forEachIndexed
             if (header.range.first != 0) return@forEachIndexed
             val annotationBlock = annotationBlockAbove(lines, index)
-            if (annotationBlock.any { TAG_ANNOTATION.containsMatchIn(it) }) return@forEachIndexed
+            if (annotationBlock.any { tagAnnotation.containsMatchIn(it) }) return@forEachIndexed
 
             val body = classBody(lines, index)
             if (body.any { it.trimStart().startsWith("@Test") }) {
@@ -167,5 +177,21 @@ class TestTagCoverageTest {
          * has to be written out in full there.
          */
         private val TAG_ANNOTATION = Regex("""@(?:org\.junit\.jupiter\.api\.)?Tag\(""")
+
+        /**
+         * `import org.junit.jupiter.api.Tag as JUnitTag` — the JUnit 5 migration on
+         * `main` (014d1ca0) needed the alias wherever a file already imports
+         * `kotlin.test.Test`, because both libraries export `Test`. Such a class carries
+         * `@JUnitTag("slow")` and is tagged; matching the annotation by its written name
+         * reported it as untagged, which is the one answer this test must never give
+         * about a class that has a tag.
+         *
+         * The alias is therefore resolved from the import rather than accepted blindly.
+         * `@Anything(` is not a tag, and widening the regex to "any annotation ending in
+         * Tag" would let `@Suppress`-style lookalikes pass.
+         */
+        private val TAG_ALIAS_IMPORT = Regex(
+            """^\s*import\s+org\.junit\.jupiter\.api\.Tag\s+as\s+(\w+)\s*$""",
+        )
     }
 }

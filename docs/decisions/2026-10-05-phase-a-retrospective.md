@@ -1,13 +1,11 @@
 ---
-description: Phase A retrospective — what was done, what was fixed, remaining risks and deferred items.
+title: Phase A Retrospective — 2026-10-05
+date: 2026-10-05
 status: accepted
-created: 2026-10-05
 deciders: Singularity Developer
-issuesRelated:
-  - 2026-10-03-post-merge-debt
-  - 2026-10-04-apply-proposal-refactor
-  - 2026-10-04-note-proposal-ui-path
-  - 2026-10-04-consolidate-proposal-target
+deciders: Singularity Developer
+description: Phase A retrospective — what was done, what was fixed, remaining risks and deferred items.
+issuesRelated: 
 ---
 
 # Phase A Retrospective — 2026-10-05

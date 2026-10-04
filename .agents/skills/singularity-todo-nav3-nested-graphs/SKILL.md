@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-nav3-nested-graphs
-description: Full architecture of Nav3 two-level nested navigation in this KMP project: expect/actual *NavGraph pattern, sealed Route hierarchies, Local*Navigator providers, entryProvider wiring, and how the outer AppNavHost integrates nested graphs. Covers both the per-feature graph pattern (TasksNavGraph, ProjectsNavGraph) and the singleton graph pattern (AgendaNavGraph — same graph reused for 3 tabs with different start routes). Use when adding a new feature screen, modifying an existing nested graph, or adding a new route type to any sealed Route hierarchy.
+description: 'Full architecture of Nav3 two-level nested navigation in this KMP project: expect/actual *NavGraph pattern, sealed Route hierarchies, Local*Navigator providers, entryProvider wiring, and how the outer AppNavHost integrates nested graphs. Covers both the per-feature graph pattern (TasksNavGraph, ProjectsNavGraph) and the singleton graph pattern (AgendaNavGraph — same graph reused for 3 tabs with different start routes). Use when adding a new feature screen, modifying an existing nested graph, or adding a new route type to any sealed Route hierarchy.'
 ---
 
 # Nav3 Nested Graphs — Architecture

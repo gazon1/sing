@@ -3,6 +3,9 @@ title: "Archiving is a one-way door — no restore UI exists"
 date: 2026-09-29
 status: superseded
 tags: [ui, tasks, gap]
+superseded-by: 2026-09-29-task-longpress-menu-and-archive-restore.md
+---
+
 > **Superseded in part (2026-09-29):** the missing restore UI has shipped — the
 > task detail overflow menu now offers Восстановить for a trashed task
 > (`TaskDetailIntent.Domain.Unarchive`), and the long-press context menu

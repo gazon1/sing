@@ -55,5 +55,5 @@ All explicit `userId` overloads confirmed dead via grep across all production so
 
 ## Links
 
-- Parent ADR: [ADR-0015 GenericUserScopedRepository](./2026-09-15-generic-user-scoped-repository.md)
+- Parent ADR: [ADR-0015 GenericUserScopedRepository](./2026-09-21-generic-user-scoped-repository.md)
 - PR10: `refactor/repository-naming-final` branch

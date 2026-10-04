@@ -1,7 +1,8 @@
 ---
 title: "Android cold start крашится: SerializerAlreadyRegisteredException в navSavedStateConfig"
 date: 2026-09-28
-status: resolved
+status: accepted
+status-was: resolved  # non-vocabulary value, normalized 2026-10-05
 ---
 
 # Android cold start крашится: `SerializerAlreadyRegisteredException` в `navSavedStateConfig`

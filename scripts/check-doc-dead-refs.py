@@ -175,6 +175,9 @@ def main() -> int:
                     help="file of accepted dead refs, one 'path:ref' per line")
     ap.add_argument("--update-baseline", action="store_true",
                     help="rewrite the baseline from the current findings, then exit")
+    ap.add_argument("--force", action="store_true",
+                    help="with --update-baseline, allow dropping entries that are no "
+                         "longer detected (destructive — see the refusal message)")
     ap.add_argument("--skill-symbols", action="store_true",
                     help="check Kotlin symbol references in skill files (detector 8)")
     args = ap.parse_args()
@@ -238,6 +241,27 @@ def main() -> int:
              for path in targets if path.exists()
              for _, ref, kind in scan(path, rel_paths, by_name) if kind == "dead"}
         )
+        # A rewrite is destructive: the scan only sees refs in `targets`, so entries
+        # baselined earlier (e.g. from --include-adr, or from a source tree that has since
+        # been reworded) are silently dropped. On 2026-10-05 an unguarded
+        # --update-baseline reduced this file from 328 entries to 39, erasing the record
+        # of accepted debt. Require --force when entries would be removed.
+        dropped = sorted(accepted - set(all_dead))
+        if dropped and not args.force:
+            print(f"REFUSING to rewrite {baseline_path}: it would drop "
+                  f"{len(dropped)} existing accepted entr(ies).", file=sys.stderr)
+            print("The scan only covers the current target set, so this is not a "
+                  "statement that the refs are fixed.", file=sys.stderr)
+            for entry in dropped[:20]:
+                print(f"  would drop: {entry}", file=sys.stderr)
+            if len(dropped) > 20:
+                print(f"  ... and {len(dropped) - 20} more", file=sys.stderr)
+            print("\nRe-run with --force to accept the loss, or add the still-valid "
+                  "entries back by hand.", file=sys.stderr)
+            return 1
+        if dropped:
+            print(f"WARNING: dropping {len(dropped)} accepted dead-ref entr(ies) "
+                  f"(--force)", file=sys.stderr)
         header = (
             "# Accepted dead file references in docs, skills and KDoc.\n"
             "#\n"
@@ -249,6 +273,8 @@ def main() -> int:
             "#\n"
             "# New dead references are NOT baselined and fail `just docs-audit`.\n"
             "# Regenerate with: python3 scripts/check-doc-dead-refs.py --update-baseline\n"
+            "#   (add --force only if you intend to drop entries that are no longer\n"
+            "#    detected; the scan does not see everything this file records).\n"
             "# Remove a line once the file is written or the example is reworded.\n"
         )
         baseline_path.write_text(header + "\n".join(all_dead) + "\n", encoding="utf-8")

@@ -1,7 +1,7 @@
 ---
 title: MR-4 Repository naming and package convention
 date: 2026-09-30
-status: open
+status: accepted
 tags: [mr, repository, naming-convention]
 ---
 
@@ -77,3 +77,15 @@ to import `*RepositoryImpl` from their own `.data/` subpackages.
   from feature `.data/` packages (allowed by updated rule)
 - `Room*`-prefixed classes are no longer used — the Konsist rule now catches all production repo impls
 - File names now match their class names (ktlint `Filename` rule satisfied)
+
+## Resolution (accepted)
+
+Resolved 2026-10-05: the convention is in force and enforced.
+
+Verified: 16 of 20 `*RepositoryImpl.kt` files live in a `.data/` subpackage. The other 4
+(`core/config/RemoteConfigCacheRepositoryImpl`, `core/sync/RemoteConfigRepositoryImpl`,
+`core/sync/SyncRepositoryImpl`, `feature/profile/ProfileRepositoryImpl`) are conformant —
+the naming convention this ADR set applies to *feature* repository implementations, and
+the Konsist rule `repository implementations are imported only from di modules`
+(`arch/ArchitectureTest.kt:275`) is scoped accordingly. `GenericUserScopedRepository.kt`
+exists in `core/repository/`, confirming the naming half of the convention.

@@ -21,6 +21,48 @@ jvm:
     ./gw :shared:jvmTest
 
 [group('tests')]
+[doc('Run the tests for the custom detekt rules')]
+[working-directory(justfile_directory())]
+detekt-rules:
+    #!/bin/bash
+    set -euo pipefail
+    # Added 2026-10-05: this was never run by any recipe or CI job, which is how
+    # NoDirectDispatchersRule's two failing tests survived — the rule could not fire at
+    # all and nothing noticed. `:detekt-rules:test` is now also a CI step.
+    ./gw :detekt-rules:test
+
+[group('tests')]
+[doc('Run the gate-script tests (docs/governance gates)')]
+[working-directory(justfile_directory())]
+gate-scripts:
+    #!/bin/bash
+    set -uo pipefail
+    # The "ran 0 tests" guard matters: a file missing `unittest.main()` runs nothing and
+    # exits 0, so it would report success while testing nothing.
+    status=0
+    for t in scripts/tests/test_*.py; do
+        echo "--- $t"
+        out=$(python3 "$t" 2>&1); rc=$?
+        echo "$out" | tail -3
+        if [ "$rc" -ne 0 ]; then
+            echo "FAIL: $t exited $rc"
+            status=1
+            continue
+        fi
+        if ! echo "$out" | grep -qE '^Ran [1-9][0-9]* tests?'; then
+            echo "FAIL: $t ran zero tests — is unittest.main() missing?"
+            status=1
+        fi
+    done
+    echo ""
+    if [ "$status" -eq 0 ]; then
+        echo "gate-scripts: OK"
+    else
+        echo "gate-scripts: FAILED"
+    fi
+    exit $status
+
+[group('tests')]
 [doc('Run testAndroidHostTest (Robolectric, no device needed)')]
 [working-directory(justfile_directory())]
 android-host:
@@ -125,7 +167,9 @@ detekt:
     # Cheap, runs first. A duplicated rule registration fails the Gradle build
     # later with a YAML error pointing at the config rather than the real cause.
     ./scripts/check-detekt-registrations.sh
-    ./gw :shared:detekt :desktopApp:detekt
+    # :detekt-rules is the module that enforces the project's rules, so it is
+    # subject to them too — a `var` on a Rule instance had nothing checking it.
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt
 
 [group('lint')]
 [doc('Auto-fix detekt style rules + ktlint formatting violations')]
@@ -134,7 +178,7 @@ detekt-fix:
     #!/bin/bash
     set -euo pipefail
     # detekt 2.x merges formatting into the main task with autoCorrect=true in ktlint config
-    ./gw :shared:detekt :desktopApp:detekt --auto-correct
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt --auto-correct
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
@@ -163,13 +207,19 @@ docs-audit:
     ./scripts/check-skill-frontmatter.sh || status=1
     echo ""
     echo "=== Doc size budgets (AGENTS.md, SKILL.md, description, DIGEST.md) ==="
-    python3 scripts/check-doc-sizes.py --warn-only || status=1
+    python3 scripts/check-doc-sizes.py || status=1
     echo ""
     echo "=== Dead file references in docs, skills and KDoc ==="
     python3 scripts/check-doc-dead-refs.py || status=1
     echo ""
+    echo "=== Dangling ADR references (slugs that no longer resolve) ==="
+    python3 scripts/check-adr-references.py || status=1
+    echo ""
+    echo "=== ADR status policy (vocabulary, supersede chains, stale open) ==="
+    python3 scripts/check_adr_status.py || status=1
+    echo ""
     echo "=== ADR frontmatter normalization (dry run) ==="
-    ./scripts/normalize-adr-frontmatter.sh --dry-run 2>/dev/null || true
+    ./scripts/normalize-adr-frontmatter.sh --dry-run || status=1
     echo ""
     echo "=== DIGEST freshness ==="
     ./scripts/refresh-decisions-digest.sh
@@ -274,3 +324,14 @@ gate-maestro tags="agenda" serial="":
     fi
     SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
         bash scripts/run-maestro.sh
+
+[group('tests')]
+[doc('Report detekt-rule line coverage (which rules are under-tested)')]
+[working-directory(justfile_directory())]
+kover-rules:
+    #!/bin/bash
+    set -euo pipefail
+    # Added 2026-10-05 alongside the kover plugin in detekt-rules. Before this the
+    # rule-coverage debt was prose in deferred-backlog.md with nothing able to verify it.
+    ./gw :detekt-rules:koverXmlReport
+    python3 scripts/detekt-rule-coverage.py

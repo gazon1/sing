@@ -11,8 +11,7 @@ tags: [reminders, scheduler, concurrency, coroutines, di]
 
 The `ReminderScheduler` (`feature/reminders/ReminderScheduler.kt`) is a long-lived background component that polls every 60 seconds for due reminders and fires OS notifications. Review during the Tier 3a cleanup pass identified 9 distinct defects ranging from memory leaks to correctness bugs and missing error handling.
 
-## Decisions
-
+## Decision
 ### 1. `AutoCloseableCoroutineScope` injected via constructor (memory leak)
 
 **Problem:** The previous implementation created its own `CoroutineScope(SupervisorJob() + Dispatchers.Default)` internally. Nothing called `cancel()` on it, so the scope — and any launched coroutines — leaked for the lifetime of the process.

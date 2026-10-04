@@ -8,19 +8,13 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtClassBody
 import org.jetbrains.kotlin.psi.KtClassInitializer
-import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFunction
-import org.jetbrains.kotlin.psi.KtParameter
-import org.jetbrains.kotlin.psi.KtPrimaryConstructor
-import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
-import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenExpression
 
@@ -46,20 +40,17 @@ private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
         val classBody = clazz.body ?: return
         val properties = classBody.properties
 
-        val hasStateFlow = properties.any { prop ->
-            prop.typeReference?.text?.contains("MutableStateFlow") == true
-        }
-
-        val hasEventChannel = properties.any { prop ->
-            val typeText = prop.typeReference?.text ?: return@any false
-            typeText.contains("Channel") || typeText.contains("MutableSharedFlow")
+        val hasStateFlow = properties.any { mentionsFlowType(it, "MutableStateFlow") }
+        val hasEventChannel = properties.any {
+            mentionsFlowType(it, "Channel") || mentionsFlowType(it, "MutableSharedFlow")
         }
 
         if (hasStateFlow && hasEventChannel) {
             report(
                 Finding(
                     entity = Entity.from(clazz),
-                    message = "ViewModel manages MutableStateFlow + Channel/MutableSharedFlow but does not extend MviViewModel. " +
+                    message = "ViewModel manages MutableStateFlow + " +
+                        "Channel/MutableSharedFlow but does not extend MviViewModel. " +
                         "Migrate to MviViewModel for unified event/state handling.",
                     references = emptyList(),
                     suppressReasons = emptyList(),
@@ -98,39 +89,38 @@ private class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
         }
     }
 
-    private fun isIntentHandler(fun_: KtFunction): Boolean {
-        val params = fun_.valueParameters
+    private fun isIntentHandler(fn: KtFunction): Boolean {
+        val params = fn.valueParameters
         if (params.size != 1) return false
         val paramType = params[0].typeReference?.text ?: return false
         val isIntentParam = paramType.endsWith("Intent") || paramType.endsWith("UiEvent")
         if (!isIntentParam) return false
-        val body = fun_.bodyExpression ?: return false
+        val body = fn.bodyExpression ?: return false
         val paramName = params[0].name ?: return false
         return hasWhenWithIsCheck(body, paramName)
     }
 
-    private fun hasWhenWithIsCheck(expr: KtExpression, paramName: String): Boolean {
-        return when (expr) {
-            is KtWhenExpression -> {
-                expr.subjectExpression?.text == paramName &&
-                    expr.entries.any { entry ->
-                        entry.conditions.any { it is KtWhenConditionIsPattern }
+    private fun hasWhenWithIsCheck(expr: KtExpression, paramName: String): Boolean = when (expr) {
+        is KtWhenExpression -> {
+            expr.subjectExpression?.text == paramName &&
+                expr.entries.any { entry ->
+                    entry.conditions.any { it is KtWhenConditionIsPattern }
+                }
+        }
+
+        else -> {
+            var result = false
+            expr.accept(object : org.jetbrains.kotlin.psi.KtTreeVisitorVoid() {
+                override fun visitWhenExpression(expression: KtWhenExpression) {
+                    if (expression.subjectExpression?.text == paramName &&
+                        expression.entries.any { it.conditions.any { c -> c is KtWhenConditionIsPattern } }
+                    ) {
+                        result = true
                     }
-            }
-            else -> {
-                var result = false
-                expr.accept(object : org.jetbrains.kotlin.psi.KtTreeVisitorVoid() {
-                    override fun visitWhenExpression(expression: KtWhenExpression) {
-                        if (expression.subjectExpression?.text == paramName &&
-                            expression.entries.any { it.conditions.any { c -> c is KtWhenConditionIsPattern } }
-                        ) {
-                            result = true
-                        }
-                        super.visitWhenExpression(expression)
-                    }
-                })
-                result
-            }
+                    super.visitWhenExpression(expression)
+                }
+            })
+            result
         }
     }
 }
@@ -312,3 +302,20 @@ class MviViewModelRulesProvider : RuleSetProvider {
  */
 private fun isViewModelClass(clazz: KtClass): Boolean =
     clazz.name?.endsWith("ViewModel") == true
+
+/**
+ * True when a property's declared type *or its initialiser* mentions [typeName].
+ *
+ * Reading only `typeReference` was a silent hole: `private val s = MutableStateFlow(x)`
+ * has a null typeReference under type inference, so the property escaped the rule. The
+ * rule therefore depended on whether the author happened to write a type annotation,
+ * which has nothing to do with the thing being policed.
+ *
+ * The initialiser is a cheap textual check and needs no type resolution. It can also
+ * produce a false positive for `val s: State<UiState> = MutableStateFlow(...)`, which is
+ * why the declared type is still checked first — see [NoViewModelExtendsMviPolicy].
+ */
+private fun mentionsFlowType(prop: KtProperty, typeName: String): Boolean {
+    prop.typeReference?.text?.let { if (it.contains(typeName)) return true }
+    return prop.initializer?.text?.contains(typeName) == true
+}

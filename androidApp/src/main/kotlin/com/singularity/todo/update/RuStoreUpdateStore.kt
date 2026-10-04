@@ -34,14 +34,12 @@ class RuStoreUpdateStore(
         return false
     }
 
-    override fun offerUpdate(activity: Activity): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(directUpdateUrl))
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-            true
-        } catch (e: Throwable) {
-            false
-        }
+    override fun offerUpdate(activity: Activity): Boolean = try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(directUpdateUrl))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+        true
+    } catch (e: Throwable) {
+        false
     }
 }

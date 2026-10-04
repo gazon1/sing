@@ -54,7 +54,9 @@ class MainActivity : ComponentActivity() {
         val data: android.net.Uri? = intent.data
         val deeplinkTaskId: String? = if (data?.scheme == "singularity" && data.host == "task") {
             data.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() }
-        } else null
+        } else {
+            null
+        }
 
         // Notification tap extra
         val deeplinkViewId: String? = intent.getStringExtra(AndroidNotifier.EXTRA_DEEPLINK_VIEW_ID)

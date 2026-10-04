@@ -2,7 +2,8 @@
 title: "Archive seed strategy — session coupling in archive-restore flow"
 date: 2026-09-29
 tags: [maestro, testing]
-status: superseded
+status: accepted
+status-was: superseded
 ---
 
 > **Superseded in part (2026-09-29):** the flow no longer inherits state from a
@@ -69,3 +70,12 @@ answer but requires a debug-seed API that does not exist yet.
 - `Maestro/flows/smoke/11-archive-restore-smoke.yaml`
 - `Maestro/helpers/seed-task.yaml`
 - Related: `2026-09-29-maestro-dialog-buttons-no-testtag.md`
+
+## Resolution (accepted)
+
+Status corrected 2026-10-05: this ADR was marked `superseded` with no
+`superseded-by`, which policy rule 2 forbids. Re-read against its own body, it is
+"superseded **in part**": the session-coupling problem it identified went away when the
+flow stopped inheriting state, but the rest of the entry still stands. Partially
+superseded is not superseded — the honest status is `accepted`, with the superseded part
+recorded in the blockquote at the top of the body.

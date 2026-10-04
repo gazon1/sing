@@ -228,7 +228,7 @@ adding a seventh would have failed nothing. The five uncovered entities were not
 exempt — three of them (`TimeEntryEntity`, `AiProposalEntity`, `ProposalItemEntity`)
 have real mappers, and a column omitted by a mapper is reset by `@Upsert` on every
 write. This is the same "declared but never applied" shape as
-`2026-09-30-testtag-registry-honesty`, in a different registry.
+`2026-09-30-draft-save-failure-and-testtag-honesty`, in a different registry.
 
 The test now scans the production source set for `@Entity data class` declarations
 and requires each one to be in exactly one category: checked (with its mapper's field

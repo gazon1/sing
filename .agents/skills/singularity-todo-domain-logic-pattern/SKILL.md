@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-domain-logic-pattern
-description: Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. These are side-effect-free, deterministic, fully unit-tested in commonTest without any mocking infrastructure. Examples: RecurrenceCalculator, RecurrenceParser, DependencyValidator, Computed. Covers: what belongs here, what doesn't, testing conventions, and the fake-friendly architecture.
+description: 'Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. These are side-effect-free, deterministic, fully unit-tested in commonTest without any mocking infrastructure. Examples: RecurrenceCalculator, RecurrenceParser, DependencyValidator, Computed. Covers: what belongs here, what doesn''t, testing conventions, and the fake-friendly architecture.'
 ---
 
 # Pure Domain Logic — `feature/X/domain/logic/` Pattern

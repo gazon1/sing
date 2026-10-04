@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-task-detail-ux
-description: Document-style vs form-style UX pattern for task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 10 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, Saved-spam from debounced inline edits, TOCTOU race in debounced collectors, ReminderPicker always resetting to 15 min, missing Clear on date/time pickers, missing inline create in project/tag pickers, and using AlertDialog for confirm-delete instead of ModalBottomSheet with Snackbar undo.
+description: 'Document-style vs form-style UX pattern for task detail screens. Covers the hero block (checkbox + title + description), meta-chips row (date/time/priority/project), inline-edit tap-to-edit, bottom action bar, and the TickTick/Todoist reference. Documents 10 known regressions: AlertDialog-to-ModalBottomSheet migration trap, dead FieldMode state, emoji-icon usage, empty-section noise, Saved-spam from debounced inline edits, TOCTOU race in debounced collectors, ReminderPicker always resetting to 15 min, missing Clear on date/time pickers, missing inline create in project/tag pickers, and using AlertDialog for confirm-delete instead of ModalBottomSheet with Snackbar undo.'
 ---
 
 # Task Detail UX — Document-Style vs Form-Style

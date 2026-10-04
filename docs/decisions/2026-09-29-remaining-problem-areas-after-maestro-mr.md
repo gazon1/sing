@@ -190,3 +190,14 @@ Maestro и требует либо владельца, либо отдельно
 - `docs/decisions/2026-09-28-emulator-gfxstream-colorbuffer-segv.md` — эмуляторный SEGV
 - `docs/decisions/2026-09-28-setup-hooks-broken-githooks-path.md` — сломанный setup-hooks
 - `scripts/check-doc-sizes.py` — источник лимита DIGEST
+
+## Resolution (deferred)
+
+Confirmed deferred 2026-10-05.
+
+This ADR deferred 10 follow-up items found by the Maestro MR, each self-contained and
+non-blocking. Verified: none of them became prerequisites of later work, and the ordering
+the ADR proposed (item 9 first, because it "returns the docs-audit signal") is now moot —
+docs-audit is not merely warning again as of 2026-10-05, it is blocking end to end. The
+remaining items stay tracked here rather than in `deferred-backlog.md`, because they are
+ordered and reasoned, which a flat backlog list cannot carry.

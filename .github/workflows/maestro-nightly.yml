@@ -1,5 +1,13 @@
 name: Maestro Nightly
 
+# Runner image is pinned to ubuntu-24.04 on purpose (2026-10-05). GitHub is migrating
+# the `ubuntu-latest` label to Ubuntu 26.04 between 2026-10-19 and 2026-11-19; the
+# warning is silenced by pinning, which is the mitigation the runner-images notice
+# recommends. 26.04 moves the kernel 6.17 -> 7.0 and systemd 255 -> 259, and the
+# Android assemble plus both emulator workflows are exactly the surface that would
+# notice. Reviving `ubuntu-latest` is a deliberate migration, not a cleanup — it will
+# not come back on its own. See docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.
+
 # Full suite (all flows) runs nightly, sharded into 4 parallel jobs.
 #
 # Each shard runs 25% of the flow files; all four shards must pass.
@@ -25,7 +33,7 @@ jobs:
   # Pre-job: compute the shard split so it is done once, not repeated per shard.
   # This uses a separate lightweight job to enumerate and partition the flow files.
   compute-shards:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       shard1: ${{ steps.split.outputs.shard1 }}
       shard2: ${{ steps.split.outputs.shard2 }}
@@ -33,7 +41,7 @@ jobs:
       shard4: ${{ steps.split.outputs.shard4 }}
       total: ${{ steps.split.outputs.total }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Compute 4-way shard split
         id: split
         run: |
@@ -59,22 +67,22 @@ jobs:
 
   maestro-nightly:
     needs: compute-shards
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: 21
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Assemble debug APK
         run: ./gradlew :androidApp:assembleDebug --no-daemon -q --configuration-cache
@@ -135,7 +143,7 @@ jobs:
 
       - name: Upload Maestro reports on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-nightly-shard-${{ matrix.shard }}-reports
           path: ~/.maestro/tests/**/2026-*/

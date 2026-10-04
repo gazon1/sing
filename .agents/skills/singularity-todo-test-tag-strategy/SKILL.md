@@ -1,3 +1,8 @@
+---
+name: singularity-todo-test-tag-strategy
+description: 'Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. Use when adding or changing @Tag usage, when a test silently stops being selected, or when -Ptest.tags is not running what you expect.'
+---
+
 # Test Tag Strategy
 
 ## What the two tags mean

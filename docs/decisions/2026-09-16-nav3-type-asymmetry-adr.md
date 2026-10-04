@@ -1,7 +1,7 @@
 ---
 title: "Nav3 type asymmetry: rememberInMemoryNavBackStack returns NavBackStack<T>, Android rememberNavBackStack returns NavBackStack<NavKey>"
 date: 2026-09-16
-tags: [navigation, nav3, android, jvm, technical-debt]
+tags: [navigation, nav3, android, jvm, tech-debt]
 status: accepted
 ---
 

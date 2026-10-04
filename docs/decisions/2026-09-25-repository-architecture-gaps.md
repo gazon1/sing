@@ -1,7 +1,7 @@
 ---
 title: "Repository architecture gaps — Tag userId types, dead ConflictResolver.merge, empty-string sentinels"
 date: 2026-09-25
-tags: [repository, technical-debt, sync, type-safety]
+tags: [repository, tech-debt, sync, type-safety]
 status: accepted
 ---
 

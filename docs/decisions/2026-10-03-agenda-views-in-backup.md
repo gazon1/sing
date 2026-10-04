@@ -1,7 +1,11 @@
-# Add agenda_views to backup payload
+---
+title: "agenda_views was missing from the backup payload, so every saved view was lost on restore"
+status: accepted
+date: 2026-10-03
+tags: [backup, agenda, data-loss]
+---
 
-**Date:** 2026-10-03
-**Status:** decided
+# Add agenda_views to backup payload
 
 ## Context
 

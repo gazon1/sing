@@ -411,15 +411,27 @@ are intentional empty-lambda patterns that need wiring.
 identified: `core/log/FileLogWriter.kt:50` uses
 `Dispatchers.IO.limitedParallelism(1)` to guarantee sequential writes.
 
-**Status:** the whitelisting is already done in the rule code
-(`isAllowedFile` for `FileLogWriter.kt`). The rule is `active: false`
-pending the sweep of any other callers. If no other callers exist, the
-rule can stay `active: false` indefinitely — the whitelist is the fix,
-not a signal to search for more cases.
+**Status (corrected 2026-10-05):** the whitelisting is in the rule code. The rule had no
+`detekt.yml` block at all, so it never ran; a block was added that day
+(`no-direct-dispatchers` / `NoDirectDispatchers`, `active: true`).
 
-**Try next:** confirm no other `Dispatchers` calls in `commonMain` production
-code outside `FileLogWriter` and the existing test/fakes whitelists. If
-clean, the rule is a documentation asset rather than an active gate.
+**But "0 findings" proved nothing, and this entry previously claimed it proved
+something.** The rule could not fire for any input: it required the dot-qualified
+selector to be a `KtCallExpression`, but in `Dispatchers.IO` the selector is a
+`KtNameReferenceExpression` (`IO` is a property), and in
+`Dispatchers.IO.limitedParallelism(1)` the receiver is itself dot-qualified. Both shapes
+returned early. It was a registered, packaged, ADR-referenced no-op.
+
+Fixed the same day, together with the scope. The rule is now scoped to **commonMain
+production** only, which is what its KDoc always claimed: verified against the tree,
+commonMain has exactly one occurrence (`FileLogWriter.kt:50`, the whitelisted line),
+while jvmMain has 8 and androidMain has 11 — all inside port implementations, where
+choosing the dispatcher is the KMP convention rather than a violation. With the rule
+actually working, `:shared:detekt` reports 0 findings, and *this time that means
+something*: it was verified by 17 tests, not inferred from a silent rule.
+
+**Try next:** if a new legitimate commonMain call site appears, add it to
+`ALLOWED_FILE` in `NoDirectDispatchersPolicy` rather than disabling the rule.
 
 ---
 
@@ -1465,7 +1477,7 @@ in the registry, because deleting them would make `MaestroFlowTagsTest` fail —
 correctly, but for the wrong reason. A flow written tomorrow would hit the same
 trap. The honest fix is to delete the constants *and* the flows' dependence on
 them in one change, which is what the allowlist entry has been asking for since
-`2026-09-30-testtag-registry-honesty`.
+`2026-09-30-draft-save-failure-and-testtag-honesty`.
 
 **Do this first:** decide whether the editor overflow should be
 `EditorOverflow.ARCHIVE` or `taskAction("Archive")` — pick one, delete the
@@ -1681,3 +1693,172 @@ so the fix is likely one more wait (after the `openLink`, before the first
 assertion) rather than six separate bugs. That is a hypothesis, not a
 conclusion, and it is cheap to test: add the wait, re-run, see which of the six
 move.
+---
+
+## test-doubles-in-commonmain-source
+
+**Found in:** 2026-10-05 spec-governance sweep. `scripts/find-unwired-surfaces.py`
+detector 7 reported `MapFileSystem`, `FakeSecureStorage` and `FakeDraftStore` as
+symbols with test references and zero production references. The baseline recorded
+each as `BacklogRef: none`, which its own header rule defines as a gate failure
+("a line without a live backlog reference is a gate failure").
+
+**Tracked as:** #97
+**OpenSpec change:** `openspec/changes/unwired-detector-test-double-exemption/`
+
+**Status:** these are not dead code. They are test doubles that live in
+`commonMain` production source, so they are reachable from `commonTest` without
+depending on a JVM/Android-only source set. The detector cannot distinguish
+"unwired production code" from "test infrastructure in the wrong source set",
+so it flags them by construction.
+
+**Decision (2026-10-05):** accept them as a known false positive of detector 7 and
+give them this entry as a live backlog reference, rather than moving them. Moving
+the fakes to a test-only source set would break `commonTest` compilation, which
+cannot see `jvmTest` sources.
+
+**Try next:** if detector 7 is ever refined to skip paths under
+`test/fakes/` or filenames matching `Fake*`/`InMemory*`, these three lines can be
+removed from `scripts/find-unwired-surfaces-baseline.txt` entirely. Until then the
+baseline entry is the exemption, and this entry is why it is not `none`.
+
+---
+
+---
+
+---
+
+## detekt-rule-branch-coverage-owed
+
+**Found in:** 2026-10-05 rule-audit. `RuleFiresSmokeTest` gives all 17 custom rules at
+least one positive test (two were confirmed no-ops and fixed: see
+`2026-10-05-no-direct-dispatchers-rule-was-a-no-op` and
+`2026-10-05-positive-tests-for-every-detekt-rule`). That is the minimum, not the job.
+
+**Tracked as:** #98
+**OpenSpec change:** `openspec/changes/detekt-rule-coverage-floor/`
+
+**Status:** PARTIALLY PAID (2026-10-05, later the same day). Kover is now on
+:detekt-rules (`just tkr`), so this is a number rather than prose: **92.0% line
+coverage, 102 tests, 0 failures.** Coverage went 66.2% -> 92.0% when the four
+MviViewModel rules — the ones guarding the canonical VM shape, previously 0% and
+entirely unverified — got a positive and a negative test each. All four turned out
+to work, so no third no-op; the point was that nobody knew until they were measured.
+
+One question is still answered per rule — "can it fire?" Branch coverage remains
+uneven, and the gaps are not spread evenly:
+
+- `PassThroughUseCaseRule` has the most untested logic and the least obvious guards:
+  `operator`, `private`, block bodies, the `LlmUseCase` exemption, and the `clock` /
+  `tool` receiver exemptions. None is exercised. A guard that is wrong here is a
+  false-positive machine aimed at legitimate use cases.
+- `NoStateInRule`'s `@OptIn(CombineStateInReadThrough::class)` exemption is the one path
+  that decides whether the rule is usable on read-through VMs, and it is untested.
+- `MviViewModelRulesProvider`'s other four rules (`IntentMethodName`, `VmScopePosition`,
+  `VmCloseable`, `ShadowedState`) have no tests at all — the smoke test covers only
+  `MviViewModelExt`.
+- `NoEmptyOnClickLambdaRule`'s "file name contains preview" exemption is untestable via
+  the PSI harness (see the ADR); the repo's real `core/ui/preview/` package is the only
+  thing exercising it.
+
+**Try next:** start with `PassThroughUseCaseRule`, because its exemptions are the ones
+that decide whether the rule is tolerable in a codebase. Extract each guard to a policy
+object in the style of `NoDirectDispatchersPolicy` and cover it directly, which also
+removes the PSI-shape coupling that made the original bug possible.
+
+**Try next (cheap alternative):** a differential test. Run each rule over a fixture
+containing a known violation and assert the *count*, not just non-emptiness, so a rule
+that starts double-reporting fails. Cheaper than full branch coverage and catches the
+regression that matters most in practice.
+
+---
+
+---
+
+---
+
+## androidapp-debug-source-set-unlinted
+
+**Found in:** 2026-10-05, while moving `androidApp` off `detekt-minimal.yml`. The module's
+`detekt.source` never listed `src/debug`, so `DebugSeedActivity.kt` has never been linted.
+It is also the only androidApp source set the module does not scan.
+
+**Tracked as:** #99
+**OpenSpec change:** `openspec/changes/androidapp-debug-lint-policy/`
+
+**Status:** OPEN — a decision, not a mechanical fix. Linting it produces 16 findings, and
+every one is in `DebugSeedActivity.kt`:
+- `NoRunBlocking` (1) and `NoDirectClockSystem` (4) — a one-shot debug seeder blocks a
+  background thread and stamps seed timestamps; both are the point of the tool
+- `TooGenericExceptionCaught` (1) — a seeding tool that must not crash the app
+- `BlankLineBetweenWhenConditions` (5), `ClassSignature` (2), and 3 more formatting
+  findings, which are auto-correctable
+
+**Not done deliberately.** Half of these would need a suppression, because the rules are
+correct for production and wrong for a debug seeder. Whether debug-only tooling should be
+held to production rules — or exempted by source set, or held with a narrower rule set — is
+a call for whoever owns the debug tooling, and it generalises to every future
+`src/debug` file.
+
+**Try next:** decide the policy first, then wire it. The cheapest policy is to lint it
+with a baseline carrying the four intentional suppressions, which keeps the formatting
+findings enforced from day one. Do not simply add `src/debug/kotlin` to `source.setFrom`
+and baseline the lot: that would accept the 16 without deciding whether debug code should
+be governed at all.
+
+**Note:** the `source.setFrom` list also contained `src/androidAndroidTest/kotlin`, a
+source set that does not exist — a typo, silently ignored. Removed.
+
+---
+
+---
+
+---
+
+## ci-parallel-split-blocked-by-new-intra-job-coupling
+
+**Found in:** rebase of `fix/doc-governance-and-detekt-audit` onto `main`, 2026-10-05.
+Not a pre-existing defect — an interaction between two changes that were each correct
+on their own.
+
+**Tracked as:** #100
+**OpenSpec change:** `openspec/changes/ci-checks-parallel-split/`
+
+**Status: OPEN.** The split is designed, measured and built, but withdrawn. See
+`2026-10-05-ci-checks-run-in-parallel.md`, which is `status: superseded`.
+
+**What happened:** this branch split the 25-step `test-and-check` into six parallel
+leaves and measured 24.25m -> 9.2m. `main` had meanwhile added three couplings inside
+that job — the `$RUN_STARTED` freshness stamp feeding two count/coverage floors, a
+flake comparison that reads this run's `shared/build/test-results/jvmTest` against the
+previous run's `junit-results` artifact, and a kover job that must generate its report
+from a test run rather than from a cache. The six-leaf shape was valid against the old
+job and produces a *wrong* result against the new one: the floors and the flake
+analysis would compare across a boundary they were never written to cross.
+
+**Checks already performed:** confirmed all three couplings exist in
+`origin/main:.github/workflows/ci.yml` by reading the step bodies, not by inference.
+Confirmed the pre-rebase branch's own split was green (run `37212487694`, 10 jobs,
+1585 tests, 4 artifacts) — so the failure is not "parallelism is broken", it is "that
+specific shape no longer fits".
+
+**Try next, in this order** — each is a real design, not a variation:
+1. Publish `RUN_STARTED` as a job output and pass it to the floor-checking leaves, so
+   the floors still compare against the run that produced the results.
+2. Move `Check executed test counts` and `Check coverage floors` *into* the leaf that
+   produced the results, and keep only the assertion in the aggregator.
+3. Replace the two-run flake comparison with a stored-baseline one, which has no
+   cross-job edge to break.
+
+**Not to do:** re-apply the six-leaf split as written and declare the reduced coverage
+an acceptable cost. A faster pipeline that checks less is the exact failure this
+backlog exists to prevent, and it would be invisible — a green run is a green run.
+
+**Lever already identified, independent of the split:** `assembleDebug` is ~10.3m of
+the original 24.25m and is the tail of the critical path. A cold no-cache profile puts
+`:shared:compileAndroidMain` at 28.8s, `:shared:kspAndroidMain` at 27.2s, and
+`DexingNoClasspathTransform` on `:shared` plus `:androidApp:mergeExtDexDebug` at 38.2s
+together — about a quarter of the build. Trimming the step to `compileDebugKotlin`
+would buy most of that back and is **an owner's call, not a cleanup**: the step would
+then prove the code compiles, not that the APK packages, and the workflow that installs
+and runs the APK is scheduled rather than per-PR.

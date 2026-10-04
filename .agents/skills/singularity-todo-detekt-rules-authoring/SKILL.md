@@ -203,7 +203,59 @@ val value = valueText?.toLongOrNull()
 
 ## Testing Rules
 
-Create a test file in `detekt-rules/src/test/kotlin/`:
+### Use the `Path` overload of `compileContentForTest`
+
+This is the single most expensive trap in this module, measured 2026-10-05:
+
+```kotlin
+compileContentForTest(code, "com.example")          // KtFile.declarations == [KtScript]
+compileContentForTest(code, Path.of("Fixture.kt"))  // KtFile.declarations == [KtClass]
+```
+
+The string overload wraps the content in a `KtScript`, so `root.declarations` is
+`[KtScript]` and **no `KtClass` is ever seen**. Every rule that iterates
+`root.declarations` — both KDoc rules, `MviViewModelExt`, `ProhibitUserIdInObserve` —
+reports nothing under it.
+
+The failure is asymmetric, which is what makes it dangerous: a *positive* test fails
+loudly, which is only annoying, but a *negative* test passes **vacuously**, because "no
+findings" is exactly what a mis-compiled fixture produces. Use the `Path` overload always.
+
+The `Path` overload also **discards the directory component** — `virtualFilePath` comes
+back as `/X.kt` for any input. So a rule that branches on file path cannot be tested
+through the PSI layer at all. Extract its decision into a pure function and test that:
+
+```kotlin
+internal object MyRulePolicy {
+    fun violation(filePath: String, ...): String? = ...
+}
+```
+
+Both fixed rules (`NoDirectDispatchersPolicy`, `NoStaticProfileAwareCurrentUserPolicy`)
+use this shape, as does `NoDirectClockSystemRule`'s `isAllowedPath`.
+
+### Every rule needs one positive test
+
+See Common Mistake 2b. A rule with only negative tests cannot be distinguished from a
+rule that never runs.
+
+### Rules declared `private` are tested through their provider
+
+Several rules are `private` in their own file, so a test cannot construct them. Go
+through the `RuleSetProvider` by name, which also verifies the name detekt looks up is
+actually wired to a rule:
+
+```kotlin
+val rule = KDocEnforcementRulesProvider().instance().rules[RuleName("ViewModelMustHaveKDoc")]!!.invoke(TestConfig())
+```
+
+### Writing the fixture
+
+Match the rule's real preconditions or you will "discover" a working rule is broken.
+Observed while writing these tests: a class must be named `…Repository` (not `…Impl`); a
+property read via `typeReference` needs an explicit type (inference gives `null`); a
+receiver resolved from `declarations.filterIsInstance<KtProperty>()` must be a declared
+property, not a primary-constructor `val`.
 
 ```kotlin
 class NoRealDelayInTestRuleTest {
@@ -362,6 +414,43 @@ any explanatory comment onto it. See *Registering the same rule twice* above.
 
 ### 2. Wrong PSI class for the node type
 Use `KtNameReferenceExpression` for bare names, `KtCallExpression` for function calls with `()`, `KtDotQualifiedExpression` for `receiver.member()`.
+
+### 2b. A guard that can never be satisfied — the rule is a no-op
+
+The worst version of the above: the cast is *correct for the code you imagined* and wrong
+for the code that exists. The rule compiles, registers, packages, gets a `detekt.yml`
+block, and is cited in a backlog entry — and reports nothing, ever. Two real instances,
+both fixed 2026-10-05:
+
+- `NoDirectDispatchersRule` required `selectorExpression as? KtCallExpression`. But
+  `Dispatchers.IO`'s selector is a `KtNameReferenceExpression`, because `IO` is a
+  *property*, not a call. And in `Dispatchers.IO.limitedParallelism(1)` the receiver is
+  itself dot-qualified. Both possible shapes hit an early `return`.
+- `NoStaticProfileAwareCurrentUserRule` compared a `KtNameReferenceExpression`'s text to a
+  **dotted fully-qualified name**. A bare identifier never contains dots, so it can never
+  match; and the two spellings that would match a dotted name have a
+  `KtDotQualifiedExpression` receiver and returned even earlier.
+
+The defence is one positive test — feed a known violation, require a finding:
+
+```kotlin
+@Test fun `MyRule fires on the thing it bans`() {
+    val found = rule.visitFile(compileContentForTest(code, Path.of("Fixture.kt")), settings)
+    assertTrue(found.isNotEmpty(), "rule reported nothing for a known violation")
+}
+```
+
+Rules whose only tests are negative assertions (`assertEquals(0, findings.size)`) cannot
+distinguish "correctly ignores this" from "never runs" — a rule that never fires passes
+every one of them. At least one positive assertion per rule is the minimum, not a nicety.
+
+If a guard looks unsatisfiable, **print the PSI and check**, do not reason about it:
+
+```kotlin
+println("PROBE recv=${e.receiverExpression::class.simpleName} text='${e.receiverExpression.text}'")
+```
+
+Reading the source and guessing the tree shape is what produced both misses.
 
 ### 3. Reporting outside test sources
 Rules that should only apply to test sources must check the file path via `Entity.from(expression).file.path`. Alternatively, configure path filters in `detekt.yml`.

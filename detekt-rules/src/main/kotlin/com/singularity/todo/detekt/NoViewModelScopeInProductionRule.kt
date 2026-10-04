@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
 
@@ -47,11 +46,19 @@ class NoViewModelScopeInProductionRule(config: Config) : Rule(config, "", null) 
     }
 
     private fun checkDotQualified(expr: KtDotQualifiedExpression) {
-        checkReceiverAndMethod(expr.receiverExpression as? KtNameReferenceExpression, expr.selectorExpression as? KtCallExpression, expr)
+        checkReceiverAndMethod(
+            expr.receiverExpression as? KtNameReferenceExpression,
+            expr.selectorExpression as? KtCallExpression,
+            expr,
+        )
     }
 
     private fun checkDotQualified(expr: KtSafeQualifiedExpression) {
-        checkReceiverAndMethod(expr.receiverExpression as? KtNameReferenceExpression, expr.selectorExpression as? KtCallExpression, expr)
+        checkReceiverAndMethod(
+            expr.receiverExpression as? KtNameReferenceExpression,
+            expr.selectorExpression as? KtCallExpression,
+            expr,
+        )
     }
 
     private fun checkReceiverAndMethod(

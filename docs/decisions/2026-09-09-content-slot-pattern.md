@@ -135,8 +135,7 @@ typealias SettingsRowTrailing = @Composable RowScope.() -> Unit
 - `value class XxxActions` indirection — harder to read at first glance
 - Migration from plain lambdas requires updating call sites
 
-## References
-
+## Links
 - `TaskDetailActions` — canonical example (`feature/tasks/components/TaskDetailActions.kt`)
 - `EmptyState` — `actions: @Composable ColumnScope.() -> Unit` with typealias
 - `SettingsSection` — `SettingsRow` with `trailing: @Composable RowScope.() -> Unit`

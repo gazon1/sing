@@ -92,8 +92,7 @@ exposed it.
 **Fix applied**: `source: TimeEntrySource = TimeEntrySource.Manual` added to the
 interface method signature, and `FakeTimeTrackingRepository` updated to match.
 
-## Decisions
-
+## Decision
 ### 1. `Section.id` stays nullable with `effectiveId` derivation
 
 `Section.id` remains `String? = null`. All code that needs a guaranteed non-null

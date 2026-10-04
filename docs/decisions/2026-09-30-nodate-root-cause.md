@@ -3,7 +3,7 @@ title: "NoDate bisect — the domain is sound; the break is above AgendaEvaluato
 date: 2026-09-30
 tags: [agenda, testing, debugging, bisect]
 status: superseded
-superseded_by: 2026-09-30-nodate-fix
+superseded-by: 2026-09-30-nodate-fix
 ---
 
 # NoDate root cause — partial [SUPERSEDED]

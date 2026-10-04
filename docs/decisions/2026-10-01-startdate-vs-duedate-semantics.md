@@ -1,6 +1,7 @@
 ---
 title: startDate vs dueDate — Task Date Model Semantics
-status: pending
+status: deferred
+status-was: pending  # non-vocabulary value, normalized 2026-10-05
 deciders: product owner
 impact: high
 date: 2026-10-01

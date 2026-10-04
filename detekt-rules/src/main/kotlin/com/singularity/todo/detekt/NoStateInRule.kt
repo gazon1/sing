@@ -66,13 +66,11 @@ class NoStateInRule(config: Config) : Rule(config, "", null) {
         )
     }
 
-    private fun hasCombineStateInOptIn(cls: KtClass): Boolean {
-        return cls.annotationEntries.any { entry ->
-            entry.typeReference?.text == "OptIn" &&
-                entry.valueArguments.any { arg ->
-                    arg.getArgumentExpression()?.text == "CombineStateInReadThrough::class"
-                }
-        }
+    private fun hasCombineStateInOptIn(cls: KtClass): Boolean = cls.annotationEntries.any { entry ->
+        entry.typeReference?.text == "OptIn" &&
+            entry.valueArguments.any { arg ->
+                arg.getArgumentExpression()?.text == "CombineStateInReadThrough::class"
+            }
     }
 }
 

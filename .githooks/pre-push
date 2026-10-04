@@ -60,6 +60,10 @@ fi
 echo "=== Pre-push [$BRANCH] — full test suite ==="
 
 # Run all fast tests + detekt (slow tests are excluded — use CI for those).
+# No -Ptest.tags here on purpose: JUnit's includeTags() excludes untagged
+# tests, so `-Ptest.tags=fast` — which this hook used to pass — ran a single
+# test file while the banner claimed "full test suite". The default
+# (excludeTags("slow")) is what this comment always described.
 # :desktopApp:detekt belongs here, not just in check.sh: a NoDirectClockSystem
 # violation in TasksRobot reached main precisely because this hook only ran the
 # shared module's detekt, and check.sh is not something every push goes through.
@@ -68,7 +72,6 @@ echo "=== Pre-push [$BRANCH] — full test suite ==="
     :shared:jvmTest \
     :desktopApp:test \
     :mcp-server:test \
-    -Ptest.tags=fast \
     --no-daemon \
     --parallel || {
     echo ""

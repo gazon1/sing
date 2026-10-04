@@ -1,3 +1,10 @@
+---
+title: "Section prefill for preset sections: the current decision and the work it defers"
+status: accepted
+date: 2026-10-03
+tags: [agenda, ui, scope]
+---
+
 # SectionPrefill для пресет-секций: текущее решение и future work
 
 ## Context

@@ -398,5 +398,5 @@ val dbPath = "~/.singularity-todo/singularity-todo.db"  // same for all!
 - `singularity-todo-llm-usage-tracking` — `profileId` in `ToolUsageEvent` for per-profile breakdown.
 - `singularity-todo-cli-tool-surface` — authorization uses `currentUser.userId` (profile-aware).
 - `singularity-todo-room-migration` — profiles table is additive, v7→v8.
-- `singularity-todo-koin-di` — `ProfileRepository` registered as `single`.
+- `singularity-todo-koin-dsl` — `ProfileRepository` registered as `single`.
 - ADR `2026-09-07-multi-profile-and-usage-tracking` — rationale.

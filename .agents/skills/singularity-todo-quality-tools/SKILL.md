@@ -53,6 +53,25 @@ just coverage                  # = ./gradlew koverReport
 SKIP_ADB=1 ./check.sh
 ```
 
+## Reading CI test failures
+
+A red CI run prints only `See the report at: <workspace path>` — a path that
+lives on the runner. `scripts/fetch-ci-failures.sh` downloads the run's test
+artifacts and prints the failing test names with their stack frames:
+
+```bash
+scripts/fetch-ci-failures.sh                 # latest CI run on this branch
+scripts/fetch-ci-failures.sh 37201155917     # a specific run
+scripts/fetch-ci-failures.sh --keep          # keep the extracted files
+```
+
+Exit code `1` means failing tests were found (the summary is still printed),
+`2` means the run has no downloadable artifacts. CI uploads the browsable HTML
+report (`shared/build/reports/tests/**`) and the JUnit XML
+(`**/build/test-results/**`) with `if: always()`, so a failed run still has
+them; the coroutine `build/diagnostics/**` bundles are a separate upload and
+are only present when a coroutine test actually died.
+
 ## Config files
 
 | File | Purpose |

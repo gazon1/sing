@@ -21,6 +21,11 @@ Shapes detected (via Detector table — add new rows, not new loops):
   5. expect-unwired — an expect fun / expect class with no actual or no call
   6. orphan-binding — a Koin single/factory/viewModel binding that nothing
                        injects
+  7. dead-symbol    — a symbol with test references but zero production
+                       references. Needs an exemption entry in
+                       scripts/find-unwired-surfaces-baseline.txt, because a
+                       test double living in commonMain looks identical to
+                       unwired production code to a static scan.
 
 Shape 5 is not checked here (navigation): reachable routes are a data question
 the Maestro suite answers better than a static scan.

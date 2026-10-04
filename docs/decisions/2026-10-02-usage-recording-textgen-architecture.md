@@ -1,7 +1,8 @@
 ---
 date: 2026-10-02
 title: UsageRecordingTextGen — Ownership and DI Shape
-status: proposed
+status: accepted
+status-was: proposed  # non-vocabulary value, normalized 2026-10-05
 deciders: Singularity Developer
 ---
 

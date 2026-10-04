@@ -16,10 +16,7 @@ import android.net.Uri
  * always returns false — callers should fall back to [offerUpdate] which
  * opens the store page unconditionally.
  */
-class DirectUrlUpdateStore(
-    private val context: Context,
-    private val storeUrl: String,
-) : UpdateStorePort {
+class DirectUrlUpdateStore(private val context: Context, private val storeUrl: String) : UpdateStorePort {
 
     /**
      * Always returns false — there is no programmatic way to check for updates
@@ -31,14 +28,12 @@ class DirectUrlUpdateStore(
      * Opens [storeUrl] in a browser via [Intent.ACTION_VIEW].
      * The user can then manually trigger the update from the store page.
      */
-    override fun offerUpdate(activity: Activity): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(storeUrl))
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-            true
-        } catch (e: Throwable) {
-            false
-        }
+    override fun offerUpdate(activity: Activity): Boolean = try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(storeUrl))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+        true
+    } catch (e: Throwable) {
+        false
     }
 }

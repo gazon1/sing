@@ -86,7 +86,7 @@ Not fixed here: 81 sites is its own MR, and the `CalendarEventMapper` cluster is
 with the deferred `Instant` migration (R26), which should not be done twice. What matters
 is that the count is now measured, so a regression is visible and the work can be scoped.
 
-The deprecated Nav2 `AppDestination` variants are the notable subset — `2026-09-16-nav3-migration`
+The deprecated Nav2 `AppDestination` variants are the notable subset — `2026-09-11-nav3-kmp-migration`
 replaced the graph, and these are the leftovers kept for compatibility. Whether they are
 still reachable is a question worth answering before removing them.
 

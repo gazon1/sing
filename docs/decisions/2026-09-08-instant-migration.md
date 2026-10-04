@@ -76,3 +76,13 @@ The correct approach:
 - Deprecation warnings in `StatisticsScreen.kt` and `Clock.jvm.kt` remain until migration is completed.
 - Developers should prefer `kotlinx.datetime.Instant` in new code.
 - `Clock.now()` should migrate to `kotlinx.datetime.Clock.System.now()` in a future PR.
+
+## Resolution (deferred)
+
+Confirmed deferred 2026-10-05; revisit trigger recorded.
+
+Verified the work is still outstanding rather than quietly done: `kotlin.time.Instant` is
+still imported by 62 files under `shared/src`. Scope is unchanged from the original
+analysis (~30 files to update, with the scope-creep risk the ADR cited). Revisit when the
+`kotlin.time.Clock` migration is picked up as its own change — the two are the same work
+and should not be split.

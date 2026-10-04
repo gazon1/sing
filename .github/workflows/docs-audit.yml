@@ -1,5 +1,13 @@
 name: Documentation Audit
 
+# Runner image is pinned to ubuntu-24.04 on purpose (2026-10-05). GitHub is migrating
+# the `ubuntu-latest` label to Ubuntu 26.04 between 2026-10-19 and 2026-11-19; the
+# warning is silenced by pinning, which is the mitigation the runner-images notice
+# recommends. 26.04 moves the kernel 6.17 -> 7.0 and systemd 255 -> 259, and the
+# Android assemble plus both emulator workflows are exactly the surface that would
+# notice. Reviving `ubuntu-latest` is a deliberate migration, not a cleanup — it will
+# not come back on its own. See docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.
+
 on:
   push:
     branches: [main]
@@ -15,12 +23,20 @@ on:
       - 'scripts/normalize-adr-frontmatter.*'
       - 'scripts/print-source-tree.*'
       - 'openspec/**'
+      - 'README.md'
+      - 'PROGRESS.md'
+      - 'docs/**'
+      - '.agents/skills/**'
+      - 'config/detekt/**'
+      - 'config/docs/**'
+      - 'scripts/**'
+      - '.just/**'
 
 jobs:
   docs-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check ADR frontmatter
         run: ./scripts/normalize-adr-frontmatter.sh --dry-run || true

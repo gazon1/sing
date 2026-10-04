@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-room-migration
-description: Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. Use when configuring AppDatabase, adding entities, or fixing migration errors.
+description: 'Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. Use when configuring AppDatabase, adding entities, or fixing migration errors.'
 ---
 
 # Singularity TODO — Room 3 Setup

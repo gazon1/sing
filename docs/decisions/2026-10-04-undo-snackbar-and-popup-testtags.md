@@ -80,7 +80,7 @@ per-popup call is not redundancy: `testTagsAsResourceId` is read from the semant
 of the enclosing root, and a popup's content has a different root. Without the
 re-assertion, ids declared in popups are published to the test-tag registry but cannot
 be produced — the "declared but never applied" trap that ADR
-`2026-09-30-testtag-registry-honesty` exists to prevent, one level deeper.
+`2026-09-30-draft-save-failure-and-testtag-honesty` exists to prevent, one level deeper.
 
 Both (1) and (2) are the kind of change that a reviewer cannot re-derive by reading the
 diff: the diff shows a `Popup` and a moved statement, not the two independent causes of
@@ -106,7 +106,7 @@ the invisible toast.
 
 # Links
 
-- ADR `2026-09-30-testtag-registry-honesty` — the tag registry's honesty contract
+- ADR `2026-09-30-draft-save-failure-and-testtag-honesty` — the tag registry's honesty contract
 - ADR `2026-10-04-navigation-policy` — the epic whose verification surfaced this
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/NotificationHost.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTagResourceId.kt`

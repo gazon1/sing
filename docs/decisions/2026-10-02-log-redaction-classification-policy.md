@@ -1,7 +1,8 @@
 ---
 date: 2026-10-02
 title: Log Message User-Content Classification Policy
-status: proposed
+status: accepted
+status-was: proposed  # non-vocabulary value, normalized 2026-10-05
 deciders: Singularity Developer
 ---
 

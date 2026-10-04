@@ -26,8 +26,7 @@ Two issues were found alongside the OOM fix:
 Additionally, the project's existing testing practices were formalised against Khorikov's four
 attributes of good unit tests and the AAA pattern.
 
-## Decisions
-
+## Decision
 ### D1: Fix `mcp-server` default tag filter
 
 Changed `includeTags("fast")` → `excludeTags("slow")` in `mcp-server/build.gradle.kts`, matching

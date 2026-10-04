@@ -2,7 +2,7 @@
 title: "Log writer redaction gaps — cause chain and tag fields not redacted"
 date: 2026-10-03
 tags: [logging, security, deferred]
-status: open
+status: deferred
 ---
 
 ## Context
@@ -31,3 +31,12 @@ Tag redaction is straightforward but low priority — no instance of credential-
 - `core/log/RedactingLogWriter.kt`
 - `core/log/FileLogWriter.kt`
 - `deferred-backlog.md`: `log-writer-redaction-gaps`
+
+## Resolution (deferred)
+
+Confirmed deferred 2026-10-05; revisit trigger recorded.
+
+Verified still outstanding: `core/log/FileLogWriter.kt` contains no redaction call. The
+cause chain is unfixed and tag redaction is still absent. Revisit when a credential-bearing
+value is first observed reaching the log (the trigger this ADR named), or as part of the
+log-export change, which will make the redaction gap externally visible.

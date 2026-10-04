@@ -2,7 +2,8 @@
 title: "Recurring tasks — post-review findings, no-blocker"
 date: 2026-09-23
 tags: [recurring, tasks, review]
-status: noted
+status: accepted
+status-was: noted  # non-vocabulary value, normalized 2026-10-05
 ---
 
 ## Context

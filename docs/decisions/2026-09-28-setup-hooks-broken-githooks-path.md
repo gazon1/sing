@@ -1,7 +1,7 @@
 ---
 title: "just setup-hooks указывает на несуществующий .githooks/ — hooks молча отключаются"
 date: 2026-09-28
-status: open
+status: accepted
 ---
 
 # `just setup-hooks` указывает на несуществующий `.githooks/` — hooks молча отключаются
@@ -99,3 +99,14 @@ hooks, потому что рецепт перенаправил бы `core.hook
 - `.agents/skills/singularity-todo-worktree-isolation/SKILL.md` — секция
   «Git Hooks Path Convention», описывает несуществующее состояние
 - Phase 0 плана `2026-09-28-maestro-ui-flows`
+
+## Resolution (accepted)
+
+Resolved 2026-10-05: the recipe is fixed and the existence check is load-bearing.
+
+Verified: `justfile:89-135` (`setup-hooks`) now resolves the main checkout from
+`git rev-parse --git-dir`, carries an explicit comment that pointing `core.hooksPath` at a
+missing directory does not error but silently runs no hooks, and therefore performs an
+existence check before setting it. It also propagates `core.hooksPath` to every registered
+worktree, which is the case the ADR identified as silently unhooked. `.githooks/` exists
+in this checkout.
