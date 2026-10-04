@@ -114,3 +114,49 @@ leg — which is exactly the intermediate state this bug passed through.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileAwareCurrentUser.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/repository/UserScopedFlow.kt`
 - `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/tools/ReadToolsProfileAwareTest.kt`
+
+# Addendum (2026-10-04): the rule is now enforced, and it found a live instance
+
+The ADR above documents the defect and the fix but left the rule to prose. A rule
+nobody can violate by accident is a comment, so
+`CachedIdentityReadArchitectureTest` now fails the build on the pattern.
+
+The rule it encodes is narrower than "do not read `.value`", because 159 reads
+across 43 files are correct: a repository write picks one identity at the moment of
+the write, and pinning that identity is the intended design. What is forbidden is
+reading `.value` **inside a reactive body** — a `combine`/`collect`/`map` lambda —
+where the value is sampled once and then reused for every later emission.
+
+Konsist 0.17 has no declaration type for a lambda, so the test is a brace-matching
+scanner over the source text. A hand-written scanner is only trustworthy if it is
+itself tested, so eleven tests run the same function over synthetic sources: a read
+inside `flow { }` is caught, a read in an imperative function is not, a read in a
+`launch` body is not, reads in KDoc are not, and `combine(u.scopedUserId) { }` — the
+*flow*, not its value — is not.
+
+Two design decisions came out of writing those tests rather than the other way
+round:
+
+- **`launch` is not a reactive block.** A `scope.launch { }` body runs once, and the
+  first version of the rule included it. That flagged `TaskTimeSlot.start`,
+  `.stop` and `.createManual` — three correct one-shot writes. A gate that fires on
+  correct code is a gate people learn to bypass.
+- **A read in a reactive call's argument list is not a finding.** It is evaluated
+  once, when the flow is constructed, which is the same one-shot semantics as an
+  imperative write. The cost is a known gap: `combine(u.scopedUserId.value) { }` is
+  not flagged, and such a combine is useless rather than wrong, because the sampled
+  value can never change.
+
+**The one production finding was real.** `TaskTimeSlot`'s init block read
+`currentUser.scopedUserId.value` inside `.collect { entries -> … }` and passed it to
+`getOpenEntry` on every emission — the same class of bug as `observeForCurrentUser`,
+in a screen slot rather than a repository. It now reads
+`currentUser.liveScopedUserId.first()` inside the collector, so the identity is
+re-derived per emission. The structurally better fix is to make the identity a flow
+input of the `combine` so a profile switch re-emits by itself; that is a
+refactor, not a bug fix, and is left for a deliberate pass.
+
+The scanner's remaining limits are stated in the test's KDoc: it tracks braces, so a
+reactive call whose lambda opens on a later line is missed, and it only knows the
+combinator names it lists. Both err toward silence, which is the right direction —
+a false positive costs an allowlist entry, a false negative costs a bug.
