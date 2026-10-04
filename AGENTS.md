@@ -7,16 +7,11 @@
 
 `androidApp/` — Android shell. `desktopApp/` — Desktop Compose entry.
 `shared/src/commonMain/kotlin/com/singularity/todo/` — KMP library (commonMain + androidMain
-+ jvmMain + tests):
-
-- `core/` — auth, backup, coroutines, database, di, draft, error, files, ids, llm, log,
-  notifications, observability, platform, reminders, security, serialization, settings,
-  sync, tree, ui
-- `feature/` — agenda, ai, archive, attachments, auth, backup, calendar, checklist, genui,
-  notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks
-- `test/fakes/` — Fake-реализации для тестов (без моков)
-
-**iOS нет.** Только Android + JVM Desktop.
++ jvmMain + tests): `core/` (auth, backup, coroutines, database, di, draft, error, files, ids,
+llm, log, notifications, observability, platform, reminders, security, serialization, settings,
+sync, tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
+checklist, genui, notes, pomodoro, profile, projects, reminders, search, settings, statistics,
+tags, tasks), `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
 ## Канонический CRUD-паттерн (новой фичи)
 
@@ -35,34 +30,33 @@ compile-time проверку графа — все `get<T>()` валидиру�
 даёт KOIN-W003 (graph unverifiable). Используй list composition:
 `modules(listOf(...) + domainModule() + listOf(...))`.
 
-| DSL | Когда использовать |
+| DSL | Когда |
 |---|---|
 | `single { Repo(get()) }` | singleton |
 | `viewModelOf(::Vm)` | все VM без runtime-параметров (**prefer**) |
 | `viewModel { (p: Param) -> Vm(get(), p) }` | VM с runtime-параметрами |
 | `koinViewModel()` / `koinViewModel { parametersOf(p) }` | инъекция VM в Composable (не `koinInject()`) |
-| `factory { Vm(...) }` | **Never** для ViewModel — memory leak |
+| `factory { Vm(...) }` | **Never** для VM — memory leak |
 | `koinInject()` | репозитории и сервисы (не VM) |
 
 **Где лежат биндинги.** `core/di/Modules.kt` — **фасад-агрегатор** (`coreLoggingModule()` +
-`domainModule(): List<Module>`), а не источник истины. Реальные биндинги живут в
-per-domain `*DiModule.kt` (`core/di/{Core,Calendar,Notes,Projects,Tags,Tasks}DiModule.kt`)
-и `feature/*/*DiModule.kt` — каждая отдаёт свою `*Module()` функцию. Platform bindings —
-в `core/di/PlatformModule.{jvm,android}.kt`.
+`domainModule(): List<Module>`), не источник истины. Реальные биндинги — в per-domain
+`core/di/{Core,Calendar,Notes,Projects,Tags,Tasks}DiModule.kt` и `feature/*/*DiModule.kt`
+(каждая отдаёт свою `*Module()`), платформенные — в `core/di/PlatformModule.{jvm,android}.kt`.
 
-> Почему список, а не `includes()`: `includes()` создаёт child scope, и биндинги из него
-> не видны соседним модулям на parent level (Koin 4 scope isolation).
-> ADR: `docs/decisions/2026-09-27-di-module-aggregator-narrative.md`
-
-Подробности: `singularity-todo-koin-di` skill, `docs/decisions/2026-09-06-koin-vm-viewmodelof-koinviewmodel.md`.
+> Список, а не `includes()`: `includes()` создаёт child scope, и биндинги из него не видны
+> соседним модулям на parent level. ADR `2026-09-27-di-module-aggregator-narrative.md`.
+> Подробности: скилл `singularity-todo-koin-di`, ADR `2026-09-06-koin-vm-viewmodelof-koinviewmodel.md`.
 
 ## Тесты
 
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
-`test/fakes/FakeRepositories.kt` (`FakeTaskRepository`, `FakeNotesRepository`,
-`FakeProjectsRepository`, `FakeTagsRepository`, `FakeSettingsRepository`, `FakeSecureStorage`,
-`FakeNotificationPort`, `FakeTextGen`).
+`test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
+`-Ptest.tags=fast,slow` в CI молча его исключит (`TestTagCoverageTest`).
+**`slow` = класс пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы,
+Konsist-скан, spawn) — не «долгий». Никаких skipped: `@Disabled` или упавший assumption
+guard валят `check-test-runs.py`.
 
 ```kotlin
 // Три формы теста (singularity-todo-test-helpers skill):
@@ -103,55 +97,67 @@ class MyViewModel(
 **`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
 **`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
-**`--rerun-tasks`** required after editing systemProperty tests — config-cache may serve stale compiled classes.
+**Stale-test-classes is NOT a thing (verified 2026-10-04)** — after editing a test (incl.
+a `systemProperty`-reading one), a plain rerun recompiles and re-executes correctly;
+`--rerun-tasks` is only a debugging crutch. Evidence: ADR
+`2026-10-04-configuration-cache-hardening` §A3.
 
 ## expect/actual порты
 
-| Порт | commonMain | jvmMain | androidMain |
-|---|---|---|---|
-| `SecureStoragePort` | интерфейс | secret-tool + AES-GCM | EncryptedSharedPreferences |
-| `NotificationPort` | интерфейс | notify-send + at | AlarmManager + NotificationManager |
-| `SharePort` | интерфейс | JvmSharePort | AndroidSharePort |
-| `FileSharePort` | интерфейс | JvmFileSharePort | AndroidFileSharePort |
-| `FileRevealer` | интерфейс | JvmFileRevealer | AndroidFileRevealer |
-| `FileSystem` | интерфейс | JvmFileSystem | AndroidFileSystem |
-| `BackupCodec` | интерфейс | JvmBackupCodec (java.util.zip) | AndroidBackupCodec |
-| `AttachmentStorage` | **класс** (не интерфейс) | — | — |
-| `TimeZoneProvider` | expect val | actual | actual |
+Порты (commonMain — интерфейс, если не сказано иное; jvmMain / androidMain):
 
-**Время.** Проектного `core.platform.Clock` object больше нет
-(ADR `2026-09-27-remove-platform-clock-object.md`). Используй `kotlin.time.Clock.System.now()`
-(внедряй `Clock` параметром для тестов), `core.platform.todayFlow()` / `todayAt(zone)` /
-`todayInSystemZone()` для `LocalDate`, `delayUntilNextMidnight()` для половиночного сброса.
+| Порт | jvmMain | androidMain |
+|---|---|---|
+| `SecureStoragePort` | secret-tool + AES-GCM | EncryptedSharedPreferences |
+| `NotificationPort` | notify-send + at | AlarmManager + NotificationManager |
+| `SharePort` / `FileSharePort` | `JvmSharePort` / `JvmFileSharePort` | `AndroidSharePort` / `AndroidFileSharePort` |
+| `FileRevealer` | `JvmFileRevealer` | `AndroidFileRevealer` |
+| `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` |
+| `BackupCodec` | `JvmBackupCodec` (java.util.zip) | `AndroidBackupCodec` |
+| `TimeZoneProvider` | actual | actual |
 
-**Фабричные функции (platform factories):** `createSqlDriver()` (SQLite JDBC / sqlite-bundled),
-`createHttpClient()` (OkHttp / OkHttp), `createBackgroundScope()` (`Dispatchers.Default`),
-`initLogging()` (Kermit+Logback / Kermit+Logcat), `platformModule()` (все bindings),
-`aiToolsModule()` (32 Koog tools), `createKoogPromptExecutor()` (MultiLLMPromptExecutor+OkHttp /
-AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
+`AttachmentStorage` — **класс**, не интерфейс.
 
-`isDesktop` удалён — определяй платформу через конкретный actual, а не флаг.
+**Время.** `core.platform.Clock` object больше нет (ADR `2026-09-27-remove-platform-clock-object.md`):
+`kotlin.time.Clock.System.now()` (внедряй `Clock` параметром для тестов), `core.platform.todayFlow()` /
+`todayAt(zone)` / `todayInSystemZone()` для `LocalDate`, `delayUntilNextMidnight()`.
+
+**Фабричные функции:** `createSqlDriver()`, `createHttpClient()`, `createBackgroundScope()`
+(`Dispatchers.Default`), `initLogging()`, `platformModule()`, `aiToolsModule()` (32 Koog tools),
+`createKoogPromptExecutor()`, `onSecondaryClick()`. `isDesktop` удалён — определяй платформу
+через конкретный actual, а не флаг.
 
 **Навигация** (expect/actual NavGraphs): `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
-`SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph` + парные
-`*EntryProvider` (`tasksEntryProvider`, `calendarEntryProvider`, `agendaEntryProvider`, ...).
+`SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph` + парные `*EntryProvider`.
 
 ## Сборка
 
 ```bash
 just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
 ./check.sh                    # тесты + Android
-./gradlew :shared:jvmTest     # быстрая проверка
+./gradlew :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
+./gradlew :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
 ./gradlew :androidApp:assembleDebug   # Android
 ./gradlew :desktopApp:run      # Desktop (xvfb-run -a)
 ./gradlew :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
 
 just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
-just gm agenda   # Maestro-гейт по тегу agenda (positional args, не agenda=x!)
-just cr          # coverage ratchet
 just detekt-baseline; just coverage; just tcheck; just tcheck-evals; just docs-audit
 ```
+
+> `just <recipe> name=value` **не** присваивает — приходит весь токен. Только
+> позиционная форма: `just gm agenda`, не `just gm tags=agenda`.
+
+**Гейты «меры», а не «булевы»** (все блокирующие; спека —
+`openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`):
+
+`check-test-runs.py --require <set>` — прогон выполнил меньше классов/тестов, чем floor,
+**или** хоть один тест skipped · `check-coverage.py` — покрытие `com.singularity.todo.*`
+ниже floor (23.0 / 18.3 / 24.4) · `check-flaky-tests.py --current DIR --previous DIR` —
+тест упал в прошлом прогоне и прошёл сейчас · `python3 -m unittest discover -s
+scripts/tests` — регрессия в самих гейтах (≈20 мс). Floor = **минимальный** легитимный
+прогон: падение — расследовать, не регенерировать.
 
 ## 🤖 Dogfooding: MCP Server
 
@@ -167,7 +173,6 @@ MCP tools меняют state только через репозитории; `wr
 timestamps — `kotlin.time.Instant`; business errors → `isError:true`, internal → `-32603`.
 Каждый AI-вызов пишет в `llm_usage` (tokens, `cost_usd_micros`, `duration_ms`, `profile_id`).
 Профили изолируют данные: `ai-agent` (🤖) для dogfooding, `personal` (🏠) для своих задач.
-
 ## 🔄 OpenSpec
 
 Spec-driven workflow: `proposal → specs → design → tasks → apply → verify → archive`.
@@ -190,30 +195,27 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android);
 `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"` (desktop).
 
-> **Эмулятор**: `./scripts/ensure-emulator.sh` → готовый serial или поднимает AVD и ждёт;
-> `scripts/run-maestro.sh` перезапустит если устройство пропало. Не подкручивайте `-gpu` —
-> дефолтный host GPU периодически падает в gfxstream (лечения нет). Подробности —
-> `singularity-todo-emulator-launch` skill и ADR
-> `2026-09-29-emulator-crash-recovery-runner.md`.
+> **Эмулятор**: `./scripts/ensure-emulator.sh` → serial или AVD; `scripts/run-maestro.sh`
+> перезапустит, если устройство пропало. Не подкручивайте `-gpu` — дефолтный host GPU
+> периодически падает в gfxstream (скилл `singularity-todo-emulator-launch`). **Maestro сейчас
+> падает в этом окружении** (`DeviceServerDiedException`, в т.ч. на контрольном потоке) —
+> это эмулятор/драйвер, не код.
 
 ## 🤖 Coroutine test failures
 
 Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt`
-(состояние, контекст, иерархия job, стектрейлы). Читай **первым**: кадры
-приложения раньше kotlinx указывают, где корутина была; умерла она там, где
-`lastObservedStackTrace`. Одинаковые стектрейсы — не доказательство утечки
-(для фоновых коллекторов это норма). Порядок разбора и ограничения:
-`docs/decisions/2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 скилла
-`debugging-investigation`.
+(состояние, контекст, job-иерархия, стектрейлы) — читай **первым**: кадры
+приложения раньше kotlinx указывают, где корутина была, умерла она там, где
+`lastObservedStackTrace`, а одинаковые стектрейсы — не доказательство утечки.
+ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
 
 ## ❌ Что НЕ делать
 
 1. **`runBlocking` в ViewModel init** — вместо этого `combine(...)` + `flatMapLatest`
 2. **`*Blocking()` методы в репозиториях** — только suspend + Result<T>
-3. **MockK / Mockito** — fakes для state-тестов; MockK только для проверки исходящих
-   вызовов (DB writes, analytics, network). Рационал: `2026-09-25-test-suite-tag-defaults.md`
-4. **Pass-through CRUD use cases** — VMs инжектят репозиторий напрямую. AI-специфичные
-   use cases допустимы. Enforced by `PassThroughUseCase` detekt rule
+3. **MockK / Mockito** — fakes для state-тестов; MockK только для исходящих вызовов
+4. **Pass-through CRUD use cases** — VMs инжектят репозиторий напрямую (AI — допустимо).
+   Enforced by `PassThroughUseCase` detekt rule
 5. **`java.io.File` напрямую** — только через `FileSystem` порт
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**
@@ -235,16 +237,14 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 
 Каталог с описаниями — `docs/SKILLS-CATALOG.md` (auto-generated, не редактировать).
 Правила написания — `writing-for-agents`. Навигация по темам — `find-skills` / `wayfinder`.
-
-Ключевые: `singularity-todo-testable-vm` (canonical VM) · `vm-migration-playbook` ·
-`feature-scaffold` · `test-helpers` · `nav3-nested-graphs` · `koin-di` · `ai-tool` ·
-`mcp-server` · `sync` · `room-migration` · `quality-tools` · `clean-architecture-audit` ·
-`maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
+Ключевые: `singularity-todo-testable-vm` (canonical VM) · `feature-scaffold` ·
+`test-helpers` · `koin-di` · `mcp-server` · `quality-tools` · `maestro-flows`.
 
 > **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется,
-> покрыт тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`.
+> покрыт тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`,
+> подробности — скилл `singularity-todo-unwired-surface-audit`.
 
 ## Agent skills
 
-Issue tracker — `docs/agents/issue-tracker.md` (GitHub Issues). Domain docs —
-`docs/agents/domain.md` (один `CONTEXT.md` в корне, ADR-ы в `docs/decisions/`).
+Issue tracker — `docs/agents/issue-tracker.md` (GitHub Issues). Доменные доки —
+`docs/agents/domain.md` (один `CONTEXT.md` в корне, ADR-и в `docs/decisions/`).

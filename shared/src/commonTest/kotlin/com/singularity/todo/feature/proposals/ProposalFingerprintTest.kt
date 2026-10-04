@@ -4,6 +4,7 @@ import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskField
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -15,6 +16,7 @@ import kotlin.test.assertNotEquals
  * assert identity relationships, never literal hash values, so swapping the digest
  * does not require rewriting the suite.
  */
+@Tag("fast")
 class ProposalFingerprintTest {
 
     private fun fp(kind: ProposalItemKind, target: String = "task-1") = ProposalFingerprint.of(kind, target)

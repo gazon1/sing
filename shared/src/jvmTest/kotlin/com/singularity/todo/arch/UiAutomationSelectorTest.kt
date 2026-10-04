@@ -55,7 +55,7 @@ class UiAutomationSelectorTest {
 
     /**
      * A tagged control inside a window-owning surface, where the window does
-     * not apply [exposeTestTagsAsResourceId].
+     * not apply [mapTestTagsAsResourceIds].
      *
      * ## Why the naive version of this rule is wrong
      *
@@ -84,7 +84,7 @@ class UiAutomationSelectorTest {
                 findOccurrences(code, window).forEach { start ->
                     scanned++
                     val span = code.substring(start, windowBodyEnd(code, start + window.length - 1))
-                    if (span.contains("testTag(") && !span.contains("exposeTestTagsAsResourceId")) {
+                    if (span.contains("testTag(") && !span.contains("mapTestTagsAsResourceIds")) {
                         val line = code.substring(0, start).count { it == '\n' } + 1
                         violations += "${file.fileName}:$line $window"
                     }
@@ -100,11 +100,11 @@ class UiAutomationSelectorTest {
         assertTrue(
             violations.isEmpty(),
             "tagged controls inside a window-owning surface with no " +
-                "exposeTestTagsAsResourceId (${violations.size}/$scanned):\n" +
+                "mapTestTagsAsResourceIds (${violations.size}/$scanned):\n" +
                 violations.joinToString("\n") { "  - $it" } +
                 "\n\nA dialog, modal sheet, dropdown or popup renders into its own Android window, " +
                 "so the app-root testTagsAsResourceId never reaches it and every testTag inside " +
-                "is invisible to Maestro. Apply Modifier.exposeTestTagsAsResourceId() to the " +
+                "is invisible to Maestro. Apply Modifier.mapTestTagsAsResourceIds() to the " +
                 "surface's own modifier. See docs/decisions/2026-10-04-testtag-visibility-helper.md.",
         )
     }

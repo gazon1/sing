@@ -73,7 +73,7 @@ wasn't.
 - Callers that need a set must not reach for `ListPickerSheet` and then work
   around the dismissal. The second step of the agenda configurator keeps its own
   picker, and the three desktop flow tests cover the two-step interaction.
-- Both components apply `exposeTestTagsAsResourceId()` to their rows, so both
+- Both components apply `mapTestTagsAsResourceIds()` to their rows, so both
   are reachable from Maestro — a sheet that cannot be automated is how the
   configurator's own bugs stayed hidden.
 

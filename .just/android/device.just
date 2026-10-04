@@ -32,7 +32,7 @@ test serial="":
         echo "ERR: pass serial=… or set ADB_SERIAL"
         exit 1
     fi
-    ./gradlew :androidApp:connectedDebugAndroidTest \
+    ./gw :androidApp:connectedDebugAndroidTest \
         -Pandroid.testInstrumentationRunnerArguments.device={{serial}}
 
 [group('device')]
@@ -41,4 +41,4 @@ test serial="":
 test-unit:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :androidApp:testDebugUnitTest
+    ./gw :androidApp:testDebugUnitTest

@@ -9,6 +9,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,6 +21,7 @@ import kotlin.test.assertTrue
  * Pure JVM — [Nav3State] itself is not a composable, only [toDecoratedEntries] is, so the
  * constructor can be driven directly with plain `NavBackStack` instances.
  */
+@Tag("fast")
 class Nav3StateReselectTest {
 
     private val start: NavKey = AppDestination.AgendaGraph(AgendaStartRoute.Today)
@@ -120,5 +122,67 @@ class Nav3StateReselectTest {
         assertEquals(start, s.previousTopLevelRoute)
         assertTrue(received.isActive, "a tab switch must not emit a reselect event")
         received.cancel()
+    }
+
+    // ── Navigator.open — the policy facade (REQ-NAV-001) ─────────────────
+    //
+    // `plans` is a real bottom-bar tab, so the policy classifies it as top-level;
+    // the synthetic `other` (NotesGraph) above is not.
+
+    @Test
+    fun `open of a top-level destination switches tabs and records the previous one`() {
+        val s = state(AppDestination.Plans)
+        val navigator = Navigator(s)
+
+        navigator.open(AppDestination.Plans)
+
+        assertEquals(AppDestination.Plans, s.topLevelRoute)
+        assertEquals(start, s.previousTopLevelRoute)
+    }
+
+    @Test
+    fun `open of a sub-route pushes onto the current stack without switching tabs`() {
+        val s = state(AppDestination.Plans)
+        val navigator = Navigator(s)
+        val target = AppDestination.ProjectDetail("p1")
+
+        navigator.open(target)
+
+        val stack = s.requireBackStackFor(s.topLevelRoute)
+        assertEquals(target, stack.lastOrNull())
+        assertEquals(2, stack.size)
+        assertEquals(start, s.topLevelRoute, "a cross-feature open must keep the origin stack active")
+    }
+
+    @Test
+    fun `reopening the active tab through open emits a reselect and touches no stack`() = runTest {
+        val s = state(AppDestination.Plans)
+        val navigator = Navigator(s)
+        navigator.open(AppDestination.Plans)
+        val stackSize = s.requireBackStackFor(s.topLevelRoute).size
+
+        val received = async { s.reselectEvents.first() }
+        runCurrent()
+        navigator.open(AppDestination.Plans)
+
+        assertEquals(AppDestination.Plans, received.await())
+        assertEquals(stackSize, s.requireBackStackFor(s.topLevelRoute).size)
+    }
+
+    @Test
+    fun `open of a bare nested start route fails before touching the stack`() {
+        val s = state(AppDestination.Plans)
+        val navigator = Navigator(s)
+        val before = s.requireBackStackFor(s.topLevelRoute).toList()
+
+        val error = assertFailsWith<IllegalArgumentException> {
+            navigator.open(AppDestination.TasksStartRoute.Create())
+        }
+
+        assertTrue(
+            error.message.orEmpty().contains("$start"),
+            "error must name the source context: ${error.message}",
+        )
+        assertEquals(before, s.requireBackStackFor(s.topLevelRoute).toList())
     }
 }

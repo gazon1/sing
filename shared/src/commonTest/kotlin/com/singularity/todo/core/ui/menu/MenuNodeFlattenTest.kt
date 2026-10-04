@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.menu
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -9,6 +10,7 @@ import kotlin.test.assertEquals
  * The flatten function is a pure recursive traversal — tested here so any
  * refactor of the tree structure is caught by the test suite.
  */
+@Tag("fast")
 class MenuNodeFlattenTest {
 
     private fun flatten(nodes: List<MenuNode>): List<MenuNode> = buildList {

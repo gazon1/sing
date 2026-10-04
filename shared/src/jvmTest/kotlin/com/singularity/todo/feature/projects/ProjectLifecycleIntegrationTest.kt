@@ -15,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -24,6 +25,7 @@ import kotlin.time.Clock
  * Uses DeleteProjectUseCase directly (no VM coroutine timing issues).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class ProjectLifecycleIntegrationTest {
 
     private val testUserId = UserId("test-user")

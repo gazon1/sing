@@ -59,3 +59,24 @@ internal fun navSavedStateConfig(): SavedStateConfiguration = SavedStateConfigur
  */
 @Composable
 fun <T : NavKey> rememberInMemoryNavBackStack(start: T): NavBackStack<T> = remember(start) { NavBackStack(start) }
+
+/**
+ * Typed factory for a nested graph's back stack — the one place the platform
+ * asymmetry of [NavBackStack] typing is allowed to exist (B2, REQ-NAV-005 companion).
+ *
+ * - **Android:** delegates to `rememberNavBackStack(savedStateConfig, start)`, whose
+ *   erased `NavBackStack<NavKey>` result is cast once, here, instead of in seven
+ *   `@Suppress("UNCHECKED_CAST")` graph files. Saveable-backed, so entry recreation
+ *   after process death restores the stack.
+ * - **JVM Desktop:** falls back to [rememberInMemoryNavBackStack] — no savedstate
+ *   registry exists there, and process death is not a desktop concept.
+ *
+ * @param savedStateConfig per-graph serializers module (see [navSavedStateConfig]);
+ *   ignored on JVM.
+ * @param start the seed route the stack starts with.
+ */
+@Composable
+expect fun <T : NavKey> rememberNavBackStackTyped(
+    savedStateConfig: SavedStateConfiguration,
+    start: T,
+): NavBackStack<T>

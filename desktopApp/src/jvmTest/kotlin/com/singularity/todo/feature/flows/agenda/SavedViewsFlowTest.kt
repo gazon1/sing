@@ -24,8 +24,9 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.coroutines.flow.first
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * Desktop Compose UI tests for the saved views list.
@@ -48,6 +49,7 @@ import org.junit.Test
  * never renders and cannot be awaited.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class SavedViewsFlowTest {
 
     private suspend fun createView(koin: org.koin.core.Koin, name: String) {

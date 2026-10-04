@@ -10,11 +10,13 @@ import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.security.FakeSecureStorage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class AiApiKeyMigrationTest {
 
     @Test fun migratesLegacyKeyFromDataStoreToSecureStorage() = runTest {

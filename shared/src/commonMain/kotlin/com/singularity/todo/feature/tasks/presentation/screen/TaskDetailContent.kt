@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -224,21 +225,21 @@ private fun buildDetailMenuItems(
     listOf(
         TaskEditorMenuItem(
             label = "Восстановить",
-            action = "restore",
             onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
+            testTag = TestTags.EditorOverflow.RESTORE,
         ),
     )
 } else {
     listOf(
         TaskEditorMenuItem(
             label = "Архивировать",
-            action = "archive",
             onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
+            testTag = TestTags.EditorOverflow.ARCHIVE,
         ),
         TaskEditorMenuItem(
             label = "Удалить",
-            action = "delete",
             onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
+            testTag = TestTags.EditorOverflow.DELETE,
         ),
     )
 }

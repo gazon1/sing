@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#
+# ./gw — Gradle with a worktree-private GRADLE_USER_HOME.
+#
+#   ./gw :shared:jvmTest
+#   ./gw koverReport -Ptest.tags=fast,slow
+#
+# WHY
+#
+# Parallel git worktrees share ~/.gradle by default, and sharing it has two
+# costs that are easy to mistake for something else:
+#
+#   1. `./gradlew --stop` in one worktree kills the daemons of every other
+#      worktree, because the daemon registry lives in the shared user home.
+#   2. Concurrent builds share the module cache lock and thrash each other.
+#
+# GRADLE_USER_HOME is the correct boundary — it holds the daemon registry, the
+# caches, the downloaded JDKs and the toolchain state. Pointing it at a
+# directory inside the worktree makes all four private.
+#
+# WHAT STAYS SHARED, DELIBERATELY
+#
+#   wrapper/  caches/  jdks/  -> symlinks to the real ~/.gradle
+#
+# Re-downloading the Gradle distribution, every dependency artifact and the
+# toolchain JDK per worktree would cost gigabytes and minutes for no isolation
+# benefit: none of them are written concurrently by a build that could corrupt
+# them. Gradle's own file locking is designed for exactly this sharing.
+#
+# WHAT STAYS PRIVATE
+#
+#   daemon/  native/  notifications/  kotlin-profile/  .tmp/
+#
+# `daemon/` is the point of the exercise: it holds registry.bin, the file that
+# `--stop` reads to decide which daemons to kill.
+#
+# The symlinks are created on first use and are idempotent, so there is no
+# separate setup step to remember. Set GRADLE_USER_HOME yourself (or use
+# direnv via .envrc) and you get the same result without this wrapper.
+#
+# WHAT DOES NOT WORK — don't reach for these
+#
+#   ./gradlew --stop                     a shot at the neighbours, not a cleanup
+#   --project-cache-dir / --project-cache
+#   timeout 900 ./gradlew ...            SIGTERM to your own build; it does not
+#                                        stop anyone else's daemon
+#
+#   The first two are covered in the ADR below. The third is worth naming
+#   because it is what you see in `ps` output and it is easy to assume it is a
+#   Gradle-level stop. It is not: `timeout` signals the process group it was
+#   given, and Gradle daemons are not in it.
+#
+# Proof the boundary holds: with GRADLE_USER_HOME pointed at a private
+# directory, `./gradlew --stop` takes the daemon count from 3 to 2 — exactly its
+# own. See docs/decisions/2026-10-04-gradle-daemon-isolation.md.
+#
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# An explicit GRADLE_USER_HOME wins — that is how someone opts out of the
+# wrapper entirely and keeps a hand-managed home, and it is also the case in CI,
+# where setup-gradle has already set one pointing at a cached directory.
+if [[ -z "${GRADLE_USER_HOME:-}" ]]; then
+    export GRADLE_USER_HOME="$("$root/scripts/setup-gradle-home.sh")"
+fi
+
+exec "$root/gradlew" "$@"

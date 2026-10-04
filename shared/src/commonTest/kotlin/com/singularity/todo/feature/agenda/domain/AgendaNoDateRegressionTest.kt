@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -42,6 +43,7 @@ import kotlin.test.assertTrue
  * `startDate` but no `dueDate` counts as "No Date" is an open product question —
  * see ADR `2026-09-30-nodate-root-cause` — and is deliberately not asserted.
  */
+@Tag("fast")
 class AgendaNoDateRegressionTest {
 
     private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 30)

@@ -36,9 +36,11 @@ tags:
 - assertVisible:
     id: task_action_mark_as_completed
 
-# Complete it first — archiving is a lifecycle action on done work.
+# Complete it first — archiving is a lifecycle action on done work. The row's
+# checkbox sits behind the sheet's scrim (it is unreachable while the sheet is
+# open), so completion goes through the sheet's own action row.
 - tapOn:
-    id: task_checkbox_buy_milk
+    id: task_action_mark_as_completed
 - extendedWaitUntil:
     visible:
       id: task_checkbox_buy_milk

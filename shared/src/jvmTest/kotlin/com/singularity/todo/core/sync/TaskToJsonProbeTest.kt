@@ -5,6 +5,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -16,6 +17,7 @@ import kotlin.time.Instant
  * Task carries a [UserId] value class — this test locks in that the sync JSON
  * serializes it as a plain string (wire format), not a wrapped object.
  */
+@Tag("fast")
 class TaskSyncSerializationTest {
 
     @Test

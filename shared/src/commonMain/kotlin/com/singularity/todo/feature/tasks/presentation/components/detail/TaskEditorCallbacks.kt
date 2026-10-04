@@ -68,15 +68,14 @@ data class AttachmentsCallbacks(
  *
  * @param label   User-visible text. **Localised** — the app runs in Russian on
  *                the test device, so this is not a stable selector.
- * @param action  Stable, non-localised action id ("archive", "delete", ...).
- *                This, not [label], is what the testTag is built from: a
- *                tag derived from translated text changes with the device
- *                locale, which is exactly the sort of selector that passes on
- *                a developer machine and fails on a device set to anything
- *                else. See `TestTags.taskAction`.
+ * @param testTag Stable, non-localised id ([TestTags.EditorOverflow.*]) so UI
+ *                automation can address the row regardless of the translated
+ *                [label]. This, not [label], is what the row's testTag is built
+ *                from: a selector derived from text a user can translate passes on
+ *                a developer machine and fails on a device set to anything else.
  * @param onClick Invoked when the row is tapped.
  */
-data class TaskEditorMenuItem(val label: String, val action: String, val onClick: () -> Unit)
+data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit, val testTag: String? = null)
 
 /**
  * All callbacks for [TaskEditorContent], grouped by attribute.

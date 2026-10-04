@@ -21,7 +21,7 @@ open class AgendaNavigator(
 
     /** Navigate to the task detail screen in the outer tasks graph. */
     open fun openTask(taskId: TaskId) {
-        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId.value)))
+        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId)))
     }
 
     /** Show the task context menu (bottom sheet or popup). */

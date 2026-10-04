@@ -2,6 +2,7 @@ package com.singularity.todo.arch
 
 import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.fail
 
@@ -29,6 +30,7 @@ import kotlin.test.fail
  *
  * Scope: `shared/src/commonMain/kotlin` production sources.
  */
+@Tag("fast")
 class DiFacadeTest {
 
     companion object {

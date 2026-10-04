@@ -10,11 +10,11 @@ build VARIANT="debug":
     set -euo pipefail
     case "{{VARIANT}}" in
         debug)
-            ./gradlew :androidApp:assembleDebug
+            ./gw :androidApp:assembleDebug
             echo "✅ androidApp/build/outputs/apk/debug/androidApp-debug.apk"
             ;;
         release)
-            ./gradlew :androidApp:assembleRelease
+            ./gw :androidApp:assembleRelease
             echo "✅ androidApp/build/outputs/apk/release/androidApp-release.apk"
             ;;
         *)

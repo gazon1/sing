@@ -9,10 +9,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+@Tag("fast")
 class BackupDtoTest {
 
     @Test

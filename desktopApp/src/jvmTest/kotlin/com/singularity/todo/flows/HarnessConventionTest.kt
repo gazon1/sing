@@ -1,6 +1,7 @@
 package com.singularity.todo.flows
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -22,6 +23,7 @@ import kotlin.test.fail
  * Non-harness composable tests (e.g. `CelebrationTest`, which drives a single
  * composable through `runIsolatedComposeTest`) are exempt by name with a reason.
  */
+@Tag("fast")
 class HarnessConventionTest {
 
     private val testSources: List<File> by lazy {

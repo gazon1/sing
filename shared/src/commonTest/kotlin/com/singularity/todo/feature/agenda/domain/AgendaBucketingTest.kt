@@ -8,6 +8,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -21,6 +22,7 @@ import kotlin.test.assertEquals
  * @see RelativeBucket
  * @see DateRange
  */
+@Tag("fast")
 class AgendaBucketingTest {
 
     // Wednesday 2026-09-16 — used so we can reason about week boundaries

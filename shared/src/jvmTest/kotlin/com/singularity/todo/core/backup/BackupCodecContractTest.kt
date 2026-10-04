@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
  *
  * Uses [MapFileSystem] as the I/O backend so tests run without filesystem side effects.
  */
-@Tag("slow")
+@Tag("fast")
 class BackupCodecContractTest {
 
     private val fs: FileSystem = MapFileSystem()

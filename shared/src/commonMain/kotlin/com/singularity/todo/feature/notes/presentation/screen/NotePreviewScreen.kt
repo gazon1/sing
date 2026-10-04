@@ -105,8 +105,8 @@ fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinVi
         onEdit = { navigator.openEditor(route.noteId) },
         onDelete = { sheets.show(NotePreviewSheet.DeleteConfirm) },
         onBacklinksClick = { sheets.show(NotePreviewSheet.Backlinks) },
-        onNavigateToNote = { id -> navigator.openPreview(NoteId.fromString(id)) },
-        onNavigateToTask = { id -> navigator.openTask(TaskId.fromString(id)) },
+        onNavigateToNote = { navigator.openPreview(it) },
+        onNavigateToTask = { navigator.openTask(it) },
     )
 
     // Delete confirmation sheet
@@ -149,8 +149,8 @@ fun NotePreviewScreenContent(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onBacklinksClick: () -> Unit,
-    onNavigateToNote: (String) -> Unit,
-    onNavigateToTask: (String) -> Unit,
+    onNavigateToNote: (NoteId) -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -389,8 +389,8 @@ private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (NoteId) -> Un
 private fun NotePreviewBody(
     html: String,
     modifier: Modifier = Modifier,
-    onNavigateToNote: (String) -> Unit,
-    onNavigateToTask: (String) -> Unit,
+    onNavigateToNote: (NoteId) -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
 ) {
     val richTextState = rememberRichTextState()
     LaunchedEffect(Unit) {
@@ -408,8 +408,8 @@ private fun NotePreviewBody(
                     return
                 }
                 when (prefix) {
-                    LinkSchemes.NOTE_PREFIX -> onNavigateToNote(id)
-                    LinkSchemes.TASK_PREFIX -> onNavigateToTask(id)
+                    LinkSchemes.NOTE_PREFIX -> onNavigateToNote(NoteId.fromString(id))
+                    LinkSchemes.TASK_PREFIX -> onNavigateToTask(TaskId.fromString(id))
                     else -> uriHandler.openUri(uri)
                 }
             }

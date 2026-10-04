@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 
 /**
  * A [SnackbarHost] whose action button is addressable by testTag.
@@ -48,7 +48,7 @@ fun TaggedSnackbarHost(hostState: SnackbarHostState, modifier: Modifier = Modifi
 private fun TaggedSnackbar(data: SnackbarData) {
     val actionLabel = data.visuals.actionLabel
     if (actionLabel == null) {
-        Snackbar(modifier = Modifier.exposeTestTagsAsResourceId()) {
+        Snackbar(modifier = Modifier.mapTestTagsAsResourceIds()) {
             Text(data.visuals.message)
         }
         return
@@ -56,13 +56,13 @@ private fun TaggedSnackbar(data: SnackbarData) {
     Snackbar(
         // A snackbar is transient UI in its own layer; the app-root
         // testTagsAsResourceId does not necessarily reach it either.
-        modifier = Modifier.exposeTestTagsAsResourceId(),
+        modifier = Modifier.mapTestTagsAsResourceIds(),
         action = {
             TextButton(
                 onClick = data::performAction,
                 modifier = Modifier
                     .testTag(TestTags.SNACKBAR_ACTION)
-                    .exposeTestTagsAsResourceId(),
+                    .mapTestTagsAsResourceIds(),
             ) {
                 Text(actionLabel)
             }

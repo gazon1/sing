@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.assertNotNull
 
@@ -68,6 +69,7 @@ import kotlin.test.assertNotNull
  *   `MissingKoinDefinitionException` in the checker without being a real
  *   problem (the app starts fine).
  */
+@Tag("slow")
 class KoinGraphValidationTest {
 
     /**

@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinxSerialization)
-    alias(libs.plugins.kover)
     alias(libs.plugins.detekt)
     application
 }
@@ -94,6 +93,15 @@ tasks.named<Jar>("jar") {
 
 tasks.named("build") { dependsOn("jar") }
 
+// distZip/distTar pack runtimeClasspath into lib/. The classpath contains the same
+// Compose/Lifecycle/SavedState artifacts under BOTH androidx.* and org.jetbrains.*
+// coordinates (same version, same file name, identical content) — e.g.
+// androidx.compose.runtime:runtime-saveable-desktop vs org.jetbrains.compose.runtime:…
+// Gradle's Zip default (FAIL) rejects that; keep the first copy, same as the fat-jar above.
+tasks.withType<AbstractArchiveTask>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // ---------------------------------------------------------------------------
 // detekt — static analysis
 // ---------------------------------------------------------------------------
@@ -110,11 +118,6 @@ detekt {
 // ---------------------------------------------------------------------------
 // kover — code coverage
 // ---------------------------------------------------------------------------
-kover {
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
+// No `reports { }` block: coverage is reported once, from the root project
+// (settings-level Kover, see settings.gradle.kts). A per-project report here
+// would be a second, differently-scoped number for the same code.

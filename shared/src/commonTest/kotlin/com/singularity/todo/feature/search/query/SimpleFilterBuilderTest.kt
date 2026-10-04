@@ -3,12 +3,14 @@ package com.singularity.todo.feature.search.query
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.LocalDate
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class SimpleFilterBuilderTest {
 
     @Test

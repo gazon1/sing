@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -43,6 +44,7 @@ import kotlin.test.assertIs
  * collector to process emitted values.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class SettingsViewModelTest {
 
     private val fakeStorage = FakeSecureStorage()

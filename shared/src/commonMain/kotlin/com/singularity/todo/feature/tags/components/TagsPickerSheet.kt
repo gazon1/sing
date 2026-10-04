@@ -57,7 +57,7 @@ fun TagsPickerSheet(selectedIds: List<TagId>, onSelect: (List<TagId>) -> Unit, o
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(allTags, key = { it.id }) { tag ->
+                items(allTags, key = { it.id.value }) { tag ->
                     TagItem(
                         tag = tag,
                         isSelected = selected.contains(tag.id),

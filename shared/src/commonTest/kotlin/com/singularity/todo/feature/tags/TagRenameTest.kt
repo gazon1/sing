@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -78,6 +79,7 @@ private fun TestScope.newHarness(repo: FakeTagsRepository): TagsHarness {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TagRenameTest {
 
     // ─── The id must survive a rename, or every task link breaks ───────────
@@ -244,6 +246,7 @@ class TagRenameTest {
 // ─── The use case holds the rule, independent of the UI ─────────────────────
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class UpdateTagUseCaseTest {
 
     private fun useCase(repo: FakeTagsRepository = FakeTagsRepository()) = UpdateTagUseCase(repo, FixedClock())

@@ -1,11 +1,13 @@
 package com.singularity.todo.core.error
 
 import kotlinx.coroutines.CancellationException
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class RunCatchingTest {
 
     @Test

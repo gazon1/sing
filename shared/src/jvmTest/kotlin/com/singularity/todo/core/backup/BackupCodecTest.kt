@@ -4,10 +4,12 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.MapFileSystem
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class BackupCodecTest {
 
     @Test

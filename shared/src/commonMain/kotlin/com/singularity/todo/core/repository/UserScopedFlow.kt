@@ -17,14 +17,16 @@ import kotlinx.coroutines.flow.flatMapLatest
  * ```
  *
  * How it works:
- * - [ProfileAwareCurrentUser.scopedUserId] is a [StateFlow] (Eagerly seeded with
- *   `UserId.anonymous`), so the `source` emits immediately on first collect.
+ * - [ProfileAwareCurrentUser.liveScopedUserId] is a `combine` over two `StateFlow`s, so
+ *   it emits the *current* identity synchronously on collection. It is deliberately
+ *   NOT [ProfileAwareCurrentUser.scopedUserId]: that one is a `StateFlow` seeded at
+ *   construction and corrected by an async collector, so collecting it right after a
+ *   profile switch yields the previous identity — the old profile's rows, or none.
  * - [flatMapLatest] cancels the previous subscription whenever userId changes,
  *   ensuring stale data is never observed.
- * - `distinctUntilChanged` is NOT applied here: on a plain `StateFlow` it is a
- *   no-op, and the `flatMapLatest` already prevents redundant re-subscriptions
- *   for the same userId. Deduplication (if needed) belongs in the test double,
- *   not in this production helper.
+ * - `distinctUntilChanged` is NOT applied here: it is a no-op on `StateFlow` upstreams,
+ *   and the `flatMapLatest` already prevents redundant re-subscriptions for the same
+ *   userId. Deduplication (if needed) belongs in the test double, not in this helper.
  *
  * @param source A lambda that receives the current [UserId] and returns a
  *   [Flow]. The returned flow is re-created (and re-subscribed) on every
@@ -33,4 +35,4 @@ import kotlinx.coroutines.flow.flatMapLatest
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <T> ProfileAwareCurrentUser.observeForCurrentUser(source: (userId: UserId) -> Flow<T>): Flow<T> =
-    scopedUserId.flatMapLatest { userId -> source(userId) }
+    liveScopedUserId.flatMapLatest { userId -> source(userId) }

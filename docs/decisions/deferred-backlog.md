@@ -8,6 +8,14 @@ the dead ends.
 Rule for adding: an entry needs a number, the MR that found it, and the checks
 already performed. "Looks wrong" is not an entry.
 
+**Every open entry is also a GitHub issue**, and the entry names it under
+"Tracked as". Two reasons: the backlog is the reasoning, the tracker is the
+queue, and a reader who finds one should not have to find the other. And a
+backlog entry that describes an *environment* rather than the code decays —
+`maestro-smoke-cannot-run-in-this-environment` was filed from here, then
+disproven on re-measurement within the hour. Re-run the entry's own "checks
+already performed" before acting on any entry whose subject is the host.
+
 ---
 
 ## sync-config-screen-unwired
@@ -120,6 +128,8 @@ which is why the step produced a finding instead of a change.
 
 ## log-export-has-no-surface
 
+**Tracked as:** #37
+
 **Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
 deleted instead of implemented.
 
@@ -151,6 +161,8 @@ not exist.
 
 ## bulk-task-operations-have-no-ui
 
+**Tracked as:** #36
+
 **Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
 the deletion list and was **kept** — see the note below.
 
@@ -175,6 +187,8 @@ some ids vanished).
 
 ## core-auth-oauth-is-entirely-unwired
 
+**Tracked as:** #38
+
 **Found in:** MR-4. The plan listed two dead symbols in
 `core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
 
@@ -195,6 +209,8 @@ MR-4 stopped at the two symbols it was asked to remove.
 
 ## log-messages-need-a-user-content-sweep
 
+**Tracked as:** #43
+
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 
@@ -212,6 +228,8 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 ---
 
 ## projects-flow-one-time-flake
+
+**Tracked as:** #40
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
 
@@ -249,86 +267,79 @@ baseline is current and new findings exist.
 
 ## digest-line-limit-pressure
 
-**Found in:** the post-epic docs pass. `DIGEST.md` sat at 1498/1500 lines.
+**Status: RESOLVED (2026-10-04).** Two changes, both applied:
 
-**Symptom:** the digest indexes every Consequences bullet and creates a
-section per tag, so it grows with every ADR while the limit is fixed. The
-next author who writes a verbose ADR gets a failed `docs-audit` with no
-obvious remedy and will either trim content (bad) or raise the limit (worse).
+1. `MAX_BULLETS_PER_ADR = 3` in `scripts/refresh-decisions-digest.py`. A verbose ADR
+   used to fill every tag section it was tagged with, so the digest grew with the
+   wordiest author rather than with the number of decisions. The Critical section is
+   exempt — `**Always**` / `**Never**` rules are what a reader came for. The digest
+   went 1260 → 1190 lines, back under the 1250 budget with headroom.
+2. The CI doc-sizes step now regenerates the digest before measuring it. DIGEST.md is
+   gitignored, so on a fresh checkout it does not exist and the budget check silently
+   skipped the only document whose size is generated. The budget was exceeded locally
+   for an unknown stretch precisely because `check.sh` did not run the gate at all.
 
-**Partially done (2026-09-30):** `MAX_ITEMS_PER_TAG` lowered 12 → 10 — the
-digest is an index, the ADR body is one link away. That bought ~45 lines of
-headroom at 351 entries.
+Remaining pressure is the "Active entries" index — one line per ADR, 421 lines and
+growing by one per decision. It is the lowest-value section in the file (a title
+list, one `ls` away). If the warning returns, cut that section before raising the
+limit.
 
-**Further done (2026-10-04):** the gate was found **already red** — the digest
-sat at 1255 against a 1250 limit, and `AGENTS.md` at 253 against 250, both
-before this branch touched them. Two caps added to
-`refresh-decisions-digest.py`: `MAX_BULLETS_PER_ADR = 6` (this entry's item 1,
-which had been listed here since 2026-09-30 and never done) and
-`MAX_ITEMS_PER_TAG` 10 → 8. The omission counter was corrected too, because with
-a second cap in play the old `total - MAX_ITEMS_PER_TAG` formula no longer
-described what was on screen. Digest now **1204 / 1250**, ~46 lines of headroom.
-ADR: `2026-10-04-doc-size-budget-was-already-red.md`.
-
-**Try next, if the warning returns:**
-
-1. The caps are the first thing to turn, not the line count. Expect
-   `MAX_ITEMS_PER_TAG` → 7 before anyone considers `MAX_DIGEST_LINES`.
-2. Only when both caps are at their floor, raise `MAX_DIGEST_LINES` with a
-   comment explaining why the index needs the room.
-3. The structural fix, if the index ever outgrows this shape: stop indexing
-   consequences. "Active entries" (427 lines) and the per-tag sections (695)
-   restate the same 432 ADRs twice; title + tags + a one-line summary, with
-   consequences left in the bodies, would be a third of the size and lose
-   nothing a reader actually uses the digest for.
-4. Keep the existing discipline regardless: Consequences bullets are
-   consequences; only **Always/Never** rules belong in the Critical section.
+Also resolved on this branch: the budget was found **already red** before either
+side touched it — the digest sat at 1255 against a 1250 limit and `AGENTS.md` at
+253 against 250. The two caps above brought it back under. ADR:
+`2026-10-04-doc-size-budget-was-already-red.md`.
 
 ---
 
 ## ci-gates-are-all-continue-on-error
 
-**Found in:** `refactor/tag-registry-and-robots`, while wiring `check-tags.sh`
-into `.github/workflows/ci.yml`.
+**Status: RESOLVED (2026-10-04).** All four remaining advisory gates are blocking:
+`Run detekt`, `Assemble Android debug`, `Build version catalog gate`, and the whole
+`mcp-server` job. See ADR `2026-10-04-measurement-integrity`.
 
-**Symptom:** every gate step in the `build` job carried
-`continue-on-error: true` — `Build version catalog gate`, `Run detekt`,
-`Assemble Android debug`, `Find unwired surfaces`. Only `jvmTest`,
-`desktopApp:test` and `Check Maestro test tags` could fail the workflow.
-So "CI is green" said nothing about detekt, unwired surfaces, or version
-literals.
+The `mcp-server` job was the one that mattered: it holds the profile-bootstrap
+identity tests, so the P0 data-corruption fix shipped with the tests that cover it
+unable to fail a build.
 
-**Already checked:** `:shared:detekt` enforced locally
-(`ignoreFailures = false` in `shared/build.gradle.kts` and `check.sh` step
-`[6/6]` fails on it) — this was a CI-policy gap, not a detekt gap.
-
-**Status: PARTIALLY RESOLVED.** Phase 1.1 (PR-2) flipped three gates to blocking:
-`Find unwired surfaces`, `Check doc sizes`, `Check dead doc references`.
-The remaining `continue-on-error` gates (`Run detekt`, `Assemble Android debug`)
-should be evaluated after 3 successful PRs with the current blocking gates,
-one at a time, oldest debt first.
+`Check Maestro test tags` stays `continue-on-error: true` on purpose, and the
+comment says why: it is superseded by `MaestroFlowTagsTest` in `:shared:jvmTest`,
+which is blocking and covers the same tag registry. A non-blocking step that is
+documented as a convenience for local use is not a hole; one that duplicates a
+blocking gate and is *believed* to be the gate is.
 
 ---
 
 ## desktop-nav-goBack-blank-screen
 
+**Status:** ✅ RESOLVED (2026-10-04) — fixed by ADR `2026-10-04-navigation-policy`, issue #27 closed.
+
 **Found in:** MR-11, while verifying `OpenSavedViewShowsMatchingTasksFlowTest`.
 
 **Symptom:** after tapping the save button in `SavedAgendaScreen` (or `TaskCreateScreen`) and then tapping the back button, the entire desktop app UI goes blank — `SemanticsTree` reports 0 nodes, every `testTag` lookup fails. Navigation itself completes (kermit log shows "Scheduled sync stopped" from clean `onEnd` path), but the compose tree is empty.
 
-**Already ruled out:**
-- Not a `Clock.System` / `FakeAppDatabase` issue: task IS persisted (visible in DB snapshot).
-- Not a `SavedAgendaViewModel` init failure: `Results` state is reached (confirmed by log).
-- Not the `goBack()` call itself failing: `currentStack.removeLastOrNull()` executes; `canGoBack` recalculates correctly.
-- Not `NavDisplay` being given an empty entry list: `state.requireBackStackFor` would throw before any render.
+**Root cause:** the JVM top-level graph stacks were created with an entry-local
+`remember { NavBackStack(...) }` inside each graph composable. That `remember` is scoped to the
+entry, and an entry that leaves `NavDisplay`'s visible set (a tab switch, or an outer push) has
+its composition disposed — so the back stack object the shell later mutated was no longer the
+one the graph rendered from. The back navigation therefore popped an entry that was no longer
+backed by a live composition, leaving `NavDisplay` with nothing to show.
 
-**Trigger shape:** `TaskCreateScreen` or `SavedAgendaScreen` → save → back → blank. The same shape hits `CreateTaskFlowTest.a_saved_task_without_a_due_date_appears_under_inbox_no_date`.
+**Fix:** the six top-level graph stacks are now created in `createJvmEntryProvider` (shell
+composition, outliving any single entry) and passed into the graphs through their `backStack`
+parameter. See ADR `2026-10-04-navigation-policy`, §B1 companion.
 
-**Try next:** add a `NavDisplay` debug modifier (e.g., a `Box` with a visible red border when `entries.isEmpty()`) to distinguish "NavDisplay receives empty list" from "compose tree fails below NavDisplay". If the red border never appears, the bug is in the `Window` or `DesktopShellNav3Root` composition above `NavDisplay`. Check whether a `LaunchedEffect` or `remember` anywhere in the shell is clearing the composition on `currentRoute` change.
+**Verification:** `SavedAgendaCreateFlowTest` and `OpenSavedViewShowsMatchingTasksFlowTest` — the
+two tests this bug blocked — now pass, as does
+`CreateTaskFlowTest.a_saved_task_without_a_due_date_appears_under_inbox_no_date`. This is also
+what unblocked the Agenda epic's desktop matrix (issue #26).
+
+**Try next (historical):** add a `NavDisplay` debug modifier (e.g., a `Box` with a visible red border when `entries.isEmpty()`) to distinguish "NavDisplay receives empty list" from "compose tree fails below NavDisplay". No longer needed — the cause was above `NavDisplay`, in stack *ownership*, exactly the branch the investigation notes pointed at.
 
 ---
 
 ## no-direct-clock-system-kdoc-claims-tests-are-exempt
+
+**Tracked as:** #42
 
 **Found in:** `refactor/tag-registry-and-robots`, while fixing the
 `NoDirectClockSystem` violation that shipped in `2e99b1d0`.
@@ -393,6 +404,8 @@ are intentional empty-lambda patterns that need wiring.
 
 ## no-direct-dispatchers-rule-one-whitelisted-case
 
+**Tracked as:** #44
+
 **Found in:** MR-B (tech-debt batch). `NoDirectDispatchersRule` bans
 `Dispatchers.IO/Default/Main` in production. One legitimate case was
 identified: `core/log/FileLogWriter.kt:50` uses
@@ -412,6 +425,8 @@ clean, the rule is a documentation asset rather than an active gate.
 
 ## nav-display-debug-border-not-found
 
+**Tracked as:** #45
+
 **Found in:** MR-C (tech-debt batch). The plan proposed adding a red-border
 debug overlay to `NavDisplay` when `entries.isEmpty()` as a diagnostic for
 `desktop-nav-goBack-blank-screen`. Investigation showed no such modifier
@@ -429,6 +444,8 @@ route change itself is the trigger.
 ---
 
 ## skill-symbol-clusters-many-fixes-pending
+
+**Tracked as:** #41
 
 **Found in:** Phase 1.7 (`refactor/openspec-adoption`), via
 `check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
@@ -458,6 +475,105 @@ skills — too large for a single PR. They are guarded by the baseline:
 if an agent adds a NEW dangling symbol reference in any of these skills,
 CI will fail. The backlog owner should prioritize `nav3-nested-graphs`
 (first referenced by `wayfinder`) and `ai-tool` (most complex).
+
+---
+
+## task-detail-coordinator-graph-test-times-out-under-parallel-load
+
+**Tracked as:** #39
+
+**Found in:** 2026-10-04, while verifying the identity-derivation change across three
+modules in one Gradle invocation (`:shared:jvmTest :desktopApp:test :mcp-server:test`).
+
+**Symptom:** `TaskDetailCoordinatorGraphTest.coordinator_built_from_di_graph_leaves_loading`
+fails with `TimeoutCancellationException: Timed out waiting for 10000 ms` on
+`coordinator.state.first { it is Loaded }`. It passes 3/3 when run alone (7-20s per run).
+
+**Not the identity change.** `CurrentUser.currentSession` is a `StateFlow` in both the
+interface and `FakeAuthRepository`, so `liveScopedUserId` emits on first collection exactly
+as the cached `scopedUserId` did; the only difference is one `combine` operator. The failure
+reproduces only when three modules build and run concurrently on this host.
+
+**Why the test uses real time at all:** the coordinator's scope is
+`createBackgroundScope()` — real `Dispatchers.Default` — so a `withTimeout` on
+`runTest`'s virtual clock would expire instantly instead of waiting for the real worker.
+The 10s real-time budget is therefore a deliberate, documented choice, not an oversight.
+
+**Real issue:** a wall-clock budget makes the suite's correctness depend on host load.
+The project rule (see `singularity-todo-test-flaky-prevention`) is that tests must not
+depend on real elapsed time.
+
+**Try next:** inject a `TestScope`/background scope into `TaskDetailCoordinator` for tests
+so the wait becomes virtual-time and instantaneous; failing that, replace the single 10s
+budget with a bounded poll that reports the observed wait on failure, so a slow host fails
+loudly with data instead of looking like a hang. Do NOT simply raise the number.
+
+---
+
+## baseline-write-pipeline-verification-was-asserted-not-checked
+
+**Tracked as:** #35
+
+**Found in:** the OpenSpec backlog pass, 2026-10-04, while closing out
+`navigation-open-policy` and noticing that `openspec/changes/archive` was empty
+while four changes sat active.
+
+`baseline-write-pipeline` is a *baseline* spec — it documents behaviour the system
+already has, with a 13-item verification checklist. Every item named a covering
+test. Checking the names against the suite: `FakeRepositoryFidelityTest` contains
+no reference to the outbox, `enqueue` or an affected-row count (all 14 of its tests
+are about read isolation and soft-delete), and `EntityMapperCompletenessTest` never
+reads a `@Query` at all — it compares mapper field access against a hand-maintained
+table. **Five attributions were wrong**, and REQ-WP-050's premise had quietly
+stopped holding: its `FIELD_ALLOWLIST` is empty and `BackupImporter` appears in
+neither the entity table nor the mapper table.
+
+The checklist is now rewritten with two states instead of one — `verified` with the
+asserting test quoted, and `not covered` with the gap named. Seven requirements
+have no assertion at all: REQ-WP-002 (affected-row return values), 012 (narrow
+updates re-read before enqueueing), 020/021 (outgoing-link persistence and
+atomicity), 030 (note tool routing — the existing test would also pass against a
+DAO bypass using the same id), 031 (canonical HTML storage), 041 (id-only writes
+rely on the DAO layer).
+
+**Already ruled out:** not an OpenSpec process problem. The change is correctly left
+unarchived — a baseline spec whose verification is 6/13 is not finished work, and
+ticking the remaining boxes without assertions would recreate the defect.
+
+**Try next:** close them in `ScopedWriteQueryIsolationTest` (new, 2026-10-04 — it
+already owns the SQL-level write invariants and has an allowlist that requires a
+reason per entry) rather than in a new file. REQ-WP-002 and REQ-WP-041 are the two
+worth doing first: a DAO mutation that returns zero rows silently is exactly the
+shape of defect that survives every other gate in this repo.
+
+---
+
+## maestro-smoke-cannot-run-in-this-environment
+
+**Status: CLOSED as disproven (2026-10-04).** Re-probed with the emulator up:
+the flow ran to completion and failed on a real assertion, with no
+`DeviceServerDiedException`. The environment recovers; the blocker was transient.
+The failure it surfaced is a bug in the flow, tracked as #50. Kept below because
+the original symptom can return, and the record of what it was is worth more
+than a deleted paragraph.
+
+**Found in:** B5 verification of `navigation-open-policy`, 2026-10-04.
+
+Every Maestro flow fails with `DeviceServerDiedException` on `deviceInfo` (~130ms),
+including the untouched control flow `04-delete.yaml`, so it is not the branch under
+test. The emulator is alive (`adb shell echo ok` responds) and
+`scripts/ensure-emulator.sh` finds the AVD already running, so the usual cold-start
+path is not involved.
+
+**Already ruled out:** not a tag problem (`MaestroFlowTagsTest` passes 106/106), not
+an APK problem (`:androidApp:assembleDebug` is green), not a device problem.
+
+**Try next:** this is a host/driver problem, so it is not a refactor. See ADR
+`2026-09-28-emulator-gfxstream-colorbuffer-segv` for the gfxstream history — the
+standing instruction is not to pass `-gpu` flags, because the default host GPU path
+fails periodically and has no cure. The next useful step is a fresh boot with
+`adb emu kill` + `ensure-emulator.sh` and a re-run of the control flow alone; if that
+still fails, the fix belongs to the emulator image, not to this repository.
 
 ---
 
@@ -900,8 +1016,8 @@ MR-5 note about the profile picker selecting by label).
 **Fix (journey):** superseded — journeys 03 and 07 now select by `id:`
 again, because the structural fix below made the tag work.
 
-**Fix (structural): DONE** (2026-10-04). `Modifier.exposeTestTagsAsResourceId()`
-is an expect/actual helper (`core/ui/TestTagExposure.kt` + `.android.kt` +
+**Fix (structural): DONE** (2026-10-04). `Modifier.mapTestTagsAsResourceIds()`
+is an expect/actual helper (`core/ui/TestTagResourceId.kt` + `.android.kt` +
 `.jvm.kt`; a no-op on JVM) applied **inside** each window-owning surface, so
 every tagged node in it reaches UIAutomator. Applied to `ConfirmActionDialog`,
 `ListPickerSheet`, `MultiSelectSheet`, `MenuBottomSheet` (MR-6) and, on
@@ -1340,7 +1456,7 @@ the registry, the wiring test and the flows disagreed, and the flows were the
 only ones nobody ran.
 
 **Fix:** rows now carry `TestTags.taskAction(item.label)`, and both the
-`DropdownMenu` and its items get `exposeTestTagsAsResourceId()`. Flows
+`DropdownMenu` and its items get `mapTestTagsAsResourceIds()`. Flows
 `archive/01-restore`, `tasks/04-delete` and `tasks/06-delete-undo` were
 repointed from `overflow_*` to `task_action_*`.
 

@@ -3,6 +3,7 @@
 package com.singularity.todo.core.billing
 
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 
@@ -13,6 +14,7 @@ import kotlin.test.assertFalse
  * These tests cover the production domain logic. The [NoopSubscriptionProvider] itself
  * is intentionally minimal and is tested transitively through SettingsViewModelTest etc.
  */
+@Tag("fast")
 class PurchaseStateTest {
 
     @Test

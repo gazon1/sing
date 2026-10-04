@@ -3,11 +3,13 @@ package com.singularity.todo.shell
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
+@Tag("fast")
 class FabActionResolverTest {
 
     private var navigatedTo: AppDestination? = null

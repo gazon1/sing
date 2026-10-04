@@ -5,6 +5,7 @@ package com.singularity.todo.core.sync
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -22,6 +23,7 @@ import kotlin.test.assertIs
  *
  * We test the core behavior using FakeSyncRepository directly.
  */
+@Tag("fast")
 class SyncRepositoryCoalescingTest {
 
     private fun createRepo(): FakeSyncRepository = FakeSyncRepository()

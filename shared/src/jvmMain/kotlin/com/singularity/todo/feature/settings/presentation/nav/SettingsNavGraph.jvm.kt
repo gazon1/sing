@@ -34,13 +34,7 @@ import com.singularity.todo.feature.settings.SettingsScreen
 actual fun SettingsNavGraph(navCallbacks: NavCallbacks, modifier: Modifier, backStack: NavBackStack<Settings>?) {
     val stack: NavBackStack<Settings> = backStack ?: rememberInMemoryNavBackStack(Settings)
 
-    val onExitGraph: (AppDestination?) -> Unit = { dest ->
-        if (dest != null) {
-            navCallbacks.navigate(dest)
-        } else {
-            navCallbacks.goBack()
-        }
-    }
+    val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
 
     val navigator = remember(onExitGraph) {
         SettingsNavigator(onExitGraph)

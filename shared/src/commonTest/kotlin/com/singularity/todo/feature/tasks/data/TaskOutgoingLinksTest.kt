@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.feature.notes.LinkSchemes
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -19,6 +20,7 @@ import kotlin.test.assertEquals
  * because an empty list short-circuits to `"[]"`, so any task with at least one
  * outgoing link would crash. Fixed by binding the list receiver explicitly.
  */
+@Tag("fast")
 class TaskOutgoingLinksTest {
 
     // ─── extractOutgoingLinks ─────────────────────────────────────────────────

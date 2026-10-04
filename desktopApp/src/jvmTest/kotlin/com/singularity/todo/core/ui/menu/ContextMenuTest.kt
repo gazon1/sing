@@ -6,7 +6,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop JVM smoke tests for [ContextMenuHost].
@@ -15,6 +16,7 @@ import org.junit.Test
  * test in a headless environment. These tests verify the composable renders
  * without crashing for both hidden (null) and shown (non-null) states.
  */
+@Tag("fast")
 class ContextMenuTest {
 
     private fun buildSampleEntries() = buildMenuNodes {

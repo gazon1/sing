@@ -2,6 +2,7 @@ package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.IntentActions
 import com.singularity.todo.core.ui.MviIntent
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -9,6 +10,7 @@ sealed interface DummyIntent : MviIntent {
     data class Delete(val id: String) : DummyIntent
 }
 
+@Tag("fast")
 class IntentActionsTest {
     @Test
     fun `invoke dispatches intent to wrapped function`() {

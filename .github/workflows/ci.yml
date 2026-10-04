@@ -16,8 +16,19 @@ on:
 jobs:
   test-and-check:
     runs-on: ubuntu-latest
+    permissions:
+      # read actions so the flake step can download the previous run's results;
+      # write contents is not needed and not granted.
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
+      # Strict freshness stamp: on a fresh checkout every test task runs, so results
+      # that predate it cannot belong to this run. check.sh uses the tolerant
+      # --max-age instead, because an UP-TO-DATE task does not rewrite its results.
+      - name: Stamp run start
+        run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -27,6 +38,19 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      # The configuration cache store lives in the PROJECT .gradle/ directory,
+      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
+      # its own cache. Keys are per-job + per-run (restore via prefix) so every
+      # run persists newly stored entries; a hash change falls back gracefully
+      # (stale entries are simply not reused — invalidation is not a failure).
+      - name: Cache configuration cache store
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ github.job }}-${{ runner.os }}-
 
       # Compute retry policy and pass to test JVMs via GRADLE_OPTS.
       # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly.
@@ -41,14 +65,15 @@ jobs:
           fi
 
       - name: Build version catalog gate
+        # blocking as of 2026-10-04: a hardcoded group:artifact:version literal is a
+        # reproducible build defect, and check.sh already fails on it locally.
         run: python3 scripts/build-version-catalog-gate.py --quiet .
-        continue-on-error: true
 
       - name: Run jvmTest (fast + slow)
-        run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon
+        run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
       - name: Run desktopApp:test
-        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon
+        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
       - name: Upload desktop failure bundle
         if: always()
@@ -68,20 +93,92 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Assemble Android debug
-        run: ./gradlew :androidApp:assembleDebug --no-daemon
+      # Published on every run, not only on failure: flake analysis is a
+      # comparison between two runs, and a results set that only exists when
+      # something broke is exactly the half you need.
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: |
+            shared/build/test-results/jvmTest/**/*.xml
+            desktopApp/build/test-results/test/**/*.xml
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Flake analysis vs previous run
+        # Annotation, not a gate: a test that failed here already failed the
+        # Gradle step above, so failing again would change no outcome. What it
+        # adds is the other half of the signal — tests that failed in the
+        # previous run and passed now are proven nondeterministic even though
+        # nothing about this run looked wrong.
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PREV=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?status=success&per_page=5" \
+                 --jq "[.workflow_runs[] | select(.head_branch == \"$GITHUB_REF_NAME\")][0].id // empty" 2>/dev/null || true)
+          if [ -z "$PREV" ]; then
+            echo "no previous successful run on this branch — flake analysis skipped"
+            exit 0
+          fi
+          gh run download "$PREV" -n junit-results -D /tmp/prev-run || {
+            echo "previous run $PREV has no junit-results artifact (retention, or first run) — skipped"
+            exit 0
+          }
+          python3 scripts/check-flaky-tests.py \
+            --current shared/build/test-results/jvmTest \
+            --previous /tmp/prev-run \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload configuration cache report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
+          path: "**/build/reports/configuration-cache/**"
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Assemble Android debug
+        # blocking as of 2026-10-04: check.sh step [5/8] already fails on it, so a
+        # red assemble here says nothing new about developer workflow — it just
+        # means the green badge was not reporting the build.
+        run: ./gradlew :androidApp:assembleDebug --no-daemon --configuration-cache
+
+      # "Tests passed" and "the tests ran" are different claims. A JUnit tag filter
+      # matches per class, so a class can stop being selected without any error and the
+      # job still goes green — that is exactly how CI ran 16 of 218 classes for months.
+      # This floor compares the executed counts against a committed baseline.
+      - name: Check executed test counts
+        run: |
+          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
+            --since "$RUN_STARTED"
+
+      - name: Test the gate scripts
+        # A regression inside check-test-runs.py disables the floor silently — the
+        # same failure one level up. 20 ms, no JVM, so it runs every time.
+        run: python3 -m unittest discover -s scripts/tests
 
       - name: Run detekt
-        run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon
-        continue-on-error: true
+        # blocking as of 2026-10-04: enforceMode is already on in both modules and
+        # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
+        # reports violations nobody has to fix.
+        run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon --configuration-cache
 
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
 
       - name: Check doc sizes
-        run: python3 scripts/check-doc-sizes.py
+        # DIGEST.md is generated and gitignored, so on a fresh checkout it does
+        # not exist and the budget check would silently skip it. Regenerate
+        # first: this step then measures what the generator actually produces
+        # today, which is the thing that can regress.
+        run: |
+          python3 scripts/refresh-decisions-digest.py
+          python3 scripts/check-doc-sizes.py
         # blocking: AGENTS.md budget (250 lines) or DIGEST.md budget exceeded
 
       - name: Check dead doc references
@@ -186,16 +283,62 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The configuration cache store lives in the PROJECT .gradle/ directory,
+      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
+      # its own cache. Keys are per-job + per-run (restore via prefix) so every
+      # run persists newly stored entries; a hash change falls back gracefully
+      # (stale entries are simply not reused — invalidation is not a failure).
+      - name: Cache configuration cache store
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ github.job }}-${{ runner.os }}-
+
       - name: Generate kover report
-        run: ./gradlew :shared:koverXmlReport --no-daemon
+        # The stamp goes in first: the report is only evidence about the code if it
+        # was produced by this run, and a report left in a restored build cache or a
+        # self-hosted workspace would otherwise satisfy the floor indefinitely.
+        #
+        # `koverReport` (not `:shared:koverXmlReport`, not a bare `koverXmlReport`):
+        # coverage is aggregated at settings level (settings.gradle.kts), and the root
+        # `koverReport` task is the one that also runs the test tasks. Kover's
+        # aggregation plugin only picks up `Test` tasks that are already in the graph —
+        # `:koverXmlReport` alone would merge whatever the cache happened to hold.
+        # Aggregation is the point of the change: :desktopApp:test drives the real
+        # shared screens through a Compose harness, and under a per-project report none
+        # of that execution was measurable. Measured on the same suite, 67 packages
+        # read 0% before and 40 after; the 32 that came off account for 108,096
+        # instructions the report could not previously see.
+        run: |
+          echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          ./gradlew koverReport -Ptest.tags=fast,slow --no-daemon --configuration-cache
+
+      # kover pulls in :shared:testAndroidHostTest (the Robolectric/Android source set),
+      # which no other job exercises. Without this floor, a regression that only breaks
+      # on that source set would be invisible.
+      - name: Check executed test counts (Android source set)
+        run: python3 scripts/check-test-runs.py --require shared:testAndroidHostTest
+
+      # A report nobody reads is not a measurement. Kover 0.9 writes
+      # reports/kover/report.xml — the artifact step pointed at xml-report.xml,
+      # a name this plugin never produced, and had no if-no-files-found: error,
+      # so the upload has always carried nothing.
+      - name: Check coverage floors
+        run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
 
       - name: Upload kover XML report
         uses: actions/upload-artifact@v4
         with:
           name: kover-report
-          # Kover 0.9 names this report.xml. The previous `xml-report.xml` never
-          # matched anything, so the artifact was silently empty on every run.
-          path: shared/build/reports/kover/report.xml
+          # Kover 0.9 names this report.xml, and since the move to settings-level
+          # aggregation the report is produced once for the whole build at the root
+          # project. The previous `xml-report.xml` never matched anything, so the
+          # artifact was silently empty on every run — `if-no-files-found: error`
+          # makes that class of mistake fail instead.
+          path: build/reports/kover/report.xml
+          if-no-files-found: error
 
   openspec-validate:
     runs-on: ubuntu-latest
@@ -223,9 +366,36 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The configuration cache store lives in the PROJECT .gradle/ directory,
+      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
+      # its own cache. Keys are per-job + per-run (restore via prefix) so every
+      # run persists newly stored entries; a hash change falls back gracefully
+      # (stale entries are simply not reused — invalidation is not a failure).
+      - name: Cache configuration cache store
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ github.job }}-${{ runner.os }}-
+
       - name: Check mcp-server
+        # :mcp-server:jar builds the fat JAR the E2E suite spawns (it was never
+        # built in CI before — McpServerEndToEndTest always self-skipped).
+        # blocking as of 2026-10-04: this job carried the whole P0 data-corruption
+        # fix (profile bootstrap identity), and advisory tests there mean the fix
+        # ships unverified. check.sh step [7/8] validates the DI graph locally.
         run: |
-          ./gradlew :mcp-server:compileKotlin --no-daemon
-          ./gradlew :mcp-server:detekt --no-daemon
-          ./gradlew :mcp-server:test --no-daemon
-        continue-on-error: true
+          ./gradlew :mcp-server:jar --no-daemon --configuration-cache
+          ./gradlew :mcp-server:detekt --no-daemon --configuration-cache
+          ./gradlew :mcp-server:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
+          python3 scripts/check-test-runs.py --require mcp-server:test
+      - name: Upload configuration cache report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
+          path: "**/build/reports/configuration-cache/**"
+          if-no-files-found: ignore
+          retention-days: 14
+

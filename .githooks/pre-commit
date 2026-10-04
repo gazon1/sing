@@ -9,12 +9,13 @@
 
 set -e
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# Skip when inside a git worktree — the hook runs against the main
-# checkout's source set, so any worktree that is API-ahead of main will produce
-# spurious "unresolved reference" errors and block the worktree commit.
+# Skip when inside a git worktree. This is no longer a correctness workaround
+# (ROOT is resolved from Git, so the hook now sees the worktree's own source);
+# it stays because a full compile on every commit is several minutes, and CI
+# compiles anyway.
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-commit: skipped (worktree) ==="
     exit 0

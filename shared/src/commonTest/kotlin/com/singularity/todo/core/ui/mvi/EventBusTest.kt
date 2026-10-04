@@ -7,6 +7,7 @@ import com.singularity.todo.core.ui.MviEvent
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -16,6 +17,7 @@ interface TestEvent : MviEvent {
     data object Signal : TestEvent
 }
 
+@Tag("fast")
 class EventBusTest {
     @Test
     fun `EventBus emits events to collector`() = runTest {

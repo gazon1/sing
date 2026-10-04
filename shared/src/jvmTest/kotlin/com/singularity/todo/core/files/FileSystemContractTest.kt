@@ -18,6 +18,7 @@ import kotlin.test.assertTrue
  * Run against [JvmFileSystem] (real I/O) and [MapFileSystem] (in-memory).
  * The two implementations must agree on the semantics tested here.
  */
+@Tag("slow")
 abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) {
 
     private val sut: F by lazy { makeSut() }

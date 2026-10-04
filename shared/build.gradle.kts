@@ -1,6 +1,5 @@
 import org.gradle.api.artifacts.Configuration
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.api.tasks.PathSensitivity
 
 plugins {
 	alias(libs.plugins.kotlinMultiplatform)
@@ -17,7 +16,6 @@ plugins {
     // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
     id("io.insert-koin.compiler.plugin") version "1.2.1"
     alias(libs.plugins.detekt)
-    alias(libs.plugins.kover)
 }
 
 koinCompiler {
@@ -259,6 +257,15 @@ kotlin {
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
+    // nothing — and the task would still report BUILD SUCCESSFUL. That is exactly how
+    // `:desktopApp:test -Ptest.tags=fast,slow` ran zero tests for months. Discovering
+    // nothing is a configuration error, not a pass.
+    // Partial selection is the other half of the problem and is not detectable here;
+    // `TestTagCoverageTest` (every test class carries a @Tag) is what keeps
+    // `-Ptest.tags=fast,slow` from silently skipping the untagged majority.
+    failOnNoDiscoveredTests = true
+
     useJUnitPlatform {
         // Jupiter parallel execution — classes run concurrently, methods within a class
         // also run concurrently by default (ExecutionMode.CONCURRENT).
@@ -310,7 +317,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "desktopAppJvmTest.root",
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
     )
-    // Test source roots for ViewModelTestCoverageTest (VM ⇒ test rule).
+    // Scan roots for ViewModelTestCoverageTest: it matches a production ViewModel
+    // against the test classes that mention it, so it needs the commonTest and
+    // jvmTest trees as well as commonMain. Absent properties make its top-level
+    // vals throw, which surfaces as NoClassDefFoundError on the second test —
+    // the first failure hides behind an initialiser error.
     systemProperty(
         "commonTest.root",
         layout.projectDirectory.dir("src/commonTest/kotlin").asFile.absolutePath,
@@ -319,31 +330,6 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "jvmTest.root",
         layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
     )
-    // MaestroFlowTagsTest reads the flow files off disk, which makes them an
-    // input to this task whether Gradle knows it or not. Declaring them keeps
-    // the task from being UP-TO-DATE after a flow-only edit — otherwise editing
-    // a journey locally leaves the contract test silently unrun, and CI (a fresh
-    // checkout) is the only place it would ever execute. A gate that can skip
-    // itself without saying so is the same failure mode as a gate that tests
-    // the wrong binary.
-    inputs.dir(rootProject.layout.projectDirectory.dir("Maestro"))
-        .withPropertyName("maestroFlows")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    // Same reasoning, one directory over: DesktopTestHarnessEnforcementTest and
-    // ViewModelTestCoverageTest read desktopApp's test sources, and desktopApp is
-    // a separate Gradle project — so editing a desktop flow test leaves this task
-    // UP-TO-DATE and both checks unrun. Declared so they cannot skip themselves.
-    inputs.dir(rootProject.layout.projectDirectory.dir("desktopApp/src/jvmTest"))
-        .withPropertyName("desktopAppJvmTestSources")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    // Restrict this run to a test subset via -Pcoverage.tests="…", so the same
-    // configuration applies when koverXmlReport pulls jvmTest in as a dependency.
-    // A `--tests` flag on the command line cannot be used for that: Gradle
-    // rejects it for a non-Test task in the same invocation, and without the
-    // filter the report task re-runs the *whole* suite under instrumentation.
-    (project.findProperty("coverage.tests") as String?)?.let { pattern ->
-        filter { includeTestsMatching(pattern) }
-    }
     // Enable TAGS.md golden regeneration:
     //   ./gradlew :shared:jvmTest -PupdateGoldens=true
     if (project.findProperty("updateGoldens")?.toString() == "true") {
@@ -379,18 +365,21 @@ dependencies {
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
 
-    // androidHostTest (Robolectric) — JVM-based Android emulator for widget/Compose UI tests.
-    // AndroidX compose-ui-test-junit4 (1.7.3) is used here, NOT the JetBrains
-    // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
-    add("androidHostTestImplementation", libs.robolectric)
-    add("androidHostTestImplementation", libs.compose.ui.test.junit4)
-    // ApplicationProvider + the instrumentation registry the Koin graph test needs.
-    add("androidHostTestImplementation", libs.androidx.test.core)
-    add("androidHostTestImplementation", libs.androidx.testExt.junit)
-    // The test task uses the JUnit Platform (useJUnitPlatform), and Robolectric is a
-    // JUnit4 runner — without the vintage engine the platform silently skips every
-    // JUnit4 test class in this source set.
-    add("androidHostTestImplementation", libs.junit.vintage.engine)
+    // androidHostTest — the Android/Robolectric-capable source set. It currently holds
+    // no test files of its own: its only content is AndroidManifest.xml, and the 762
+    // tests it executes come from commonTest. The Robolectric / JUnit4 stack that used
+    // to be declared here went away with the tests that needed it (ADR D2's
+    // AndroidPomodoroTimerTest no longer exists), and the comment about "the Koin graph
+    // test" referred to a test that is also gone.
+    //
+    // If you add a Robolectric test here, declare the stack again in this block:
+    // `libs.robolectric`, `libs.androidx.test.core`, `libs.androidx.testExt.junit`,
+    // `libs.compose.ui.test.junit4` (AndroidX, NOT the JetBrains multiplatform one —
+    // AndroidX is Robolectric-compatible, JetBrains is not), and
+    // `libs.junit.vintage.engine`, because Robolectric is a JUnit4 runner and the task
+    // uses the JUnit Platform. Without the Vintage engine those classes are silently
+    // skipped, and the Vintage engine does not map Jupiter's @Tag onto Platform tags —
+    // see ADR 2026-10-04-test-execution-integrity.
 }
 
 // Room 3 KSP schema export
@@ -423,39 +412,10 @@ dependencies {
 // ---------------------------------------------------------------------------
 // kover — code coverage for all KMP source sets
 // ---------------------------------------------------------------------------
-kover {
-    currentProject {
-        instrumentation {
-            // Kover instruments every class loaded by the test JVM. For
-            // `:shared:jvmTest`, the heavy Koog/classpath causes the IntelliJ
-            // coverage runtime to accumulate 3000+ ClassData + 59000+ LineData
-            // entries (42% of heap) — exhausting 3-5 GB and OOMing in
-            // TaskOutgoingLinksTest. See ADR-1 for heap-dump analysis.
-            //
-            // That OOM was later shown to be misattributed: it reproduces with
-            // Kover off and in complete isolation, so the tests were switched
-            // off rather than the cause fixed (2026-09-27-write-layer-soundness.md,
-            // ledger #11). The disable is therefore kept as the default — it
-            // must not be lifted for the whole suite on a maybe — but it is now
-            // opt-in so the coverage ratchet can measure a *filtered* agenda
-            // run, which loads far fewer classes than the full jvmTest classpath.
-            //
-            //   ./gradlew :shared:jvmTest koverXmlReport -Pkover.jvmTest=true \
-            //       --tests "com.singularity.todo.feature.agenda.*"
-            //
-            // Without the flag the report is generated but every counter is 0,
-            // because the agenda tests live in jvmTest and nothing instrumented
-            // them. A ratchet on that number would ratchet on nothing.
-            if (project.findProperty("kover.jvmTest")?.toString() != "true") {
-                disabledForTestTasks.add("jvmTest")
-            }
-        }
-    }
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
+// No `kover { }` block here. Coverage is configured once, at settings level
+// (settings.gradle.kts): the plugin applies itself to every project, so the
+// `com.singularity.todo.*` instrumentation filter arrives here as a convention
+// and the report is produced once for the whole build. A per-project report
+// would measure only this project's own test tasks — which is exactly the gap
+// that made every Compose flow test in desktopApp invisible to the number.
 

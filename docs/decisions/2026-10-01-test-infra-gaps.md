@@ -48,6 +48,21 @@ stdlib-extension wildcard imports, or a specific rule for `kotlin.io.path.*`.
 
 ### 2. Configuration cache holds stale compiled test classes
 
+> **UPDATE 2026-10-04 (A3 of `2026-10-04-configuration-cache-hardening`): NOT
+> REPRODUCIBLE — hypothesis disproven, workaround retired.** Two-way experiment
+> on a warm CC store: sabotage `workspaceRoot` → plain rerun (no
+> `--rerun-tasks`) recompiled and failed with the exact "scanned 0 ids" message;
+> revert → plain rerun recompiled (build-cache hit, correct source) and passed.
+> Separately, changing a `systemProperty` value in `shared/build.gradle.kts`
+> re-executed `jvmTest` on the next run (then UP-TO-DATE + "entry reused"), so
+> system properties ARE tracked as task inputs. Gradle's CC stores the
+> configuration/task graph, not compiled classes — compiled outputs are governed
+> by normal up-to-date checks. The original symptom was likely a misdiagnosis
+> (unsaved edit / wrong worktree); the CC store also does not live in
+> `~/.gradle/configuration-cache/` — it is project-local
+> `.gradle/configuration-cache`. The `--rerun-tasks` note in AGENTS.md was
+> rewritten accordingly.
+
 **Symptom:** After modifying `MaestroFlowTagsTest.kt` to fix wildcard imports,
 the test ran and reported "scanned 0 ids — collector likely broken". The
 assertion `ids.size > 40` fired, meaning the collector was running but finding

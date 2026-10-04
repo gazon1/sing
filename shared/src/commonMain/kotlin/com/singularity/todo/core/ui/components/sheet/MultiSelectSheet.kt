@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 
 /** One row in a [MultiSelectSheet]. */
 data class MultiSelectItem<T>(
@@ -98,7 +98,7 @@ fun <T> MultiSelectSheet(
                                 // A modal sheet is its own window, so the
                                 // app-root testTagsAsResourceId does not reach
                                 // its rows.
-                                .exposeTestTagsAsResourceId()
+                                .mapTestTagsAsResourceIds()
                                 .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
                                 .clickable { onToggle(item.key) }
                                 .padding(vertical = 10.dp, horizontal = 4.dp),

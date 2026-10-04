@@ -16,7 +16,7 @@ working backwards from the failure message.
 
 | Defect | Found by |
 |---|---|
-| 33 window-owning surfaces, no `exposeTestTagsAsResourceId` | grep |
+| 33 window-owning surfaces, no `mapTestTagsAsResourceIds` | grep |
 | `testTag` built from a localised label | grep |
 | `- longPress:` (the command is `longPressOn`) | grep |
 | `- clearState:` (an argument of `launchApp`) | grep |
@@ -41,7 +41,7 @@ would resolve.
 `UiAutomationSelectorTest` (new):
 
 1. **A tagged control inside a window-owning surface, where the window does not
-   apply `exposeTestTagsAsResourceId`.** Found `TaskContextMenuSheet`.
+   apply `mapTestTagsAsResourceIds`.** Found `TaskContextMenuSheet`.
 2. **A `testTag` built from a `.label`.** Found `MenuBottomSheet` — a latent
    case, reported rather than allowlisted, because the identical shape had been
    a live bug hours earlier.

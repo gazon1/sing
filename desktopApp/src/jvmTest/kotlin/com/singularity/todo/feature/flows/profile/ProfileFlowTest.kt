@@ -9,7 +9,8 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.typeIntoTag
-import org.junit.Test
+import kotlin.test.Test
+import org.junit.jupiter.api.Tag
 
 /**
  * Desktop mirror of `Maestro/flows/profile/01-create-profile.yaml`.
@@ -20,6 +21,7 @@ import org.junit.Test
  * `menuEntries` in this branch, making it the 7th drawer menu item.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class ProfileFlowTest {
 
     @Test

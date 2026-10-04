@@ -3,6 +3,7 @@ package com.singularity.todo.feature.nav
 import androidx.navigation3.runtime.NavBackStack
 import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -17,6 +18,7 @@ import kotlin.test.assertIs
  * [rememberInMemoryNavBackStack] because the latter is @Composable
  * and cannot be used in a plain unit test context.
  */
+@Tag("fast")
 class Nav3SavedStateTest {
 
     /** Creates a NavBackStack typed at the sealed interface level so any TasksRoute subtype can be added. */

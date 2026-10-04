@@ -1,11 +1,13 @@
 package com.singularity.todo.core.ui.components
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
  * Tests for [FormState] — form data holder with immutable-update pattern.
  */
+@Tag("fast")
 class FormStateTest {
 
     private data class SimpleForm(val email: String = "", val password: String = "", val rememberMe: Boolean = false)

@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
@@ -566,21 +567,21 @@ private fun buildDetailMenuItems(
     listOf(
         TaskEditorMenuItem(
             label = "Восстановить",
-            action = "restore",
             onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
+            testTag = TestTags.EditorOverflow.RESTORE,
         ),
     )
 } else {
     listOf(
         TaskEditorMenuItem(
             label = "Архивировать",
-            action = "archive",
             onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
+            testTag = TestTags.EditorOverflow.ARCHIVE,
         ),
         TaskEditorMenuItem(
             label = "Удалить",
-            action = "delete",
             onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
+            testTag = TestTags.EditorOverflow.DELETE,
         ),
     )
 }

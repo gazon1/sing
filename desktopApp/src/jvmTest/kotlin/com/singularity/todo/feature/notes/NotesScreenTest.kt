@@ -4,12 +4,13 @@ package com.singularity.todo.feature.notes
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
-import com.singularity.todo.test.helpers.runIsolatedComposeTest
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
 import com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard
-import org.junit.Test
+import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 import kotlin.time.Instant
 
 /**
@@ -21,6 +22,7 @@ import kotlin.time.Instant
  *
  * Run with: ./gradlew :desktopApp:test
  */
+@Tag("slow")
 class NotesScreenTest {
 
     private val testUserId = UserId("test-user")

@@ -85,14 +85,16 @@ Reports: XML (for CI / tools) + HTML (for human review). Both generated on every
 - **New Gradle tasks added**:
   - `:shared:detekt` / `:shared:detektFormat` / `:shared:detektBaseline`
   - `:desktopApp:detekt` / `:desktopApp:detektFormat` / `:desktopApp:detektBaseline`
-  - `:shared:koverXmlReport` / `:shared:koverHtmlReport`
-  - `:desktopApp:koverXmlReport` / `:desktopApp:koverHtmlReport`
+  - ~~`:shared:koverXmlReport` / `:desktopApp:koverXmlReport`~~ — **superseded**.
+    Kover is now configured at settings level and reports once for the whole build;
+    use the root `koverReport` / `koverHtml` tasks instead. See
+    `2026-10-04-measurement-integrity`.
 - **Configuration cache**: detekt 1.23.x and kover 0.9.9 are both CC-compatible. Verified by running `./gradlew --configuration-cache :shared:detekt`.
 
 ## Links
 
 - `gradle/libs.versions.toml` — detekt and kover version pins
-- `build.gradle.kts` (root) — `alias(libs.plugins.detekt)` and `alias(libs.plugins.kover)`
+- `build.gradle.kts` (root) — `alias(libs.plugins.detekt)`; kover is applied from `settings.gradle.kts`, not from the root `plugins {}` block
 - `shared/build.gradle.kts` — detekt + kover configuration, `detektPlugins(libs.detekt.formatting)`
 - `desktopApp/build.gradle.kts` — same
 - `config/detekt/detekt.yml` — shared detekt ruleset

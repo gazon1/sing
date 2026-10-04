@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,6 +49,7 @@ import kotlin.time.Instant
  * No `combine`, no `stateIn`, no Turbine, no `expectMostRecentItem`.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class SavedAgendaViewModelTest {
 
     private val fakeRepo = FakeSavedAgendaViewsRepository()

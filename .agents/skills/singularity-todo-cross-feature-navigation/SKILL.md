@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-cross-feature-navigation
-description: How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). Documents the 3 options for chip-based navigation (IconButton vs overflow vs long-press), the generic-widget contract for MetaChipsRow, and the cross-feature navigation rules for this KMP project.
+description: How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). Documents the 3 options for chip-based navigation (IconButton vs overflow vs long-press), the generic-widget contract for MetaChipsRow, and the Nav3 cross-feature navigation rules for this KMP project.
 ---
 
 # Cross-Feature Navigation Pattern
@@ -173,25 +173,63 @@ DropdownMenuItem(
 )
 ```
 
-### AppNavHost wiring
+### Wiring the affordance to a navigator (Nav3)
+
+There is no `AppNavHost` and no `toRoute<T>()` in this app. Navigation is Nav3: screens receive a
+**typed per-feature navigator** (injected via `LocalTasksNavigator`, `LocalProjectsNavigator`, …),
+and the navigator decides whether to push on its own stack or ask the shell to open another graph.
 
 ```kotlin
-// AppNavHost.kt
-composable<AppDestination.TaskDetail> { backStackEntry ->
-    val route = backStackEntry.toRoute<AppDestination.TaskDetail>()
-    TaskDetailScreen(
-        taskId = TaskId.fromString(route.taskId),
-        onNavigateBack = { navigator.popBackStack() },
-        onNavigateToProject = { projectId ->
-            navigator.navigate(AppDestination.ProjectDetail(projectId.value))
-        },
-    )
+// TaskDetailContent.kt — the screen takes a plain typed callback …
+@Composable
+fun TaskDetailContent(
+    state: TaskDetailUi,
+    onNavigateToProject: (ProjectId) -> Unit,
+    onNavigateBack: () -> Unit,
+) { /* IconButton calls onNavigateToProject(state.projectId) */ }
+
+// … and the graph is where it is bound to the navigator.
+@Composable
+fun TasksNavGraph(
+    backStack: NavBackStack<TasksRoute>,
+    nav: NavCallbacks,
+    entryProvider: EntryProvider<TasksRoute>,
+) {
+    val navigator = remember(backStack) { TasksNavigator(backStack, nav.graphExit) }
+    CompositionLocalProvider(LocalTasksNavigator provides navigator) {
+        NavDisplay(
+            backStack = backStack,
+            entryProvider = { key -> entryProvider(key as TasksRoute) },
+            onBack = { navigator.back() },
+        )
+    }
 }
 ```
+
+A cross-feature affordance therefore calls a navigator method, which calls `onExitGraph(target)`:
+
+```kotlin
+// TasksNavigator.kt — same-feature push, cross-feature exit-and-open
+open fun openDetail(id: TaskId) { backStack.add(TasksRoute.Detail(id)) }   // same graph
+open fun openProject(projectId: ProjectId) {                              // other graph
+    onExitGraph(AppDestination.ProjectDetail(projectId.value))
+}
+```
+
+`nav.graphExit` (`NavCallbacks`, `feature/nav/Nav3State.kt`) is the single uniform callback every
+nested graph and platform entry provider wires: `null` → close the graph, anything else →
+`Navigator.open(dest)`, which hands `(currentContext, target)` to `NavigationPolicy`. Since ADR
+`2026-10-04-navigation-policy` there is **no per-origin allow-list** to add a case to — a
+cross-feature open resolves `ExitAndOpen` and cannot silently degrade into back-navigation.
 
 ## Anti-Patterns
 
 1. **`combinedClickable` on chip for navigation** — breaks multi-select.
 2. **Feature-specific callback in generic widget** — `MetaChipsRow` must stay generic.
 3. **No disabled state** — always `enabled = false` when `projectId == null`.
-4. **Navigation without back-stack** — use `navigator.navigate(dest)` (push), not `navigateTopLevel` (replaces tab).
+4. **Addressing a nested start route as an app-level target** — `TasksStartRoute.Detail(id)` on
+   its own throws from `NavigationPolicy`; wrap it: `TasksGraph(TasksStartRoute.Detail(id))`.
+5. **Hand-rolling a navigation decision at a call site** — same-feature push vs cross-feature
+   open is `NavigationPolicy`'s job (`familyOf(from) == familyOf(to)`). Don't re-decide it.
+6. **Reaching for Nav2 API** — no `composable<T>`, no `toRoute<T>()`, no `popBackStack()`, no
+   `navigateTopLevel`. It is Nav3: `NavDisplay`, `NavBackStack`, typed navigators, `Navigator.open`.

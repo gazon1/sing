@@ -43,15 +43,15 @@ applies the flag to its own content, so a caller cannot forget.
 **B**, via a single expect/actual helper.
 
 ```kotlin
-// commonMain — core/ui/TestTagExposure.kt
-expect fun Modifier.exposeTestTagsAsResourceId(): Modifier
+// commonMain — core/ui/TestTagResourceId.kt
+expect fun Modifier.mapTestTagsAsResourceIds(): Modifier
 
 // androidMain — the real thing
-actual fun Modifier.exposeTestTagsAsResourceId(): Modifier =
+actual fun Modifier.mapTestTagsAsResourceIds(): Modifier =
     semantics { testTagsAsResourceId = true }
 
 // jvmMain — desktop reads the semantics tree, where this has no meaning
-actual fun Modifier.exposeTestTagsAsResourceId(): Modifier = this
+actual fun Modifier.mapTestTagsAsResourceIds(): Modifier = this
 ```
 
 Applied inside `ConfirmActionDialog` (which also covers `DiscardChangesDialog`,
@@ -143,7 +143,7 @@ all qualify. A fix scoped to the type that happened to fail first will leave the
 others behind — twice over, as this entry now records.
 
 **What would have prevented both rounds:** a check that every
-window-owning composable applies `exposeTestTagsAsResourceId()`. That is a
+window-owning composable applies `mapTestTagsAsResourceIds()`. That is a
 static, cheap, greppable property — an `AlertDialog(` / `ModalBottomSheet(` /
 `DropdownMenu(` whose subtree does not reach the helper — and it is the obvious
 next detector for `find-unwired-surfaces.py`, which already parses Kotlin and
@@ -160,7 +160,7 @@ invisible to any check that only asks whether the tag exists.
 
 ## Links
 
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTagExposure.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTagResourceId.kt`
 - `core/ui/components/ConfirmActionDialog.kt`, `core/ui/components/sheet/ListPickerSheet.kt`,
   `core/ui/components/sheet/MultiSelectSheet.kt`
 - `feature/profile/ProfileSwitcherScreen.kt` (create dialog),

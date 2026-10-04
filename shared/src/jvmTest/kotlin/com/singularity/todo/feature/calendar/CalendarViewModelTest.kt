@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -41,6 +42,7 @@ import kotlin.test.assertNotNull
  * verifying intent-handler logic (which is synchronous) and the Loading state.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class CalendarViewModelTest {
 
     private val testUserId = UserId("test-user")

@@ -5,11 +5,13 @@ import com.singularity.todo.feature.search.query.Condition.HasPriority
 import com.singularity.todo.feature.search.query.Condition.HasStatus
 import com.singularity.todo.feature.search.query.Condition.HasTag
 import com.singularity.todo.feature.search.query.SortOrder
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class QueryNormalizeTest {
 
     private fun parse(input: String): Query = SingularityQueryParser(input).parse()

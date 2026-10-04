@@ -5,11 +5,13 @@ import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.schema.toPointer
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
+@Tag("fast")
 class A2uiParserTest {
 
     private val parser = A2uiParser()

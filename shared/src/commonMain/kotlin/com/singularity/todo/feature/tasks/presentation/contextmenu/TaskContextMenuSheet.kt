@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 
 /**
@@ -56,10 +56,10 @@ fun TaskContextMenuSheet(
         // A modal sheet is its own Android window: the app-root
         // testTagsAsResourceId does not reach it, so the sheet's own tag and
         // every taskAction tag inside would be invisible to Maestro.
-        // See Modifier.exposeTestTagsAsResourceId.
+        // See Modifier.mapTestTagsAsResourceIds.
         modifier = modifier
             .testTag(TestTags.TASK_CONTEXT_MENU_SHEET)
-            .exposeTestTagsAsResourceId(),
+            .mapTestTagsAsResourceIds(),
     ) {
         Column {
             Text(

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -7,6 +8,7 @@ import kotlin.test.assertEquals
  * The rules in [FirstRunResolver] are all about precedence between cheap answers, so
  * every case here is one of those orderings rather than a rendering concern.
  */
+@Tag("fast")
 class FirstRunResolverTest {
 
     @Test

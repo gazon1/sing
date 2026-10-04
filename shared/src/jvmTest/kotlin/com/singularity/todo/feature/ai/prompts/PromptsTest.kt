@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.ai.prompts
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class PromptsTest {
 
     @Test

@@ -49,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.viewmodel.koinViewModel
@@ -300,7 +300,7 @@ private fun CreateProfileDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag(TestTags.PROFILE_CREATE_NAME_INPUT)
-                        .exposeTestTagsAsResourceId(),
+                        .mapTestTagsAsResourceIds(),
                 )
                 OutlinedTextField(
                     value = emoji,
@@ -338,10 +338,10 @@ private fun CreateProfileDialog(
                 enabled = name.isNotBlank(),
                 // A dialog is its own Android window: the app-root
                 // testTagsAsResourceId does not reach it, so an unexposed tag is
-                // invisible to Maestro. See Modifier.exposeTestTagsAsResourceId.
+                // invisible to Maestro. See Modifier.mapTestTagsAsResourceIds.
                 modifier = Modifier
                     .testTag(TestTags.Dialog.CONFIRM)
-                    .exposeTestTagsAsResourceId(),
+                    .mapTestTagsAsResourceIds(),
             ) {
                 Text("Create")
             }

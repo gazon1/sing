@@ -91,7 +91,7 @@ fun ChecklistEditorSheet(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    items(items, key = { it.id }) { item ->
+                    items(items, key = { it.id.value }) { item ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,

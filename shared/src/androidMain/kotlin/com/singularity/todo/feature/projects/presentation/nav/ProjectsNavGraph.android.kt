@@ -9,11 +9,11 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.ProjectsRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.rememberNavBackStackTyped
 import com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen
 import com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen
 import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
@@ -39,13 +39,7 @@ actual fun ProjectsNavGraph(
     modifier: Modifier,
     @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<ProjectsRoute>?,
 ) {
-    // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
-    // (which concrete NavKey subtypes exist), not a value to persist.
-    val savedStateConfig = navSavedStateConfig()
-
-    @Suppress("UNCHECKED_CAST")
-    val stack: NavBackStack<ProjectsRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<ProjectsRoute>
+    val stack: NavBackStack<ProjectsRoute> = rememberNavBackStackTyped(navSavedStateConfig(), start)
 
     val navigator = remember(stack, onExitGraph) {
         ProjectsNavigator(stack, onExitGraph)

@@ -1,5 +1,6 @@
 package com.singularity.todo.arch
 
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.fail
@@ -43,6 +44,7 @@ import kotlin.test.fail
  * @see com.singularity.todo.test.helpers.runDesktopAppTest
  * @see com.singularity.todo.test.helpers.IsolatedComposeTest
  */
+@Tag("slow")
 class DesktopTestHarnessEnforcementTest {
 
     /**

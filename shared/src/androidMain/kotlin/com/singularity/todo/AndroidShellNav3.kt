@@ -62,7 +62,7 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
-    val fabAction = fabActionForNav3(current) { navigator.navigate(it) }
+    val fabAction = fabActionForNav3(current) { navigator.open(it) }
 
     Scaffold(
         bottomBar = {
@@ -75,7 +75,7 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                     val selected = current == destination
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { navigator.navigate(destination) },
+                        onClick = { navigator.open(destination) },
                         icon = {
                             Icon(
                                 destination.icon,
@@ -128,7 +128,7 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
             onDismiss = { menuVisible = false },
             onSelect = { dest ->
                 menuVisible = false
-                navigator.navigate(dest)
+                navigator.open(dest)
             },
         )
     }

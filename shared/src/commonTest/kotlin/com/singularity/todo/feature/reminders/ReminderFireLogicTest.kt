@@ -2,11 +2,13 @@ package com.singularity.todo.feature.reminders
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class ReminderFireLogicTest {
 
     private fun makeReminder(id: ReminderId = ReminderId.generate(), recurringPattern: String? = null) = Reminder(

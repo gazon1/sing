@@ -7,12 +7,14 @@ import com.singularity.todo.feature.search.query.QueryInterval.Companion.TODAY
 import com.singularity.todo.feature.search.query.QueryInterval.Companion.TOMORROW
 import com.singularity.todo.feature.search.query.QueryInterval.Companion.YESTERDAY
 import com.singularity.todo.feature.search.query.QueryInterval.Companion.parse
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class QueryIntervalTest {
 
     @Test

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.notes.domain.editor
 
 import com.singularity.todo.feature.notes.EditorState
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,6 +9,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class NoteEditorStateTest {
 
     private val state = NoteEditorState()

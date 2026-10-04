@@ -46,6 +46,42 @@ private val fakeReminderRepo = FakeReminderRepository()  // internal Dispatchers
 
 ---
 
+## Rule 1b: Take the Expected Identity From the Same Flow the Code Uses
+
+**Symptom:** a profile-isolation test passes on `:shared:jvmTest` and fails on
+`:shared:testAndroidHostTest` (Robolectric). Or it fails intermittently, with the
+seeded row missing from the result.
+
+**Root cause:** `CurrentUser.userId` and `ProfileAwareCurrentUser.scopedUserId` are
+`StateFlow`s seeded with a value (`"anonymous"`) and corrected later by collectors on
+`Dispatchers.Default` (see Rule 1). Two consumers that read at different instants can
+therefore get **different identities** — the race is against the collector, not against
+your test. Robolectric schedules that collector later than the JVM does, which is why one
+source set passes and the other fails.
+
+A test that recomputes the expected id with its own `combine(currentUser.userId, …)` is
+racing in exactly the same way, and can win the seeding read while the code under test
+loses it.
+
+**Fix:** derive the expected identity from the production derivation, and prefer the
+`live*` flows, which are derived from the session and cannot lag.
+
+```kotlin
+// ✅ CORRECT — the same flow the repository scopes its query with
+val scoped = currentUser.liveScopedUserId.first()
+
+// ❌ WRONG — a second derivation that races the collectors independently
+val scoped = combine(currentUser.userId, profiles.activeProfileId) { u, p -> … }.first()
+```
+
+**When you need the identity at all:** to *seed* rows the code will query for. If a test
+seeds under one identity and queries under another, every row is invisible and the failure
+looks like a filtering bug in production code. Check this before debugging the tool.
+
+Related: ADR `2026-10-04-derived-identity-flows`.
+
+---
+
 ## Rule 2: Use Fixed Dates in Domain Logic Tests
 
 **Symptom:** `AssertionFailedError: Expected value to be true` on a date-comparison test. Fails only on certain days of the week or months.
@@ -184,6 +220,37 @@ When a VM test is flaky or stuck in `Loading`:
 5. **Are there date-comparisons that depend on today's date?** → Rule 2
 
 ---
+
+## Flakes are now measured, not remembered (2026-10-04)
+
+Two flakes in this repo's history were each observed once, never reproduced, and
+filed as prose: `ProjectsFlowTest` reading a draft state before the init collector
+seeded it, and `TaskDetailCoordinatorGraphTest` waiting on a 10-second real-time
+budget under parallel load. A run that is green is indistinguishable from a run that
+is green because the test is sound, so nothing in the build noticed either.
+
+`scripts/check-flaky-tests.py` compares this run's JUnit XML against the previous
+successful run on the same branch. A **status flip** is the signal: a test that
+failed before and passes now is a flake witness, whatever this run reported.
+
+```bash
+python3 scripts/check-flaky-tests.py \
+  --current shared/build/test-results/jvmTest --previous /tmp/prev-run
+```
+
+A failure you understand goes in `config/docs/flaky-baseline.txt` with its reason —
+a bare class name acknowledges the whole class. Anything else fails the analysis.
+
+**When a test needs real time, size the budget as a hang detector, not a latency
+assertion.** A `withTimeout(10.seconds)` against real dispatchers is a coin flip on
+a loaded machine: it failed roughly one run in three while three instrumented
+modules compiled in parallel, and a coin-flip gate trains people to re-run instead
+of read. The defect it guards against — a `combine` that dies before its first
+emission — hangs *forever*, so a generous budget still catches it. And on failure,
+print the states you observed rather than a bare `TimeoutCancellationException`.
+
+See ADR `2026-10-04-measurement-integrity` and the addendum in
+`2026-10-04-test-execution-integrity`.
 
 ## See Also
 

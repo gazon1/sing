@@ -46,7 +46,7 @@ open class TasksNavigator(
      * and the notes graph is not on this screen's back stack.
      */
     open fun openNote(noteId: NoteId) {
-        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(noteId.value)))
+        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(noteId)))
     }
 
     /**
@@ -56,7 +56,7 @@ open class TasksNavigator(
      * Used by [com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection].
      */
     open fun openCreateNote(taskId: TaskId) {
-        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(taskId.value)))
+        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(taskId)))
     }
 
     /**

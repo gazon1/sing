@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -19,6 +20,7 @@ import kotlin.test.assertEquals
  * and stays stable when the userId does not change.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class UserScopedFlowTest {
 
     @Test

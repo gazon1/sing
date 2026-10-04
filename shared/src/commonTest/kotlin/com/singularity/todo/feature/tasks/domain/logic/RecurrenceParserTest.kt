@@ -6,10 +6,12 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Recurrence
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import kotlinx.datetime.DateTimeUnit
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
+@Tag("fast")
 class RecurrenceParserTest {
 
     // ─── Short form ─────────────────────────────────────────────────────────────

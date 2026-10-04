@@ -1,11 +1,13 @@
 package com.singularity.todo.core.auth.oauth
 
 import com.singularity.todo.core.auth.oauth.OAuthTokenRefresh.withRefreshResult
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class OAuthTokenRefreshTest {
 
     private companion object {

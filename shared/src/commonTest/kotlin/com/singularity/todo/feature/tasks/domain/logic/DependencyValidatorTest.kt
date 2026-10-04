@@ -12,6 +12,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.InMemoryTaskDao
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -23,6 +24,7 @@ import kotlin.test.assertTrue
  * Verifies BFS cycle detection across all five [DependencyVerb] values,
  * user-isolation of the analysis, and [assertNoCycles] self-loop guard.
  */
+@Tag("fast")
 class DependencyValidatorTest {
 
     private val userA = UserId("user-a")

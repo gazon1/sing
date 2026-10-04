@@ -32,7 +32,7 @@ open class CalendarNavigator(
     open fun openTask(taskId: TaskId) {
         onExitGraph(
             AppDestination.TasksGraph(
-                start = AppDestination.TasksStartRoute.Detail(taskId.value),
+                start = AppDestination.TasksStartRoute.Detail(taskId),
             ),
         )
     }

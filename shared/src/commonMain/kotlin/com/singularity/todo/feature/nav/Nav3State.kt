@@ -180,21 +180,66 @@ class Nav3State internal constructor(
  * Navigation callbacks passed to [createAppEntryProvider] / [createJvmEntryProvider] so entries
  * can trigger navigation without needing a [Navigator] instance (avoids internal class visibility
  * issues). Placed here so both androidMain and jvmMain can import it.
+ *
+ * @param navigate Delegates to [Navigator.open] — every request is resolved by
+ *   [NavigationPolicy] (REQ-NAV-001), so per-feature navigators and entry providers keep
+ *   their typed-`AppDestination` signature while the decision stays in one place.
+ * @param close Delegates to [Navigator.close] — the `dest == null` branch of a nested
+ *   graph's `onExitGraph` (exit the graph, no destination).
  */
-data class NavCallbacks(val navigate: (AppDestination) -> Unit, val goBack: () -> Unit)
+data class NavCallbacks(val navigate: (AppDestination) -> Unit, val goBack: () -> Unit, val close: () -> Unit) {
+    /**
+     * The uniform `onExitGraph` callback every nested graph and platform entry provider
+     * wires up — the former per-graph `when(dest)` allow-lists, collapsed to one form:
+     *
+     * ```kotlin
+     * onExitGraph = nav.graphExit   // null → close(), else navigate() (policy-resolved)
+     * ```
+     *
+     * A destination that used to fall through an allow-list now opens (REQ-NAV-002)
+     * instead of silently degrading to back-navigation.
+     */
+    val graphExit: (AppDestination?) -> Unit = { dest ->
+        if (dest == null) close() else navigate(dest)
+    }
+}
 
 class Navigator(private val state: Nav3State) {
     /**
-     * Navigate to [route]. If [route] is a top-level route, switch to it.
-     * Otherwise push it onto the current stack.
+     * Open [target] — the single facade every request goes through (REQ-NAV-001).
+     *
+     * Derives the current context from the top of the active stack and hands the pair to
+     * [NavigationPolicy]:
+     *
+     * - [OpenAction.SwitchTab] → activate the target's top-level destination (reselect
+     *   semantics included — see [Nav3State.onTabTapped]);
+     * - [OpenAction.Push] / [OpenAction.ExitAndOpen] → push onto the current stack, the
+     *   origin staying underneath (back returns to it);
+     * - a bare nested start route throws before any mutation, leaving the stack unchanged.
      */
-    fun navigate(route: NavKey) {
-        if (route in state.topLevelRoutes) {
-            state.onTabTapped(route)
-        } else {
-            state.requireBackStackFor(state.topLevelRoute).add(route)
+    fun open(target: AppNavKey) {
+        val stack = state.requireBackStackFor(state.topLevelRoute)
+        val from = (stack.lastOrNull() ?: state.topLevelRoute) as? AppNavKey
+            ?: error(
+                "Navigator.open: current context ${stack.lastOrNull()} of " +
+                    "top-level ${state.topLevelRoute} is not an AppNavKey.",
+            )
+
+        when (NavigationPolicy.resolve(from, target)) {
+            OpenAction.SwitchTab -> state.onTabTapped(target)
+
+            OpenAction.Push,
+            OpenAction.ExitAndOpen,
+            -> stack.add(target)
         }
     }
+
+    /**
+     * Exit the current nested graph with no destination — the `dest == null` branch of a
+     * graph's `onExitGraph`. Same mechanics as [goBack]: pop the graph's entry, or at a
+     * top-level root return to the previously active destination.
+     */
+    fun close() = goBack()
 
     /**
      * Go back in the current stack.
