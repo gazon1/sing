@@ -20,6 +20,8 @@ already performed" before acting on any entry whose subject is the host.
 
 ## sync-config-screen-unwired
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `SyncConfigScreen.kt` is gone (`58c82f80`), and `find-unwired-surfaces.py` runs blocking in `ci.yml:226` with no `continue-on-error`. **Closed #27's sibling bookkeeping at the same time** — the gate is the deliverable here and it is enforced.
+
 **Found in:** MR-1 retrospective, `scripts/find-unwired-surfaces.py`. Pre-existing;
 not a regression from the desktop UI work.
 
@@ -32,6 +34,11 @@ gate is now blocking in CI (Phase 1.1, PR-2).
 ---
 
 ## saved-views-crud-flow-selects-a-snackbar-that-does-not-exist
+
+**Status (re-verified 2026-10-04):** PARTIALLY CLOSED, re-tracked 2026-10-04 as #110. The red flow is fixed, but `SNACKBAR_SAVED` is still declared (`TestTags.kt:273`) and its `knownUnapplied` reason (`TestTagsWiringTest.kt:78`) describes a flow that no longer exists. See the entry body for the two residues.
+
+**Tracked as:** #110
+**OpenSpec change:** `openspec/changes/notification-routing-must-be-total/`
 
 **Found in:** MR-2, while cross-checking the constants slated for deletion
 against their real consumers. Not a regression — a dormant red flow.
@@ -63,6 +70,8 @@ below.
 ---
 
 ## file-log-writer-and-log-exporter-are-never-installed
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `LogBootstrap.jvm.kt:18` and `.android.kt:20` both install `RedactingLogWriter(FileLogWriter(...))`; `grep -rn "LogExporter\|LoggerHolder"` returns zero hits, so the dead ports are gone. The residual ("logs have no way to leave the device") is a separate entry, #37.
 
 **Status: RESOLVED** by the logging epic (MR-1 … MR-5, 2026-09-30). The writer
 is installed on both platforms, `LogExporter` and `LoggerHolder` were deleted
@@ -251,6 +260,8 @@ baseline it either: a draft-state NPE is a real crash shape on a device.
 
 ## find-unwired-surfaces-has-no-baseline
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `scripts/find-unwired-surfaces-baseline.txt` exists with 11 entries, the script returns 0 only when the baseline filter clears every finding, and `ci.yml:225` runs it blocking. A scan that finds nothing and a scan looking in the wrong place are now distinguishable.
+
 **Found in:** MR-4, while wiring the script into the workflow.
 
 **Symptom:** the script exits 1 whenever anything is reported, and the one
@@ -266,6 +277,8 @@ baseline is current and new findings exist.
 ---
 
 ## digest-line-limit-pressure
+
+**Tracked as:** #52
 
 **Status: RESOLVED (2026-10-04).** Two changes, both applied:
 
@@ -293,6 +306,8 @@ side touched it — the digest sat at 1255 against a 1250 limit and `AGENTS.md` 
 
 ## ci-gates-are-all-continue-on-error
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04; **#53 closed with the evidence.** `grep -n "continue-on-error" ci.yml` returns exactly two hits — the Maestro tag lint (:249) and the flake-analysis annotation (:166) — both with a documented reason. The version-catalog, assembleDebug and mcp-server gates are all blocking, and mcp-server additionally runs `check-test-runs.py --require mcp-server:test`.
+
 **Status: RESOLVED (2026-10-04).** All four remaining advisory gates are blocking:
 `Run detekt`, `Assemble Android debug`, `Build version catalog gate`, and the whole
 `mcp-server` job. See ADR `2026-10-04-measurement-integrity`.
@@ -310,6 +325,8 @@ blocking gate and is *believed* to be the gate is.
 ---
 
 ## desktop-nav-goBack-blank-screen
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04; **#27 closed with the evidence.** `JvmNavEntries.kt:51-67` hoists the per-feature stacks into the shell composition and passes them as `backStack =` into the graphs. `SavedAgendaCreateFlowTest` and `OpenSavedViewShowsMatchingTasksFlowTest` both report 1 test, 0 failures.
 
 **Status:** ✅ RESOLVED (2026-10-04) — fixed by ADR `2026-10-04-navigation-policy`, issue #27 closed.
 
@@ -368,7 +385,16 @@ change this while the "47 suppressions" item from
 
 ## usage-recording-text-gen-requires-cross-cutting-architecture
 
-**Status: RESOLVED** (tech-debt session, 2026-10-02).
+**Tracked as:** #106
+**OpenSpec change:** `openspec/changes/usage-recording-platform-parity/`
+
+**Status: HALF RESOLVED — corrected 2026-10-04.** The line below said
+"RESOLVED" and the claim was only true of the JVM. `AiToolsModule.jvm.kt:105-118`
+wraps `TextGenPort` in `UsageRecordingTextGen`; `AiToolsModule.android.kt:102`
+still binds a raw `KoogAgentService` with no decorator, so no Android LLM call is
+ever recorded. Each platform's build is green, which is why it went unnoticed —
+the feature looks alive on the development platform and is absent on the one
+users run. Tracked as #106.
 
 ADR `2026-10-02-usage-recording-textgen-architecture.md` defines the pattern:
 decorator lives in `feature/ai/chat/`, receives `RoomUsageRecorder` and
@@ -393,6 +419,8 @@ metadata.
 ---
 
 ## no-empty-onclick-lambda-rule-findings-sweep-pending
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. The rule is registered in `META-INF/services`, active in `config/detekt/detekt.yml:368`, and exempts preview code by filename or `/preview/` path (`NoEmptyOnClickLambdaRule.kt:151-157`). The entry's "37 findings" no longer matches the tree — the preview exclusion did the work, not the baseline, which is down to 3 entries.
 
 **Status: RESOLVED** (tech-debt session, 2026-10-02).
 
@@ -562,6 +590,8 @@ shape of defect that survives every other gate in this repo.
 
 ## maestro-smoke-cannot-run-in-this-environment
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04 (#46 already closed). The symptom was environmental and disproven on re-probe; what it surfaced was a flow bug, tracked as #50, and the fact that the smoke job had never run, tracked as #87. Keeping this entry open would have re-asserted a host claim that was already shown false.
+
 **Status: CLOSED as disproven (2026-10-04).** Re-probed with the emulator up:
 the flow ran to completion and failed on a real assertion, with no
 `DeviceServerDiedException`. The environment recovers; the blocker was transient.
@@ -591,6 +621,8 @@ still fails, the fix belongs to the emulator image, not to this repository.
 
 ## agenda-section-add-button-noop
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `AgendaPresets.kt` carries 15 `prefill = SectionPrefill` sites (the entry said 13) and `AgendaViewModel.kt:190` resolves `relativeDueDate` through the injected clock, so `section.prefill ?: return` can no longer fire. Subsumed by #26.
+
 **Found in:** MR-0, при написании тест-плана agenda-views (кодовая разведка).
 
 **Symptom:** кнопка «+» в заголовке секции в `AgendaScreen` при тапе вызывает `AgendaIntent.CreateInSection` → `handleCreateInSection(sectionId)`. Функция делает `scope.launch { handleCreateInSection(intent.sectionId) }`, внутри:
@@ -612,6 +644,9 @@ below, which this fix depended on.
 ---
 
 ## notification-text-null-invisible
+
+**Tracked as:** #103
+**OpenSpec change:** `openspec/changes/notification-routing-must-be-total/`
 
 **Found in:** MR-0, свип `Notification.Text(x, null)` по production commonMain.
 
@@ -647,6 +682,8 @@ null text to the snackbar host, or make the parameter non-null).
 ---
 
 ## is-saving-clobber
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `SavedAgendaViewModel.emitEditingState()` carries `existingIsSaving` forward off the replaced state, and `onSave()` returns early on `current.isSaving`. Pinned by `SavedAgendaViewModelTest.anEditDuringAnInFlightSaveDoesNotReEnableTheSaveButton` against the `upsertCount`/`upsertGate` fakes.
 
 **Found in:** MR-0, кодовая разведка `SavedAgendaViewModel.emitEditingState()`.
 
@@ -697,6 +734,9 @@ decision about which profile becomes active, not just a DTO.
 
 ## delete-without-confirm-or-undo
 
+**Tracked as:** #104
+**OpenSpec change:** `openspec/changes/notification-routing-must-be-total/`
+
 **Found in:** MR-0, свип delete flows по всем screens.
 
 **Symptom:** `ConfirmActionDialog` используется только в 2 местах: `SavedAgendaScreen` delete-view и `ProfileSwitcherScreen` delete-profile. Остальные 10 delete flow'ов удаляют мгновенно и молча:
@@ -719,6 +759,9 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 ---
 
 ## fake-clock-unused-in-desktop-harness
+
+**Tracked as:** #108
+**OpenSpec change:** `openspec/changes/selector-and-tag-identity/`
 
 **Found in:** MR-0, свип desktop harness и FakeClock.
 
@@ -753,6 +796,8 @@ next VMs to drain are tracked in **`vm-without-test`**.
 ---
 
 ## docs-rot-agenda-selector-count
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `Selector.kt` declares exactly 14 variants and both `SelectorDescriptor.kt:16` and `SelectorMatcher.kt:25` say "All 14" (`92357b6f`). `grep -rn testIncludes` now hits only this backlog file.
 
 **Found in:** MR-0, кодовая разведка Selector.kt.
 
@@ -810,6 +855,9 @@ one. That is a product decision, not a gap in the engine.
 
 ## agenda-editor-no-selector-parameter-configuration
 
+**Tracked as:** #107
+**OpenSpec change:** `openspec/changes/selector-and-tag-identity/`
+
 **Found in:** MR-0, кодовая разведка SavedAgendaScreen.kt AddSection sheet.
 
 **Symptom:** `ListPickerSheet<Selector>` в `SavedAgendaScreen.kt:190-198` предлагает **7 жёстко зашитых шаблонов** (Active, Completed, Due today, Overdue, No date, This week, Next week). Редактор **не позволяет** пользователю задать параметры селектора: тег/проект/приоритеты/regexp/диапазон дат. `SectionEditorCard` — read-only display, только Move Up/Down и Delete.
@@ -844,6 +892,8 @@ Coverage: `SelectorTemplateTest` (common) plus
 ---
 
 ## section-prefill-dynamic-date
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. The hardcoded `LocalDate(2026, 10, 3)` is gone from `AgendaPresets.kt`; `SectionPrefill.relativeDueDate: RelativeBucket?` resolves through `todayAt(deps.clock)` at `AgendaViewModel.kt:190`.
 
 **Found in:** MR-1, `AgendaPresets.kt`. `SectionPrefill.dueDate` is `LocalDate` — a
 compile-time constant in an `object`. `Today` section uses `LocalDate(2026, 10, 3)`
@@ -941,7 +991,6 @@ technical debt.
 and routes writes through repositories. Replace DAO calls in `BackupImporter` with
 `BulkImportPort.import(payload, targetUserId)`. Track in `docs/decisions/2026-09-27-write-layer-soundness.md`.
 
-
 ---
 
 ## vm-without-test
@@ -1005,6 +1054,8 @@ silently.
 ---
 
 ## dialog-testtags-do-not-reach-uiautomator
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. The expect/actual helper (`TestTagResourceId.kt` + `.android.kt` + `.jvm.kt`) is applied in seven composables, `UiAutomationSelectorTest.kt:87` enforces the rule, and `profile/02-isolation.yaml` now selects on `dialog_confirm`. ADR `2026-10-04-testtag-visibility-helper` is the record.
 
 **Found in:** MR-6, the Phase 6 Maestro gate. Journey 03 could not find
 `id: dialog_confirm`.
@@ -1149,6 +1200,8 @@ later, verify with a probe recipe first rather than assuming.
 
 ## cross-user-write-rule-measured-and-rejected
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `feature/agenda/data/CrossUserWriteRegistry.kt` ships the single sanctioned bypass, and `CrossUserWriteRegistryTest` pins that each entry exists, that the count has not grown, and that each documents itself. The rejected PSI rule stays as ledger #18 in `2026-09-27-write-layer-soundness` — deferred, not lost.
+
 **Found in:** 2026-10-04, while trying to mechanise the `assertCanWrite` bypass
 that `SavedAgendaViewsRepositoryImpl.duplicateForProfile` documents in its KDoc.
 
@@ -1282,6 +1335,8 @@ change costs nothing; the same line reconstructed a week later is archaeology.
 
 ## two-ci-gates-are-red-and-nothing-local-looks-at-them
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `check-doc-sizes.py` and `check-doc-dead-refs.py` both exit 0, both run in `check.sh:128-135` with a hard `exit 1` and no `|| true`, and both appear in `ci.yml` without `continue-on-error`. The 38 findings are covered by the dead-refs baseline.
+
 **Found in:** 2026-10-04, the "what next" sweep — while adding four lines to
 `AGENTS.md` and running `just docs-audit` to see whether they broke anything.
 
@@ -1318,6 +1373,8 @@ gate somewhere a local run will meet it.
 
 ## a-green-gate-only-proves-the-gates-you-ran
 
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `.just/tests/gate.just:124-151` names all four steps inline under `set -euo pipefail` and prints a banner when `SKIP_MAESTRO=1` means the flows were not gated. `justfile:61` exposes it as `just gate`. The smoke-set half is #87.
+
 **Found in:** 2026-10-04, the same sweep. Three separate gates were red, in
 three different ways, and each had been red for a different reason that made it
 invisible:
@@ -1349,6 +1406,8 @@ state where a single `CI is green` claim is worth nothing.
 ---
 
 ## maestro-flows-share-one-app-instance-so-failures-cascade
+
+**Tracked as:** #105
 
 **Found in:** 2026-10-04, the first ever local run of the `smoke` set — the
 set the new `maestro-smoke` CI job runs, which had never executed anywhere.
@@ -1407,6 +1466,8 @@ accident.
 
 ## a-flow-can-be-unrunnable-and-every-check-still-pass
 
+**Tracked as:** #87
+
 **Found in:** 2026-10-04, the same first `smoke` run. `profile/02-isolation.yaml`
 was the regression guard for profile isolation — the bug where all profiles
 shared one Room namespace. It could not have passed:
@@ -1436,6 +1497,8 @@ repository that would have caught any of the three defects above.
 ---
 
 ## overflow-menu-rows-were-tagged-with-a-nobody-reads-scheme
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04; **#65 closed with it.** `TaskEditorContent.kt:287-306` applies `Modifier.mapTestTagsAsResourceIds()` and each `DropdownMenuItem` gets `item.testTag`, with items carrying `EditorOverflow.RESTORE/ARCHIVE/DELETE` from `TaskDetailContent.kt:229`. Residual kept deliberately: `PIN`/`UNPIN` remain in the allowlist, and `taskAction` still coexists for the context menu — that is the #109 work, not this defect.
 
 **Found in:** 2026-10-04, the second `smoke` run, chasing why
 `archive/01-restore.yaml` failed on `id: overflow_archive` *inside* a single flow
@@ -1526,6 +1589,9 @@ point of a gate is that its result means something.
 ---
 
 ## a-testtag-built-from-a-localised-label-changes-with-device-locale
+
+**Tracked as:** #109
+**OpenSpec change:** `openspec/changes/selector-and-tag-identity/`
 
 **Found in:** 2026-10-04, the third `smoke` run — after the overflow rows were
 finally tagged, `tasks/04-delete` still could not find
