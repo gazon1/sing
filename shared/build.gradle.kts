@@ -1,4 +1,5 @@
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -324,6 +325,23 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "desktopAppJvmTest.root",
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // The tests above read files OUTSIDE :shared while they run, so those trees are
+    // inputs to this task whether or not they feed the compiler. Without this, editing
+    // a desktopApp or mcp-server test leaves :shared:jvmTest UP-TO-DATE, and an
+    // architecture gate re-reports the previous run's verdict about files that have
+    // since changed.
+    //
+    // Measured 2026-10-05: TestTagCoverageTest flagged a desktopApp class as untagged.
+    // The class was given a tag, the run still failed, and the class was correctly
+    // reported again and again — because nothing had invalidated the task. Only
+    // --rerun-tasks produced the new, passing verdict. A gate that can report a stale
+    // result is worse than no gate, because the stale result looks like a pass.
+    inputs.dir(layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin"))
+        .withPropertyName("desktopAppJvmTestSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(layout.projectDirectory.dir("../mcp-server/src/test"))
+        .withPropertyName("mcpServerTestSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Scan roots for ViewModelTestCoverageTest: it matches a production ViewModel
     // against the test classes that mention it, so it needs the commonTest and
     // jvmTest trees as well as commonMain. Absent properties make its top-level
