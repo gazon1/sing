@@ -279,12 +279,19 @@ tasks.withType<Test>().configureEach {
         systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
 
         val tags = (project.findProperty("test.tags") as String?)
-            ?.split(",")?.orEmpty() ?: emptyList()
-        if (tags.isNotEmpty()) {
-            includeTags(*tags.toTypedArray())
-        } else {
-            // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
-            excludeTags("slow")
+            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        when {
+            tags.isEmpty() -> {
+                // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
+                excludeTags("slow")
+            }
+            // `-Ptest.tags=all` applies no tag filter at all. This is the only
+            // setting that runs untagged tests, and JUnit's includeTags()
+            // excludes them — so a CI step passing a tag list silently skips
+            // every test that carries no @Tag. See the deferred-backlog entry
+            // `include-tags-excludes-untagged-tests`.
+            tags == listOf("all") -> Unit
+            else -> includeTags(*tags.toTypedArray())
         }
     }
     // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit

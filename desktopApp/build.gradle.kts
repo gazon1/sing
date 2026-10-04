@@ -128,12 +128,18 @@ tasks.withType<Test>().configureEach {
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
 
         val tags = (project.findProperty("test.tags") as String?)
-            ?.split(",")?.orEmpty() ?: emptyList()
-        if (tags.isNotEmpty()) {
-            includeTags(*tags.toTypedArray())
-        } else {
-            // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
-            excludeTags("slow")
+            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        when {
+            tags.isEmpty() -> {
+                // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
+                excludeTags("slow")
+            }
+            // `-Ptest.tags=all` applies no tag filter at all. JUnit's
+            // includeTags() excludes untagged tests, so passing a tag list runs
+            // only the tagged minority. See the deferred-backlog entry
+            // `include-tags-excludes-untagged-tests`.
+            tags == listOf("all") -> Unit
+            else -> includeTags(*tags.toTypedArray())
         }
     }
     // Forward the opt-in test switches from the Gradle CLI into the forked test JVM.
