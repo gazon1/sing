@@ -60,23 +60,52 @@ class AppVersionGateViewModel(
      * the default snapshot, so a broken config server cannot leave every user stuck behind a
      * version gate they cannot pass. A hard failure here is the worst possible place to be
      * strict.
+     *
+     * The bypass is also breadcrumbed, because failing open is otherwise invisible: the end
+     * state is `Allowed(defaults)`, which is byte-for-byte what a healthy read produces. A
+     * config outage would read as a healthy dashboard for as long as it lasted. The report
+     * says the read failed; only the breadcrumb says the gate was let through anyway.
      */
     private fun check() {
-        catchTo("Failed to read remote config", { evaluate(RemoteConfigSnapshot.defaults()) }) {
+        catchTo("Failed to read remote config", { onReadFailed() }) {
             runCatchingResult { evaluate(remoteConfigPort.snapshot()) }
         }
+    }
+
+    /**
+     * Records that the gate was let through on defaults, then does exactly that.
+     *
+     * Called from both read paths, and they fail differently: a *thrown* read reaches
+     * `catchTo`'s error arm, while `refresh()` returns a `Result` whose failure never
+     * throws. A bypass recorded from only one of them is a bypass that is invisible
+     * half the time.
+     */
+    private fun onReadFailed() {
+        recordBypass()
+        evaluate(RemoteConfigSnapshot.defaults())
+    }
+
+    /** The bypass itself. Kept separate so both failure paths record it identically. */
+    private fun recordBypass() {
+        crashReporter.addBreadcrumb("Version gate bypassed — remote config unreadable, admitted on defaults")
     }
 
     override fun onIntent(intent: AppVersionGateIntent) {
         when (intent) {
             is AppVersionGateIntent.CheckAgain -> {
                 setState(AppVersionGateState.Checking)
-                catchTo("Failed to refresh remote config", { evaluate(RemoteConfigSnapshot.defaults()) }) {
+                catchTo("Failed to refresh remote config", { onReadFailed() }) {
                     runCatchingResult {
                         val snapshot = remoteConfigPort.refresh()
                             // A returned failure is not a throw, so catchTo never sees it.
-                            // It still has to reach the reporter.
-                            .onFailure { crashReporter.report(it, REFRESH_FAILED) }
+                            // It still has to reach the reporter — and the bypass still has
+                            // to be visible, which the shared path handles.
+                            .onFailure {
+                                crashReporter.report(it, REFRESH_FAILED)
+                                // This path admits on defaults without throwing, so it never
+                                // reaches `onReadFailed`. The bypass is still a bypass.
+                                recordBypass()
+                            }
                             .getOrElse { RemoteConfigSnapshot.defaults() }
                         evaluate(snapshot)
                     }

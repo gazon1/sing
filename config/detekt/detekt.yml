@@ -532,3 +532,18 @@ user-scoped-repository:
   ProhibitUserIdInObserve:
     active: true
 
+# Added 2026-10-05. Replaces the three source-text predicates in
+# shared/src/jvmTest/.../arch/CrashReportingWiringTest.kt, which matched only
+# `emitError(`/`catchTo(` call sites and so could not see a ViewModel that handles
+# failures by hand — eight of them, each reporting nothing. The rule matches PSI, so
+# "can this class fail" is a statement about the code rather than about its spelling.
+#
+# The viewmodel-must-report invariant that this rule owns, and that this repo has
+# violated three separate times (once per default no-op CrashReportingPort in
+# MviViewModel, once for the six ViewModels the first regex missed, once for the eight
+# it then missed), is a shape invariant. Shape gates belong here, where a positive test
+# can prove the rule fires, not in an arch test where a widened regex looks identical
+# to a fixed one.
+no-unreported-failure-path:
+  NoUnreportedFailurePath:
+    active: true

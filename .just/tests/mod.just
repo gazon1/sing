@@ -133,8 +133,10 @@ gate:
     # build and a real check on a cold one. It is here because "I ran check.sh"
     # is not the same claim as "I ran detekt" when the two ever drift apart.
     banner "2/4 detekt"
-    ./scripts/check-detekt-registrations.sh
-    ./gradlew :shared:detekt :desktopApp:detekt
+    # `lint`, not a second copy of the task list. The inline version named two of the four
+    # modules, so :androidApp and :detekt-rules were never analysed by this gate — and it
+    # re-ran check-detekt-registrations.sh, which `lint` already runs. One authority.
+    just lint
 
     banner "3/4 coverage ratchet"
     just coverage-ratchet
@@ -286,14 +288,26 @@ coverage-ratchet *args="":
     # Kover merges binary reports incrementally, so a report produced after other
     # runs carries coverage from tests outside the current filter. The floors are
     # only reproducible from a clean state, hence the wipe.
-    rm -rf shared/build/kover shared/build/reports/kover
+    #
+    # Every module's directory, not just :shared: the settings-level aggregate merges
+    # the per-module binary reports, so leaving one behind measures a mix of this run
+    # and a previous one. The find keeps this a rule rather than a list that has to be
+    # extended every time a module is added.
+    find . -maxdepth 4 -type d -name kover -not -path './.git/*' -prune -exec rm -rf {} +
+    # `:shared:koverXmlReport` does not exist — Kover is configured at settings level, so
+    # only the root project registers the report tasks, and this recipe died on the
+    # missing-task error before running anything. `koverReport` is the entry point that is
+    # correct by construction: it puts the test tasks in the graph itself and then merges,
+    # so the report cannot be produced from a stale binary set. Same call ci.yml makes;
+    # its comment there warns off the two wrong invocations, which is where the old one
+    # came from.
     # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default. That
     # flag is a speed choice, not a safety one: the OOM that originally justified
     # disabling instrumentation was misattributed (2026-09-27-write-layer-soundness.md
     # ledger #11), and a full instrumented run was measured on 2026-10-04 at 9m27s
     # with no OOM. It stays off by default so ./check.sh does not pay those minutes
     # on every run.
-    ./gradlew :shared:jvmTest :shared:koverXmlReport \
+    ./gw koverReport \
         -Pkover.jvmTest=true \
         --console=plain
     python3 scripts/coverage-ratchet.py {{args}}

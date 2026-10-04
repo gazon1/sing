@@ -316,8 +316,21 @@ tasks.withType<Test>().configureEach {
 // Force jvmTest to fork a new JVM for each test class.
 // This prevents KoinPlatform global state from leaking between tests that
 // call startKoin()/stopKoin() vs koinApplication().
+//
+// It is also load-bearing for a second reason that is easy to lose: this task runs
+// BackgroundFailureHandlerTest, and that handler is process-wide mutable state. A
+// fresh JVM per class is what stops one class's installed target from receiving a
+// failure raised in another class that happens to run at the same moment. Raising
+// forkEvery for build speed would silently make that test order-dependent, so the
+// value is published as a system property and asserted by ForkEveryIsolationTest
+// rather than left as a comment here.
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     forkEvery = 1
+    // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
+    // comment here. It is load-bearing twice over: KoinPlatform state between classes, and —
+    // as of the background-handler migration — the `FileSystemContract` temp paths, which
+    // rely on one class per process for their uniqueness.
+    systemProperty("jvmTest.forkEvery", forkEvery.toString())
     // Forks in parallel, still one JVM per class. `forkEvery = 1` is what isolates
     // KoinPlatform state between classes; it costs a JVM start per class, and at
     // 190 classes that was 7m58s of which the tests themselves were a fraction.

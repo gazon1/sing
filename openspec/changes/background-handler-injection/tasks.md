@@ -2,15 +2,25 @@
 
 ## Harden first (each is independently shippable)
 
-- [ ] **Assert the test invariant, or remove the dependence on it.** Either add a check that
+- [x] **Assert the test invariant, or remove the dependence on it.** Either add a check that
       fails when the JVM test task's `forkEvery != 1`, or extract the dispatch policy into a
       constructible class so tests do not need process-wide state at all. Do not leave a global
       whose test safety rests on an unstated Gradle flag. (#128)
-- [ ] **Move the shape decision to PSI.** One `NoUnreportedFailurePath` rule in `detekt-rules/`
+
+      Shipped as `ForkEveryIsolationTest`: the `jvmTest` task now publishes `forkEvery` as a
+      system property, and the test asserts it is `1` *and* that no class touching the global
+      handler omits `@Execution(SAME_THREAD)`. Proven to fail by removing that pin.
+- [x] **Move the shape decision to PSI.** One `NoUnreportedFailurePath` rule in `detekt-rules/`
       with a positive test per predicate, replacing the three regexes in
       `CrashReportingWiringTest`. Keep the corpus and funnel checks in the test; keep the rule
       registered per `check-detekt-registrations.sh`. (#129)
-- [ ] **Give the top-level install function a call site check.** The unwired-surface audit cannot
+
+      Shipped as `detekt-rules/.../NoUnreportedFailurePathRule.kt` with 15 positive tests and a
+      Policy object split out so each branch is testable without a detekt harness. Verified to
+      fire on the real corpus by planting a violating ViewModel in `commonMain` and reading the
+      detekt report — not merely by the tests passing. `CrashReportingWiringTest` keeps the two
+      corpus checks (funnel, scope factory) and loses the three text predicates.
+- [x] **Give the top-level install function a call site check.** The unwired-surface audit cannot
       see top-level functions, which is how `debugInfo` sat unused for its whole life; the check
       the follow-ups ADR scopes is a function documented as *call this at startup* that nothing
       calls. `installBackgroundCrashReporting` is now a second instance. (#127)

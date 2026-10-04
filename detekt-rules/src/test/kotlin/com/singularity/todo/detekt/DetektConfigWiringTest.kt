@@ -149,6 +149,7 @@ class DetektConfigWiringTest {
             NoStateInRuleProvider(),
             NoStaticProfileAwareCurrentUserProvider(),
             NoSwallowedCancellationProvider(),
+            NoUnreportedFailurePathProvider(),
             NoViewModelScopeInProductionProvider(),
             PassThroughUseCaseProvider(),
             UserScopedRepositoryRulesProvider(),
