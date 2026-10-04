@@ -19,5 +19,5 @@
 # Regenerate with: python3 scripts/check-test-runs.py --update-baseline
 desktopApp:test 10 30 0
 mcp-server:test 1 7 0
-shared:jvmTest 178 1436 0
+shared:jvmTest 178 1445 0
 shared:testAndroidHostTest 117 1003 0

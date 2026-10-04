@@ -177,3 +177,83 @@ collected while the evidence still exists.
 - `config/docs/coverage-baseline.txt`, `config/docs/flaky-baseline.txt`
 - `docs/decisions/deferred-backlog.md` — `ci-gates-are-all-continue-on-error`,
   `digest-line-limit-pressure`
+
+# Addendum (2026-10-04): a floor is only evidence about the run you just did
+
+The ADR above builds gates on committed floors. A floor is only as good as the
+numbers it is compared against, and both sources of those numbers turned out to be
+weaker than they looked.
+
+## Freshness
+
+`check-test-runs.py` and `check-coverage.py` read whatever is on disk, and Gradle
+only rewrites a source set's results when that task actually runs. A partial run
+therefore leaves the other sets' XML from hours earlier, and the floor is satisfied
+by a run that never happened. This is not hypothetical — it is how this branch's own
+baseline got recorded wrong: `desktopApp:test` read 27 classes / 77 tests from a
+leftover `-Ptest.tags=fast,slow` run while a plain `./gradlew :desktopApp:test`
+executes 10 / 30, so the local loop would have reported a permanent false regression
+and `check.sh` passed only because yesterday's XML was still there.
+
+`check-coverage.py` takes `--since <epoch-seconds>` and fails a report older than it.
+The test-run gate ended up needing **two** freshness modes, and the reason is a
+failure mode that only appears once you run the thing twice:
+
+- **`--since` (strict)** — the source set's newest report must postdate the stamp.
+  Correct in CI, where the checkout is fresh and every test task runs.
+- **`--max-age <seconds>` (tolerant)** — the report must be no older than the window.
+  Correct for a local loop, and it exists because **an UP-TO-DATE test task does not
+  rewrite its results directory**. The first version used `--since` everywhere, and
+  the second consecutive `check.sh` failed for reusing results that were still correct.
+  A strict rule that punishes a valid up-to-date build teaches people to add
+  `--no-daemon` or `--rerun-tasks` rather than to trust the gate.
+
+`check.sh` uses `--max-age 21600`; both CI jobs stamp `$GITHUB_ENV` and use `--since`.
+The coverage step in `check.sh` uses neither: that report comes from a separate,
+earlier task by design, so a stamp would mark it permanently stale and `--if-present`
+would skip the check in silence. That step prints the report's age instead — a check
+skipped by construction is indistinguishable from a check that was forgotten.
+
+The one place that must **not** use `--since` is the coverage step in `check.sh`:
+the report comes from a separate, earlier task, so a run-start stamp would mark it
+permanently stale and `--if-present` would skip the check in silence. That step
+prints the report's age instead, and the comment says why — a check that is skipped
+by construction is indistinguishable from a check that was forgotten.
+
+## The registry that checked nothing
+
+`EntityMapperCompletenessTest` compares mapper field access against a hand-maintained
+table, and the table is not maintained: of 11 `@Entity` classes it covered 6, and
+adding a seventh would have failed nothing. The five uncovered entities were not
+exempt — three of them (`TimeEntryEntity`, `AiProposalEntity`, `ProposalItemEntity`)
+have real mappers, and a column omitted by a mapper is reset by `@Upsert` on every
+write. This is the same "declared but never applied" shape as
+`2026-09-30-testtag-registry-honesty`, in a different registry.
+
+The test now scans the production source set for `@Entity data class` declarations
+and requires each one to be in exactly one category: checked (with its mapper's field
+set), skipped (join tables), unmapped (no domain model, reason required), or a
+**partial projection** (the domain model deliberately omits columns — naming them and
+why is the only honest option, since calling such an entity "unmapped" would be a
+false statement in a file whose purpose is to be true). A fifth category appeared
+during the work and was not anticipated: `CalendarSyncTaskMapEntity.toSyncedEventRef()`
+omits `userId` and `syncedAt` by design, which is a partial mapper rather than a
+missing one.
+
+Six more entities are now actually checked, and the self-completeness test includes a
+positive control — a synthetic case where an entity is missing from the registry — so
+that the rule cannot pass simply because the scanner found nothing.
+
+The generalisation: **a gate whose input is a hand-maintained table needs a test that
+the table is complete.** Without one, the gate measures its own curation, and reports
+it as coverage.
+
+## And the one gap left open on purpose
+
+`CachedIdentityReadArchitectureTest` originally ignored reads in a reactive call's
+argument list, because `dao.watchBy(id, scopedUserId.value).map { }` reads once at
+flow construction — the same one-shot semantics as an imperative write. The cost was
+that `combine(u.scopedUserId.value) { }` also went unflagged, sampling a value that
+can never change. The rule now separates them by position: the read must lie between
+the reactive call's own name and its brace. Both shapes are pinned by fixtures, since
+that distinction is the one the whole rule turns on.
