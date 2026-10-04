@@ -60,8 +60,8 @@ preference in a year.
 
 - `docs/decisions/2026-09-27-write-layer-soundness.md` (ledger #18: the
   syntactic rule, deferred as disproportionate)
-- `docs/decisions/deferred-backlog.md#bulk-import-port`
-- `docs/decisions/deferred-backlog.md#cross-user-write-rule-measured-and-rejected`
+- `docs/decisions/deferred-backlog-archive.md#bulk-import-port`
+- `docs/decisions/deferred-backlog-archive.md#cross-user-write-rule-measured-and-rejected`
 - `openspec/changes/baseline-write-pipeline` (backup/restore is explicitly
   out of scope there; this change adds the missing boundary)
 - Issue #82

@@ -99,4 +99,4 @@ is a gate that has stopped measuring.
 - `2026-10-04-desktop-test-failure-diagnostics.md` — the split that exposed this
 - `2026-10-04-rule-verifiability-inventory.md` — the other half of the same
   lesson: a rule nobody declared is a rule nobody chose
-- `deferred-backlog.md#epic-b-readability-now-unblocked-gates-work` — B5
+- `deferred-backlog-archive.md#epic-b-readability-now-unblocked-gates-work` — B5

@@ -161,6 +161,17 @@ SCRIPT_GATES = [
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
     ScriptGate(
+        name="backlog-status",
+        cmd=[sys.executable, "scripts/check-backlog-status.py"],
+        sabotage_path="docs/decisions/deferred-backlog.md",
+        # Strip the status line from the first entry, which is what 42 of them
+        # looked like before 2026-10-05. A gate that only ever sees a file where
+        # every entry is annotated has never been shown to catch the case it
+        # exists for.
+        sabotage="p.write_text(p.read_text().replace('**Status: OPEN**', '', 1))",
+        why="an entry with no readable status cannot be triaged, and a queue nobody can triage is not a queue",
+    ),
+    ScriptGate(
         name="unwired-backlog-refs",
         cmd=[sys.executable, "scripts/check-unwired-backlog-refs.py"],
         sabotage_path="scripts/find-unwired-surfaces-baseline.txt",

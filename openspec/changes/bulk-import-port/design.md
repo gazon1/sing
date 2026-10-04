@@ -61,4 +61,4 @@ code call the import boundary — and it is answerable.
 The write-layer rationale is in `docs/decisions/2026-09-27-write-layer-soundness.md`
 and `docs/decisions/2026-10-03-assert-canwrite-adr.md`. Neither is restated
 here. The measured rejection of the syntactic rule is recorded in
-`docs/decisions/deferred-backlog.md#cross-user-write-rule-measured-and-rejected`.
+`docs/decisions/deferred-backlog-archive.md#cross-user-write-rule-measured-and-rejected`.

@@ -1,6 +1,6 @@
 # desktop-nav-goBack-blank-screen
 
-**Status:** proposed · **Issue:** #27 · **Backlog:** `docs/decisions/deferred-backlog.md#desktop-nav-goBack-blank-screen`
+**Status:** proposed · **Issue:** #27 · **Backlog:** `docs/decisions/deferred-backlog-archive.md#desktop-nav-goBack-blank-screen`
 
 ## What
 

@@ -127,6 +127,6 @@ if (retryMax > 0) {
 ## Links
 
 - `2026-09-30-desktop-test-diagnostics.md` (FailureBundle infrastructure)
-- `deferred-backlog.md#ci-gates-are-all-continue-on-error`
-- `deferred-backlog.md#projects-flow-one-time-flake`
+- `deferred-backlog-archive.md#ci-gates-are-all-continue-on-error`
+- `deferred-backlog-archive.md#projects-flow-one-time-flake`
 - `docs/decisions/2026-09-30-nodate-fix.md:101-102`

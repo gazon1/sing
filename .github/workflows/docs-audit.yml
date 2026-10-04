@@ -51,7 +51,7 @@ jobs:
       # change did not create. The step to take is: run
       # `./scripts/normalize-adr-frontmatter.sh` without --dry-run, commit the
       # result, then delete `continue-on-error` here. Tracked in
-      # deferred-backlog.md#adr-frontmatter-drift-is-unenforced.
+      # deferred-backlog-archive.md#adr-frontmatter-drift-is-unenforced.
       - name: Check ADR frontmatter (advisory — pre-existing drift)
         continue-on-error: true
         run: ./scripts/normalize-adr-frontmatter.sh --dry-run
@@ -63,7 +63,7 @@ jobs:
       # The digest budget is now enforced: a verbose ADR that pushes DIGEST.md
       # over its cap must be dealt with, not announced. The remedy is to lower
       # MAX_ITEMS_PER_TAG in scripts/refresh-decisions-digest.py — see
-      # deferred-backlog.md#digest-line-limit-pressure — not to raise the cap.
+      # deferred-backlog-archive.md#digest-line-limit-pressure — not to raise the cap.
       - name: Enforce DIGEST size budget
         run: python3 scripts/check-doc-sizes.py
 
