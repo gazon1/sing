@@ -2,8 +2,6 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.App
 import com.singularity.todo.core.di.coreLoggingModule
@@ -64,7 +62,9 @@ private fun currentTestClassSimpleName(): String {
  * is opt-in per flow: switching it on everywhere would surface the whole
  * backlog at once, which is how these checks get abandoned. It lives here
  * rather than in an `AfterEachCallback` because the scene is gone by the time a
- * callback runs.
+ * callback runs. Violations are always written to stdout and to
+ * `build/diagnostics/<TestClass>/attempt-N/a11y.txt`. They become fatal only
+ * when `-Dsingularity.test.a11y=fail` is also set.
  */
 @OptIn(ExperimentalTestApi::class)
 fun runDesktopAppTest(
@@ -79,14 +79,14 @@ fun runDesktopAppTest(
      */
     clock: Clock? = null,
     overrides: Module = module {},
-    attempt: Int = 1,
     checkA11y: Boolean = false,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
-    // Reset Kermit writer list and ring buffer before every test — each test
-    // runs in its own forked JVM so there is no cross-test contamination, but
-    // calling Logger.setLogWriters() multiple times within the same JVM without
-    // clearing the list would double-add writers on the second invocation.
+    // Reset Kermit writer list and ring buffer before every test.
+    // With same_thread mode on both axes (class + method), tests run sequentially
+    // in one JVM. resetKermitWriters() is called unconditionally so the code is
+    // correct regardless of fork policy: calling Logger.setLogWriters() without
+    // clearing the list would double-add writers within the same JVM.
     resetKermitWriters()
 
     val app: KoinApplication = koinApplication {
@@ -117,6 +117,10 @@ fun runDesktopAppTest(
 
     val testClassName = currentTestClassSimpleName()
 
+    // Step recorder lives across retries so the full step history is available on failure.
+    val recorder = StepRecorder()
+    setStepRecorder(recorder)
+
     var lastThrowable: Throwable? = null
     var passedOnRetry = false
 
@@ -126,60 +130,127 @@ fun runDesktopAppTest(
     val maxAttempts = (System.getProperty("retry.maxAttempts") ?: "1").toIntOrNull() ?: 1
     val failOnPassedAfterRetry = (System.getProperty("retry.failOnPassedAfterRetry") ?: "true").toBoolean()
 
-    repeat(maxAttempts) { attemptIndex ->
-        val currentAttempt = attempt + attemptIndex
-        try {
-            test(app.koin)
-            if (currentAttempt > 1) passedOnRetry = true
-            lastThrowable = null
+    try {
+        repeat(maxAttempts) { attemptIndex ->
+            val currentAttempt = 1 + attemptIndex
+            try {
+                test(app.koin)
+                if (currentAttempt > 1) passedOnRetry = true
+                lastThrowable = null
+
+                runPostBodyDiagnostics(
+                    test = this,
+                    checkA11y = checkA11y,
+                    testClassName = testClassName,
+                    currentAttempt = currentAttempt,
+                    recorder = recorder,
+                )
+
+                return@runDesktopComposeUiTest
+            } catch (t: Throwable) {
+                lastThrowable = t
+                // Bundle first: screenshot, FakeAppDatabase state and the Kermit
+                // ring-buffer, written to build/diagnostics/<TestClass>/attempt-N.
+                val bundle = FailureBundle.capture(
+                    testClassSimpleName = testClassName,
+                    testInstance = this,
+                    app = app.koin,
+                    attempt = currentAttempt,
+                    kermitBuffer = ringBuffer,
+                    steps = recorder,
+                    highlightTag = recorder.lastFailedStepDetail(),
+                )
+                bundle.addSuppressedTo(t)
+
+                // Last steps summary rides on the failure for CI visibility without
+                // opening the bundle directory.
+                val lastSteps = recorder.summary()
+                if (lastSteps.isNotEmpty()) {
+                    t.addSuppressed(AssertionError("Last steps:\n$lastSteps"))
+                }
+
+                // Then the semantics tree, attached to the failure rather than printed.
+                // A `println` lands in stdout and gets lost when only the XML report is
+                // read; a suppressed exception rides along with the stack trace in every
+                // runner, which is the difference between re-running with a flag and
+                // reading the report the run already produced.
+                t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
+
+                // If more attempts remain, re-run without propagating the failure yet.
+                if (attemptIndex < maxAttempts - 1) {
+                    // Continue to next attempt
+                } else {
+                    throw t
+                }
+            }
+        }
+
+        // All attempts exhausted without a definitive pass/fail — decide based on policy.
+        if (passedOnRetry && !failOnPassedAfterRetry) {
+            // Test passed on retry: suppress failure, report as green.
             return@runDesktopComposeUiTest
-        } catch (t: Throwable) {
-            lastThrowable = t
-            // Bundle first: screenshot, FakeAppDatabase state and the Kermit
-            // ring-buffer, written to build/diagnostics/<TestClass>/attempt-N.
-            val bundle = FailureBundle.capture(
-                testClassSimpleName = testClassName,
-                testInstance = this,
-                app = app.koin,
-                attempt = currentAttempt,
-                kermitBuffer = ringBuffer,
-            )
-            bundle.addSuppressedTo(t)
+        }
+        throw lastThrowable ?: error("unreachable")
+    } finally {
+        clearStepRecorder()
+    }
+}
 
-            // Then the semantics tree, attached to the failure rather than printed.
-            // A `println` lands in stdout and gets lost when only the XML report is
-            // read; a suppressed exception rides along with the stack trace in every
-            // runner, which is the difference between re-running with a flag and
-            // reading the report the run already produced.
-            t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
-
-            // If more attempts remain, re-run without propagating the failure yet.
-            if (attemptIndex < maxAttempts - 1) {
-                // Continue to next attempt
-            } else {
-                throw t
+/**
+ * Diagnostics that run after the test body succeeds, while the scene is alive.
+ *
+ * Extracted from [runDesktopAppTest] to keep the harness function readable; both
+ * halves are best-effort — a diagnostics problem must not fail a passing test
+ * (except the explicit opt-in fatal a11y mode).
+ *
+ * The accessibility check is intentionally non-fatal by default; violations go to
+ * stdout and `a11y.txt`, and become fatal only with `-Dsingularity.test.a11y=fail`.
+ *
+ * The opt-in step-duration write (`-Dsingularity.test.steps=true`) records steps.txt
+ * for passing tests too, so the timing profile covers the whole suite instead of
+ * only failures.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun runPostBodyDiagnostics(
+    test: DesktopComposeUiTest,
+    checkA11y: Boolean,
+    testClassName: String,
+    currentAttempt: Int,
+    recorder: StepRecorder,
+) {
+    if (checkA11y) {
+        val violations = runCatching { A11yChecker(test).scan() }.getOrNull() ?: emptyList()
+        if (violations.isNotEmpty()) {
+            val a11yMessage = "A11y violations (${violations.size}):\n" +
+                violations.joinToString("\n")
+            println(a11yMessage)
+            // Write to diagnostics directory so it is available post-run.
+            val bundleDir = java.io.File("build/diagnostics/$testClassName/attempt-$currentAttempt")
+            bundleDir.mkdirs()
+            java.io.File(bundleDir, "a11y.txt").writeText(a11yMessage)
+            // Re-throw as fatal if the system property demands it.
+            if (System.getProperty("singularity.test.a11y") == "fail") {
+                throw AssertionError(a11yMessage)
             }
         }
     }
 
-    // All attempts exhausted without a definitive pass/fail — decide based on policy.
-    if (passedOnRetry && !failOnPassedAfterRetry) {
-        // Test passed on retry: suppress failure, report as green.
-        return@runDesktopComposeUiTest
+    if (System.getProperty("singularity.test.steps") == "true") {
+        runCatching {
+            val dir = java.io.File("build/diagnostics/$testClassName/attempt-$currentAttempt")
+            dir.mkdirs()
+            java.io.File(dir, "steps.txt").writeText(recorder.format())
+        }
     }
-    // failOnPassedAfterRetry=true or never passed: propagate last failure.
-    throw lastThrowable ?: error("unreachable")
-}
 
-/**
- * The current Compose semantics tree, or a note explaining why it could not be
- * read.
- *
- * Uses the unmerged tree: the whole point of debugging a selector is to see the
- * raw nodes before Compose folds them, and a merged tree hides exactly the
- * duplicate `Text` that makes `onNodeWithText` fail on ambiguity.
- */
-@OptIn(ExperimentalTestApi::class)
-private fun DesktopComposeUiTest.dumpSemantics(): String =
-    runCatching { onRoot(useUnmergedTree = true).printToString(maxDepth = 25) }
-        .getOrElse { "<semantics tree unavailable: ${it.message}>" }
+    // Opt-in regression baseline (-Dsingularity.test.baseline=true): on a PASSING
+    // run, snapshot the screen + tag inventory as "last known good". The failure
+    // path in FailureBundle then diffs against it. best-effort.
+    if (System.getProperty("singularity.test.baseline") == "true") {
+        runCatching {
+            test.writeBaseline(
+                java.io.File("build/diagnostics/$testClassName/baseline"),
+            )
+        }
+    }
+}

@@ -1,5 +1,20 @@
 schema: spec-driven
 
+# ─── When specs are NOT required ────────────────────────────────────────────────
+# This table takes precedence over everything below.
+# When behavior does NOT change, OpenSpec is not needed.
+
+skip_specs:
+  - Bug fix with no behavior change       # Fix is the spec — ordinary PR
+  - Test-only changes                    # Tests are not behavior — ordinary PR
+  - Dependency / version update          # No behavior change — ordinary PR
+  - Detekt / ktlint auto-fix            # Mechanical rewrite — ordinary PR
+  - Doc-only update                     # No code change — ordinary PR
+  - Rename with no contract change      # Renames are not behavior — ordinary PR
+  - Adding a use case following an existing pattern  # Already described — check specs first
+
+# Architecture changes (new port, DI pattern, cross-cutting) always require both ADR and spec.
+
 # ─── Project context ────────────────────────────────────────────────────────────
 # Constraints an agent cannot infer by reading the code.
 # Mandatory read order before writing any OpenSpec artifact:

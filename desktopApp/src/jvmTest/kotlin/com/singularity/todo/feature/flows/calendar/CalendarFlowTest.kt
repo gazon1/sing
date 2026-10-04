@@ -1,13 +1,12 @@
 package com.singularity.todo.feature.flows.calendar
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitAnyDisplayed
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.datetime.LocalDate
@@ -37,10 +36,10 @@ class CalendarFlowTest {
     fun month_view_renders_the_current_month() = runDesktopAppTest(checkA11y = true) {
         tapTab("Calendar")
 
-        onNodeWithText(monthTitle).assertIsDisplayed()
-        onNodeWithText("Mon").assertIsDisplayed()
-        onNodeWithText("Sun").assertIsDisplayed()
-        onNodeWithText("Month").assertIsDisplayed()
+        assertTextDisplayed(monthTitle)
+        assertTextDisplayed("Mon")
+        assertTextDisplayed("Sun")
+        assertTextDisplayed("Month")
     }
 
     @Test
@@ -64,16 +63,16 @@ class CalendarFlowTest {
     @Test
     fun view_mode_switches_from_month_to_week() = runDesktopAppTest(checkA11y = true) {
         tapTab("Calendar")
-        onNodeWithText("Month").assertIsDisplayed()
-        onNodeWithText(monthTitle).assertIsDisplayed()
+        assertTextDisplayed("Month")
+        assertTextDisplayed(monthTitle)
 
         // The control is labelled with the current mode and opens the switcher.
-        onNodeWithText("Month").performClick()
-        onNodeWithText("Week").performClick()
+        clickText("Month")
+        clickText("Week")
 
         // Week replaces the month title with a date range. The weekday columns
         // stay in both views, so the header is what distinguishes them.
-        onNodeWithText("Week").assertIsDisplayed()
-        onNodeWithText(monthTitle).assertDoesNotExist()
+        assertTextDisplayed("Week")
+        assertTextNotExists(monthTitle)
     }
 }

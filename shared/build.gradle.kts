@@ -1,3 +1,4 @@
+import org.gradle.api.artifacts.Configuration
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.gradle.api.tasks.PathSensitivity
 
@@ -21,6 +22,12 @@ plugins {
 
 koinCompiler {
     // userLogs = true // uncomment to see detected definitions during development
+}
+
+/** kotlinx-coroutines-debug agent for jvmTest only. */
+val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
 }
 
 kotlin {
@@ -244,6 +251,8 @@ kotlin {
             // Architecture boundary tests (ArchitectureTest) — structural assertions
             // over commonMain sources, enforced as part of the regular test run.
             implementation(libs.konsist)
+            // kotlinx-coroutines-debug for coroutine dump on failure (FailureContextExtension).
+            implementation(libs.kotlinx.coroutines.debug)
         }
     }
 }
@@ -340,9 +349,29 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     if (project.findProperty("updateGoldens")?.toString() == "true") {
         systemProperty("update.goldens", "true")
     }
+    // Build directory path for FailureContextExtension coroutine dump output.
+    systemProperty(
+        "shared.build.dir",
+        layout.buildDirectory.get().asFile.absolutePath,
+    )
+    // Global test timeout: makes CoroutinesTimeoutExtension fire on a hard-hang
+    // (Extension catches the exception and writes coroutines-timeout.txt before the harness
+    // marks the test as failed). 5 minutes is long enough for any real test; it exists
+    // to catch infinite loops and deadlocks, not to bound normal execution.
+    systemProperty("junit.jupiter.timeout.default", "300000")
+    // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility.
+    // Resolved eagerly as a plain String (not via CommandLineArgumentProvider) to avoid
+    // capturing the Gradle script object, which breaks the configuration cache.
+    val coroutinesDebugAgentPath: String = configurations
+        .named("coroutinesDebugAgent").get()
+        .resolve()
+        .single { it.name.contains("debug") && it.name.endsWith(".jar") }
+        .absolutePath
+    jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 }
 
 dependencies {
+    coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
     androidRuntimeClasspath(libs.compose.ui.tooling)
 
     // Room 3 KSP compiler — per-target so AppDatabase_Impl is generated

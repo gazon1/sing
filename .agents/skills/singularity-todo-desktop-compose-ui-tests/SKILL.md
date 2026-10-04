@@ -132,6 +132,59 @@ at the real problem. `TestTagsWiringTest` fails the build on an unapplied
 constant, and also fails on a *stale* allowlist entry — so when a tag becomes
 applied, removing it from the allowlist is enforced, not optional.
 
+**Use helpers, not raw selectors.** `onNodeWithTag`, `onNodeWithText`,
+`onNodeWithContentDescription`, and `onAllNodesWithTag` belong in `test/helpers/`.
+`HarnessConventionTest` enforces this: raw calls outside helpers require a reason
+in `EXEMPT_RAW_TAGS`; exemptions without actual raw calls are caught as stale.
+
+## Reading a failure bundle
+
+When a flow test fails, a bundle is written to
+`build/diagnostics/<TestClass>/attempt-N/`. Read it in this order:
+
+```
+steps.txt        → what the test was doing (step name, detail, duration, OK/FAIL)
+screenshot-annotated.png  → bounding-box overlays: red = failed/highlight, gray = others
+nodes.txt        → all tagged semantics nodes: tag / text / contentDescription / bounds
+tree.txt         → raw semantics tree (unmerged)
+kermit.log      → app logs
+db-state.txt    → FakeAppDatabase contents
+a11y.txt        → (only when checkA11y = true) accessibility violations
+```
+
+For a timeout failure, `steps.txt` shows which `awaitTag` timed out and after how
+many polls; `nodes.txt` shows what tags *were* present.
+
+New `-D` flags for the suite:
+
+| Flag | Effect |
+|---|---|
+| `-Dsingularity.test.screenshot=false` | Skip screenshot capture |
+| `-Dsingularity.test.a11y=fail` | Make a11y violations fatal (warn + a11y.txt always) |
+| `-Dsingularity.test.steps=true` | Write steps.txt for *passing* tests too — feeds `scripts/step-duration-report.py` |
+| `-Dsingularity.test.baseline=true` | On passing runs, snapshot `baseline/` (screen + tag inventory); on failures, `nodes-diff.txt` reports which tags appeared/disappeared vs that snapshot |
+
+## Timing profile
+
+```bash
+./gradlew :desktopApp:test -Dsingularity.test.steps=true
+python3 scripts/step-duration-report.py
+```
+
+`tapTab` is the heaviest step (drawer animation, ~0.35s median); `awaitTag` is
+near-instant on a healthy screen (p95 ~0.1s). A step whose p95 climbs toward
+`TIMEOUT_MS` (5s) is the flake candidate.
+
+## Regression baseline
+
+Run once with `-Dsingularity.test.baseline=true` after a known-good change: each
+test class gets a `build/diagnostics/<Class>/baseline/` snapshot (per class, not
+per test — the last passing test in the class wins). From then on, any failure
+writes `nodes-diff.txt` comparing the tag inventory at failure against that
+snapshot: "Disappeared" tags are what the failure removed from the screen, new
+ones what it left behind. Semantic diff — stable under animation and
+antialiasing noise that breaks pixel comparison.
+
 **Do not build a tag from localized text.** `TestTags.taskAction(action)` takes
 a stable id, not the label. A label-derived tag breaks in every locale but the
 one it was written in.
@@ -152,11 +205,21 @@ one it was written in.
 ## Debugging
 
 **When a test fails**, the harness bundles diagnostics automatically into
-`desktopApp/build/diagnostics/<TestClass>/attempt-N/`: `screenshot.png` (the last
-composed frame), `db-state.txt` (FakeAppDatabase dump), `kermit.log`. Read those
-before reading source — a screenshot answering "what was actually on screen" in one
-glance beats an hour of source review. The semantics tree also rides on the failure
-itself as a suppressed exception, so it is in the test XML too.
+`desktopApp/build/diagnostics/<TestClass>/attempt-N/`:
+
+| Artifact | What it contains |
+|---|---|
+| `db-state.txt` | FakeAppDatabase dump |
+| `kermit.log` | Kermit log (logcat equivalent) |
+| `coroutines.txt` | Coroutine snapshot — all coroutines, states, stack traces |
+| `screenshot.png` | Last composed frame |
+
+Read them before reading source — a screenshot answering "what was actually on screen"
+in one glance beats an hour of source review. The semantics tree also rides on the
+failure itself as a suppressed exception, so it is in the test XML too.
+
+Capture order (hang-proof first): db-state → kermit → coroutines → screenshot.
+If the screenshot path hangs, the first three artifacts are already written.
 
 Two contracts baked into the bundle:
 
@@ -204,8 +267,9 @@ test worker while it is stuck and follow the hang protocol in
 `debugging-investigation` (step 4): test thread in `EventQueue.invokeAndWait` plus a
 100%-busy `AWT-EventQueue-0` in `RenderNode_nDrawInto` means a never-idle
 composition; for silent coroutine death (VM stuck on its initial state, no events),
-`DebugProbes.dumpCoroutines()` prints the uncaught throw that killed it. The
-headless probe pattern — build `domainModule()` + `testPlatformModule()` in a plain
+read `build/diagnostics/<TestClass>/coroutines.txt` — the coroutine snapshot shows
+the last observed stack trace of every active coroutine and flags the one that died.
+The headless probe pattern — build `domainModule()` + `testPlatformModule()` in a plain
 `runTest`, construct the VM directly, wait for `Loaded` — splits "VM never resolves"
 from "screen does not render it" in one run; see
 `TaskDetailCoordinatorGraphTest` for the shape.

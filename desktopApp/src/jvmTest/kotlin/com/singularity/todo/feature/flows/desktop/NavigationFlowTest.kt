@@ -1,13 +1,12 @@
 package com.singularity.todo.feature.flows.desktop
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -31,10 +30,10 @@ class NavigationFlowTest {
         openDrawer()
 
         DesktopShell.TABS.forEach { label ->
-            onNodeWithContentDescription(label).assertIsDisplayed()
+            assertContentDescriptionDisplayed(label)
         }
         DesktopShell.MENU_ENTRIES.forEach { label ->
-            onNodeWithContentDescription(label).assertIsDisplayed()
+            assertContentDescriptionDisplayed(label)
         }
     }
 
@@ -43,12 +42,12 @@ class NavigationFlowTest {
         // The phase label is tagged, so this proves the Pomodoro VM produced state
         // rather than merely that the drawer entry was clicked.
         tapTab("Pomodoro")
-        onNodeWithTag(TestTags.Pomodoro.PHASE_LABEL).assertIsDisplayed()
+        assertTagDisplayed(TestTags.Pomodoro.PHASE_LABEL)
 
         // The month grid's weekday columns exist only in the calendar.
         tapTab("Calendar")
-        onNodeWithText("Mon").assertIsDisplayed()
-        onNodeWithText("Sun").assertIsDisplayed()
+        assertTextDisplayed("Mon")
+        assertTextDisplayed("Sun")
     }
 
     @Test

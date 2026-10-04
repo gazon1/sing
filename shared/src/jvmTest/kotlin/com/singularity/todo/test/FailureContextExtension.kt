@@ -1,8 +1,10 @@
 package com.singularity.todo.test
 
+import com.singularity.todo.test.helpers.CoroutineDiagnostics
 import org.junit.jupiter.api.extension.BeforeAllCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler
+import java.io.File
 import java.time.Instant
 
 /**
@@ -48,6 +50,10 @@ class FailureContextExtension :
      * This matches the JUnit Jupiter extension contract.
      */
     override fun handleTestExecutionException(extensionContext: ExtensionContext, throwable: Throwable) {
+        // Write coroutine dump first — independent of the exception type.
+        // Failures in writing the dump do not affect the original failure.
+        writeCoroutineDump(extensionContext)
+
         // Pass through anything that is not an AssertionError.
         if (throwable !is AssertionError) return
 
@@ -62,6 +68,27 @@ class FailureContextExtension :
         // Throw the augmented exception — this replaces the original in the test result.
         throw AssertionError(augmentedMessage, throwable).apply {
             stackTrace = throwable.stackTrace
+        }
+    }
+
+    /**
+     * Writes a coroutine snapshot to `build/diagnostics/<TestClass>/coroutines.txt`
+     * in the shared module's build directory.
+     *
+     * This runs on **any** test failure (not just AssertionError), making it useful
+     * for diagnosing hangs and unexpected exception types.
+     * Failures in writing the dump are silent — they never affect the test result.
+     */
+    private fun writeCoroutineDump(extensionContext: ExtensionContext) {
+        runCatching {
+            val testClass = extensionContext.requiredTestClass.simpleName
+            val buildDirPath = System.getProperty("shared.build.dir")
+                ?: return@runCatching
+            val buildDir = File(buildDirPath)
+            val diagnosticsDir = File(buildDir, "diagnostics/$testClass")
+            diagnosticsDir.mkdirs()
+            val dumpFile = File(diagnosticsDir, "coroutines.txt")
+            dumpFile.writeText(CoroutineDiagnostics.dump(testClass))
         }
     }
 }

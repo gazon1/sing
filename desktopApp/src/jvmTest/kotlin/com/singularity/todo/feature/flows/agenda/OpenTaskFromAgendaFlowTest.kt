@@ -2,11 +2,12 @@ package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tasks
@@ -58,7 +59,7 @@ class OpenTaskFromAgendaFlowTest {
 
         // The editor must show the task title, not be empty
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        onNodeWithText("Existing task").assertIsDisplayed()
+        assertTextDisplayed("Existing task")
     }
 
     @Test
@@ -71,9 +72,9 @@ class OpenTaskFromAgendaFlowTest {
 
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
         // Due date row shows ISO date, not the placeholder
-        onNodeWithTag(TestTags.TASK_EDITOR_DUE_ROW).assertIsDisplayed()
-        onNodeWithText(today.toString()).assertIsDisplayed()
-        onNodeWithText("Добавить дату").assertDoesNotExist()
+        assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
+        assertTextDisplayed(today.toString())
+        assertTextNotExists("Добавить дату")
     }
 
     @Test
@@ -86,7 +87,7 @@ class OpenTaskFromAgendaFlowTest {
 
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
         // Priority row shows the label for High priority
-        onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).assertIsDisplayed()
-        onNodeWithText("High priority").assertIsDisplayed()
+        assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
+        assertTextDisplayed("High priority")
     }
 }

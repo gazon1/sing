@@ -13,6 +13,11 @@ plugins {
 val desktopAppVersion = "0.1.0"
 val desktopAppVersionCode = 0
 
+val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
 sourceSets {
     test {
         java.srcDirs("src/jvmTest")
@@ -38,6 +43,7 @@ sourceSets {
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
+            testImplementation(libs.kotlinx.coroutines.debug)
         }
     }
 }
@@ -107,15 +113,13 @@ detekt {
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
-    useJUnitPlatform {
+        useJUnitPlatform {
         // Desktop UI tests mount the whole production App(). The graph is built
         // per test from testPlatformModule() — FakeAppDatabase plus inert ports —
-        // so no test reads or writes ~/.singularity-todo and no test mutates a
-        // process-global property, which is what made parallel execution safe.
+        // so no test reads or writes ~/.singularity-todo.
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")
-        systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
-        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
-        systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
+        systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
+        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
 
         val tags = (project.findProperty("test.tags") as String?)
             ?.split(",")?.orEmpty() ?: emptyList()
@@ -141,6 +145,9 @@ tasks.withType<Test>().configureEach {
     listOf(
         "singularity.test.log",
         "singularity.test.screenshot",
+        "singularity.test.steps",
+        "singularity.test.a11y",
+        "singularity.test.baseline",
         "singularity.ui.dumpTree",
         "retry.maxAttempts",
         "retry.failOnPassedAfterRetry",
@@ -156,11 +163,22 @@ tasks.withType<Test>().configureEach {
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
     )
+    // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility;
+    // DebugProbes.install() emits a dynamic-loading warning on JDK 21 and fails on JDK 22+.
+    // Resolved eagerly as a plain String (not via CommandLineArgumentProvider) to avoid
+    // capturing the Gradle script object, which breaks the configuration cache.
+    val coroutinesDebugAgentPath: String = configurations
+        .named("coroutinesDebugAgent").get()
+        .resolve()
+        .single { it.name.contains("debug") && it.name.endsWith(".jar") }
+        .absolutePath
+    jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 }
 
 dependencies {
     detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
     detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
+    coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
 }
 
 // ---------------------------------------------------------------------------

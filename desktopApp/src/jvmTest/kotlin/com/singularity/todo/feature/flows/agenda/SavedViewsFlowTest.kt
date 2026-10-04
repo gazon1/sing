@@ -3,12 +3,8 @@ package com.singularity.todo.feature.flows.agenda
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodesWithTag
-
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -17,8 +13,13 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickText
+import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
@@ -66,18 +67,18 @@ class SavedViewsFlowTest {
 
     @Test
     fun the_saved_views_list_opens_and_reports_its_empty_state() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        onNodeWithText("Saved Views").assertIsDisplayed()
-        onNodeWithText("No saved views yet").assertIsDisplayed()
-        awaitTag(TestTags.SAVED_AGENDA_CREATE_FAB).assertIsDisplayed()
+        clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+        assertTextDisplayed("Saved Views")
+        assertTextDisplayed("No saved views yet")
+        assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
     }
 
     @Test
     fun leaving_the_saved_views_list_returns_to_the_agenda() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        onNodeWithText("Saved Views").assertIsDisplayed()
+        clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+        assertTextDisplayed("Saved Views")
         awaitTag(TestTags.SAVED_AGENDA_LIST_BACK).performClick()
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).assertIsDisplayed()
+        assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
     }
 
     // ─── Composition ───────────────────────────────────────────────────
@@ -121,9 +122,9 @@ class SavedViewsFlowTest {
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
 
         // Both cards render with the same slug → same testTag; assert the count is 2
-        // (onAllNodesWithTag, because awaitTag requires exactly one match)
-        val cards = onAllNodesWithTag(TestTags.savedAgendaCard("my_view")).fetchSemanticsNodes()
-        assertTrue("expected 2 cards named 'My View', found ${cards.size}", cards.size == 2)
+        // (countNodes, because awaitTag requires exactly one match)
+        val cards = countNodes(TestTags.savedAgendaCard("my_view"))
+        assertTrue("expected 2 cards named 'My View', found $cards", cards == 2)
 
         // Both are in the repo
         val repo = koin.get<SavedAgendaViewsRepository>()
@@ -165,7 +166,7 @@ class SavedViewsFlowTest {
         awaitTag(TestTags.savedAgendaCard("menu_view")).assertIsDisplayed()
 
         // Open the card's overflow menu (⋮ is text-only — no tag, no contentDescription)
-        onNodeWithText("⋮").performClick()
+        clickText("⋮")
 
         // The desktop AWT menu bar also renders a plain "Edit" label (no click
         // action), so menu items are matched by text AND click action.
@@ -186,11 +187,11 @@ class SavedViewsFlowTest {
 
         // Open menu → Delete. List-level delete is immediate (no confirm dialog;
         // the confirmation exists only in Edit mode) per SavedAgendaListScreen.
-        onNodeWithText("⋮").performClick()
+        clickText("⋮")
         onAllNodes(hasText("Delete") and hasClickAction()).onFirst().performClick()
 
         // Card is gone from the list
         awaitTagGone(TestTags.savedAgendaCard("to_delete"))
-        onNodeWithText("No saved views yet").assertIsDisplayed()
+        assertTextDisplayed("No saved views yet")
     }
 }

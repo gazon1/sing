@@ -7,7 +7,6 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -22,6 +21,8 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.flow.first
@@ -84,8 +85,8 @@ class SavedAgendaSelectorConfiguratorFlowTest {
     private fun androidx.compose.ui.test.DesktopComposeUiTest.openEditorForConfigurable() {
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        onNodeWithText("Configurable").assertIsDisplayed()
-        onNodeWithText("⋮").performClick()
+        assertTextDisplayed("Configurable")
+        clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
     }
@@ -94,7 +95,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         // The view under test has no sections, so the editor shows its empty
         // state and the button is labelled "Add first section". onNodeWithText is
         // exact-match, not substring.
-        onNodeWithText("Add first section").performClick()
+        clickText("Add first section")
     }
 
     @Test
@@ -152,8 +153,8 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
 
         // And it survives the round trip: reopen and the section is still there.
-        onNodeWithText("Configurable").assertIsDisplayed()
-        onNodeWithText("⋮").performClick()
+        assertTextDisplayed("Configurable")
+        clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
         // The section row renders the description twice — as the section name
         // and as the row subtitle — so match the first, not "exactly one".

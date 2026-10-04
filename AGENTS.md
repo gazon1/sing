@@ -196,6 +196,16 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 > `singularity-todo-emulator-launch` skill и ADR
 > `2026-09-29-emulator-crash-recovery-runner.md`.
 
+## 🤖 Coroutine test failures
+
+Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt`
+(состояние, контекст, иерархия job, стектрейлы). Читай **первым**: кадры
+приложения раньше kotlinx указывают, где корутина была; умерла она там, где
+`lastObservedStackTrace`. Одинаковые стектрейсы — не доказательство утечки
+(для фоновых коллекторов это норма). Порядок разбора и ограничения:
+`docs/decisions/2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 скилла
+`debugging-investigation`.
+
 ## ❌ Что НЕ делать
 
 1. **`runBlocking` в ViewModel init** — вместо этого `combine(...)` + `flatMapLatest`
@@ -223,27 +233,18 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 
 ## 🗂 Skills
 
-Полный каталог с описаниями — `docs/SKILLS-CATALOG.md` (auto-generated). Правила написания
-скиллов — `writing-for-agents` skill. Навигация по темам — `find-skills` / `wayfinder`.
+Каталог с описаниями — `docs/SKILLS-CATALOG.md` (auto-generated, не редактировать).
+Правила написания — `writing-for-agents`. Навигация по темам — `find-skills` / `wayfinder`.
 
 Ключевые: `singularity-todo-testable-vm` (canonical VM) · `vm-migration-playbook` ·
-`feature-scaffold` · `test-helpers` · `nav3-nested-graphs` · `nav3-savedstate` · `koin-di` ·
-`ai-tool` · `mcp-server` · `sync` · `room-migration` · `quality-tools` (detekt/ktlint/kover) ·
-`clean-architecture-audit` · `worktree-isolation` · `code-review-pr-workflow` ·
-`decisions-workflow` · `openspec-workflow` · `maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
+`feature-scaffold` · `test-helpers` · `nav3-nested-graphs` · `koin-di` · `ai-tool` ·
+`mcp-server` · `sync` · `room-migration` · `quality-tools` · `clean-architecture-audit` ·
+`maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
 
 > **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется,
 > покрыт тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`.
 
-**Удалённые skill-ы:** `koin-suspend-bridge` · `ai-provider-settings` · `secret-migration` ·
-`koog-test-workarounds` · `koog-both-platforms` · `vm-koin-scoping` — см. ADR в `docs/decisions/`.
-
 ## Agent skills
 
-### Issue tracker
-
-GitHub Issues (git@github.com:gazon1/singularity-clone-kmp.git). See `docs/agents/issue-tracker.md`.
-
-### Domain docs
-
-Single-context layout: one `CONTEXT.md` at the repo root, ADRs at `docs/decisions/`. See `docs/agents/domain.md`.
+Issue tracker — `docs/agents/issue-tracker.md` (GitHub Issues). Domain docs —
+`docs/agents/domain.md` (один `CONTEXT.md` в корне, ADR-ы в `docs/decisions/`).

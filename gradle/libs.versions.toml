@@ -89,7 +89,6 @@ security-crypto = "1.1.0-alpha06"
 
 # Play In-App Updates
 play-app-update = "2.1.0"
-kotlinx-coroutines-play-services = "1.11.0"
 
 # AI Agent Framework (JetBrains Koog)
 koog = "1.1.1"
@@ -122,6 +121,7 @@ kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", versi
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
+kotlinx-coroutines-debug = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-debug", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlin-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 
@@ -256,7 +256,7 @@ android-security-crypto = { module = "androidx.security:security-crypto", versio
 # Play In-App Updates
 play-app-update = { module = "com.google.android.play:app-update", version.ref = "play-app-update" }
 play-app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "play-app-update" }
-kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines-play-services" }
+kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
 
 # Koog AI Agent
 koog-agents = { module = "ai.koog:koog-agents", version.ref = "koog" }

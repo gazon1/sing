@@ -7,7 +7,6 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextClearance
@@ -21,6 +20,8 @@ import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
@@ -119,14 +120,14 @@ class SavedAgendaEditFlowTest {
         // Open overflow menu (⋮) on the card — text-only, no testTag.
         // The desktop AWT menu bar also renders a plain "Edit" label (no click
         // action), so menu items are matched by text AND click action.
-        onNodeWithText("⋮").performClick()
+        clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().assertIsDisplayed()
         onAllNodes(hasText("Delete") and hasClickAction()).onFirst().assertIsDisplayed()
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
         // Edit mode: name input is shown pre-filled
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
-        onNodeWithText("Editable View").assertIsDisplayed()
+        assertTextDisplayed("Editable View")
     }
 
     @Test
@@ -138,7 +139,7 @@ class SavedAgendaEditFlowTest {
         awaitTag(TestTags.savedAgendaCard("old_name")).assertIsDisplayed()
 
         // Open menu → Edit
-        onNodeWithText("⋮").performClick()
+        clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextClearance()
@@ -174,7 +175,7 @@ class SavedAgendaEditFlowTest {
         awaitTag(TestTags.savedAgendaCard("to_delete")).assertIsDisplayed()
 
         // Open menu → Edit
-        onNodeWithText("⋮").performClick()
+        clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
@@ -192,6 +193,6 @@ class SavedAgendaEditFlowTest {
 
         // Should navigate back to list and show empty state
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
-        onNodeWithText("No saved views yet").assertIsDisplayed()
+        assertTextDisplayed("No saved views yet")
     }
 }
