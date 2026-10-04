@@ -28,10 +28,21 @@ pass/fail without reporting *how much ran* is not a baseline.
 
 `config/docs/test-runs-baseline.txt`, one line per source set:
 
-    <source-set> <classes> <tests>
+    <source-set> <classes> <tests> <max-skipped>
 
 Counts only XML reports that exist, so a source set that was never run is
 reported as missing rather than silently absent from the comparison.
+
+`classes` and `tests` are **floors**: running fewer means a suite stopped being
+selected. `max-skipped` is a **ceiling**: it is 0 across the board, and any
+non-zero value is a defect, not a baseline to grow into.
+
+A skipped test is the other silent green. `@Disabled` on a class, or a
+`@EnabledIf`/`assumeTrue` guard that starts failing, removes real coverage while
+the run still reports the same test count — the count floor cannot see it,
+because JUnit counts a skipped testcase in `tests=` exactly like a passing one.
+That is how `TaskOutgoingLinksTest` sat `@Disabled` with 15 tests for a month
+(ADR `2026-09-25-test-jvm-heap-default`) behind a fully green task.
 
 ## Usage
 
@@ -64,26 +75,31 @@ SUITE_RE = re.compile(r'tests="(\d+)"')
 
 
 def count(detail_dir: pathlib.Path):
-    """(classes, tests) from the JUnit XML reports in *detail_dir*, or None if absent."""
+    """(classes, tests, skipped) from the JUnit XML in *detail_dir*, or None if absent."""
     if not detail_dir.is_dir():
         return None
-    classes = tests = 0
+    classes = tests = skipped = 0
     for xml in detail_dir.glob("**/*.xml"):
         try:
             root = ET.parse(xml).getroot()
         except ET.ParseError:
             continue
-        suite = root if root.tag == "testsuite" else None
-        if suite is None:
+        if root.tag != "testsuite":
             continue
         classes += 1
-        match = SUITE_RE.search(xml.read_text(encoding="utf-8", errors="replace")[:2000])
-        if match:
-            tests += int(match.group(1))
-    return classes, tests
+        # Prefer the parsed attribute; fall back to the raw-text scan for reports
+        # written by a tool that omits the attribute on the root element.
+        total = root.get("tests")
+        if total is None:
+            match = SUITE_RE.search(xml.read_text(encoding="utf-8", errors="replace")[:2000])
+            total = match.group(1) if match else 0
+        tests += int(total)
+        skipped += int(root.get("skipped", 0) or 0)
+    return classes, tests, skipped
 
 
 def load_baseline(path: pathlib.Path):
+    """label -> (classes, tests, max_skipped). A 3-column line means max-skipped 0."""
     entries = {}
     if not path.exists():
         return entries
@@ -93,7 +109,8 @@ def load_baseline(path: pathlib.Path):
             continue
         parts = line.split()
         if len(parts) >= 3:
-            entries[parts[0]] = (int(parts[1]), int(parts[2]))
+            max_skipped = int(parts[3]) if len(parts) >= 4 else 0
+            entries[parts[0]] = (int(parts[1]), int(parts[2]), max_skipped)
     return entries
 
 
@@ -120,7 +137,7 @@ def main() -> int:
     if args.update_baseline:
         lines = [
             "# Executed test counts, used as a floor by scripts/check-test-runs.py.",
-            "# Format: <source-set> <classes> <tests>",
+            "# Format: <source-set> <classes> <tests> <max-skipped>",
             "#",
             "# Record the SMALLEST count any legitimate run produces. The default local",
             "# run (no -Ptest.tags) executes only @Tag(\"fast\") classes, so it is the",
@@ -132,16 +149,22 @@ def main() -> int:
             "# JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do",
             "# not regenerate. A RISE just means tests were added.",
             "#",
+            "# max-skipped is a CEILING, not a floor, and it is 0. A skipped test is a",
+            "# silent green: JUnit counts it in tests= exactly like a passing one, so a",
+            "# @Disabled class or a failing assumption guard removes real coverage with no",
+            "# other symptom. Do not raise it to make this gate pass — re-enable the test.",
+            "#",
             "# Regenerate with: python3 scripts/check-test-runs.py --update-baseline",
         ]
         for label in sorted(observed):
-            classes, tests = observed[label]
-            lines.append(f"{label} {classes} {tests}")
+            classes, tests, skipped = observed[label]
+            lines.append(f"{label} {classes} {tests} {skipped}")
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
         BASELINE.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"baseline written: {BASELINE.relative_to(ROOT)} ({len(observed)} source sets)")
         for label in sorted(observed):
-            print(f"  {label}: {observed[label][0]} classes, {observed[label][1]} tests")
+            classes, tests, skipped = observed[label]
+            print(f"  {label}: {classes} classes, {tests} tests, {skipped} skipped")
         return 0
 
     baseline = load_baseline(BASELINE)
@@ -150,7 +173,7 @@ def main() -> int:
         return 1
 
     regressions = []
-    for label, (base_classes, base_tests) in sorted(baseline.items()):
+    for label, (base_classes, base_tests, max_skipped) in sorted(baseline.items()):
         actual = observed.get(label)
         if actual is None:
             # A source set that produced no results at all is only a failure where this
@@ -161,18 +184,24 @@ def main() -> int:
                     f"{label}: produced no test results in a job that requires it"
                 )
             continue
-        classes, tests = actual
+        classes, tests, skipped = actual
         if classes < base_classes or tests < base_tests:
             regressions.append(
                 f"{label}: {classes} classes / {tests} tests, "
                 f"baseline {base_classes} / {base_tests} "
                 f"(-{base_classes - classes} classes, -{base_tests - tests} tests)"
             )
+        if skipped > max_skipped:
+            regressions.append(
+                f"{label}: {skipped} skipped tests, ceiling {max_skipped} "
+                f"(+{skipped - max_skipped}) — a @Disabled class or a failing "
+                f"assumption guard is removing coverage silently"
+            )
 
     if not args.quiet:
         for label in sorted(observed):
-            classes, tests = observed[label]
-            print(f"{label}: {classes} classes, {tests} tests")
+            classes, tests, skipped = observed[label]
+            print(f"{label}: {classes} classes, {tests} tests, {skipped} skipped")
 
     if regressions:
         print("\nTest runs below the recorded floor — a suite stopped running:", file=sys.stderr)
