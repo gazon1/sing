@@ -318,6 +318,17 @@ tasks.withType<Test>().configureEach {
 // call startKoin()/stopKoin() vs koinApplication().
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     forkEvery = 1
+    // Forks in parallel, still one JVM per class. `forkEvery = 1` is what isolates
+    // KoinPlatform state between classes; it costs a JVM start per class, and at
+    // 190 classes that was 7m58s of which the tests themselves were a fraction.
+    // Parallel forks keep the isolation exactly — each fork is still its own
+    // process, re-created per class — and only overlap the startup cost.
+    //
+    // Scaled to the machine, not fixed: CI runners have 2-4 cores, and four forks
+    // there oversubscribe rather than speed anything up. Half the cores, capped at
+    // four, because each fork reserves `maxHeapSize` and four of them is already
+    // 12 GB reserved.
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = "3g"
