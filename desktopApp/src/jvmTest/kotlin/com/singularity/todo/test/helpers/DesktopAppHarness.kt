@@ -229,4 +229,15 @@ private fun runPostBodyDiagnostics(
             java.io.File(dir, "steps.txt").writeText(recorder.format())
         }
     }
+
+    // Opt-in regression baseline (-Dsingularity.test.baseline=true): on a PASSING
+    // run, snapshot the screen + tag inventory as "last known good". The failure
+    // path in FailureBundle then diffs against it. best-effort.
+    if (System.getProperty("singularity.test.baseline") == "true") {
+        runCatching {
+            test.writeBaseline(
+                java.io.File("build/diagnostics/$testClassName/baseline"),
+            )
+        }
+    }
 }

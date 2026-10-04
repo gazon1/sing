@@ -239,6 +239,17 @@ data class FailureBundle(
                 }
             }
 
+            // Regression diff vs the baseline snapshot written on a passing run with
+            // -Dsingularity.test.baseline=true. Best-effort on both sides: no baseline
+            // (or a failed read) simply means no diff.
+            runCatching {
+                val baselineDir = File("build/diagnostics/$testClassSimpleName/baseline")
+                val diff = testInstance.diffAgainstBaseline(baselineDir)
+                if (diff != null) {
+                    File(bundle.outputDir, "nodes-diff.txt").writeText(diff)
+                }
+            }
+
             return bundle
         }
 

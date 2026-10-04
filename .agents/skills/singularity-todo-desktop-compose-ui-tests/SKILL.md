@@ -161,6 +161,29 @@ New `-D` flags for the suite:
 |---|---|
 | `-Dsingularity.test.screenshot=false` | Skip screenshot capture |
 | `-Dsingularity.test.a11y=fail` | Make a11y violations fatal (warn + a11y.txt always) |
+| `-Dsingularity.test.steps=true` | Write steps.txt for *passing* tests too — feeds `scripts/step-duration-report.py` |
+| `-Dsingularity.test.baseline=true` | On passing runs, snapshot `baseline/` (screen + tag inventory); on failures, `nodes-diff.txt` reports which tags appeared/disappeared vs that snapshot |
+
+## Timing profile
+
+```bash
+./gradlew :desktopApp:test -Dsingularity.test.steps=true
+python3 scripts/step-duration-report.py
+```
+
+`tapTab` is the heaviest step (drawer animation, ~0.35s median); `awaitTag` is
+near-instant on a healthy screen (p95 ~0.1s). A step whose p95 climbs toward
+`TIMEOUT_MS` (5s) is the flake candidate.
+
+## Regression baseline
+
+Run once with `-Dsingularity.test.baseline=true` after a known-good change: each
+test class gets a `build/diagnostics/<Class>/baseline/` snapshot (per class, not
+per test — the last passing test in the class wins). From then on, any failure
+writes `nodes-diff.txt` comparing the tag inventory at failure against that
+snapshot: "Disappeared" tags are what the failure removed from the screen, new
+ones what it left behind. Semantic diff — stable under animation and
+antialiasing noise that breaks pixel comparison.
 
 **Do not build a tag from localized text.** `TestTags.taskAction(action)` takes
 a stable id, not the label. A label-derived tag breaks in every locale but the

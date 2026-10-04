@@ -46,6 +46,7 @@ Enrich the FailureBundle so every failure is diagnosed from the bundle alone, wi
 | `steps.txt` | always on failure | `+offset name(detail) OK/FAIL duration` |
 | `tree.txt` | always on failure | raw `onRoot().printToString()` |
 | `nodes.txt` | always on failure | tag/text/contentDescription/Selected/bounds per node |
+| `nodes-diff.txt` | on failure, when a baseline exists | tag inventory appeared/disappeared vs baseline snapshot |
 | `screenshot-annotated.png` | when screenshot enabled | image with bounding boxes and tag labels |
 | `a11y.txt` | when `checkA11y = true` and violations found | one line per violation |
 
@@ -86,6 +87,13 @@ junit.jupiter.execution.parallel.mode.classes.default = same_thread
 - `HarnessConventionTest` scan root expanded from `feature/flows/` to `src/jvmTest/kotlin/com/singularity/todo` — now covers all 16 flow tests including the one in `feature/agenda/`.
 - 13 flow tests contain raw selector calls outside helpers — all added to `EXEMPT_RAW_TAGS` with reasons; `HarnessConventionTest` now enforces this.
 - Two-way guard: violations require exemption with reason; exemptions without actual raw calls are caught as stale.
+
+**Follow-up refactor (post-MR-3) findings:**
+
+- Raw selector migration completed: 12 flow tests migrated to a 16-helper set (`clickTag`, `assertTagDisplayed`, `awaitText`, `typeIntoTag`, …); `EXEMPT_RAW_TAGS` shrank from 15 entries to composable-level tests only (`runIsolatedComposeTest` users are out of the harness convention by design).
+- Guard false positives: unused `import androidx.compose.ui.test.onNode…` lines match the raw-selector regex; the guard strips import lines before matching. The guard file excludes itself (it quotes selector names in its own pattern/KDoc).
+- Flag wiring gap: `-Dsingularity.test.a11y` was never propagated to the test JVM (missing from the `providers.systemProperty` whitelist in `build.gradle.kts`) — the fatal-a11y mode was unreachable until fixed alongside `steps`/`baseline`.
+- Timing profile via `scripts/step-duration-report.py`: `tapTab` dominates (drawer animation, ~0.35s median); `awaitTag` p95 ≈ 0.1s — the 5s `TIMEOUT_MS` has ample headroom, no flaky-step anomalies.
 
 ## Remaining Debt
 

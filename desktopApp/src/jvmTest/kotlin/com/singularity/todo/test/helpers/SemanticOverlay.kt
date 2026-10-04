@@ -39,14 +39,7 @@ fun DesktopComposeUiTest.captureAnnotated(
     // Get the root semantics node (unmerged tree for accurate bounds).
     val rootNode = onRoot(useUnmergedTree = true).fetchSemanticsNode()
 
-    // Collect ALL nodes in the tree by traversing from root using visit().
-    val allNodes = mutableListOf<SemanticsNode>()
-    visitNodes(rootNode) { allNodes.add(it) }
-
-    // Filter to only nodes that carry a testTag.
-    val tagged: List<Pair<SemanticsNode, String>> = allNodes.mapNotNull { node ->
-        node.config.getOrNull(SemanticsProperties.TestTag)?.let { tag -> node to tag }
-    }
+    val tagged = collectTaggedNodes(rootNode)
     val annotated = tagged.size
 
     // Always write the text fallback.
@@ -83,6 +76,83 @@ fun DesktopComposeUiTest.captureAnnotated(
 
     return annotated
 }
+
+/**
+ * Collects every node in the semantics tree that carries a testTag, via an
+ * unmerged-tree traversal from the root. Shared by [captureAnnotated] (annotated
+ * screenshot + nodes.txt) and the baseline regression diff.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun DesktopComposeUiTest.collectTaggedNodes(): List<Pair<SemanticsNode, String>> {
+    val rootNode = onRoot(useUnmergedTree = true).fetchSemanticsNode()
+    return collectTaggedNodes(rootNode)
+}
+
+private fun collectTaggedNodes(root: SemanticsNode): List<Pair<SemanticsNode, String>> {
+    val allNodes = mutableListOf<SemanticsNode>()
+    visitNodes(root) { allNodes.add(it) }
+    return allNodes.mapNotNull { node ->
+        node.config.getOrNull(SemanticsProperties.TestTag)?.let { tag -> node to tag }
+    }
+}
+
+/**
+ * Writes a "last known good" snapshot of the current screen into [dir]:
+ * `screenshot-annotated.png`, `nodes.txt` (same formats as the failure bundle)
+ * and `tags.txt` — the sorted tag inventory the regression diff compares against.
+ *
+ * Called from the harness on a passing test when `-Dsingularity.test.baseline=true`.
+ * The failure path then reports which tags appeared or disappeared relative to
+ * this snapshot — a semantic regression signal that stays stable under pixel
+ * noise (animations, antialiasing) which defeats image diffing.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun DesktopComposeUiTest.writeBaseline(dir: java.io.File) {
+    dir.mkdirs()
+    captureAnnotated(
+        highlightTag = null,
+        file = java.io.File(dir, "screenshot-annotated.png"),
+        nodesFile = java.io.File(dir, "nodes.txt"),
+    )
+    val tags = collectTaggedNodes().map { it.second }.distinct().sorted()
+    java.io.File(dir, "tags.txt").writeText((listOf(tags.size.toString()) + tags).joinToString("\n"))
+}
+
+/**
+ * Compares the current tag inventory against a baseline written by [writeBaseline].
+ *
+ * Returns a human-readable diff ("appeared" / "disappeared" tag lists), or null
+ * when no baseline exists for this test. A tag that disappeared explains
+ * "something the failure removed from the screen"; a new one explains what the
+ * failure left behind.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun DesktopComposeUiTest.diffAgainstBaseline(baselineDir: java.io.File): String? {
+    val baseline = readBaselineTags(baselineDir) ?: return null
+
+    val current = collectTaggedNodes().map { it.second }.distinct()
+    val appeared = current.filterNot { it in baseline }.sorted()
+    val disappeared = baseline.filterNot { it in current }.sorted()
+    if (appeared.isEmpty() && disappeared.isEmpty()) {
+        return "Tag inventory matches baseline (${current.size} tags)."
+    }
+    return buildString {
+        appendLine("Tag inventory differs from baseline (${baseline.size} tags):")
+        if (appeared.isNotEmpty()) appendLine("Appeared: ${appeared.joinToString()}")
+        if (disappeared.isNotEmpty()) appendLine("Disappeared: ${disappeared.joinToString()}")
+    }.trimEnd()
+}
+
+/** Reads the tag inventory written by [writeBaseline], or null when unavailable. */
+private fun readBaselineTags(baselineDir: java.io.File): Set<String>? {
+    val tagsFile = java.io.File(baselineDir, "tags.txt")
+    if (!tagsFile.isRegularFileOrNull()) return null
+    val lines = runCatching { tagsFile.readLines() }.getOrNull() ?: return null
+    if (lines.isEmpty()) return null
+    return lines.drop(1).filter { it.isNotBlank() }.toSet()
+}
+
+private fun java.io.File.isRegularFileOrNull(): Boolean = runCatching { isFile }.getOrDefault(false)
 
 private fun drawNodeBox(
     g: Graphics2D,

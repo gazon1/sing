@@ -147,6 +147,7 @@ tasks.withType<Test>().configureEach {
         "singularity.test.screenshot",
         "singularity.test.steps",
         "singularity.test.a11y",
+        "singularity.test.baseline",
         "singularity.ui.dumpTree",
         "retry.maxAttempts",
         "retry.failOnPassedAfterRetry",
