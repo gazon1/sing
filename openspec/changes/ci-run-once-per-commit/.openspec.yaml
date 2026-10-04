@@ -1,3 +1,5 @@
+schema: spec-driven
+
 # CI run topology is process, not product behaviour: this change alters how
 # often a workflow starts, and changes no capability a user or a client can
 # observe. The constraints it must not violate are executable rather than
