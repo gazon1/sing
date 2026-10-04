@@ -5,12 +5,18 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
-import com.singularity.todo.core.sync.SyncPrefs
+import com.singularity.todo.core.sync.SyncScope
+import com.singularity.todo.core.sync.SyncScopeProvider
+import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,25 +56,47 @@ data class SyncState(
  * - Error messages are embedded in state ([SyncState.errorMessage]) — callers handle snackbar display
  * - [SyncIntent.process] handles all user actions
  *
+ * ## Why the settings are observed, not read once
+ *
+ * The screen used to read a flat [com.singularity.todo.core.sync.SyncPrefs] and keep
+ * its own copy. That made the screen's notion of "auto-sync is on" a *second* source
+ * of truth: switching profile kept showing and writing the previous profile's
+ * settings, and every write landed in the one global slot. Settings are now read
+ * from [SyncStateRepository] for whichever [SyncScope] is current, and a write is
+ * addressed to a scope rather than to the app.
+ *
+ * The first frame therefore carries neutral defaults and is corrected by the first
+ * observation, which is why [SyncState.autoSyncEnabled] defaults to `false` rather
+ * than `true`: a frame that claims auto-sync is on before anything has said so is a
+ * frame that shows the user the wrong switch.
+ *
  * @param scope CoroutineScope — injected by Koin (view model scope), NOT viewModelScope.
  *              See [singularity-todo-coroutine-scopes] skill.
  */
 class SyncViewModel(
     private val repository: SyncRepository,
-    private val prefs: SyncPrefs,
+    private val stateRepository: SyncStateRepository,
+    scopeProvider: SyncScopeProvider,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
-        initialState = SyncState(
-            autoSyncEnabled = prefs.autoSyncEnabled,
-            intervalMinutes = prefs.scheduledInterval.inWholeMinutes.toInt(),
-            lastSyncedAt = prefs.lastSuccessfulSyncAt,
-            status = repository.status.value,
-        ),
+        initialState = SyncState(status = repository.status.value),
         crashReporter = crashReporter,
         scope = scope,
     ) {
     private val syncMutex = Mutex()
+
+    /**
+     * The scope the screen is currently editing.
+     *
+     * Null until the provider emits, and null whenever the user is signed out or no
+     * profile is active. Writes are dropped in that case rather than queued for a
+     * scope that may never arrive — a setting changed on a screen that has no
+     * subject has nowhere to go, and deferring it would apply it later to a
+     * different profile than the one the user was looking at.
+     */
+    @Volatile
+    private var currentScope: SyncScope? = null
 
     /**
      * Debounce flag: suppress snackbar while a sync is in progress
@@ -105,13 +133,38 @@ class SyncViewModel(
             }
         }
 
-        // Observe last successful sync timestamp
+        // Observe the settings of whichever scope is current.
+        //
+        // One `flatMapLatest`, not a `combine` of the scope with a settings flow: on
+        // a profile switch the old scope's row must stop being observed immediately,
+        // and a combine would keep feeding the previous profile's values in until the
+        // new row emitted — which is exactly the bug this screen had.
+        @OptIn(ExperimentalCoroutinesApi::class)
         vmScope.launch {
-            repository.lastPull.collect { result ->
-                result?.onSuccess {
-                    updateState { st -> st.copy(lastSyncedAt = prefs.lastSuccessfulSyncAt) }
+            scopeProvider.current
+                .flatMapLatest { active ->
+                    if (active == null) {
+                        flowOf(null)
+                    } else {
+                        stateRepository.observe(active).map { active to it }
+                    }
                 }
-            }
+                .collect { pair ->
+                    val active = pair?.first
+                    val settings = pair?.second
+                    currentScope = active
+                    if (settings == null) {
+                        updateState { SyncState(status = it.status) }
+                    } else {
+                        updateState {
+                            it.copy(
+                                autoSyncEnabled = settings.autoSyncEnabled,
+                                intervalMinutes = settings.scheduledInterval.inWholeMinutes.toInt(),
+                                lastSyncedAt = settings.lastSuccessfulSyncAt,
+                            )
+                        }
+                    }
+                }
         }
     }
 
@@ -162,8 +215,9 @@ class SyncViewModel(
     }
 
     private fun setAutoSync(enabled: Boolean) {
+        val target = currentScope ?: return
         vmScope.launch {
-            prefs.setAutoSyncEnabled(enabled)
+            stateRepository.setAutoSyncEnabled(target, enabled)
         }
         updateState { it.copy(autoSyncEnabled = enabled) }
         if (enabled) {
@@ -174,8 +228,9 @@ class SyncViewModel(
     }
 
     private fun setInterval(minutes: Int) {
+        val target = currentScope ?: return
         vmScope.launch {
-            prefs.setScheduledInterval(minutes.minutes)
+            stateRepository.setScheduledInterval(target, minutes.minutes)
         }
         updateState { it.copy(intervalMinutes = minutes) }
         if (currentState.autoSyncEnabled) {
@@ -194,13 +249,6 @@ class SyncViewModel(
             updateState { it.copy(isTestingConnection = false, connectionTestResult = result) }
         }
     }
-
-    private fun buildInitialState(): SyncState = SyncState(
-        autoSyncEnabled = prefs.autoSyncEnabled,
-        intervalMinutes = prefs.scheduledInterval.inWholeMinutes.toInt(),
-        lastSyncedAt = prefs.lastSuccessfulSyncAt,
-        status = repository.status.value,
-    )
 
     private companion object {
         // Machine-shaped grouping keys — these leave the device.

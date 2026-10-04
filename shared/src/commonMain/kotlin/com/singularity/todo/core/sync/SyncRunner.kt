@@ -26,7 +26,8 @@ internal class SyncRunner(
     private val coordinator: SyncCoordinator,
     private val periodicTrigger: SyncPeriodicTrigger,
     private val authRepository: AuthRepository,
-    private val prefs: SyncPrefs,
+    private val stateRepository: SyncStateRepository,
+    private val scopeProvider: SyncScopeProvider,
     scope: AutoCloseableCoroutineScope,
     private val log: Logger = Logger.withTag("SyncRunner"),
 ) : AutoCloseable by scope {
@@ -41,19 +42,24 @@ internal class SyncRunner(
     private var scheduledJob: Job? = null
 
     init {
-        // React to session changes: auto-start/stop sync when auth state changes.
+        // React to scope changes, not just session changes.
+        //
+        // Auto-sync settings are per scope, so watching the session alone means a
+        // profile switch keeps running the previous profile's interval — and a
+        // profile that has auto-sync turned off inherits one that has it on. The
+        // scope is the sum of the session and the active profile, so watching it
+        // covers both, and the settings are read per emission rather than cached.
         scope.launch {
-            authRepository.currentSession.collect { session ->
-                when (session) {
-                    is Session.SignedIn -> {
-                        if (scheduledJob?.isActive != true && prefs.autoSyncEnabled) {
-                            startScheduledSync(prefs.scheduledInterval)
-                        }
-                    }
-
-                    is Session.Anonymous, is Session.SignedOut, is Session.Loading -> {
-                        stopScheduledSync()
-                    }
+            scopeProvider.current.collect { active ->
+                if (active == null) {
+                    stopScheduledSync()
+                    return@collect
+                }
+                val settings = stateRepository.get(active)
+                if (settings.autoSyncEnabled) {
+                    startScheduledSync(settings.scheduledInterval)
+                } else {
+                    stopScheduledSync()
                 }
             }
         }

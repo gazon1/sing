@@ -565,6 +565,11 @@ def _check_orphan_binding(
         "SyncApiClient",
         "SyncPrefs",
         "SyncRepository",
+        # Consumed by a bare `get()` inside the SyncEngine / SyncRunner / SyncViewModel
+        # bindings, the same way SyncPrefs is. The interface has to be named there so
+        # the binding can state `single<SyncStateRepository> { … }`, and a static scan
+        # reads the binding's own name as a reference to itself.
+        "SyncStateRepository",
         "TimeZoneProvider",
     }
     for path, text in code.items():

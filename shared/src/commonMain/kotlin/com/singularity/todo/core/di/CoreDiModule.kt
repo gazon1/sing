@@ -35,6 +35,8 @@ import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.PatchRetryPolicy
+import com.singularity.todo.core.sync.RoomSyncStateRepository
+import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.RemoteConfigRepository
 import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
@@ -145,7 +147,9 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SyncPrefs> { DataStoreSyncPrefs(get(), get()) }
 
     // SyncEngine is internal — feature modules must use SyncRepository.
-    // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
+    // Takes the per-scope state repository (for LSN tracking), the scope provider
+    // (whose (owner, profile) the cycle applies to) and SyncWorkScheduler (for
+    // auth-session init).
     single {
         SyncEngine(
             log = Logger.withTag("SyncEngine"),
@@ -154,7 +158,8 @@ fun coreModule(): org.koin.core.module.Module = module {
             outboxDao = get(),
             deadLetterDao = get(),
             idGenerator = get(),
-            prefs = get(),
+            stateRepository = get(),
+            scopeProvider = get(),
             scheduler = get(),
             retryPolicy = get(),
             scope = get(),
@@ -165,6 +170,13 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Backoff policy for rejected patches. One instance so the outbox, the push path
     // and the settings screen all agree on what "too many attempts" means.
     single { PatchRetryPolicy() }
+
+    // Per-scope sync state, in the database rather than in flat preferences — the
+    // download cursor is meaningless without knowing whose cursor it is. The legacy
+    // DataStore values are adopted once, by the first scope to initialise.
+    single<SyncStateRepository> {
+        RoomSyncStateRepository(dao = get(), legacyPrefs = get(), idGenerator = get())
+    }
 
     // Single owner of the sync cycle. Every trigger — periodic, user-initiated,
     // WorkManager — requests through it, so two cycles cannot overlap.
@@ -185,7 +197,8 @@ fun coreModule(): org.koin.core.module.Module = module {
             coordinator = get(),
             periodicTrigger = get(),
             authRepository = get(),
-            prefs = get(),
+            stateRepository = get(),
+            scopeProvider = get(),
             scope = get(),
         )
     }
@@ -196,7 +209,6 @@ fun coreModule(): org.koin.core.module.Module = module {
             engine = get(),
             runner = get(),
             coordinator = get(),
-            prefs = get(),
             api = get(),
             authRepository = get(),
         )
@@ -226,7 +238,17 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
-    viewModel { SyncViewModel(get(), get(), get(), AutoCloseableCoroutineScope()) }
+    // Named, not positional: the crash reporter and the scope are both defaults in the
+    // constructor, so a positional call silently reorders them the moment either one moves.
+    viewModel {
+        SyncViewModel(
+            repository = get(),
+            stateRepository = get(),
+            scopeProvider = get(),
+            crashReporter = get(),
+            scope = AutoCloseableCoroutineScope(),
+        )
+    }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 

@@ -130,6 +130,19 @@ class ArchitectureTest {
         private val FILE_API_ALLOWLIST = setOf("feature/ai/tools/AdrTools.kt")
 
         /**
+         * Column names that make a DAO write profile-scoped.
+         *
+         * `user_id` on every entity table. `owner_id` on
+         * `sync_state`, whose primary key is `(owner_id, profile_id)` — the same pair
+         * of semantics under a different name. Only `user_id` was recognised, so every
+         * correctly scoped `sync_state` write was reported as a hole, and the two ways
+         * to silence that were both wrong: allowlisting a scoped query claims in
+         * writing that it is cross-profile, and renaming the column ties a schema
+         * decision to a lint rule.
+         */
+        private val SCOPING_COLUMNS = listOf("user_id", "owner_id")
+
+        /**
          * DAO mutations that are intentionally not user-scoped, keyed by
          * `"<DaoName>.<method>"`. Every entry is a deliberate decision recorded in
          * `docs/decisions/2026-09-27-write-layer-soundness.md`; adding one without
@@ -137,7 +150,7 @@ class ArchitectureTest {
          *
          * The pattern is: either the row is not user data at all (device-local
          * bookkeeping, internal machinery, app-wide config), or the table has no
-         * `user_id` column to scope by.
+         * ownership column to scope by.
          */
         private val GLOBAL_DAO_MUTATION_ALLOWLIST = setOf(
             // Retention sweeps over the whole table — device-local telemetry.
@@ -153,6 +166,17 @@ class ArchitectureTest {
             "SyncOutboxDao.markFailed",
             "SyncOutboxDao.deleteByEntity",
             "SyncOutboxDao.clearAll",
+            // The dead-letter shelf is the same transport queue by another name: a
+            // patch that exceeded its retry budget is moved there verbatim, and the
+            // rows carry a patch id rather than a user. Absent until now — the gate
+            // had never been run against the file.
+            "SyncDeadLetterDao.delete",
+            "SyncDeadLetterDao.clearAll",
+            // `sync_state` is scoped by `owner_id` (see SCOPING_COLUMNS) on every other
+            // write. This one is the deliberate exception: a sign-out drains every
+            // scope, because leaving the previous account's cursor behind would make
+            // the next sign-in resume inside its history.
+            "SyncStateDao.clearAll",
             // calendar_sync_task_map has no user_id column: it is device-local
             // bookkeeping mapping calendar events, not user-owned data. Making it
             // per-profile would need a schema migration — ledger #17.
@@ -308,14 +332,14 @@ class ArchitectureTest {
             queryFunctions(file)
                 .filter { (_, _, sql) -> mutating.containsMatchIn(sql) }
                 .filter { (dao, method, _) -> "$dao.$method" !in GLOBAL_DAO_MUTATION_ALLOWLIST }
-                .filter { (_, _, sql) -> "user_id" !in sql }
-                .map { (dao, method, _) -> "${file.path}: $dao.$method() has no user_id in its WHERE" }
+                .filter { (_, _, sql) -> SCOPING_COLUMNS.none { it in sql } }
+                .map { (dao, method, _) -> "${file.path}: $dao.$method() has no ownership predicate" }
         }
         assertNoOffenders(
             offenders,
-            "every UPDATE/DELETE must filter on user_id so a write cannot cross users. " +
-                "If a query is genuinely global, add it to GLOBAL_DAO_MUTATION_ALLOWLIST and " +
-                "record the decision in the write-layer ADR.",
+            "every UPDATE/DELETE must filter on an ownership column so a write cannot " +
+                "cross profiles. If a query is genuinely global, add it to " +
+                "GLOBAL_DAO_MUTATION_ALLOWLIST and record the decision in the write-layer ADR.",
         ) { it }
     }
 

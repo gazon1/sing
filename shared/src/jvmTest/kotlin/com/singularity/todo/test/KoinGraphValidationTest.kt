@@ -94,10 +94,12 @@ class KoinGraphValidationTest {
         single { get<AppDatabase>().tagDao() }
         single { get<AppDatabase>().syncOutboxDao() }
         single { get<AppDatabase>().syncDeadLetterDao() }
+        single { get<AppDatabase>().syncStateDao() }
         single { get<AppDatabase>().remoteConfigDao() }
         single { get<AppDatabase>().remoteConfigCacheDao() }
         single { get<AppDatabase>().attachmentDao() }
         single { get<AppDatabase>().reminderDao() }
+        single { get<AppDatabase>().projectReminderDao() }
         single { get<AppDatabase>().checklistDao() }
         single { get<AppDatabase>().llmUsageDao() }
         single { get<AppDatabase>().profileDao() }

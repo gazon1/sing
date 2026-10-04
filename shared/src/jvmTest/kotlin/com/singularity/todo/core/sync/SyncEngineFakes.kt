@@ -7,6 +7,8 @@ import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlin.time.Duration
 
 /**
  * In-memory [SyncOutboxDao].
@@ -122,4 +124,66 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
     }
 
     private fun snapshot(): List<SyncDeadLetterEntity> = rows.sortedByDescending { it.failedAt }
+}
+
+/**
+ * In-memory [SyncStateRepository], keyed by scope.
+ *
+ * Keyed by [SyncScope] for the same reason the table is: a fake that stored one
+ * cursor per test would let the very mistake the per-scope table exists to prevent
+ * pass its own tests. A test that reads `lastLsn` without naming a scope is asking
+ * the question the interface refuses to answer.
+ */
+class FakeSyncStateRepository : SyncStateRepository {
+
+    private val states = MutableStateFlow<Map<SyncScope, SyncState>>(emptyMap())
+
+    override fun observe(scope: SyncScope): Flow<SyncState> =
+        states.map { it[scope] ?: SyncState() }
+
+    override suspend fun get(scope: SyncScope): SyncState = states.value[scope] ?: SyncState()
+
+    override suspend fun setLastLsn(scope: SyncScope, lsn: Long) = update(scope) { it.copy(lastLsn = lsn) }
+
+    override suspend fun recordSuccessfulSync(scope: SyncScope, at: Long) =
+        update(scope) { it.copy(lastSuccessfulSyncAt = at) }
+
+    override suspend fun setAutoSyncEnabled(scope: SyncScope, enabled: Boolean) =
+        update(scope) { it.copy(autoSyncEnabled = enabled) }
+
+    override suspend fun setScheduledInterval(scope: SyncScope, interval: Duration) =
+        update(scope) { it.copy(scheduledInterval = interval) }
+
+    override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) =
+        update(scope) { it.copy(enabledTriggers = triggers) }
+
+    override suspend fun clearAll() {
+        states.value = emptyMap()
+    }
+
+    /** Seeds a row without going through a setter — "the user already had this". */
+    fun seed(scope: SyncScope, state: SyncState) {
+        states.value = states.value + (scope to state)
+    }
+
+    fun lastLsn(scope: SyncScope): Long = states.value[scope]?.lastLsn ?: 0L
+
+    fun snapshot(): Map<SyncScope, SyncState> = states.value
+
+    private fun update(scope: SyncScope, transform: (SyncState) -> SyncState) {
+        states.value = states.value + (scope to transform(states.value[scope] ?: SyncState()))
+    }
+}
+
+/**
+ * [SyncScopeProvider] a test can point at a scope — and, importantly, a test can
+ * point at `null`, which is the state that has no coverage without it.
+ */
+class FakeSyncScopeProvider(scope: SyncScope? = null) : SyncScopeProvider {
+    private val scopes = MutableStateFlow(scope)
+    override val current: Flow<SyncScope?> = scopes
+
+    fun set(scope: SyncScope?) {
+        scopes.value = scope
+    }
 }

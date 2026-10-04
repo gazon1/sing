@@ -14,6 +14,8 @@ import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncDeadLetterDao
 import com.singularity.todo.core.sync.SyncDeadLetterEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
+import com.singularity.todo.core.sync.SyncStateDao
+import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
@@ -23,6 +25,20 @@ import com.singularity.todo.feature.proposals.data.ProposalItemDao
 import com.singularity.todo.feature.proposals.data.ProposalItemEntity
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
+
+/**
+ * Current schema version.
+ *
+ * Named, and referenced by the `@Database(version = …)` annotation, because two
+ * migration tests asserted the literal "33" as "the version the upgrade chain ends
+ * at". Every new migration broke both, and the fix — bumping a number in two test
+ * files that have nothing to do with the change — is exactly the kind of edit that
+ * gets made carelessly under time pressure, or not made at all.
+ *
+ * The tests now read this. A migration that forgot to bump the annotation still
+ * fails them, which is the behaviour worth keeping.
+ */
+const val SCHEMA_VERSION = 34
 
 /**
  * Room database for Android.
@@ -38,6 +54,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         TagEntity::class,
         SyncOutboxEntity::class,
         SyncDeadLetterEntity::class,
+        SyncStateEntity::class,
         RemoteConfigEntity::class,
         AttachmentEntity::class,
         TaskReminderEntity::class,
@@ -55,7 +72,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AiProposalEntity::class,
         ProposalItemEntity::class,
     ],
-    version = 33,
+    version = SCHEMA_VERSION,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -84,6 +101,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AutoMigration(from = 29, to = 30, spec = Migration29To30::class),
         AutoMigration(from = 30, to = 31, spec = Migration30To31::class),
         AutoMigration(from = 32, to = 33, spec = Migration32To33::class),
+        AutoMigration(from = 33, to = 34, spec = Migration33To34::class),
     ],
     exportSchema = true,
 )
@@ -95,6 +113,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun syncDeadLetterDao(): SyncDeadLetterDao
+    abstract fun syncStateDao(): SyncStateDao
     abstract fun remoteConfigDao(): RemoteConfigDao
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao

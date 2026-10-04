@@ -56,7 +56,11 @@ class SyncEnginePushTest {
             outboxDao = outbox,
             deadLetterDao = deadLetter,
             idGenerator = SequentialIdGenerator(),
-            prefs = FakeSyncPrefs(),
+            // push() does not read the scope or the cursor, but the engine needs both
+            // wired. Supplied here rather than defaulted so that a future push() that
+            // does read the cursor is testing a real row, not a fresh one.
+            stateRepository = FakeSyncStateRepository(),
+            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = policy,
             scope = testScope(scope.backgroundScope),

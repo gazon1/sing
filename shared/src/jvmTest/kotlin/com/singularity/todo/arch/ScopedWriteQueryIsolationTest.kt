@@ -23,6 +23,17 @@ import kotlin.test.fail
  * `INSERT` is exempt on purpose: inserting a row *is* the act of creating it under
  * an id, and the id comes from the caller that already passed `assertCanWrite`.
  *
+ * ## Two names for the same scoping column
+ *
+ * The predicate may name the scoping column `user_id` (entities) or `owner_id`
+ * (`sync_state`, whose composite key is `(owner_id, profile_id)`). Both are
+ * scoping predicates and both satisfy the rule. Only the first was recognised, so
+ * every scoped `sync_state` write was reported as a hole — and the two available
+ * ways to silence that were both wrong: allowlisting a genuinely scoped query
+ * claims in writing that it is cross-profile, and renaming the column to match
+ * the gate would have coupled a schema decision to a lint rule. The check accepts
+ * either name instead.
+ *
  * See the baseline spec `openspec/changes/baseline-write-pipeline`
  * (REQ-WP-002, REQ-WP-003) — whose verification checklist claimed this was covered
  * by `EntityMapperCompletenessTest`. It is not: that test checks mapper field
@@ -46,6 +57,27 @@ class ScopedWriteQueryIsolationTest {
     @Test
     fun rule_rejects_an_unscoped_delete() {
         assertTrue(missingUserPredicate("DELETE FROM tasks WHERE id = :id"))
+    }
+
+    @Test
+    fun rule_accepts_an_owner_scoped_update() {
+        // `sync_state` is keyed by (owner_id, profile_id). Its writes are scoped, and
+        // reporting them as holes would push the next agent towards "fixing" a
+        // correct query by allowlisting it as cross-profile.
+        assertTrue(
+            !missingUserPredicate(
+                "UPDATE sync_state SET last_lsn = :lsn WHERE owner_id = :ownerId AND profile_id = :profileId",
+            ),
+        )
+    }
+
+    @Test
+    fun rule_still_rejects_a_write_scoped_only_by_the_secondary_key() {
+        // profile_id alone identifies nothing: the same profile id exists under two
+        // accounts, so a write scoped by it alone is a cross-owner write.
+        assertTrue(
+            missingUserPredicate("UPDATE sync_state SET last_lsn = :lsn WHERE profile_id = :profileId"),
+        )
     }
 
     @Test
@@ -196,10 +228,21 @@ class ScopedWriteQueryIsolationTest {
         if (trimmed.isEmpty()) return false
         val head = trimmed.substringBefore(' ').trim().uppercase()
         if (head != "UPDATE" && head != "DELETE") return false
-        return !trimmed.contains("user_id")
+        return SCOPING_COLUMNS.none { trimmed.contains(it) }
     }
 
     private companion object {
+        /**
+         * Column names that make a write profile-scoped.
+         *
+         * `user_id` on entities; `owner_id` on [com.singularity.todo.core.sync.SyncStateEntity],
+         * whose key is `(owner_id, profile_id)`. Matching a name rather than a shape
+         * is a weaker rule than parsing the predicate, and deliberately so: the rule's
+         * job is to notice a *missing* predicate, and a false positive on a
+         * well-written query costs more than it catches.
+         */
+        val SCOPING_COLUMNS = listOf("user_id", "owner_id")
+
         /**
          * The unscoped writes in the schema, each cross-user by design. Keyed on the
          * normalised query prefix, so editing a query invalidates the entry instead of
@@ -233,6 +276,9 @@ class ScopedWriteQueryIsolationTest {
                 "same transport queue, same absence of a user dimension; patch_id is a UUID",
             "DELETE FROM sync_dead_letter" to
                 "full dead-letter drain — deliberately cross-profile",
+            "DELETE FROM sync_state" to
+                "drains every scope at once — used on sign-out; leaving another " +
+                "account's cursor behind would resume it inside the wrong history",
         )
     }
 }

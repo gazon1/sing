@@ -140,7 +140,15 @@ class Migration32To33Test {
             connection.prepare("PRAGMA user_version").use { statement ->
                 while (statement.step()) versions += statement.getInt(0)
             }
-            assertEquals(listOf(33), versions, "user_version must be 33 after upgrade")
+            // SCHEMA_VERSION, not 33: Room applies the whole chain from the fixture
+            // version, so the stamp reflects the newest schema, not the migration
+            // under test. Reading the constant rather than a literal means this test
+            // does not break on every later migration.
+            assertEquals(
+                listOf(SCHEMA_VERSION),
+                versions,
+                "user_version must be the current schema version after upgrade",
+            )
 
             val tables = rawStrings(
                 connection,

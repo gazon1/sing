@@ -9,6 +9,7 @@ import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendar_sync.di.calendarSyncModule
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
+import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.proposals.proposalModule
@@ -53,6 +54,12 @@ fun domainModule(): List<Module> = buildList {
             single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
             viewModel { AccountSettingsViewModel(profileRepository = get()) }
+
+            // The sync scope is the one place that needs both the session and the
+            // profile, which is why it is bound here and not in coreModule(): sync
+            // state is keyed by (owner, profile), and neither half identifies a scope
+            // on its own.
+            single<SyncScopeProvider> { AuthProfileSyncScopeProvider(get(), get()) }
         },
     )
     add(coreModule())

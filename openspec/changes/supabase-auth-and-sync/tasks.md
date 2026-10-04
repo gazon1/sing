@@ -39,8 +39,8 @@ invisible and with one they become irreversible data loss on the user's own data
 - [x] 2.3 `shared/` — exponential per-patch backoff with a cap, a maximum attempt
       count, and a dead-letter store. Verified by: `SyncEnginePushTest` — a patch past
       the attempt limit is in the dead-letter store and not retried (REQ-OS-010)
-- [ ] 2.4 `shared/` — move sync state from preferences into the database, keyed by
-      owner and profile; Room 32 → 33; migrate existing values on first read.
+- [x] 2.4 `shared/` — move sync state from preferences into the database, keyed by
+      owner and profile; Room 33 → 34; adopt the existing values once, at first read.
       Verified by: `SyncStateMigrationTest` — cursor for one profile is invisible to
       another (REQ-OS-009)
 - [ ] 2.5 `shared/` — build patches as a diff against the last uploaded state, with a
@@ -50,14 +50,19 @@ invisible and with one they become irreversible data loss on the user's own data
 - [x] 2.6 `shared/`, `androidApp/` — one sync driver per platform; remove the
       alarm-based scheduler. Verified by: architecture test asserting one driver per
       platform source set
-- [ ] 2.7 `shared/` — tests for the sync engine and the pull dispatcher, which
-      currently have none. Verified by: `SyncBootstrapperDispatchTest` (REQ-OS-011)
-- [ ] 2.8 `shared/` — drop the user-id parameter from the sync transport; replace the
-      JVM-only digest call with the hashing already available in the project.
-      Verified by: existing transport tests compile unchanged
-- [ ] 2.9 `shared/src/commonMain/kotlin/com/singularity/todo/core/files/` — the digest
-      helper used for attachment checksums still calls a JVM-only API from shared
-      code. Verified by: existing attachment checksum tests pass
+- [x] 2.7 `shared/` — tests for the sync engine and the pull dispatcher, which
+      previously had none. `SyncEnginePullTest` (7), `SyncEnginePushTest` (8),
+      `SyncBootstrapperDispatchTest` (3). The dispatch table is asserted because the
+      pull loop now *stalls* on an event it cannot apply, which turns a missing
+      handler from silent loss into a permanent block (REQ-OS-011)
+- [ ] 2.8 `shared/` — drop the user-id parameter from the sync transport, so the
+      server derives identity from the session rather than trusting a value the client
+      supplies. Verified by: existing transport tests compile unchanged
+- [x] 2.9 `shared/src/commonMain/kotlin/com/singularity/todo/core/files/` — the digest
+      helper used for attachment checksums called a JVM-only API from `commonMain`.
+      Replaced with okio's `sha256()`, and `CommonMainJvmApiTest` now fails on any new
+      `java|javax|android` import in `commonMain`. Verified by: existing attachment
+      checksum tests pass
 
 ## Phase 3 — Server schema
 

@@ -133,7 +133,23 @@ class InMemorySyncPrefs : SyncPrefs {
 }
 
 /**
- * Preferences for sync behaviour.
+ * The flat, app-wide sync preferences that [SyncStateRepository] replaced.
+ *
+ * ## Read-only in practice — and that is the point
+ *
+ * Every caller has moved to [SyncStateRepository], which keys the same values by
+ * `(owner, profile)`. The one production read left is
+ * [RoomSyncStateRepository]'s one-shot adoption of these values, so that upgrading
+ * does not cost the user a full re-download.
+ *
+ * The setters are therefore **not** the way to change sync state any more, and a
+ * new call to one would reintroduce the bug this class is being retired from: a
+ * single global value that every profile shares. They remain because the adoption
+ * path reads through the same interface, and deleting them would mean duplicating
+ * the read shape in a second type.
+ *
+ * Delete this file once the adoption window has passed — the criteria are that no
+ * supported upgrade path can still hold values here.
  *
  * [SyncPrefs] is backed by DataStore in production ([DataStoreSyncPrefs])
  * and by [InMemorySyncPrefs] in tests.

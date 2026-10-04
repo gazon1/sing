@@ -11,7 +11,7 @@ import kotlin.time.Duration
 /**
  * Production implementation of [SyncRepository].
  *
- * Wires together [SyncEngine], [SyncRunner], [SyncCoordinator] and [SyncPrefs].
+ * Wires together [SyncEngine], [SyncRunner] and [SyncCoordinator].
  * The [SyncRunner] is started/stopped via [startScheduledSync]/[stopScheduledSync].
  *
  * This class is [internal] because it exposes [SyncEngine] and [SyncRunner] (both internal).
@@ -20,7 +20,6 @@ internal class SyncRepositoryImpl(
     private val engine: SyncEngine,
     private val runner: SyncRunner,
     private val coordinator: SyncCoordinator,
-    private val prefs: SyncPrefs,
     private val api: SyncApiClient,
     private val authRepository: AuthRepository,
     private val log: Logger = Logger.withTag("SyncRepository"),

@@ -340,6 +340,12 @@ class EntityMapperCompletenessTest {
                 "a transport shelf, not an entity: rows are moved between it and " +
                     "sync_outbox verbatim, never mapped to a domain model. Nothing " +
                     "upserts it, so there is no column to be silently reset.",
+            "SyncStateEntity" to
+                "sync bookkeeping, not domain data: the download cursor, the last " +
+                    "successful sync time, the device id and the sync preferences. It " +
+                    "is written by narrow column-level UPDATEs, never @Upsert, so the " +
+                    "'unchecked column is reset by @Upsert' rule this gate protects " +
+                    "against does not apply to it.",
         )
     }
 

@@ -13,6 +13,7 @@ import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 
@@ -100,7 +101,8 @@ internal class SyncEngine(
     private val outboxDao: SyncOutboxDao,
     private val deadLetterDao: SyncDeadLetterDao,
     private val idGenerator: IdGenerator,
-    private val prefs: SyncPrefs,
+    private val stateRepository: SyncStateRepository,
+    private val scopeProvider: SyncScopeProvider,
     private val scheduler: SyncWorkScheduler,
     private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     private val scope: AutoCloseableCoroutineScope,
@@ -167,8 +169,10 @@ internal class SyncEngine(
      * Runs one push + pull cycle.
      */
     internal suspend fun syncOnce(): SyncOutcome {
+        val scope = scopeProvider.current.first()
+            ?: return SyncOutcome.Skipped("No active sync scope (signed out, or no profile)")
         val push = push()
-        val pull = pull(sinceLsn = prefs.lastLsn)
+        val pull = pull(scope, sinceLsn = stateRepository.get(scope).lastLsn)
         return SyncOutcome.Success(push, pull)
     }
 
@@ -286,9 +290,12 @@ internal class SyncEngine(
     }
 
     /**
-     * Pulls events from the server since [SyncPrefs.lastLsn].
+     * Pulls events from the server for [scope], starting after the cursor stored for
+     * that scope. The caller passes the starting position so the value it applies is
+     * the value it read — re-reading the cursor inside would allow a profile switch
+     * between the read and the write to store one scope's position under another.
      */
-    private suspend fun pull(sinceLsn: Long): Result<PullSummary> {
+    private suspend fun pull(scope: SyncScope, sinceLsn: Long): Result<PullSummary> {
         val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
             return Result.success(PullSummary(0, 0, 0))
@@ -329,10 +336,12 @@ internal class SyncEngine(
             }
 
             // Persist the server LSN so the next pull resumes from this point. Written
-            // after the loop, so it is the last position that was actually applied.
-            prefs.setLastLsn(maxLsn)
+            // after the loop, so it is the last position that was actually applied, and
+            // against the scope that produced it — a cursor written to whichever scope
+            // happens to be current is how two profiles end up sharing a position.
+            stateRepository.setLastLsn(scope, maxLsn)
             // Stamp lastSuccessfulSyncAt so the UI "Last synced" field stays current.
-            prefs.recordSuccessfulSync()
+            stateRepository.recordSuccessfulSync(scope, System.currentTimeMillis())
 
             val summary = PullSummary(events.size, applied, conflicts, dropped)
             _lastPull.value = Result.success(summary)

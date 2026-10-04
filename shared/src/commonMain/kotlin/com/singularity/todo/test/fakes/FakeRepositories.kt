@@ -58,7 +58,12 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.CreateTagGroupInput
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
+import com.singularity.todo.feature.tags.domain.model.TagGroup
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import com.singularity.todo.feature.tags.domain.model.UpdateTagGroupInput
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -1859,6 +1864,17 @@ class FakeProfileRepository : ProfileRepository {
 
     private val _activeProfileId = MutableStateFlow(ProfileId.default)
 
+    /**
+     * Switches the active profile.
+     *
+     * Without it, every test using this fake is stuck on [ProfileId.default] — and a
+     * fake that cannot change the one thing it models makes its user a test invisible
+     * rather than failing.
+     */
+    fun setActiveProfile(id: ProfileId) {
+        _activeProfileId.value = id
+    }
+
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override fun observeAll(): Flow<List<Profile>> = _profiles
@@ -2223,4 +2239,70 @@ class FakeCalendarProvider : CalendarProviderPort {
 class FakeCalendarAppQueries(private val apps: List<CalendarAppInfo>) : CalendarAppQueries {
 
     override suspend fun listInstalled(): List<CalendarAppInfo> = apps
+}
+
+/**
+ * In-memory [TagGroupRepository].
+ *
+ * The only tag repository that had no fake until now, and the gap that let the sync
+ * pull-handler table go unpinned. It lives here rather than in the sync test that
+ * first needed it so the next test does not write a second one.
+ */
+class FakeTagGroupRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
+    TagGroupRepository {
+
+    private val store = InMemoryStore<TagGroup>(keyOf = { it.id.value })
+    private val inherited = MutableStateFlow<Map<String, Set<TagGroupId>>>(emptyMap())
+
+    fun seed(vararg groups: TagGroup) = groups.forEach(store::upsert)
+
+    fun all(): List<TagGroup> = store.values()
+
+    override fun observeAll(): Flow<List<TagGroup>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.onStart { emit(store.state.value) }
+                .map { rows -> rows.values.filter { it.userId == uid } }
+        }
+
+    override fun observe(id: TagGroupId): Flow<TagGroup?> =
+        currentUser.observeForCurrentUser { _ -> store.state.map { it[id.value] } }
+
+    override suspend fun get(id: TagGroupId): TagGroup? = store[id.value]
+
+    override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> =
+        unsupported("create")
+
+    override suspend fun update(input: UpdateTagGroupInput): Result<TagGroup> =
+        unsupported("update")
+
+    override suspend fun delete(id: TagGroupId): Result<Unit> {
+        store.remove(id.value)
+        return Result.success(Unit)
+    }
+
+    override fun observeInheritedByProject(projectId: ProjectId): Flow<Set<TagGroupId>> =
+        inherited.map { it[projectId.value].orEmpty() }
+
+    override suspend fun setInheritedForProject(
+        projectId: ProjectId,
+        groupIds: Set<TagGroupId>,
+    ): Result<Unit> {
+        inherited.value += (projectId.value to groupIds)
+        return Result.success(Unit)
+    }
+
+    override suspend fun upsert(tagGroup: TagGroup): TagGroup {
+        store.upsert(tagGroup)
+        return tagGroup
+    }
+
+    /**
+     * A loud failure rather than a fabricated value.
+     *
+     * The project rule is that a fake implements every parameter of the interface it
+     * stands in for. Satisfying the signature with a plausible-looking guess is how a
+     * fake starts answering questions the real repository cannot.
+     */
+    private fun unsupported(operation: String): Result<Nothing> =
+        Result.failure(UnsupportedOperationException("FakeTagGroupRepository.$operation is not needed yet"))
 }

@@ -37,6 +37,9 @@ import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncDeadLetterDao
 import com.singularity.todo.core.sync.SyncDeadLetterEntity
+import com.singularity.todo.core.sync.SyncScope
+import com.singularity.todo.core.sync.SyncStateDao
+import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
@@ -75,6 +78,9 @@ class FakeAppDatabase : AppDatabase() {
 
     @Suppress("BackingPropertyNaming")
     private val _deadLetter = MutableStateFlow<Map<String, SyncDeadLetterEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _syncState = MutableStateFlow<Map<SyncScope, SyncStateEntity>>(emptyMap())
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
     private val _reminders =
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
@@ -107,6 +113,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun tagDao(): TagDao = FakeTagDao(_tags)
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
     override fun syncDeadLetterDao(): SyncDeadLetterDao = FakeSyncDeadLetterDao(_deadLetter)
+    override fun syncStateDao(): SyncStateDao = FakeSyncStateDao(_syncState)
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
     override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
@@ -923,6 +930,59 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
 
     override suspend fun clearAll() {
         store.value = emptyMap()
+    }
+}
+
+/**
+ * In-memory [SyncStateDao], keyed by (owner, profile).
+ *
+ * The composite key is the point of the class, so it is modelled as a real map key
+ * rather than a filter over a flat row list — a fake that cannot express the
+ * distinction is a fake that cannot test the thing the table exists for.
+ */
+private class FakeSyncStateDao(private val store: MutableStateFlow<Map<SyncScope, SyncStateEntity>>) : SyncStateDao {
+
+    private fun key(ownerId: String, profileId: String) = SyncScope(ownerId, profileId)
+
+    override suspend fun get(ownerId: String, profileId: String): SyncStateEntity? =
+        store.value[key(ownerId, profileId)]
+
+    override fun observe(ownerId: String, profileId: String): Flow<SyncStateEntity?> =
+        store.map { it[key(ownerId, profileId)] }
+
+    override suspend fun insertIfAbsent(entity: SyncStateEntity) {
+        val k = SyncScope(entity.ownerId, entity.profileId)
+        store.update { if (k in it) it else it + (k to entity) }
+    }
+
+    override suspend fun setLastLsn(ownerId: String, profileId: String, lsn: Long) =
+        mutate(ownerId, profileId) { it.copy(lastLsn = lsn) }
+
+    override suspend fun setLastSuccessfulSyncAt(ownerId: String, profileId: String, at: Long) =
+        mutate(ownerId, profileId) { it.copy(lastSuccessfulSyncAt = at) }
+
+    override suspend fun setDeviceId(ownerId: String, profileId: String, deviceId: String) =
+        mutate(ownerId, profileId) { it.copy(deviceId = deviceId) }
+
+    override suspend fun setAutoSyncEnabled(ownerId: String, profileId: String, enabled: Boolean) =
+        mutate(ownerId, profileId) { it.copy(autoSyncEnabled = enabled) }
+
+    override suspend fun setScheduledIntervalMinutes(ownerId: String, profileId: String, minutes: Int) =
+        mutate(ownerId, profileId) { it.copy(scheduledIntervalMinutes = minutes) }
+
+    override suspend fun setEnabledTriggers(ownerId: String, profileId: String, triggers: String) =
+        mutate(ownerId, profileId) { it.copy(enabledTriggers = triggers) }
+
+    override suspend fun clearAll() {
+        store.value = emptyMap()
+    }
+
+    private fun mutate(ownerId: String, profileId: String, fn: (SyncStateEntity) -> SyncStateEntity) {
+        val k = key(ownerId, profileId)
+        store.update { current ->
+            val existing = current[k] ?: SyncStateEntity(ownerId = ownerId, profileId = profileId)
+            current + (k to fn(existing))
+        }
     }
 }
 
