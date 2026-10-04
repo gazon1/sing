@@ -145,10 +145,24 @@ invisible and with one they become irreversible data loss on the user's own data
 
 ## Phase 7–8 — Auth
 
-- [ ] 7.1 `shared/` — session store over the secure store; migrate a plaintext token
-      on first read and erase it. Verified by: `SecureSessionStoreTest` (REQ-UA-002)
-- [ ] 7.2 `shared/` — architecture test: no token port writes to plain-text
-      preferences
+- [x] 7.1 `shared/` — session store over the secure store; migrate a plaintext token
+      on first read and erase it. The refresh token is a bearer credential for the
+      user's account, and preferences are an unencrypted file that travels in
+      backups. The migration is write-then-erase and the ordering is the design:
+      reversed, a crash between the two steps leaves the user signed out of their own
+      account with the copy that would have let them back already deleted. A failed
+      keychain write therefore keeps the plaintext copy and retries, because a
+      plaintext token is a problem and a missing one is a lost account. The device id
+      stays in preferences — an identifier with no authority of its own, where a
+      keyring reset must not change it.
+      Verified by: `SecureSessionStoreTest` (9) — the token moves, the plaintext is
+      erased, a refused write leaves the plaintext in place, and a sign-in that lands
+      before a pending migration is not overwritten by it (REQ-UA-002)
+- [x] 7.2 `shared/` — architecture test: no token port writes to plain-text
+      preferences. `PlaintextTokenIsolationTest` (3) also asserts the token keys are
+      still declared, so renaming them cannot make the rule vacuously true, and
+      carries a positive control. Verified against a real injected violation, not
+      only against its own sample
 - [ ] 8.1 `shared/` — implement the authentication repository: sign-up, sign-in,
       anonymous, sign-out, ownership transfer; clear the pending flag on both success
       and failure. Verified by: `AuthRepositoryTest` (REQ-UA-001, REQ-UA-007)

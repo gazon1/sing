@@ -9,6 +9,7 @@ import com.singularity.todo.core.attachments.StubAttachmentUploadService
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
+import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.SupabaseClientProvider
@@ -100,7 +101,14 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Session / Auth ─────────────────────────────────────────────────
 
-    single<SessionStore> { DataStoreSessionStore(get(), get()) }
+    // The plain-text store is kept only for the device id and for a token a
+    // pre-upgrade build left behind, which SecureSessionStore moves into the
+    // keychain once and then erases. It is deliberately not bound as the
+    // SessionStore — PlaintextTokenIsolationTest fails if one ever is.
+    single { DataStoreSessionStore(get(), get()) }
+    single<SessionStore> {
+        SecureSessionStore(log = Logger.withTag("SecureSessionStore"), secure = get<SecureStorage>(), legacy = get())
+    }
 
     // Which Supabase project to talk to. The resolver owns the precedence rule
     // (a stored value beats a build-time one) and the provider owns the client,

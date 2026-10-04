@@ -54,13 +54,6 @@ interface SessionStore {
  * [deviceId] returns an empty string until initialized.
  */
 
-/**
- * Emits [emptyPreferences] when [java.io.IOException] is thrown (e.g. corrupted DataStore file),
- * re-throwing all other exceptions.
- */
-private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
-    catch { e -> if (e is java.io.IOException) emit(emptyPreferences()) else throw e }
-
 class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, private val idGenerator: IdGenerator) :
     SessionStore {
 
@@ -136,3 +129,10 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         }
     }
 }
+
+/**
+ * Emits [emptyPreferences] when [java.io.IOException] is thrown (e.g. corrupted DataStore file),
+ * re-throwing all other exceptions.
+ */
+private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
+    catch { e -> if (e is java.io.IOException) emit(emptyPreferences()) else throw e }

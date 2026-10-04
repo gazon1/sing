@@ -1,5 +1,7 @@
 package com.singularity.todo.core.auth
 
+import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +44,7 @@ import kotlinx.coroutines.sync.withLock
  * reaches a screen that needs the token never pays for it.
  */
 class SecureSessionStore(
+    private val log: Logger,
     private val secure: SecureStorage,
     /**
      * Where a pre-upgrade token may still sit. Read-only in practice: this class
@@ -113,8 +116,11 @@ class SecureSessionStore(
             // A permanent keyring failure then looks like a signed-out user, which
             // is recoverable; the alternative is a silent sign-out with no copy
             // anywhere.
-            runCatching { writeAll(legacyAccess, legacyRefresh, legacyEmail) }
+            runCatchingCancellable { writeAll(legacyAccess, legacyRefresh, legacyEmail) }
                 .onSuccess { legacy.forgetTokens() }
+                .onFailure {
+                    log.w(it) { "Could not move the session token into secure storage; the plain-text copy is kept" }
+                }
             publish()
         }
     }

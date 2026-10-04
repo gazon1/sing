@@ -155,7 +155,7 @@ class SyncApiClientTest {
                     deltaPatch {
                         patchId = "p1"
                         hlc = Hlc.of(1700, 3, "node-1")
-                    }
+                    },
                 ),
             ),
         )
@@ -185,7 +185,7 @@ class SyncApiClientTest {
                     deltaPatch {
                         patchId = "p1"
                         hlc = Hlc.of(1, 0, "n")
-                    }
+                    },
                 ),
             ),
         ).results
@@ -215,7 +215,7 @@ class SyncApiClientTest {
                         deltaPatch {
                             patchId = "p1"
                             hlc = Hlc.of(1, 0, "n")
-                        }
+                        },
                     ),
                 ),
             )
@@ -252,7 +252,7 @@ class SyncApiClientTest {
                     deltaPatch {
                         patchId = "p1"
                         hlc = Hlc.of(1, 0, "n")
-                    }
+                    },
                 ),
             ),
         ).results.single()
@@ -367,7 +367,7 @@ class SyncApiClientTest {
                     deltaPatch {
                         patchId = "p1"
                         hlc = Hlc.of(1, 0, "n")
-                    }
+                    },
                 ),
             ),
         )
