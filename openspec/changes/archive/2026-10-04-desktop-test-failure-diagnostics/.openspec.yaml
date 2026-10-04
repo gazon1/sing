@@ -1,0 +1,4 @@
+schema: spec-driven
+goal: Enrich FailureBundle with step recording, annotated screenshot, timeout diagnostics, and isolate test runtime
+affected_areas: [desktopApp]
+skip_specs: true

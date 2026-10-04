@@ -2,9 +2,6 @@ package com.singularity.todo.feature.flows.desktop
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
@@ -13,8 +10,12 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -42,10 +43,10 @@ class NavigationFlowTest {
         openDrawer()
 
         DesktopShell.TABS.forEach { label ->
-            onNodeWithContentDescription(label).assertIsDisplayed()
+            assertContentDescriptionDisplayed(label)
         }
         DesktopShell.MENU_ENTRIES.forEach { label ->
-            onNodeWithContentDescription(label).assertIsDisplayed()
+            assertContentDescriptionDisplayed(label)
         }
     }
 
@@ -54,12 +55,12 @@ class NavigationFlowTest {
         // The phase label is tagged, so this proves the Pomodoro VM produced state
         // rather than merely that the drawer entry was clicked.
         tapTab("Pomodoro")
-        onNodeWithTag(TestTags.Pomodoro.PHASE_LABEL).assertIsDisplayed()
+        assertTagDisplayed(TestTags.Pomodoro.PHASE_LABEL)
 
         // The month grid's weekday columns exist only in the calendar.
         tapTab("Calendar")
-        onNodeWithText("Mon").assertIsDisplayed()
-        onNodeWithText("Sun").assertIsDisplayed()
+        assertTextDisplayed("Mon")
+        assertTextDisplayed("Sun")
     }
 
     @Test
@@ -130,10 +131,10 @@ class NavigationFlowTest {
         // The open that used to be swallowed → task detail must appear.
         awaitTag(TestTags.taskItem("Ship the policy")).performClick()
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertIsDisplayed()
-        onNodeWithText("Ship the policy").assertIsDisplayed()
+        assertTextDisplayed("Ship the policy")
 
         // Back returns to the project — the origin stayed underneath (REQ-NAV-001).
-        onNodeWithContentDescription("Back").performClick()
+        clickContentDescription("Back")
         awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
     }
 }

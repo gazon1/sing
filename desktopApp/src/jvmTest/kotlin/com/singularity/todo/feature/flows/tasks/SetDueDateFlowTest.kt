@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tasks
@@ -51,9 +51,9 @@ class SetDueDateFlowTest {
         awaitTag(TestTags.taskItem("Buy milk")).performClick()
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-        onNodeWithTag(TestTags.TASK_EDITOR_DUE_ROW).assertIsDisplayed()
+        assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
         // The row renders the ISO date, not the placeholder.
-        onNodeWithText(today.toString()).assertIsDisplayed()
-        onNodeWithText("Добавить дату").assertDoesNotExist()
+        assertTextDisplayed(today.toString())
+        assertTextNotExists("Добавить дату")
     }
 }

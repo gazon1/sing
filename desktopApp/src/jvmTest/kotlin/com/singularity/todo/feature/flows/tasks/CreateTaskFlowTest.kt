@@ -6,12 +6,18 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagEnabled
+import com.singularity.todo.test.helpers.assertTagNotEnabled
+import com.singularity.todo.test.helpers.assertTagTextEquals
+import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.typeIntoTag
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -44,53 +50,53 @@ class CreateTaskFlowTest {
 
     @Test
     fun the_fab_opens_the_task_editor() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertIsDisplayed()
-        onNodeWithTag(TestTags.TASK_EDITOR_SAVE).assertIsDisplayed()
+        assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
+        assertTagDisplayed(TestTags.TASK_EDITOR_SAVE)
     }
 
     @Test
     fun save_stays_disabled_until_the_title_is_entered() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
         // DraftMviViewModel derives this from validate(draft), which rejects a
         // blank title — so an initially disabled button is the contract, and a
         // click that silently did nothing would be indistinguishable from a
         // broken editor if this were not asserted.
-        onNodeWithTag(TestTags.TASK_EDITOR_SAVE).assertIsNotEnabled()
+        assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
     }
 
     @Test
     fun typing_a_title_enables_save() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Buy milk")
+        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
         // Assert the field before saving: a BasicTextField can drop a
         // composition, and without this the failure would resurface later as a
         // missing row, which reads as a save-button bug rather than an input one.
-        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertTextEquals("Buy milk")
-        onNodeWithTag(TestTags.TASK_EDITOR_SAVE).assertIsEnabled()
+        assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+        assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
     }
 
     @Test
     fun the_editor_can_be_left_with_the_shell_back_arrow() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
-        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Buy milk")
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
         // Pushing the editor turns the shell's hamburger into a back arrow, so
         // the drawer is unreachable until the push is popped. This is desktop
         // behaviour with no Android counterpart, since the bottom bar stays put.
-        onNodeWithContentDescription(DesktopShell.BACK).assertIsDisplayed()
-        onNodeWithContentDescription(DesktopShell.BACK).performClick()
+        assertContentDescriptionDisplayed(DesktopShell.BACK)
+        clickContentDescription(DesktopShell.BACK)
 
         // The pop is asynchronous: the editor stays composed until the shell has
         // navigated back, so a one-shot "does not exist" right after the click
         // races the transition and fails intermittently under machine load.
         // The hamburger has no testTag, so wait on the editor leaving instead.
         awaitTagGone(TestTags.TASK_EDITOR_TITLE_INPUT)
-        onNodeWithContentDescription(DesktopShell.HAMBURGER).assertIsDisplayed()
+        assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
     }
 
     /**
@@ -108,9 +114,9 @@ class CreateTaskFlowTest {
     @Test
     fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() = runDesktopAppTest(checkA11y = true) {
         tapTab("Inbox")
-        onNodeWithContentDescription(DesktopShell.FAB_ADD_TASK).performClick()
-        onNodeWithTag(TestTags.TASK_EDITOR_TITLE_INPUT).performTextReplacement("Call the dentist")
-        onNodeWithTag(TestTags.TASK_EDITOR_SAVE).performClick()
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Call the dentist")
+        clickTag(TestTags.TASK_EDITOR_SAVE)
 
         // Saving pops the editor back to the Inbox agenda it was opened from.
         awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()

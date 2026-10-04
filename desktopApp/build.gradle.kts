@@ -122,12 +122,10 @@ tasks.withType<Test>().configureEach {
     useJUnitPlatform {
         // Desktop UI tests mount the whole production App(). The graph is built
         // per test from testPlatformModule() — FakeAppDatabase plus inert ports —
-        // so no test reads or writes ~/.singularity-todo and no test mutates a
-        // process-global property, which is what made parallel execution safe.
+        // so no test reads or writes ~/.singularity-todo.
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")
-        systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
-        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
-        systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
+        systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
+        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
 
         val tags = (project.findProperty("test.tags") as String?)
             ?.split(",")?.orEmpty() ?: emptyList()
@@ -153,6 +151,9 @@ tasks.withType<Test>().configureEach {
     listOf(
         "singularity.test.log",
         "singularity.test.screenshot",
+        "singularity.test.steps",
+        "singularity.test.a11y",
+        "singularity.test.baseline",
         "singularity.ui.dumpTree",
         "retry.maxAttempts",
         "retry.failOnPassedAfterRetry",

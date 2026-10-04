@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.flows.pomodoro
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagNotExists
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import org.junit.jupiter.api.Tag
@@ -41,32 +41,35 @@ class PomodoroFlowTest {
     fun timer_starts_paused_on_the_first_work_cycle() = runDesktopAppTest(checkA11y = true) {
         tapTab("Pomodoro")
 
-        onNodeWithTag(TestTags.Pomodoro.PHASE_LABEL).assertIsDisplayed()
-        onNodeWithText("Work").assertIsDisplayed()
-        onNodeWithText("Cycle 1").assertIsDisplayed()
-        onNodeWithTag(TestTags.Pomodoro.TIMER_LABEL).assertIsDisplayed()
-        onNodeWithTag(TestTags.Pomodoro.STOP_BUTTON).assertIsDisplayed()
-        onNodeWithTag(TestTags.Pomodoro.SKIP_BUTTON).assertIsDisplayed()
+        assertTagDisplayed(TestTags.Pomodoro.PHASE_LABEL)
+        assertTextDisplayed("Work")
+        assertTextDisplayed("Cycle 1")
+        assertTagDisplayed(TestTags.Pomodoro.TIMER_LABEL)
+        assertTagDisplayed(TestTags.Pomodoro.STOP_BUTTON)
+        assertTagDisplayed(TestTags.Pomodoro.SKIP_BUTTON)
 
-        // Paused, so the control offers to resume.
-        onNodeWithTag(TestTags.Pomodoro.PLAY_BUTTON).assertIsDisplayed()
-        onNodeWithTag(TestTags.Pomodoro.PAUSE_BUTTON).assertDoesNotExist()
+        // Paused, so the control offers to resume. Both assertions are atomic:
+        // the tags live in the same `when` branch of the same composable.
+        assertTagDisplayed(TestTags.Pomodoro.PLAY_BUTTON)
+        assertTagNotExists(TestTags.Pomodoro.PAUSE_BUTTON)
     }
 
     @Test
     fun play_and_pause_swap_the_single_control() = runDesktopAppTest(checkA11y = true) {
         tapTab("Pomodoro")
-        onNodeWithTag(TestTags.Pomodoro.PLAY_BUTTON).performClick()
+        clickTag(TestTags.Pomodoro.PLAY_BUTTON)
 
-        // Running, so the same control now offers to pause.
-        onNodeWithTag(TestTags.Pomodoro.PAUSE_BUTTON).assertIsDisplayed()
-        onNodeWithTag(TestTags.Pomodoro.PLAY_BUTTON).assertDoesNotExist()
-        onNodeWithText("Work").assertIsDisplayed()
+        // Running, so the same control now offers to pause. The swap lands
+        // asynchronously, so arrival waits (assertTagDisplayed) and departure
+        // waits too (awaitTagGone).
+        assertTagDisplayed(TestTags.Pomodoro.PAUSE_BUTTON)
+        awaitTagGone(TestTags.Pomodoro.PLAY_BUTTON)
+        assertTextDisplayed("Work")
 
-        onNodeWithTag(TestTags.Pomodoro.PAUSE_BUTTON).performClick()
+        clickTag(TestTags.Pomodoro.PAUSE_BUTTON)
 
-        onNodeWithTag(TestTags.Pomodoro.PLAY_BUTTON).assertIsDisplayed()
-        onNodeWithTag(TestTags.Pomodoro.PAUSE_BUTTON).assertDoesNotExist()
-        onNodeWithText("Work").assertIsDisplayed()
+        assertTagDisplayed(TestTags.Pomodoro.PLAY_BUTTON)
+        awaitTagGone(TestTags.Pomodoro.PAUSE_BUTTON)
+        assertTextDisplayed("Work")
     }
 }

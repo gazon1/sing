@@ -1,14 +1,16 @@
 package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagExists
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
@@ -43,7 +45,7 @@ class SetPriorityFlowTest {
         tasks(koin).given(due = todayInSystemZone())
         openEditor("Buy milk")
 
-        onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).assertIsDisplayed()
+        assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
     }
 
     @Test
@@ -51,20 +53,20 @@ class SetPriorityFlowTest {
         tasks(koin).given(due = todayInSystemZone())
         openEditor("Buy milk")
 
-        onNodeWithText("No priority").assertIsDisplayed()
-        onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).performClick()
-        onNodeWithTag(TestTags.PRIORITY_OPTION_HIGH).performClick()
+        assertTextDisplayed("No priority")
+        clickTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+        clickTag(TestTags.PRIORITY_OPTION_HIGH)
 
         // The row relabels; the editor autosaves, so there is no save button here.
-        onNodeWithText("High priority").assertIsDisplayed()
-        onNodeWithText("No priority").assertDoesNotExist()
+        assertTextDisplayed("High priority")
+        assertTextNotExists("No priority")
     }
 
     @Test
     fun every_priority_option_is_addressable() = runDesktopAppTest(checkA11y = true) { koin ->
         tasks(koin).given(due = todayInSystemZone())
         openEditor("Buy milk")
-        onNodeWithTag(TestTags.TASK_EDITOR_PRIORITY_ROW).performClick()
+        clickTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
 
         // The sheet renders TaskPriority.entries, so all five need an id —
         // including Urgent, which the registry had no constant for until this MR.
@@ -80,7 +82,7 @@ class SetPriorityFlowTest {
             TestTags.PRIORITY_OPTION_HIGH,
             TestTags.PRIORITY_OPTION_URGENT,
         ).forEach { tag ->
-            onNodeWithTag(tag).assertExists()
+            assertTagExists(tag)
         }
     }
 }

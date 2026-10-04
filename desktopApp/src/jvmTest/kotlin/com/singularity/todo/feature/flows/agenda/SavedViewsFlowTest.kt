@@ -1,11 +1,10 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -23,22 +22,22 @@ class SavedViewsFlowTest {
 
     @Test
     fun the_saved_views_list_opens_and_reports_its_empty_state() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+        clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
 
-        onNodeWithText("Saved Views").assertIsDisplayed()
-        onNodeWithText("No saved views yet").assertIsDisplayed()
-        onNodeWithTag(TestTags.SAVED_AGENDA_CREATE_FAB).assertIsDisplayed()
+        assertTextDisplayed("Saved Views")
+        assertTextDisplayed("No saved views yet")
+        assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
     }
 
     @Test
     fun leaving_the_saved_views_list_returns_to_the_agenda() = runDesktopAppTest(checkA11y = true) {
-        onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        onNodeWithText("Saved Views").assertIsDisplayed()
+        clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+        assertTextDisplayed("Saved Views")
 
         // The list's own top-bar arrow, not the shell's — the shell control is a
         // hamburger only at a tab root, and this screen is pushed.
-        onNodeWithTag(TestTags.SAVED_AGENDA_LIST_BACK).performClick()
+        clickTag(TestTags.SAVED_AGENDA_LIST_BACK)
 
-        onNodeWithTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).assertIsDisplayed()
+        assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
     }
 }

@@ -1,17 +1,14 @@
 package com.singularity.todo.feature.flows.tasks
 
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.TIMEOUT_MS
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.awaitCheckboxChecked
 import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.clickCheckbox
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
@@ -66,17 +63,10 @@ class TaskRowFlowTest {
         tasks(koin).given(due = todayInSystemZone())
 
         awaitTag(TestTags.taskCheckbox("Buy milk")).assertIsDisplayed()
-        onNodeWithTag(TestTags.taskCheckbox("Buy milk")).performClick()
+        clickCheckbox(TestTags.taskCheckbox("Buy milk"))
 
         // Asserting the toggled semantics makes this a state assertion rather than
         // a click-counting smoke test.
-        waitUntil(
-            conditionDescription = "the checkbox reports checked",
-            timeoutMillis = TIMEOUT_MS,
-        ) {
-            onAllNodesWithTag(TestTags.taskCheckbox("Buy milk"))
-                .fetchSemanticsNodes()
-                .any { it.config[SemanticsProperties.ToggleableState] == ToggleableState.On }
-        }
+        awaitCheckboxChecked(TestTags.taskCheckbox("Buy milk"))
     }
 }
