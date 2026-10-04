@@ -18,25 +18,25 @@ a task is not done until its test passes.
 These three are fixed before a backend exists, because without one the defects are
 invisible and with one they become irreversible data loss on the user's own data.
 
-- [ ] 1.1 `shared/` — delete the unwired OAuth subsystem (4 files) and its tests;
+- [x] 1.1 `shared/` — delete the unwired OAuth subsystem (4 files) and its tests;
       close backlog entry `core-auth-oauth-is-entirely-unwired`; remove its two
       baseline lines. Verified by: dead-symbol detector reports no removed symbols
-- [ ] 1.2 `scripts/find-unwired-surfaces.py` — strip comments and string literals
+- [x] 1.2 `scripts/find-unwired-surfaces.py` — strip comments and string literals
       before counting references. Verified by: detector now reports the auto-sync
       class as unwired
-- [ ] 1.3 `shared/` — remove the auto-sync entry point and its test, which test a
+- [x] 1.3 `shared/` — remove the auto-sync entry point and its test, which test a
       class nothing calls. Verified by: `find-unwired-surfaces.py` clean again
 
 ## Phase 2 — Sync core refactor
 
-- [ ] 2.1 `shared/` — single-owner sync cycle via a conflated channel with one
+- [x] 2.1 `shared/` — single-owner sync cycle via a conflated channel with one
       consumer; delete the lock-and-recursion coalescing.
       Verified by: `SyncCoordinatorCoalescingTest` — ten concurrent requests yield one
       cycle plus at most one follow-up (REQ-OS-008)
-- [ ] 2.2 `shared/` — report unappliable events and stop advancing the cursor past
+- [x] 2.2 `shared/` — report unappliable events and stop advancing the cursor past
       them. Verified by: `SyncEnginePullTest` — an event of an unhandled type leaves
       the cursor unmoved and the count above zero (REQ-OS-007)
-- [ ] 2.3 `shared/` — exponential per-patch backoff with a cap, a maximum attempt
+- [x] 2.3 `shared/` — exponential per-patch backoff with a cap, a maximum attempt
       count, and a dead-letter store. Verified by: `SyncEnginePushTest` — a patch past
       the attempt limit is in the dead-letter store and not retried (REQ-OS-010)
 - [ ] 2.4 `shared/` — move sync state from preferences into the database, keyed by
@@ -47,7 +47,7 @@ invisible and with one they become irreversible data loss on the user's own data
       logical clock; remove the row checksum and the code computing it.
       Verified by: `BuildPatchDiffTest` — a one-field edit yields exactly one field
       operation (REQ-OS-002)
-- [ ] 2.6 `shared/`, `androidApp/` — one sync driver per platform; remove the
+- [x] 2.6 `shared/`, `androidApp/` — one sync driver per platform; remove the
       alarm-based scheduler. Verified by: architecture test asserting one driver per
       platform source set
 - [ ] 2.7 `shared/` — tests for the sync engine and the pull dispatcher, which
