@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+from pathlib import PurePosixPath
 import re
 import sys
 
@@ -78,11 +79,40 @@ def _gitignore_patterns() -> list[re.Pattern[str]]:
 
 
 def is_generated(ref: str) -> bool:
-    """True when `ref` is gitignored — i.e. built, not authored."""
-    return any(p.search(ref) for p in _GITIGNORE)
+    """True when `ref` is gitignored — i.e. built, not authored.
+
+    Two ways to match, and the second one was a real CI-only failure.
+
+    A gitignore pattern containing `/` is anchored at the repo root, so
+    `docs/decisions/DIGEST.md` matches that exact path and nothing else. But a
+    document may reference the same generated file by **basename** — three skills
+    write plain `DIGEST.md` — and references are resolved by basename elsewhere in
+    this script. So the literal-path test missed those entirely, and the gate
+    reported them dead on a fresh checkout while passing on any machine where the
+    post-checkout hook had run. That is precisely the environment-dependence the
+    gitignore handling was added to remove; it just did not cover the basename
+    form of the same path.
+    """
+    if any(p.search(ref) for p in _GITIGNORE):
+        return True
+    return PurePosixPath(ref).name in _GITIGNORE_BASENAMES
 
 
 _GITIGNORE = _gitignore_patterns()
+
+# Basenames of gitignored *files*, so `DIGEST.md` is recognised as generated even
+# though the pattern that produces it is root-anchored. Restricted to entries that
+# look like filenames (they carry an extension) so a gitignored directory name like
+# `build` does not make an unrelated file named `build` look generated.
+_GITIGNORE_BASENAMES: frozenset[str] = frozenset(
+    PurePosixPath(line.strip().rstrip("/")).name
+    for line in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    if (ROOT / ".gitignore").is_file()
+    and line.strip()
+    and not line.strip().startswith(("#", "!"))
+    and not line.strip().endswith("/")
+    and "." in PurePosixPath(line.strip()).name
+)
 
 # Files that are runtime artifacts or external, not repo sources.
 RUNTIME_ARTIFACTS = {
