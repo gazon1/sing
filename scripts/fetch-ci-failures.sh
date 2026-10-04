@@ -55,8 +55,13 @@ if ! gh run download "$RUN_ID" --dir "$DEST" 2>/dev/null; then
   exit 2
 fi
 
-# The test HTML report is the browsable form; point at it before the summary.
-INDEX="$(find "$DEST" -path '*reports/tests/*/index.html' | sort | head -5 || true)"
+# The test HTML report is the browsable form; point at the task-level index
+# (reports/tests/<task>/index.html) rather than the per-class ones underneath
+# it, which would bury the useful link under hundreds of paths.
+INDEX="$(find "$DEST" -path '*reports/tests/*/index.html' -print0 2>/dev/null \
+  | while IFS= read -r -d '' f; do
+      [[ "$(basename "$(dirname "$(dirname "$f")")")" == tests ]] && printf '%s\n' "$f"
+    done | sort || true)"
 if [[ -n "$INDEX" ]]; then
   echo
   echo "HTML reports:"
