@@ -142,8 +142,6 @@ which is why the step produced a finding instead of a change.
 **Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
 deleted instead of implemented.
 
-**Tracked as:** #37
-
 **Symptom:** file logging works on both platforms, so a developer can now read
 logs off a device — but a *user* cannot. There is no way to attach logs to a
 bug report, which is the reason `FileLogWriter` was originally wanted
@@ -177,8 +175,6 @@ not exist.
 **Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
 the deletion list and was **kept** — see the note below.
 
-**Tracked as:** #36
-
 **Symptom:** `bulkComplete(ids)` and `bulkDelete(ids)` are implemented, unit
 tested, and Koin-bound, but no ViewModel injects the use case. There is no
 multi-select in the task list, so the atomicity guarantee those methods exist
@@ -205,8 +201,6 @@ some ids vanished).
 **Found in:** MR-4. The plan listed two dead symbols in
 `core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
 
-**Tracked as:** #67
-
 **Symptom:** `OAuthConfig`, `OAuthResult`, `OAuthTokenData` and
 `toOAuthTokenData` have zero references outside their own file — no ViewModel,
 no repository, no test, no Koin binding. `TokenError` and `RedirectState` were
@@ -229,8 +223,6 @@ MR-4 stopped at the two symbols it was asked to remove.
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 
-**Tracked as:** #68
-
 **Symptom:** a repo-wide sweep of `log.{d,i,w,e} { "...$var..." }` for
 user-derived values has never been done. `ChatViewModel` (AI prompt fragment)
 and `ProfileBootstrapper`/`SyncBootstrapper` (profile name, entity id) were
@@ -249,8 +241,6 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 **Tracked as:** #40
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
-
-**Tracked as:** #40
 
 **Symptom:** `ProjectsFlowTest` failed once with `NullPointerException` from
 `ProjectDetailViewModel.getDraftState()` returning null (draft state read
@@ -387,8 +377,6 @@ what unblocked the Agenda epic's desktop matrix (issue #26).
 **Found in:** `refactor/tag-registry-and-robots`, while fixing the
 `NoDirectClockSystem` violation that shipped in `2e99b1d0`.
 
-**Tracked as:** #42
-
 **Symptom:** the KDoc on `NoDirectClockSystemRule` states "Test sources are
 exempt (detekt's standard path filters handle patterns in test directories)".
 They are not exempt. Both `shared/build.gradle.kts` and `desktopApp/build.gradle.kts`
@@ -472,7 +460,6 @@ identified: `core/log/FileLogWriter.kt:50` uses
 **Status (corrected 2026-10-05):** the whitelisting is in the rule code. The rule had no
 `detekt.yml` block at all, so it never ran; a block was added that day
 (`no-direct-dispatchers` / `NoDirectDispatchers`, `active: true`).
-**Tracked as:** #44
 
 **Status:** the whitelisting is already done in the rule code
 (`isAllowedFile` for `FileLogWriter.kt`). The rule is `active: false`
@@ -511,8 +498,6 @@ exists in the codebase and no obvious place to add it that would survive
 the blank-screen bug (the compose tree is empty at that point, so any
 modifier on `NavDisplay` would not render either).
 
-**Tracked as:** #45
-
 **Try next:** this item is closed as "not implementable as described". The
 diagnostic approach should instead target the shell layer —
 `DesktopShellNav3Root` or `DesktopShellNav3` — where a `LaunchedEffect` or
@@ -530,8 +515,6 @@ route change itself is the trigger.
 `check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
 in 9 skill files are accepted in `config/docs/skill-symbol-baseline.txt`.
 Zero NEW findings at baseline creation.
-
-**Tracked as:** #41
 
 The top clusters identified:
 
@@ -2910,6 +2893,7 @@ cache, a local SDK. `check-gate-wiring.py` catches the "cannot fail" direction; 
 is the "cannot be trusted" direction, and nothing catches it. Running a gate against
 a fresh `git clone --depth 1` is the cheap test, and it is what turned a red CI job
 into a one-line fix instead of an afternoon.
+
 
 
 
