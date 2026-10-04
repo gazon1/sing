@@ -68,20 +68,25 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
         }
     }
 
-    private fun isAllowedFile(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
-        val path = element.containingKtFile.virtualFilePath.replace('\\', '/')
-        return isAllowedPath(path)
-    }
+    private fun isAllowedFile(element: org.jetbrains.kotlin.psi.KtElement): Boolean =
+        isAllowedPath(element.containingKtFile.virtualFilePath)
 
     /**
      * Returns true if [path] points to an allowed source file.
      * The path must end with the canonical file name to avoid false positives
      * on similarly-named files in other directories (e.g. `Clock.kt.bak`,
      * `Clock.ktHelpers.kt`, or files in subdirectories).
+     *
+     * Normalises internally rather than relying on the caller. This function is
+     * `internal` so it can be unit-tested, and a test (or any future caller) passing a
+     * Windows-style path would silently get `false` if the conversion lived only in
+     * [isAllowedFile]. A function that answers "is this path allowed?" should answer it
+     * for a path.
      */
     internal fun isAllowedPath(path: String): Boolean {
-        return path.endsWith("/core/platform/Clock.kt") ||
-            path.endsWith("/core/di/CoreDiModule.kt")
+        val normalized = path.replace('\\', '/')
+        return normalized.endsWith("/core/platform/Clock.kt") ||
+            normalized.endsWith("/core/di/CoreDiModule.kt")
     }
 
     private fun reportFinding(element: org.jetbrains.kotlin.psi.KtElement, message: String) {

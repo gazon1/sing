@@ -32,7 +32,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-desktop-compose-ui-tests` | 333 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
-| `singularity-todo-detekt-rules-authoring` | 381 | How to write and register custom detekt rules in the Singularity Todo project. |
+| `singularity-todo-detekt-rules-authoring` | 470 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
