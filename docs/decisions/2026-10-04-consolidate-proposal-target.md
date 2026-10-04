@@ -1,9 +1,9 @@
 ---
 title: Consolidate ProposalTarget — Remove Legacy taskId from AiProposal
+date: 2026-10-04
 status: draft
-deciders:
-  - Singularity Developer
-created: 2026-10-04
+deciders: 
+deciders: 
 ---
 
 ## Context

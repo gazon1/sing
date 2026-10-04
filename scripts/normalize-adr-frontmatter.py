@@ -21,6 +21,39 @@ from pathlib import Path
 
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 
+# The only keys this script is allowed to carry through. Derived from the keys actually
+# present in well-formed ADRs under docs/decisions, not invented. Anything else inside
+# the frontmatter block means the block is not frontmatter at all — the usual cause is a
+# body that was never closed, so prose containing ':' parses as a key. Emitting those
+# keys is how a body gets duplicated into the file, so unknown keys are a hard error
+# rather than something to round-trip. See scripts/tests/test_normalize_adr_frontmatter.py.
+KNOWN_KEYS = frozenset({
+    'title', 'date', 'created', 'updated', 'last_updated', 'status', 'tags', 'Tags',
+    'deciders', 'decider', 'authors', 'author', 'reviewedBy', 'owner', 'profile',
+    'epic', 'description', 'summary', 'id', 'slug', 'type', 'impact', 'review',
+    'supersedes', 'superseded-by', 'superseded_by', 'doesNotSupersede', 'replaces',
+    'follows', 'decides', 'adr', 'adr-number', 'end-date', 'labels',
+    'issuesRelated', 'related', 'references', 'skills', 'context', 'Context',
+    'Decision', 'Rationale', 'Consequences', 'Links', 'deprecated-by',
+})
+
+# Capitalized section names used as keys. These are the signature of a body written
+# *inside* the frontmatter block: the block parses as valid YAML, so nothing else
+# catches it, but the file has no real body and cannot be rendered.
+SECTION_KEYS = frozenset({'Context', 'Decision', 'Rationale', 'Consequences', 'Links'})
+
+
+class StructuralError(Exception):
+    """Raised when a file's frontmatter block cannot be trusted. Never write on this."""
+
+
+class UnrepresentableValue(StructuralError):
+    """The key's value cannot survive this script's flat str->str round-trip.
+
+    A YAML list or block scalar would be flattened to an empty string and its items
+    dropped on write, so the file is reported and left alone instead.
+    """
+
 # Frontmatter key order — `title` first so the digest and listings read naturally.
 KEY_ORDER = ['title', 'date', 'status', 'tags', 'deciders', 'supersedes',
              'superseded-by', 'epic', 'deciders']
@@ -36,28 +69,60 @@ def slug_to_title(slug: str) -> str:
 
 
 def parse_frontmatter(lines: list[str]) -> tuple[dict[str, str], list[str], int | None]:
-    """Returns (fm_dict, body_lines, dash_close_line_index)."""
+    """Returns (fm_dict, body_lines, dash_close_line_index).
+
+    Raises StructuralError if the block is unterminated or carries a key outside
+    KNOWN_KEYS. Both mean the 'frontmatter' is really body text, and re-emitting it
+    would duplicate the body and promote prose to metadata.
+    """
+    if not lines or lines[0].strip() != '---':
+        raise StructuralError('file does not start with a frontmatter delimiter')
+
     fm: dict[str, str] = {}
     body_start: int | None = None
-    in_fm = False
-    fm_lines: list[str] = []
+    multiline: set[str] = set()
 
-    for i, line in enumerate(lines):
-        if line.strip() == '---':
-            if not in_fm:
-                in_fm = True
-                continue
-            else:
-                body_start = i + 1
-                break
-        if in_fm:
-            if ':' in line:
-                key, _, val = line.partition(':')
-                fm[key.strip()] = val.strip()
-                fm_lines.append(line)
+    for i, line in enumerate(lines[1:], start=1):
+        stripped = line.strip()
+        if stripped == '---':
+            body_start = i + 1
+            break
+        if not stripped or stripped.startswith('#'):
+            continue
+        # A key with no inline value opens a list or block scalar. This script models
+        # frontmatter as flat str->str, so those cannot be re-emitted without losing
+        # their items — record the key and refuse to rewrite the file.
+        if line.startswith((' ', '\t', '-')) or stripped in ('|', '>', '|-', '>-'):
+            if line.startswith((' ', '\t', '-')) and fm and not multiline:
+                multiline.add(next(reversed(fm)))
+            continue
+        if ':' in stripped:
+            key, _, val = stripped.partition(':')
+            key = key.strip()
+            if key in SECTION_KEYS:
+                raise StructuralError(
+                    f'section key {key!r} at line {i + 1} — the body is written inside '
+                    'the frontmatter block, so the file has no real body'
+                )
+            if key not in KNOWN_KEYS:
+                raise StructuralError(
+                    f'unknown frontmatter key {key!r} at line {i + 1} — '
+                    'the frontmatter block is probably unterminated body text'
+                )
+            fm[key] = val.strip()
+            if val.strip() in ('|', '>', '|-', '>-'):
+                multiline.add(key)
 
-    body = lines[body_start:] if body_start is not None else lines
-    return fm, body, body_start
+    if body_start is None:
+        raise StructuralError('frontmatter block is never closed with ---')
+
+    if multiline:
+        raise UnrepresentableValue(
+            f'key(s) {sorted(multiline)} have list or block-scalar values, which this '
+            'normalizer cannot round-trip without dropping items'
+        )
+
+    return fm, lines[body_start:], body_start
 
 
 def normalize_frontmatter(fm: dict[str, str], body_text: str = '', path: Path | None = None) -> dict[str, str]:
@@ -120,11 +185,19 @@ def format_frontmatter(fm: dict[str, str]) -> list[str]:
 
 
 def process_file(path: Path, dry_run: bool = True) -> tuple[bool, str]:
-    """Process one ADR file. Returns (changed, message)."""
+    """Process one ADR file. Returns (changed, message).
+
+    Raises StructuralError without touching the file if the frontmatter is untrusted.
+    """
     original = path.read_text()
     lines = original.splitlines()
 
-    fm, body, body_start = parse_frontmatter(lines)
+    try:
+        fm, body, body_start = parse_frontmatter(lines)
+    except StructuralError as exc:
+        # Preserve the specific subclass so callers/tests can distinguish an
+        # untrusted block from a value this normalizer simply cannot round-trip.
+        raise type(exc)(f'{path.name}: {exc}') from exc
     original_fm = dict(fm)
     fm = normalize_frontmatter(fm, body_text='\n'.join(body), path=path)
 
@@ -156,24 +229,41 @@ def main() -> None:
 
     changed = []
     unchanged = 0
+    errors = []
 
     for path in entries:
-        did_change, msg = process_file(path, dry_run=dry_run)
+        try:
+            did_change, msg = process_file(path, dry_run=dry_run)
+        except StructuralError as exc:
+            errors.append(str(exc))
+            continue
         if did_change:
             changed.append((path.stem, msg))
         else:
             unchanged += 1
 
     if dry_run:
-        print(f"[DRY RUN] {len(changed)} files need changes, {unchanged} unchanged")
-        print("Run with --apply to write changes:")
-        for slug, msg in changed:
-            print(f"  {slug}: {msg}")
+        print(f"[DRY RUN] {len(changed)} files need changes, {unchanged} unchanged, "
+              f"{len(errors)} skipped as structurally broken")
+        for err in errors:
+            print(f"  SKIPPED (not written): {err}")
+        if changed:
+            print("Run with --apply to write changes:")
+            for slug, msg in changed:
+                print(f"  {slug}: {msg}")
     else:
-        print(f"Applied: {len(changed)} files changed, {unchanged} unchanged")
+        print(f"Applied: {len(changed)} files changed, {unchanged} unchanged, "
+              f"{len(errors)} skipped as structurally broken")
+        for err in errors:
+            print(f"  SKIPPED (not written): {err}")
         for slug, msg in changed:
             print(f"  {slug}: {msg}")
 
+    # A structural error is a real defect in the corpus, not a normal outcome: it means
+    # an ADR is silently unparseable. Exit non-zero so CI sees it, but only after writing
+    # the files that are safe to write.
+    if errors:
+        sys.exit(3)
     if changed and dry_run:
         sys.exit(2)  # indicate changes needed
 

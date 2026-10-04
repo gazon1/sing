@@ -1,9 +1,9 @@
 ---
 title: Note Proposal UI Path — How to Add Proposals to New Surfaces
+date: 2026-10-04
 status: draft
-deciders:
-  - Singularity Developer
-created: 2026-10-04
+deciders: 
+deciders: 
 ---
 
 ## Context

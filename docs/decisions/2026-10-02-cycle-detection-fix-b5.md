@@ -1,6 +1,7 @@
 ---
 title: "Fix B5: assertNoCycles uses full BFS, not just self-loop check"
 date: 2026-10-02
+status: accepted
 tags: [data-integrity, dependency-validation, bugfix]
 ---
 
