@@ -86,22 +86,37 @@ fun jsonObject(vararg pairs: Pair<String, String>): JsonObject = buildJsonObject
 
 /**
  * Fake SyncApiClient for tests — no network needed.
+ *
+ * [getEventsSince] honours [SyncApiClient.getEventsSince]'s `sinceLsn` and returns
+ * events in sequence order. The first version returned its whole scripted list on
+ * every call, so any test asserting cursor behaviour passed against a fake that had
+ * no cursor to begin with — the assertion was about the fake, not the engine.
  */
 class FakeSyncApiClient(
     private val pushResponse: BatchPushResponse = BatchPushResponse(emptyList()),
     private val pullEvents: List<SyncEvent> = emptyList(),
 ) : SyncApiClient {
     val pushCalls = mutableListOf<BatchPushRequest>()
+
+    /** One entry per pull: the user asked as, and the position they asked from. */
     val pullCalls = mutableListOf<Pair<String, Long>>()
+
+    /** When set, both [batchPush] and [getEventsSince] throw it. */
+    var failWith: Throwable? = null
 
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
         pushCalls.add(request)
+        failWith?.let { throw it }
         return pushResponse
     }
 
     override suspend fun getEventsSince(userId: String, sinceLsn: Long, limit: Int): List<SyncEvent> {
         pullCalls.add(userId to sinceLsn)
+        failWith?.let { throw it }
         return pullEvents
+            .filter { it.serverLsn > sinceLsn }
+            .sortedBy { it.serverLsn }
+            .take(limit)
     }
 
     override suspend fun testConnection(userId: String): Result<Unit> = Result.success(Unit)

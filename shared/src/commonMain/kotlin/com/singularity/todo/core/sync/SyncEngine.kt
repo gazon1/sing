@@ -23,8 +23,13 @@ data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int)
 
 /**
  * Summary of a pull operation.
+ *
+ * [dropped] counts events this client could not apply. It is the difference between
+ * "the server sent three events and two are stored" and "three events were consumed
+ * and one was thrown away" — a distinction the old three-field summary could not
+ * express, which is why a permanently unappliable event was invisible.
  */
-data class PullSummary(val received: Int, val applied: Int, val conflicts: Int)
+data class PullSummary(val received: Int, val applied: Int, val conflicts: Int, val dropped: Int = 0)
 
 /**
  * Outcome of a single sync run (push + pull).
@@ -242,24 +247,41 @@ internal class SyncEngine(
             val events = api.getEventsSince(session.userId.value, sinceLsn)
             var applied = 0
             var conflicts = 0
+            var dropped = 0
             var maxLsn = sinceLsn
 
-            events.forEach { event ->
-                maxLsn = maxOf(maxLsn, event.serverLsn)
+            for (event in events) {
                 val handler = handlers[event.entityType]
-                    ?: return@forEach
+                if (handler == null) {
+                    // The cursor does NOT advance past this event, and the pull stops
+                    // here. The previous code did `maxLsn = maxOf(maxLsn, lsn)` first
+                    // and then `?: return@forEach`, so an event whose type this client
+                    // cannot handle advanced the cursor anyway and was never applied
+                    // again: the server considered it delivered, the client considered
+                    // it done, and the data was gone. The only trace was a pull summary
+                    // that said it had received the event and applied nothing.
+                    dropped++
+                    log.w {
+                        "Dropping event at lsn=${event.serverLsn} for unknown type " +
+                            "${event.entityType.key}; cursor stays at $maxLsn"
+                    }
+                    break
+                }
+
                 when (handler.apply(event)) {
                     is ApplyOutcome.Applied -> applied++
                     is ApplyOutcome.Conflict -> conflicts++
                 }
+                maxLsn = maxOf(maxLsn, event.serverLsn)
             }
 
-            // Persist the server LSN so the next pull resumes from this point.
+            // Persist the server LSN so the next pull resumes from this point. Written
+            // after the loop, so it is the last position that was actually applied.
             prefs.setLastLsn(maxLsn)
             // Stamp lastSuccessfulSyncAt so the UI "Last synced" field stays current.
             prefs.recordSuccessfulSync()
 
-            val summary = PullSummary(events.size, applied, conflicts)
+            val summary = PullSummary(events.size, applied, conflicts, dropped)
             _lastPull.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
