@@ -24,21 +24,18 @@ tags:
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
-# Save keeps the editor open — it does not pop. The save button re-enables after
-# the async persist completes, which is the last write in this flow before we exit.
-# Note: Notification.Text("Saved", null) is a no-op (ResultDialog early-exits when
-# text==null). A real "Saved" toast requires Notification.Undo. See
+# Save pops the editor: SaveSuccess maps to Notification.NavigateBack
+# (SavedAgendaScreen.kt), and SavedAgendaCreateFlowTest pins that contract on
+# desktop. An earlier version of this flow said the opposite and tapped the
+# top-bar arrow expecting a "Discard changes?" guard — which made it a race,
+# since the guard appeared only if the tap beat the pop. Assert the pop.
+# Note: Notification.Text("Saved", null) is a no-op (ResultDialog early-exits
+# when text==null); a real toast needs Notification.Undo. See
 # deferred-backlog.md#saved-views-crud-flow-selects-a-snackbar-that-does-not-exist.
-# Leave via the top-bar arrow, not the system back: the arrow is the one that
-# honours the dirty-draft confirmation. The system back does not pop this screen.
-- tapOn:
-    id: top_bar_back_button
-# The rename left the draft dirty, so leaving raises the unsaved-changes guard.
 - extendedWaitUntil:
-    visible: "Discard changes?"
+    notVisible:
+      id: saved_agenda_name_input
     timeout: 8000
-- tapOn:
-    id: dialog_dismiss
 - extendedWaitUntil:
     visible:
       id: agenda_saved_views_button
@@ -50,9 +47,14 @@ tags:
     visible: "Saved Views"
     timeout: 8000
 - assertVisible: "Focus"
-# Open it — the editor offers Delete only in edit mode.
-- tapOn:
-    text: "Focus"
+# Open it in the editor. Tapping the card body opens the *results* screen, not
+# the editor — Edit lives in the card's overflow menu (SavedAgendaCard.kt), and
+# Delete is only offered from edit mode, which is what the second half needs.
+- tapOn: "⋮"
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 8000
+- tapOn: "Edit"
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input
@@ -64,8 +66,12 @@ tags:
 - extendedWaitUntil:
     visible: "Delete view?"
     timeout: 8000
-- tapOn:
-    id: dialog_confirm
+# By label, not by id: an AlertDialog is its own Android window, and the
+# testTagsAsResourceId semantics property is not inherited into it, so
+# dialog_confirm never appears in the UIAutomator hierarchy. The tag is still
+# correct for the desktop Compose tests, which read the semantics tree.
+- tapOn: "Delete"
+
 - extendedWaitUntil:
     visible: "Saved Views"
     timeout: 8000
