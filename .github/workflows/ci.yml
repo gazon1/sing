@@ -16,6 +16,11 @@ on:
 jobs:
   test-and-check:
     runs-on: ubuntu-latest
+    permissions:
+      # read actions so the flake step can download the previous run's results;
+      # write contents is not needed and not granted.
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -54,8 +59,9 @@ jobs:
           fi
 
       - name: Build version catalog gate
+        # blocking as of 2026-10-04: a hardcoded group:artifact:version literal is a
+        # reproducible build defect, and check.sh already fails on it locally.
         run: python3 scripts/build-version-catalog-gate.py --quiet .
-        continue-on-error: true
 
       - name: Run jvmTest (fast + slow)
         run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon --configuration-cache
@@ -81,6 +87,45 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Published on every run, not only on failure: flake analysis is a
+      # comparison between two runs, and a results set that only exists when
+      # something broke is exactly the half you need.
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: |
+            shared/build/test-results/jvmTest/**/*.xml
+            desktopApp/build/test-results/test/**/*.xml
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Flake analysis vs previous run
+        # Annotation, not a gate: a test that failed here already failed the
+        # Gradle step above, so failing again would change no outcome. What it
+        # adds is the other half of the signal — tests that failed in the
+        # previous run and passed now are proven nondeterministic even though
+        # nothing about this run looked wrong.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PREV=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?status=success&per_page=5" \
+                 --jq "[.workflow_runs[] | select(.head_branch == \"$GITHUB_REF_NAME\")][0].id // empty" 2>/dev/null || true)
+          if [ -z "$PREV" ]; then
+            echo "no previous successful run on this branch — flake analysis skipped"
+            exit 0
+          fi
+          gh run download "$PREV" -n junit-results -D /tmp/prev-run || {
+            echo "previous run $PREV has no junit-results artifact (retention, or first run) — skipped"
+            exit 0
+          }
+          python3 scripts/check-flaky-tests.py \
+            --current shared/build/test-results/jvmTest \
+            --previous /tmp/prev-run \
+            --summary "$GITHUB_STEP_SUMMARY"
+
       - name: Upload configuration cache report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -91,8 +136,10 @@ jobs:
           retention-days: 14
 
       - name: Assemble Android debug
+        # blocking as of 2026-10-04: check.sh step [5/8] already fails on it, so a
+        # red assemble here says nothing new about developer workflow — it just
+        # means the green badge was not reporting the build.
         run: ./gradlew :androidApp:assembleDebug --no-daemon --configuration-cache
-        continue-on-error: true
 
       # "Tests passed" and "the tests ran" are different claims. A JUnit tag filter
       # matches per class, so a class can stop being selected without any error and the
@@ -101,16 +148,29 @@ jobs:
       - name: Check executed test counts
         run: python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test
 
+      - name: Test the gate scripts
+        # A regression inside check-test-runs.py disables the floor silently — the
+        # same failure one level up. 20 ms, no JVM, so it runs every time.
+        run: python3 -m unittest discover -s scripts/tests
+
       - name: Run detekt
+        # blocking as of 2026-10-04: enforceMode is already on in both modules and
+        # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
+        # reports violations nobody has to fix.
         run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon --configuration-cache
-        continue-on-error: true
 
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
 
       - name: Check doc sizes
-        run: python3 scripts/check-doc-sizes.py
+        # DIGEST.md is generated and gitignored, so on a fresh checkout it does
+        # not exist and the budget check would silently skip it. Regenerate
+        # first: this step then measures what the generator actually produces
+        # today, which is the thing that can regress.
+        run: |
+          python3 scripts/refresh-decisions-digest.py
+          python3 scripts/check-doc-sizes.py
         # blocking: AGENTS.md budget (250 lines) or DIGEST.md budget exceeded
 
       - name: Check dead doc references
@@ -160,11 +220,19 @@ jobs:
       - name: Check executed test counts (Android source set)
         run: python3 scripts/check-test-runs.py --require shared:testAndroidHostTest
 
+      # A report nobody reads is not a measurement. Kover 0.9 writes
+      # reports/kover/report.xml — the artifact step pointed at xml-report.xml,
+      # a name this plugin never produced, and had no if-no-files-found: error,
+      # so the upload has always carried nothing.
+      - name: Check coverage floors
+        run: python3 scripts/check-coverage.py
+
       - name: Upload kover XML report
         uses: actions/upload-artifact@v4
         with:
           name: kover-report
-          path: shared/build/reports/kover/xml-report.xml
+          path: shared/build/reports/kover/report.xml
+          if-no-files-found: error
 
   openspec-validate:
     runs-on: ubuntu-latest
@@ -208,12 +276,14 @@ jobs:
       - name: Check mcp-server
         # :mcp-server:jar builds the fat JAR the E2E suite spawns (it was never
         # built in CI before — McpServerEndToEndTest always self-skipped).
+        # blocking as of 2026-10-04: this job carried the whole P0 data-corruption
+        # fix (profile bootstrap identity), and advisory tests there mean the fix
+        # ships unverified. check.sh step [7/8] validates the DI graph locally.
         run: |
           ./gradlew :mcp-server:jar --no-daemon --configuration-cache
           ./gradlew :mcp-server:detekt --no-daemon --configuration-cache
           ./gradlew :mcp-server:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
           python3 scripts/check-test-runs.py --require mcp-server:test
-        continue-on-error: true
       - name: Upload configuration cache report
         if: failure()
         uses: actions/upload-artifact@v4
