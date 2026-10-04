@@ -20,7 +20,7 @@ import java.io.File
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 fun main() = singleWindowApplication(
-    title = "Singularity Todo"
+    title = "Singularity Todo",
 ) {
     // Ensure data directory exists
     val dataDir = File("${System.getProperty("user.home")}/.singularity-todo")
@@ -34,11 +34,11 @@ fun main() = singleWindowApplication(
         logDirectory = System.getProperty("user.home")!!.toPath() / ".singularity-todo" / "logs",
     )
     startKoin {
-            modules(
-                listOf(platformModule(), coreLoggingModule()) +
-                    domainModule() +
-                    listOf(gateModule(RELEASES_URL)),
-            )
+        modules(
+            listOf(platformModule(), coreLoggingModule()) +
+                domainModule() +
+                listOf(gateModule(RELEASES_URL)),
+        )
     }
 
     // Seed the default 'Personal' profile on first launch (idempotent). The

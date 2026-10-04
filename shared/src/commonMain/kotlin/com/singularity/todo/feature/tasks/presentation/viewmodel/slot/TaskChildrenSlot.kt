@@ -4,7 +4,9 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskChildrenIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -26,7 +28,9 @@ import kotlinx.coroutines.launch
  */
 class TaskChildrenSlot(
     private val taskId: TaskId,
-    private val deps: TaskDetailDeps,
+    private val core: TaskCoreDeps,
+    private val children: TaskChildrenDeps,
+    private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -41,9 +45,9 @@ class TaskChildrenSlot(
     init {
         scope.launch {
             combine(
-                deps.checklistRepository.watchByTask(taskId.value),
-                deps.taskRepo.observeSubtasks(taskId),
-                deps.attachmentsRepo.watchByTask(taskId),
+                children.checklistRepository.watchByTask(taskId.value),
+                core.taskRepo.observeSubtasks(taskId),
+                children.attachmentsRepo.watchByTask(taskId),
             ) { checklist, subtasks, attachments ->
                 TaskChildrenState(checklist = checklist, subtasks = subtasks, attachments = attachments)
             }.collect { _state.value = it }
@@ -67,18 +71,18 @@ class TaskChildrenSlot(
 
     private fun addChecklistItem(title: String) = scope.launch {
         if (title.isBlank()) return@launch
-        deps.checklistRepository.addItem(taskId.value, title.trim())
+        children.checklistRepository.addItem(taskId.value, title.trim())
             .onSuccess { onSaved("Item added") }
             .onFailure { onError("Add failed") }
     }
 
     private fun toggleChecklistItem(intent: TaskDetailIntent.Domain.ToggleChecklistItem) = scope.launch {
-        deps.checklistRepository.toggleItem(taskId.value, intent.item.id, "user")
+        children.checklistRepository.toggleItem(taskId.value, intent.item.id, "user")
             .onFailure { onError("Toggle failed") }
     }
 
     private fun deleteChecklistItem(intent: TaskDetailIntent.Domain.DeleteChecklistItem) = scope.launch {
-        deps.checklistRepository.delete(intent.id)
+        children.checklistRepository.delete(intent.id)
             .onFailure { onError("Delete failed") }
     }
 
@@ -87,32 +91,32 @@ class TaskChildrenSlot(
     private fun addSubtask(title: String) = scope.launch {
         val parent = parentTask.value ?: return@launch
         if (title.isBlank()) return@launch
-        deps.createTask(CreateTaskInput(title = title.trim(), parentTaskId = parent.id))
+        core.createTask(CreateTaskInput(title = title.trim(), parentTaskId = parent.id))
             .onSuccess { onSaved("Subtask added") }
             .onFailure { onError("Add subtask failed: ${it.message}") }
     }
 
     private fun toggleSubtask(subtask: Task) = scope.launch {
-        val completedAt = if (subtask.completedAt == null) deps.clock.now() else null
-        deps.updateTask(subtask.id) { it.copy(completedAt = completedAt) }
+        val completedAt = if (subtask.completedAt == null) context.clock.now() else null
+        core.updateTask(subtask.id) { it.copy(completedAt = completedAt) }
             .onFailure { onError("Save failed") }
     }
 
     private fun deleteSubtask(subtask: Task) = scope.launch {
-        deps.taskRepo.softDelete(subtask.id)
+        core.taskRepo.softDelete(subtask.id)
             .onFailure { onError("Delete subtask failed") }
     }
 
     // ── Attachments ─────────────────────────────────────────────────────────
 
     private fun addAttachment(intent: TaskDetailIntent.Domain.AddUrlAttachment) = scope.launch {
-        deps.attachmentsRepo.addUrlAttachment(taskId, intent.url, intent.title)
+        children.attachmentsRepo.addUrlAttachment(taskId, intent.url, intent.title)
             .onSuccess { onSaved("Attachment added") }
             .onFailure { onError("Failed to add attachment") }
     }
 
     private fun deleteAttachment(intent: TaskDetailIntent.Domain.DeleteAttachment) = scope.launch {
-        deps.attachmentsRepo.delete(intent.id)
+        children.attachmentsRepo.delete(intent.id)
             .onSuccess { onSaved("Attachment deleted") }
             .onFailure { onError("Failed to delete attachment") }
     }

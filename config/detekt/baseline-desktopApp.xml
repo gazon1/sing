@@ -1,5 +1,36 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues/>
+  <CurrentIssues>
+    <ID>ClassSignature:AgendaRobot.kt:AgendaRobot</ID>
+    <ID>ClassSignature:FailureBundle.kt:FailureBundle</ID>
+    <ID>ClassSignature:FakeRemoteConfigPort.kt:FakeRemoteConfigPort : RemoteConfigPort</ID>
+    <ID>ClassSignature:RingBufferLogWriter.kt:RingBufferLogWriter : LogWriter</ID>
+    <ID>ClassSignature:SavedViewsRobot.kt:SavedViewsRobot</ID>
+    <ID>ClassSignature:TasksRobot.kt:TasksRobot</ID>
+    <ID>ClassSignature:TestPorts.kt:TestPomodoroTimer : PomodoroTimer</ID>
+    <ID>Kdoc:TestLogging.kt:/** * ## Available `singularity.*` system properties for desktop UI tests * * All properties are forwarded from the Gradle CLI to the forked test JVM via * `desktopApp/build.gradle.kts` — a `-D` flag on the Gradle command line is * silently ignored. * * | Property | Default | Effect | * |---|---|---| * | `singularity.test.log` | `false` | Routes Kermit to stdout at `Verbose` severity. All `Logger` calls (including `Logger.d { }`) appear in the test output under `&lt;system-out&gt;`. | * | `singularity.ui.dumpTree` | `false` | Prints the semantics tree wrapped in `=== SEMANTICS TREE START/END ===` markers before every assertion in `DesktopAppBootTest`. | * * Example — enable logging for one test class: * ```bash * ./gradlew :desktopApp:test --tests '*CreateTaskFlowTest' -Dsingularity.test.log=true * ``` * * Example — dump semantics tree for a failing boot test: * ```bash * ./gradlew :desktopApp:test --tests '*DesktopAppBootTest' -Dsingularity.ui.dumpTree=true * ``` * * Forwarding is configured in `desktopApp/build.gradle.kts`: * ```kotlin * System.getProperties().stringPropertyNames() * .filter { it.startsWith("singularity.") } * .forEach { key -&gt; systemProperty(key, System.getProperty(key)) } * ``` */</ID>
+    <ID>Kdoc:TestPorts.kt:/** * Inert implementations of the JVM ports a desktop flow test would otherwise * reach through `platformModule()`. * * The production JVM implementations are not merely inconvenient in a test — they * shell out to `secret-tool` and `notify-send`, start a daemon coroutine loop, and * write under `~/.singularity-todo`. Each class here records the calls it * received so a test that unexpectedly depends on one can assert on it rather * than discover the dependency by surprise. */</ID>
+    <ID>MaximumLineLength:RingBufferLogWriter.kt:RingBufferLogWriter.Entry$"</ID>
+    <ID>NoEmptyOnClickLambda:ContextMenuTest.kt:ContextMenuTest${}</ID>
+    <ID>NoEmptyOnClickLambda:NotesScreenTest.kt:NotesScreenTest${}</ID>
+    <ID>NoEmptyOnClickLambda:TagsRenameUiTest.kt:TagsRenameUiTest${}</ID>
+    <ID>NoUnusedImports:CoroutineDiagnosticsTest.kt:com.singularity.todo.test.helpers.CoroutineDiagnosticsTest.kt</ID>
+    <ID>NoUnusedImports:CreateTaskFlowTest.kt:com.singularity.todo.feature.flows.tasks.CreateTaskFlowTest.kt</ID>
+    <ID>NoUnusedImports:SetPriorityFlowTest.kt:com.singularity.todo.feature.flows.tasks.SetPriorityFlowTest.kt</ID>
+    <ID>NoUnusedImports:StepRecorder.kt:com.singularity.todo.test.helpers.StepRecorder.kt</ID>
+    <ID>NoUnusedImports:TagsRenameUiTest.kt:com.singularity.todo.feature.tags.TagsRenameUiTest.kt</ID>
+    <ID>NoUnusedImports:TestPorts.kt:com.singularity.todo.test.helpers.TestPorts.kt</ID>
+    <ID>NoUnusedImports:main.kt:com.singularity.todo.main.kt</ID>
+    <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$(</ID>
+    <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$("ai", "AI Actions", children = buildMenuNodes { item("ai_refine", "Improve with SMART") {} item("ai_gen", "Generate description") {} })</ID>
+    <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$("move", "Move to", children = buildMenuNodes { subMenu("project", "Project", children = buildMenuNodes { item("proj_a", "Project A") {} item("proj_b", "Project B") {} }) item("inbox", "Inbox") {} })</ID>
+    <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$("project", "Project", children = buildMenuNodes { item("proj_a", "Project A") {} item("proj_b", "Project B") {} })</ID>
+    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$(</ID>
+    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("file", "File", children = buildMenuNodes { item("new_task", "New Task", shortcut = "Ctrl+N") {} item("settings", "Settings…", shortcut = "Ctrl+,") {} divider() item("quit", "Quit", shortcut = "Ctrl+Q") {} })</ID>
+    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("help", "Help", children = buildMenuNodes { item("about", "About") {} })</ID>
+    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("l1", "Level 1", children = buildMenuNodes { subMenu("l2", "Level 2", children = buildMenuNodes { subMenu("l3", "Level 3", children = buildMenuNodes { item("action", "Deep Action") {} }) }) })</ID>
+    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("l2", "Level 2", children = buildMenuNodes { subMenu("l3", "Level 3", children = buildMenuNodes { item("action", "Deep Action") {} }) })</ID>
+    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("l3", "Level 3", children = buildMenuNodes { item("action", "Deep Action") {} })</ID>
+  </CurrentIssues>
 </SmellBaseline>

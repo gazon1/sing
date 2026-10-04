@@ -14,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class DeleteTaskInput(val taskId: String, val reason: String? = null)
@@ -39,7 +40,7 @@ class DeleteTaskTool(
 ) : SimpleTool<DeleteTaskInput>(TypeToken.of(DeleteTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteTaskInput): String {
-        val result = runCatching {
+        val result = runCatchingCancellable {
             val taskId = TaskId.fromString(args.taskId)
             val proposalId = com.singularity.todo.core.ids.ProposalId.generate()
             val itemId = com.singularity.todo.core.ids.ProposalItemId.generate()

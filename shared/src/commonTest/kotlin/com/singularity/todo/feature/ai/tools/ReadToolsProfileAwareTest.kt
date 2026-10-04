@@ -4,7 +4,6 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -15,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -85,7 +85,29 @@ class ReadToolsProfileAwareTest {
         repo.add(task)
     }
 
+    /**
+     * The scope is a parameter, and it must be the test's `backgroundScope`.
+     *
+     * `ProfileAwareCurrentUser` seeds `scopedUserId` synchronously in its
+     * constructor, so the *construction-time* value is correct with no race. The
+     * race is one line later: `profiles.switchTo(...)` changes an upstream, and the
+     * only thing that propagates that into `scopedUserId` is a collector on the
+     * injected scope. On `createBackgroundScope()` (Dispatchers.Default) that
+     * collector runs on another thread at an unpredictable moment, so a test that
+     * switched the profile and immediately read `scopedUserId` read whichever value
+     * won the race — the seeded task was stored under `profile/user`, the filter
+     * used plain `user`, and the tool returned nothing.
+     *
+     * With the test's `backgroundScope` the collector is a virtual-time task, so
+     * the value is settled by `runCurrent()` and the read is deterministic.
+     *
+     * Found by running this class: on `main`, with `--rerun-tasks`, 2 of these tests
+     * fail; on the verifiability branch, 1 — a *different* one each run. The class
+     * carried no `@Tag`, so `-Ptest.tags=fast,slow` meant it never executed in CI
+     * and the flakiness was invisible.
+     */
     private fun buildProfileAware(
+        scope: CoroutineScope,
         authUserId: String,
     ): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
@@ -95,9 +117,9 @@ class ReadToolsProfileAwareTest {
         // derived from the session, so a read never observes the pre-collector
         // "anonymous" seed regardless of when the collector happens to run.
         val currentUser = ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth, scope = createBackgroundScope()),
+            currentUser = CurrentUser(auth, scope = scope),
             profileRepository = profiles,
-            scope = createBackgroundScope(),
+            scope = scope,
         )
         return Triple(currentUser, auth, profiles)
     }
@@ -107,6 +129,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun list_tasks_uses_profile_scoped_userId_when_userId_is_blank() = runTest {
         val (currentUser, auth, profiles) = buildProfileAware(
+            scope = backgroundScope,
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
@@ -132,6 +155,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun list_linked_tasks_uses_profile_scoped_userId_when_blank() = runTest {
         val (currentUser, auth, profiles) = buildProfileAware(
+            scope = backgroundScope,
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
@@ -155,6 +179,7 @@ class ReadToolsProfileAwareTest {
     @Test
     fun search_tasks_uses_profile_scoped_userId_when_blank() = runTest {
         val (currentUser, auth, profiles) = buildProfileAware(
+            scope = backgroundScope,
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
@@ -177,6 +202,7 @@ class ReadToolsProfileAwareTest {
         // Regression guard for the historical bug where blank userId silently
         // resolved to "local-user" — leaking personal data into agent queries.
         val (currentUser, auth, profiles) = buildProfileAware(
+            scope = backgroundScope,
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))

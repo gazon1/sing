@@ -9,15 +9,18 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 
-private class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null) {
+internal class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        for (declaration in root.declarations) {
-            if (declaration is KtClass) checkClass(declaration)
-        }
+        // The whole tree, not `root.declarations`. That list is top-level only, so a
+        // ViewModel nested in an `object` — which is how several screens in this repo
+        // are grouped — was never inspected. A rule that promises "every ViewModel has
+        // KDoc" while skipping a third of them is worse than no rule, because the KDoc
+        // beside it says the promise is kept.
+        for (clazz in root.collectDescendantsOfType<KtClass>()) checkClass(clazz)
     }
 
     private fun checkClass(clazz: KtClass) {
@@ -37,18 +40,27 @@ private class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null)
         )
     }
 
-    private fun hasKDoc(declaration: KtDeclaration): Boolean {
-        val docText = declaration.docComment?.text
-        return !docText.isNullOrBlank()
+    private fun hasKDoc(clazz: KtClass): Boolean {
+        // A KDoc written above `class Foo( … )` is the class's documentation by
+        // Kotlin convention, but PSI attaches it to the *primary constructor* when
+        // there is a parameter list, leaving `clazz.docComment` null. Both two
+        // ViewModels that were baselined in 2026-10-04 were documented exactly
+        // this way and were being reported as undocumented — the rule was narrower
+        // than its own intent.
+        val text = clazz.docComment?.text ?: clazz.primaryConstructor?.docComment?.text
+        return !text.isNullOrBlank()
     }
 }
 
-private class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config, "", null) {
+internal class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
-        for (declaration in root.declarations) {
-            if (declaration is KtClass) checkClass(declaration)
-        }
+        // The whole tree, not `root.declarations`. That list is top-level only, so a
+        // ViewModel nested in an `object` — which is how several screens in this repo
+        // are grouped — was never inspected. A rule that promises "every ViewModel has
+        // KDoc" while skipping a third of them is worse than no rule, because the KDoc
+        // beside it says the promise is kept.
+        for (clazz in root.collectDescendantsOfType<KtClass>()) checkClass(clazz)
     }
 
     private fun checkClass(clazz: KtClass) {
@@ -67,9 +79,9 @@ private class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config,
         )
     }
 
-    private fun hasKDoc(declaration: KtDeclaration): Boolean {
-        val docText = declaration.docComment?.text
-        return !docText.isNullOrBlank()
+    private fun hasKDoc(clazz: KtClass): Boolean {
+        val text = clazz.docComment?.text ?: clazz.primaryConstructor?.docComment?.text
+        return !text.isNullOrBlank()
     }
 }
 

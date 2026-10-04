@@ -27,7 +27,12 @@ class TaskDraftSlotTest {
     fun `draft is empty before seeding`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
 
         assertEquals("", slot.state.value.title)
     }
@@ -36,7 +41,12 @@ class TaskDraftSlotTest {
     fun `seed initialises title and description`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1", title = "Original"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
 
         slot.seed("Original", "Body")
 
@@ -48,7 +58,12 @@ class TaskDraftSlotTest {
     fun `seed is idempotent so a second call cannot clobber an in-progress edit`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1", title = "Original"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
 
         slot.seed("Original", "Body")
         slot.onIntent(TaskDetailIntent.Domain.TitleChanged("User edit"))
@@ -62,7 +77,12 @@ class TaskDraftSlotTest {
     fun `title change updates the draft immediately`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         slot.seed("Original", "")
         runCurrent()
 
@@ -78,7 +98,12 @@ class TaskDraftSlotTest {
         // does not exist — so the task has to be seeded, as it would be in the app.
         fakes.taskRepo.seed(task("t1", title = "Original"))
         val source = TaskSource(task("t1", title = "Original"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         slot.seed("Original", "")
         runCurrent()
 
@@ -94,7 +119,12 @@ class TaskDraftSlotTest {
     fun `description change persists and blank is stored as null`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(description = "Old"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         slot.seed("Original", "Old")
         runCurrent()
 
@@ -112,7 +142,12 @@ class TaskDraftSlotTest {
         // does not exist — so the task has to be seeded, as it would be in the app.
         fakes.taskRepo.seed(task("t1", title = "Original"))
         val source = TaskSource(task("t1", title = "Original"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         slot.seed("Original", "")
         runCurrent()
 
@@ -138,7 +173,12 @@ class TaskDraftSlotTest {
         // does not exist — so the task has to be seeded, as it would be in the app.
         fakes.taskRepo.seed(task("t1", title = "Original").copy(emoji = "🎯"))
         val source = TaskSource(task("t1", title = "Original").copy(emoji = "🎯"))
-        val slot = TaskDraftSlot(fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskDraftSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         slot.seed("Original", "")
         runCurrent()
 

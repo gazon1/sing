@@ -6,6 +6,7 @@ import java.io.File
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * JVM/Linux implementation of [NotificationPort].
@@ -74,7 +75,7 @@ class JvmNotificationPort : NotificationPort {
 
     override suspend fun cancel(key: String) {
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatchingCancellable {
                 val jobs = readJobFile()
                 jobs[key]?.let { jobId ->
                     ProcessBuilder("atrm", jobId).start().waitFor()
@@ -87,7 +88,7 @@ class JvmNotificationPort : NotificationPort {
     override suspend fun cancelAll() {
         withContext(Dispatchers.IO) {
             if (!isAvailable) return@withContext
-            runCatching {
+            runCatchingCancellable {
                 ProcessBuilder("atq")
                     .start()
                     .inputStream

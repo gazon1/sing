@@ -26,7 +26,14 @@ class TaskCompletionSlotTest {
     fun `state reflects the task`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(completedAt = kotlin.time.Clock.System.now()))
-        val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state, {}, {})
+        val slot = TaskCompletionSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+            onError = {},
+            onSaved = {},
+        )
         runCurrent()
 
         assertTrue(slot.state.value.isCompleted)
@@ -40,7 +47,14 @@ class TaskCompletionSlotTest {
         // does not exist — so the task has to be seeded, as it would be in the app.
         fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
-        val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state, {}, {})
+        val slot = TaskCompletionSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+            onError = {},
+            onSaved = {},
+        )
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -53,7 +67,14 @@ class TaskCompletionSlotTest {
     fun `toggle complete clears completedAt when already done`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(completedAt = kotlin.time.Clock.System.now()))
-        val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state, {}, {})
+        val slot = TaskCompletionSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+            onError = {},
+            onSaved = {},
+        )
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -74,7 +95,14 @@ class TaskCompletionSlotTest {
                 ),
             ),
         )
-        val slot = TaskCompletionSlot(fakes.deps(), testSlotScope(backgroundScope), source.state, {}, {})
+        val slot = TaskCompletionSlot(
+            core = fakes.core(),
+            context = fakes.context(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+            onError = {},
+            onSaved = {},
+        )
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)

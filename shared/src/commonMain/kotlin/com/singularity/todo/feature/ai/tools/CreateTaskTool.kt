@@ -14,6 +14,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class CreateTaskInput(
@@ -46,8 +47,8 @@ class CreateTaskTool(
             id = taskId,
             title = args.title,
             description = args.description,
-            priority = runCatching { TaskPriority.valueOf(args.priority) }.getOrDefault(TaskPriority.None),
-            kind = runCatching { TaskKind.valueOf(args.kind) }.getOrDefault(TaskKind.Task),
+            priority = runCatchingCancellable { TaskPriority.valueOf(args.priority) }.getOrDefault(TaskPriority.None),
+            kind = runCatchingCancellable { TaskKind.valueOf(args.kind) }.getOrDefault(TaskKind.Task),
             projectId = args.projectId?.let { ProjectId.fromString(it) },
             parentTaskId = args.parentTaskId?.let { TaskId.fromString(it) },
             tags = args.tagIds.map { TagId.fromString(it) },

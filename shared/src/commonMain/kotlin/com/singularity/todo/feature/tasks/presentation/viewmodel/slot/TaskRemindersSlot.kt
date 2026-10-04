@@ -7,7 +7,9 @@ import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.util.dueInstant
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -31,7 +33,9 @@ import kotlinx.coroutines.launch
  */
 class TaskRemindersSlot(
     private val taskId: TaskId,
-    private val deps: TaskDetailDeps,
+    private val core: TaskCoreDeps,
+    private val scheduling: TaskSchedulingDeps,
+    private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -44,7 +48,7 @@ class TaskRemindersSlot(
 
     init {
         scope.launch {
-            deps.reminderRepo.watchByTask(taskId).collect { reminders ->
+            scheduling.reminderRepo.watchByTask(taskId).collect { reminders ->
                 _state.value = TaskRemindersState(reminders = reminders)
             }
         }
@@ -63,10 +67,10 @@ class TaskRemindersSlot(
             clearReminders(task)
             return@launch
         }
-        val userId = deps.taskRepo.currentUserId()
-        val now = deps.clock.now().toEpochMilliseconds()
+        val userId = core.taskRepo.currentUserId()
+        val now = context.clock.now().toEpochMilliseconds()
         val fireAt = task.dueDate?.let { due ->
-            dueInstant(due, task.dueTime, offset, deps.timeZoneProvider.current())
+            dueInstant(due, task.dueTime, offset, scheduling.timeZoneProvider.current())
         } ?: now
         // Reuse existing reminder id so last_fired_at is preserved (avoids resetting the
         // recurring fire-count on every offset change)
@@ -80,8 +84,8 @@ class TaskRemindersSlot(
             fireAt = fireAt,
             recurringPattern = null,
         )
-        deps.reminderRepo.upsert(reminder)
-            .onSuccess { deps.reminderScheduler.schedule(reminder) }
+        scheduling.reminderRepo.upsert(reminder)
+            .onSuccess { scheduling.reminderScheduler.schedule(reminder) }
             .onFailure { onError("Failed to set reminder") }
     }
 
@@ -91,9 +95,9 @@ class TaskRemindersSlot(
     }
 
     private suspend fun clearReminders(task: Task) {
-        val userId = deps.taskRepo.currentUserId()
-        deps.reminderScheduler.cancelByTask(task.id, userId)
-        deps.reminderRepo.deleteByTask(task.id)
+        val userId = core.taskRepo.currentUserId()
+        scheduling.reminderScheduler.cancelByTask(task.id, userId)
+        scheduling.reminderRepo.deleteByTask(task.id)
             .onFailure { onError("Failed to remove reminder") }
     }
 }

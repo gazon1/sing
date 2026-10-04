@@ -26,7 +26,9 @@ class TaskChildrenSlotTest {
         onSaved: (String) -> Unit = {},
     ) = TaskChildrenSlot(
         taskId = TaskId("t1"),
-        deps = fakes.deps(),
+        core = fakes.core(),
+        children = fakes.children(),
+        context = fakes.context(),
         scope = testSlotScope(scope),
         taskFlow = source.state,
         onError = {},
@@ -98,7 +100,9 @@ class TaskChildrenSlotTest {
         val source = TaskSource(task("t1"))
         val slot = TaskChildrenSlot(
             taskId = TaskId("t1"),
-            deps = fakes.deps(),
+            core = fakes.core(),
+            children = fakes.children(),
+            context = fakes.context(),
             scope = testSlotScope(backgroundScope),
             taskFlow = source.state,
             onError = { errors += it },

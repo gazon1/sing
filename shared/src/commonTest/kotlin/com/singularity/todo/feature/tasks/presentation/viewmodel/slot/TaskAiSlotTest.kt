@@ -34,7 +34,14 @@ class TaskAiSlotTest {
         scope: CoroutineScope,
         deps: TaskDetailDeps = fakes.deps(),
         onError: (String) -> Unit = {},
-    ) = TaskAiSlot(deps, testSlotScope(scope), source.state, onError) {}
+    ) = TaskAiSlot(
+        ai = deps.ai,
+        collaboration = deps.collaboration,
+        context = deps.context,
+        scope = testSlotScope(scope),
+        taskFlow = source.state,
+        onError = onError,
+    ) {}
 
     @Test
     fun `is not running before any action`() = runTest {

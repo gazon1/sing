@@ -11,6 +11,7 @@ import org.koin.core.Koin
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Dumps the current unmerged semantics tree, or a note if unavailable.
@@ -80,7 +81,17 @@ data class FailureBundle(
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile, stepsFile, treeFile, nodesFile, screenshotAnnotatedFile).forEach { file ->
+        val artifacts = listOf(
+            screenshotFile,
+            dbStateFile,
+            kermitLogFile,
+            coroutinesFile,
+            stepsFile,
+            treeFile,
+            nodesFile,
+            screenshotAnnotatedFile,
+        )
+        artifacts.forEach { file ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
             } else {
@@ -151,7 +162,7 @@ data class FailureBundle(
             // Delete prior content so this attempt starts clean — stale files from a
             // previous attempt that crashed before writing some artifacts must not mislead
             // investigation (e.g., old screenshot showing a different failure state).
-            runCatching { bundle.outputDir.deleteRecursively() }
+            runCatchingCancellable { bundle.outputDir.deleteRecursively() }
             bundle.outputDir.mkdirs()
 
             // Order: hang-proof artifacts first, screenshot last.
@@ -163,7 +174,7 @@ data class FailureBundle(
             // `AppDatabase` interface, NOT under its implementation type, so this must
             // resolve by the interface and cast. Resolving `getOrNull<FakeAppDatabase>()`
             // always returned null and silently produced a placeholder file.
-            runCatching {
+            runCatchingCancellable {
                 val db = app.getOrNull<AppDatabase>() as? FakeAppDatabase
                 writeFile(bundle.dbStateFile) {
                     db?.dumpAll() ?: "<no FakeAppDatabase in the test Koin graph>"
@@ -171,20 +182,20 @@ data class FailureBundle(
             }
 
             // Kermit ring buffer
-            runCatching {
+            runCatchingCancellable {
                 val logs = kermitBuffer?.drain() ?: "<ring buffer not available>"
                 writeFile(bundle.kermitLogFile) { logs }
             }
 
             // Coroutine dump — kotlinx-coroutines-debug agent snapshot; see CoroutineDiagnostics
-            runCatching {
+            runCatchingCancellable {
                 writeFile(bundle.coroutinesFile) {
                     CoroutineDiagnostics.dump(testClassSimpleName, attempt)
                 }
             }
 
             // Step recorder log — always written (empty when no steps recorded)
-            runCatching {
+            runCatchingCancellable {
                 writeFile(bundle.stepsFile) {
                     steps?.format() ?: ""
                 }
@@ -193,7 +204,7 @@ data class FailureBundle(
             // Semantics tree — written as a file so it is available in the bundle
             // directory without needing to parse the JUnit XML report. The unmerged tree
             // is used because it shows the raw nodes before Compose folds them.
-            runCatching {
+            runCatchingCancellable {
                 writeFile(bundle.treeFile) {
                     testInstance.dumpSemantics()
                 }
@@ -210,9 +221,9 @@ data class FailureBundle(
             // composition reaches "idle" immediately and the capture proceeds. The
             // screenshot shows the last composed frame — exactly what diagnosis needs.
             // -Dsingularity.test.screenshot=false still skips the capture entirely.
-            runCatching { testInstance.mainClock.autoAdvance = false }
+            runCatchingCancellable { testInstance.mainClock.autoAdvance = false }
             if (System.getProperty("singularity.test.screenshot") != "false") {
-                runCatching {
+                runCatchingCancellable {
                     val bitmap = testInstance.captureToImage()
                     val bufferedImage: BufferedImage = bitmap.toAwtImage()
                     ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
@@ -221,7 +232,7 @@ data class FailureBundle(
                 // Writes nodes.txt unconditionally (text fallback) and screenshot-annotated.png
                 // when screenshot is enabled. Both are independent runCatching blocks so one
                 // failure does not affect the other.
-                runCatching {
+                runCatchingCancellable {
                     testInstance.captureAnnotated(
                         highlightTag = highlightTag,
                         file = bundle.screenshotAnnotatedFile,
@@ -230,7 +241,7 @@ data class FailureBundle(
                 }
             } else {
                 // Still write nodes.txt even when screenshot is disabled.
-                runCatching {
+                runCatchingCancellable {
                     testInstance.captureAnnotated(
                         highlightTag = highlightTag,
                         file = bundle.screenshotAnnotatedFile,
@@ -242,7 +253,7 @@ data class FailureBundle(
             // Regression diff vs the baseline snapshot written on a passing run with
             // -Dsingularity.test.baseline=true. Best-effort on both sides: no baseline
             // (or a failed read) simply means no diff.
-            runCatching {
+            runCatchingCancellable {
                 val baselineDir = File("build/diagnostics/$testClassSimpleName/baseline")
                 val diff = testInstance.diffAgainstBaseline(baselineDir)
                 if (diff != null) {

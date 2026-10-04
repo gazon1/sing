@@ -16,6 +16,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed implementation of [ReminderRepository].
@@ -42,20 +43,20 @@ class ReminderRepositoryImpl(
         return dao.getById(id.value, uid.value)?.toReminder()
     }
 
-    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
+    override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         currentUser.assertCanWrite(entityId = reminder.id.value, entityUserId = reminder.userId)
         val toInsert = reminder.copy(userId = uid)
         dao.upsert(toInsert.toEntity(clock.now().toEpochMillis()))
     }
 
-    override suspend fun delete(id: ReminderId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ReminderId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         dao.delete(id.value, uid.value)
     }
 
     override suspend fun delete(id: ReminderId, userId: com.singularity.todo.core.ids.UserId): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             dao.delete(id.value, userId.value)
         }
 
@@ -80,12 +81,12 @@ class ReminderRepositoryImpl(
             dao.getRecentDueBefore(nowEpochMs, uid.value, limit).map { list -> list.map { it.toReminder() } }
         }
 
-    override suspend fun deleteByTask(taskId: TaskId): Result<Unit> = runCatching {
+    override suspend fun deleteByTask(taskId: TaskId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         dao.deleteByTask(taskId.value, uid.value)
     }
 
-    override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> = runCatching {
+    override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         dao.setLastFiredAt(reminderId.value, uid.value, lastFiredAt, clock.now().toEpochMillis())
     }

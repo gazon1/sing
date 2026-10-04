@@ -38,6 +38,18 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * - `@Suppress("DEPRECATION")` — intentional real-time waits in instrumented tests
  *   (no virtual-time alternative exists on an emulator)
  *
+ * ## What this rule cannot see
+ *
+ * The rule works on PSI and does no type resolution, so it **cannot tell whether
+ * the enclosing coroutine runs under `runTest`'s virtual clock**. A
+ * `delay(1_000)` inside a `runTest { }` body advances virtual time and costs
+ * nothing, yet is indistinguishable here from a real 1-second stall in a
+ * production code path. Legitimate virtual-time sites — for example a test that
+ * deliberately parks a coroutine so the diagnostics dump can observe it
+ * suspended — must therefore carry `@Suppress("NoRealDelayInTest")` with a
+ * one-line reason. That is the intended escape hatch: a human decides, and the
+ * reason shows up in review.
+ *
  * @see NoRealDelayInTestRuleProvider for registration.
  */
 class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
@@ -48,26 +60,41 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
          * retry path is not the real-time flakiness this rule exists to catch, and
          * banning every millisecond would make the rule unusable.
          */
-        private const val MAX_TOLERATED_DELAY_MS = 500L
         private const val BAN_LIST_REF =
             "See AGENTS.md ban list + singularity-todo-test-flaky-prevention skill."
+
+        /**
+         * Delays at or below this are tolerated: a short `delay` in a Robolectric or
+         * retry path is not the real-time flakiness this rule exists to catch, and
+         * banning every millisecond would make the rule unusable.
+         *
+         * Kept as a named constant because a bare `500` inline is exactly how this
+         * rule came to look like it had a working threshold while never being tested
+         * against one. (`MAX_TOLERATED_DELAY_MS` was the same value under a second
+         * name on the other side of this merge; two constants of 500 in one class is
+         * a threshold nobody can tell apart.)
+         */
+        private const val DELAY_THRESHOLD_MS = 500L
     }
 
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
+        // `delay(...)` is an unqualified call, so the call visitor is the only
+        // place it can be seen.
         checkDelayCall(expression)
-        checkThreadSleep(expression)
     }
 
     override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
         super.visitDotQualifiedExpression(expression)
         val call = expression.selectorExpression as? KtCallExpression ?: return
-        // Thread.sleep(...) as a qualified expression: Thread.sleep(...)
+        // `Thread.sleep(...)` is qualified, so only the dot-qualified visitor sees
+        // it as such. Thread.sleep is deliberately NOT also handled in
+        // visitCallExpression: the inner `sleep(...)` call is visited on its own,
+        // and reporting from both paths double-counted every occurrence.
         val receiver = expression.receiverExpression as? KtNameReferenceExpression
         if (receiver?.text == "Thread") {
             checkThreadSleep(call)
         }
-        checkDelayCall(call)
     }
 
     private fun checkDelayCall(expression: KtCallExpression) {
@@ -76,19 +103,37 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
 
         val argument = expression.valueArguments.firstOrNull() ?: return
         val valueText = argument.getArgumentExpression()?.text ?: return
-        val value = valueText.toLongOrNull() ?: return
-        if (value <= MAX_TOLERATED_DELAY_MS) return
+        val value = parseLongLiteral(valueText) ?: return
+        if (value <= DELAY_THRESHOLD_MS) return
 
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "delay($value) is a real-time block in tests. " +
-                    "Use advanceUntilIdle(), advanceTimeBy($value), or runCurrent() " +
-                    "from kotlinx.coroutines.test instead. $BAN_LIST_REF",
+                message = "delay($valueText) is a real-time block in tests. " +
+                    "Use advanceUntilIdle(), advanceTimeBy($valueText), or runCurrent() " +
+                    "from kotlinx.coroutines.test instead. If this is already under " +
+                    "runTest's virtual clock, suppress with @Suppress(\"NoRealDelayInTest\") " +
+                    "and a reason. $BAN_LIST_REF",
                 references = emptyList(),
-                suppressReasons = emptyList(),
+                suppressReasons = listOf("NoRealDelayInTest"),
             ),
         )
+    }
+
+    /**
+     * Parses a Kotlin integer literal, tolerating the spellings that `toLongOrNull`
+     * rejects: digit-group underscores (`1_000`) and the `L` suffix (`1000L`).
+     *
+     * This matters because the un-suffixed form is not how delays are usually
+     * written — `delay(1_000)` and `delay(1000L)` both slipped past the old
+     * `toLongOrNull()` call, which is a silent pass-through for exactly the sites
+     * the rule exists to catch. Returns null for anything non-literal (a variable,
+     * a computed value), which stays unreported rather than guessed at.
+     */
+    private fun parseLongLiteral(text: String): Long? {
+        val cleaned = text.replace("_", "").removeSuffix("L").removeSuffix("l")
+        if (cleaned.isEmpty() || !cleaned.all { it.isDigit() }) return null
+        return cleaned.toLongOrNull()
     }
 
     private fun checkThreadSleep(expression: KtCallExpression) {
@@ -97,7 +142,7 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
 
         val argument = expression.valueArguments.firstOrNull() ?: return
         val valueText = argument.getArgumentExpression()?.text ?: return
-        val value = valueText.toLongOrNull() ?: return
+        val value = parseLongLiteral(valueText) ?: return
         if (value == 0L) return
 
         // Thread.sleep in instrumented (emulator) tests has no virtual-time equivalent.
@@ -106,7 +151,7 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "Thread.sleep($value) is a real-time block in tests. " +
+                message = "Thread.sleep($valueText) is a real-time block in tests. " +
                     "In Compose UI tests use composeTestRule.waitForIdle(). " +
                     "In instrumented (emulator) tests where no alternative exists, " +
                     "suppress with @Suppress(\"ThreadSleepInTest\") on the test function. " +

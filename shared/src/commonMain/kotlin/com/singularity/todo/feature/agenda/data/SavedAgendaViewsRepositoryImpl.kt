@@ -16,6 +16,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 class SavedAgendaViewsRepositoryImpl(
     private val agendaViewDao: AgendaViewDao,
@@ -44,7 +45,7 @@ class SavedAgendaViewsRepositoryImpl(
 
     override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
-    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         // Legacy rows may hold the "" sentinel; normalise to UserId.anonymous so
         // assertCanWrite treats both consistently with other repositories.
@@ -77,7 +78,7 @@ class SavedAgendaViewsRepositoryImpl(
         return Result.success(copy)
     }
 
-    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatching {
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         agendaViewDao.delete(uid.value, id.raw)
     }

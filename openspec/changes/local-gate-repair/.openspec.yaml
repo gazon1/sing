@@ -1,3 +1,5 @@
+schema: spec-driven
+
 # Local gate topology is process, not product behaviour: this change alters
 # which Gradle tasks a local recipe invokes and changes no capability a user
 # or a client can observe. The constraints it must not violate are executable

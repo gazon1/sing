@@ -105,8 +105,7 @@ target/
 
 # UI verification screenshots
 *.png
-scripts/__pycache__/
-scripts/tests/__pycache__/
+__pycache__/
 .zcode
 
 # Auto-generated decision digest (regenerated via post-checkout / post-merge hooks)

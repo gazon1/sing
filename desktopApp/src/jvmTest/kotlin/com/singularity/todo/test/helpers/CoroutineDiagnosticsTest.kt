@@ -77,6 +77,10 @@ class CoroutineDiagnosticsTest {
         val infiniteFlow = flow {
             while (true) {
                 emit(42)
+                // Virtual time: this runs under runTest's TestCoroutineScheduler, so the
+                // delay parks the coroutine without costing a real second. The point of
+                // the test is to have a SUSPENDED coroutine visible in the dump.
+                @Suppress("NoRealDelayInTest")
                 delay(1000L)
             }
         }

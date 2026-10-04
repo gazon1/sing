@@ -38,7 +38,20 @@ koin.seedTask(title = "Buy milk", dueDate = todayInSystemZone())
 koin.get<TaskRepository>().observeAll().first()
 ```
 
-Helpers in `test/helpers/`:
+Helpers in `test/helpers/`, split by role (all top-level extensions on
+`DesktopComposeUiTest`, so they import individually):
+
+| File | Holds |
+|---|---|
+| `DesktopNavigation.kt` | `tapTab`, `openDrawer`, `goBack`, `assertCurrentTab`, `DesktopShell` |
+| `DesktopAssertions.kt` | `await*` and `assert*`, plus `TIMEOUT_MS` and `explainMissingTag` |
+| `DesktopInteractions.kt` | `click*` and `typeIntoTag` / `clearAndTypeIntoTag` |
+| `TasksRobot.kt` | `tasks(koin)` — the `given`/`assert`/`open` robot |
+| `DesktopAppHarness.kt` | `runDesktopAppTest`, `seedTask`, `seedBuyMilk` |
+
+`TIMEOUT_MS` lives in `DesktopAssertions.kt` because the wait helpers are its only
+real users — a nav-only timeout constant invites someone to wait on navigation
+with an assertion-tuned budget.
 
 | Helper | Use |
 |---|---|

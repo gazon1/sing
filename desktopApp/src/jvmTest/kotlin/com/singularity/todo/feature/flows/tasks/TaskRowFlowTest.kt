@@ -4,7 +4,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.test.helpers.TIMEOUT_MS
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitCheckboxChecked
 import com.singularity.todo.test.helpers.awaitTag

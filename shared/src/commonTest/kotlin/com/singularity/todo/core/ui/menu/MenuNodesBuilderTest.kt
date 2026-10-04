@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import com.singularity.todo.core.ui.preview.noopClick
 
 @Tag("fast")
 class MenuNodesBuilderTest {
@@ -34,7 +35,7 @@ class MenuNodesBuilderTest {
                 danger = true,
                 checked = true,
                 enabled = false,
-                onClick = {},
+                onClick = noopClick,
             )
         }
         val node = list[0] as MenuNode.Action

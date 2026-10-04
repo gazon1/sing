@@ -92,25 +92,43 @@ class TaskDetailCoordinator(
     private fun reportError(message: String) = tryEmit(TaskDetailUiEvent.Error(message))
     private fun reportSaved(message: String) = tryEmit(TaskDetailUiEvent.Saved(message))
 
-    private val draft = TaskDraftSlot(deps, vmScope, taskFlow, ::reportError)
+    private val draft = TaskDraftSlot(deps.core, deps.context, vmScope, taskFlow, ::reportError)
 
-    private val entity = TaskEntitySlot(taskId, deps, vmScope, taskFlow, ::reportError)
+    private val entity = TaskEntitySlot(taskId, deps.core, deps.children, vmScope, taskFlow, ::reportError)
 
-    private val completion = TaskCompletionSlot(deps, vmScope, taskFlow, ::reportError, ::reportSaved)
-
-    private val children = TaskChildrenSlot(
-        taskId = taskId,
-        deps = deps,
+    private val completion = TaskCompletionSlot(
+        core = deps.core,
+        context = deps.context,
         scope = vmScope,
         taskFlow = taskFlow,
         onError = ::reportError,
         onSaved = ::reportSaved,
     )
 
-    private val reminders = TaskRemindersSlot(taskId, deps, vmScope, taskFlow, ::reportError)
+    private val children = TaskChildrenSlot(
+        taskId = taskId,
+        core = deps.core,
+        children = deps.children,
+        context = deps.context,
+        scope = vmScope,
+        taskFlow = taskFlow,
+        onError = ::reportError,
+        onSaved = ::reportSaved,
+    )
+
+    private val reminders = TaskRemindersSlot(
+        taskId = taskId,
+        core = deps.core,
+        scheduling = deps.scheduling,
+        context = deps.context,
+        scope = vmScope,
+        taskFlow = taskFlow,
+        onError = ::reportError,
+    )
 
     private val lifecycle = TaskLifecycleSlot(
-        deps = deps,
+        core = deps.core,
+        scheduling = deps.scheduling,
         scope = vmScope,
         taskFlow = taskFlow,
         onError = ::reportError,
@@ -119,24 +137,41 @@ class TaskDetailCoordinator(
         onSaved = ::reportSaved,
     )
 
-    private val ai = TaskAiSlot(deps, vmScope, taskFlow, ::reportError, ::reportSaved)
+    private val ai = TaskAiSlot(
+        ai = deps.ai,
+        collaboration = deps.collaboration,
+        context = deps.context,
+        scope = vmScope,
+        taskFlow = taskFlow,
+        onError = ::reportError,
+        onSaved = ::reportSaved,
+    )
 
-    private val backlinks = TaskBacklinksCollector(deps, vmScope, taskFlow)
-
-    private val logbook = TaskLogbookCollector(deps.notesRepo, deps.timeTrackingRepo, vmScope, taskFlow)
-
-    private val timeSlot = TaskTimeSlot(
-        taskId = taskId,
-        timeTrackingRepo = deps.timeTrackingRepo,
-        currentUser = deps.currentUser,
+    private val backlinks = TaskBacklinksCollector(
+        collaboration = deps.collaboration,
         scope = vmScope,
         taskFlow = taskFlow,
     )
 
-    private val proposalsCollector = if (deps.proposals != null) {
+    private val logbook = TaskLogbookCollector(
+        notesRepo = deps.collaboration.notesRepo,
+        timeTrackingRepo = deps.collaboration.timeTrackingRepo,
+        scope = vmScope,
+        taskFlow = taskFlow,
+    )
+
+    private val timeSlot = TaskTimeSlot(
+        taskId = taskId,
+        timeTrackingRepo = deps.collaboration.timeTrackingRepo,
+        currentUser = deps.collaboration.currentUser,
+        scope = vmScope,
+        taskFlow = taskFlow,
+    )
+
+    private val proposalsCollector = if (deps.collaboration.proposals != null) {
         TaskProposalsCollector(
             scope = vmScope,
-            proposals = deps.proposals.watchProposalsForTask(taskId),
+            proposals = deps.collaboration.proposals.watchProposalsForTask(taskId),
         )
     } else {
         null
@@ -176,7 +211,7 @@ class TaskDetailCoordinator(
         addCloseable(scope)
         scope.launch {
             combine(flowOf(taskId), retryVersion) { id, _ -> id }
-                .flatMapLatest { deps.taskRepo.observe(it) }
+                .flatMapLatest { deps.core.taskRepo.observe(it) }
                 .catch { reportError(it.message ?: "Error") }
                 .collect { task ->
                     loadable.value = task
@@ -270,7 +305,7 @@ class TaskDetailCoordinator(
             hasBody = !task.description.isNullOrBlank(),
             checklistCount = childrenState.checklist.size,
             completedSubtaskCount = childrenState.subtasks.count { it.isCompleted },
-            ageMs = (deps.clock.now() - task.createdAt).inWholeMilliseconds.coerceAtLeast(0L),
+            ageMs = (deps.context.clock.now() - task.createdAt).inWholeMilliseconds.coerceAtLeast(0L),
         )
     }
 
@@ -334,8 +369,8 @@ class TaskDetailCoordinator(
             -> timeSlot.onIntent(intent)
 
             is TaskDetailIntent.Domain.ConfirmProposalItem -> {
-                val apply = deps.applyProposal ?: return
-                val userId = deps.currentUser.scopedUserId.value
+                val apply = deps.collaboration.applyProposal ?: return
+                val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
                     apply.confirm(intent.itemId, userId).onFailure {
                         reportError("Confirm failed: ${it.message}")
@@ -344,8 +379,8 @@ class TaskDetailCoordinator(
             }
 
             is TaskDetailIntent.Domain.RejectProposalItem -> {
-                val apply = deps.applyProposal ?: return
-                val userId = deps.currentUser.scopedUserId.value
+                val apply = deps.collaboration.applyProposal ?: return
+                val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
                     apply.reject(intent.itemId, userId, intent.reason).onFailure {
                         reportError("Reject failed: ${it.message}")
@@ -354,8 +389,8 @@ class TaskDetailCoordinator(
             }
 
             is TaskDetailIntent.Domain.ConfirmAllProposalItems -> {
-                val apply = deps.applyProposal ?: return
-                val userId = deps.currentUser.scopedUserId.value
+                val apply = deps.collaboration.applyProposal ?: return
+                val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
                     val batch = apply.confirmAll(intent.proposalId, userId)
                     if (batch.failed.isNotEmpty()) {
@@ -365,8 +400,8 @@ class TaskDetailCoordinator(
             }
 
             is TaskDetailIntent.Domain.DismissProposal -> {
-                val proposals = deps.proposals ?: return
-                val userId = deps.currentUser.scopedUserId.value
+                val proposals = deps.collaboration.proposals ?: return
+                val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
                     proposals.retract(intent.proposalId, userId).onFailure {
                         reportError("Dismiss failed: ${it.message}")

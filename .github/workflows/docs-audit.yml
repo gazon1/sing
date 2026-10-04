@@ -16,12 +16,18 @@ on:
     paths:
       - 'docs/decisions/**'
       - 'AGENTS.md'
+      # Skills are agent-facing documentation and check-skill-frontmatter.sh runs
+      # in this workflow. Without these paths a PR that left a skill without a
+      # `description` — making it undiscoverable to the agent loader — never
+      # triggered the audit that would have caught it.
+      - '.agents/skills/**'
+      - '.just/**'
       - 'ARCHITECTURE.md'
       - 'docs/doc-maintenance.md'
+      - 'README.md'
+      - 'PROGRESS.md'
       - '.github/workflows/docs-audit.yml'
-      - 'scripts/refresh-decisions-digest.*'
-      - 'scripts/normalize-adr-frontmatter.*'
-      - 'scripts/print-source-tree.*'
+      - 'scripts/**'
       - 'openspec/**'
       - 'README.md'
       - 'PROGRESS.md'
@@ -38,41 +44,54 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check ADR frontmatter
-        run: ./scripts/normalize-adr-frontmatter.sh --dry-run || true
+      # Advisory, deliberately — and the reason is now written down rather than
+      # hidden behind `|| true`. The normaliser exits 2 when any ADR drifts, and
+      # ~15 pre-existing ADRs do (mostly `created:` where the schema wants
+      # `date:`). Making it blocking today would fail the build on debt this
+      # change did not create. The step to take is: run
+      # `./scripts/normalize-adr-frontmatter.sh` without --dry-run, commit the
+      # result, then delete `continue-on-error` here. Tracked in
+      # deferred-backlog.md#adr-frontmatter-drift-is-unenforced.
+      - name: Check ADR frontmatter (advisory — pre-existing drift)
+        continue-on-error: true
+        run: ./scripts/normalize-adr-frontmatter.sh --dry-run
 
       - name: Refresh DIGEST
         run: python3 scripts/refresh-decisions-digest.py
 
-      - name: Check for stale open/deferred ADRs
-        run: |
-          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
-          if [ -n "$STALE" ]; then
-            echo "Warning: open/deferred ADRs found (older than doc-maintenance.md):"
-            echo "$STALE"
-          fi
+      # Was `|| true` plus an `echo "Warning:"`, so this step could not fail.
+      # The digest budget is now enforced: a verbose ADR that pushes DIGEST.md
+      # over its cap must be dealt with, not announced. The remedy is to lower
+      # MAX_ITEMS_PER_TAG in scripts/refresh-decisions-digest.py — see
+      # deferred-backlog.md#digest-line-limit-pressure — not to raise the cap.
+      - name: Enforce DIGEST size budget
+        run: python3 scripts/check-doc-sizes.py
 
-      - name: Verify DIGEST has no double-suffix bugs
+      - name: Check DIGEST has no double-suffix bugs
         run: |
           DOUBLE_SUFFIX_COUNT=$(grep -c "_(from " docs/decisions/DIGEST.md || echo "0")
           if [ "$DOUBLE_SUFFIX_COUNT" -gt 100 ]; then
-            echo "Warning: DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — possible double-suffix bug"
-          else
-            echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
+            echo "DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — double-suffix bug"
+            exit 1
           fi
+          echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
 
-      - name: Report DIGEST size
+      # A stale open/deferred ADR is a reminder, not a build failure — the
+      # backlog is expected to hold open items. Kept non-blocking on purpose,
+      # and said so here so the next reader does not "fix" it.
+      - name: List stale open/deferred ADRs (advisory)
+        continue-on-error: true
         run: |
-          LINES=$(wc -l < docs/decisions/DIGEST.md)
-          echo "DIGEST.md: $LINES lines"
-          if [ "$LINES" -gt 1500 ]; then
-            echo "Warning: DIGEST.md exceeds 1500 lines — investigate deduplication"
+          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
+          if [ -n "$STALE" ]; then
+            echo "Note: open/deferred ADRs newer than doc-maintenance.md:"
+            echo "$STALE"
           fi
 
       - name: Validate OpenSpec changes
         run: |
           if command -v openspec &> /dev/null; then
-            openspec validate || true
+            openspec validate
           else
             echo "OpenSpec CLI not installed — skipping validation"
           fi

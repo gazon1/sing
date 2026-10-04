@@ -38,10 +38,11 @@ class TaskBacklinksCollectorTest {
     fun `state is empty before a task arrives`() = runTest {
         val fakes = SlotFakes()
         val collector = TaskBacklinksCollector(
-            fakes.deps().copy(linkRepo = FakeLinks()),
-            testSlotScope(backgroundScope),
-            TaskSource(null).state,
+            collaboration = fakes.collaboration().copy(linkRepo = FakeLinks()),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = TaskSource(null).state,
         )
+
         runCurrent()
 
         assertEquals(TaskBacklinksState(), collector.state.value)
@@ -60,10 +61,13 @@ class TaskBacklinksCollectorTest {
         )
         val other = task("t2", title = "Links here")
         val collector = TaskBacklinksCollector(
-            fakes.deps().copy(linkRepo = FakeLinks(notes = listOf(note), tasks = listOf(other))),
-            testSlotScope(backgroundScope),
-            TaskSource(task("t1")).state,
+            collaboration = fakes.collaboration().copy(
+                linkRepo = FakeLinks(notes = listOf(note), tasks = listOf(other)),
+            ),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = TaskSource(task("t1")).state,
         )
+
         runCurrent()
 
         assertEquals(listOf("n1"), collector.state.value.notes.map { it.id.value })
@@ -74,10 +78,11 @@ class TaskBacklinksCollectorTest {
     fun `a null link repository leaves the state empty instead of crashing`() = runTest {
         val fakes = SlotFakes()
         val collector = TaskBacklinksCollector(
-            fakes.deps().copy(linkRepo = null),
-            testSlotScope(backgroundScope),
-            TaskSource(task("t1")).state,
+            collaboration = fakes.collaboration().copy(linkRepo = null),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = TaskSource(task("t1")).state,
         )
+
         runCurrent()
 
         assertEquals(TaskBacklinksState(), collector.state.value)
@@ -88,10 +93,11 @@ class TaskBacklinksCollectorTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1"))
         val collector = TaskBacklinksCollector(
-            fakes.deps().copy(linkRepo = FakeLinks(notes = emptyList())),
-            testSlotScope(backgroundScope),
-            source.state,
+            collaboration = fakes.collaboration().copy(linkRepo = FakeLinks(notes = emptyList())),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
         )
+
         runCurrent()
         assertTrue(collector.state.value.notes.isEmpty())
 

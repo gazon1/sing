@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed implementation of [TimeTrackingRepository].
@@ -36,7 +37,7 @@ class TimeTrackingRepositoryImpl(
         userId: UserId,
         kind: TimeEntryKind,
         source: TimeEntrySource,
-    ): Result<TimeEntryId> = runCatching {
+    ): Result<TimeEntryId> = runCatchingCancellable {
         // Reject if user already has an open entry
         val existing = dao.getOpenEntry(userId.value)
         require(existing == null) { "User ${userId.value} already has an open time entry" }
@@ -61,10 +62,10 @@ class TimeTrackingRepositoryImpl(
         id
     }
 
-    override suspend fun stopEntry(userId: UserId): Result<TimeEntry?> = runCatching {
+    override suspend fun stopEntry(userId: UserId): Result<TimeEntry?> = runCatchingCancellable {
         val now = clock.now()
         val open = dao.getOpenEntry(userId.value)
-            ?: return@runCatching null
+            ?: return@runCatchingCancellable null
         val rows = dao.stopEntry(open.id, now.toEpochMilliseconds(), now.toEpochMilliseconds(), userId.value)
         require(rows > 0) { "Failed to stop entry ${open.id}" }
         dao.getOpenEntry(userId.value) // re-fetch with endedAt set
@@ -80,7 +81,7 @@ class TimeTrackingRepositoryImpl(
         kind: TimeEntryKind,
         note: String?,
         source: TimeEntrySource,
-    ): Result<TimeEntryId> = runCatching {
+    ): Result<TimeEntryId> = runCatchingCancellable {
         require(endedAt > startedAt) { "endedAt ($endedAt) must be after startedAt ($startedAt)" }
 
         val now = clock.now().toEpochMilliseconds()
@@ -103,13 +104,17 @@ class TimeTrackingRepositoryImpl(
         id
     }
 
-    override suspend fun updateNote(entryId: TimeEntryId, userId: UserId, note: String?): Result<Unit> = runCatching {
+    override suspend fun updateNote(
+        entryId: TimeEntryId,
+        userId: UserId,
+        note: String?,
+    ): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
         val rows = dao.updateNote(entryId.value, note, now, userId.value)
         require(rows > 0) { "Entry $entryId not found or not owned by $userId" }
     }
 
-    override suspend fun delete(entryId: TimeEntryId): Result<Unit> = runCatching {
+    override suspend fun delete(entryId: TimeEntryId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val now = clock.now().toEpochMilliseconds()
         val rows = dao.softDelete(entryId.value, now, uid.value)

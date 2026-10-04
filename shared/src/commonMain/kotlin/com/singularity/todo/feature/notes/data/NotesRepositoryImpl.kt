@@ -20,6 +20,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed production [NotesRepository].
@@ -46,13 +47,13 @@ class NotesRepositoryImpl(
         return noteDao.getByIdForUser(id.value, uid.value)?.toNote()
     }
 
-    override suspend fun create(item: Note): Result<Note> = runCatching {
+    override suspend fun create(item: Note): Result<Note> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         noteDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
 
-    override suspend fun update(item: Note): Result<Note> = runCatching {
+    override suspend fun update(item: Note): Result<Note> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         // Read-before-write guard: reject updates to non-existent entities.
         // Prevents silent data loss from upsert-on-missing.
@@ -79,7 +80,7 @@ class NotesRepositoryImpl(
         return note
     }
 
-    override suspend fun delete(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.softDeleteForUser(
             id.value,
             clock.now().toEpochMilliseconds(),
@@ -91,7 +92,7 @@ class NotesRepositoryImpl(
 
     // ─── SoftDeletable ────────────────────────────────────────────────────────
 
-    override suspend fun restore(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun restore(id: NoteId): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.restoreForUser(
             id.value,
             clock.now().toEpochMilliseconds(),
@@ -124,7 +125,7 @@ class NotesRepositoryImpl(
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
-    ): Result<NoteId> = runCatching {
+    ): Result<NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val now = clock.now().toEpochMilliseconds()
         noteDao.upsert(
@@ -152,7 +153,7 @@ class NotesRepositoryImpl(
         id
     }
 
-    override suspend fun createNoteWithTitle(title: String): Result<NoteId> = runCatching {
+    override suspend fun createNoteWithTitle(title: String): Result<NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val id = NoteId(com.singularity.todo.core.ids.nextId())
         val now = clock.now().toEpochMilliseconds()
@@ -186,7 +187,7 @@ class NotesRepositoryImpl(
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() }
         val rows = noteDao.updateContentForUser(
             id = id.value,
@@ -202,7 +203,7 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun archive(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun archive(id: NoteId): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.archiveForUser(
             id.value,
             clock.now().toEpochMilliseconds(),
@@ -212,7 +213,7 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun unarchive(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun unarchive(id: NoteId): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.unarchiveForUser(
             id.value,
             clock.now().toEpochMilliseconds(),
@@ -222,7 +223,7 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit> = runCatching {
+    override suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
         val rows = noteDao.setPinnedForUser(
             id = id.value,
@@ -235,7 +236,7 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit> = runCatching {
+    override suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.setColorForUser(
             id = id.value,
             color = color?.value,
@@ -246,7 +247,7 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit> = runCatching {
+    override suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.setSortOrderForUser(
             id = id.value,
             sortOrder = sortOrder,
@@ -257,7 +258,7 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatching {
+    override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatchingCancellable {
         // Structural guard: DAO filter already restricts to current user's note (by scopedUserId).
         // assertCanWrite is called for consistency with the write-pipeline audit checklist.
         currentUser.assertCanWrite(entityId = id.value, entityUserId = currentUser.scopedUserId.value)
@@ -291,7 +292,7 @@ class NotesRepositoryImpl(
         templateId: NoteId,
         targetTitle: String,
         targetDateKey: String?,
-    ): Result<NoteId> = runCatching {
+    ): Result<NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val template = noteDao.getByIdForUser(templateId.value, uid.value)
             ?: throw IllegalArgumentException("Template not found: $templateId")
@@ -324,7 +325,7 @@ class NotesRepositoryImpl(
         newId
     }
 
-    override suspend fun saveAsTemplate(id: NoteId): Result<Unit> = runCatching {
+    override suspend fun saveAsTemplate(id: NoteId): Result<Unit> = runCatchingCancellable {
         val rows = noteDao.setKindForUser(
             id = id.value,
             kind = NoteKind.Template.name,
@@ -335,11 +336,14 @@ class NotesRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId> = runCatching {
+    override suspend fun getOrCreateDailyNote(
+        dateKey: String,
+        fromTemplateId: NoteId?,
+    ): Result<NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = noteDao.getDailyNote(uid.value, dateKey)
         if (existing != null) {
-            return@runCatching NoteId.fromString(existing.id)
+            return@runCatchingCancellable NoteId.fromString(existing.id)
         }
         val now = clock.now().toEpochMilliseconds()
         val newId = NoteId(com.singularity.todo.core.ids.nextId())
@@ -382,7 +386,7 @@ class NotesRepositoryImpl(
         title: String,
         bodyMarkdown: String?,
         bodyHtml: String?,
-    ): Result<NoteId> = runCatching {
+    ): Result<NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val now = clock.now().toEpochMilliseconds()
         val id = NoteId(com.singularity.todo.core.ids.nextId())

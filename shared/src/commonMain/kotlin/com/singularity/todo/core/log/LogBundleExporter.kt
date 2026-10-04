@@ -5,6 +5,7 @@ import com.singularity.todo.core.files.FileSystem
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Collects the rolling log files produced by [FileLogWriter] into a single
@@ -41,7 +42,7 @@ open class LogBundleExporter(
      * @return the path to the created archive, or a failure if the archive
      *   could not be written.
      */
-    open suspend fun export(): Result<String> = runCatching {
+    open suspend fun export(): Result<String> = runCatchingCancellable {
         val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         val archiveName = "singularity-logs-$timestamp.zip"
         val archivePath = "$logDirectory/$archiveName"

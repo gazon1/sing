@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
  * re-emits like any other input.
  */
 class TaskBacklinksCollector(
-    private val deps: TaskDetailDeps,
+    private val collaboration: TaskCollaborationDeps,
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
 ) {
@@ -34,7 +34,7 @@ class TaskBacklinksCollector(
     init {
         scope.launch {
             taskFlow.filterNotNull().collect { task ->
-                val linkRepo = deps.linkRepo
+                val linkRepo = collaboration.linkRepo
                 _state.value = if (linkRepo == null) {
                     TaskBacklinksState()
                 } else {

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.attachments
 
+import com.singularity.todo.core.ui.formatFileSize
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -68,9 +69,15 @@ class AttachmentDomainTest {
 
     @Test
     fun formatFileSizeFormatsBytesCorrectly() {
-        assertEquals("500 B", AttachmentDomain.formatFileSize(500))
-        assertEquals("1 KB", AttachmentDomain.formatFileSize(1024))
-        assertEquals("1 KB", AttachmentDomain.formatFileSize(1500))
-        assertEquals("1 MB", AttachmentDomain.formatFileSize(1024 * 1024))
+        // The formatter moved to core.ui/Formatters.kt when the four duplicate
+        // copies were merged; AttachmentDomain.formatFileSize no longer exists.
+        assertEquals("500 B", formatFileSize(500))
+        assertEquals("1 KB", formatFileSize(1024))
+        assertEquals("1 KB", formatFileSize(1500))
+        assertEquals("1 MB", formatFileSize(1024 * 1024))
+        assertEquals("1 MB", formatFileSize((1.5 * 1024 * 1024).toLong()))
+        // The backup-screen copy of this function stopped at MB and would have
+        // rendered a 2 GB backup as "2048.0 MB".
+        assertEquals("2.0 GB", formatFileSize(2L * 1024 * 1024 * 1024))
     }
 }

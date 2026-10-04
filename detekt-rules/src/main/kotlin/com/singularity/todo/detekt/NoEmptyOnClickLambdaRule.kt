@@ -8,9 +8,12 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtNamedFunction
 
 /**
@@ -22,6 +25,11 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
  * to a composable's event-handler parameter such as `onClick`, `onConfirm`, `onDelete`.
  * These empty lambdas make it impossible to distinguish "intentionally no-op because
  * this screen is not wired yet" from "forgot to handle this event".
+ *
+ * Three shapes are reported, all keyed on the *parameter* name:
+ * - `onClick = {}` at a call site
+ * - `onClick ?: { }` as an elvis fallback in a body
+ * - (any call site passing an empty lambda to a `PARAM_NAMES` argument)
  *
  * ## Allowed patterns (not flagged)
  * - `onClick = noopClick` — the shared no-op constant from `PreviewSamples`
@@ -44,21 +52,52 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         super.visitCallExpression(expression)
         if (isPreviewContext(expression)) return
 
-        val callee = expression.calleeExpression as? KtNameReferenceExpression ?: return
-        val fnName = callee.text
-
-        // Only check well-known composable event handlers
-        if (fnName !in EVENT_HANDLERS) return
-
-        // Find named argument for each known onClick-like parameter
+        // Drive off PARAM_NAMES, not a list of known callees. This used to be
+        // gated on `fnName in EVENT_HANDLERS` — an 11-name allow-list of composables
+        // — which meant the rule could only ever see the call sites somebody had
+        // already thought to enumerate. Every `onClick = {}` passed to a composable
+        // outside that list was invisible, and the rule reported 0 findings while
+        // the production code contained them. The KDoc's promise is about the
+        // *parameter* being an event handler, so the parameter is the gate.
         for (paramName in PARAM_NAMES) {
             val arg = expression.valueArguments.find { it.getArgumentName()?.text == paramName }
             if (arg != null) {
                 val lambda = arg.getArgumentExpression() as? KtLambdaExpression
                 if (lambda != null && isEmptyLambda(lambda)) {
-                    reportFinding(lambda, paramName, fnName)
+                    val callee = expression.calleeExpression as? KtNameReferenceExpression
+                    reportFinding(lambda, paramName, callee?.text ?: "<expr>")
                 }
             }
+        }
+    }
+
+    /**
+     * Flags the elvis-fallback shape: `onClick ?: { }`.
+     *
+     * The defect is the *pair*. A handler parameter that defaults to an empty
+     * lambda is harmless on its own — `onClick()` just does nothing, and the
+     * declaration reads as a normal optional default. It becomes a real bug when
+     * the body writes `onClick ?: { }`, because the elvis can never take its
+     * right-hand branch for a non-null parameter: the fallback is dead code that
+     * reads as if it were the only place the handler is implemented. This is the
+     * same shape `find-unwired-surfaces.py` calls `default-noop`.
+     *
+     * Note this is deliberately NOT the same as flagging `onClick: () -> Unit = {}`
+     * on its own — a test in this file pins that distinction, and a declaration
+     * that never uses elvis is a normal optional-parameter default.
+     */
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+        super.visitBinaryExpression(expression)
+        if (isPreviewContext(expression)) return
+        if (expression.operationToken != KtTokens.ELVIS) return
+
+        val receiver = expression.left as? KtNameReferenceExpression ?: return
+        val paramName = receiver.text
+        if (paramName !in PARAM_NAMES) return
+
+        val fallback = expression.right as? KtLambdaExpression ?: return
+        if (isEmptyLambda(fallback)) {
+            reportFinding(fallback, paramName, "elvis fallback")
         }
     }
 
@@ -69,10 +108,18 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
 
     private fun isPreviewContext(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val file = element.containingKtFile
-        if (NoEmptyOnClickLambdaPolicy.isPreviewPath(file.name, file.virtualFile?.path ?: "")) {
+        val path = file.virtualFile?.path ?: ""
+        if (NoEmptyOnClickLambdaPolicy.isPreviewPath(file.name, path)) {
             return true
         }
-        // Skip functions annotated with @Preview
+        if (NoEmptyOnClickLambdaPolicy.isTestPath(path)) {
+            return true
+        }
+        // Walk out to the nearest named declaration — the property or function the call
+        // sits in — and exempt it if either it is a @Preview function or its own name
+        // marks it as preview-only. The name check has to reach declarations, not just
+        // functions: `previewOverrides` is a file-level val that exists to feed previews
+        // and is neither in a preview/ path nor annotated.
         var current: org.jetbrains.kotlin.psi.KtElement? = element
         while (current != null) {
             if (current is KtNamedFunction) {
@@ -81,6 +128,11 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
                 }
                 // Stop at function boundary
                 break
+            }
+            if (current is KtNamedDeclaration &&
+                NoEmptyOnClickLambdaPolicy.isPreviewNamed(current.name)
+            ) {
+                return true
             }
             current = current.parent as? org.jetbrains.kotlin.psi.KtElement
         }
@@ -95,7 +147,8 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(lambda),
-                message = "Empty lambda passed to `$paramName` in `$fnName`. " +
+                message = "Passing an empty lambda to `$paramName` in `$fnName` defeats the " +
+                    "handler: the consumer cannot tell 'intentionally no-op' from 'not wired'. " +
                     "Use `noopClick` (for preview) or wire a real handler.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
@@ -104,22 +157,9 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
     }
 
     companion object {
-        /** Composable functions whose onClick-like parameters should be checked. */
-        private val EVENT_HANDLERS = setOf(
-            "AiActionButton",
-            "DeleteActionButton",
-            "SettingsActionRow",
-            "SettingsValueRow",
-            "BackTopAppBar",
-            "EmptyState",
-            "FilledTonalButton",
-            "Button",
-            "IconButton",
-            "IconPickerRow",
-            "SettingsSwitchRow",
-        )
-
-        /** Parameter names that indicate an event handler. */
+        /** Parameter names that indicate an event handler. This is the rule's
+         *  only gate — see [visitCallExpression] for why the callee allow-list
+         *  that used to live here was removed. */
         private val PARAM_NAMES = listOf(
             "onClick",
             "onConfirm",
@@ -147,6 +187,9 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
  */
 internal object NoEmptyOnClickLambdaPolicy {
 
+    /** Same list `NoDirectDispatchersPolicy` uses, kept in step deliberately. */
+    private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")
+
     /**
      * True when the file looks like preview code: a name containing "preview", or a path
      * under a `preview/` package. The repo's convention is the latter (there is
@@ -155,6 +198,34 @@ internal object NoEmptyOnClickLambdaPolicy {
     fun isPreviewPath(fileName: String, filePath: String): Boolean =
         fileName.lowercase().contains("preview") ||
             filePath.replace('\\', '/').contains("/preview/", ignoreCase = true)
+
+    /**
+     * True when the file is a test source.
+     *
+     * The rule's claim is that an empty handler lambda means the shipped consumer can
+     * never react. A test that constructs a composable is satisfying that composable's
+     * signature, not shipping a screen with a dead button — `onDismiss = {}` is how a
+     * builder test says "I am only asserting this renders". Flagging those makes the
+     * rule report 9 findings on `TaskMenuBuilderTest` and `MenuNodesBuilderTest` and
+     * trains a reader to ignore it. Matches the path convention already used by
+     * `NoDirectDispatchersPolicy`.
+     */
+    fun isTestPath(filePath: String): Boolean {
+        val path = filePath.replace('\\', '/')
+        return TEST_SOURCE_SETS.any { path.contains("/$it/") || path.endsWith("/$it") } ||
+            path.contains("/test/")
+    }
+
+    /**
+     * True when a declaration's own name marks it as preview-only.
+     *
+     * `isPreviewPath` only sees the file, and `@Preview` only marks a function. Neither
+     * reaches a file-level `val` that exists solely to feed previews — `SettingsScreen`'s
+     * `previewOverrides` is exactly that, and the rule reported both of its empty
+     * lambdas. The name is the only signal there is, so the exemption reads the name.
+     */
+    fun isPreviewNamed(declarationName: String?): Boolean =
+        declarationName != null && declarationName.contains("preview", ignoreCase = true)
 }
 
 /**

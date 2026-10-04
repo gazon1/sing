@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * In-memory [DraftStore] fake for tests and previews.
@@ -20,7 +21,7 @@ class FakeDraftStore : DraftStore {
 
     override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? = mutex.withLock {
         map[key]?.let { json ->
-            runCatching { StableJson.decodeFromString(deserializer, json) }.getOrNull()
+            runCatchingCancellable { StableJson.decodeFromString(deserializer, json) }.getOrNull()
         }
     }
 

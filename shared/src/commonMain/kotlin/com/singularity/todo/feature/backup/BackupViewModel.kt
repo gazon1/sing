@@ -17,6 +17,7 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.backup.BackupUiEvent.Error
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 data class BackupUiState(
     val isWorking: Boolean = false,
@@ -135,7 +136,7 @@ class BackupViewModel(
 
     private suspend fun runExportSettingsSnapshot() {
         updateState { it.copy(isWorking = true) }
-        runCatching { settingsExporter.exportAsJson() }
+        runCatchingCancellable { settingsExporter.exportAsJson() }
             .onSuccess { json ->
                 updateState { it.copy(isWorking = false) }
                 emit(BackupUiEvent.SettingsSnapshotExported(json))
@@ -158,7 +159,7 @@ class BackupViewModel(
      */
     private suspend fun runImportSettingsFrom(sourcePath: String) {
         updateState { it.copy(isWorking = true) }
-        val json = runCatching {
+        val json = runCatchingCancellable {
             fileSourceFactory(sourcePath).readBytes().decodeToString()
         }
         json.onSuccess { runImportSettingsSnapshot(it) }.onFailure { e ->

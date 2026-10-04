@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 class OAuthTokenRefreshTest {
 
     private companion object {
-        val NOW = 1_700_000_000_000L
+        const val NOW = 1_700_000_000_000L
     }
 
     @Test

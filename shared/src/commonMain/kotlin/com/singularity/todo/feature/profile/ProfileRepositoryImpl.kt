@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.Instant
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room + DataStore implementation of [ProfileRepository].
@@ -60,13 +61,13 @@ class ProfileRepositoryImpl(
 
     override suspend fun get(id: ProfileId): Profile? = profileDao.getById(id.value)?.toDomain()
 
-    override suspend fun create(item: Profile): Result<Profile> = runCatching {
+    override suspend fun create(item: Profile): Result<Profile> = runCatchingCancellable {
         val entity = item.toEntity()
         profileDao.upsert(entity)
         item
     }
 
-    override suspend fun update(item: Profile): Result<Profile> = runCatching {
+    override suspend fun update(item: Profile): Result<Profile> = runCatchingCancellable {
         val existing = profileDao.getById(item.id.value)
             ?: throw IllegalArgumentException("Profile not found: ${item.id.value}")
         val updated = existing.copy(
@@ -106,7 +107,7 @@ class ProfileRepositoryImpl(
 
     // ── Domain methods ─────────────────────────────────────────────────────────
 
-    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {
+    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatchingCancellable {
         profileDao.getById(id.value)
             ?: throw IllegalArgumentException("Profile not found: ${id.value}")
         dataStore.edit { it[ACTIVE_PROFILE_ID] = id.value }

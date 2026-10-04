@@ -16,6 +16,7 @@ import com.singularity.todo.feature.tags.TagId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class DeleteTagInput(val tagId: String, val reason: String? = null)
@@ -40,7 +41,7 @@ class DeleteTagTool(
 ) : SimpleTool<DeleteTagInput>(TypeToken.of(DeleteTagInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteTagInput): String {
-        val result = runCatching {
+        val result = runCatchingCancellable {
             TagId.fromString(args.tagId) // validate
             val proposalId = ProposalId.generate()
             val itemId = ProposalItemId.generate()

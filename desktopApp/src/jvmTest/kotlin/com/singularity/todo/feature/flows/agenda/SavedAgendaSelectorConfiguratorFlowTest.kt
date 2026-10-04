@@ -25,7 +25,6 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import kotlinx.coroutines.flow.first
 import kotlin.test.Test
 import org.koin.core.Koin
 import kotlin.time.Instant

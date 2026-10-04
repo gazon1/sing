@@ -17,6 +17,33 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
+ * State for [TagGroupsViewModel].
+ *
+ * [Loading][TagGroupsUiState.Loading] before the first emission,
+ * [Empty][TagGroupsUiState.Empty] when the user has no groups yet,
+ * [Content][TagGroupsUiState.Content] otherwise, and
+ * [Error][TagGroupsUiState.Error] when the repository stream fails.
+ */
+sealed interface TagGroupsUiState {
+    data object Loading : TagGroupsUiState
+    data object Empty : TagGroupsUiState
+    data class Content(val groups: List<TagGroup>) : TagGroupsUiState
+    data class Error(val message: String) : TagGroupsUiState
+}
+
+/**
+ * Intent for [TagGroupsViewModel].
+ *
+ * [Create][TagGroupsIntent.Create] and [Delete][TagGroupsIntent.Delete] are the
+ * only two user actions on the screen; there is no update — renaming a group is
+ * a separate screen.
+ */
+sealed interface TagGroupsIntent : MviIntent {
+    data class Create(val name: String, val color: Int) : TagGroupsIntent
+    data class Delete(val id: TagGroupId) : TagGroupsIntent
+}
+
+/**
  * ViewModel for the Tag Groups management screen.
  *
  * Watches [TagGroupRepository.observeAll] and maps to [TagGroupsUiState].
@@ -27,18 +54,6 @@ import kotlinx.coroutines.launch
  * @param deleteTagGroup Use case for deleting an existing tag group.
  * @param scope CoroutineScope for all coroutine work. Tests pass [AutoCloseableCoroutineScope].
  */
-sealed interface TagGroupsUiState {
-    data object Loading : TagGroupsUiState
-    data object Empty : TagGroupsUiState
-    data class Content(val groups: List<TagGroup>) : TagGroupsUiState
-    data class Error(val message: String) : TagGroupsUiState
-}
-
-sealed interface TagGroupsIntent : MviIntent {
-    data class Create(val name: String, val color: Int) : TagGroupsIntent
-    data class Delete(val id: TagGroupId) : TagGroupsIntent
-}
-
 class TagGroupsViewModel(
     private val tagGroupRepo: TagGroupRepository,
     private val createTagGroup: CreateTagGroupUseCase,

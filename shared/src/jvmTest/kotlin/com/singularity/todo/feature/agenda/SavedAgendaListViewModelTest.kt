@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -185,20 +186,20 @@ private class FakeRepo(views: List<SavedAgendaView>, private val deleteFail: Exc
 
     override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? = store.value.find { it.id == id }
 
-    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatchingCancellable {
         store.value = store.value.filter { it.id != view.id } + view
         view
     }
 
     override suspend fun delete(id: SavedAgendaViewId): Result<Unit> {
         deleteFail?.let { return Result.failure(it) }
-        return runCatching { store.value = store.value.filter { it.id != id } }
+        return runCatchingCancellable { store.value = store.value.filter { it.id != id } }
     }
 
     override suspend fun currentUserId(): String = "test-user"
 
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> =
-        runCatching {
+        runCatchingCancellable {
             val now = fakeNow
             val copy = view.copy(
                 id = SavedAgendaViewId.generate(),
@@ -222,17 +223,17 @@ private class FakeProfilesRepo(profiles: List<Profile>) : ProfileRepository {
 
     override suspend fun get(id: ProfileId): Profile? = store.value[id]
 
-    override suspend fun create(item: Profile): Result<Profile> = runCatching {
+    override suspend fun create(item: Profile): Result<Profile> = runCatchingCancellable {
         store.value = store.value + (item.id to item)
         item
     }
 
-    override suspend fun update(item: Profile): Result<Profile> = runCatching {
+    override suspend fun update(item: Profile): Result<Profile> = runCatchingCancellable {
         store.value = store.value + (item.id to item)
         item
     }
 
-    override suspend fun delete(id: ProfileId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProfileId): Result<Unit> = runCatchingCancellable {
         store.value = store.value - id
     }
 
@@ -242,7 +243,7 @@ private class FakeProfilesRepo(profiles: List<Profile>) : ProfileRepository {
 
     override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
 
-    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {
+    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatchingCancellable {
         _activeProfileId.value = id
     }
 

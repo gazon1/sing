@@ -26,6 +26,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
 import java.net.URI
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Production [TextGenPort] backed by JetBrains Koog [AIAgent].
@@ -78,9 +79,13 @@ class KoogAgentService(
     private suspend fun requireApiKey(): String? =
         secureStorage.read(OpenAiConfig.KEY_OPENAI)?.takeIf { it.isNotBlank() }
 
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> = runCatching {
+    override suspend fun generate(
+        prompt: String,
+        systemPrompt: String?,
+        model: String?,
+    ): Result<String> = runCatchingCancellable {
         requireApiKey()
-            ?: return@runCatching "(AI unavailable: API key not configured.)"
+            ?: return@runCatchingCancellable "(AI unavailable: API key not configured.)"
 
         val effectiveSystemPrompt = systemPrompt
             ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
@@ -129,7 +134,7 @@ class KoogAgentService(
             }
     }
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatching {
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatchingCancellable {
         val url = URI("$baseUrl/models").toURL()
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "GET"

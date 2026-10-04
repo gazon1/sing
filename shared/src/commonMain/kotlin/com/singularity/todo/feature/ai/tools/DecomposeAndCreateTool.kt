@@ -22,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Companion to [DecomposeTaskTool] that does both steps in one call: asks the LLM
@@ -108,7 +109,8 @@ class DecomposeAndCreateTool(
                     id = subId,
                     title = title,
                     description = null,
-                    priority = runCatching { TaskPriority.valueOf(args.priority) }.getOrDefault(TaskPriority.Medium),
+                    priority = runCatchingCancellable { TaskPriority.valueOf(args.priority) }
+                        .getOrDefault(TaskPriority.Medium),
                     kind = TaskKind.Task,
                     projectId = args.projectId?.let { ProjectId.fromString(it) },
                     parentTaskId = args.parentTaskId?.let { TaskId.fromString(it) },

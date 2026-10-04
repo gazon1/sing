@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import java.io.IOException
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Production [DraftStore] backed by [DataStore].
@@ -36,7 +37,7 @@ class DataStoreDraftStore(
             .first()
         val json = data[stringPreferencesKey(key)]
             ?: return null
-        return runCatching {
+        return runCatchingCancellable {
             StableJson.decodeFromString(deserializer, json)
         }.getOrNull()
             .also { result ->

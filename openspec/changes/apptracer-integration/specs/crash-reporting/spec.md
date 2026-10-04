@@ -215,3 +215,16 @@ construct one directly, because a directly constructed scope does not carry the 
 required by REQ-9.
 
 This SHALL be enforced by the same build-time check as REQ-10.
+
+#### Scenario: A component constructs its own scope
+
+- **Given** a component constructs an `AutoCloseableCoroutineScope` directly instead of
+  receiving one
+- **When** the check runs
+- **Then** the check fails and names the component
+
+#### Scenario: A component receives its scope
+
+- **Given** a component obtains its scope from the background scope factory
+- **When** a coroutine started on it fails
+- **Then** the failure is reported as REQ-9 requires

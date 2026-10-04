@@ -6,6 +6,7 @@ import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Bulk-archive completed tasks. The repository owns the side effect;
@@ -31,7 +32,7 @@ class TaskDaoArchiveRepositoryImpl(
      * before and after so only newly-archived tasks are pushed, not the whole
      * trash.
      */
-    override suspend fun archiveCompletedTasks(): Result<Int> = runCatching {
+    override suspend fun archiveCompletedTasks(): Result<Int> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value.value
         val before = taskDao.getTrashForUser(uid).map { it.id }.toSet()
         val archived = taskDao.archiveCompletedForUser(clock.now().toEpochMilliseconds(), uid)

@@ -8,13 +8,14 @@ import androidx.compose.ui.graphics.Color
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.genuiTag
+import com.singularity.todo.core.ui.preview.noopClick
 
 internal fun ComponentRegistry.registerBadge(): Unit = register("badge") { node, _, modifier ->
     val b = node as UiNode.Badge
     val color = toneColor(b.tone).takeIf { it != Color.Unspecified }
         ?: MaterialTheme.colorScheme.primary
     SuggestionChip(
-        onClick = { },
+        onClick = noopClick,
         label = { Text(b.text) },
         modifier = modifier.genuiTag("badge_${b.text}", "Badge: ${b.text}"),
         colors = SuggestionChipDefaults.suggestionChipColors(

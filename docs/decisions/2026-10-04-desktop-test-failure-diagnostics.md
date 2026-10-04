@@ -164,9 +164,13 @@ Run only the flow-test subset with `forkEvery=1` and measure with the timing too
 
 `scripts/step-duration-report.py` aggregates one run today. Keep a run history (e.g. append to a CSV under `build/` or a checked-in metrics dir) and flag steps whose p95 systematically climbs toward `TIMEOUT_MS` (5s) — the flake candidate detector.
 
-### 7. Split `DesktopNavigation.kt`
+### 7. Split `DesktopNavigation.kt` — DONE (2026-10-04)
 
 The helpers file grew to ~450 lines / 20+ functions, and the name now lies: navigation is the minority of its content. Mechanical, zero-behavior split: `DesktopNavigation` (tapTab/openDrawer/goBack/assertCurrentTab) · `DesktopAssertions` (await*/assert*) · `DesktopInteractions` (click*/type*).
+
+**Landed as measured, not as predicted here.** The file was 510 lines / 29 helpers at split time, not "~450 / 20+". Final: `DesktopNavigation` 135 · `DesktopAssertions` 328 · `DesktopInteractions` 61. `TIMEOUT_MS`, `TAG_PATTERN` and `explainMissingTag` went with the wait/assert helpers rather than navigation, so the navigation file no longer carries the timeout every other file imports from it.
+
+All 29 signatures were diffed before/after (identical), and `:desktopApp:test` ran green — 27 classes / 77 tests. Worth recording *why* this was linted rather than merely compiled: `desktopApp/build.gradle.kts` sets `source.setFrom("src/main/kotlin", "src/jvmTest/kotlin")`, so `jvmTest` is inside detekt's scope. But `TooManyFunctions` excludes `**/jvmTest/**` and `LargeClass` allows 600 lines, so this 510-line file was **not** a violation — detekt staying green does not show the split was needed. It was worth doing for readability, which is the same class of judgment as B1's formatter merge, and neither is catchable by a rule.
 
 ### 8. Android parity: explicit decision required
 

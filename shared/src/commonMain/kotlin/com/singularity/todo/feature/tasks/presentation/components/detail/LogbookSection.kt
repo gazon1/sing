@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -36,7 +37,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
-import java.util.Locale
 
 /**
  * Task logbook — a chronological feed of notes and time entries attached to the current task.
@@ -245,21 +245,6 @@ private fun LogbookTimeEntryRow(
             fontWeight = FontWeight.Normal,
             modifier = Modifier.weight(1f),
         )
-    }
-}
-
-/**
- * Formats elapsed milliseconds as HH:MM:SS or MM:SS.
- */
-private fun formatElapsed(elapsedMs: Long): String {
-    val totalSeconds = elapsedMs / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(Locale.US, "%d:%02d", minutes, seconds)
     }
 }
 

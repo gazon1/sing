@@ -188,7 +188,7 @@ When a detail screen has a reference to another entity (e.g., a Task's project c
 
 ## Worked Examples
 
-- **Task:** `feature/tasks/TaskDetailScreen.kt` + `TaskDetailViewModel.kt` (reference implementation)
+- **Task:** `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskDetailScreen.kt` + `TaskDetailViewModel.kt` (reference implementation)
 - **Project:** `feature/projects/presentation/screen/ProjectDetailScreen.kt` (target after rework)
 
 ## Relationship to Other Skills

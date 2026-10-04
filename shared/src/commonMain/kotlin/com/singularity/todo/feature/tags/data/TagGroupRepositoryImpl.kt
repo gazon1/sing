@@ -21,6 +21,7 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed production [TagGroupRepository].
@@ -54,7 +55,7 @@ class TagGroupRepositoryImpl(
 
     // ─── Write operations ───────────────────────────────────────────────────────
 
-    override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> = runCatching {
+    override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val now = clock.now()
         val tagGroup = TagGroup(
@@ -70,7 +71,7 @@ class TagGroupRepositoryImpl(
         tagGroup
     }
 
-    override suspend fun update(input: UpdateTagGroupInput): Result<TagGroup> = runCatching {
+    override suspend fun update(input: UpdateTagGroupInput): Result<TagGroup> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = tagGroupDao.getByIdForUser(input.id.value, uid.value)
             ?: throw NoSuchElementException("TagGroup not found: ${input.id}")
@@ -90,7 +91,7 @@ class TagGroupRepositoryImpl(
         updated
     }
 
-    override suspend fun delete(id: TagGroupId): Result<Unit> = runCatching {
+    override suspend fun delete(id: TagGroupId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val ts = clock.now().toEpochMillis()
         val rows = tagGroupDao.softDeleteForUser(id.value, ts, uid.value)
@@ -125,7 +126,7 @@ class TagGroupRepositoryImpl(
         }
 
     override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
             require(inheritedTagGroupDao.isProjectOwnedBy(projectId.value, uid)) {
                 "Project $projectId not found or not owned by current user"

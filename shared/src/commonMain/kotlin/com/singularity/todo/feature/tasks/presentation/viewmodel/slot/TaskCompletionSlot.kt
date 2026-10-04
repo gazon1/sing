@@ -3,7 +3,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.presentation.state.TaskCompletionIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,12 +18,13 @@ import kotlinx.coroutines.launch
  *
  * A recurring task is not completed in place: completing one rolls the recurrence forward
  * and creates the next occurrence, so the write goes through
- * [TaskDetailDeps.completeRecurring] rather than stamping `completedAt`. The state this slot
+ * [TaskCoreDeps.completeRecurring] rather than stamping `completedAt`. The state this slot
  * publishes is the projection the hero row renders, so the screen does not have to reach
  * into the task row for completion.
  */
 class TaskCompletionSlot(
-    private val deps: TaskDetailDeps,
+    private val core: TaskCoreDeps,
+    private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -55,15 +57,15 @@ class TaskCompletionSlot(
         val completing = task.completedAt == null
         if (completing && task.recurrence != null) {
             scope.launch {
-                deps.completeRecurring(task.id)
+                core.completeRecurring(task.id)
                     .onSuccess { onSaved("Recurrence completed") }
                     .onFailure { onError("Failed to complete recurring task") }
             }
             return
         }
-        val completedAt = if (completing) deps.clock.now() else null
+        val completedAt = if (completing) context.clock.now() else null
         scope.launch {
-            deps.updateTask(task.id) { it.copy(completedAt = completedAt) }
+            core.updateTask(task.id) { it.copy(completedAt = completedAt) }
                 .onSuccess { onSaved(if (completedAt != null) "Marked done" else "Marked active") }
                 .onFailure { onError("Save failed") }
         }

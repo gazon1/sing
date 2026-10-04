@@ -22,7 +22,7 @@ class AndroidSyncScheduler(private val context: Context) : SyncScheduler {
 
     companion object {
         private const val REQUEST_CODE = 1001
-        private val INTENT_ACTION = "com.singularity.todo.SYNC_ALARM"
+        private const val INTENT_ACTION = "com.singularity.todo.SYNC_ALARM"
     }
 
     private var pendingIntent: PendingIntent? = null

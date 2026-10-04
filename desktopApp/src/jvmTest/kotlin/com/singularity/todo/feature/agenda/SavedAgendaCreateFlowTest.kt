@@ -33,7 +33,9 @@ import kotlin.test.Test
 class SavedAgendaCreateFlowTest {
 
     @Test
-    fun `saving a new agenda view leaves the editor and persists the view`() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun `saving a new agenda view leaves the editor and persists the view`() = runDesktopAppTest(
+        checkA11y = true,
+    ) { koin ->
         waitForIdle()
 
         // Boot lands on the Today agenda; its top bar carries the bookmark-add control.

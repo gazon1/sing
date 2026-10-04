@@ -12,6 +12,7 @@ import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.jsonObject
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 class BackupImporter(
     private val log: Logger,
@@ -27,7 +28,7 @@ class BackupImporter(
 ) {
     private val json = StableJson
 
-    suspend fun import(options: ImportOptions): Result<RestoreResult> = runCatching {
+    suspend fun import(options: ImportOptions): Result<RestoreResult> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
 
         // 1. Read zip — use FileSource so content:// URIs from SAF work on Android

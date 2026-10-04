@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+from pathlib import PurePosixPath
 import re
 import sys
 
@@ -44,6 +45,74 @@ TOP_LEVEL_FILES = [
 GLOB_BUILD = ["shared/build.gradle.kts", "androidApp/build.gradle.kts",
               "desktopApp/build.gradle.kts", "mcp-server/build.gradle.kts",
               "detekt-rules/build.gradle.kts"]
+
+
+def _gitignore_patterns() -> list[re.Pattern[str]]:
+    """Compile .gitignore into anchored regexes.
+
+    A reference to a *generated* file is not a broken reference. `DIGEST.md` is
+    gitignored on purpose (see 5c0c2e9d — it is rebuilt by a post-checkout hook),
+    so it is absent in a fresh clone and present after a docs refresh. Reporting
+    it as dead made the check environment-dependent: green on a machine where
+    someone had run `just docs-regen`, red everywhere else. Consulting
+    .gitignore rather than hardcoding a name keeps the rule correct as more
+    generated artifacts appear.
+    """
+    gi = ROOT / ".gitignore"
+    if not gi.is_file():
+        return []
+    out: list[re.Pattern[str]] = []
+    for raw in gi.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("!"):
+            continue
+        # Strip a trailing '/': we only test file paths.
+        line = line.rstrip("/")
+        # A pattern containing '/' is anchored at the repo root; otherwise it
+        # matches at any depth (gitignore semantics).
+        if "/" in line:
+            pattern = re.escape(line)
+        else:
+            pattern = r"(?:^|/)" + re.escape(line) + r"$"
+        out.append(re.compile(pattern))
+    return out
+
+
+def is_generated(ref: str) -> bool:
+    """True when `ref` is gitignored — i.e. built, not authored.
+
+    Two ways to match, and the second one was a real CI-only failure.
+
+    A gitignore pattern containing `/` is anchored at the repo root, so
+    `docs/decisions/DIGEST.md` matches that exact path and nothing else. But a
+    document may reference the same generated file by **basename** — three skills
+    write plain `DIGEST.md` — and references are resolved by basename elsewhere in
+    this script. So the literal-path test missed those entirely, and the gate
+    reported them dead on a fresh checkout while passing on any machine where the
+    post-checkout hook had run. That is precisely the environment-dependence the
+    gitignore handling was added to remove; it just did not cover the basename
+    form of the same path.
+    """
+    if any(p.search(ref) for p in _GITIGNORE):
+        return True
+    return PurePosixPath(ref).name in _GITIGNORE_BASENAMES
+
+
+_GITIGNORE = _gitignore_patterns()
+
+# Basenames of gitignored *files*, so `DIGEST.md` is recognised as generated even
+# though the pattern that produces it is root-anchored. Restricted to entries that
+# look like filenames (they carry an extension) so a gitignored directory name like
+# `build` does not make an unrelated file named `build` look generated.
+_GITIGNORE_BASENAMES: frozenset[str] = frozenset(
+    PurePosixPath(line.strip().rstrip("/")).name
+    for line in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    if (ROOT / ".gitignore").is_file()
+    and line.strip()
+    and not line.strip().startswith(("#", "!"))
+    and not line.strip().endswith("/")
+    and "." in PurePosixPath(line.strip()).name
+)
 
 # Files that are runtime artifacts or external, not repo sources.
 RUNTIME_ARTIFACTS = {
@@ -180,6 +249,8 @@ def main() -> int:
                          "longer detected (destructive — see the refusal message)")
     ap.add_argument("--skill-symbols", action="store_true",
                     help="check Kotlin symbol references in skill files (detector 8)")
+    ap.add_argument("--quiet-generated", action="store_true",
+                    help="suppress the informational list of gitignored (generated) references")
     args = ap.parse_args()
 
     if args.skill_symbols:
@@ -216,6 +287,16 @@ def main() -> int:
         dead = [f for f in findings if f[2] == "dead"]
         drift = [f for f in findings if f[2] == "drift"]
         hist = [f for f in findings if f[2] == "historical"]
+        # A dead reference to a gitignored path is a *generated* file, not a
+        # broken link. Downgrade before baselining so it is neither reported
+        # as debt nor silently added to the baseline.
+        generated = [f for f in dead if is_generated(f[1])]
+        if generated:
+            dead = [f for f in dead if not is_generated(f[1])]
+            if not args.quiet_generated:
+                gen_list = ", ".join(sorted({f[1] for f in generated}))
+                print(f"{rel}: {len(generated)} generated reference(s) "
+                      f"(gitignored, built by a hook — not checked): {gen_list}")
         # Split dead into baselined (accepted debt) and new (must be fixed).
         baselined = [f for f in dead if f"{rel}:{f[1]}" in accepted]
         new = [f for f in dead if f"{rel}:{f[1]}" not in accepted]
@@ -301,11 +382,46 @@ def main() -> int:
 
 
 _SYMBOL_RE = re.compile(r"`([^`]+)`")
+# A declaration keyword may be preceded by any number of modifiers. This regex
+# originally matched only a bare `class Foo` / `object Foo` at column 0, which made
+# `data class`, `abstract class`, `sealed interface`, `internal class` and every
+# annotated declaration invisible to the index — and `data class` is the dominant
+# declaration form in this codebase. The symptom was a `--skill-symbols` baseline
+# of 840 entries, most of them symbols that do exist.
+# Nested declarations count. `OpenAction.ExitAndOpen` is declared inside a sealed
+# class, and a skill documenting it was told it did not exist — the index saw
+# only column-0 declarations, so every member of every sealed class, enum or
+# companion was invisible. The class name itself is not what documentation
+# quotes, so leading indentation is tolerated deliberately rather than by
+# accident.
 _TOP_LEVEL_KT = re.compile(
-    r"^(?:object|class|interface|enum\s+class|value\s+class|"
-    r"annotation\s+class|fun|val|var)\s+(\w+)",
+    r"^[ \t]*(?:@\w+(?:\([^)]*\))?[ \t]*)*"                # annotations
+    r"(?:public|internal|private|protected|abstract|final|open|sealed|data|value|"
+    r"inner|enum|annotation|expect|actual|companion|inline|infix|operator|suspend|"
+    r"const|lateinit|external|tailrec)*[ \t]*"
+    r"(?:object|class|interface|fun|val|var|typealias)[ \t]+(\w+)",
     re.M,
 )
+# Symbols owned by a library or the Kotlin/JDK standard, not by this repository.
+# A skill naming `StateFlow` or `ProcessBuilder` is documenting a tool, not
+# claiming this repo declares it, so flagging those is noise that trains people
+# to ignore the gate. This list is deliberately short and each entry is a type
+# a skill would plausibly name; a project symbol never belongs here.
+_EXTERNAL_SYMBOLS = frozenset({
+    "StateFlow", "MutableStateFlow", "SharedFlow",
+    "ProcessBuilder", "TimeoutCancellationException", "CancellationException",
+    "KoverProjectExtension", "KoverReport",
+    "NavDisplay", "NavBackStack", "Display",       # Navigation 3 compose API
+    "Test", "ClassData", "Parameterized",           # JUnit / Kotest
+    "KotlinTest", "RunTest", "Dispatchers", "IO", "Default", "Main",
+    # java.nio and the Kotlin compiler's PSI, which the detekt-rules tests use
+    # directly (`compileContentForTest(Path)` wraps the file in a `KtScript`).
+    "Path", "KtFile", "KtScript", "KtElement", "KtDeclaration", "KtExpression",
+    "KtClass", "KtProperty", "KtParameter", "KtNamedFunction", "KtFileFacade",
+    "KtCallExpression", "KtNameReferenceExpression", "KtDotQualifiedExpression",
+    "KtAnnotationEntry", "KtValueArgument", "KtTypeReference",
+    "CompilationUnit", "Rule", "Config", "Finding", "SourceCode",
+})
 # Types that are framework-allocated and never have production call sites.
 _FRAMEWORK_ALLOCATED = frozenset({
     "App", "SingularityApp",  # Application/main entry
@@ -315,7 +431,21 @@ _FRAMEWORK_ALLOCATED = frozenset({
     "androidApp",             # package name
     "desktopApp",             # package name
 })
-
+# A rule id as written in `detekt.yml`: either a ruleset id (`naming:`) or a
+# rule key in camelCase (`BackingPropertyNaming`). The value pattern accepts any
+# boolean as well as list/scalar settings, because a rule declared `active: false`
+# is still a *named* rule that documentation may legitimately quote — and those
+# are exactly the ones a stricter pattern silently dropped.
+#
+# Indentation is matched as `[ \t]`, never `\s`: `\s` also matches `\n`, so under
+# re.M a match could consume the newline that the next line's `^` needs, and the
+# following key was skipped with no visible error. `ImportOrdering` was lost that
+# way — it is the first key under `ktlint:` and its predecessor is a comment line.
+_DETEKT_RULE_KEY = re.compile(
+    r"^[ \t]{0,6}([A-Za-z][A-Za-z0-9]*)[ \t]*:[ \t]*"
+    r"(?:true|false|null|\[\]|\{\}|$|[-\w'\"])",
+    re.M,
+)
 
 def _build_kt_symbol_index() -> dict[str, str]:
     """Scan production .kt files; return {symbol_name → file_rel_path}."""
@@ -327,7 +457,32 @@ def _build_kt_symbol_index() -> dict[str, str]:
         ROOT / "androidApp/src/main",
         ROOT / "desktopApp/src",
         ROOT / "mcp-server/src/main",
+        # The custom detekt rules are production code for this gate's purposes:
+        # `singularity-todo-detekt-rules-authoring` documents rule classes and
+        # their tests by name, and an index without them reported all of those
+        # references as dangling.
+        ROOT / "detekt-rules/src",
+        # Test sources too. A skill that says "TestTagCoverageTest fails any
+        # untagged class" is documenting a real class, and an index that only
+        # reads production sources called it a dangling reference — which is the
+        # same false positive the project already recorded as 505 baselined
+        # entries, now arriving one at a time as new skills land.
+        ROOT / "shared/src/commonTest",
+        ROOT / "shared/src/androidUnitTest",
+        ROOT / "shared/src/jvmTest",
+        ROOT / "desktopApp/src/jvmTest",
+        ROOT / "mcp-server/src/test",
+        ROOT / "detekt-rules/src/test",
     ]
+    # The gate is not Kotlin-only in its sources. `singularity-todo-monthly-doc-audit`
+    # documents the 1250-line DIGEST budget as `MAX_DIGEST_LINES`, which is a constant
+    # in scripts/refresh-decisions-digest.py; a Kotlin-only index reported it as a
+    # dangling reference, and the honest reading of that report was "the doc names a
+    # constant that does not exist" when the constant was sitting in a .py file two
+    # directories away. Module-level SCREAMING_SNAKE_CASE names are the Python
+    # equivalent of a top-level declaration.
+    _PY_CONST = re.compile(r"^([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=", re.M)
+
     for base in prod_roots:
         if not base.exists():
             continue
@@ -335,11 +490,28 @@ def _build_kt_symbol_index() -> dict[str, str]:
             text = path.read_text(encoding="utf-8", errors="replace")
             for m in _TOP_LEVEL_KT.finditer(text):
                 name = m.group(1)
-                if name in _FRAMEWORK_ALLOCATED:
+                if name in _FRAMEWORK_ALLOCATED or name in _EXTERNAL_SYMBOLS:
                     continue
                 # First-wins: commonMain is the canonical declaration
                 if name not in index:
                     index[name] = path.relative_to(ROOT).as_posix()
+
+    # Rule ids in `config/detekt/detekt.yml` are names the skills legitimately
+    # quote (`BackingPropertyNaming`, `ImportOrdering`, …). They are keys, not
+    # Kotlin declarations, so the .kt scan can never see them — but they are
+    # checkable: a key that is configured but has no provider is a real defect,
+    # which is what `check-detekt-registrations.sh` already enforces.
+    detekt_yml = ROOT / "config/detekt/detekt.yml"
+    if detekt_yml.exists():
+        for name in _DETEKT_RULE_KEY.findall(detekt_yml.read_text(encoding="utf-8")):
+            index.setdefault(name, "config/detekt/detekt.yml")
+    for base in (ROOT / "scripts", ROOT / ".agents", ROOT / "mcp-server"):
+        if not base.exists():
+            continue
+        for path in base.rglob("*.py"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for m in _PY_CONST.finditer(text):
+                index.setdefault(m.group(1), path.relative_to(ROOT).as_posix())
     return index
 
 
@@ -398,6 +570,24 @@ def _scan_skill_symbol_refs(
         # Skip mixed-case (camelCase) as these are often testing APIs or prose words.
         if not re.match(r"[A-Z][a-zA-Z0-9_$]*$", stripped):
             continue
+        # A negated mention is not a claim that the symbol exists. "There is no
+        # `AppNavHost` in this app" is the skill answering this gate's own
+        # question, and reporting it as a dangling reference inverts its
+        # meaning. Only a negation in the same line and shortly before the
+        # symbol counts, so "do not use `Foo`" is skipped while a line that
+        # merely mentions a real symbol elsewhere is still checked.
+        prefix = text[max(0, m.start() - 60):m.start()]
+        # IGNORECASE is load-bearing: a sentence may open with "No `Foo` does not
+        # exist" and a case-sensitive pattern misses the capital, so the one
+        # sentence shape this rule exists to tolerate was the one it rejected.
+        if re.search(
+            r"\b(?:no|not|never|without|isn\x27t|aren\x27t|does\s+not|do\s+not|"
+            r"cannot|can\x27t|don\x27t|doesn\x27t|instead\s+of|rather\s+than)"
+            r"[^\n]{0,40}$",
+            prefix,
+            re.IGNORECASE,
+        ):
+            continue
         line = text.count("\n", 0, m.start()) + 1
         refs.append((line, sym))
     return refs
@@ -422,15 +612,41 @@ def _skill_symbols_main(_args) -> int:
         except ValueError:
             return str(path)
 
+    dangling: list[str] = []
     new_findings: list[str] = []
     for skill_md in sorted(skill_dir.glob("*/SKILL.md")):
         refs = _scan_skill_symbol_refs(skill_md)
         for line, sym in refs:
-            key = f"{skill_md.relative_to(ROOT).as_posix()}:{sym}"
-            if sym not in index and key not in accepted:
-                new_findings.append(
-                    f"  {_rel(skill_md)}:{line}: `{sym}` — not in production code"
-                )
+            # Library and JDK types are checked here rather than only while
+            # indexing: an external symbol has no declaration to be found, so
+            # filtering it at index-build time can never help.
+            if sym in index or sym in _EXTERNAL_SYMBOLS:
+                continue
+            rel = skill_md.relative_to(ROOT).as_posix()
+            dangling.append(f"{rel}:{sym}")
+            if f"{rel}:{sym}" not in accepted:
+                new_findings.append(f"  {_rel(skill_md)}:{line}: `{sym}` — not in production code")
+
+    # `--update-baseline` was accepted by the argument parser but ignored here, so
+    # the skill-symbol baseline could only ever grow. That is what left 840 entries
+    # in place after `_build_kt_symbol_index` was taught to see `data class`.
+    if getattr(_args, "update_baseline", False):
+        header = (
+            "# Kotlin symbols referenced in skill files that do not exist in\n"
+            "# production source. Regenerate with:\n"
+            "#   python3 scripts/check-doc-dead-refs.py --skill-symbols --update-baseline\n"
+            "# Run it after fixing symbols, never to silence a new one.\n"
+            "#\n"
+            "# Most of these were accepted because the skill described an architecture\n"
+            "# that was never built. The 2026-10-04 index fix (data class / abstract\n"
+            "# class / annotated declarations were invisible) removed several hundred\n"
+            # false positives in one pass.\n"
+        )
+        body = "\n".join(sorted(set(dangling)))
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(header + body + "\n", encoding="utf-8")
+        print(f"baseline rewritten: {len(set(dangling))} dangling symbol(s) -> {baseline_path}")
+        return 0
 
     if new_findings:
         print("NEW skill symbol references (not baselined):")

@@ -2,7 +2,6 @@ package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.test.helpers.assertCurrentTab
-import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlin.test.Test

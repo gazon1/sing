@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.ui.LocalHaptic
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
@@ -56,7 +57,10 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
                 fontSizeScale = fontSizeScale,
             )
             WhatsNewScreen(
-                onDismiss = { /* caller is the screen; no extra action needed */ },
+                // The dialog has no extra work on dismissal — persistence is handled
+                // internally via WhatsNewPrefs. Mirrors the Android caller, which
+                // passes the same shared no-op rather than an empty lambda literal.
+                onDismiss = noopClick,
                 modifier = Modifier,
             )
         },

@@ -15,8 +15,10 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskField
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.presentation.state.TaskAiIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,15 +38,17 @@ import kotlinx.coroutines.launch
  * One intent and five actions, because they share a shape — call a use case, build a
  * proposal, save it. Five separate intents would repeat that shape five times.
  *
- * The use cases and proposal repository are nullable in [TaskDetailDeps] so tests can
- * omit them. A missing use case or repository takes the same failure path as a failed
+ * The use cases and proposal repository are nullable in [TaskAiDeps] and
+ * [TaskCollaborationDeps] so tests can omit them. A missing use case or repository takes the same failure path as a failed
  * call, so a misconfigured build reports instead of silently doing nothing.
  *
  * [TaskAiState.isRunning] is published so the UI can disable its trigger while a request
  * is in flight.
  */
 class TaskAiSlot(
-    private val deps: TaskDetailDeps,
+    private val ai: TaskAiDeps,
+    private val collaboration: TaskCollaborationDeps,
+    private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -69,10 +73,10 @@ class TaskAiSlot(
     }
 
     private suspend fun execute(action: TaskAiAction, task: Task) {
-        val proposals = deps.proposals
+        val proposals = collaboration.proposals
             ?: error("ProposalRepository not configured")
-        val userId = deps.currentUser.scopedUserId.value
-        val now = deps.clock.now()
+        val userId = collaboration.currentUser.scopedUserId.value
+        val now = context.clock.now()
         val proposalId = ProposalId.generate()
 
         val items = buildProposalItems(action, task, proposalId)
@@ -100,7 +104,7 @@ class TaskAiSlot(
             newItem(
                 kind = ProposalItemKind.SetTaskField(
                     field = TaskField.Title,
-                    value = withUseCase(deps.refineTask, "RefineTitle") { refine ->
+                    value = withUseCase(ai.refineTask, "RefineTitle") { refine ->
                         refine(task.title, task.description).getOrThrow()
                     },
                 ),
@@ -114,7 +118,7 @@ class TaskAiSlot(
             newItem(
                 kind = ProposalItemKind.SetTaskField(
                     field = TaskField.Description,
-                    value = withUseCase(deps.generateDescription, "GenerateDescription") { generate ->
+                    value = withUseCase(ai.generateDescription, "GenerateDescription") { generate ->
                         generate(task.title).getOrThrow()
                     },
                 ),
@@ -125,7 +129,7 @@ class TaskAiSlot(
         )
 
         TaskAiAction.GenerateChecklist -> {
-            val steps = withUseCase(deps.generateChecklist, "GenerateChecklist") { generate ->
+            val steps = withUseCase(ai.generateChecklist, "GenerateChecklist") { generate ->
                 generate(task.title, task.description).getOrThrow()
             }
             listOf(
@@ -139,7 +143,7 @@ class TaskAiSlot(
         }
 
         TaskAiAction.Decompose -> {
-            val subtasks = withUseCase(deps.decomposeTask, "DecomposeTask") { decompose ->
+            val subtasks = withUseCase(ai.decomposeTask, "DecomposeTask") { decompose ->
                 decompose(task.title, task.description).getOrThrow()
             }
             listOf(
@@ -153,7 +157,7 @@ class TaskAiSlot(
         }
 
         TaskAiAction.SuggestTime -> {
-            val suggestion = withUseCase(deps.pickTime, "PickTime") { pick ->
+            val suggestion = withUseCase(ai.pickTime, "PickTime") { pick ->
                 pick(task.title, task.description).getOrThrow()
             }
             listOf(
@@ -191,7 +195,7 @@ class TaskAiSlot(
     /**
      * Runs [block] with the use case, or fails when it is not configured.
      *
-     * The AI use cases are nullable in [TaskDetailDeps] so tests can omit them; this turns
+     * The AI use cases are nullable in [TaskAiDeps] so tests can omit them; this turns
      * "not configured" into the same failure path as a failed call, so a misconfigured
      * build reports instead of silently doing nothing.
      */

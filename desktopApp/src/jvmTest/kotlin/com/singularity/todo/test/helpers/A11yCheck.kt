@@ -79,10 +79,12 @@ private fun SemanticsNode.isUnlabelledClickable(): Boolean {
  */
 private fun SemanticsNode.labelKind(): String = when {
     config.getOrNull(SemanticsProperties.Text)?.any { it.isNotBlank() } == true -> "text"
+
     config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.isNotBlank() } == true ->
         "contentDescription"
 
     config.getOrNull(SemanticsActions.OnClick)?.label?.isNotBlank() == true -> "onClickLabel"
+
     else -> config.getOrNull(SemanticsProperties.TestTag)?.let { "testTag=$it" } ?: ""
 }
 

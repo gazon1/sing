@@ -37,6 +37,7 @@ import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
+import com.singularity.todo.core.ui.preview.noopClick
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +139,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             val refreshing = state.let { it is ArchiveUiState.Content && it.refreshing }
             Button(
-                onClick = { },
+                onClick = noopClick,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (refreshing) {
@@ -163,7 +164,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                             items(state.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,
-                                    onClick = {},
+                                    onClick = noopClick,
                                     actions = TaskCardActions(),
                                 )
                             }

@@ -49,7 +49,9 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.formatFileSize
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.datetime.TimeZone
@@ -367,14 +369,14 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
-                    onClick = {},
+                    onClick = noopClick,
                     modifier = Modifier.weight(1f),
                     enabled = !state.isWorking,
                 ) {
                     Text("Create backup")
                 }
                 Button(
-                    onClick = {},
+                    onClick = noopClick,
                     modifier = Modifier.weight(1f),
                     enabled = !state.isWorking,
                 ) {

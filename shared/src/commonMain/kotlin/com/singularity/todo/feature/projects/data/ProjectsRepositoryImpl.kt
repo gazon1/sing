@@ -20,6 +20,7 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed production [ProjectsRepository].
@@ -46,13 +47,13 @@ class ProjectsRepositoryImpl(
         return projectDao.getByIdForUser(id.value, uid.value)?.toProject()
     }
 
-    override suspend fun create(item: Project): Result<Project> = runCatching {
+    override suspend fun create(item: Project): Result<Project> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         projectDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
 
-    override suspend fun update(item: Project): Result<Project> = runCatching {
+    override suspend fun update(item: Project): Result<Project> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         // Re-stamp after the guard, as Tasks and Notes now do: the guard has
         // established that userId is current-or-anonymous, so normalising cannot
@@ -84,7 +85,7 @@ class ProjectsRepositoryImpl(
         return project
     }
 
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {
         val ts = clock.now().toEpochMilliseconds()
         val uid = currentUser.scopedUserId.value.value
         val rows = projectDao.softDeleteForUser(id.value, ts, uid)
@@ -94,7 +95,7 @@ class ProjectsRepositoryImpl(
 
     // ── SoftDeletable ─────────────────────────────────────────────────────────
 
-    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
+    override suspend fun restore(id: ProjectId): Result<Unit> = runCatchingCancellable {
         val ts = clock.now().toEpochMilliseconds()
         val uid = currentUser.scopedUserId.value.value
         val rows = projectDao.restoreForUser(id.value, ts, uid)

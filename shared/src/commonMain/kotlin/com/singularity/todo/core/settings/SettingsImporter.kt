@@ -4,6 +4,7 @@ import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.serialization.json.Json
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Imports a settings snapshot from JSON, validates it, and applies each
@@ -35,7 +36,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
      * 4. Return [ImportResult].
      */
     open suspend fun importFromJson(jsonString: String): ImportResult {
-        val snapshot: SettingsSnapshot = runCatching {
+        val snapshot: SettingsSnapshot = runCatchingCancellable {
             json.decodeFromString(SettingsSnapshot.serializer(), jsonString)
         }.getOrElse { e ->
             return ImportResult.ParseError(
@@ -54,7 +55,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         val failures = mutableListOf<String>()
 
         // Appearance
-        runCatching {
+        runCatchingCancellable {
             val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Appearance, SettingsIntent.Appearance>>()
                 .firstOrNull()
             contributor?.process(SettingsIntent.Appearance.UpdateDarkTheme(snapshot.appearance.darkTheme))
@@ -65,7 +66,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         }
 
         // AI
-        runCatching {
+        runCatchingCancellable {
             val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>>()
                 .firstOrNull()
             contributor?.process(SettingsIntent.Ai.UpdateProvider(LlmProvider.fromId(snapshot.ai.providerId)))
@@ -77,7 +78,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         }
 
         // Notifications
-        runCatching {
+        runCatchingCancellable {
             val contributor =
                 contributors.filterIsInstance<SettingsContributor<SettingsSection.Notifications, SettingsIntent.Notifications>>()
                     .firstOrNull()
@@ -92,7 +93,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         }
 
         // Work Schedule
-        runCatching {
+        runCatchingCancellable {
             val contributor =
                 contributors.filterIsInstance<SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule>>()
                     .firstOrNull()
@@ -109,7 +110,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         }
 
         // Greeting
-        runCatching {
+        runCatchingCancellable {
             val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Greeting, SettingsIntent.Greeting>>()
                 .firstOrNull()
             contributor?.process(SettingsIntent.Greeting.UpdateMorningEnd(snapshot.greeting.morningEndHour))
@@ -119,7 +120,7 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         }
 
         // Default Agenda View
-        runCatching {
+        runCatchingCancellable {
             val contributor =
                 contributors.filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, SettingsIntent.DefaultAgendaView>>()
                     .firstOrNull()
