@@ -297,6 +297,26 @@ style:
 ktlint:
   ImportOrdering:
     active: false          # IDE owns import order; ktlint auto-fix may still sort
+  NoConsecutiveBlankLines:
+    # Declared 2026-10-04, and the reason it is written down at all: this rule was
+    # producing a finding while being absent from this file, i.e. running on
+    # detekt's built-in default. check-rule-intent.py exists to make exactly that
+    # class of invisible choice visible, and this was its first real hit.
+    #
+    # `active: true` is also detekt's default, so declaring it changes no
+    # behaviour — the point is that the behaviour is now a decision on the record
+    # rather than an accident. If a future detekt release changes the default, a
+    # rule nobody declared would silently change what the baseline means.
+    #
+    # NOTE: this section does not validate keys, so a misspelling here is silently
+    # ignored rather than reported — unlike `style:`, which hard-fails on an unknown
+    # key. That is why the spelling below was confirmed by watching this rule's
+    # baseline entry disappear, not by reading documentation.
+    #
+    # The single finding it had (a trailing blank line in
+    # `TimeTrackingSection.kt`) is fixed, so no baseline entry remains.
+    # Related: #56, #57.
+    active: true
   active: true
   code_style: ktlint_official
   auto_correct: true

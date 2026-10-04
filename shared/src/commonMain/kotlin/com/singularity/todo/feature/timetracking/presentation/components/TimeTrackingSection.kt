@@ -223,4 +223,3 @@ private fun TimeEntryRow(entry: TimeEntry, modifier: Modifier = Modifier) {
         )
     }
 }
-
