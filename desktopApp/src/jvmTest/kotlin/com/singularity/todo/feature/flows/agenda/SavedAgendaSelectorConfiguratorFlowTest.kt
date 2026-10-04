@@ -26,10 +26,10 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.flow.first
-import org.junit.Test
+import kotlin.test.Test
 import org.koin.core.Koin
 import kotlin.time.Instant
-import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Tag as JUnitTag
 
 /**
  * The "add section" configurator: pick a section *type*, then — for the types
@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Tag
  * The mapping from chosen values to a [Selector] is covered by
  * `SelectorTemplateTest` in commonTest; this covers the UI that feeds it.
  */
-@Tag("slow")
+@JUnitTag("slow")
 @OptIn(ExperimentalTestApi::class)
 class SavedAgendaSelectorConfiguratorFlowTest {
 

@@ -126,13 +126,13 @@ class SavedViewsFlowTest {
         // Both cards render with the same slug → same testTag; assert the count is 2
         // (countNodes, because awaitTag requires exactly one match)
         val cards = countNodes(TestTags.savedAgendaCard("my_view"))
-        assertTrue("expected 2 cards named 'My View', found $cards", cards == 2)
+        assertTrue(cards == 2, "expected 2 cards named 'My View', found $cards")
 
         // Both are in the repo
         val repo = koin.get<SavedAgendaViewsRepository>()
         val views = repo.observeAll().first()
         val count = views.count { it.name == "My View" }
-        assertTrue("Two views named 'My View' must exist", count == 2)
+        assertTrue(count == 2, "Two views named 'My View' must exist")
     }
 
     // ─── Card tap → Results → back ─────────────────────────────────

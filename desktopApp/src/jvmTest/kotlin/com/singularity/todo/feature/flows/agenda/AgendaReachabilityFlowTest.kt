@@ -5,7 +5,7 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import kotlin.test.Test
 import org.junit.jupiter.api.Tag
 
 /**

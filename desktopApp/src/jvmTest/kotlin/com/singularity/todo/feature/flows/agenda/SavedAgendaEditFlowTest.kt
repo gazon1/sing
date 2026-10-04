@@ -26,7 +26,7 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.coroutines.flow.first
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Tag
 
