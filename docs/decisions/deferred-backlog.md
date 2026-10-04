@@ -654,3 +654,38 @@ technical debt.
 and routes writes through repositories. Replace DAO calls in `BackupImporter` with
 `BulkImportPort.import(payload, targetUserId)`. Track in `docs/decisions/2026-09-27-write-layer-soundness.md`.
 
+
+---
+
+## vm-without-test
+
+**Found in:** MR-6, while writing `ViewModelTestCoverageTest` (the Phase 6
+"every VM has a test" gate). Pre-existing — none of these were introduced by the
+agenda work.
+
+Eleven ViewModels ship with no test of their own. The rule enforces that this
+stops growing; this entry is the debt itself.
+
+| ViewModel | Why it is hard to test today |
+|-----------|------------------------------|
+| `AccountSettingsViewModel` | Thin wrapper over settings read/write; needs a SettingsRepository fake that does not exist yet |
+| `AiUsageViewModel` | Reads LLM usage records straight off the DAO; no fake repository for the usage table |
+| `AppVersionGateViewModel` | Version comparison against a remote config port. A fake port exists (`FakeRemoteConfigPort`) but no test drives the VM through it |
+| `ArchiveViewModel` | Archive/trash reads go through the task repository; the VM's own state machine is untested even though the queries are |
+| `AttachmentsViewModel` | File IO behind `FileSystem`; needs a fake filesystem with checksum support |
+| `AuthViewModel` | OAuth session transitions; `core-auth-oauth-is-entirely-unwired` (above) means the flow is not reachable, so there is nothing meaningful to assert yet |
+| `CalendarSyncViewModel` | Owns a long-lived debounced collector; the virtual-time setup is the hard part |
+| `ProfileSwitcherViewModel` | Reads the profile list; needs a `FakeProfileRepository` wired through the same scope discipline as `ProfileAwareCurrentUser` |
+| `SearchViewModel` | `activeFilter = null` is a documented signal, not an error, so a naive test asserts the wrong contract |
+| `TagGroupsViewModel` | Cascade deletes are the interesting path and they are covered at the repository level (`TagGroupDeleteCascadeTest`), not at the VM level |
+| `TagsViewModel` | `TagRenameTest` covers the rename use case, not the VM; the VM's list/selection state is untested |
+
+**Do this first:** start with `TagsViewModel` and `AppVersionGateViewModel` —
+both already have a fixture in reach (a tag fake, a remote-config fake), so
+neither needs new infrastructure.
+
+**Rule:** the allowlist lives in `KNOWN_UNCOVERED` in
+`shared/src/jvmTest/kotlin/com/singularity/todo/arch/ViewModelTestCoverageTest.kt`.
+Removing an entry there without adding a test breaks the build; adding a class
+that no longer exists also breaks the build, so the two lists cannot drift
+silently.
