@@ -388,14 +388,33 @@ _SYMBOL_RE = re.compile(r"`([^`]+)`")
 # annotated declaration invisible to the index — and `data class` is the dominant
 # declaration form in this codebase. The symptom was a `--skill-symbols` baseline
 # of 840 entries, most of them symbols that do exist.
+# Nested declarations count. `OpenAction.ExitAndOpen` is declared inside a sealed
+# class, and a skill documenting it was told it did not exist — the index saw
+# only column-0 declarations, so every member of every sealed class, enum or
+# companion was invisible. The class name itself is not what documentation
+# quotes, so leading indentation is tolerated deliberately rather than by
+# accident.
 _TOP_LEVEL_KT = re.compile(
-    r"^(?:@\w+(?:\([^)]*\))?\s*)*"                       # annotations
+    r"^[ \t]*(?:@\w+(?:\([^)]*\))?[ \t]*)*"                # annotations
     r"(?:public|internal|private|protected|abstract|final|open|sealed|data|value|"
     r"inner|enum|annotation|expect|actual|companion|inline|infix|operator|suspend|"
-    r"const|lateinit|external|tailrec)*\s*"
-    r"(?:object|class|interface|fun|val|var|typealias)\s+(\w+)",
+    r"const|lateinit|external|tailrec)*[ \t]*"
+    r"(?:object|class|interface|fun|val|var|typealias)[ \t]+(\w+)",
     re.M,
 )
+# Symbols owned by a library or the Kotlin/JDK standard, not by this repository.
+# A skill naming `StateFlow` or `ProcessBuilder` is documenting a tool, not
+# claiming this repo declares it, so flagging those is noise that trains people
+# to ignore the gate. This list is deliberately short and each entry is a type
+# a skill would plausibly name; a project symbol never belongs here.
+_EXTERNAL_SYMBOLS = frozenset({
+    "StateFlow", "MutableStateFlow", "SharedFlow",
+    "ProcessBuilder", "TimeoutCancellationException", "CancellationException",
+    "KoverProjectExtension", "KoverReport",
+    "NavDisplay", "NavBackStack", "Display",       # Navigation 3 compose API
+    "Test", "ClassData", "Parameterized",           # JUnit / Kotest
+    "KotlinTest", "RunTest", "Dispatchers",
+})
 # Types that are framework-allocated and never have production call sites.
 _FRAMEWORK_ALLOCATED = frozenset({
     "App", "SingularityApp",  # Application/main entry
@@ -436,6 +455,17 @@ def _build_kt_symbol_index() -> dict[str, str]:
         # their tests by name, and an index without them reported all of those
         # references as dangling.
         ROOT / "detekt-rules/src",
+        # Test sources too. A skill that says "TestTagCoverageTest fails any
+        # untagged class" is documenting a real class, and an index that only
+        # reads production sources called it a dangling reference — which is the
+        # same false positive the project already recorded as 505 baselined
+        # entries, now arriving one at a time as new skills land.
+        ROOT / "shared/src/commonTest",
+        ROOT / "shared/src/androidUnitTest",
+        ROOT / "shared/src/jvmTest",
+        ROOT / "desktopApp/src/jvmTest",
+        ROOT / "mcp-server/src/test",
+        ROOT / "detekt-rules/src/test",
     ]
     for base in prod_roots:
         if not base.exists():
@@ -444,7 +474,7 @@ def _build_kt_symbol_index() -> dict[str, str]:
             text = path.read_text(encoding="utf-8", errors="replace")
             for m in _TOP_LEVEL_KT.finditer(text):
                 name = m.group(1)
-                if name in _FRAMEWORK_ALLOCATED:
+                if name in _FRAMEWORK_ALLOCATED or name in _EXTERNAL_SYMBOLS:
                     continue
                 # First-wins: commonMain is the canonical declaration
                 if name not in index:
@@ -517,6 +547,20 @@ def _scan_skill_symbol_refs(
         # Skip mixed-case (camelCase) as these are often testing APIs or prose words.
         if not re.match(r"[A-Z][a-zA-Z0-9_$]*$", stripped):
             continue
+        # A negated mention is not a claim that the symbol exists. "There is no
+        # `AppNavHost` in this app" is the skill answering this gate's own
+        # question, and reporting it as a dangling reference inverts its
+        # meaning. Only a negation in the same line and shortly before the
+        # symbol counts, so "do not use `Foo`" is skipped while a line that
+        # merely mentions a real symbol elsewhere is still checked.
+        prefix = text[max(0, m.start() - 60):m.start()]
+        if re.search(
+            r"\b(?:no|not|never|without|isn\x27t|aren\x27t|does\s+not|do\s+not|"
+            r"cannot|can\x27t|don\x27t|doesn\x27t|instead\s+of|rather\s+than)"
+            r"[^\n]{0,40}$",
+            prefix,
+        ):
+            continue
         line = text.count("\n", 0, m.start()) + 1
         refs.append((line, sym))
     return refs
@@ -546,7 +590,10 @@ def _skill_symbols_main(_args) -> int:
     for skill_md in sorted(skill_dir.glob("*/SKILL.md")):
         refs = _scan_skill_symbol_refs(skill_md)
         for line, sym in refs:
-            if sym in index:
+            # Library and JDK types are checked here rather than only while
+            # indexing: an external symbol has no declaration to be found, so
+            # filtering it at index-build time can never help.
+            if sym in index or sym in _EXTERNAL_SYMBOLS:
                 continue
             rel = skill_md.relative_to(ROOT).as_posix()
             dangling.append(f"{rel}:{sym}")

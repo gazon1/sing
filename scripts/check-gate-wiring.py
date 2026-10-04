@@ -186,6 +186,16 @@ SCRIPT_GATES = [
         why="a new dead reference must fail until baselined",
     ),
     ScriptGate(
+        name="skill-symbols",
+        cmd=[sys.executable, "scripts/check-doc-dead-refs.py", "--skill-symbols"],
+        # A skill file, not a source file: the gate answers "does this documented
+        # symbol exist", so the only honest sabotage is a skill naming one that
+        # does not. Sabotaging a source file would prove the opposite direction.
+        sabotage_path=".agents/skills/singularity-todo-quality-tools/SKILL.md",
+        sabotage="p.write_text(p.read_text() + '\\n## Probe\\n\\nCall `TotallyMadeUpHelperSymbol` here.\\n')",
+        why="a stale symbol reference must fail until baselined",
+    ),
+    ScriptGate(
         name="skill-frontmatter",
         cmd=["./scripts/check-skill-frontmatter.sh"],
         sabotage_path=".agents/skills/singularity-todo-koin-dsl/SKILL.md",
