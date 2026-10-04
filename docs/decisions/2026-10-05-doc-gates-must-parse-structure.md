@@ -126,10 +126,20 @@ corpus is the specification.
 - Six ADRs are permanently "not normalizable" — their frontmatter is valid YAML with
   list or block-scalar values. They are reported, skipped, and do not fail the gate.
   Making the normalizer structure-aware enough to rewrite them is a separate change.
-- Two detekt rules began executing. `:shared:detekt` passes with 0 findings across
-  109k lines, confirming `FileLogWriter.kt` is the only `Dispatchers` call site and the
-  existing whitelist is correct. Two rules that had never run are now a real gate, so
-  a future violation will fail the build.
+- Two detekt rules were given `detekt.yml` blocks, so they are no longer dormant.
+  **Correction, added later the same day:** the original version of this bullet claimed
+  that "`:shared:detekt` passes with 0 findings, confirming `FileLogWriter.kt` is the
+  only `Dispatchers` call site". That was an inference from silence and it was wrong.
+  `NoDirectDispatchersRule` could not fire for any input — it required the
+  dot-qualified selector to be a `KtCallExpression`, but `Dispatchers.IO`'s selector is
+  a `KtNameReferenceExpression`, and in `Dispatchers.IO.limitedParallelism(1)` the
+  receiver is itself dot-qualified. Both returned early, so the rule was a no-op and 0
+  findings said nothing at all. It had a registered provider, a service-file entry, a
+  backlog entry, and two failing tests that no CI job ran.
+  The rule is now fixed, scoped to commonMain (where it has exactly 1 occurrence, the
+  whitelisted one; jvmMain has 8 and androidMain 11, all in port implementations), and
+  covered by 17 tests. `:shared:detekt` reports 0 findings again — but that result is
+  now produced by a rule that can fail.
 - `--update-baseline` on `check-doc-dead-refs.py` now refuses to drop existing accepted
   entries without `--force`. An unguarded regeneration reduced that file from 328
   entries to 39, erasing the record of accepted debt — a gate tool silently destroying

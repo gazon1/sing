@@ -1,17 +1,47 @@
 name: CI
 
+# Path filters widened 2026-10-05. They were `openspec/**`, the workflow file and one
+# script, so the job was skipped for almost every PR — including any PR that changed a
+# detekt rule or a gate script. Steps that only run on 2 of 30 PRs are decoration.
 on:
   push:
-    branches: [main, "refactor/**"]
+    branches: [main, "refactor/**", "fix/**"]
     paths:
       - "openspec/**"
+      - "detekt-rules/**"
+      - "scripts/**"
+      - "config/detekt/**"
+      - "config/docs/**"
+      - "shared/**"
+      - "desktopApp/**"
+      - "androidApp/**"
+      - "mcp-server/**"
+      - "docs/**"
+      - "Maestro/**"
+      - "*.md"
+      - ".just/**"
+      - "gradle/**"
+      - "build-logic/**"
       - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "openspec/**"
+      - "detekt-rules/**"
+      - "scripts/**"
+      - "config/detekt/**"
+      - "config/docs/**"
+      - "shared/**"
+      - "desktopApp/**"
+      - "androidApp/**"
+      - "mcp-server/**"
+      - "docs/**"
+      - "Maestro/**"
+      - "*.md"
+      - ".just/**"
+      - "gradle/**"
+      - "build-logic/**"
       - ".github/workflows/ci.yml"
-      - "scripts/check-openspec-stale.py"
 
 jobs:
   test-and-check:
@@ -63,6 +93,52 @@ jobs:
           else
             echo "GRADLE_OPTS=-Dretry.maxAttempts=0 -Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
           fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The gates below are Python and one of them imports yaml, so this is not optional.
+      - name: Install PyYAML
+        run: python -m pip install --quiet pyyaml
+
+      # Custom detekt rule tests. This was never run by any job, which is how
+      # NoDirectDispatchersRuleTest's two failures survived: the rule it tested could not
+      # fire at all (it required a KtCallExpression selector, but `Dispatchers.IO` has a
+      # KtNameReferenceExpression selector) and the registered, packaged, ADR-referenced
+      # rule was a silent no-op. A rule whose own tests nobody runs is not a gate.
+      - name: Run detekt rule tests
+        run: ./gradlew :detekt-rules:test --no-daemon
+        # blocking: a custom rule that cannot pass its own tests must not be relied on
+
+      # Gate-script tests. Same reasoning as above, one level up: these cover the
+      # doc/governance gates this repo depends on, and they were runnable only by hand.
+      #
+      # The "ran 0 tests" check is load-bearing. A test file that omits
+      # `unittest.main()` defines its tests, runs none of them, and exits 0 — so a
+      # broken test added without the main block would make this step pass while
+      # testing nothing. Verified by probe on 2026-10-05.
+      - name: Run gate-script tests
+        run: |
+          set -uo pipefail
+          status=0
+          for t in scripts/tests/test_*.py; do
+            echo "--- $t"
+            out=$(python3 "$t" 2>&1); rc=$?
+            echo "$out" | tail -3
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::$t exited $rc"
+              status=1
+              continue
+            fi
+            if ! echo "$out" | grep -qE '^Ran [1-9][0-9]* tests?'; then
+              echo "::error::$t ran zero tests — is unittest.main() missing?"
+              status=1
+            fi
+          done
+          exit $status
+        # blocking
 
       - name: Build version catalog gate
         # blocking as of 2026-10-04: a hardcoded group:artifact:version literal is a

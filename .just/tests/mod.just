@@ -21,6 +21,48 @@ jvm:
     ./gw :shared:jvmTest
 
 [group('tests')]
+[doc('Run the tests for the custom detekt rules')]
+[working-directory(justfile_directory())]
+detekt-rules:
+    #!/bin/bash
+    set -euo pipefail
+    # Added 2026-10-05: this was never run by any recipe or CI job, which is how
+    # NoDirectDispatchersRule's two failing tests survived — the rule could not fire at
+    # all and nothing noticed. `:detekt-rules:test` is now also a CI step.
+    ./gradlew :detekt-rules:test
+
+[group('tests')]
+[doc('Run the gate-script tests (docs/governance gates)')]
+[working-directory(justfile_directory())]
+gate-scripts:
+    #!/bin/bash
+    set -uo pipefail
+    # The "ran 0 tests" guard matters: a file missing `unittest.main()` runs nothing and
+    # exits 0, so it would report success while testing nothing.
+    status=0
+    for t in scripts/tests/test_*.py; do
+        echo "--- $t"
+        out=$(python3 "$t" 2>&1); rc=$?
+        echo "$out" | tail -3
+        if [ "$rc" -ne 0 ]; then
+            echo "FAIL: $t exited $rc"
+            status=1
+            continue
+        fi
+        if ! echo "$out" | grep -qE '^Ran [1-9][0-9]* tests?'; then
+            echo "FAIL: $t ran zero tests — is unittest.main() missing?"
+            status=1
+        fi
+    done
+    echo ""
+    if [ "$status" -eq 0 ]; then
+        echo "gate-scripts: OK"
+    else
+        echo "gate-scripts: FAILED"
+    fi
+    exit $status
+
+[group('tests')]
 [doc('Run testAndroidHostTest (Robolectric, no device needed)')]
 [working-directory(justfile_directory())]
 android-host:
