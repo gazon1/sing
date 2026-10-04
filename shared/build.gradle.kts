@@ -353,18 +353,21 @@ dependencies {
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
 
-    // androidHostTest (Robolectric) — JVM-based Android emulator for widget/Compose UI tests.
-    // AndroidX compose-ui-test-junit4 (1.7.3) is used here, NOT the JetBrains
-    // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
-    add("androidHostTestImplementation", libs.robolectric)
-    add("androidHostTestImplementation", libs.compose.ui.test.junit4)
-    // ApplicationProvider + the instrumentation registry the Koin graph test needs.
-    add("androidHostTestImplementation", libs.androidx.test.core)
-    add("androidHostTestImplementation", libs.androidx.testExt.junit)
-    // The test task uses the JUnit Platform (useJUnitPlatform), and Robolectric is a
-    // JUnit4 runner — without the vintage engine the platform silently skips every
-    // JUnit4 test class in this source set.
-    add("androidHostTestImplementation", libs.junit.vintage.engine)
+    // androidHostTest — the Android/Robolectric-capable source set. It currently holds
+    // no test files of its own: its only content is AndroidManifest.xml, and the 762
+    // tests it executes come from commonTest. The Robolectric / JUnit4 stack that used
+    // to be declared here went away with the tests that needed it (ADR D2's
+    // AndroidPomodoroTimerTest no longer exists), and the comment about "the Koin graph
+    // test" referred to a test that is also gone.
+    //
+    // If you add a Robolectric test here, declare the stack again in this block:
+    // `libs.robolectric`, `libs.androidx.test.core`, `libs.androidx.testExt.junit`,
+    // `libs.compose.ui.test.junit4` (AndroidX, NOT the JetBrains multiplatform one —
+    // AndroidX is Robolectric-compatible, JetBrains is not), and
+    // `libs.junit.vintage.engine`, because Robolectric is a JUnit4 runner and the task
+    // uses the JUnit Platform. Without the Vintage engine those classes are silently
+    // skipped, and the Vintage engine does not map Jupiter's @Tag onto Platform tags —
+    // see ADR 2026-10-04-test-execution-integrity.
 }
 
 // Room 3 KSP schema export

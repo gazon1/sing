@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
@@ -16,6 +17,7 @@ import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.streams.asByteWriteChannel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
 import org.koin.core.context.GlobalContext
@@ -139,6 +141,22 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
             "default", "personal", null -> null
             else -> null
         }
+
+        // The un-scoped local userId, read from the session BEFORE the switch.
+        //
+        // It must not come from `ProfileAwareCurrentUser.current`: that is a cached
+        // StateFlow that a background collector rewrites, and `bootstrapper.run` is
+        // suspend, so it gives that collector a chance to run. Once it has, `current`
+        // is already the agent-scoped id, and the migration below would build
+        // newUserId = "{agent}/{agent}/{user}" — an id no profile matches, leaving
+        // every migrated row unreachable. Whether that happened depended on dispatcher
+        // timing. The session is not touched by the switch, so this read is exact.
+        val localUserId: String = GlobalContext.get()
+            .get<ProfileAwareCurrentUser>()
+            .liveLocalUserId
+            .first()
+            .value
+
         val result = bootstrapper.run(
             seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
             activateName = activateName,
@@ -146,8 +164,6 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
         result.activated?.let { activated ->
             // Retro-migrate rows from the unscoped local user id.
             val agentId = activated.value
-            val localUserId: String = GlobalContext.get().get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>()
-                .current.value
             retromigrateRowsToAgentScope(
                 profileId = profileCliArg ?: "ai-agent",
                 localUserId = localUserId,

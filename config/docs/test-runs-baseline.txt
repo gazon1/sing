@@ -15,4 +15,4 @@
 desktopApp:test 27 77
 mcp-server:test 2 10
 shared:jvmTest 142 1095
-shared:testAndroidHostTest 97 762
+shared:testAndroidHostTest 98 765

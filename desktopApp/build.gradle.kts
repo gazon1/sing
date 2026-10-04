@@ -38,7 +38,6 @@ sourceSets {
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             // TestLogging installs a Kermit writer, for the same reason.
             implementation(libs.kermit)
-            implementation(libs.junit4)
             // No vintage engine: every desktop test is Jupiter (`kotlin.test.Test`).
             // Under vintage, `org.junit.jupiter.api.Tag` was invisible to
             // `includeTags(...)`, so `-Ptest.tags=fast,slow` silently selected 4 of 28
