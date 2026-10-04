@@ -107,7 +107,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kover-report
-          path: shared/build/reports/kover/xml-report.xml
+          # Kover 0.9 names this report.xml. The previous `xml-report.xml` never
+          # matched anything, so the artifact was silently empty on every run.
+          path: shared/build/reports/kover/report.xml
 
   openspec-validate:
     runs-on: ubuntu-latest

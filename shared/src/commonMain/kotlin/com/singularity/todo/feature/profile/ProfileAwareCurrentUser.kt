@@ -17,12 +17,11 @@ import kotlinx.coroutines.launch
  * resolve the target profile's namespace. Exposed as a top-level function so the
  * two call sites cannot drift.
  */
-fun scopedUserIdFor(profileId: ProfileId, userId: UserId): UserId =
-    if (profileId == ProfileId.default) {
-        userId
-    } else {
-        UserId.fromString("${profileId.value}/${userId.value}")
-    }
+fun scopedUserIdFor(profileId: ProfileId, userId: UserId): UserId = if (profileId == ProfileId.default) {
+    userId
+} else {
+    UserId.fromString("${profileId.value}/${userId.value}")
+}
 
 /**
  * Wraps [CurrentUser] and adds per-profile isolation.
@@ -46,8 +45,7 @@ open class ProfileAwareCurrentUser(
 ) {
 
     /** Computes the scoped userId from the current upstreams — synchronous, no dispatch. */
-    private fun computeScopedUserId(userId: UserId, profileId: ProfileId): UserId =
-        scopedUserIdFor(profileId, userId)
+    private fun computeScopedUserId(userId: UserId, profileId: ProfileId): UserId = scopedUserIdFor(profileId, userId)
 
     /**
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`

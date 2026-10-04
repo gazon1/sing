@@ -68,10 +68,9 @@ private fun declaredTestClasses(): Set<String> = testRoots()
     .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "kt" } }
     .flatMapTo(mutableSetOf()) { file -> CLASS_DECL.findAll(file.readText()).map { it.groupValues[1] } }
 
-private fun testRoots(): List<File> =
-    listOf(commonTestRoot, jvmTestRoot, desktopAppJvmTestRoot)
-        .map(::File)
-        .filter { it.isDirectory }
+private fun testRoots(): List<File> = listOf(commonTestRoot, jvmTestRoot, desktopAppJvmTestRoot)
+    .map(::File)
+    .filter { it.isDirectory }
 
 private fun productionFiles(): List<File> = File(commonMainRoot)
     .walkTopDown()
@@ -113,7 +112,7 @@ class ViewModelTestCoverageTest {
                 "add it to KNOWN_UNCOVERED in this file *and* an entry to\n" +
                 "docs/decisions/deferred-backlog.md explaining why. An allowlist entry\n" +
                 "without a backlog entry is a regression of the same kind this rule\n" +
-                "exists to prevent."
+                "exists to prevent.",
         )
     }
 
