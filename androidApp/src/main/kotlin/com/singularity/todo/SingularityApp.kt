@@ -66,7 +66,9 @@ private fun appUpdateModule() = module {
  * Called exactly once per process lifetime, before any Activity or Service.
  * No guard needed unlike when startKoin lives in Activity.onCreate().
  */
-class SingularityApp : Application(), HasTracerConfiguration {
+class SingularityApp :
+    Application(),
+    HasTracerConfiguration {
 
     /**
      * AppTracer plugin configuration.

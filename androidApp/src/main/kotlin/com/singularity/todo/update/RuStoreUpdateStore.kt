@@ -2,8 +2,11 @@ package com.singularity.todo.update
 
 import android.app.Activity
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+
+private const val TAG = "RuStoreUpdateStore"
 
 /**
  * [UpdateStorePort] backed by RuStore's App Updates SDK.
@@ -27,8 +30,8 @@ class RuStoreUpdateStore(
 ) : UpdateStorePort {
 
     override fun isUpdateAvailable(activity: Activity): Boolean {
-        // TODO: replace with SDK call when rustore-appupdate dependency is added.
-        // Example (pseudo-code):
+        // Pending: replace with an SDK call once the rustore-appupdate dependency
+        // is available. Sketch of what it would look like:
         // val info = RustoreUpdateManager.getInstance(context).appUpdateInfo
         // return info.updateAvailability() == UPDATE_AVAILABLE && info.isFlexibleUpdateAllowed
         return false
@@ -39,7 +42,8 @@ class RuStoreUpdateStore(
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
         true
-    } catch (e: Throwable) {
+    } catch (e: ActivityNotFoundException) {
+        android.util.Log.w(TAG, "No activity can open $directUpdateUrl", e)
         false
     }
 }

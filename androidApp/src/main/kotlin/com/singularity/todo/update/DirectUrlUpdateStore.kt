@@ -2,8 +2,11 @@ package com.singularity.todo.update
 
 import android.app.Activity
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+
+private const val TAG = "DirectUrlUpdateStore"
 
 /**
  * [UpdateStorePort] that opens a custom URL in a browser.
@@ -33,7 +36,11 @@ class DirectUrlUpdateStore(private val context: Context, private val storeUrl: S
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
         true
-    } catch (e: Throwable) {
+    } catch (e: ActivityNotFoundException) {
+        // No browser on the device can handle ACTION_VIEW for this URL. Logging rather
+        // than returning a bare `false`, so a user reporting "the update button does
+        // nothing" is diagnosable from a bug report.
+        android.util.Log.w(TAG, "No activity can open $storeUrl", e)
         false
     }
 }
