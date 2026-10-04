@@ -15,7 +15,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -46,28 +45,21 @@ class ReadToolsProfileAwareTest {
     private val now = Instant.parse("2026-01-01T00:00:00Z")
 
     /**
-     * Extracts the scoped userId by directly combining [CurrentUser.userId]
-     * and [FakeProfileRepository.activeProfileId] — bypassing the
-     * [ProfileAwareCurrentUser.scopedUserId] [StateFlow] which uses
-     * [SharingStarted.Eagerly] with an initial value, so `first()` would
-     * return that initial value instead of waiting for the combined result.
+     * The identity the tools will actually query with, taken from the same production
+     * derivation ([ProfileAwareCurrentUser.liveScopedUserId]) the repository uses — not
+     * a hand-rolled `combine`.
      *
-     * After [FakeProfileRepository.switchTo] is called, this function
-     * suspends until the combine emits the updated value.
+     * The previous version combined `currentUser.userId` with `activeProfileId` itself,
+     * which raced the async collector in [CurrentUser]: the seed read could land before
+     * the collector and the tool's read after it, so the test seeded under one identity
+     * and queried under another. It passed on the JVM and failed on the
+     * Android/Robolectric source set, where the collector lands later. Deriving both
+     * sides from the same flow removes the race instead of tolerating it.
      */
     private suspend fun resolveScopedUserId(
         currentUser: ProfileAwareCurrentUser,
-        profileRepository: FakeProfileRepository,
-    ): UserId = combine(
-        currentUser.userId,
-        profileRepository.activeProfileId,
-    ) { userId, profileId ->
-        if (profileId == ProfileId.default) {
-            userId
-        } else {
-            UserId.fromString("${profileId.value}/${userId.value}")
-        }
-    }.first()
+        @Suppress("UNUSED_PARAMETER") profileRepository: FakeProfileRepository,
+    ): UserId = currentUser.liveScopedUserId.first()
 
     private fun seedTask(
         repo: FakeTaskRepository,
@@ -98,9 +90,10 @@ class ReadToolsProfileAwareTest {
     ): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
         val profiles = FakeProfileRepository()
-        // commonTest doesn't have access to a TestScope, so we use createBackgroundScope().
-        // Safe here: tests read .value synchronously and never subscribe to the
-        // StateFlow, so the Dispatchers.Default collector never runs.
+        // commonTest has no TestScope, so the collectors run on Dispatchers.Default.
+        // That is now safe for reactive reads: `liveUserId` / `liveScopedUserId` are
+        // derived from the session, so a read never observes the pre-collector
+        // "anonymous" seed regardless of when the collector happens to run.
         val currentUser = ProfileAwareCurrentUser(
             currentUser = CurrentUser(auth, scope = createBackgroundScope()),
             profileRepository = profiles,

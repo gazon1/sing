@@ -4,6 +4,8 @@ import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -27,11 +29,28 @@ class CurrentUser(authRepository: AuthRepository, private val scope: CoroutineSc
     private val _userId = MutableStateFlow(UserId.anonymous)
     val userId: StateFlow<UserId> = _userId
 
+    /**
+     * The userId derived straight from the session, with no cached intermediate.
+     *
+     * [userId] is a `StateFlow` seeded with [UserId.anonymous] and corrected by the
+     * collector below, so for a short window after sign-in it still reports
+     * `"anonymous"` even though the session already carries a real id. A consumer that
+     * reads it at that moment — and a second consumer that reads it a moment later —
+     * can disagree, and the disagreement is a race with the collector, not with the
+     * session. That is not hypothetical: it made the profile-isolation tests in
+     * `ReadToolsProfileAwareTest` fail on the Android/Robolectric source set only,
+     * because the collector landed between the test's seeding read and the tool's read.
+     *
+     * Prefer this for any reactive or cross-component read; [userId] stays for
+     * imperative reads, where an eagerly seeded value is exactly what you want.
+     */
+    val liveUserId: Flow<UserId> = authRepository.currentSession
+        .map { AuthDomain.effectiveUserId(it) }
+        .distinctUntilChanged()
+
     init {
         scope.launch {
-            authRepository.currentSession
-                .map { AuthDomain.effectiveUserId(it) }
-                .collect { _userId.value = it }
+            liveUserId.collect { _userId.value = it }
         }
     }
 

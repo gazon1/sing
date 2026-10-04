@@ -6,6 +6,7 @@ import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -77,6 +78,26 @@ open class ProfileAwareCurrentUser(
 
     /** The currently active profile ID. */
     val profileId: StateFlow<ProfileId> = profileRepository.activeProfileId
+
+    /**
+     * Derived scoped id that can never lag the upstream pair.
+     *
+     * [scopedUserId] is a `StateFlow`, so it must be *seeded* with a value and can only
+     * be corrected later by the async collector in [init] — and its own input,
+     * [CurrentUser.userId], has the same shape. Collecting it immediately after a sign-in
+     * or a profile switch therefore observes the **previous** identity, which for a
+     * user-scoped repository read means the old user's rows, or none at all.
+     *
+     * [CurrentUser.liveUserId] is derived from the session itself, so combining it with
+     * [profileId] yields the identity that is true *at collection time*.
+     *
+     * Prefer this for every reactive read ([com.singularity.todo.core.repository.observeForCurrentUser]);
+     * [scopedUserId] stays for imperative reads, where an eager seed is exactly what you want.
+     */
+    val liveScopedUserId: Flow<UserId> =
+        combine(currentUser.liveUserId, profileRepository.activeProfileId) { userId, profileId ->
+            computeScopedUserId(userId, profileId)
+        }
 
     /** Convenience for imperative reads. */
     val current: UserId get() = scopedUserId.value
