@@ -2,7 +2,7 @@ package com.singularity.todo.core.ui
 
 import java.util.Locale
 
-/**
+/*
  * Pure display formatters shared by more than one screen.
  *
  * These existed as four separate private copies. `formatElapsed` and

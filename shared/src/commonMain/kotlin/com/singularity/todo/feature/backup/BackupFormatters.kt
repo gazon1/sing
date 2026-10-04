@@ -10,11 +10,6 @@ import kotlinx.datetime.toLocalDateTime
  * and used in JVM-only environments without [java.text.SimpleDateFormat].
  */
 
-/**
- * Delegates to the shared formatter. The local copy stopped at megabytes, so a
- * 2 GB backup rendered as "2048.0 MB"; [formatFileSize] in `core.ui` handles GB.
- */
-
 /** Formats an epoch-milliseconds instant into a local date-time string. */
 internal fun formatBackupDate(epochMillis: Long, zone: TimeZone): String {
     val ldt = kotlin.time.Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(zone)

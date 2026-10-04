@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtNamedFunction
 
 /**
@@ -107,10 +108,18 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
 
     private fun isPreviewContext(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val file = element.containingKtFile
-        if (NoEmptyOnClickLambdaPolicy.isPreviewPath(file.name, file.virtualFile?.path ?: "")) {
+        val path = file.virtualFile?.path ?: ""
+        if (NoEmptyOnClickLambdaPolicy.isPreviewPath(file.name, path)) {
             return true
         }
-        // Skip functions annotated with @Preview
+        if (NoEmptyOnClickLambdaPolicy.isTestPath(path)) {
+            return true
+        }
+        // Walk out to the nearest named declaration — the property or function the call
+        // sits in — and exempt it if either it is a @Preview function or its own name
+        // marks it as preview-only. The name check has to reach declarations, not just
+        // functions: `previewOverrides` is a file-level val that exists to feed previews
+        // and is neither in a preview/ path nor annotated.
         var current: org.jetbrains.kotlin.psi.KtElement? = element
         while (current != null) {
             if (current is KtNamedFunction) {
@@ -119,6 +128,11 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
                 }
                 // Stop at function boundary
                 break
+            }
+            if (current is KtNamedDeclaration &&
+                NoEmptyOnClickLambdaPolicy.isPreviewNamed(current.name)
+            ) {
+                return true
             }
             current = current.parent as? org.jetbrains.kotlin.psi.KtElement
         }
@@ -173,6 +187,9 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
  */
 internal object NoEmptyOnClickLambdaPolicy {
 
+    /** Same list `NoDirectDispatchersPolicy` uses, kept in step deliberately. */
+    private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")
+
     /**
      * True when the file looks like preview code: a name containing "preview", or a path
      * under a `preview/` package. The repo's convention is the latter (there is
@@ -181,6 +198,34 @@ internal object NoEmptyOnClickLambdaPolicy {
     fun isPreviewPath(fileName: String, filePath: String): Boolean =
         fileName.lowercase().contains("preview") ||
             filePath.replace('\\', '/').contains("/preview/", ignoreCase = true)
+
+    /**
+     * True when the file is a test source.
+     *
+     * The rule's claim is that an empty handler lambda means the shipped consumer can
+     * never react. A test that constructs a composable is satisfying that composable's
+     * signature, not shipping a screen with a dead button — `onDismiss = {}` is how a
+     * builder test says "I am only asserting this renders". Flagging those makes the
+     * rule report 9 findings on `TaskMenuBuilderTest` and `MenuNodesBuilderTest` and
+     * trains a reader to ignore it. Matches the path convention already used by
+     * `NoDirectDispatchersPolicy`.
+     */
+    fun isTestPath(filePath: String): Boolean {
+        val path = filePath.replace('\\', '/')
+        return TEST_SOURCE_SETS.any { path.contains("/$it/") || path.endsWith("/$it") } ||
+            path.contains("/test/")
+    }
+
+    /**
+     * True when a declaration's own name marks it as preview-only.
+     *
+     * `isPreviewPath` only sees the file, and `@Preview` only marks a function. Neither
+     * reaches a file-level `val` that exists solely to feed previews — `SettingsScreen`'s
+     * `previewOverrides` is exactly that, and the rule reported both of its empty
+     * lambdas. The name is the only signal there is, so the exemption reads the name.
+     */
+    fun isPreviewNamed(declarationName: String?): Boolean =
+        declarationName != null && declarationName.contains("preview", ignoreCase = true)
 }
 
 /**
