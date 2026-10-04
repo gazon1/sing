@@ -548,6 +548,8 @@ about the guard rather than about the fake.
 
 ## agenda-views-not-in-backup
 
+**Tracked as:** [#77](https://github.com/gazon1/singularity-clone-kmp/issues/77) · OpenSpec change `backup-include-remaining-tables` (proposed)
+
 **Found in:** MR-0, свип BackupPayload vs Room tables.
 
 **Symptom:** `agenda_views` таблица (Room) не входит в `BackupPayload`. При restore из backup все saved views теряются. Также отсутствуют: `task_reminders`, `project_reminders`, `checklist_items`, `tag_groups`, `project_tag_groups`, `saved_searches`, `time_entries`, `profiles`.
@@ -645,6 +647,8 @@ catalogue rather than as a number that quietly goes stale.
 ---
 
 ## agenda-reachability-byTags-no-ui-entry
+
+**Tracked as:** [#81](https://github.com/gazon1/singularity-clone-kmp/issues/81) · OpenSpec change `agenda-tags-entry-point` (proposed)
 
 **Found in:** MR-0, кодовая разведка навигации.
 
@@ -747,6 +751,8 @@ away from the host's real date. Teeth verified: restoring the hardcoded
 
 ## undo-restore-failure-notify
 
+**Tracked as:** [#78](https://github.com/gazon1/singularity-clone-kmp/issues/78) · OpenSpec change `delete-safety-feedback` (proposed)
+
 **Found in:** MR-1 retro-gate, `AgendaViewModel.onUndoDelete`.
 
 When `taskRepo.restore(taskId)` fails, `_pendingDelete` is already set to `null`
@@ -761,6 +767,8 @@ an error snackbar; or emit a `AgendaUiEvent.ShowError` event.
 ---
 
 ## task-detail-scaffold-refactor
+
+**Tracked as:** [#79](https://github.com/gazon1/singularity-clone-kmp/issues/79) · OpenSpec change `delete-safety-feedback` (proposed)
 
 **Found in:** MR-1, attempting to add `Scaffold` + `SnackbarHost` to `TaskDetailViewScreen`.
 Private composables (`LoadingState`, `ErrorState`, etc.) are defined at file level and
@@ -778,6 +786,8 @@ parent nav-graph level and pass it down.
 
 ## countdown-snackbar
 
+**Tracked as:** [#80](https://github.com/gazon1/singularity-clone-kmp/issues/80) · OpenSpec change `delete-safety-feedback` (proposed)
+
 **Found in:** MR-1 retro-gate. `LaunchedEffect(pendingDelete)` only re-triggers on
 value changes, not on a timer. The snackbar shows no visual countdown.
 
@@ -790,6 +800,8 @@ inside the snackbar, animated from 100% to 0% over 5 seconds using `animateFloat
 ---
 
 ## bulk-import-port
+
+**Tracked as:** [#82](https://github.com/gazon1/singularity-clone-kmp/issues/82) · OpenSpec change `bulk-import-port` (proposed)
 
 **Found in:** MR-1, `BackupImporter` class KDoc and architecture review.
 
@@ -805,6 +817,8 @@ and routes writes through repositories. Replace DAO calls in `BackupImporter` wi
 ---
 
 ## vm-without-test
+
+**Tracked as:** [#83](https://github.com/gazon1/singularity-clone-kmp/issues/83)
 
 **Found in:** MR-6, while writing `ViewModelTestCoverageTest` (the Phase 6
 "every VM has a test" gate). Pre-existing — none of these were introduced by the
@@ -926,6 +940,8 @@ tagged control inside it.
 
 ## maestro-gate-can-test-a-stale-apk
 
+**Tracked as:** [#84](https://github.com/gazon1/singularity-clone-kmp/issues/84)
+
 **Found in:** MR-6, chasing journey 07's empty profile picker.
 
 The emulator died mid-run; `run-maestro.sh` relaunched it from an AVD snapshot
@@ -949,6 +965,8 @@ wrong.
 ---
 
 ## kover-full-jvmtest-run-unmeasured
+
+**Tracked as:** [#85](https://github.com/gazon1/singularity-clone-kmp/issues/85)
 
 **Found in:** MR-6, while building the agenda coverage ratchet.
 
@@ -981,6 +999,8 @@ rather than measured, and a note is a promise, not a proof.
 ---
 
 ## just-name-value-args-are-not-interpreted
+
+**Tracked as:** [#86](https://github.com/gazon1/singularity-clone-kmp/issues/86)
 
 **Found in:** MR-6 follow-up, while adding the Maestro gate recipe.
 
@@ -1042,6 +1062,8 @@ query, not the call site.
 
 ## maestro-ci-job-unproven
 
+**Tracked as:** [#87](https://github.com/gazon1/singularity-clone-kmp/issues/87)
+
 **Found in:** 2026-10-04, while adding the `maestro-smoke` CI job.
 
 The job is the first thing in this repository that ever *executes* a Maestro
@@ -1089,6 +1111,8 @@ Still unproven, and unchanged by any of the above:
 ---
 
 ## an-open-backlog-entry-does-not-mean-the-work-is-still-open
+
+**Tracked as:** [#88](https://github.com/gazon1/singularity-clone-kmp/issues/88)
 
 **Found in:** 2026-10-04, the first iteration of the "what next" sweep — while
 asking which recorded findings were still true, instead of which were still
@@ -1341,6 +1365,8 @@ same structural reason.
 
 ## never-run-gradle-while-a-maestro-gate-is-running
 
+**Tracked as:** [#89](https://github.com/gazon1/singularity-clone-kmp/issues/89)
+
 **Found in:** 2026-10-04, twice, in one session — the second time it destroyed
 the run it was supposed to be checking.
 
@@ -1413,6 +1439,8 @@ proposed in `2026-10-04-testtag-visibility-helper.md`.
 
 ## flows-select-by-localised-text-and-the-device-is-russian
 
+**Tracked as:** [#90](https://github.com/gazon1/singularity-clone-kmp/issues/90)
+
 **Found in:** 2026-10-04, the third `smoke` run, immediately after
 `tasks/04-delete` was fixed — and the same root cause as
 `a-testtag-built-from-a-localised-label-changes-with-device-locale`, one level
@@ -1458,6 +1486,8 @@ text. Both are the same defect: **a selector that a translator can move.**
 
 ## ui-reads-the-system-clock-directly-so-a-fixed-date-cannot-reach-it
 
+**Tracked as:** [#91](https://github.com/gazon1/singularity-clone-kmp/issues/91)
+
 **Found in:** 2026-10-04, while adding a `clock` parameter to the desktop test
 harness (`runDesktopAppTest`) — the fix the backlog had asked for since MR-0.
 
@@ -1495,6 +1525,8 @@ depends on "now" is a test that reports the calendar.
 ---
 
 ## six-smoke-flows-still-red-after-the-harness-fix
+
+**Tracked as:** [#92](https://github.com/gazon1/singularity-clone-kmp/issues/92)
 
 **Found in:** 2026-10-04, the second full `smoke` run on the fixed harness.
 
