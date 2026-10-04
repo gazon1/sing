@@ -68,6 +68,7 @@ fun agendaModule(): Module = module {
             deps = SavedAgendaListDeps(
                 repo = get(),
                 profileRepo = get(),
+                currentUser = get<ProfileAwareCurrentUser>(),
             ),
         )
     }

@@ -10,6 +10,21 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
+ * Computes the profile-scoped userId for [profileId] from the raw auth [userId].
+ *
+ * Single source of truth for the profile → userId mapping. [ProfileAwareCurrentUser]
+ * uses it for the active profile; the saved-view copy-to-profile flow uses it to
+ * resolve the target profile's namespace. Exposed as a top-level function so the
+ * two call sites cannot drift.
+ */
+fun scopedUserIdFor(profileId: ProfileId, userId: UserId): UserId =
+    if (profileId == ProfileId.default) {
+        userId
+    } else {
+        UserId.fromString("${profileId.value}/${userId.value}")
+    }
+
+/**
  * Wraps [CurrentUser] and adds per-profile isolation.
  *
  * In the future, each profile will have its own auth session. For now, the
@@ -32,11 +47,7 @@ open class ProfileAwareCurrentUser(
 
     /** Computes the scoped userId from the current upstreams — synchronous, no dispatch. */
     private fun computeScopedUserId(userId: UserId, profileId: ProfileId): UserId =
-        if (profileId == ProfileId.default) {
-            userId
-        } else {
-            UserId.fromString("${profileId.value}/${userId.value}")
-        }
+        scopedUserIdFor(profileId, userId)
 
     /**
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`

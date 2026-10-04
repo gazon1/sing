@@ -14,6 +14,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaLis
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -74,10 +75,14 @@ class SavedAgendaListViewModelTest {
             makeProfile(workProfileId, "Work"),
         ),
         deleteError: Exception? = null,
-    ): SavedAgendaListDeps = SavedAgendaListDeps(
-        repo = FakeRepo(views, deleteError),
-        profileRepo = FakeProfilesRepo(profiles),
-    )
+    ): SavedAgendaListDeps {
+        val profileRepo = FakeProfilesRepo(profiles)
+        return SavedAgendaListDeps(
+            repo = FakeRepo(views, deleteError),
+            profileRepo = profileRepo,
+            currentUser = FakeProfileAwareCurrentUser(initialUserId = testUserId, profileRepository = profileRepo),
+        )
+    }
 
     private fun TestScope.createVm(deps: SavedAgendaListDeps) = SavedAgendaListViewModel(
         deps = deps,
@@ -141,7 +146,7 @@ class SavedAgendaListViewModelTest {
     }
 
     @Test
-    fun `CopyToProfile duplicates view and upserts with new userId`() = runTest {
+    fun `CopyToProfile duplicates view into the target profile's scoped namespace`() = runTest {
         val view = makeView("v1", "Work View")
         val deps = makeDeps(views = listOf(view))
         val vm = createVm(deps)
@@ -155,9 +160,10 @@ class SavedAgendaListViewModelTest {
         assertEquals(2, state.views.size)
         val copies = state.views.filter { it.name == "Work View" }
         assertEquals(2, copies.size)
-        // Check both user IDs are present: original owner + target profile
+        // The copy carries the target profile's SCOPED userId ("{profileId}/{raw}"),
+        // not the profile row's id — a bare "work" was the cross-user-write bug.
         val userIds = copies.map { it.userId }.toSet()
-        assertEquals(setOf(testUserId, UserId("work")), userIds)
+        assertEquals(setOf(testUserId, UserId("work/test-user")), userIds)
     }
 }
 

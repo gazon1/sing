@@ -210,6 +210,7 @@ private fun ProfilePickerSheet(
                 label = profile.name,
                 subtitle = if (profile.isDefault) "Default" else null,
                 leading = { Text(profile.emoji, style = MaterialTheme.typography.titleLarge) },
+                testTag = TestTags.profileItem(profile.name),
             )
         },
         onItemSelected = onPick,

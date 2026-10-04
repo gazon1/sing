@@ -27,6 +27,7 @@ tags:
     timeout: 8000
 - tapOn:
     id: saved_agenda_name_input
+- eraseText
 - inputText: "Persistent View"
 - hideKeyboard
 - tapOn:

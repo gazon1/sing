@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /**
@@ -33,6 +34,9 @@ import androidx.compose.ui.unit.dp
  * @param selected Whether this item is currently selected — renders a trailing check.
  * @param enabled  Whether the item is interactive. Defaults to true.
  * @param leading  Per-item leading slot — called with [RowScope].
+ * @param testTag  Optional tag applied to the row for UI automation. Callers
+ *                 build it from `TestTags` (e.g. `TestTags.profileItem(name)`)
+ *                 so Maestro/UIAutomator selectors resolve to the row.
  */
 data class ListPickerItem<T>(
     val key: T,
@@ -41,6 +45,7 @@ data class ListPickerItem<T>(
     val selected: Boolean = false,
     val enabled: Boolean = true,
     val leading: @Composable (RowScope.() -> Unit) = {},
+    val testTag: String? = null,
 ) where T : Any?
 
 /**
@@ -109,6 +114,7 @@ fun <T> ListPickerSheet(
 private fun <T> ListPickerItemRow(item: ListPickerItem<T>, onSelect: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth()
+            .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
             .then(
                 if (item.enabled) Modifier.clickable(onClick = onSelect) else Modifier,
             )

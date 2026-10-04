@@ -8,15 +8,18 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.gate.gateModule
+import com.singularity.todo.feature.profile.ProfileBootstrapper
 import com.singularity.todo.update.AppUpdateGate
 import com.singularity.todo.update.AppUpdatePrefs
 import com.singularity.todo.update.DirectUrlUpdateStore
 import com.singularity.todo.update.GooglePlayUpdateStore
 import com.singularity.todo.update.RuStoreUpdateStore
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
@@ -77,5 +80,12 @@ class SingularityApp : Application() {
         // Start the calendar sync orchestrator — launches the debounced collector coroutine.
         // Safe to call multiple times; subsequent calls are no-ops after the first.
         getKoin().get<CalendarSyncOrchestrator>().start()
+        // Seed the default 'Personal' profile on first launch (idempotent). The
+        // profile switcher and the saved-view copy-to-profile picker list
+        // ProfileRepository rows; without a seeded row both start empty on a
+        // fresh install because nothing else writes to the profiles table.
+        createBackgroundScope().launch {
+            getKoin().get<ProfileBootstrapper>().run()
+        }
     }
 }

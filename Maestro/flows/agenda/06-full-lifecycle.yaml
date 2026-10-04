@@ -33,6 +33,7 @@ tags:
     timeout: 8000
 - tapOn:
     id: saved_agenda_name_input
+- eraseText
 - inputText: "Journey View"
 - hideKeyboard
 - tapOn:

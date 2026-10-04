@@ -27,6 +27,7 @@ tags:
     timeout: 8000
 - tapOn:
     id: saved_agenda_name_input
+- eraseText
 - inputText: "Copy Source"
 - hideKeyboard
 - tapOn:
@@ -48,8 +49,10 @@ tags:
 - extendedWaitUntil:
     visible: "Copy to profile"
     timeout: 8000
-- tapOn:
-    id: profile_item_personal
+# The picker rows live in a ModalBottomSheet window whose semantics tree is
+# not exposed with resource-ids to UIAutomator, so the row is selected by its
+# visible label ("Personal" is the seeded default profile's name).
+- tapOn: "Personal"
 # CopySuccess shows the "Copied to Personal" snackbar; the list now holds two
 # cards with the same name — one is enough to assert.
 - extendedWaitUntil:

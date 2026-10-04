@@ -55,6 +55,16 @@ class SavedAgendaViewsRepositoryImpl(
         toInsert
     }
 
+    /**
+     * The one sanctioned cross-profile write: the copy is stamped with the
+     * TARGET profile's scoped userId and lands in that profile's namespace.
+     *
+     * Deliberately bypasses [assertCanWrite] — the guard exists to catch
+     * *accidental* cross-user writes, while this operation is cross-user by
+     * definition. It must write through the DAO directly: `upsert` re-stamps
+     * `userId` with the current scoped user, which would silently file the
+     * copy under the source profile instead of the target one.
+     */
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> {
         val now = clock.now()
         val copy = view.copy(
@@ -63,7 +73,8 @@ class SavedAgendaViewsRepositoryImpl(
             createdAt = now,
             updatedAt = now,
         )
-        return upsert(copy)
+        agendaViewDao.upsert(copy.toEntity())
+        return Result.success(copy)
     }
 
     override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatching {
