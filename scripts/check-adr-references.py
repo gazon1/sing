@@ -31,6 +31,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DECISIONS_DIR = ROOT / 'docs' / 'decisions'
+PLANS_DIR = ROOT / 'docs' / 'plans'
 BASELINE = ROOT / 'config' / 'docs' / 'adr-refs-baseline.txt'
 
 # A dated ADR slug: YYYY-MM-DD-<kebab-slug>. The trailing group must contain at least
@@ -60,12 +61,26 @@ EXCLUDE_FILES = {'DIGEST.md', 'SKILLS-CATALOG.md'}
 
 
 def existing_slugs() -> set[str]:
-    """Every dated ADR slug that exists, including the archive subdirectory."""
+    """Every dated doc slug that exists, in docs/decisions/ and docs/plans/.
+
+    Resolving against docs/decisions/ alone made six false positives out of ten
+    findings on 2026-10-05: `docs/plans/2026-10-04-mr6-retro-gate.md` and
+    `docs/plans/2026-10-03-agenda-views-test-plan.md` are real files, cited by
+    path, and the gate reported their dates as dangling ADR slugs.
+
+    The gate's job is "a reference to a dated decision document that no longer
+    exists", and a dated file that is present is not that — whatever directory
+    it lives in. Baseline is for genuine exceptions, not for a lookup that was
+    pointed at the wrong directory.
+    """
     slugs: set[str] = set()
-    for path in DECISIONS_DIR.rglob('*.md'):
-        name = path.stem
-        if re.match(r'^\d{4}-\d{2}-\d{2}-', name):
-            slugs.add(name)
+    for directory in (DECISIONS_DIR, PLANS_DIR):
+        if not directory.is_dir():
+            continue
+        for path in directory.rglob('*.md'):
+            name = path.stem
+            if re.match(r'^\d{4}-\d{2}-\d{2}-', name):
+                slugs.add(name)
     return slugs
 
 

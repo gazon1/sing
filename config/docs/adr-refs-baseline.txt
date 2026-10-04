@@ -1,7 +1,8 @@
 # Accepted dangling ADR references.
 #
-# Each line is <file>:<token>. A token is a dated ADR slug that no
-# longer resolves to a file in docs/decisions/ (or its archive/).
+# Each line is <file>:<token>. A token is a dated decision-document slug that
+# no longer resolves to a file in docs/decisions/ (or its archive/) or in
+# docs/plans/.
 #
 # Seeded at 2026-10-05 with the pre-existing set, so the gate starts green
 # and every future dangling reference is a hard failure. Entries here are
@@ -30,3 +31,16 @@ docs/decisions/2026-10-02-post-tech-debt-audit-findings.md:2026-10-02-tech-debt-
 openspec/changes/baseline-write-pipeline/proposal.md:2026-10-03-assert-canwrite-adr
 openspec/changes/baseline-write-pipeline/proposal.md:2026-10-03-write-integrity-phase0a
 openspec/changes/baseline-write-pipeline/proposal.md:2026-10-03-write-integrity-phase0b
+
+# Added 2026-10-05, after the backlog triage on main. Five references to ADRs
+# that were *proposed* and never written: four are marked "ADR candidate" in
+# docs/plans/2026-10-03-mr3-retro-gate.md, and the fifth is cited in an
+# OpenSpec design doc as though it existed. The gate is right that the files
+# are absent; it cannot tell a deliberately unwritten decision from a deleted
+# one, and baselining is where that difference belongs. Each line disappears
+# when its ADR is written — which is the point of writing it.
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-defer-fakeclock-harness-wiring
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-discard-false-duplicates-across-sections
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-evaluator-does-not-filter-archived
+docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-regexp-always-ignore-case
+openspec/changes/bulk-import-port/design.md:2026-10-03-assert-canwrite-adr

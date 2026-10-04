@@ -1,3 +1,10 @@
+---
+title: "Retro-gate MR-1: findings and the follow-up decisions they produced"
+status: accepted
+date: 2026-10-04
+tags: [process, testing]
+---
+
 # Retro-gate MR-1: findings and follow-up decisions
 
 ## Context

@@ -1,7 +1,11 @@
-# FakeClock in runDesktopAppTest harness
+---
+title: "FakeClock in the desktopApp UI harness"
+status: accepted
+date: 2026-10-03
+tags: [testing, desktop, clock]
+---
 
-**Date:** 2026-10-03
-**Status:** decided
+# FakeClock in runDesktopAppTest harness
 
 ## Context
 
