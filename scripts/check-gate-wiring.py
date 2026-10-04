@@ -256,16 +256,188 @@ def check_can_fail() -> list[str]:
     return errors
 
 
-# ── main ──────────────────────────────────────────────────────────────────
+# ── Part C: a configured Gradle check task must be able to fail ──────────────
+#
+# Part A asks whether a task is *invoked*. Part B proves a *script* can fail.
+# Neither asks whether an invoked Gradle task can fail — which is how
+# `mcp-server:detekt` sat in ci.yml looking enforced while `ignoreFailures = true`
+# made it incapable of failing, and stayed out of check.sh so it never ran
+# locally at all.
+#
+# This part is a static read of the build file rather than a sabotage run,
+# because for this failure the build file *is* the claim: the flag is the
+# mechanism. A module that wants a non-enforcing lint task has to say so in a
+# comment, the same way a rule has to be declared in detekt.yml.
+
+_DETEKT_BLOCK = re.compile(r"detekt\s*\{(.*?)\n\s*\}", re.DOTALL)
+
+
+def non_enforcing_gradle_tasks() -> list[str]:
+    """`module:detekt` tasks whose own block sets `ignoreFailures = true`."""
+    out: list[str] = []
+    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+        module = build.parent.name
+        text = build.read_text(encoding="utf-8")
+        for block in _DETEKT_BLOCK.finditer(text):
+            if re.search(r"ignoreFailures\s*=\s*true", block.group(1)):
+                out.append(f":{module}:detekt")
+                break
+    return out
+
+
+def check_gradle_can_fail() -> list[str]:
+    bad = non_enforcing_gradle_tasks()
+    if not bad:
+        print("  ok  every configured detekt task is enforcing (ignoreFailures != true)")
+        return []
+    return [
+        "\n".join(
+            [
+                f"  {task} sets `ignoreFailures = true`, so it cannot fail a build.",
+                "  An invoked task that cannot fail reports a verdict nobody derived —",
+                "  the same defect as a task nothing invokes, and harder to spot because",
+                "  the workflow lists the command.",
+                "  Set `ignoreFailures = false` and add a baseline if the module has",
+                "  pre-existing findings. If a non-enforcing task is genuinely wanted,",
+                "  say why in a comment in the same block.",
+            ]
+        )
+        for task in bad
+    ]
+
+
+# ── Part D: a CI step must be blocking unless it declares itself advisory ────
+#
+# `continue-on-error: true` and a trailing `|| true` both turn a step into a
+# report. That is legitimate — some steps have no useful failure mode — but it
+# was previously indistinguishable from a step that is supposed to block and
+# silently does not. The remedy is not "no `|| true` ever"; it is that a soft
+# step has to say so where a reader of the workflow will see it.
+#
+# `Refresh DIGEST || true` followed by a blocking `Enforce DIGEST size budget`
+# was the instructive case: had the refresh failed, the budget check would have
+# validated a stale file and reported green.
+
+_ADVISORY_MARKER = re.compile(r"advisory|best[- ]effort|non[- ]blocking", re.I)
+
+
+def non_blocking_steps() -> list[tuple[str, str, str, bool]]:
+    """(workflow, step name, mechanism, declares_itself) for every soft step.
+
+    `declares_itself` is true when the step *name* or a comment in the step body
+    says it is advisory. Scanning the body matters: a step whose explanation sits
+    in a comment directly under it is declared for every reader of the workflow,
+    and this check read the name only at first — which reported a documented
+    step as undeclared and would have pushed someone to delete a correct comment
+    instead of fixing a real one.
+    """
+    out: list[tuple[str, str, str, bool]] = []
+    for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        text = wf.read_text(encoding="utf-8")
+        for m in re.finditer(
+            r"^\s*- name: (.+?)\n(.*?)(?=\n\s*- name:|\njobs:|\Z)", text, re.M | re.S
+        ):
+            name, body = m.group(1).strip(), m.group(2)
+            # Search the step's *commands*, not its prose. A comment reading
+            # "Was `|| true` …" made this step look soft when it is blocking —
+            # the same self-grep that `_strip_comments` was written to prevent on
+            # the shell side, reproduced one function over because the YAML side
+            # was not given the same treatment.
+            commands = "\n".join(
+                line for line in body.splitlines() if not line.strip().startswith("#")
+            )
+            comments = "\n".join(
+                line for line in body.splitlines() if line.strip().startswith("#")
+            )
+            mechanism = ""
+            if re.search(r"continue-on-error:\s*true", commands):
+                mechanism = "continue-on-error: true"
+            elif _softens_the_step(commands):
+                mechanism = "`|| true` on the last command"
+            if mechanism:
+                declared = bool(
+                    _ADVISORY_MARKER.search(name) or _ADVISORY_MARKER.search(comments)
+                )
+                out.append((wf.name, name, mechanism, declared))
+    return out
+
+
+def _softens_the_step(commands: str) -> bool:
+    """True when a `|| true` swallows the *step's* exit status.
+
+    GitHub runs a `run:` block under `bash -eo pipefail`, so a failing command
+    aborts the step. That makes an interior `|| true` a defensive idiom rather
+    than a soft step: `nth_shard` in maestro-nightly.yml ends its pipeline with
+    `grep . || true` so that an empty shard range does not kill the loop that
+    fills the other three, and the step still fails loudly if the arithmetic
+    above it is wrong.
+
+    Only a `|| true` on the last command of the block can swallow the step's own
+    status. Flagging interior ones reports a correct workflow as broken, and the
+    tempting response — deleting the `|| true` — would break the shard loop.
+    Widening the pattern to catch a shape that is not a defect is the same
+    mistake as a check that matches less than it intended: the fix looks like it
+    worked and the real bug is untouched.
+
+    Comment lines are skipped here rather than by the caller, so the function is
+    correct on its own and there is one place that knows the rule. A trailing
+    comment after a soft command must not hide the soft tail.
+    """
+    lines = [
+        ln for ln in commands.splitlines() if ln.strip() and not ln.strip().startswith("#")
+    ]
+    if not lines:
+        return False
+    return bool(re.search(r"\|\|\s*true\b", lines[-1]))
+
+
+def check_ci_steps_blocking() -> list[str]:
+    undeclared = [
+        f"{wf}: '{step}' cannot fail ({mech}) and neither its name nor its comment"
+        f" says it is advisory."
+        for wf, step, mech, declared in non_blocking_steps()
+        if not declared
+    ]
+    if not undeclared:
+        print("  ok  every non-blocking CI step declares itself advisory")
+        return []
+    return [
+        "\n".join(
+            [
+                *undeclared,
+                "",
+                "A soft step is fine; a soft step nobody declared is a step that reads",
+                "as a gate. Either make it blocking, or put 'advisory' in the step name",
+                "or in a comment on the step, so the next reader of the workflow can",
+                "tell which kind it is.",
+            ]
+        )
+    ]
+
+
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--wiring", action="store_true", help="Part A only")
     ap.add_argument("--can-fail", action="store_true", help="Part B only")
+    ap.add_argument(
+        "--gradle-can-fail", action="store_true", help="Part C only"
+    )
+    ap.add_argument(
+        "--ci-steps-blocking", action="store_true", help="Part D only"
+    )
     args = ap.parse_args()
-    run_a = args.wiring or not args.can_fail
-    run_b = args.can_fail or not args.wiring
+    only = (
+        args.wiring
+        or args.can_fail
+        or args.gradle_can_fail
+        or args.ci_steps_blocking
+    )
+    run_a = args.wiring or not only
+    run_b = args.can_fail or not only
+    run_c = args.gradle_can_fail or not only
+    run_d = args.ci_steps_blocking or not only
 
     errors: list[str] = []
 
@@ -282,6 +454,17 @@ def main() -> int:
     if run_b:
         print("\nPart B — every registered script gate can fail")
         errors += check_can_fail()
+
+    if run_c:
+        print("\nPart C — every configured Gradle check task can fail")
+        errors += check_gradle_can_fail()
+
+    if run_d:
+        print("\nPart D — every non-blocking CI step declares itself advisory")
+        for wf, step, mech, declared in non_blocking_steps():
+            label = "declared  " if declared else "UNDECLARED"
+            print(f"  {label} {wf}: {step}  ({mech})")
+        errors += check_ci_steps_blocking()
 
     if errors:
         print("")

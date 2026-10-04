@@ -164,11 +164,15 @@ jobs:
           retention-days: 7
 
       - name: Flake analysis vs previous run
-        # Annotation, not a gate: a test that failed here already failed the
+        # Advisory, and deliberately so: a test that failed here already failed the
         # Gradle step above, so failing again would change no outcome. What it
         # adds is the other half of the signal — tests that failed in the
         # previous run and passed now are proven nondeterministic even though
         # nothing about this run looked wrong.
+        #
+        # Declared advisory on purpose. check-gate-wiring.py Part D requires a
+        # non-blocking step to say so in its name or a comment, so that a reader
+        # of this workflow can tell a soft step from one that is broken.
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -320,6 +324,14 @@ jobs:
       # lint for ad-hoc local use; continues-on-error so it never blocks a PR.
       - name: Check Maestro test tags
         run: bash Maestro/scripts/check-tags.sh
+        # Advisory, and redundant by design: the canonical blocking check is
+        # `MaestroFlowTagsTest.kt` inside :shared:jvmTest, which runs earlier in
+        # this workflow and fails the build. This shell copy is kept for ad-hoc
+        # local use where Gradle is unavailable — see the script's own header.
+        # Making this step blocking would buy a second verdict on the same
+        # contract; making it *undeclared* is what would be wrong, because then
+        # it reads as the gate and a reader would not know the real one is
+        # elsewhere.
         continue-on-error: true
 
   # The 15 @Tag("slow") classes (restart smoke, file/backup codec contracts,
