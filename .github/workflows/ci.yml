@@ -130,31 +130,38 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Boot the emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          script: Maestro/scripts/wait-for-boot.sh
-          # The host emulator in this project loses its device mid-run with a
-          # gfxstream crash; run-maestro.sh already relaunches and retries, and
-          # the job timeout above bounds the worst case.
-          disable-animations: true
-
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
-      - name: Build and install the APK under test
-        run: ./gradlew :androidApp:installDebug --no-daemon
-
-      - name: Run the smoke flows
-        # SKIP_INSTALL is deliberately NOT set: the flows must run against the
-        # binary built in this job. run-maestro.sh reinstalls after a device
-        # recovery for the same reason — a relaunched emulator can come back
-        # holding a different build, and a green run would then prove nothing.
-        run: TAGS=smoke MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
+      # Everything that needs the device runs inside `script:`. That input is the
+      # command the action executes *while the emulator is up*, and the action
+      # kills the emulator as soon as it returns — it is not a boot gate. The
+      # first version of this job passed `script: Maestro/scripts/wait-for-boot.sh`,
+      # so the emulator was booted, reported ready, and was then torn down before
+      # the next step ran: `installDebug` failed with "No connected devices!".
+      # The job had never executed, so nothing caught it.
+      #
+      # `wait-for-boot.sh` is kept as the first command, because the action's own
+      # readiness check does not wait for the package manager.
+      - name: Install the APK and run the smoke flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          # The host emulator in this project loses its device mid-run with a
+          # gfxstream crash; run-maestro.sh already relaunches and retries, and
+          # the job timeout above bounds the worst case.
+          disable-animations: true
+          # SKIP_INSTALL is deliberately NOT set: the flows must run against the
+          # binary built in this job. run-maestro.sh reinstalls after a device
+          # recovery for the same reason — a relaunched emulator can come back
+          # holding a different build, and a green run would then prove nothing.
+          script: |
+            bash Maestro/scripts/wait-for-boot.sh
+            ./gradlew :androidApp:installDebug --no-daemon
+            TAGS=smoke MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
 
       - name: Upload Maestro failure artifacts
         if: failure()

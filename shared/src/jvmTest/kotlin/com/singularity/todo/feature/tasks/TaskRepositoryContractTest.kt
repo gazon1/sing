@@ -25,6 +25,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -262,13 +264,22 @@ class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
 @Tag("slow")
 class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
 
-    // One in-memory database per test class — shared across all test methods.
+    // One database per test class — shared across all test methods.
     // The class is instantiated once per test class by JUnit; forkEvery=1 (set in
     // shared/build.gradle.kts) ensures no state leaks between classes.
+    //
+    // A temp file, not ":memory:". Room 3's builder rejects the special name
+    // outright (IllegalArgumentException), so this class failed all 14 tests in
+    // CI, which runs -Ptest.tags=fast,slow. Every other Room-backed test in the
+    // project uses @TempDir + a file path; this one was the exception and it was
+    // invisible locally because a default run excludes @Tag("slow").
+    @TempDir
+    lateinit var tempDir: File
+
     private val db: AppDatabase by lazy {
         AppDatabaseFactory.build(
             driver = createSqlDriver(),
-            dbPath = ":memory:",
+            dbPath = File(tempDir, "singularity.db").absolutePath,
         )
     }
 
