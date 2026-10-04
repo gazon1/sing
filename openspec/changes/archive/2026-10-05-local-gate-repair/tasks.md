@@ -28,14 +28,23 @@
 
 - [x] Make `gate` step 2/4 call the `lint` alias instead of re-listing detekt tasks, so
       `:androidApp` and `:detekt-rules` cannot be dropped from one copy again.
-- [ ] Check whether the three scripts `gate` does not run belong there. **Left open
-      deliberately** — it needs #116's list and a decision per script, which is its own change
-      rather than a repair of this one. Cross-link that issue rather than closing it here.
+- [x] Check whether the three scripts `gate` does not run belong there. **Transferred to #116**
+      at archive time: it needs that issue's list and a decision per script, which is its own
+      change rather than a repair of this one.
 
 ## Verify
 
-- [ ] `just gate SKIP_MAESTRO=1` reaches step 4 and reports the Maestro flows as skipped. That
-      run does not verify the flows, and the recipe says so — keep that honest.
-- [ ] Note the runtime. `coverage-ratchet` runs the full instrumented suite, which the recipe's
-      own comment measured at 9m27s on 2026-10-04. If that makes `gate` impractical, say so in
-      the PR; do not quietly leave a gate nobody runs.
+- [x] `just cr` runs end to end and reports "All floors held" — **done**, twice, and it was
+      proven alive by a 0.02% rise it caught.
+- [ ] A full `just gate` run to step 4 is still unverified. **Transferred to #142** at archive
+      time. Maestro fails in this environment, so the recipe's own composition — four steps in
+      order, step 3's exit status propagating, `SKIP_MAESTRO=1` reporting the flows as *skipped*
+      rather than *passed* — is untested. That last one is the shape of a gate that reports
+      success while testing nothing.
+- [ ] The runtime note. **Transferred to #142.** `coverage-ratchet` measures 9m27s on
+      2026-10-04; nobody has written down what a full `gate` costs, which is what makes it
+      possible to judge whether anyone runs it.
+
+**Archived 2026-10-05** with two items deliberately left open and filed rather than carried
+silently. The repair itself shipped in `a068b432`; what is archived is the reasoning, and the
+reasoning says plainly what was not verified.

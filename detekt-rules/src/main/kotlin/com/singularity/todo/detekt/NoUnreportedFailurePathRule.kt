@@ -91,8 +91,14 @@ class NoUnreportedFailurePathRule(config: Config) : Rule(config, "", null) {
  */
 internal object NoUnreportedFailurePathPolicy {
 
-    /** `NotePreview` is a ViewModel by role and not by name; the name list is inherited. */
-    fun isViewModelName(name: String?): Boolean = name == "NotePreview" || name?.endsWith("ViewModel") == true
+    /**
+     * ViewModels by *role* rather than by name. Both are bound with `viewModel { }` in
+     * `NotesDiModule` and both handle failures, so a name-based check would exempt exactly the
+     * two classes it should not.
+     */
+    private val BY_ROLE = setOf("NotePreview", "NoteEditor")
+
+    fun isViewModelName(name: String?): Boolean = name in BY_ROLE || name?.endsWith("ViewModel") == true
 
     private val LAUNCH_CALLEES = setOf("launch", "async", "withContext")
     private val RUN_CATCHING_CALLEES = setOf("runCatching", "runCatchingCancellable", "runCatchingResult")
@@ -223,11 +229,24 @@ internal object NoUnreportedFailurePathPolicy {
  */
 class NoUnreportedFailurePathProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-unreported-failure-path")
+
+    /**
+     * Two rules, one invariant. They are separate because they read different files and answer
+     * different questions — "does this class have somewhere to report?" and "does this binding
+     * let it?" — and because suppressing one without the other is a real decision: a class that
+     * cannot fail is a different statement from a binding that forgets to wire a reporter.
+     *
+     * @see NoUnwiredReporterInBindingRule for the second half, which shipped after two
+     *      production bindings proved the first half insufficient on its own.
+     */
     override fun instance(): RuleSet = RuleSet(
         ruleSetId,
         mapOf<RuleName, (Config) -> Rule>(
             RuleName("NoUnreportedFailurePath") to { cfg: Config ->
                 NoUnreportedFailurePathRule(cfg)
+            },
+            RuleName("NoUnwiredReporterInBinding") to { cfg: Config ->
+                NoUnwiredReporterInBindingRule(cfg)
             },
         ),
     )

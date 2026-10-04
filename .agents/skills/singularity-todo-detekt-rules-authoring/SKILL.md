@@ -389,42 +389,34 @@ advanceUntilIdle()  // drains all pending coroutines
 advanceTimeBy(300L)  // advances virtual time by 300ms
 ```
 
-## Existing Rules (as of 2026-10-04)
+## Existing Rules
 
-| Rule | File | RuleSet ID | What it checks | Test |
-|------|------|------------|----------------|------|
-| `NoRealDelayInTestRule` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | `delay(N>500)` and `Thread.sleep`, including `1_000` / `1000L` spellings | `NoRealDelayInTestRuleTest` |
-| `NoDirectDispatchersRule` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | `Dispatchers.IO/Default/Main` in commonMain; whitelists `core/log/FileLogWriter.kt` and all test source sets | `NoDirectDispatchersRuleTest` |
-| `NoEmptyOnClickLambdaRule` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | `onClick = {}` at call sites and `onClick ?: { }` elvis fallbacks | `NoEmptyOnClickLambdaRuleTest` |
-| `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production | `NoViewModelScopeInProductionRuleTest` |
-| `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-runblocking` | `runBlocking` in production | `NoRunBlockingRuleTest` |
-| `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs. **No opt-in hatch** — use `@Suppress("NoStateIn")` with a reason. | `NoStateInRuleTest` |
-| `NoStaticProfileAwareCurrentUserRule` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` | — |
-| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `.value =`, `seed()`, `Channel.send`, `launchIn` inside a `combine { }` transform. Restored 2026-09-27 after the 2026-09-26 orphan cleanup. | `NoCombineSideEffectRuleTest` |
-| `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` method whose body is a single `repo.x()` call. Resolves the receiver through **both** body properties and primary-constructor `val`s. | `PassThroughUseCaseRuleTest` |
-| `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc`. Walks the full PSI tree, so nested classes count, and also reads a KDoc attached to the primary constructor. | `KDocEnforcementRulesTest` |
-| `NoFactoryViewModelRule` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | `factory { *ViewModel(...) }` / `factoryOf(::*ViewModel)` | `NoFactoryViewModelRuleTest` |
-| `NoOpUpdateStateRule` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | `updateState { }` whose lambda returns the receiver unchanged | `NoOpUpdateStateRuleTest` |
-| `MviViewModelRulesProvider` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` | `MviViewModelRulesTest` |
-| `NoRunCatchingInSuspend` | `NoRunCatchingInSuspend.kt` | `no-run-catching-in-suspend` | `runCatching` in suspend. **`active: false` on purpose** — do not "fix"; the 239-site migration comes first. | `NoRunCatchingInSuspendTest` |
-| `NoSwallowedCancellation` | `NoSwallowedCancellation.kt` | `no-swallowed-cancellation` | `catch` blocks that swallow `CancellationException` | `NoSwallowedCancellationTest` |
-| `ProhibitUserIdInObserve` | `UserScopedRepositoryRulesProvider.kt` | `user-scoped-repository` | `userId`/`scopedUserId` on `watch*`/`observe*` returning `Flow`. Matches `…Repository` **and** `…RepositoryImpl`. | — |
-| `NoDirectClockSystemRule` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | direct `Clock.System` references | `NoDirectClockSystemRuleTest` |
+The full inventory lives in [`RULES.md`](RULES.md) — all 25 rules, their file, their rule set,
+what each one checks, whether it has a positive test, and whether it is active.
 
-Run them all with `./gradlew :detekt-rules:test` (90 tests). The `-- Test`
-column is the honest measure of which rules you can trust without writing a
-violating file first — and it is what the 2026-10-04 inventory used to find six
-defects. See `2026-10-04-rule-verifiability-inventory`.
+That file is **generated from source** by `scripts/gen-detekt-rule-table.py` and verified by the
+same script with `--check`, which runs in `check.sh`. It is generated because the hand-written table
+it replaced had already drifted twice — it listed a rule deleted as an orphan, listed a second that
+was never restored, and described `NoRunCatchingInSuspend` as `active: false` on purpose *after* the
+migration that made it safe had landed.
 
-`NoCombineSideEffectRule` and `NoGlobalScopeLaunchRule` existed at one point and were
-removed in `2026-09-26-detekt-rules-activation-audit`; do not re-add them without a
-finding the existing `mvi-viewmodel` rules do not cover.
+**Three rules then shipped with no row at all.** That is the finding in #139, and nothing noticed,
+because a table a rule can be added to *without touching* is a table that will be. Generating it is
+the fix; the `--check` in `check.sh` is the half that keeps it honest, and it was proven to fail by
+editing a row by hand.
 
-> **This table is a claim, not a guarantee.** It was stale for a day: it still listed
-> `NoCombineSideEffectRule` after the 2026-09-26 activation audit had deleted that file as an
-> orphan, and listed `NoGlobalScopeLaunchRule`, which was deleted in the same pass and has not
-> been restored. Before planning around a rule, confirm the `.kt` file, the ServiceLoader
-> entry, and the `detekt.yml` block all exist — and grep `docs/decisions/` for a removal first.
+Two columns in that inventory are worth reading before you trust a rule:
+
+- **`Active: no`** means implemented, registered, and configured to `false` — dormant. It will not
+  run. Dormant is not the same as absent, and the difference is invisible everywhere except here.
+- **`Test`** names the positive test, or `RuleFiresSmokeTest (shared)` for a rule covered only by
+  the provider smoke test — which proves the rule *constructs*, not that it *fires*. A `—` means no
+  test at all, and that is #135's subject: a rule whose no-op failure mode is unverified is a rule
+  you should not trust until you have written a violating file and watched it fail.
+
+The `What it checks` column is the first sentence of each rule's own KDoc. A rule with no KDoc
+produces a bare `—`, and that is the intended pressure: write the sentence. Six rules did not have
+one; they have one now.
 
 ## Common Mistakes
 

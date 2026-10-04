@@ -563,6 +563,12 @@ user-scoped-repository:
 no-unreported-failure-path:
   NoUnreportedFailurePath:
     active: true
+  # The second half of the same invariant, added after two production bindings shipped a
+  # no-op reporter: the class declared `crashReporter = NoOpCrashReportingPort()` and a
+  # default `scope = reportingScope(crashReporter)`, and the binding passed neither. The
+  # class-level rule reads a different file and kept passing.
+  NoUnwiredReporterInBinding:
+    active: true
 
 # Added 2026-10-05. All 29 AppError construction sites in commonMain shipped with the
 # subtype-wide default code, so the crash dashboard held one `error.validation` group with

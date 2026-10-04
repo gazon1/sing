@@ -56,13 +56,13 @@ fun calendarSyncModule(): Module = module {
     // when the VM is cleared — a factory registration would leak it.
     viewModel<CalendarSyncViewModel> {
         CalendarSyncViewModel(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            reportingScope(get()),
+            syncRepo = get(),
+            calendarProvider = get(),
+            scheduler = get(),
+            appQueries = get(),
+            orchestrator = get(),
+            crashReporter = get(),
+            scope = reportingScope(get()),
         )
     }
 }

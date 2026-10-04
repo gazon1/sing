@@ -57,7 +57,7 @@ fun domainModule(): List<Module> = buildList {
                 ProfileAwareCurrentUser(get(), get(), createBackgroundScope(crashReportingFailureHandler(get())))
             }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-            viewModel { AccountSettingsViewModel(profileRepository = get()) }
+            viewModel { AccountSettingsViewModel(profileRepository = get(), crashReporter = get()) }
         },
     )
     add(coreModule())

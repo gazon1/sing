@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  * So each block is a pair: the violation and the legal shape that differs from it by exactly
  * one thing.
  */
-class NoUnreportedFailurePathTest {
+class NoUnreportedFailurePathRuleTest {
 
     private val rule = NoUnreportedFailurePathRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)

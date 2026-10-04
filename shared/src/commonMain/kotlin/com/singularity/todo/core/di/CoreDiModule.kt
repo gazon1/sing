@@ -212,7 +212,14 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
-    viewModel { SyncViewModel(get(), get(), get(), reportingScope(get())) }
+    viewModel {
+        SyncViewModel(
+            repository = get(),
+            prefs = get(),
+            crashReporter = get(),
+            scope = reportingScope(get()),
+        )
+    }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 

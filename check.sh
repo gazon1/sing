@@ -107,6 +107,16 @@ python3 scripts/check-rule-intent.py || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [8b/21] the rule inventory in the skill is not stale ===${NC}"
+# The rule table in the rule-authoring skill is generated from source. It was hand-written
+# before that, and drifted twice — a deleted rule still listed, a missing rule still listed —
+# and then three rules shipped with no row at all, which nothing noticed (#139). Generating
+# it is only half the fix; this is the half that keeps it honest.
+python3 scripts/gen-detekt-rule-table.py --check || {
+    echo -e "${RED}rule inventory is stale — run: python3 scripts/gen-detekt-rule-table.py${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [9/21] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"

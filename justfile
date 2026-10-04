@@ -63,6 +63,9 @@ alias gate   := tests::gate
 # ----- Lint shortcuts -----
 alias lint       := tests::lint
 alias detekt-fix := tests::detekt-fix
+# The name is the point: `honesty` reads as "is this gate lying to me?" at the moment
+# someone is about to believe a green one. Slow on purpose — see the recipe.
+alias honesty    := tests::gate-honesty
 
 # ----- Docs shortcuts -----
 alias docs-audit  := tests::docs-audit
