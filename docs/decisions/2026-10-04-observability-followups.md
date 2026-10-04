@@ -45,7 +45,7 @@ whether it logged, so a caller can assert on it.
 *untestable from the outside* — "did it log?" was unobservable. Returning the decision turns
 the next change to this function into something a test can pin.
 
-### 2. The test-tag coverage gate could not see an aliased `@Tag`
+### 2. The test-tag coverage gate could not see an aliased `@Tag` — fixed independently on `main`
 
 `TestTagCoverageTest` matches `@Tag(` or `@org.junit.jupiter.api.Tag(`. A file that imports
 the annotation under an alias and writes `@JUnitTag("slow")` was therefore reported as
@@ -58,9 +58,17 @@ the file to plain `@Tag`, and that is actively harmful: `SavedAgendaSelectorConf
 also imports the **domain** entity `com.singularity.todo.feature.tags.Tag`, so the alias is a
 name-collision workaround, and removing it creates a genuine import ambiguity.
 
-Fixed on the correct side — the gate now reads the file's own imports and treats any local
-name bound to `org.junit.jupiter.api.Tag` as the annotation, so the check is right regardless
-of how the file spells it. The upstream file is untouched.
+Fixed on the correct side. An independent fix for the same false positive landed on `main`
+first (`d1b61a22`, "a tag gate that reported a false positive, and could report a stale
+pass"), reached by a different route and documented with a stronger rationale: the JUnit 5
+migration on `main` needed the alias wherever a file already imports `kotlin.test.Test`,
+because both libraries export `Test`. It resolves the alias from the file's imports and —
+correctly — does *not* widen the regex to "any annotation ending in Tag", which would let a
+`@Suppress`-style lookalike through.
+
+That version was taken as-is rather than duplicated. The lesson stands, and is recorded here
+because the reasoning, not the code, is what transfers: the obvious fix was to change the
+file, and both halves of that were wrong.
 
 **Lesson worth keeping:** when a check fails, establish whether the check is wrong before
 changing the thing it checked. A gate that reports a false positive pushes work onto the wrong
@@ -132,8 +140,9 @@ are the ones that explain the crash.
 
 ## Consequences
 
-- Two real defects fixed, each with tests that fail against the old code.
-- One of them existed only as a landmine; the other was a wrong check.
+- The analytics throttle is fixed here, with tests that fail against the old code.
+- The tag gate was a wrong check; its fix is on `main`, and this record exists mainly to
+  explain why the file must not be "fixed" instead.
 - Four structural limits are now written down, so the next agent reads them here instead of
   re-deriving them from a confusing failure — which is what happened with the tag gate.
 - No change to production behaviour of the app, the reporter, or the analytics port beyond the
@@ -143,7 +152,7 @@ are the ones that explain the crash.
 
 - `core/analytics/Analytics.kt` — the fixed throttle
 - `core/analytics/LogEventOncePerDayTest.kt` — its tests
-- `arch/TestTagCoverageTest.kt` — the alias-aware tag scan
+- `arch/TestTagCoverageTest.kt` — the alias-aware tag scan (fix lives on `main`, d1b61a22)
 - `2026-10-04-apptracer-integration.md` — the integration this follows
 - `2026-10-04-measurement-integrity.md` — a boolean where there was a magnitude
 - `openspec/changes/apptracer-integration/specs/crash-reporting/spec.md` — REQ-2, REQ-6
