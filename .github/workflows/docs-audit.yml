@@ -14,7 +14,7 @@ on:
       - 'scripts/refresh-decisions-digest.*'
       - 'scripts/normalize-adr-frontmatter.*'
       - 'scripts/print-source-tree.*'
-      - 'openspec/**''
+      - 'openspec/**'
 
 jobs:
   docs-audit:
