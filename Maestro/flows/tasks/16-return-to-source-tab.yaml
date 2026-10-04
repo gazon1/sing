@@ -14,7 +14,7 @@ tags:
   - tasks
 ---
 # ── Case 1: Today → FAB → save → still on Today ───────────────────────
-- runFlow: ../helpers/launch-clean.yaml
+- runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:

@@ -13,7 +13,7 @@ tags:
   - tasks
 ---
 # Open editor from FAB
-- runFlow: ../helpers/launch-clean.yaml
+- runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: tasks_fab
 

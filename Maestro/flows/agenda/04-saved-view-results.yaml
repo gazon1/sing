@@ -15,11 +15,16 @@ tags:
   - agenda
 ---
 # ── Seed one active task ───────────────────────────────────────────────────
-- runFlow: ../helpers/seed-task.yaml
+- runFlow: ../../helpers/seed-task.yaml
 
-# ── Create saved view: Today tab → Save Current → name → save ───────────────
+# ── Create saved view: Inbox tab → Save Current → name → save ───────────────
+# The tab matters. seed-task creates an *undated* task, and the saved view
+# evaluates that definition's sections against real tasks: only the Inbox
+# preset has a "No Date" section, so a view saved from Today (Overdue + Today)
+# can never show it. The desktop twin of this flow makes the same choice and
+# says why — see OpenSavedViewShowsMatchingTasksFlowTest.
 - tapOn:
-    id: nav_tab_today
+    id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
       id: agenda_save_current_button
@@ -37,14 +42,12 @@ tags:
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
-# Dismiss discard-guard on exit (draft is now dirty from naming)
+# Save keeps the editor open (it does not pop) and clears the draft's dirty
+# flag, so the discard guard has nothing to guard and back goes straight out.
+# The guard only appears while the draft has unsaved edits — see
+# 03-saved-views-crud.yaml, which renames without saving and does get it.
 - tapOn:
     id: top_bar_back_button
-- extendedWaitUntil:
-    visible: "Discard changes?"
-    timeout: 8000
-- tapOn:
-    id: dialog_dismiss
 - extendedWaitUntil:
     visible:
       id: agenda_saved_views_button

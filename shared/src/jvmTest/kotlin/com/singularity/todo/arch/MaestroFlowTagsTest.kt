@@ -118,4 +118,57 @@ class MaestroFlowTagsTest {
         }
         assertTrue(unknown.isEmpty(), failureMessage)
     }
+
+    /**
+     * Every relative `runFlow:` path must resolve to a file that exists.
+     *
+     * Maestro reports a wrong relative path as `Invalid File Path at …` and then
+     * fails the flow for a reason that has nothing to do with the app — five
+     * flows in `flows/tasks/` and `flows/agenda/` said `../helpers/…` where the
+     * helpers directory is two levels up, not one. The id check above could not
+     * see it: those flows parsed fine, they just pointed at nothing, and the
+     * only symptom was a red run on a device.
+     *
+     * Paths are resolved against the *including* flow's own directory, which is
+     * what Maestro does, so a flow nested one level deeper needs `../../`.
+     */
+    @Test
+    fun `every relative runFlow path resolves to an existing file`() {
+        val flowsRoot = workspaceRoot.resolve("Maestro/flows")
+        val broken = mutableListOf<String>()
+        var checked = 0
+
+        Files.walk(flowsRoot).use { stream ->
+            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file ->
+                    val dir = file.parent
+                    RUN_FLOW.findAll(file.readText()).forEach { match ->
+                        val raw = match.groupValues[1].trim()
+                        // Absolute paths and expressions cannot be resolved statically.
+                        if (raw.startsWith("/") || raw.contains("\${")) return@forEach
+                        checked++
+                        val target = dir.resolve(raw).normalize()
+                        if (!target.exists()) {
+                            broken += "${file.fileName}: $raw"
+                        }
+                    }
+                }
+        }
+
+        assertTrue(
+            checked >= 20,
+            "scanned only $checked runFlow references — collector likely broken (expected >= 20)",
+        )
+        assertTrue(
+            broken.isEmpty(),
+            "runFlow paths that resolve to nothing (${broken.size}/$checked):\n" +
+                broken.joinToString("\n") { "  - $it" } +
+                "\nPaths are relative to the flow's own directory. Helpers live in " +
+                "Maestro/helpers/, which is ../../ from a flow in Maestro/flows/<group>/.",
+        )
+    }
+
+    private companion object {
+        val RUN_FLOW = Regex("""^\s*-?\s*runFlow:\s*(\S+)\s*$""", RegexOption.MULTILINE)
+    }
 }

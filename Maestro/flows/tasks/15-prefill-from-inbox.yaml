@@ -11,7 +11,7 @@ tags:
   - tasks
 ---
 # Launch clean and start on Inbox tab
-- runFlow: ../helpers/launch-clean.yaml
+- runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
