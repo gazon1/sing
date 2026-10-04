@@ -30,7 +30,7 @@ SKILLS_DIR = ROOT / ".agents" / "skills"
 DECISIONS_DIR = ROOT / "docs" / "decisions"
 SRC_DIRS = ["shared/src", "shared", "androidApp", "desktopApp", "mcp-server",
             "detekt-rules", "scripts", "docs", "config", "evals", ".agents", "gradle",
-            "Maestro"]
+            "Maestro", "openspec"]
 
 # Top-level files that exist but are not under SRC_DIRS.
 TOP_LEVEL_FILES = [

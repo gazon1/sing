@@ -1,5 +1,5 @@
 # Executed test counts, used as a floor by scripts/check-test-runs.py.
-# Format: <source-set> <classes> <tests>
+# Format: <source-set> <classes> <tests> <max-skipped>
 #
 # Record the SMALLEST count any legitimate run produces. The default local
 # run (no -Ptest.tags) executes only @Tag("fast") classes, so it is the
@@ -11,8 +11,13 @@
 # JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do
 # not regenerate. A RISE just means tests were added.
 #
+# max-skipped is a CEILING, not a floor, and it is 0. A skipped test is a
+# silent green: JUnit counts it in tests= exactly like a passing one, so a
+# @Disabled class or a failing assumption guard removes real coverage with no
+# other symptom. Do not raise it to make this gate pass — re-enable the test.
+#
 # Regenerate with: python3 scripts/check-test-runs.py --update-baseline
-desktopApp:test 27 77
-mcp-server:test 2 10
-shared:jvmTest 142 1095
-shared:testAndroidHostTest 98 765
+desktopApp:test 10 30 0
+mcp-server:test 1 7 0
+shared:jvmTest 178 1436 0
+shared:testAndroidHostTest 117 1003 0

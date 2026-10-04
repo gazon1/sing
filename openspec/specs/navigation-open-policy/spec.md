@@ -1,7 +1,17 @@
 # navigation-open-policy Specification
 
 ## Purpose
-TBD - created by archiving change navigation-open-policy. Update Purpose after archive.
+
+The app uses Navigation 3 with one nested back stack per feature and a top-level
+destination per tab. The question every screen implicitly asks — "may I open that
+screen from here, and what should happen when I do?" — used to be answered by
+per-feature allow-list branches duplicated across the two platform entry providers,
+so a new cross-feature action had to be edited in two places and the platforms could
+drift apart silently.
+
+These requirements pin the contract that replaced them: one policy that resolves
+every open into exactly one of three actions, a facade the screens call instead of
+navigating directly, and a rule for which shell owns a back stack.
 
 ## Requirements
 
