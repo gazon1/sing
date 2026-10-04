@@ -403,15 +403,22 @@ dependencies {
 kover {
     currentProject {
         instrumentation {
-            // Kover instruments every class loaded by the test JVM. For
-            // `:shared:jvmTest`, the heavy Koog/classpath causes the IntelliJ
-            // coverage runtime to accumulate 3000+ ClassData + 59000+ LineData
-            // entries (42% of heap) — exhausting 3-5 GB and OOMing in
-            // TaskOutgoingLinksTest.
-            // Coverage is still collected for jvmTest via the
-            // `koverXmlReport` / `koverHtmlReport` tasks when explicitly
-            // requested. See ADR-1 for heap-dump analysis.
-            disabledForTestTasks.add("jvmTest")
+            // Instrument ONLY our own code.
+            //
+            // The IntelliJ coverage runtime keeps one ClassData entry per loaded
+            // class for the whole life of a test fork, and the Koog classpath alone
+            // contributes 3000+ classes (ADR 2026-09-25-test-jvm-heap-default
+            // measured 3,003 ClassData / 59,368 LineData = 42% of heap). The ADR's
+            // workaround was to disable instrumentation for jvmTest entirely, which
+            // made the published coverage number describe only the Android host
+            // source set — 10.5% instruction coverage, a measurement of which test
+            // task was instrumented rather than of the code.
+            //
+            // Kover 0.9 supports filtering at instrumentation time, so the Koog
+            // classes are never instrumented and the accumulator stays proportional
+            // to our own bytecode. jvmTest forks per class (forkEvery = 1), which
+            // bounds the accumulation further.
+            includedClasses.add("com.singularity.todo.*")
         }
     }
     reports {

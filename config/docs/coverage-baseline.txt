@@ -1,0 +1,11 @@
+# Instruction/branch/line coverage floors for com.singularity.todo,
+# as a percentage with one decimal. Read by scripts/check-coverage.py.
+#
+# Record the SMALLEST value a legitimate run produces, and raise it in the same
+# commit that produces a higher one. A floor that only ever gets regenerated
+# downward is not a gate.
+#
+# Regenerate with: python3 scripts/check-coverage.py --update-baseline
+INSTRUCTION 23.0
+BRANCH 18.3
+LINE 24.4
