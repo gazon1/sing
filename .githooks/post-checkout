@@ -17,3 +17,29 @@ if [[ -f "docs/decisions/DIGEST.md" ]]; then
     echo "=== Post-checkout: regenerating DIGEST.md ==="
     ./scripts/refresh-decisions-digest.sh --quiet
 fi
+
+# Prepare this worktree's private Gradle user home.
+#
+# `git worktree add` runs this hook, with $1 = the null SHA and $3 = 1 — that is
+# the only hook git fires for a new worktree, so this is the one place the setup
+# can happen without anyone remembering a manual step.
+#
+# On an ordinary branch switch the home already exists and the call is a no-op,
+# which is why the branch is not checked first. A fresh clone is covered too:
+# clone also runs post-checkout.
+#
+# The setup never starts Gradle, never touches the network, and never runs
+# `--stop`; it creates a directory and up to three symlinks. Failures are
+# reported but never block the checkout, because a missing optimisation must not
+# cost someone their work.
+if ! home="$(./scripts/setup-gradle-home.sh 2>&1)"; then
+    echo "post-checkout: could not set up the private Gradle user home:" >&2
+    echo "$home" >&2
+    echo "post-checkout: builds still work, but they will share ~/.gradle with other worktrees." >&2
+    exit 0
+fi
+
+if [[ "${1:-}" =~ ^0+$ ]]; then
+    echo "=== Post-checkout: new worktree, Gradle user home at $home ==="
+    echo "    Use ./gw instead of ./gradlew, and ./gw --stop instead of ./gradlew --stop."
+fi

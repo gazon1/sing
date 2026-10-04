@@ -42,6 +42,26 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 ./check.sh
 ```
 
+### Working in parallel worktrees
+
+Use `./gw` instead of `./gradlew` when more than one checkout builds at the same
+time:
+
+```bash
+./gw :shared:jvmTest
+./gw koverReport
+```
+
+It points `GRADLE_USER_HOME` at a private directory inside the worktree, so each
+checkout owns its daemon registry and `./gradlew --stop` can no longer kill a
+neighbour's build. The Gradle distribution, dependency caches and toolchain JDK
+stay shared through symlinks — nothing is re-downloaded. `direnv` users get the
+same thing from the committed `.envrc`.
+
+Never run `./gradlew --stop` in a shared home; if a daemon must go, stop it
+through `./gw --stop`. See
+[`docs/decisions/2026-10-04-gradle-daemon-isolation.md`](docs/decisions/2026-10-04-gradle-daemon-isolation.md).
+
 ### Dogfooding with AI agent
 
 ```bash

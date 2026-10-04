@@ -12,7 +12,7 @@ install serial="":
         echo "ERR: pass serial=… or set ADB_SERIAL"
         exit 1
     fi
-    ./gradlew :androidApp:installDebug
+    ./gw :androidApp:installDebug
     adb -s {{serial}} install -r "${PWD}/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
 
 [group('install')]
@@ -25,7 +25,7 @@ run serial="":
         echo "ERR: pass serial=… or set ADB_SERIAL"
         exit 1
     fi
-    ./gradlew :androidApp:assembleDebug
+    ./gw :androidApp:assembleDebug
     adb -s {{serial}} install -r "${PWD}/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
     adb -s {{serial}} shell am start -n com.singularity.todo/.MainActivity
 

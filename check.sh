@@ -7,6 +7,13 @@
 # NOTE: no --no-daemon here on purpose. A warm Gradle+Kotlin daemon keeps
 # incremental compilation across runs; --no-daemon forces a cold JVM every
 # time. CI invokes gradle directly and manages its own lifecycle.
+#
+# Gradle is invoked through ./gw, which gives this worktree a private
+# GRADLE_USER_HOME (its own daemon registry) while keeping the module cache and
+# the toolchain shared. Without it, a parallel worktree's `./gradlew --stop`
+# would kill the daemon this script depends on. ./gw is a pass-through when
+# GRADLE_USER_HOME is already set, which is the case in CI.
+# See docs/decisions/2026-10-04-gradle-daemon-isolation.md
 
 set -e
 
@@ -50,21 +57,21 @@ python3 scripts/find-unwired-surfaces.py --quiet || {
 }
 
 echo -e "${YELLOW}=== [4/12] shared:jvmTest ===${NC}"
-./gradlew :shared:jvmTest --quiet || {
+./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
 echo -e "${YELLOW}=== [5/12] desktopApp:test ===${NC}"
-./gradlew :desktopApp:test --quiet || {
+./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
 echo -e "${YELLOW}=== [6/12] androidApp:assembleDebug ===${NC}"
-./gradlew :androidApp:assembleDebug --quiet || {
+./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
 }
@@ -105,13 +112,13 @@ echo -e "${YELLOW}=== [9/12] coverage floors (when a report exists) ===${NC}"
 # enforces freshness with --since.
 if [ -f build/reports/kover/report.xml ]; then
     REPORT_AGE=$(( $(date +%s) - $(stat -c %Y build/reports/kover/report.xml) ))
-    echo "    report age: $((REPORT_AGE / 60)) min (re-run ./gradlew koverReport for a current figure)"
+    echo "    report age: $((REPORT_AGE / 60)) min (re-run ./gw koverReport for a current figure)"
     python3 scripts/check-coverage.py || {
         echo -e "${RED}coverage below the recorded floor${NC}"
         exit 1
     }
 else
-    echo "    no Kover report — run ./gradlew koverReport (skipped)"
+    echo "    no Kover report — run ./gw koverReport (skipped)"
 fi
 
 echo -e "${YELLOW}=== [10/12] doc sizes + dead doc references ===${NC}"
@@ -129,7 +136,7 @@ python3 scripts/check-doc-dead-refs.py || {
 echo -e "${GREEN}doc gates passed${NC}"
 
 echo -e "${YELLOW}=== [11/12] mcp-server:compileKotlin (DI graph validation) ===${NC}"
-./gradlew :mcp-server:compileKotlin --quiet || {
+./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
     exit 1
 }
@@ -139,7 +146,7 @@ echo -e "${GREEN}=== [12/12] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
-./gradlew :shared:detekt :desktopApp:detekt --quiet || {
+./gw :shared:detekt :desktopApp:detekt --quiet || {
     echo -e "${RED}detekt reported violations — see config/detekt/ for the active rule set${NC}"
     exit 1
 }
@@ -151,7 +158,7 @@ if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
     SERIAL=$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')
     if [[ -n "$SERIAL" ]]; then
         echo "Running on device: $SERIAL"
-        ./gradlew :androidApp:connectedDebugAndroidTest \
+        ./gw :androidApp:connectedDebugAndroidTest \
             -Pandroid.testInstrumentationRunnerArguments.device="$SERIAL" \
             --quiet || true
         echo -e "${GREEN}Android instrumentation completed${NC}"
