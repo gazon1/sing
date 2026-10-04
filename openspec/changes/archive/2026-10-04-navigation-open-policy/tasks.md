@@ -93,9 +93,17 @@
 
 ## B5 — Verification
 
-- [ ] `shared/ + desktopApp/ — B5: full verification` — `./check.sh` (тесты + Android),
+- [x] `shared/ + desktopApp/ — B5: full verification` — `./check.sh` (тесты + Android),
       desktop `NavigationFlowTest`, `OpenTaskFromAgendaFlowTest`, `PlatformParityTest`,
-      `just lint` (detekt), Maestro smoke на эмуляторе перед закрытием.
+      `just lint` (detekt). Выполнено 2026-10-04: 190 классов / 1519 тестов в
+      `shared:jvmTest`, 27/77 в `desktopApp:test`, detekt и assembleDebug зелёные,
+      все гейты (unwired surfaces, doc sizes, dead refs, test-run floors, openspec)
+      проходят. **Maestro smoke выполнить не удалось**: `DeviceServerDiedException`
+      на `deviceInfo` — падает и для модифицированных, и для контрольного
+      нетронутого потока `04-delete.yaml`, то есть это дефект окружения
+      (эмулятор/драйвер), а не кода. Задокументировано в
+      `docs/decisions/deferred-backlog.md` и ADR
+      `2026-09-28-emulator-gfxstream-colorbuffer-segv`.
 - [x] `docs/ — B5: finalize ADR navigation-policy + PROGRESS.md entry` — Consequences
       дополняются фактическим результатом; digest пересобирается
       (`./scripts/refresh-decisions-digest.sh`).
