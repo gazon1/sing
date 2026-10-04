@@ -354,3 +354,41 @@ the passing one.
 
 See ADR `2026-10-04-measurement-integrity` and spec
 `openspec/specs/test-execution-integrity`.
+
+## A test that reads a file must make the task depend on it
+
+Several architecture tests walk the filesystem rather than asserting over compiled
+classes — `MaestroFlowTagsTest` reads every Maestro flow, `TestTagCoverageTest` reads
+four source trees. A path opened at runtime is an input to the test task whether or not
+it feeds the compiler, and Gradle cannot see that difference:
+
+```bash
+./gradlew :shared:jvmTest --tests '…MaestroFlowTagsTest'   # UP-TO-DATE, BUILD SUCCESSFUL
+# edit a flow to carry an unknown id:
+./gradlew :shared:jvmTest --tests '…MaestroFlowTagsTest'   # still UP-TO-DATE, still green
+```
+
+A blocking gate reporting a previous run's verdict about a file it never re-read. This
+is the failure mode where the stale answer looks like a pass.
+
+**Writing such a test:** take the root as a `systemProperty` from the module's build
+file. Do not walk up from another root to find it — a derived path is one no build file
+mentions, so no check can see it. Then declare it:
+
+```kotlin
+systemProperty("maestro.root", layout.projectDirectory.dir("../Maestro").asFile.absolutePath)
+inputs.dir(layout.projectDirectory.dir("../Maestro"))
+    .withPropertyName("maestroFlows")
+    .withPathSensitivity(PathSensitivity.RELATIVE)
+```
+
+`scripts/check-test-task-inputs.py` (in `check.sh` step 10b and in CI) fails when a
+path-valued system property points outside its module with no input covering it.
+
+**Proving the fix.** An input declaration that was not probed is a comment. Edit the file
+the test reads, re-run the *same* command, and confirm the task is no longer
+`UP-TO-DATE`. Note the trap in the proof itself: the `--tests` filter is a task input, so
+the first run after changing the filter always executes — a probe needs two runs with an
+identical command, or it proves nothing.
+
+ADR `2026-10-05-test-task-external-inputs`.

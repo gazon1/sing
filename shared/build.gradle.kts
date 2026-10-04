@@ -342,6 +342,34 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     inputs.dir(layout.projectDirectory.dir("../mcp-server/src/test"))
         .withPropertyName("mcpServerTestSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // MaestroFlowTagsTest walks up from commonMain.root to the worktree root and reads
+    // Maestro/. That tree is not a compile input of :shared at all, so the gate went
+    // UP-TO-DATE on every flow edit and re-reported the previous run's verdict.
+    //
+    // Measured 2026-10-04, with a probe rather than by reasoning: inject a valid
+    // Maestro command carrying an unknown `id:` into a flow, run the gate twice with the
+    // same filter, and the second run printed `:shared:jvmTest UP-TO-DATE` /
+    // BUILD SUCCESSFUL with the bad selector still in the tree. That is the whole failure
+    // mode — a blocking gate that reports green about a file it never re-read.
+    //
+    // The earlier fix on this task covered desktopApp and mcp-server because those were
+    // the trees a hit happened to involve. This is the same defect one level over, and
+    // the reason the invariant is now enforced by check-test-task-inputs.py rather than
+    // by whoever touches it next.
+    inputs.dir(layout.projectDirectory.dir("../Maestro"))
+        .withPropertyName("maestroFlows")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    // Passed in rather than derived. MaestroFlowTagsTest used to walk up four levels from
+    // commonMain.root to find Maestro/, which produced a path no build file mentioned —
+    // and an undeclared path is an undeclared path. Declaring it here also makes the
+    // dependency visible to scripts/check-test-task-inputs.py, which fails when a
+    // path-valued system property points outside its module with no input covering it.
+    // A derived path is invisible to that gate by construction, which is why deriving it
+    // was the defect rather than the style.
+    systemProperty(
+        "maestro.root",
+        layout.projectDirectory.dir("../Maestro").asFile.absolutePath,
+    )
     // Scan roots for ViewModelTestCoverageTest: it matches a production ViewModel
     // against the test classes that mention it, so it needs the commonTest and
     // jvmTest trees as well as commonMain. Absent properties make its top-level

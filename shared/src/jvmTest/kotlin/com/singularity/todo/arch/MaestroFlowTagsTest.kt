@@ -36,17 +36,35 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class MaestroFlowTagsTest {
 
-    /** Resolves to the worktree root (4 levels up from commonMain), where Maestro/ lives. */
-    private val workspaceRoot: Path = run {
-        val commonMainRoot = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-        // commonMain.root = worktree/shared/src/commonMain/kotlin
-        //   parent1 = worktree/shared/src/commonMain
-        //   parent2 = worktree/shared/src
-        //   parent3 = worktree/shared
-        //   parent4 = worktree/  ← Maestro/ lives here
-        Paths.get(commonMainRoot).parent.parent.parent.parent
+    /**
+     * The tree holding the flows, passed in rather than derived.
+     *
+     * This used to walk up four levels from `commonMain.root`, which produced a path no
+     * build file mentions. An undeclared path is an undeclared path: the dependency is
+     * real, Gradle cannot see it, and editing a flow left `:shared:jvmTest` UP-TO-DATE —
+     * so this gate re-reported its previous verdict. Measured 2026-10-04, by probe:
+     * inject a valid command carrying an unknown `id:` into a flow, re-run the same
+     * command, and the task reported UP-TO-DATE / BUILD SUCCESSFUL with the bad selector
+     * still in the tree.
+     *
+     * Declaring the root fixes the staleness and makes the dependency legible to
+     * `scripts/check-test-task-inputs.py`, which fails when a path-valued system property
+     * points outside its module and no `inputs.dir` covers it. A derived path is invisible
+     * to that gate by construction, so deriving it was the defect and not the style.
+     */
+    private val maestroRoot: Path = run {
+        val root = System.getProperty("maestro.root")
+            ?: error(
+                "maestro.root system property is not set — see shared/build.gradle.kts. " +
+                    "This test scans Maestro/flows, which is outside :shared, so the path " +
+                    "has to be passed in and declared as a task input; deriving it made the " +
+                    "gate silently stale.",
+            )
+        Paths.get(root)
     }
+
+    /** The worktree root, for the few checks that need a path outside Maestro/ itself. */
+    private val workspaceRoot: Path = maestroRoot.parent
 
     private val idPattern = Regex("""^\s+id:\s*"?([^"#\s]+)"?\s*$""", RegexOption.MULTILINE)
 

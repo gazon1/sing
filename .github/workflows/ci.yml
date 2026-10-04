@@ -241,6 +241,15 @@ jobs:
         run: python3 scripts/check-doc-dead-refs.py
         # blocking: new dead file/symbol references in docs, skills and KDoc
 
+      # A test task that reads a tree outside its own module must declare it as an input.
+      # Without that declaration the task goes UP-TO-DATE on an edit to that tree and an
+      # architecture gate re-reports its previous verdict — green, about a file it never
+      # re-read. Measured on MaestroFlowTagsTest; see
+      # docs/decisions/2026-10-05-test-task-external-inputs.md. 20 ms, no JVM.
+      - name: Check test-task input declarations
+        run: python3 scripts/check-test-task-inputs.py
+        # blocking: a scan root outside its module with no task input covering it
+
       # Replaced by com.singularity.todo.arch.MaestroFlowTagsTest in :shared:jvmTest
       # (blocking — any unknown id fails the build). Retained here as a non-blocking
       # lint for ad-hoc local use; continues-on-error so it never blocks a PR.
