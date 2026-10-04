@@ -162,6 +162,33 @@ jobs:
       - name: Run desktopApp:test
         run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
+      # A failing gradle test task prints only "See the report at
+      # <workspace path>" — a path that exists on the runner and nowhere
+      # else. Without these uploads a red build offers no stack trace at
+      # all, and the failure has to be reproduced locally. The HTML
+      # report is browsable; the JUnit XML is what tooling parses.
+      - name: Upload shared test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-test-reports-${{ github.run_id }}
+          path: |
+            shared/build/reports/tests/**
+            shared/build/test-results/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload desktop test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-test-reports-${{ github.run_id }}
+          path: |
+            desktopApp/build/reports/tests/**
+            desktopApp/build/test-results/**
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload desktop failure bundle
         if: always()
         uses: actions/upload-artifact@v4
