@@ -4,6 +4,17 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 
 **Stack**: Compose Multiplatform · Room · Koin · Kermit · Supabase · Koog AI framework
 
+<p align="center">
+  <a href="https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html"><img src="https://shieldcn.dev/badge/Kotlin-Multiplatform.svg?variant=branded&theme=violet&logo=kotlin" alt="Kotlin Multiplatform" /></a>
+  <img src="https://shieldcn.dev/badge/Android-JVM%20Desktop.svg?variant=secondary&logo=android" alt="Android and JVM Desktop" />
+  <img src="https://shieldcn.dev/badge/Compose%20Multiplatform.svg?variant=secondary&logo=jetbrainscompose" alt="Compose Multiplatform" />
+  <img src="https://shieldcn.dev/badge/MCP%20Server-32%20tools.svg?variant=secondary" alt="MCP server, 32 tools" />
+</p>
+
+<p align="center">
+  <sub>CI: <a href="https://github.com/gazon1/singularity-clone-kmp/actions/workflows/ci.yml"><code>ci.yml</code></a> on <code>main</code></sub>
+</p>
+
 ---
 
 ## Features
