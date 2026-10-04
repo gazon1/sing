@@ -50,8 +50,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  */
 class NoStaticProfileAwareCurrentUserRule(config: Config) : Rule(config, "", null) {
 
-    private val companionMembers = setOf("scopedUserId", "current", "instance", "setInstance")
-
     override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
         super.visitDotQualifiedExpression(expression)
         if (!NoStaticProfileAwareCurrentUserPolicy.isForbiddenAccess(expression)) return
