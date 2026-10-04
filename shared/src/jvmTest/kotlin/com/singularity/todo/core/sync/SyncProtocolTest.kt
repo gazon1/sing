@@ -48,6 +48,7 @@ class SyncProtocolTest {
         val request = BatchPushRequest(
             protocolVersion = 1,
             deviceId = "device-1",
+            profileId = "work",
             patches = listOf(
                 DeltaPatch(
                     patchId = "p1",
@@ -61,6 +62,10 @@ class SyncProtocolTest {
         val serialized = json.encodeToString(request)
         assertTrue(serialized.contains("\"deviceId\":\"device-1\""))
         assertTrue(serialized.contains("\"protocolVersion\":1"))
+        assertTrue(
+            serialized.contains("\"profileId\":\"work\""),
+            "the server requires a profile on every patch, so it is part of the request",
+        )
     }
 
     @Test

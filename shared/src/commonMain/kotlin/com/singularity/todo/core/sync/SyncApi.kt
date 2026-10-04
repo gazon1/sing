@@ -40,24 +40,10 @@ interface SyncApiClient {
      * Returns null if no remote config is set (server returned empty / 404).
      *
      * The returned [JsonObject] is then validated and deserialized by
-     * [RemoteConfigSnapshot.validate].
+     * [RemoteConfigSnapshot.validate]. The sync schema serves no configuration,
+     * so the RPC-backed client answers `null` here; see
+     * [SupabaseSyncApiClient.getRemoteConfig] for why that is the accurate
+     * answer rather than a stub.
      */
     suspend fun getRemoteConfig(): JsonObject?
-}
-
-/**
- * Stub implementation of SyncApiClient.
- *
- * Replaced by the RPC-backed client in phase 6; until then every method here is
- * inert, which is why the interface carries no owner parameter for it to misuse.
- */
-class SupabaseSyncApiClient : SyncApiClient {
-    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse =
-        BatchPushResponse(emptyList())
-
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> = emptyList()
-
-    override suspend fun testConnection(): Result<Unit> = Result.success(Unit)
-
-    override suspend fun getRemoteConfig(): JsonObject? = null
 }

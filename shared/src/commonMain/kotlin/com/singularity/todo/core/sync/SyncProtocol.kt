@@ -5,11 +5,22 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Batch push request — sent to /sync Edge Function.
- * Matches Flutter sync_core BatchPushRequest wire format.
+ * Batch push request — sent to the `sync_batch_apply` RPC.
+ *
+ * [profileId] names which of the account's profiles this cycle is for, and the
+ * server requires it on every patch. It is a routing dimension *within* the
+ * authenticated account, not an authorisation input: the owner comes from the
+ * session, and no value here can widen that. It lives on the request rather than
+ * on [DeltaPatch] because one push is one profile's cycle, and putting it on the
+ * patch would let a patch outlive the profile that built it.
  */
 @Serializable
-data class BatchPushRequest(val protocolVersion: Int = 1, val deviceId: String, val patches: List<DeltaPatch>)
+data class BatchPushRequest(
+    val protocolVersion: Int = 1,
+    val deviceId: String,
+    val profileId: String,
+    val patches: List<DeltaPatch>,
+)
 
 /**
  * Batch push response from server.

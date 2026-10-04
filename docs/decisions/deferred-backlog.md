@@ -2113,25 +2113,32 @@ into a one-line fix instead of an afternoon.
 
 ---
 
-## sync-client-phases-6-to-11-pending
+## sync-auth-repository-is-still-a-stub
 
-**Status:** OPEN. The sync client is being built inside-out, transport first and the
-sign-in surface last, and three classes are deliberately unwired until the phases that
-use them land. Listing them as one entry rather than three is the point: they have a
-single cause and a single closing condition, and three entries would be three places
-to forget to close.
+**Status:** OPEN (opened 2026-10-04 as `sync-client-phases-6-to-11-pending`; narrowed
+after phases 6 and 11's transport work closed two of its three symbols).
 
-**Tracked as:** `openspec/changes/supabase-auth-and-sync/` — task groups 6, 8 and 11.
-The entry closes when phase 11 lands, at which point all three symbols have a
-production call site and the baseline rows go with it.
+`SupabaseAuthRepository` is bound in the DI graph and its methods validate their
+arguments and do nothing else. It is not dead code and the dead-symbol detector does
+not flag it — a bound class has a production call site — which is exactly why it
+needs an entry of its own: **the gate that would otherwise catch this passes.**
 
-| Symbol | Wired by | Note |
+| Symbol | Closed by | Note |
 |---|---|---|
-| `SupabaseConfigResolver` | Phase 11 (sign-in surface) | Phase 4 built the resolution rule; the screen that asks the user for a URL and key is what calls it. Its test asserts the rule — stored wins over build-time — which is the part that is easy to get wrong later. |
-| `SupabaseSyncApiClient` | Phase 6 | The stub in `SyncApi.kt` returns empty results today. Replaced, not extended. |
-| `SupabaseAuthRepository` | Phase 8 | Depends on phase 7's `SecureSessionStore` and phase 6's transport. |
+| `SupabaseSyncApiClient` | Phase 6, done | The stub that returned empty results is gone. The real client is in `SupabaseSyncApiClient.kt` over the `SyncRpc` port, with `SyncApiClientTest` (19) covering parsing, 64-bit log positions, and a failure arriving as an `AppError` rather than an exception. |
+| `SupabaseConfigResolver` | Phase 6, done | Wired from the other direction than expected. `SupabaseClientProvider` resolves the configuration in order to decide whether a client can exist at all, so the resolver gained a production call site without the sign-in screen existing. The screen in phase 11 supplies the *value*; this phase supplied the *need for one*. |
+| `SupabaseAuthRepository` | Phase 8 | Depends on phase 7's `SecureSessionStore` and phase 6's transport, both of which now exist. `migrateAnonymousTo` throws unconditionally and `signUp`/`signIn` return success having done nothing. |
 
-**Closing condition:** phase 11 lands, `find-unwired-surfaces.py` reports clean, and
-this entry is deleted. The gate that enforces it is the dead-symbol detector — a
-symbol here with a live backlog reference is tracked debt, and the same symbol without
-one is a gate failure.
+**Closing condition:** phase 8 lands and the repository actually calls
+`SupabaseClientProvider.auth`, at which point this entry is deleted.
+
+**The part worth keeping.** This entry exists because of what the dead-symbol
+detector does *not* say. `SupabaseConfigResolver` sat in the same table while wired by
+nothing, and the gate was correct to flag it — but the moment
+`SupabaseClientProvider` appeared and started resolving configurations, the flag
+cleared. That is the desired behaviour, and it is also the mechanism by which a
+class that is bound but inert becomes invisible: the binding *is* a production
+reference, and a binding proves nothing about behaviour. A gate that measures
+reachability cannot distinguish a wired class from a working one.
+
+**Tracked as:** `openspec/changes/supabase-auth-and-sync/` — task 8.1 and 8.2.

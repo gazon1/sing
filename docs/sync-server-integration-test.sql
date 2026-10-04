@@ -108,8 +108,43 @@ begin
     exception when others then
         raise notice '9 transfer    -> refused: %', sqlerrm;
     end;
+
+    -- Scenario 10. The event log must carry the entity as it stands AFTER the
+    -- merge. This patch is what a current client sends: field operations and a
+    -- clock, and no `doc` at all. An implementation that logs `p->'doc'` records
+    -- `{}` here, and every other client deserialises `data` as a whole entity --
+    -- so it reconstructs a task with a blank title rather than skipping the event.
+    -- Nothing above this scenario would have noticed: a legacy snapshot patch
+    -- carries `doc`, and its event looks perfectly correct.
+    v_r := sync_batch_apply(jsonb_build_array(jsonb_build_object(
+        'patchId', 'p10', 'entityType', 'task', 'entityId', 't10', 'profileId', 'prof-1',
+        'ops', jsonb_build_array(
+            jsonb_build_object('field', 'title', 'op', 'set', 'value', 'Diff-only client')),
+        'hlc', jsonb_build_object('p', 3000, 'c', 0, 'n', 'p10'))));
+    raise notice '10 diff-patch -> %', v_r::text;   -- expect applied=1, created=1
 end
 $$;
+
+-- Scenario 11. Grants on the entry points, checked separately because it is the
+-- only assertion here that is about the ACL rather than about the data -- and it
+-- is the one that breaks silently.
+--
+-- A `create or replace` preserves the existing ACL, so the grant survives every
+-- ordinary migration. It does not survive a `revoke ... from public, anon,
+-- authenticated` written to clean up the *helpers*, if that revoke is applied to
+-- the entry point as well: nothing about the schema changes, the deploy succeeds,
+-- and the client gets "permission denied for function sync_batch_apply" on the
+-- first push, with no server-side error to trace it to.
+--
+--   expected: the four entry points true, the helpers false. A helper that is
+--   true is a hole -- a client could write a row without going through the merge.
+select p.proname,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_may_execute,
+       has_function_privilege('anon', p.oid, 'EXECUTE')          as anon_may_execute
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname like 'sync\_%'
+order by p.proname;
 
 -- Summary. Run as a privileged role: `authenticated` has no direct SELECT on any
 -- synchronised table, which is the point.

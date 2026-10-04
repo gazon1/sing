@@ -10,7 +10,11 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.SessionStore
+import com.singularity.todo.core.auth.SecureStorage
+import com.singularity.todo.core.auth.SupabaseClientProvider
+import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.auth.SupabaseAuthRepository
+import com.singularity.todo.core.security.SecureStorageAdapter
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.BackupRepository
@@ -41,7 +45,9 @@ import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.RemoteConfigRepository
 import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
+import com.singularity.todo.core.sync.PostgrestSyncRpc
 import com.singularity.todo.core.sync.SyncApiClient
+import com.singularity.todo.core.sync.SyncRpc
 import com.singularity.todo.core.sync.SyncBootstrapper
 import com.singularity.todo.core.sync.SyncCoordinator
 import com.singularity.todo.core.sync.SyncPatchBuilder
@@ -96,6 +102,14 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     single<SessionStore> { DataStoreSessionStore(get(), get()) }
 
+    // Which Supabase project to talk to. The resolver owns the precedence rule
+    // (a stored value beats a build-time one) and the provider owns the client,
+    // because the client cannot be built until a project is known and a fresh
+    // install has none.
+    single { SupabaseConfigResolver(idGenerator = get()) }
+    single<SecureStorage> { SecureStorageAdapter(get()) }
+    single { SupabaseClientProvider(resolver = get(), store = get<SecureStorage>()) }
+
     single<AuthRepository> {
         SupabaseAuthRepository(
             Logger.withTag("AuthRepository"),
@@ -142,7 +156,11 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    single<SyncApiClient> { SupabaseSyncApiClient() }
+    // The transport is built over the RPC port rather than over the vendor client,
+    // so the parsing — where a 64-bit log position is read, and where a malformed
+    // response has to become an AppError — is testable without a network.
+    single<SyncRpc> { PostgrestSyncRpc(get()) }
+    single<SyncApiClient> { SupabaseSyncApiClient(get<SyncRpc>()) }
 
     // SyncPrefs: DataStore-backed (not in-memory).
     single<SyncPrefs> { DataStoreSyncPrefs(get(), get()) }
@@ -289,14 +307,14 @@ fun coreModule(): org.koin.core.module.Module = module {
     single {
         BackupImporter(
             Logger.withTag("BackupImporter"),
-            get(),        // taskDao
-            get(),        // noteDao
-            get(),        // projectDao
-            get(),        // tagDao
-            get(),        // agendaViewDao
-            get(),        // attachmentStorage
-            get(),        // codec
-            get(),        // clock
+            get(), // taskDao
+            get(), // noteDao
+            get(), // projectDao
+            get(), // tagDao
+            get(), // agendaViewDao
+            get(), // attachmentStorage
+            get(), // codec
+            get(), // clock
             createFileSource = get(),
         )
     }

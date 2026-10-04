@@ -1,6 +1,16 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
-  <ManuallySuppressedIssues/>
+  <ManuallySuppressedIssues>
+    <!--
+      A transport boundary is the one place entitled to catch something it cannot
+      name: the SDK, Ktor and the platform socket layer each throw their own, and
+      a narrower catch lets a timeout reach the crash reporter as whatever this
+      release happened to call it. The catch does not recover; it converts and
+      re-throws as AppError, preserving the cause. Recorded here rather than in
+      CurrentIssues so a later run cannot quietly absorb a new one.
+    -->
+    <ID>TooGenericExceptionCaught:SupabaseSyncApiClient.kt:SupabaseSyncApiClient$e: Exception</ID>
+  </ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(RelativeBucket.NextWeek)</ID>
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(RelativeBucket.ThisWeek)</ID>

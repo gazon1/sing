@@ -208,8 +208,15 @@ internal class SyncEngine(
             json.decodeFromString<DeltaPatch>(entity.payload)
         }
 
+        // Read the scope once, before the request is built, and use that same
+        // value for the profile on the wire and for settling the shadow. Reading
+        // it again afterwards would let a profile switch in between put this
+        // cycle's patches under one profile and their shadow under another.
+        val active = scopeProvider.current.first()
+
         val request = BatchPushRequest(
             deviceId = idGenerator.next(),
+            profileId = active?.profileId.orEmpty(),
             patches = patches,
         )
 
@@ -218,7 +225,6 @@ internal class SyncEngine(
             var succeeded = 0
             var failed = 0
 
-            val active = scopeProvider.current.first()
             response.results.forEach { result ->
                 val patch = patches.firstOrNull { it.patchId == result.patchId }
                 if (result.ok) {

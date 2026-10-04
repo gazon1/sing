@@ -5,7 +5,6 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
-import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
@@ -177,7 +176,10 @@ class AgendaEvaluatorMatrixTest {
         val nextFri = task("nf", dueDate = LocalDate(2026, 10, 23))
         val nextSun = task("ns", dueDate = LocalDate(2026, 10, 25))
         val followingMon = task("fm", dueDate = LocalDate(2026, 10, 26))
-        val result = eval(listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon), Selector.DateBucket(RelativeBucket.NextWeek))
+        val result = eval(
+            listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon),
+            Selector.DateBucket(RelativeBucket.NextWeek),
+        )
         assertEquals(setOf("nm", "nf", "ns"), result.map { it.id.value }.toSet())
     }
 
@@ -218,7 +220,10 @@ class AgendaEvaluatorMatrixTest {
         val satOct17 = task("sa17", dueDate = LocalDate(2026, 10, 17))
         val sunOct18 = task("s18", dueDate = LocalDate(2026, 10, 18)) // Sunday — end
         val monOct19 = task("m19", dueDate = LocalDate(2026, 10, 19)) // Monday — next week
-        val result = eval(listOf(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19), Selector.DateBucket(RelativeBucket.ThisWeek))
+        val result = eval(
+            listOf(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19),
+            Selector.DateBucket(RelativeBucket.ThisWeek),
+        )
         // Mon Oct 12 – Sun Oct 18 inclusive
         assertEquals(setOf("m12", "f16", "sa17", "s18"), result.map { it.id.value }.toSet())
         assertFalse("s11" in result.map { it.id.value }.toSet(), "Sunday Oct 11 should NOT be in ThisWeek")
@@ -452,10 +457,12 @@ class AgendaEvaluatorMatrixTest {
         val workToday = task("wtd", dueDate = D, tags = listOf(TAG_WORK))
         val urgentTomorrow = task("ut", dueDate = tomorrow, tags = listOf(TAG_URGENT))
         val all = listOf(workTomorrow, workToday, urgentTomorrow)
-        val combined = Selector.AllOf(listOf(
+        val combined = Selector.AllOf(
+            listOf(
             Selector.Tags(setOf(TAG_WORK)),
             Selector.DateBucket(RelativeBucket.Tomorrow),
-        ))
+        )
+        )
         val result = eval(all, combined)
         assertEquals(1, result.size)
         assertEquals("wt", result.first().id.value)
@@ -468,10 +475,15 @@ class AgendaEvaluatorMatrixTest {
         val urgentTomorrow = task("ut", dueDate = tomorrow, tags = listOf(TAG_URGENT))
         // Both tasks have dueDate=tomorrow, so both match DateBucket.Tomorrow.
         // workTomorrow also matches Tags(WORK).
-        val result = eval(listOf(workTomorrow, urgentTomorrow), Selector.AnyOf(listOf(
+        val result = eval(
+            listOf(workTomorrow, urgentTomorrow),
+            Selector.AnyOf(
+                listOf(
             Selector.Tags(setOf(TAG_WORK)),
             Selector.DateBucket(RelativeBucket.Tomorrow),
-        )))
+        )
+            )
+        )
         // Both match DateBucket.Tomorrow (the date-based child), so both appear.
         assertEquals(2, result.size)
     }
@@ -512,12 +524,20 @@ class AgendaEvaluatorMatrixTest {
     fun `F-11b with discard task appears in first matching section only`() {
         val t = task("t", dueDate = D) // matches both Today and ThisWeek
         val sections = listOf(
-            Section(id = "today", name = "Today", order = 0,
+            Section(
+                id = "today",
+                name = "Today",
+                order = 0,
                 selector = Selector.DateBucket(RelativeBucket.Today),
-                discard = true),
-            Section(id = "week", name = "This Week", order = 1,
+                discard = true,
+            ),
+            Section(
+                id = "week",
+                name = "This Week",
+                order = 1,
                 selector = Selector.DateBucket(RelativeBucket.ThisWeek),
-                discard = true),
+                discard = true,
+            ),
         )
         val result = evalSections(listOf(t), sections)
         val todaySection = result.find { it.name == "Today" }

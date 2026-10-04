@@ -114,12 +114,34 @@ invisible and with one they become irreversible data loss on the user's own data
       with no profile (an older server) still applies, which keeps an old server usable
       Verified by: `SyncEnginePullTest` — the other profile's event is skipped, the
       cursor moves past it, and the drop is counted (REQ-OS-011)
-- [ ] 6.1 `shared/` — implement the sync transport over the RPC endpoint; map failures
-      onto the existing error type. Verified by: `SyncApiClientTest` — result parsing,
-      sequence numbers without precision loss, RPC failure as an error not an
-      exception
-- [ ] 6.2 `shared/` — architecture test: vendor SDK imports confined to the transport
-      and authentication seams (REQ-OS-014, REQ-UA-008)
+- [x] 6.1 `shared/` — implement the sync transport over the RPC endpoint; map failures
+      onto the existing error type. The transport is built over a one-method `SyncRpc`
+      port rather than over the vendor client, so the parsing is testable without a
+      network: a 64-bit log position read through a `double` is exact for every value
+      a test is likely to use and wrong past 2^53, and only a canned body makes that
+      visible. `SyncWire.kt` holds the wire vocabulary separately from the calling, so
+      a schema change is a diff in one file.
+      Verified by: `SyncApiClientTest` (19) — result parsing, 2^53+1 read exactly,
+      RPC failure as `AppError` with the cause kept, an absent `ok` not read as
+      applied, an unknown document type refused rather than skipped
+- [x] 6.2 `shared/` — architecture test: vendor SDK imports confined to the transport
+      and authentication seams (REQ-OS-014, REQ-UA-008). `VendorSdkConfinementTest`
+      (3) names the two seams, asserts they still exist and still import the SDK —
+      without which the rule would pass vacuously after a rename — and carries a
+      positive control
+- [x] 6.3 server — the event log carries the row as it stands **after** the merge, not
+      the request that caused it. It was logging `p->'doc'`, which a field-diff client
+      never sends, so its events recorded `{}` and the pulling side — which
+      deserialises `data` as a whole entity — would have materialised a task of
+      defaults. A new `sync_read_row` helper reads the merged row back in the same
+      statement as the merge. Verified by: `docs/sync-server-integration-test.sql`
+      scenario 10
+- [x] 6.4 server — the entry points keep their grants. A `revoke … from public, anon,
+      authenticated` written for the helpers also hit `sync_batch_apply` during this
+      phase; nothing in the schema changed and the first push failed with a permission
+      error. `create or replace` preserves an ACL, so this is invisible to every
+      ordinary migration and to every schema diff. Verified by: the same file,
+      scenario 11
 
 ## Phase 7–8 — Auth
 

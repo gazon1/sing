@@ -31,7 +31,21 @@ interface SessionStore {
 }
 
 /**
- * Production [SessionStore] backed by DataStore.
+ * The pre-upgrade store, and the current home of the device id.
+ *
+ * ## Why this still exists
+ *
+ * Two reasons, and only two. It holds a token written by an older build, which
+ * [SecureSessionStore] moves into the keychain once and then erases — and it
+ * holds the device id, which is not a secret and should not be in a keychain.
+ *
+ * ## Why writing tokens here is no longer a path
+ *
+ * [save] and [clear] remain because the migration needs the erase half, and
+ * because removing the interface method would mean a subclass of a type this
+ * class no longer has a reason to be. Nothing in the DI graph binds this as a
+ * [SessionStore] any more; `PlaintextTokenIsolationTest` fails if one appears.
+ * A caller reaching this class to *write* a token has found a bug.
  *
  * Device ID is lazily initialized on first [getOrInitDeviceId] call by reading from DataStore.
  * If absent, an ID is generated via [idGenerator], persisted, and returned.
@@ -84,6 +98,20 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         _deviceId = id
         _deviceIdFlow.value = id
         return id
+    }
+
+    /**
+     * Removes the plain-text token, email and refresh token.
+     *
+     * Separate from [clear] so the migration can erase the old copy without
+     * touching the device id, which lives here and is still in use.
+     */
+    suspend fun forgetTokens() {
+        dataStore.edit { prefs ->
+            prefs.remove(ACCESS_TOKEN)
+            prefs.remove(REFRESH_TOKEN)
+            prefs.remove(USER_EMAIL)
+        }
     }
 
     override suspend fun save(session: Session.SignedIn) {
