@@ -52,7 +52,7 @@ jobs:
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Assemble debug APK
         run: ./gradlew :androidApp:assembleDebug --no-daemon -q --configuration-cache

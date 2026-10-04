@@ -34,8 +34,9 @@ change is several majors further on.
 ## Decision
 
 **Action versions — go to the current major, not the minimum that silences the
-warning.** `checkout@v7`, `setup-java@v6`, `setup-python@v7`,
-`upload-artifact@v7`, `gradle/actions/setup-gradle@v6` in all four workflows.
+warning, except where a later major changes something other than the runtime.**
+`checkout@v7`, `setup-java@v6`, `setup-python@v7`, `upload-artifact@v7`,
+`gradle/actions/setup-gradle@v5` in all four workflows.
 
 Checked rather than assumed. For each family, the first Node 24 major is a pure
 runtime bump with nothing else in it:
@@ -49,12 +50,23 @@ runtime bump with nothing else in it:
   but we're treating it as such". v6 requires Actions Runner ≥ 2.327.1, which
   GitHub-hosted runners satisfy. v7 adds an opt-in `archive: false` direct-upload
   mode; the default zipping behaviour is unchanged, and nothing here sets it.
-- `gradle/actions` v5.0.0: "Upgrade to node 24", the whole release.
+- `gradle/actions` v5.0.0: "Upgrade to node 24", the whole release. v5.0.1 and
+  v5.0.2 are patches with no behaviour change.
 
 So the later majors carry no behavioural change for this repository, and stopping
 at the first Node 24 major would mean repeating this task next quarter, when v5
 and v6 get their own deprecation notices. `reactivecircus/android-emulator-runner`
 stays on `@v2` — v2 is already its current major.
+
+**`gradle/actions` stops at v5, because v6 is not a version bump.** v6 moves the
+caching component out of the MIT-licensed repository into a proprietary
+`gradle-actions-caching` library governed by Gradle's Terms of Use, and states
+plainly that upgrading means accepting those terms. It also removes the action's
+"rudimentary, configuration-cache support" pending a working replacement. Neither
+is a code change this sweep can evaluate, and a licence acceptance is not
+something to slip into a warning cleanup — so v5 is the target, and v6 is a
+decision for whoever owns that. A deprecation notice for v5 is a fair trade
+against accepting terms on someone's behalf.
 
 **All four workflows, not just the two that warned.** The Maestro workflows pin
 nothing and share the same deprecated actions, so leaving them would reproduce
@@ -98,6 +110,9 @@ time at that moment.
 ## Consequences
 
 - All four warnings go away; no workflow references a deprecated major.
+- `gradle/actions` stays on v5, so a future deprecation notice for it will
+  return. That is deliberate, and revisiting it means evaluating Gradle's Terms
+  Use rather than just bumping a tag.
 - `ubuntu-24.04` stops receiving image updates. Nothing in this repository can
   discover the date the pin must be revisited, so the ADR is the record and
   2026-11-19 is the date by which the question comes back.

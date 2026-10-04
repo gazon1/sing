@@ -75,7 +75,7 @@ jobs:
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v5
 
       # The configuration cache store lives in the PROJECT .gradle/ directory,
       # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
@@ -417,7 +417,7 @@ jobs:
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v5
 
       # The configuration cache store lives in the PROJECT .gradle/ directory,
       # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
@@ -500,7 +500,7 @@ jobs:
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v5
 
       # The configuration cache store lives in the PROJECT .gradle/ directory,
       # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
