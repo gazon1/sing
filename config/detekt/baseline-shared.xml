@@ -10,79 +10,9 @@
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon), Selector.DateBucket(RelativeBucket.NextWeek))</ID>
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19)</ID>
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(thisWeekEnd, nextMon, nextFri, nextSun, followingMon)</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, discard = true, prefill = SectionPrefill("next_week", "Next week", LocalDate(2026, 10, 5)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, prefill = SectionPrefill("next_week", "Next week", LocalDate(2026, 10, 5)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "no_date", "No Date", Selector.DateBucket(RelativeBucket.NoDate), order = 6, prefill = SectionPrefill("no_date", "No date"), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true, prefill = SectionPrefill("overdue", "Overdue task"), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true, prefill = SectionPrefill("overdue", "Overdue task"), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "this_month", "This Month", Selector.DateBucket(RelativeBucket.ThisMonth), order = 5, prefill = SectionPrefill("this_month", "This month", LocalDate(2026, 10, 1)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, discard = true, prefill = SectionPrefill("this_week", "This week", LocalDate(2026, 9, 28)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, prefill = SectionPrefill("this_week", "This week", LocalDate(2026, 9, 28)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 0, discard = true, prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 1, discard = true, prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 1, prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "tomorrow", "Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true, prefill = SectionPrefill("tomorrow", "Task for tomorrow", LocalDate(2026, 10, 4)), )</ID>
-    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "yesterday", "Yesterday", Selector.DateBucket(RelativeBucket.Yesterday), order = 1, discard = true, prefill = SectionPrefill("yesterday", "Task for yesterday", LocalDate(2026, 10, 2)), )</ID>
-    <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _fetchModelsError = MutableStateFlow&lt;String?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _isFetchingModels = MutableStateFlow(false)</ID>
-    <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _models = MutableStateFlow&lt;List&lt;String&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _testResult = MutableStateFlow&lt;AiTestResult&gt;(AiTestResult.Idle)</ID>
-    <ID>BackingPropertyNaming:AndroidPomodoroTaskListProvider.kt:AndroidPomodoroTaskListProvider$private val _tasks = MutableStateFlow&lt;List&lt;Task&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:CalendarViewModel.kt:CalendarViewModel$/** Selection state — anchor date, view mode, mini panel open/closed. */ private val _calendarState = MutableStateFlow( CalendarState( anchor = initialDate, viewMode = initialMode, isMiniOpen = false, ), )</ID>
-    <ID>BackingPropertyNaming:EventBus.kt:EventBus$private val _channel = Channel&lt;E&gt;(capacity)</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _agendaViews = MutableStateFlow&lt;Map&lt;String, AgendaViewEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _attachments = MutableStateFlow&lt;Map&lt;String, AttachmentEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _calendarSyncTaskMap = MutableStateFlow&lt;Map&lt;String, CalendarSyncTaskMapEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _checklist = MutableStateFlow&lt;Map&lt;String, ChecklistItemEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _llmUsage = MutableStateFlow&lt;Map&lt;String, LlmUsageEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _notes = MutableStateFlow&lt;Map&lt;String, NoteEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _outbox = MutableStateFlow&lt;Map&lt;String, SyncOutboxEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _profiles = MutableStateFlow&lt;Map&lt;String, ProfileEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _projectReminders = MutableStateFlow&lt;Map&lt;Pair&lt;String, String&gt;, ProjectReminderEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _projectTagGroups = MutableStateFlow&lt;List&lt;ProjectInheritedTagGroupCrossRef&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _projects = MutableStateFlow&lt;Map&lt;String, ProjectEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _reminders = MutableStateFlow&lt;Map&lt;Pair&lt;String, String&gt;, com.singularity.todo.core.database.TaskReminderEntity&gt;&gt;( emptyMap(), )</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _remoteConfigCache = MutableStateFlow&lt;RemoteConfigCacheEntity?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _remoteConfigs = MutableStateFlow&lt;Map&lt;String, RemoteConfigEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _savedSearches = MutableStateFlow&lt;Map&lt;String, SavedSearchEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _tagGroups = MutableStateFlow&lt;Map&lt;String, TagGroupEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _tags = MutableStateFlow&lt;Map&lt;String, TagEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _taskDependencies = MutableStateFlow&lt;List&lt;TaskDependencyCrossRef&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _taskTags = MutableStateFlow&lt;List&lt;TaskTagCrossRef&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:FakeAppDatabase.kt:FakeAppDatabase$private val _tasks = MutableStateFlow&lt;Map&lt;String, TaskEntity&gt;&gt;(emptyMap())</ID>
-    <ID>BackingPropertyNaming:FakePomodoroAlarmScheduler.kt:FakePomodoroScheduler$private var _canceled = false</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeProfileRepository$private val _profiles = MutableStateFlow( listOf( Profile( id = ProfileId.default, name = "Personal", emoji = "🏠", colorIdx = 0, isDefault = true, createdAt = kotlin.time.Instant.fromEpochMilliseconds(0), updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0), ), ), )</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _afternoon = MutableStateFlow(18)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _dayEnd = MutableStateFlow(1080)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _dayStart = MutableStateFlow(540)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _id = MutableStateFlow&lt;SavedAgendaViewId?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _lunchEnd = MutableStateFlow(780)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _lunchStart = MutableStateFlow(720)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _morning = MutableStateFlow(12)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _sat = MutableStateFlow(false)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:FakeSettingsRepository.&lt;no name provided&gt;$private val _sun = MutableStateFlow(false)</ID>
-    <ID>BackingPropertyNaming:FakeRepositories.kt:InMemoryTaskDao$private val _tags = MutableStateFlow&lt;List&lt;TaskTagCrossRef&gt;&gt;(emptyList())</ID>
-    <ID>BackingPropertyNaming:HlcFactory.kt:HlcFactory$// Initialize with a placeholder node ID — will be updated on first tick() call private var _lastHlc: Hlc = Hlc.zero("pending")</ID>
-    <ID>BackingPropertyNaming:KoogAgentService.kt:FakeTextGen$private val _generateCalls = mutableListOf&lt;Triple&lt;String, String?, String?&gt;&gt;()</ID>
-    <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _isSelectionMode = MutableStateFlow(false)</ID>
-    <ID>BackingPropertyNaming:NotesListViewModel.kt:NotesListViewModel$private val _selectedIds = MutableStateFlow&lt;Set&lt;NoteId&gt;&gt;(emptySet())</ID>
-    <ID>BackingPropertyNaming:ProfileSwitcherViewModel.kt:ProfileSwitcherViewModel$private val _errorMessage = kotlinx.coroutines.flow.MutableStateFlow&lt;String?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:ProjectDetailViewModel.kt:ProjectDetailViewModel$/** Emits null on start (loading placeholder), then the project flow. */ private val _projectFlow = MutableStateFlow&lt;Project?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:ProjectsViewModel.kt:ProjectsViewModel$private val _searchQuery = MutableStateFlow("")</ID>
-    <ID>BackingPropertyNaming:ProjectsViewModel.kt:ProjectsViewModel$private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)</ID>
-    <ID>BackingPropertyNaming:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$private val _snapshot: MutableStateFlow&lt;RemoteConfigSnapshot&gt; = MutableStateFlow(RemoteConfigSnapshot.defaults())</ID>
-    <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _activeFilter = MutableStateFlow&lt;SimpleFilter?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _activeSavedSearchId = MutableStateFlow&lt;SavedSearchId?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
-    <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _queryString = MutableStateFlow("")</ID>
-    <ID>BackingPropertyNaming:SessionStore.kt:DataStoreSessionStore$private val _deviceIdFlow = MutableStateFlow("")</ID>
-    <ID>BlankLineBetweenWhenConditions:SavedAgendaListScreen.kt:when (e) { is SavedAgendaListEvent.ShowError -&gt; Notification.Error(e.message) is SavedAgendaListEvent.CopySuccess -&gt; { scope.launch { snackbarHostState.showSnackbar( message = "Copied to ${e.targetProfileName}", duration = SnackbarDuration.Short, ) } Notification.None } }</ID>
-    <ID>ClassSignature:AgendaViewModel.kt:PendingDelete</ID>
-    <ID>ClassSignature:LogBundleExporterTest.kt:FakeBackupCodec : BackupCodec</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
-    <ID>ConstructorParameterNaming:QueryInterval.kt:QueryInterval$private val _days: Int</ID>
     <ID>CyclomaticComplexMethod:A2uiParser.kt:A2uiParser$private fun parseNode: UiNode?</ID>
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
@@ -133,32 +63,6 @@
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Recurrence row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Start date + time row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Tags row — null = hidden </ID>
-    <ID>Filename:AttachmentUploadService.kt:com.singularity.todo.core.attachments.AttachmentUploadService.kt</ID>
-    <ID>Filename:CalendarSyncExceptions.kt:com.singularity.todo.feature.calendar_sync.error.CalendarSyncExceptions.kt</ID>
-    <ID>Filename:Computed.kt:com.singularity.todo.feature.tasks.domain.logic.Computed.kt</ID>
-    <ID>Filename:CreateProject.kt:com.singularity.todo.feature.projects.domain.usecase.CreateProject.kt</ID>
-    <ID>Filename:CreateTask.kt:com.singularity.todo.feature.tasks.domain.usecase.CreateTask.kt</ID>
-    <ID>Filename:CreateTaskFromDraft.kt:com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft.kt</ID>
-    <ID>Filename:DeleteProject.kt:com.singularity.todo.feature.projects.domain.usecase.DeleteProject.kt</ID>
-    <ID>Filename:FabActionResolver.kt:com.singularity.todo.shell.FabActionResolver.kt</ID>
-    <ID>Filename:FakePomodoroAlarmScheduler.kt:com.singularity.todo.test.fakes.FakePomodoroAlarmScheduler.kt</ID>
-    <ID>Filename:FileRevealer.android.kt:com.singularity.todo.core.files.FileRevealer.android.kt</ID>
-    <ID>Filename:FileRevealer.jvm.kt:com.singularity.todo.core.files.FileRevealer.jvm.kt</ID>
-    <ID>Filename:Ids.kt:com.singularity.todo.feature.agenda.Ids.kt</ID>
-    <ID>Filename:Ids.kt:com.singularity.todo.feature.profile.Ids.kt</ID>
-    <ID>Filename:NoopSubscriptionProviderTest.kt:com.singularity.todo.core.billing.NoopSubscriptionProviderTest.kt</ID>
-    <ID>Filename:OutgoingLinksExtractor.kt:com.singularity.todo.feature.notes.OutgoingLinksExtractor.kt</ID>
-    <ID>Filename:RemoteBackupService.kt:com.singularity.todo.core.backup.RemoteBackupService.kt</ID>
-    <ID>Filename:SearchPreviewHelpers.kt:com.singularity.todo.feature.search.presentation.nav.SearchPreviewHelpers.kt</ID>
-    <ID>Filename:TaskDetailState.kt:com.singularity.todo.feature.tasks.domain.model.TaskDetailState.kt</ID>
-    <ID>Filename:TaskMutations.kt:com.singularity.todo.feature.tasks.domain.usecase.TaskMutations.kt</ID>
-    <ID>Filename:TaskToJsonProbeTest.kt:com.singularity.todo.core.sync.TaskToJsonProbeTest.kt</ID>
-    <ID>Filename:TestFakes.kt:com.singularity.todo.feature.settings.TestFakes.kt</ID>
-    <ID>Filename:TestVmInfrastructure.kt:com.singularity.todo.test.helpers.TestVmInfrastructure.kt</ID>
-    <ID>Filename:UpdateProject.kt:com.singularity.todo.feature.projects.domain.usecase.UpdateProject.kt</ID>
-    <ID>Filename:UpdateTask.kt:com.singularity.todo.feature.tasks.domain.usecase.UpdateTask.kt</ID>
-    <ID>Filename:package-info.kt:com.singularity.todo.feature.agenda.domain.selector.package-info.kt</ID>
-    <ID>Filename:testScope.kt:com.singularity.todo.core.coroutines.testScope.kt</ID>
     <ID>ForbiddenComment:AuthRepository.kt:SupabaseAuthRepository$* Stub implementation of AuthRepository for compilation. * TODO: Replace with actual Supabase implementation once SDK is properly integrated.</ID>
     <ID>ForbiddenComment:AuthRepository.kt:SupabaseAuthRepository$// TODO: Implement with Supabase SDK</ID>
     <ID>ForbiddenComment:CoreDiModule.kt:// TODO: when a real SDK is connected, replace with RealAnalytics(binding).</ID>
@@ -166,16 +70,6 @@
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override fun activeProfile: Flow&lt;Profile&gt;</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override fun observe: Flow&lt;Profile?&gt;</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override fun observeAll: Flow&lt;List&lt;Profile&gt;&gt;</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun create: Result&lt;Profile&gt;</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun delete: Result&lt;Unit&gt;</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun ensureDefaults</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun get: Profile?</ID>
-    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun update: Result&lt;Profile&gt;</ID>
-    <ID>FunctionSignature:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;$override suspend fun cancelByTask</ID>
-    <ID>FunctionSignature:LogBundleExporterTest.kt:FakeBackupCodec$override suspend fun importFromSource: Result&lt;BackupCodec.CodecReadResult&gt;</ID>
     <ID>Indentation:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest.Companion$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
@@ -233,7 +127,6 @@
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$)</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
-    <ID>MaximumLineLength:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;$}</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
     <ID>MaximumLineLength:CalendarSyncSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
@@ -249,11 +142,8 @@
     <ID>MaximumLineLength:SettingsImporter.kt:SettingsImporter$)</ID>
     <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
-    <ID>MayBeConstant:AndroidSyncScheduler.kt:AndroidSyncScheduler.Companion$private val INTENT_ACTION = "com.singularity.todo.SYNC_ALARM"</ID>
-    <ID>MayBeConstant:OAuthTokenRefreshTest.kt:OAuthTokenRefreshTest.Companion$val NOW = 1_700_000_000_000L</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
     <ID>NoDirectClockSystem:AgendaViewModelTest.kt:AgendaViewModelTest$Clock.System</ID>
-    <ID>NoEmptyOnClickLambda:ArchiveScreen.kt:{ }</ID>
     <ID>NoEmptyOnClickLambda:BackupScreen.kt:{}</ID>
     <ID>NoEmptyOnClickLambda:PomodoroScreen.kt:{ }</ID>
     <ID>NoMultipleSpaces:CoreDiModule.kt: </ID>
@@ -261,8 +151,6 @@
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
     <ID>NoUnusedImports:AgendaEvaluatorMatrixTest.kt:com.singularity.todo.feature.agenda.domain.AgendaEvaluatorMatrixTest.kt</ID>
     <ID>NoUnusedImports:AgendaScreen.kt:com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen.kt</ID>
-    <ID>NoUnusedImports:BackupMigrations.kt:com.singularity.todo.core.backup.BackupMigrations.kt</ID>
-    <ID>NoUnusedImports:LogBundleExporterTest.kt:com.singularity.todo.core.log.LogBundleExporterTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -349,7 +237,6 @@
     <ID>PackageNaming:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
-    <ID>ParameterListWrapping:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;$(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId)</ID>
     <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
     <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
     <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_ALPHA = ProjectId("proj-alpha")</ID>
@@ -470,10 +357,7 @@
     <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
-    <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
-    <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
     <ID>Wrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(</ID>
     <ID>Wrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(workTomorrow, urgentTomorrow), Selector.AnyOf(listOf( Selector.Tags(setOf(TAG_WORK)), Selector.DateBucket(RelativeBucket.Tomorrow), )))</ID>
-    <ID>Wrapping:BackupMigrations.kt:BackupMigrations$(</ID>
   </CurrentIssues>
 </SmellBaseline>
