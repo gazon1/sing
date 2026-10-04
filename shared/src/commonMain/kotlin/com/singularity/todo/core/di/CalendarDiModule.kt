@@ -33,6 +33,7 @@ fun calendarModule(): Module = module {
             ),
             initialDate = LocalDate(year, month, 1),
             initialMode = mode,
+            crashReporter = get(),
         )
     }
 }

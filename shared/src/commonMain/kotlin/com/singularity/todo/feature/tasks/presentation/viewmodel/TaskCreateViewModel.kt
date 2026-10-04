@@ -5,6 +5,8 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.DraftAttachment
@@ -51,6 +53,7 @@ class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: kotlinx.datetime.LocalDate?,
     sectionPrefillKey: String?,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
         initialDraft = TaskDraft(
@@ -61,6 +64,7 @@ class TaskCreateViewModel(
             // Always save to the generic draft key — section prefill is restored once on entry.
             deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
         },
+        crashReporter = crashReporter,
         restore = {
             // If opened from an agenda section, restore from the section-specific draft key
             // so that the prefill values (title, due date) are pre-populated.

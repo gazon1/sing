@@ -9,6 +9,8 @@ import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -54,6 +56,7 @@ data class SyncState(
 class SyncViewModel(
     private val repository: SyncRepository,
     private val prefs: SyncPrefs,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
         initialState = SyncState(
@@ -62,6 +65,7 @@ class SyncViewModel(
             lastSyncedAt = prefs.lastSuccessfulSyncAt,
             status = repository.status.value,
         ),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
     private val syncMutex = Mutex()
@@ -139,6 +143,9 @@ class SyncViewModel(
                 } catch (e: Throwable) {
                     // Exception from syncOnce() (e.g. getOrThrow() on a Failure Result).
                     // Ensure the snackbar shows after this sync completes.
+                    // The status line is the whole story for the user; without this the
+                    // stack trace that explains the failure existed nowhere.
+                    crashReporter.report(e, SYNC_ONCE_FAILED)
                     allowSnackbarOnFailure = true
                     updateState {
                         it.copy(
@@ -194,4 +201,9 @@ class SyncViewModel(
         lastSyncedAt = prefs.lastSuccessfulSyncAt,
         status = repository.status.value,
     )
+
+    private companion object {
+        // Machine-shaped grouping keys — these leave the device.
+        const val SYNC_ONCE_FAILED = "sync.once_failed"
+    }
 }

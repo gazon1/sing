@@ -12,6 +12,8 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 
@@ -65,9 +67,11 @@ class CalendarSyncViewModel(
     private val scheduler: com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler,
     private val appQueries: CalendarAppQueries,
     private val orchestrator: CalendarSyncOrchestrator,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
         initialState = CalendarSyncUiState(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
     // MviViewModel handles addCloseable(scope) — no manual call needed
@@ -122,7 +126,10 @@ class CalendarSyncViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                // Swallowed into an empty list, so the picker silently shows no apps and the
+                // only trace was a warn line nothing reads.
                 Logger.w(e) { "Failed to list installed calendar apps" }
+                crashReporter.report(e, LIST_APPS_FAILED)
                 emptyList()
             }
             val calendarsResult = calendarProvider.getAvailableCalendars()
@@ -189,5 +196,10 @@ class CalendarSyncViewModel(
                 orchestrator.requestSync(SyncSource.ConfigChanged)
             }
         }
+    }
+
+    private companion object {
+        // Machine-shaped grouping keys — these leave the device.
+        const val LIST_APPS_FAILED = "calendar_sync.list_apps_failed"
     }
 }

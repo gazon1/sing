@@ -46,6 +46,14 @@ import kotlinx.coroutines.CoroutineScope
  * [FileRevealer.jvm] (XDG-open/IO), [AndroidCalendarAppQueries] (JDBC/IO).
  * These are the exceptions, not the rule.
  *
+ * ## Every scope carries [BackgroundFailureHandler]
+ *
+ * Both actuals add [BackgroundFailureHandler] to the context. This is part of the
+ * factory's contract, not an implementation detail: a `launch` in a scope without a
+ * handler escalates to the platform's default uncaught-exception handler, which kills
+ * an Android process outright. A new platform target must add the handler too — there
+ * is a test asserting its presence on the JVM actual.
+ *
  * See `singularity-todo-coroutine-scopes` for full rationale and patterns.
  */
 expect fun createBackgroundScope(): CoroutineScope

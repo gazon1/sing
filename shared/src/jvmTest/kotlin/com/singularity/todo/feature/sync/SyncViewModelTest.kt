@@ -41,7 +41,7 @@ class SyncViewModelTest {
         // Child-Job wrapper: cancelling it stops the VM's infinite collectors
         // without cancelling the test body. Each test MUST cancel it before returning.
         val vmScope = testScope(scope)
-        return SyncViewModel(repo, prefs, vmScope) to vmScope
+        return SyncViewModel(repo, prefs, scope = vmScope) to vmScope
     }
 
     // ─── Test 1: syncNow debounce when already loading ─────────────────────────

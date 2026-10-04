@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
@@ -44,9 +46,11 @@ import kotlinx.coroutines.launch
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AgendaUiState, AgendaIntent, AgendaUiEvent>(
         initialState = AgendaUiState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -92,6 +96,13 @@ class AgendaViewModel(
 
     /**
      * Processes a user [AgendaIntent].
+     *
+     * The three repository mutations below discard their `Result`, and [AgendaUiEvent] has no
+     * error variant to route a failure into — so they report and keep the previous behaviour
+     * (nothing visible happens). Adding a user-visible error here means adding an event and
+     * handling it in the screen; that is a product change, deliberately not smuggled in with a
+     * reliability fix. A *thrown* failure on these paths — including from [emit] on a closed
+     * event channel — reaches `BackgroundFailureHandler` via the scope instead.
      */
     override fun onIntent(intent: AgendaIntent) {
         when (intent) {
@@ -100,7 +111,10 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.TaskCheckClicked -> with(intent) {
-                scope.launch { deps.taskRepo.toggleComplete(taskId) }
+                scope.launch {
+                    deps.taskRepo.toggleComplete(taskId)
+                        .onFailure { crashReporter.report(it, TOGGLE_COMPLETE_FAILED) }
+                }
             }
 
             is AgendaIntent.TaskLongClicked -> with(intent) {
@@ -108,7 +122,10 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.TaskPinClicked -> with(intent) {
-                scope.launch { deps.taskRepo.togglePinned(taskId) }
+                scope.launch {
+                    deps.taskRepo.togglePinned(taskId)
+                        .onFailure { crashReporter.report(it, TOGGLE_PINNED_FAILED) }
+                }
             }
 
             is AgendaIntent.TaskDeleteClicked -> with(intent) {
@@ -156,6 +173,7 @@ class AgendaViewModel(
         pendingDeleteJob?.cancel()
         _pendingDelete.value = null
         deps.taskRepo.restore(taskId)
+            .onFailure { crashReporter.report(it, RESTORE_FAILED) }
     }
 
     /**
@@ -206,6 +224,11 @@ class AgendaViewModel(
     companion object {
         /** 5-second undo window, matching the snackbar duration. */
         const val UNDO_WINDOW_MS = 5_000L
+
+        // Machine-shaped grouping keys — these leave the device.
+        private const val TOGGLE_COMPLETE_FAILED = "agenda.toggle_complete_failed"
+        private const val TOGGLE_PINNED_FAILED = "agenda.toggle_pinned_failed"
+        private const val RESTORE_FAILED = "agenda.restore_failed"
     }
 }
 

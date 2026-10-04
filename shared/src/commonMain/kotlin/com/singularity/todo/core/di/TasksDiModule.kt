@@ -162,10 +162,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
             ),
             initialDueDate = initialDueDate,
             sectionPrefillKey = sectionPrefillKey,
+            crashReporter = get(),
         )
     }
 
-    viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get()) }
+    viewModel { ArchiveViewModel(archiveRepo = get(), taskRepo = get(), crashReporter = get()) }
 
     viewModel<StatisticsViewModel> {
         StatisticsViewModel(
@@ -174,6 +175,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
             projectsRepo = get(),
             currentUser = get(),
             clock = get(),
+            crashReporter = get(),
         )
     }
 

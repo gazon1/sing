@@ -8,6 +8,8 @@ import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.ai.TextGenPort
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.launch
 
 /**
@@ -21,9 +23,11 @@ class ChatViewModel(
     private val log: Logger,
     private val agent: TextGenPort,
     private val idGen: IdGenerator,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ChatViewModel.State, ChatViewModel.Intent, ChatUiEvent>(
         initialState = State(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -73,10 +77,16 @@ class ChatViewModel(
             }
         }.onFailure { error ->
             log.e(error) { "AI stream failed" }
+            crashReporter.report(error, CHAT_STREAM_FAILED)
             emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
         }
 
         updateState { it.copy(isLoading = false) }
+    }
+
+    private companion object {
+        /** Machine-shaped grouping key — it leaves the device. */
+        const val CHAT_STREAM_FAILED = "chat.stream_failed"
     }
 
     private fun List<ChatMessage>.replaceAssistantContent(id: String, content: String) =

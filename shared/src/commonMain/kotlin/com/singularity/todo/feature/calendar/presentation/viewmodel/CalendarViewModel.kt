@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -44,9 +46,11 @@ class CalendarViewModel(
     private val deps: CalendarDeps,
     initialDate: LocalDate,
     initialMode: CalendarViewMode = CalendarViewMode.MONTH,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<CalendarUiState, CalendarIntent, CalendarUiEvent>(
         initialState = CalendarUiState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

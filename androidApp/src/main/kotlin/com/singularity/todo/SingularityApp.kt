@@ -11,6 +11,7 @@ import com.singularity.todo.core.log.debugInfo
 import com.singularity.todo.core.log.flushLogs
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.installBackgroundCrashReporting
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.gate.gateModule
@@ -113,6 +114,11 @@ class SingularityApp :
         // and the unwired-surface audit cannot see it (that script only matches
         // uppercase-initial names), so it was dead code exactly when it became useful.
         getKoin().get<CrashReportingPort>().addBreadcrumb(debugInfo(version, BuildConfig.DEBUG))
+        // Close the funnel's foundation: every createBackgroundScope() scope — the 9 ViewModels
+        // that launch outside MviViewModel's error funnel among them — gets its unhandled
+        // failures reported here instead of escalating to the platform's uncaught-exception
+        // handler, which kills the process.
+        installBackgroundCrashReporting(getKoin().get<CrashReportingPort>())
         // Installed after startKoin so the Koin graph is available to the handler if it
         // needs to report — and after the SDK, which initializes in the
         // attachBaseContext..onCreate window, so `previous` is AppTracer's own handler.

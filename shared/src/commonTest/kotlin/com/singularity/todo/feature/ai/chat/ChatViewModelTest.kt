@@ -31,7 +31,7 @@ class ChatViewModelTest {
         testLog,
         ScriptedTextGen(flow),
         SequenceIdGenerator(),
-        AutoCloseableCoroutineScope(scope.coroutineContext),
+        scope = AutoCloseableCoroutineScope(scope.coroutineContext),
     )
 
     @Test

@@ -24,6 +24,7 @@ fun gateModule(playStoreUrl: String): Module = module {
             remoteConfigPort = get<RemoteConfigPort>(),
             appVersion = appVersion(),
             playStoreUrl = playStoreUrl,
+            crashReporter = get(),
         )
     }
 }

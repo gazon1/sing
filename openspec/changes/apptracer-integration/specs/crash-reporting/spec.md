@@ -163,3 +163,55 @@ The source directories declared for analysis SHALL all exist.
 
 - **Given** the standard lint command is read
 - **Then** it includes the application module
+
+### Requirement: REQ-9 Every background scope routes an unhandled failure to reporting
+
+Every scope produced by the background scope factory SHALL carry a coroutine failure handler, so
+that a failure in a coroutine started on it is reported rather than escalated to the platform's
+default uncaught-exception handler.
+
+The handler SHALL NOT rethrow, and SHALL NOT report a cancellation.
+
+The factory SHALL NOT be constructible without the handler: the property is part of the
+factory's contract, and a build-time check SHALL assert it.
+
+#### Scenario: A launch fails in a background scope
+
+- **Given** a coroutine started on a background scope throws
+- **When** the failure is handled
+- **Then** the failure is reported and the process continues
+
+#### Scenario: The scope outlives a failure
+
+- **Given** a coroutine started on a background scope has failed
+- **When** another coroutine is started on the same scope
+- **Then** it runs normally
+
+#### Scenario: A coroutine is cancelled
+
+- **Given** a coroutine on a background scope is cancelled
+- **When** the failure path is considered
+- **Then** nothing is reported
+
+### Requirement: REQ-10 The error-handling check recognises failure, not only the funnel
+
+The build-time check that connects error-handling surfaces to reporting SHALL fire for a
+component that can fail, rather than only for a component that uses the shared error funnel.
+
+A component qualifies when it uses the funnel, starts a coroutine, or catches a failure by
+hand. The check SHALL NOT be satisfied by a component whose failures are converted into user
+interface state without being reported.
+
+#### Scenario: A component handles failures outside the funnel
+
+- **Given** a component catches a failure and turns it into interface state
+- **When** the check runs
+- **Then** the check fails and names the component
+
+### Requirement: REQ-11 A component does not build a scope that bypasses the failure handler
+
+A presentation component SHALL obtain its scope through dependency injection and SHALL NOT
+construct one directly, because a directly constructed scope does not carry the failure handler
+required by REQ-9.
+
+This SHALL be enforced by the same build-time check as REQ-10.

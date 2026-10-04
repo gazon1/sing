@@ -4,4 +4,5 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-actual fun createBackgroundScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+actual fun createBackgroundScope(): CoroutineScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.Default + BackgroundFailureHandler)

@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.error.runCatchingResult
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -13,7 +15,6 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiE
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.launch
 
 /**
  * Project editor screen ViewModel (create or edit).
@@ -31,15 +32,22 @@ class ProjectEditorViewModel(
     private val createProject: CreateProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
     private val projectsRepo: ProjectsRepository,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectEditorUiState, ProjectEditorIntent, ProjectEditorUiEvent>(
         initialState = ProjectEditorUiState(projectId = projectId),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
     init {
         if (projectId != null) {
-            scope.launch { loadProject(projectId) }
+            catchTo(
+                "Failed to load project",
+                { msg -> updateState { it.copy(loading = false, errorMessage = msg) } },
+            ) {
+                runCatchingResult { loadProject(projectId) }
+            }
         }
     }
 
@@ -72,11 +80,11 @@ class ProjectEditorViewModel(
             is ProjectEditorIntent.DescriptionChanged -> updateState { it.copy(description = intent.description) }
             is ProjectEditorIntent.ParentChanged -> updateState { it.copy(parentId = intent.parentId) }
             ProjectEditorIntent.ErrorShown -> updateState { it.copy(errorMessage = null) }
-            ProjectEditorIntent.Save -> scope.launch { save() }
+            ProjectEditorIntent.Save -> save()
         }
     }
 
-    private suspend fun save() {
+    private fun save() {
         val current = state.value
         val validationError = validateName(current.name)
         if (validationError != null) {
@@ -94,38 +102,30 @@ class ProjectEditorViewModel(
                 icon = current.icon,
                 parentId = current.parentId,
             )
-            createProject(input).fold(
-                onSuccess = { emit(ProjectEditorUiEvent.NavigateBack) },
-                onFailure = { err ->
-                    updateState {
-                        it.copy(
-                            saving = false,
-                            errorMessage = err.toMessage("Failed to create project"),
-                        )
-                    }
-                },
-            )
+            // These two arms used to fold by hand and write errorMessage directly, so a failed
+            // save was visible to the user but reported nowhere.
+            catchTo(
+                "Failed to create project",
+                { msg -> updateState { it.copy(saving = false, errorMessage = msg) } },
+            ) {
+                createProject(input).onSuccess { emit(ProjectEditorUiEvent.NavigateBack) }
+            }
         } else {
             // Edit mode
-            updateProject(current.projectId) { existing ->
-                existing.copy(
-                    name = current.name.trim(),
-                    description = current.description.ifBlank { null },
-                    color = current.color,
-                    icon = current.icon,
-                    parentId = current.parentId,
-                )
-            }.fold(
-                onSuccess = { emit(ProjectEditorUiEvent.NavigateBack) },
-                onFailure = { err ->
-                    updateState {
-                        it.copy(
-                            saving = false,
-                            errorMessage = err.toMessage("Failed to update project"),
-                        )
-                    }
-                },
-            )
+            catchTo(
+                "Failed to update project",
+                { msg -> updateState { it.copy(saving = false, errorMessage = msg) } },
+            ) {
+                updateProject(current.projectId) { existing ->
+                    existing.copy(
+                        name = current.name.trim(),
+                        description = current.description.ifBlank { null },
+                        color = current.color,
+                        icon = current.icon,
+                        parentId = current.parentId,
+                    )
+                }.onSuccess { emit(ProjectEditorUiEvent.NavigateBack) }
+            }
         }
     }
 

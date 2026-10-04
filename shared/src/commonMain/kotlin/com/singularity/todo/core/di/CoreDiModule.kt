@@ -208,7 +208,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
-    viewModel { SyncViewModel(get(), get(), get()) }
+    viewModel { SyncViewModel(get(), get(), get(), AutoCloseableCoroutineScope()) }
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
@@ -286,7 +286,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { AuthViewModel(authRepository = get()) }
+    viewModel { AuthViewModel(authRepository = get(), crashReporter = get()) }
 
     // Settings snapshot exporter / importer (registered as single — stateless, no per-injection state)
     single { SettingsExporter(getAll<SettingsContributor<*, *>>().toSet()) }
@@ -301,6 +301,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             settingsExporter = get(),
             settingsImporter = get(),
             fileSourceFactory = get(),
+            crashReporter = get(),
         )
     }
 

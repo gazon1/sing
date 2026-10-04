@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.ai.usage
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.RoomUsageRecorder
@@ -37,9 +39,11 @@ sealed interface AiUsageIntent : MviIntent
 class AiUsageViewModel(
     private val usageRecorder: RoomUsageRecorder,
     profileRepository: ProfileRepository,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AiUsageUiState, AiUsageIntent, Nothing>(
         initialState = AiUsageUiState(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

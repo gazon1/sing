@@ -5,8 +5,9 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import androidx.compose.runtime.Stable
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
@@ -134,9 +135,11 @@ class SavedAgendaViewModel(
     private val deps: SavedAgendaDeps,
     private val mode: SavedAgendaScreenMode,
     private val seedStore: SavedAgendaSeedStore,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<SavedAgendaViewState, SavedAgendaIntent, SavedAgendaEvent>(
         initialState = SavedAgendaViewState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -261,36 +264,23 @@ class SavedAgendaViewModel(
                         sectionsJson,
                         now,
                     )
-                    deps.repo.upsert(updated)
-                        .fold(
-                            onSuccess = {
+                    // Both save arms used to fold by hand and emit ShowError directly, so a
+                    // failed save was visible but reported nowhere.
+                    catchTo("Failed to save agenda view", { msg -> emit(SavedAgendaEvent.ShowError(msg)) }) {
+                        deps.repo.upsert(updated)
+                            .onSuccess {
                                 draftState.markSaved()
                                 emit(SavedAgendaEvent.SaveSuccess)
-                            },
-                            onFailure = {
-                                emit(
-                                    SavedAgendaEvent.ShowError(
-                                        it.toMessage("Save failed"),
-                                    ),
-                                )
-                            },
-                        )
+                            }
+                    }
                 }
 
                 is SavedAgendaScreenMode.Create -> {
                     // Anonymous sentinel — repo stamps ambient userId on insert
                     val newView = SavedAgendaViewFactory.create(UserId.anonymous, nameToSave, sectionsJson, now)
-                    deps.repo.upsert(newView)
-                        .fold(
-                            onSuccess = { emit(SavedAgendaEvent.SaveSuccess) },
-                            onFailure = {
-                                emit(
-                                    SavedAgendaEvent.ShowError(
-                                        it.toMessage("Save failed"),
-                                    ),
-                                )
-                            },
-                        )
+                    catchTo("Failed to create agenda view", { msg -> emit(SavedAgendaEvent.ShowError(msg)) }) {
+                        deps.repo.upsert(newView).onSuccess { emit(SavedAgendaEvent.SaveSuccess) }
+                    }
                 }
             }
         }
@@ -301,19 +291,8 @@ class SavedAgendaViewModel(
             is SavedAgendaScreenMode.Edit -> mode.viewId
             else -> return
         }
-        scope.launch {
-            deps.repo.delete(viewId)
-                .fold(
-                    onSuccess = { emit(SavedAgendaEvent.DeleteSuccess) },
-                    onFailure = {
-                        emit(
-                            SavedAgendaEvent.ShowError(
-                                it.message
-                                    ?: "Delete failed",
-                            ),
-                        )
-                    },
-                )
+        catchTo("Failed to delete agenda view", { msg -> emit(SavedAgendaEvent.ShowError(msg)) }) {
+            deps.repo.delete(viewId).onSuccess { emit(SavedAgendaEvent.DeleteSuccess) }
         }
     }
 

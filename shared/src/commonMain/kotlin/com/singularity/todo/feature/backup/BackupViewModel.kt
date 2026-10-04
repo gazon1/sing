@@ -8,6 +8,8 @@ import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsImporter
@@ -49,9 +51,11 @@ class BackupViewModel(
     private val settingsExporter: com.singularity.todo.core.settings.SettingsExporter,
     private val settingsImporter: SettingsImporter,
     private val fileSourceFactory: FileSourceFactory,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<BackupUiState, BackupIntent, BackupUiEvent>(
         initialState = BackupUiState(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -106,6 +110,7 @@ class BackupViewModel(
             }
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, BACKUP_EXPORT_FAILED)
                 emit(Error(e.message ?: "Export failed"))
             }
     }
@@ -123,6 +128,7 @@ class BackupViewModel(
             }
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, BACKUP_RESTORE_FAILED)
                 emit(Error(e.message ?: "Import failed"))
             }
     }
@@ -137,6 +143,7 @@ class BackupViewModel(
             }
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, SETTINGS_EXPORT_FAILED)
                 emit(Error(e.message ?: "Settings export failed"))
             }
     }
@@ -156,6 +163,9 @@ class BackupViewModel(
         }
         json.onSuccess { runImportSettingsSnapshot(it) }.onFailure { e ->
             updateState { it.copy(isWorking = false) }
+            // A SAF read failure is a platform problem, not a user picking the wrong file,
+            // so it is reported as well as shown. The decode outcomes below are not.
+            crashReporter.report(e, SETTINGS_FILE_READ_FAILED)
             emit(Error(e.message ?: "Could not read the selected file"))
         }
     }
@@ -193,7 +203,10 @@ class BackupViewModel(
     private suspend fun runDelete(backupId: com.singularity.todo.core.backup.BackupId) {
         repository.delete(backupId)
             .onSuccess { tryEmit(BackupUiEvent.ShowSnackbar("Backup deleted")) }
-            .onFailure { e -> emit(Error(e.message ?: "Delete failed")) }
+            .onFailure { e ->
+                crashReporter.report(e, BACKUP_DELETE_FAILED)
+                emit(Error(e.message ?: "Delete failed"))
+            }
     }
 
     private suspend fun runPush(backupId: com.singularity.todo.core.backup.BackupId) {
@@ -201,11 +214,25 @@ class BackupViewModel(
         repository.push(backupId)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, BACKUP_PUSH_FAILED)
                 emit(Error(e.message ?: "Push failed"))
             }
             .onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Backup pushed"))
             }
+    }
+
+    private companion object {
+        // Machine-shaped grouping keys — these leave the device. The settings-decode
+        // outcomes (SchemaTooOld, ParseError) are deliberately absent: they are the user
+        // handing the app a file it cannot read, which the KDoc above treats as an ordinary
+        // message rather than a defect.
+        const val BACKUP_EXPORT_FAILED = "backup.export_failed"
+        const val BACKUP_RESTORE_FAILED = "backup.restore_failed"
+        const val BACKUP_DELETE_FAILED = "backup.delete_failed"
+        const val BACKUP_PUSH_FAILED = "backup.push_failed"
+        const val SETTINGS_EXPORT_FAILED = "backup.settings_export_failed"
+        const val SETTINGS_FILE_READ_FAILED = "backup.settings_file_read_failed"
     }
 }

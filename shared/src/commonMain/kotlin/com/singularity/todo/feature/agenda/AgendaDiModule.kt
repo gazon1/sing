@@ -57,6 +57,7 @@ fun agendaModule(): Module = module {
                 currentUser = get<ProfileAwareCurrentUser>(),
             ),
             definition = definition,
+            crashReporter = get(),
         )
     }
 
@@ -85,6 +86,7 @@ fun agendaModule(): Module = module {
             ),
             mode = mode,
             seedStore = get(),
+            crashReporter = get(),
         )
     }
 }

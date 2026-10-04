@@ -39,6 +39,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
             createProject = get(),
             updateProject = get(),
             projectsRepo = get(),
+            crashReporter = get(),
         )
     }
 

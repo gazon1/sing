@@ -2,6 +2,8 @@
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -72,9 +74,11 @@ class StatisticsViewModel(
     private val projectsRepo: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
         initialState = StatisticsUiState(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -98,7 +102,14 @@ class StatisticsViewModel(
                     // in state and used by the insights side.
                     computeStatistics(completed, overdue, nowMs, 7)
                 }
-                .catch { emit(StatisticsSnapshot(emptyList(), 0, 0, 0.0, 0)) }
+                .catch { error ->
+                    // These two used to substitute empty data with nothing recorded, so a
+                    // broken query showed the user a plausible all-zero screen and the
+                    // failure existed nowhere. Reported from here rather than through
+                    // catchTo: a Flow operator, not a suspend block yielding a Result.
+                    crashReporter.report(error, TASK_STATISTICS_FAILED)
+                    emit(StatisticsSnapshot(emptyList(), 0, 0, 0.0, 0))
+                }
                 .collect { snapshot ->
                     updateState { it.copy(snapshot = snapshot, loading = false) }
                 }
@@ -142,7 +153,10 @@ class StatisticsViewModel(
                     )
                 }
             }
-                .catch { emit(StatisticsUiState.InsightsData()) }
+                .catch { error ->
+                    crashReporter.report(error, TIME_INSIGHTS_FAILED)
+                    emit(StatisticsUiState.InsightsData())
+                }
                 .collect { insights ->
                     updateState { it.copy(insights = insights, loading = false) }
                 }
@@ -157,5 +171,11 @@ class StatisticsViewModel(
                 updateState { it.copy(rangeDays = days, loading = true) }
             }
         }
+    }
+
+    private companion object {
+        // Machine-shaped grouping keys — these leave the device.
+        const val TASK_STATISTICS_FAILED = "statistics.tasks_failed"
+        const val TIME_INSIGHTS_FAILED = "statistics.insights_failed"
     }
 }

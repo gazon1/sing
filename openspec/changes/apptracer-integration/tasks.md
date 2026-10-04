@@ -73,6 +73,21 @@
 - [x] Replace references to a crash dashboard and a log field that do not exist, in the
       debugging skill and the observability record.
 
+## Background failure floor and the guard behind it
+
+- [x] Add a `CoroutineExceptionHandler` to every `createBackgroundScope()` actual, with a
+      replaceable target and a logged (never silent) uninstalled default.
+- [x] Install the target from `SingularityApp.onCreate` with the Koin-resolved
+      `CrashReportingPort`; skip `CancellationException`; never rethrow.
+- [x] Cover the handler with tests: scope composition, report-and-survive, cancellation, the
+      uninstalled default, and the issue key.
+- [x] Widen the wiring check from "uses the funnel" to "can fail", and add a check that no
+      component builds a scope that bypasses the handler.
+- [x] Connect the 15 components the widened check found, replacing hand-rolled failure handling
+      with the funnel where the interface state allows it.
+- [x] Record the decision, including the refactor that would make the global handler
+      unnecessary.
+
 ## Verification
 
 - [x] Every module compiles with the change.

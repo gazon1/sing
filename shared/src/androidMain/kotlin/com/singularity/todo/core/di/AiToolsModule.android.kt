@@ -114,8 +114,8 @@ actual fun aiToolsModule(): Module = module {
 
     singleOf(::RoomUsageRecorder)
 
-    viewModel { ChatViewModel(Logger.withTag("ChatViewModel"), get(), get()) }
-    viewModel { AiUsageViewModel(get(), get()) }
+    viewModel { ChatViewModel(Logger.withTag("ChatViewModel"), get(), get(), get()) }
+    viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
     viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get()) }
 
     // ─── GenUI ───

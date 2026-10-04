@@ -3,12 +3,14 @@ package com.singularity.todo.feature.gate.presentation.viewmodel
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingResult
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
-import kotlinx.coroutines.launch
 
 /**
  * ViewModel for [AppVersionGateScreen][com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen].
@@ -34,9 +36,11 @@ class AppVersionGateViewModel(
     private val remoteConfigPort: RemoteConfigPort,
     private val appVersion: AppVersion,
     private val playStoreUrl: String,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
         initialState = AppVersionGateState.Checking,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -44,10 +48,15 @@ class AppVersionGateViewModel(
         check()
     }
 
+    /**
+     * Fails **open**: a remote-config read that throws is reported and then evaluated against
+     * the default snapshot, so a broken config server cannot leave every user stuck behind a
+     * version gate they cannot pass. A hard failure here is the worst possible place to be
+     * strict.
+     */
     private fun check() {
-        scope.launch {
-            val snapshot = remoteConfigPort.snapshot()
-            evaluate(snapshot)
+        catchTo("Failed to read remote config", { evaluate(RemoteConfigSnapshot.defaults()) }) {
+            runCatchingResult { evaluate(remoteConfigPort.snapshot()) }
         }
     }
 
@@ -55,10 +64,15 @@ class AppVersionGateViewModel(
         when (intent) {
             is AppVersionGateIntent.CheckAgain -> {
                 setState(AppVersionGateState.Checking)
-                scope.launch {
-                    val result = remoteConfigPort.refresh()
-                    val snapshot = result.getOrElse { RemoteConfigSnapshot.defaults() }
-                    evaluate(snapshot)
+                catchTo("Failed to refresh remote config", { evaluate(RemoteConfigSnapshot.defaults()) }) {
+                    runCatchingResult {
+                        val snapshot = remoteConfigPort.refresh()
+                            // A returned failure is not a throw, so catchTo never sees it.
+                            // It still has to reach the reporter.
+                            .onFailure { crashReporter.report(it, REFRESH_FAILED) }
+                            .getOrElse { RemoteConfigSnapshot.defaults() }
+                        evaluate(snapshot)
+                    }
                 }
             }
         }
@@ -77,5 +91,10 @@ class AppVersionGateViewModel(
                 AppVersionGateState.Allowed(snapshot)
             },
         )
+    }
+
+    private companion object {
+        /** Machine-shaped grouping key — it leaves the device. */
+        const val REFRESH_FAILED = "gate.remote_config_refresh_failed"
     }
 }

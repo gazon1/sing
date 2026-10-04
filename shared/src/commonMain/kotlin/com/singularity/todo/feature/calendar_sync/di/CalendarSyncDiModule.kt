@@ -41,11 +41,11 @@ fun calendarSyncModule(): Module = module {
     single { CalendarSyncOrchestrator(get(), createBackgroundScope(), get(), get(), get()) }
 
     // ViewModel bound to navigation lifecycle — cancelled when the screen leaves the back stack.
-    // 6-arg canonical ctor: syncRepo, calendarProvider, scheduler, appQueries, orchestrator, scope
-    // (scope = AutoCloseableCoroutineScope for lifecycle-aware cancellation).
+    // 7-arg canonical ctor: syncRepo, calendarProvider, scheduler, appQueries, orchestrator,
+    // crashReporter, scope (scope = AutoCloseableCoroutineScope for lifecycle-aware cancellation).
     // viewModel (not factory): the injected AutoCloseableCoroutineScope must be closed
     // when the VM is cleared — a factory registration would leak it.
     viewModel<CalendarSyncViewModel> {
-        CalendarSyncViewModel(get(), get(), get(), get(), get(), AutoCloseableCoroutineScope())
+        CalendarSyncViewModel(get(), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope())
     }
 }

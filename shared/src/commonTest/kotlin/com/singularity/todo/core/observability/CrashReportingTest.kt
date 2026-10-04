@@ -3,20 +3,33 @@
 package com.singularity.todo.core.observability
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.BackgroundFailureHandler
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD
 import java.io.IOException
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.coroutines.EmptyCoroutineContext
 
 /** Records what the funnel reported, so tests can assert on it without a mocking framework. */
 private class RecordingCrashReporter : CrashReportingPort {
@@ -213,5 +226,106 @@ class AppErrorCompatibilityTest {
     fun `a cause supplied to a subtype is retained`() {
         val cause = IOException("root")
         assertSame(cause, AppError.Persistence("write failed", cause = cause).cause)
+    }
+}
+
+/**
+ * The scope factory is the bottom of the error funnel, so the composition of the scope it
+ * hands out is the load-bearing invariant here: without a [CoroutineExceptionHandler] a
+ * throwing `launch` escalates to the platform's uncaught-exception handler and, on Android,
+ * kills the process. That escalation is invisible in a test run, so it is asserted on the
+ * context instead.
+ *
+ * Methods run sequentially ([SAME_THREAD]) because [BackgroundFailureHandler] is process-wide
+ * state and these tests install into it. Class-level concurrency is safe for a different
+ * reason: `shared`'s test task sets `forkEvery = 1`, so no other class can be running in this
+ * JVM to receive a failure this class's target captures.
+ */
+@Tag("fast")
+@Execution(SAME_THREAD)
+class BackgroundFailureHandlerTest {
+
+    private companion object {
+        /** Real threads are involved, so this is a hang guard, not a timing assertion. */
+        const val TIMEOUT_MS = 5_000L
+    }
+
+    @AfterTest
+    fun restoreDefaultTarget() {
+        BackgroundFailureHandler.install(null)
+    }
+
+    @Test
+    fun `every background scope carries the failure handler`() {
+        val scope = createBackgroundScope()
+
+        assertSame(
+            BackgroundFailureHandler,
+            scope.coroutineContext[CoroutineExceptionHandler],
+            "A scope without a handler escalates a failed launch to the platform's " +
+                "uncaught-exception handler, which kills an Android process",
+        )
+    }
+
+    @Test
+    fun `a failed launch is reported and the scope survives it`() = runTest {
+        val seen = CompletableDeferred<Throwable>()
+        // Created BEFORE install on purpose: the target is read per failure, so a scope that
+        // predates the install must still report to it.
+        val scope = createBackgroundScope()
+        BackgroundFailureHandler.install { seen.complete(it) }
+
+        // Real threads, so the waits below are real too. Inside withContext(Dispatchers.Default)
+        // the test scheduler is out of the way, which means withTimeout is a genuine hang guard
+        // rather than a virtual-time skip. runBlocking would say the same thing more directly,
+        // but it is banned outside the baseline.
+        withContext(Dispatchers.Default) {
+            scope.launch { throw IllegalStateException("disk gone") }.join()
+
+            assertEquals("disk gone", withTimeout(TIMEOUT_MS) { seen.await() }.message)
+            // SupervisorJob plus a handler that returns normally: the scope is not dead.
+            withTimeout(TIMEOUT_MS) { scope.launch { }.join() }
+        }
+    }
+
+    @Test
+    fun `cancellation is never reported`() {
+        val recorded = mutableListOf<Throwable>()
+        BackgroundFailureHandler.install { recorded += it }
+
+        BackgroundFailureHandler.handleException(EmptyCoroutineContext, CancellationException("scope closed"))
+
+        assertTrue(recorded.isEmpty(), "A cancelled coroutine is not a defect: $recorded")
+    }
+
+    @Test
+    fun `an uninstalled target drops the failure instead of rethrowing`() {
+        BackgroundFailureHandler.install(null)
+
+        // No assertion beyond "this returns": the handler runs on a coroutine that is already
+        // failing, so escaping here would escalate a background defect into process death.
+        BackgroundFailureHandler.handleException(EmptyCoroutineContext, IllegalStateException("boom"))
+    }
+
+    @Test
+    fun `install is reported through the crash port under one machine-shaped key`() {
+        val port = RecordingCrashReporter()
+        installBackgroundCrashReporting(port)
+        val boom = IllegalStateException("john@example.com bought milk")
+
+        BackgroundFailureHandler.handleException(EmptyCoroutineContext, boom)
+
+        // `any`/`all` rather than exact counts: this target is process-wide for the duration
+        // of the test, and a stray background failure elsewhere would be a false negative,
+        // not a real defect.
+        assertTrue(port.reports.any { it.first === boom }, "The original throwable, not a copy")
+        assertTrue(
+            port.reports.all { it.second == BACKGROUND_COROUTINE_FAILURE_ISSUE_KEY },
+            "One stable key for the whole class: ${port.reports.map { it.second }}",
+        )
+        assertTrue(
+            port.reports.none { it.second.contains("@") },
+            "The key leaves the device and must not embed user content",
+        )
     }
 }
