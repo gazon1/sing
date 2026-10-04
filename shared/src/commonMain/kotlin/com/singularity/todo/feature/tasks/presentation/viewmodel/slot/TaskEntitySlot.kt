@@ -3,7 +3,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
@@ -24,14 +25,15 @@ import kotlinx.coroutines.launch
  * Owns the two reads that are not the task row itself — the task's project and the full
  * tag catalogue — plus the candidate list backing the dependency picker.
  *
- * Mutations go through [TaskDetailDeps.updateTask] against the task from [taskFlow], never
+ * Mutations go through [TaskCoreDeps.updateTask] against the task from [taskFlow], never
  * against a snapshot the screen last observed. That is what keeps a concurrent remote edit
  * from being reverted by a field the user did not touch.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskEntitySlot(
     private val taskId: TaskId,
-    private val deps: TaskDetailDeps,
+    private val core: TaskCoreDeps,
+    private val children: TaskChildrenDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -43,13 +45,13 @@ class TaskEntitySlot(
     init {
         scope.launch {
             val projectFlow = taskFlow.flatMapLatest { task ->
-                task?.projectId?.let { deps.projectsRepo.observe(it) }
+                task?.projectId?.let { children.projectsRepo.observe(it) }
                     ?: flowOf(null)
             }
             // The picker must not offer the task as its own dependency, nor trashed tasks.
-            val availableFlow = deps.taskRepo.observeByFilter(TaskFilter.All)
+            val availableFlow = core.taskRepo.observeByFilter(TaskFilter.All)
                 .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
-            val allTags = deps.tagsRepo.observeAll()
+            val allTags = children.tagsRepo.observeAll()
 
             combine(projectFlow, allTags, availableFlow, taskFlow) { project, tags, available, task ->
                 val taskTags = task?.tags.orEmpty()
@@ -103,12 +105,12 @@ class TaskEntitySlot(
     }
 
     private fun mutate(task: Task, error: String = "Save failed", transform: Task.() -> Task) = scope.launch {
-        deps.updateTask(task.id) { it.transform() }
+        core.updateTask(task.id) { it.transform() }
             .onFailure { onError(error) }
     }
 
     private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
-        deps.taskRepo.setDependencies(task.id, intent.dependsOn)
+        core.taskRepo.setDependencies(task.id, intent.dependsOn)
             .onFailure { onError("Failed to set dependencies") }
     }
 }

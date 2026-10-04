@@ -2590,7 +2590,7 @@ Measuring the *symbols* instead of the *files* is what caught it:
 
 | Item | What was claimed | What is actually true | Verdict |
 |---|---|---|---|
-| B2 `TaskDetailDeps` split | 25 ctor params, 4 sites, 16 files | **24 params** (counted), 16 referencing files. Confirmed. | Real — do it |
+| B2 `TaskDetailDeps` split | 25 ctor params, 4 sites, 16 files | **24 params** (counted), 16 referencing files. Confirmed. | Real — **done 2026-10-04** |
 | B3 decompose 4 composables | "451 / 270 / 225 / 212 lines" | Those were **file** sizes. The composables are 196 (`TaskDetailViewScreen`), 188 (`BackupScreen`), then ≤62. Nothing is near the `LongMethod` limit of 80. | **Phantom — dropped** |
 | B4 `testTask()` fixture | "0 uses today" | 8 calls in 6 files (`CommonFakes`, `TasksRobot`, 3 test classes). | **Phantom — dropped** |
 | B5 split `DesktopNavigation.kt` | 510 lines, 29 helpers | Confirmed exactly. | Real — **done 2026-10-04** |
@@ -2623,12 +2623,8 @@ Note for the next splitter: `TooManyFunctions` excludes `**/jvmTest/**` and
 violation. It was split for readability, and detekt staying green through the
 split is not itself evidence the split was warranted.
 
-**B2 — the only real item left.** Split `TaskDetailDeps` (24 ctor params vs a
-detekt `LongParameterList` limit of 8; the class is `ignoreDataClasses: true` so
-detekt does **not** flag it — another reason it survived). 16 files reference it.
-Fields already group cleanly: task core / adjacent features / time+identity / AI /
-links+proposals / config. It is its own commit, and
-`./gradlew :mcp-server:compileKotlin` runs after it as the DI-graph gate.
+**B2 — DONE (2026-10-04).** `TaskDetailDeps` split into six bundles, and each
+slot's constructor was narrowed to the bundles it actually reads:
 
 **Also worth doing, cheap:** `TaskDetailState.kt` contains **no**
 `TaskDetailState` — it holds only `TaskDetailDeps` (`grep -rn "class TaskDetailState"`
@@ -2637,3 +2633,71 @@ state class it was named for. Do this together with B2, which edits the file
 anyway.
 0f5bcbfd (refactor(tests): split DesktopNavigation, and fix a gate that was lying)
 930394bb (refactor(tests): split DesktopNavigation, and fix a gate that was lying)
+| Bundle | Fields | Read by |
+|---|---|---|
+| `TaskCoreDeps` | 4 | coordinator, draft, entity, completion, children, lifecycle, reminders |
+| `TaskChildrenDeps` | 4 | entity, children |
+| `TaskSchedulingDeps` | 3 | reminders, lifecycle |
+| `TaskCollaborationDeps` | 6 | coordinator, AI, backlinks, logbook, time slot |
+| `TaskAiDeps` | 5 (all nullable) | AI only |
+| `TaskContextDeps` | 1 | coordinator, draft, completion, children, reminders, AI |
+
+The grouping came from grepping each slot for `deps.X`, not from taste — that is
+why `TaskChildrenDeps` merges checklist/attachments/projects/tags while
+`TaskSchedulingDeps` stays separate, and why the coordinator is the only holder
+of the full aggregate. The old flat class had 24 constructor parameters and every
+slot held the whole bag, so `TaskAiSlot` could reach the reminder scheduler and
+nothing would have failed if it had.
+
+**The narrowing is the point, and it is checkable:** no slot file mentions
+`TaskDetailDeps` any more (the coordinator is the sole holder), and every bundle
+is at or under detekt's `allowedConstructorParameters: 8`. The 24-parameter class
+had been invisible to `LongParameterList` only because `ignoreDataClasses: true`.
+
+`TaskDetailState.kt` → `TaskDetailDeps.kt` in the same commit: the file held no
+`TaskDetailState` at all (`grep -rn "class TaskDetailState"` returns nothing), so
+renaming it is the honest fix rather than inventing a class to justify the name.
+
+**Worth recording about the mechanics.** The refactor itself produced 293 detekt
+findings — every one formatting, from a scripted edit of 29 call sites. None were
+baselined. `--auto-correct` took it to 98, and the last 98 needed hand-fixing for
+two reasons worth knowing: ktlint's `indent` rule is configured
+`auto_correct: false` in this repo (deliberately, JDK-NPE workaround), and
+auto-correct does not reformat a call that mixes named and positional arguments.
+The fix that worked was making every argument named. `:shared:jvmTest` stayed
+green throughout, which is the point — the gates now have somewhere to fail.
+
+---
+
+## autocorrect-touches-files-outside-the-change
+
+**Found in:** 2026-10-04, during the B2 `TaskDetailDeps` split, immediately
+after adding the `check-rule-intent.py` gate.
+
+`./gradlew :shared:detekt --auto-correct` rewrote **five files that had nothing
+to do with B2**: `BackupMigrations.kt`, `LogbookSection.kt` (unused
+`java.util.Locale` import), `TimeTrackingSection.kt` (trailing blank line),
+`LogBundleExporterTest.kt`, and `EntityMapperCompletenessTest.kt` (33 lines of
+re-indentation). All five are baselined debt that had been sitting there.
+
+They were reverted, because a commit titled "split TaskDetailDeps" that also
+silently reformats an unrelated test fixture is a commit nobody can review —
+and the next person to bisect it would have no way to tell the two apart.
+
+**Why this is worth recording rather than just doing:** `--auto-correct` on a
+module-wide task has no idea what the current change is about. It is correct
+individually in every case here — that is what makes it dangerous, since
+"obviously fine, why not" is the natural reaction to each individual hunk.
+
+**Try this first:** after any auto-correct run, `git diff --stat` and revert
+anything outside the stated scope. Cheaper alternative for a large cleanup: run
+auto-correct in its own commit, before the real change, so the formatting churn
+is already in history.
+
+Related: `EntityMapperCompletenessTest.kt` carries 2 baseline entries for this
+file, and `TimeTrackingSection.kt` is the source of the currently-undeclared
+`NoConsecutiveBlankLines` finding that `check-rule-intent.py` reports (verified
+present on a clean `HEAD`, not introduced by B2). A cleanup commit should declare
+that rule rather than leave it on detekt's default.
+b80e63cb (refactor(tasks): split TaskDetailDeps by what actually reads it)
+d8e30ca1 (refactor(tasks): split TaskDetailDeps by what actually reads it)

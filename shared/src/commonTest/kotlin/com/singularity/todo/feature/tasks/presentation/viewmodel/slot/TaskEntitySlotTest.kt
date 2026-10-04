@@ -32,7 +32,13 @@ class TaskEntitySlotTest {
     fun `state is empty before a task arrives`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource()
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
 
         assertEquals(TaskEntityState(), slot.state.value)
     }
@@ -47,7 +53,13 @@ class TaskEntitySlotTest {
             task("t3", title = "archived").copy(archivedAt = Clock.System.now()),
         )
         val source = TaskSource(task("t1"))
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         runCurrent()
 
         val available = slot.state.value.availableTasks.map { it.id.value }
@@ -65,10 +77,11 @@ class TaskEntitySlotTest {
         fakes.tagsRepo.seed(tag(tagA, "A"), tag(tagB, "B"))
         val slot = TaskEntitySlot(
             taskId = TaskId("t1"),
-            deps = fakes.deps(),
+            core = fakes.core(),
+            children = fakes.children(),
             scope = testSlotScope(backgroundScope),
-            // The slot filters the catalogue against the task it is handed, so the task in
-            // the flow — not the seeded row — is what decides the result.
+            // The slot filters the catalogue against the task it is handed, so the task
+            // in the flow — not the seeded row — is what decides the result.
             taskFlow = TaskSource(task("t1").copy(tags = listOf(tagA))).state,
             onError = {},
         )
@@ -85,7 +98,13 @@ class TaskEntitySlotTest {
         // does not exist — so the task has to be seeded, as it would be in the app.
         fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
@@ -101,7 +120,13 @@ class TaskEntitySlotTest {
         // does not exist — so the task has to be seeded, as it would be in the app.
         fakes.taskRepo.seed(task("t1"))
         val source = TaskSource(task("t1"))
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.TogglePinned)
@@ -120,7 +145,13 @@ class TaskEntitySlotTest {
     fun `clear due date writes null`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(task("t1").copy(dueDate = kotlinx.datetime.LocalDate(2026, 9, 27)))
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
@@ -133,7 +164,13 @@ class TaskEntitySlotTest {
     fun `intent before a task arrives is ignored rather than crashing`() = runTest {
         val fakes = SlotFakes()
         val source = TaskSource(null)
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.Low))
@@ -157,7 +194,13 @@ class TaskEntitySlotTest {
             ),
         )
         val source = TaskSource(task("t1").copy(projectId = projectId))
-        val slot = TaskEntitySlot(TaskId("t1"), fakes.deps(), testSlotScope(backgroundScope), source.state) {}
+        val slot = TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core(),
+            children = fakes.children(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = source.state,
+        ) {}
         runCurrent()
 
         assertNotNull(slot.state.value.project)

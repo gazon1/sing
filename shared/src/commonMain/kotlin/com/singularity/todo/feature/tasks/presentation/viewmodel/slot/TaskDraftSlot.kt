@@ -3,7 +3,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraftIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailDraft
@@ -42,7 +43,8 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @OptIn(FlowPreview::class)
 class TaskDraftSlot(
-    private val deps: TaskDetailDeps,
+    private val core: TaskCoreDeps,
+    private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -57,7 +59,7 @@ class TaskDraftSlot(
     private val descriptionEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 4)
 
     init {
-        val debounceMs = deps.debounceMs.milliseconds
+        val debounceMs = context.debounceMs.milliseconds
 
         scope.launch {
             combine(
@@ -65,7 +67,7 @@ class TaskDraftSlot(
                 titleEdits.debounce(debounceMs),
             ) { task, title -> task to title }
                 .collect { (task, title) ->
-                    deps.updateTask(task.id) { it.copy(title = title) }
+                    core.updateTask(task.id) { it.copy(title = title) }
                         .onFailure { onError("Save failed") }
                 }
         }
@@ -76,7 +78,7 @@ class TaskDraftSlot(
                 descriptionEdits.debounce(debounceMs),
             ) { task, description -> task to description }
                 .collect { (task, description) ->
-                    deps.updateTask(task.id) { it.copy(description = description.ifBlank { null }) }
+                    core.updateTask(task.id) { it.copy(description = description.ifBlank { null }) }
                         .onFailure { onError("Save failed") }
                 }
         }

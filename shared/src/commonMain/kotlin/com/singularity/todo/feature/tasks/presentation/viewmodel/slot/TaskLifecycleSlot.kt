@@ -3,7 +3,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskLifecycleIntent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ import kotlinx.coroutines.launch
  * whole `TaskDetailUi`.
  */
 class TaskLifecycleSlot(
-    private val deps: TaskDetailDeps,
+    private val core: TaskCoreDeps,
+    private val scheduling: TaskSchedulingDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
@@ -53,7 +55,7 @@ class TaskLifecycleSlot(
         val task = taskFlow.value ?: return@launch
         _state.update { it.copy(recentlyDeleted = task) }
         cancelReminders(task)
-        deps.taskRepo.softDelete(task.id)
+        core.taskRepo.softDelete(task.id)
             .onSuccess { onUndoDelete(task) }
             .onFailure {
                 _state.update { it.copy(recentlyDeleted = null) }
@@ -63,7 +65,7 @@ class TaskLifecycleSlot(
 
     private fun archive() = scope.launch {
         val task = taskFlow.value ?: return@launch
-        deps.taskRepo.softDelete(task.id)
+        core.taskRepo.softDelete(task.id)
             .onSuccess {
                 onSaved("Task archived")
                 onNavigateBack()
@@ -73,7 +75,7 @@ class TaskLifecycleSlot(
 
     private fun restore() = scope.launch {
         val task = _state.value.recentlyDeleted ?: return@launch
-        deps.taskRepo.restore(task.id)
+        core.taskRepo.restore(task.id)
             .onSuccess {
                 _state.update { it.copy(recentlyDeleted = null) }
                 onSaved("Task restored")
@@ -89,7 +91,7 @@ class TaskLifecycleSlot(
      */
     private fun unarchive() = scope.launch {
         val task = taskFlow.value ?: return@launch
-        deps.taskRepo.restore(task.id)
+        core.taskRepo.restore(task.id)
             .onSuccess {
                 onSaved("Task restored")
                 onNavigateBack()
@@ -98,7 +100,7 @@ class TaskLifecycleSlot(
     }
 
     private suspend fun cancelReminders(task: Task) {
-        val userId = deps.taskRepo.currentUserId()
-        deps.reminderScheduler.cancelByTask(task.id, userId)
+        val userId = core.taskRepo.currentUserId()
+        scheduling.reminderScheduler.cancelByTask(task.id, userId)
     }
 }

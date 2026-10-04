@@ -26,7 +26,8 @@ class TaskLifecycleSlotTest {
         onUndo: (String) -> Unit = {},
         onBack: () -> Unit = {},
     ) = TaskLifecycleSlot(
-        deps = fakes.deps(),
+        core = fakes.core(),
+        scheduling = fakes.scheduling(),
         scope = testSlotScope(scope),
         taskFlow = source.state,
         onError = {},

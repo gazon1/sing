@@ -27,7 +27,9 @@ class TaskRemindersSlotTest {
 
     private fun slot(fakes: SlotFakes, source: TaskSource, scope: CoroutineScope) = TaskRemindersSlot(
         taskId = TaskId("t1"),
-        deps = fakes.deps(),
+        core = fakes.core(),
+        scheduling = fakes.scheduling(),
+        context = fakes.context(),
         scope = testSlotScope(scope),
         taskFlow = source.state,
         onError = {},

@@ -10,7 +10,13 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
@@ -96,23 +102,49 @@ internal class SlotFakes {
     val timeTrackingRepo = FakeTimeTrackingRepository(FakeClock(SLOT_NOW))
 
     fun deps(): TaskDetailDeps = TaskDetailDeps(
+        core = core(),
+        children = children(),
+        scheduling = scheduling(),
+        collaboration = collaboration(),
+        ai = ai(),
+        context = context(),
+    )
+
+    /**
+     * The bundle accessors exist so a slot test can build exactly the group under test
+     * instead of the whole aggregate — the same narrowing production gets from the
+     * grouped constructor.
+     */
+
+    fun core() = TaskCoreDeps(
         taskRepo = taskRepo,
         updateTask = UpdateTaskUseCase(taskRepo, FakeClock(SLOT_NOW)),
         createTask = CreateTaskUseCase(taskRepo, FakeClock(SLOT_NOW), currentUser),
+        completeRecurring = stubCompleteRecurring,
+    )
+
+    fun children() = TaskChildrenDeps(
+        checklistRepository = checklistRepo,
+        attachmentsRepo = attachmentsRepo,
         projectsRepo = projectsRepo,
         tagsRepo = tagsRepo,
-        checklistRepository = checklistRepo,
+    )
+
+    fun scheduling() = TaskSchedulingDeps(
         reminderRepo = reminderRepo,
         reminderScheduler = scheduler,
-        attachmentsRepo = attachmentsRepo,
         timeZoneProvider = TEST_TZ,
-        clock = FakeClock(SLOT_NOW),
-        completeRecurring = stubCompleteRecurring,
+    )
+
+    fun collaboration() = TaskCollaborationDeps(
         notesRepo = notesRepo,
         timeTrackingRepo = timeTrackingRepo,
         currentUser = currentUser,
-        debounceMs = 300L,
     )
+
+    fun ai() = TaskAiDeps()
+
+    fun context() = TaskContextDeps(clock = FakeClock(SLOT_NOW), debounceMs = 300L)
 
     /** Records the recurring-completion call so the completion slot can be asserted on. */
     var recurringCompleted: TaskId? = null

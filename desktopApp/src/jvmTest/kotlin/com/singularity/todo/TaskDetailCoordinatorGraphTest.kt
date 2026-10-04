@@ -125,28 +125,40 @@ class TaskDetailCoordinatorGraphTest {
     /** Mirrors `TasksDiModule`'s `viewModel { }` factory wiring one-for-one. */
     private fun graphDeps(koin: Koin) =
         com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps(
-            taskRepo = koin.get(),
-            updateTask = koin.get(),
-            createTask = koin.get(),
-            projectsRepo = koin.get(),
-            tagsRepo = koin.get(),
-            checklistRepository = koin.get(),
-            reminderRepo = koin.get(),
-            reminderScheduler = koin.get(),
-            attachmentsRepo = koin.get(),
-            timeZoneProvider = koin.get(),
-            clock = koin.get(),
-            completeRecurring = koin.get(),
-            notesRepo = koin.get(),
-            timeTrackingRepo = koin.get(),
-            currentUser = koin.get<ProfileAwareCurrentUser>(),
-            refineTask = koin.get(),
-            generateDescription = koin.get(),
-            generateChecklist = koin.get(),
-            decomposeTask = koin.get(),
-            pickTime = koin.get(),
-            linkRepo = koin.get(),
-            proposals = koin.get(),
-            applyProposal = koin.get(),
+            core = com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps(
+                taskRepo = koin.get(),
+                updateTask = koin.get(),
+                createTask = koin.get(),
+                completeRecurring = koin.get(),
+            ),
+            children = com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps(
+                checklistRepository = koin.get(),
+                attachmentsRepo = koin.get(),
+                projectsRepo = koin.get(),
+                tagsRepo = koin.get(),
+            ),
+            scheduling = com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps(
+                reminderRepo = koin.get(),
+                reminderScheduler = koin.get(),
+                timeZoneProvider = koin.get(),
+            ),
+            collaboration = com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps(
+                notesRepo = koin.get(),
+                timeTrackingRepo = koin.get(),
+                currentUser = koin.get<ProfileAwareCurrentUser>(),
+                linkRepo = koin.get(),
+                proposals = koin.get(),
+                applyProposal = koin.get(),
+            ),
+            ai = com.singularity.todo.feature.tasks.domain.model.TaskAiDeps(
+                refineTask = koin.get(),
+                generateDescription = koin.get(),
+                generateChecklist = koin.get(),
+                decomposeTask = koin.get(),
+                pickTime = koin.get(),
+            ),
+            context = com.singularity.todo.feature.tasks.domain.model.TaskContextDeps(
+                clock = koin.get(),
+            ),
         )
 }

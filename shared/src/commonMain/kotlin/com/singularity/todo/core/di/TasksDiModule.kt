@@ -27,7 +27,13 @@ import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.AttachmentSaver
+import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
@@ -125,29 +131,39 @@ fun tasksModule(): org.koin.core.module.Module = module {
     viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
         TaskDetailCoordinator(
             deps = TaskDetailDeps(
-                taskRepo = get(),
-                updateTask = get(),
-                createTask = get(),
-                projectsRepo = get(),
-                tagsRepo = get(),
-                checklistRepository = get(),
-                reminderRepo = get(),
-                reminderScheduler = get(),
-                attachmentsRepo = get(),
-                timeZoneProvider = get(),
-                clock = get(),
-                completeRecurring = get(),
-                notesRepo = get(),
-                timeTrackingRepo = get(),
-                currentUser = get<ProfileAwareCurrentUser>(),
-                refineTask = get(),
-                generateDescription = get(),
-                generateChecklist = get(),
-                decomposeTask = get(),
-                pickTime = get(),
-                linkRepo = get(),
-                proposals = get(),
-                applyProposal = get(),
+                core = TaskCoreDeps(
+                    taskRepo = get(),
+                    updateTask = get(),
+                    createTask = get(),
+                    completeRecurring = get(),
+                ),
+                children = TaskChildrenDeps(
+                    checklistRepository = get(),
+                    attachmentsRepo = get(),
+                    projectsRepo = get(),
+                    tagsRepo = get(),
+                ),
+                scheduling = TaskSchedulingDeps(
+                    reminderRepo = get(),
+                    reminderScheduler = get(),
+                    timeZoneProvider = get(),
+                ),
+                collaboration = TaskCollaborationDeps(
+                    notesRepo = get(),
+                    timeTrackingRepo = get(),
+                    currentUser = get<ProfileAwareCurrentUser>(),
+                    linkRepo = get(),
+                    proposals = get(),
+                    applyProposal = get(),
+                ),
+                ai = TaskAiDeps(
+                    refineTask = get(),
+                    generateDescription = get(),
+                    generateChecklist = get(),
+                    decomposeTask = get(),
+                    pickTime = get(),
+                ),
+                context = TaskContextDeps(clock = get()),
             ),
             taskId = taskId,
         )
