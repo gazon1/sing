@@ -336,7 +336,7 @@ internal class SyncEngine(
         _status.value = SyncEngineStatus.Pulling
 
         return try {
-            val events = api.getEventsSince(session.userId.value, sinceLsn)
+            val events = api.getEventsSince(sinceLsn)
             var applied = 0
             var conflicts = 0
             var dropped = 0

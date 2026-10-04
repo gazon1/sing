@@ -95,10 +95,20 @@ fun jsonObject(vararg pairs: Pair<String, String>): JsonObject = buildJsonObject
 class FakeSyncApiClient(
     private val pushResponse: BatchPushResponse = BatchPushResponse(emptyList()),
     private val pullEvents: List<SyncEvent> = emptyList(),
+    /**
+     * The account this transport is authenticated as.
+     *
+     * Fixed at construction rather than passed per call, because that is the whole
+     * point of the change to [SyncApiClient]: the identity a request acts on is a
+     * property of the transport's session, not something a caller chooses. A fake
+     * that accepted it per call would model the parameter this phase removes, and a
+     * test using it would keep asserting against a contract that no longer exists.
+     */
+    val authenticatedAs: String = "user-1",
 ) : SyncApiClient {
     val pushCalls = mutableListOf<BatchPushRequest>()
 
-    /** One entry per pull: the user asked as, and the position they asked from. */
+    /** One entry per pull: the account the transport acted as, and the position. */
     val pullCalls = mutableListOf<Pair<String, Long>>()
 
     /** When set, both [batchPush] and [getEventsSince] throw it. */
@@ -110,8 +120,8 @@ class FakeSyncApiClient(
         return pushResponse
     }
 
-    override suspend fun getEventsSince(userId: String, sinceLsn: Long, limit: Int): List<SyncEvent> {
-        pullCalls.add(userId to sinceLsn)
+    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
+        pullCalls.add(authenticatedAs to sinceLsn)
         failWith?.let { throw it }
         return pullEvents
             .filter { it.serverLsn > sinceLsn }
@@ -119,7 +129,7 @@ class FakeSyncApiClient(
             .take(limit)
     }
 
-    override suspend fun testConnection(userId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun testConnection(): Result<Unit> = Result.success(Unit)
 
     override suspend fun getRemoteConfig(): kotlinx.serialization.json.JsonObject? = null
 }

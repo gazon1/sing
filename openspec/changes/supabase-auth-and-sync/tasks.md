@@ -59,9 +59,12 @@ invisible and with one they become irreversible data loss on the user's own data
       `SyncBootstrapperDispatchTest` (3). The dispatch table is asserted because the
       pull loop now *stalls* on an event it cannot apply, which turns a missing
       handler from silent loss into a permanent block (REQ-OS-011)
-- [ ] 2.8 `shared/` — drop the user-id parameter from the sync transport, so the
+- [x] 2.8 `shared/` — drop the user-id parameter from the sync transport, so the
       server derives identity from the session rather than trusting a value the client
-      supplies. Verified by: existing transport tests compile unchanged
+      supplies. A wrong value here is an authorisation bypass, not a bug, and the fix
+      has to be structural: the parameter has to be gone for it to be impossible.
+      Verified by: `SyncTransportIdentityTest`, with a positive control so the regex
+      gate cannot go green having checked nothing
 - [x] 2.9 `shared/src/commonMain/kotlin/com/singularity/todo/core/files/` — the digest
       helper used for attachment checksums called a JVM-only API from `commonMain`.
       Replaced with okio's `sha256()`, and `CommonMainJvmApiTest` now fails on any new
