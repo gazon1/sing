@@ -302,3 +302,169 @@ class RuleFiresSmokeTest {
         )
     }
 }
+
+// ── The four MviViewModel rules that had no test at all ──────────────────────────
+//
+// Kover put these at 0% (38, 32, 18 and 17 uncovered lines) while the audit reported
+// "28/28 ViewModels use the injected AutoCloseableCoroutineScope" — the rules that
+// enforce exactly that were entirely unverified. They are the four that guard the
+// project's canonical VM shape, so a no-op here would be the most expensive kind.
+
+class MviViewModelRuleFiresTest {
+
+    private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
+
+    private fun rule(name: dev.detekt.api.RuleName) =
+        MviViewModelRulesProvider().instance().rules[name]!!.invoke(TestConfig())
+
+    private fun findings(rule: dev.detekt.api.Rule, code: String) =
+        rule.visitFile(
+            compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
+            languageSettings,
+        )
+
+    private fun assertFires(rule: dev.detekt.api.Rule, code: String, label: String) {
+        val found = findings(rule, code)
+        assertTrue(found.isNotEmpty(), "$label reported nothing for a known violation: $found")
+    }
+
+    @Test
+    fun `IntentMethodName fires on a misnamed intent handler`() {
+        assertFires(
+            rule(RuleName("IntentMethodName")),
+            """
+            package com.example
+
+            class AgendaViewModel {
+                fun onWhatever(intent: AgendaIntent) = when (intent) {
+                    is Load -> 1
+                    else -> 2
+                }
+            }
+            """,
+            "IntentMethodName",
+        )
+    }
+
+    @Test
+    fun `IntentMethodName allows onIntent`() {
+        val found = findings(
+            rule(RuleName("IntentMethodName")),
+            """
+            package com.example
+
+            class AgendaViewModel {
+                fun onIntent(intent: AgendaIntent) = when (intent) {
+                    is Load -> 1
+                    else -> 2
+                }
+            }
+            """,
+        )
+        assertTrue(found.isEmpty(), "onIntent is the sanctioned name, got $found")
+    }
+
+    @Test
+    fun `VmScopePosition fires when scope is not the last constructor parameter`() {
+        assertFires(
+            rule(RuleName("VmScopePosition")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val scope: CoroutineScope,
+                private val deps: Deps,
+            )
+            """,
+            "VmScopePosition",
+        )
+    }
+
+    @Test
+    fun `VmScopePosition allows scope last`() {
+        val found = findings(
+            rule(RuleName("VmScopePosition")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            )
+            """,
+        )
+        assertTrue(found.isEmpty(), "scope last is the canonical shape, got $found")
+    }
+
+    @Test
+    fun `VmCloseable fires when a scope parameter is never closed`() {
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            ) {
+                init {
+                    load()
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
+    fun `VmCloseable allows addCloseable in the init block`() {
+        val found = findings(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+        )
+        assertTrue(found.isEmpty(), "addCloseable(scope) is the canonical shape, got $found")
+    }
+
+    @Test
+    fun `ShadowedState fires on a VM that redeclares MviViewModel state`() {
+        assertFires(
+            rule(RuleName("ShadowedState")),
+            """
+            package com.example
+
+            class AgendaViewModel : MviViewModel<UiState, Intent>(initialState = UiState.Loading) {
+                private val uiState: MutableStateFlow<UiState> = MutableStateFlow(UiState.Loading)
+            }
+            """,
+            "ShadowedState",
+        )
+    }
+
+    @Test
+    fun `ShadowedState allows updateState usage`() {
+        val found = findings(
+            rule(RuleName("ShadowedState")),
+            """
+            package com.example
+
+            class AgendaViewModel : MviViewModel<UiState, Intent>(initialState = UiState.Loading) {
+                fun refresh() {
+                    updateState { it.copy(loading = false) }
+                }
+            }
+            """,
+        )
+        assertTrue(found.isEmpty(), "updateState is the sanctioned form, got $found")
+    }
+}

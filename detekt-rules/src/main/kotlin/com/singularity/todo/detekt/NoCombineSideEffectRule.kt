@@ -12,7 +12,6 @@ import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
-import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 
 /**
@@ -62,7 +61,7 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
         // Bounded walk: the deepest wrapping seen between a lambda and its call is
         // two nodes (lambda -> value-argument -> call). The bound leaves headroom
         // without ever reaching a call in an enclosing statement.
-        repeat(3) {
+        repeat(MAX_HOPS_UP_TREE) {
             when (val node = current) {
                 null -> return false
                 is KtCallExpression -> return isCombineCall(node)
@@ -80,9 +79,12 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
     /** Depth-first walk of the transform body; reports and stops at the first offender. */
     private fun inspectForSideEffects(node: PsiElement) {
         if (isStateFlowAssignment(node)) {
-            report(node, "Assigning to a StateFlow inside a combine() transform is a side effect. " +
-                "The transform re-runs on every upstream emission, so the write re-fires and " +
-                "produces stale state. Populate the cache from a dedicated 'collect { }' block instead.")
+            report(
+                node,
+                "Assigning to a StateFlow inside a combine() transform is a side effect. " +
+                    "The transform re-runs on every upstream emission, so the write re-fires and " +
+                    "produces stale state. Populate the cache from a dedicated 'collect { }' block instead.",
+            )
             return
         }
         val callee = (node as? KtCallExpression)
@@ -90,9 +92,12 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
             ?.let { it as? KtNameReferenceExpression }
             ?.text
         if (callee != null && callee in SIDE_EFFECT_CALLS) {
-            report(node, "'$callee(...)' inside a combine() transform is a side effect. " +
-                "Keep the transform pure; move this to a dedicated collector, the flow's " +
-                "own builder, or downstream of collect { }.")
+            report(
+                node,
+                "'$callee(...)' inside a combine() transform is a side effect. " +
+                    "Keep the transform pure; move this to a dedicated collector, the flow's " +
+                    "own builder, or downstream of collect { }.",
+            )
             return
         }
         node.children.forEach { inspectForSideEffects(it) }
@@ -116,6 +121,8 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
     }
 
     private companion object {
+        /** How many PSI parents to walk looking for the enclosing call. */
+        const val MAX_HOPS_UP_TREE = 3
         val COMBINE_FUNCTIONS = setOf("combine", "combineStates", "combineTransform")
 
         /**

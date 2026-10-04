@@ -8,19 +8,12 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtClassBody
 import org.jetbrains.kotlin.psi.KtClassInitializer
-import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFunction
-import org.jetbrains.kotlin.psi.KtParameter
-import org.jetbrains.kotlin.psi.KtPrimaryConstructor
-import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
-import org.jetbrains.kotlin.psi.KtTypeReference
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenExpression
 
@@ -59,7 +52,8 @@ private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
             report(
                 Finding(
                     entity = Entity.from(clazz),
-                    message = "ViewModel manages MutableStateFlow + Channel/MutableSharedFlow but does not extend MviViewModel. " +
+                    message = "ViewModel manages MutableStateFlow + " +
+                        "Channel/MutableSharedFlow but does not extend MviViewModel. " +
                         "Migrate to MviViewModel for unified event/state handling.",
                     references = emptyList(),
                     suppressReasons = emptyList(),
@@ -98,39 +92,38 @@ private class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
         }
     }
 
-    private fun isIntentHandler(fun_: KtFunction): Boolean {
-        val params = fun_.valueParameters
+    private fun isIntentHandler(fn: KtFunction): Boolean {
+        val params = fn.valueParameters
         if (params.size != 1) return false
         val paramType = params[0].typeReference?.text ?: return false
         val isIntentParam = paramType.endsWith("Intent") || paramType.endsWith("UiEvent")
         if (!isIntentParam) return false
-        val body = fun_.bodyExpression ?: return false
+        val body = fn.bodyExpression ?: return false
         val paramName = params[0].name ?: return false
         return hasWhenWithIsCheck(body, paramName)
     }
 
-    private fun hasWhenWithIsCheck(expr: KtExpression, paramName: String): Boolean {
-        return when (expr) {
-            is KtWhenExpression -> {
-                expr.subjectExpression?.text == paramName &&
-                    expr.entries.any { entry ->
-                        entry.conditions.any { it is KtWhenConditionIsPattern }
+    private fun hasWhenWithIsCheck(expr: KtExpression, paramName: String): Boolean = when (expr) {
+        is KtWhenExpression -> {
+            expr.subjectExpression?.text == paramName &&
+                expr.entries.any { entry ->
+                    entry.conditions.any { it is KtWhenConditionIsPattern }
+                }
+        }
+
+        else -> {
+            var result = false
+            expr.accept(object : org.jetbrains.kotlin.psi.KtTreeVisitorVoid() {
+                override fun visitWhenExpression(expression: KtWhenExpression) {
+                    if (expression.subjectExpression?.text == paramName &&
+                        expression.entries.any { it.conditions.any { c -> c is KtWhenConditionIsPattern } }
+                    ) {
+                        result = true
                     }
-            }
-            else -> {
-                var result = false
-                expr.accept(object : org.jetbrains.kotlin.psi.KtTreeVisitorVoid() {
-                    override fun visitWhenExpression(expression: KtWhenExpression) {
-                        if (expression.subjectExpression?.text == paramName &&
-                            expression.entries.any { it.conditions.any { c -> c is KtWhenConditionIsPattern } }
-                        ) {
-                            result = true
-                        }
-                        super.visitWhenExpression(expression)
-                    }
-                })
-                result
-            }
+                    super.visitWhenExpression(expression)
+                }
+            })
+            result
         }
     }
 }

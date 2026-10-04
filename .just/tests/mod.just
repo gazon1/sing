@@ -29,7 +29,7 @@ detekt-rules:
     # Added 2026-10-05: this was never run by any recipe or CI job, which is how
     # NoDirectDispatchersRule's two failing tests survived — the rule could not fire at
     # all and nothing noticed. `:detekt-rules:test` is now also a CI step.
-    ./gradlew :detekt-rules:test
+    ./gw :detekt-rules:test
 
 [group('tests')]
 [doc('Run the gate-script tests (docs/governance gates)')]
@@ -167,7 +167,9 @@ detekt:
     # Cheap, runs first. A duplicated rule registration fails the Gradle build
     # later with a YAML error pointing at the config rather than the real cause.
     ./scripts/check-detekt-registrations.sh
-    ./gw :shared:detekt :desktopApp:detekt
+    # :detekt-rules is the module that enforces the project's rules, so it is
+    # subject to them too — a `var` on a Rule instance had nothing checking it.
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt
 
 [group('lint')]
 [doc('Auto-fix detekt style rules + ktlint formatting violations')]
@@ -176,7 +178,7 @@ detekt-fix:
     #!/bin/bash
     set -euo pipefail
     # detekt 2.x merges formatting into the main task with autoCorrect=true in ktlint config
-    ./gw :shared:detekt :desktopApp:detekt --auto-correct
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt --auto-correct
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
@@ -322,3 +324,14 @@ gate-maestro tags="agenda" serial="":
     fi
     SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
         bash scripts/run-maestro.sh
+
+[group('tests')]
+[doc('Report detekt-rule line coverage (which rules are under-tested)')]
+[working-directory(justfile_directory())]
+kover-rules:
+    #!/bin/bash
+    set -euo pipefail
+    # Added 2026-10-05 alongside the kover plugin in detekt-rules. Before this the
+    # rule-coverage debt was prose in deferred-backlog.md with nothing able to verify it.
+    ./gw :detekt-rules:koverXmlReport
+    python3 scripts/detekt-rule-coverage.py

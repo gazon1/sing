@@ -43,6 +43,12 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
 
     private companion object {
+        /**
+         * Delays at or under this are tolerated: a short `delay` in a Robolectric or
+         * retry path is not the real-time flakiness this rule exists to catch, and
+         * banning every millisecond would make the rule unusable.
+         */
+        private const val MAX_TOLERATED_DELAY_MS = 500L
         private const val BAN_LIST_REF =
             "See AGENTS.md ban list + singularity-todo-test-flaky-prevention skill."
     }
@@ -71,7 +77,7 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
         val argument = expression.valueArguments.firstOrNull() ?: return
         val valueText = argument.getArgumentExpression()?.text ?: return
         val value = valueText.toLongOrNull() ?: return
-        if (value <= 500) return
+        if (value <= MAX_TOLERATED_DELAY_MS) return
 
         report(
             Finding(

@@ -9,7 +9,6 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtClassBody
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
@@ -60,16 +59,18 @@ class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
         })
     }
 
-    private fun checkFunction(fun_: KtNamedFunction, className: String) {
-        val name = fun_.name ?: return
+    private fun checkFunction(fn: KtNamedFunction, className: String) {
+        val name = fn.name ?: return
         if (!name.startsWith("watch") && !name.startsWith("observe")) return
-        val returnType = fun_.typeReference?.text ?: return
+        val returnType = fn.typeReference?.text ?: return
         if (!returnType.startsWith("Flow") &&
             !returnType.startsWith("SharedFlow") &&
             !returnType.startsWith("StateFlow")
-        ) return
+        ) {
+            return
+        }
 
-        val userIdParam = fun_.valueParameters.find {
+        val userIdParam = fn.valueParameters.find {
             it.name == "userId" || it.name == "scopedUserId"
         } ?: return
 

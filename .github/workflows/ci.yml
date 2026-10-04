@@ -112,6 +112,17 @@ jobs:
         run: ./gradlew :detekt-rules:test --no-daemon
         # blocking: a custom rule that cannot pass its own tests must not be relied on
 
+      # The module that enforces the project's rules is now subject to them. A `var` on a
+      # Rule instance — Common Mistake 4, and a real bug because Rule instances are reused
+      # across files — had nothing checking it in this module.
+      - name: Lint the detekt-rules module
+        run: ./gradlew :detekt-rules:detekt --no-daemon
+        # blocking
+
+      # The :detekt-rules config is generated from detekt.yml, so it can silently go stale.
+      - name: Check generated detekt-rules config is current
+        run: python3 scripts/gen-detekt-rules-config.py --check
+
       # Gate-script tests. Same reasoning as above, one level up: these cover the
       # doc/governance gates this repo depends on, and they were runnable only by hand.
       #

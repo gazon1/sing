@@ -23,8 +23,7 @@ private class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null)
     private fun checkClass(clazz: KtClass) {
         val name = clazz.name ?: return
         if (!name.endsWith("ViewModel")) return
-        
-        
+
         if (hasKDoc(clazz)) return
         report(
             Finding(

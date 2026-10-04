@@ -100,8 +100,9 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
     }
 
     /**
-     * True when [expr] is a single call expression:
-     * `repository.foo()` — KtDotQualifiedExpression with a KtCallExpression selector
+     * True when [expr] is a single call expression such as `repository.foo()`.
+     *
+     * That is a KtDotQualifiedExpression whose selector is a KtCallExpression.
      */
     private fun isSingleRepositoryCall(expr: KtExpression): Boolean {
         if (expr !is KtDotQualifiedExpression) return false

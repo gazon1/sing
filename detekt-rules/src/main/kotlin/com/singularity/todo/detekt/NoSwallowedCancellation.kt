@@ -11,7 +11,6 @@ import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtCallExpression
-import org.jetbrains.kotlin.psi.KtCatchClause
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtThrowExpression
@@ -37,6 +36,12 @@ import org.jetbrains.kotlin.psi.KtTryExpression
  */
 class NoSwallowedCancellation(config: Config) : Rule(config, "", null) {
 
+    // The forward scan below uses two `continue` branches, and they are not redundant:
+    // one handles a non-suspend clause, the other skips a clause already protected by an
+    // earlier rethrow. Flattening them to satisfy detekt's jump-count heuristic would
+    // obscure the ordering that makes this rule correct, and this rule guards a real bug
+    // class (swallowed cancellation), so it is worth less readable than worth tidy.
+    @Suppress("LoopWithTooManyJumpStatements")
     override fun visitTryExpression(expression: KtTryExpression) {
         super.visitTryExpression(expression)
         val clauses = expression.catchClauses
@@ -105,6 +110,7 @@ class NoSwallowedCancellation(config: Config) : Rule(config, "", null) {
                 // throw (e as? CancellationException) or throw (e as CancellationException)
                 if (thrown != null && thrown.text.contains("CancellationException")) return true
             }
+
             is KtCallExpression -> {
                 val callee = expr.calleeExpression as? KtNameReferenceExpression
                 if (callee?.text == "runCatchingCancellable") return true

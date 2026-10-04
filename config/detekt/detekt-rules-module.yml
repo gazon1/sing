@@ -1,3 +1,22 @@
+# detekt config for the :detekt-rules module itself.
+#
+# GENERATED — do not edit by hand. Regenerate with:
+#   python3 scripts/gen-detekt-rules-config.py
+#   python3 scripts/gen-detekt-rules-config.py --check   # CI: fail if stale
+#
+# This is config/detekt/detekt.yml with the custom rule-set blocks removed. A module
+# cannot apply the rules it defines to itself: the custom rules live in :detekt-rules and
+# are not on its classpath until it is built, so the full config would fail on every one
+# of them as unresolvable.
+#
+# Everything else is copied verbatim, so ktlint formatting and the built-in rule tuning
+# stay single-sourced in detekt.yml. The custom rules are covered by :detekt-rules:test —
+# including DetektConfigWiringTest, which asserts that every configured rule name is
+# supplied by a registered provider and that every provided rule has a config block.
+#
+# ── Module-specific overrides ───────────────────────────────────────────────────
+# Appended below, and regenerated with the rest, so they cannot silently disappear.
+
 # detekt configuration for Singularity Todo KMP project
 # Version: detekt 2.0.0-alpha.3
 # Scope: shared (commonMain + androidMain + jvmMain + tests) + desktopApp
@@ -142,17 +161,6 @@ exceptions:
 # ---------------------------------------------------------------------------
 # cancellation-integrity rules (Phase 2)
 
-no-swallowed-cancellation:
-  NoSwallowedCancellation:
-    active: true
-
-no-run-catching-in-suspend:
-  NoRunCatchingInSuspend:
-    active: false
-
-# ---------------------------------------------------------------------------
-# naming
-# ---------------------------------------------------------------------------
 naming:
   active: true
   MatchingDeclarationName:
@@ -230,32 +238,9 @@ style:
   UnusedImport:
     active: true
   ReturnCount:
+    # See the module header: guard clauses are how an unsatisfiable guard stays visible.
     active: true
-    max: 4
-  EqualsOnSignatureLine:
-    active: true
-  TrailingWhitespace:
-    active: true
-  DestructuringDeclarationWithTooManyEntries:
-    active: false
-  MagicNumber:
-    active: false          # too noisy with Compose color/size/alpha defaults; revisit per-module
-  MandatoryBracesLoops:
-    active: false
-  ForbiddenAnnotation:
-    active: false
-  ForbiddenComment:
-    active: true
-    comments:
-      - { value: 'FIXME:', reason: 'Forbidden FIXME todo marker in comment, please fix the problem.' }
-      - { value: 'STOPSHIP:', reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.' }
-      - { value: 'TODO:', reason: 'Forbidden TODO todo marker in comment, please do the changes.' }
-    allowedPatterns: ''
-  UseAnyOrNoneInsteadOfFind:
-    active: true
-  UseIsNullOrEmpty:
-    active: true
-
+    max: 16
 # ---------------------------------------------------------------------------
 # ktlint rules (via detekt-rules-ktlint-wrapper plugin)
 # ktlint rule IDs are in kebab-case (e.g. no-wildcard-imports, max-line-length)
@@ -281,96 +266,23 @@ ktlint:
     active: true
     auto_correct: true
   FunctionSignature:
-  FunctionSignature:
     # ktlint_official code style conflicts with the project's deliberate multi-line
     # override style; enabling it fights `just detekt-fix` and produces churn on every
     # Compose function with more than two parameters.
     active: false
 
+  # The ktlint `filename` rule (reported as "contains a single class") fires on
+  # KDocEnforcementRules.kt, which groups a cohesive pair of private top-level rule
+  # classes in one file. One file per private class would fragment it for no benefit.
+  Filename:
+    active: false
 # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
 # All new rules start in warn-only mode; promoted to error in MR-4.
 # NOTE: Rule-specific config (severity, active) added in MR-4 after baseline.
-# ---------------------------------------------------------------------------
-mvi-viewmodel:
-  MviViewModelExt:
-    active: true
-  IntentMethodName:
-    active: true
-  VmScopePosition:
-    active: true
-  VmCloseable:
-    active: true
-  ShadowedState:
-    active: true
-
-no-real-delay-in-test:
-  NoRealDelayInTest:
-    active: true
-
 # ---------------------------------------------------------------------------
 # PR3 custom rules promoted to error (all at 0 violations after PR 2.x):
 # no-runblocking, no-direct-clock-system, no-viewmodel-scope,
 # mvi-viewmodel (4 rules), no-real-delay-in-test.
 # Promotion verified with daemon-free detekt run (see 2026-09-26-epic2-retro-findings R1).
 
-no-runblocking:
-  NoRunBlocking:
-    active: true
-
-no-direct-clock-system:
-  NoDirectClockSystem:
-    active: true
-
-no-viewmodel-scope:
-  NoViewModelScopeInProduction:
-    active: true
-
-no-state-in:
-  NoStateIn:
-    active: true
-
-no-op-update-state:
-  NoOpUpdateState:
-    active: true
-
-# Wired 2026-09-27. The rule file existed but the provider was not listed in the
-# RuleSetProvider service file, so the rule had never actually run.
-no-factory-viewmodel:
-  NoFactoryViewModel:
-    active: true
-
-no-static-profile-aware-current-user:
-  NoStaticProfileAwareCurrentUser:
-    active: true
-
-pass-through-use-case:
-  PassThroughUseCase:
-    active: true
-
-kdoc-enforcement:
-  ViewModelMustHaveKDoc:
-    active: true
-  RepositoryInterfaceMustHaveKDoc:
-    active: true
-
-no-combine-side-effect:
-  NoCombineSideEffect:
-    active: true
-
-# MR-3: empty onClick = {} in composable previews
-no-empty-onclick-lambda:
-  NoEmptyOnClickLambda:
-    active: true
-
-# Added 2026-10-05: these two rules were implemented and registered in
-# META-INF/services, but had no detekt.yml block, so detekt never loaded them and
-# they had never run. check-detekt-registrations.sh now enforces the invariant that
-# every ruleSetId in source has a block here.
-no-direct-dispatchers:
-  NoDirectDispatchers:
-    active: true
-
-user-scoped-repository:
-  ProhibitUserIdInObserve:
-    active: true
