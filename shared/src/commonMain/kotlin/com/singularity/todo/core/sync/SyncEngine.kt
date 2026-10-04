@@ -37,13 +37,19 @@ data class PullSummary(val received: Int, val applied: Int, val conflicts: Int, 
 sealed interface SyncOutcome {
     /**
      * A sync completed (push and/or pull ran to completion — even if individual
-     * operations had errors, the engine finished its cycle without being coalesced).
+     * operations had errors, the engine finished its cycle).
      */
     data class Success(val push: Result<PushSummary>, val pull: Result<PullSummary>) : SyncOutcome
 
     /**
-     * The sync was skipped because another sync was already running.
-     * The caller may fire a follow-up sync once the running one completes.
+     * No cycle ran, and none will: the request could not be handed to the
+     * [SyncCoordinator], which happens when the coordinator is closed.
+     *
+     * It is deliberately **not** "another sync was already running". A request that
+     * arrives mid-cycle is absorbed by the conflated channel and answered with the
+     * outcome of the cycle that served it — the caller gets its work done, not a
+     * rejection it now has to reason about. This case means there is no work left to
+     * do, which is a genuinely different thing and needs a different reaction.
      */
     data class Skipped(val reason: String) : SyncOutcome
 }

@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import kotlinx.coroutines.test.TestScope
@@ -59,7 +60,9 @@ class SyncEnginePushTest {
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = policy,
             scope = testScope(scope.backgroundScope),
+            crashReporter = NoOpCrashReportingPort(),
         )
+
         return Triple(engine, outbox, deadLetter)
     }
 

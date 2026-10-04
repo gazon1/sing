@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -53,6 +54,7 @@ class SyncEnginePullTest {
         // active child at the end of the test body — which `runTest` reports as
         // UncompletedCoroutinesError after a full minute of waiting.
         scope = testScope(scope.backgroundScope),
+        crashReporter = NoOpCrashReportingPort(),
     )
 
     private fun signedIn() = Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh")

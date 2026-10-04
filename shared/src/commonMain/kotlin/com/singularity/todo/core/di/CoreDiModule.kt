@@ -158,6 +158,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             scheduler = get(),
             retryPolicy = get(),
             scope = get(),
+            crashReporter = get(),
         )
     }
 

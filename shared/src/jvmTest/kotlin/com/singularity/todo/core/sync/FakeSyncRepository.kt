@@ -51,10 +51,10 @@ open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRe
     }
 
     override suspend fun syncOnce(): SyncOutcome {
-        // Mirror the same coalescing guard the real SyncRepositoryImpl uses.
-        if (_status.value.isRunning()) {
-            return SyncOutcome.Skipped("Another sync is running")
-        }
+        // No coalescing guard here, and there must not be one: the real repository
+        // delegates to SyncCoordinator, which owns the cycle. A fake that re-implemented
+        // the guard used to be a test of the fake — it passed while the production guard
+        // had a hole in it, because the two are different code.
         syncOnceCalled = true
         syncOnceCallCount++
         if (syncOnceYields) {
