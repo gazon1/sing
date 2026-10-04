@@ -2580,25 +2580,28 @@ refactoring backlog was not a symptom of a bad design — it was a symptom of ga
 that never ran. `TestTagsWiringTest`, `ArchitectureTest`, `HarnessConventionTest`
 and the detekt rule tests all existed and none of them executed. Any
 readability refactor was therefore unfalsifiable: the diff passed because nothing
-checked it. That is no longer true — 1406 shared + 77 desktop tests, 90 rule
+checked it. That is no longer true — 1411 shared + 77 desktop tests, 90 rule
 tests, and `check-gate-wiring.py` / `check-rule-intent.py` all run in CI. A
 refactor now has somewhere to fail.
 
-**Size, measured rather than estimated:**
+**Status: two of four items were phantom work and are struck below.** They were
+carried in this backlog through several rewrites without anyone measuring them.
+Measuring the *symbols* instead of the *files* is what caught it:
 
-| Item | Files | Note |
-|---|---|---|
-| B2 `TaskDetailDeps` split | 4 construction sites, **16 referencing files** | 25 ctor params vs a detekt limit of 8. Fields already group cleanly: task core / adjacent features / time+identity / AI / links+proposals / config. |
-| B3 decompose 4 composables | 4 files | `BackupScreen` 451, `TaskEditorContent` 270, `RecurrencePickerSheet` 225, `AiProviderSettingsScreen` 212. Only 4 `@Suppress("LongMethod")` exist, so most of this is *un-flagged*. |
-| B4 `testTask()` fixture | 0 uses today | Tasks are the largest feature (~11.8k LOC) and have no builder. |
-| B5 split `DesktopNavigation.kt` | 1 file, 510 lines, 29 helpers | Purely mechanical: `DesktopNavigation` / `DesktopAssertions` / `DesktopInteractions`. `TIMEOUT_MS` belongs with the wait helpers. |
+| Item | What was claimed | What is actually true | Verdict |
+|---|---|---|---|
+| B2 `TaskDetailDeps` split | 25 ctor params, 4 sites, 16 files | **24 params** (counted), 16 referencing files. Confirmed. | Real — do it |
+| B3 decompose 4 composables | "451 / 270 / 225 / 212 lines" | Those were **file** sizes. The composables are 196 (`TaskDetailViewScreen`), 188 (`BackupScreen`), then ≤62. Nothing is near the `LongMethod` limit of 80. | **Phantom — dropped** |
+| B4 `testTask()` fixture | "0 uses today" | 8 calls in 6 files (`CommonFakes`, `TasksRobot`, 3 test classes). | **Phantom — dropped** |
+| B5 split `DesktopNavigation.kt` | 510 lines, 29 helpers | Confirmed exactly. | Real — **done 2026-10-04** |
 
-**Order that works:** B5 before any future work on the desktop harness, so the
-next change modifies the post-split file once. B3's `BackupScreen` is also where the
-`NoEmptyOnClickLambda` previews live, so decomposing it and the preview cleanup
-touch the same file — do them together. B2 is the only one with a real blast
-radius (16 files) and should be its own commit with the DI graph check
-(`:mcp-server:compileKotlin`) run after it.
+The B3 and B4 numbers were never re-measured after the first draft; they were
+copied forward and re-copied. B4 in particular claimed a fixture was unused when
+the skill `singularity-todo-desktop-compose-ui-tests` documents it as the standard
+seed (`testTask()` defaults to `TestUsers.DEFAULT`) — the two documents
+contradicted each other and the backlog won by being written last. **Try this
+first when a backlog item survives a rewrite:** `grep` the symbol. If the claim is
+a count, re-count it.
 
 **Not done in the 2026-10-04 pass** — B1 landed instead (see
 `2026-10-04-…` for the formatter merge, which was self-contained). B2–B5 are
@@ -2606,3 +2609,31 @@ recorded here rather than started, because a 16-file refactor that cannot be run
 to completion and verified leaves the tree worse than not starting it.
 fb90fbc7 (refactor(ui): merge four formatter copies, and correct a finding I misread)
 b911e804 (refactor(ui): merge four formatter copies, and correct a finding I misread)
+**B5 — done (2026-10-04).** `DesktopNavigation.kt` (510 lines, 29 helpers) split
+into `DesktopNavigation.kt` (135, drawer + `DesktopShell`) ·
+`DesktopAssertions.kt` (328, `await*`/`assert*` + `TIMEOUT_MS` + `TAG_PATTERN` +
+`explainMissingTag`) · `DesktopInteractions.kt` (61, `click*`/`type*`).
+Zero-behaviour move: all 29 signatures diffed identical before/after, and
+`jvmTest` **is** covered by `:desktopApp:detekt` (`source.setFrom("src/main/kotlin",
+"src/jvmTest/kotlin")`) so the split is linted, not just compiled. Verified by a
+full `:desktopApp:test` run — 27 classes / 77 tests, 0 failures.
+
+Note for the next splitter: `TooManyFunctions` excludes `**/jvmTest/**` and
+`LargeClass` allows 600 lines, so a 510-line test helper was **not** a detekt
+violation. It was split for readability, and detekt staying green through the
+split is not itself evidence the split was warranted.
+
+**B2 — the only real item left.** Split `TaskDetailDeps` (24 ctor params vs a
+detekt `LongParameterList` limit of 8; the class is `ignoreDataClasses: true` so
+detekt does **not** flag it — another reason it survived). 16 files reference it.
+Fields already group cleanly: task core / adjacent features / time+identity / AI /
+links+proposals / config. It is its own commit, and
+`./gradlew :mcp-server:compileKotlin` runs after it as the DI-graph gate.
+
+**Also worth doing, cheap:** `TaskDetailState.kt` contains **no**
+`TaskDetailState` — it holds only `TaskDetailDeps` (`grep -rn "class TaskDetailState"`
+returns nothing). Either rename the file to `TaskDetailDeps.kt` or restore the
+state class it was named for. Do this together with B2, which edits the file
+anyway.
+0f5bcbfd (refactor(tests): split DesktopNavigation, and fix a gate that was lying)
+930394bb (refactor(tests): split DesktopNavigation, and fix a gate that was lying)

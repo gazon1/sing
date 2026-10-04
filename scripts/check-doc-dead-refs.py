@@ -375,7 +375,21 @@ _FRAMEWORK_ALLOCATED = frozenset({
     "androidApp",             # package name
     "desktopApp",             # package name
 })
-
+# A rule id as written in `detekt.yml`: either a ruleset id (`naming:`) or a
+# rule key in camelCase (`BackingPropertyNaming`). The value pattern accepts any
+# boolean as well as list/scalar settings, because a rule declared `active: false`
+# is still a *named* rule that documentation may legitimately quote — and those
+# are exactly the ones a stricter pattern silently dropped.
+#
+# Indentation is matched as `[ \t]`, never `\s`: `\s` also matches `\n`, so under
+# re.M a match could consume the newline that the next line's `^` needs, and the
+# following key was skipped with no visible error. `ImportOrdering` was lost that
+# way — it is the first key under `ktlint:` and its predecessor is a comment line.
+_DETEKT_RULE_KEY = re.compile(
+    r"^[ \t]{0,6}([A-Za-z][A-Za-z0-9]*)[ \t]*:[ \t]*"
+    r"(?:true|false|null|\[\]|\{\}|$|[-\w'\"])",
+    re.M,
+)
 
 def _build_kt_symbol_index() -> dict[str, str]:
     """Scan production .kt files; return {symbol_name → file_rel_path}."""
@@ -387,6 +401,11 @@ def _build_kt_symbol_index() -> dict[str, str]:
         ROOT / "androidApp/src/main",
         ROOT / "desktopApp/src",
         ROOT / "mcp-server/src/main",
+        # The custom detekt rules are production code for this gate's purposes:
+        # `singularity-todo-detekt-rules-authoring` documents rule classes and
+        # their tests by name, and an index without them reported all of those
+        # references as dangling.
+        ROOT / "detekt-rules/src",
     ]
     for base in prod_roots:
         if not base.exists():
@@ -400,6 +419,16 @@ def _build_kt_symbol_index() -> dict[str, str]:
                 # First-wins: commonMain is the canonical declaration
                 if name not in index:
                     index[name] = path.relative_to(ROOT).as_posix()
+
+    # Rule ids in `config/detekt/detekt.yml` are names the skills legitimately
+    # quote (`BackingPropertyNaming`, `ImportOrdering`, …). They are keys, not
+    # Kotlin declarations, so the .kt scan can never see them — but they are
+    # checkable: a key that is configured but has no provider is a real defect,
+    # which is what `check-detekt-registrations.sh` already enforces.
+    detekt_yml = ROOT / "config/detekt/detekt.yml"
+    if detekt_yml.exists():
+        for name in _DETEKT_RULE_KEY.findall(detekt_yml.read_text(encoding="utf-8")):
+            index.setdefault(name, "config/detekt/detekt.yml")
     return index
 
 
