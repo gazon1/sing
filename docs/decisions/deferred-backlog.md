@@ -2198,6 +2198,12 @@ produced this entry.
 
 ## docs-audit-workflow-was-never-valid-yaml
 
+**Status: CLOSED 2026-10-05.** The general lesson is now enforced, not
+remembered: `check.sh` step 14 parses every `.github/workflows/*.yml` and
+fails the build on one that will not parse. Proven by sabotage rather than
+assumed. The `"Try next"` below is kept for the record of how the gap was
+found; its closing sentence is superseded by this status.
+
 **Found in:** 2026-10-04 verifiability change, while replacing the `|| true`
 steps in `docs-audit.yml` with real exits.
 
