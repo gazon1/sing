@@ -97,16 +97,6 @@ junit.jupiter.execution.parallel.mode.classes.default = same_thread
 
 ## Remaining Debt
 
-The following items were identified during implementation but deferred because they require more than minor fixes:
-
-### Raw selector migration (15 EXEMPT_RAW_TAGS entries)
-
-13 flow tests and 2 non-flow tests (`DesktopAppBootTest`, `CelebrationTest`) contain raw `onNodeWithTag`/`onNodeWithText`/`onNodeWithContentDescription` calls outside `test/helpers/`. All are currently exempted with "predates helper migration" reasons. The exemptions are a snapshot of technical debt, not a design decision.
-
-**What to do:** Create helpers for the missing selectors (`awaitTagByText`, `awaitTagByContentDescription`, `awaitTagByRole`) and migrate call sites one file at a time. Each migration removes one exemption and tightens the guard. This is a pure refactor with no behavioral change.
-
-**Why deferred:** Each file has 1–17 raw calls; doing them all in one MR would be a high-risk change. The two-way guard ensures exemptions don't go stale while migration proceeds incrementally.
-
 ### Koin KOIN-W003: dynamically-computed module set — ACCEPTED TRADEOFF (reclassified)
 
 `coreLoggingModule()` is loaded with a conditional/spread that the Koin compiler cannot verify at compile time:
@@ -133,17 +123,54 @@ With `same_thread` on both axes, all test classes run sequentially in one JVM. T
 
 **Current mitigation:** `resetKermitWriters()` is called before each test to clear and re-initialize the writer list.
 
-**What to do:** Either (a) accept the limitation — the mix is harmless for debugging since the ring buffer is small and recent entries dominate, or (b) investigate whether `forkEvery=1` with a reduced suite (e.g. only flow tests) is acceptable if the isolation gate is recalibrated.
+**What to do:** see the forkEvery-subset experiment in the roadmap below — the question is closed with data, not by argument.
 
-**Why deferred:** Requires performance measurement with a realistic subset of tests to determine if isolation cost is justified.
+**Resolved since the first draft of this section:** raw selector migration (was 15 EXEMPT entries — now complete, 3 composable-level exemptions remain by design); non-flow guard coverage (`DesktopAppBootTest` migrated, guard widened to all `jvmTest`, composable-level tests exempt with reason).
 
-### `CelebrationTest` uses raw `onNodeWithText` for decorative UI
+## Future work (roadmap, priority order)
 
-`CelebrationTest` and `DesktopAppBootTest` are not flow tests but contain raw selectors. They are exempt from `EXEMPT_RAW_TAGS` but not covered by `HarnessConventionTest` (which only scans `*FlowTest.kt`). A separate convention test or inclusion criteria should cover them.
+Recorded 2026-10-04 from the post-implementation retrospective. Each item names its trigger, so a future session can pick any of them without re-deriving context.
 
-**What to do:** Either extend `HarnessConventionTest` to also scan non-flow tests, or create a `NonFlowConventionTest` for `DesktopAppBootTest` and `CelebrationTest`.
+### 1. CI integration of the failure bundle
 
-**Why deferred:** These tests are structurally different (don't use `runDesktopAppTest` harness) — requires separate guard design.
+The plan's core promise — "a CI failure is explained from the bundle alone, without a re-run" — is only true locally until CI publishes the bundle.
+
+- CI job runs `:desktopApp:test -Dsingularity.test.steps=true` and uploads `build/diagnostics/**` as artifacts on failure
+- `nodes-diff.txt` additionally attached as a suppressed exception to the failure, so it is visible in the JUnit XML report without downloading artifacts
+- Suite-duration gate: baseline measured (34–50s); turn the plan's manual "+25% → degrade" gate into an automatic check
+
+### 2. `awaitTextGone` / `awaitContentDescriptionGone` helpers
+
+The helper set covers waiting for *arrival* (tags, text, contentDescription) but for *departure* only the tag-based `awaitTagGone` exists — text/contentDescription have one-shot `assertTextNotExists`/`assertContentDescriptionNotExists`.
+
+Known latent race: `CalendarFlowTest.view_mode_switches_from_month_to_week` checks `assertTextNotExists(monthTitle)` right after `clickText("Week")` — exactly the "disappeared because of what the test just did" case the project's own rules say must wait. The race predates the migration (the migration preserved the original one-shot semantics); fix = two new helpers + one call site (~15 min).
+
+### 3. Flip `checkA11y` to default-on
+
+All flow tests already pass `checkA11y = true`; the opt-out machinery (`EXEMPT_A11Y` set with mandatory reasons) already exists in `HarnessConventionTest`. Change the harness default to `true` and let flows opt *out* with a reason. The a11y backlog then shrinks automatically as flows are written, instead of depending on memory.
+
+### 4. Per-test baselines + staleness marker
+
+The regression baseline is per test class — "last passing test in the class wins" — so a class whose tests show different screens diffs against the wrong snapshot.
+
+- Extract the test *method* name from the stack trace (same technique as `currentTestClassSimpleName`) and key the baseline per method
+- Add a generated-at timestamp line to `tags.txt`; `nodes-diff.txt` flags stale baselines instead of reporting noise after a legitimate UI change
+
+### 5. forkEvery=1 subset experiment (closes the Kermit mixing question)
+
+Run only the flow-test subset with `forkEvery=1` and measure with the timing tooling built in this effort. Either the cost is acceptable for the subset (adopt it, kermit.log becomes per-class truthful) or the limitation is closed permanently with data in this ADR.
+
+### 6. Flakiness radar
+
+`scripts/step-duration-report.py` aggregates one run today. Keep a run history (e.g. append to a CSV under `build/` or a checked-in metrics dir) and flag steps whose p95 systematically climbs toward `TIMEOUT_MS` (5s) — the flake candidate detector.
+
+### 7. Split `DesktopNavigation.kt`
+
+The helpers file grew to ~450 lines / 20+ functions, and the name now lies: navigation is the minority of its content. Mechanical, zero-behavior split: `DesktopNavigation` (tapTab/openDrawer/goBack/assertCurrentTab) · `DesktopAssertions` (await*/assert*) · `DesktopInteractions` (click*/type*).
+
+### 8. Android parity: explicit decision required
+
+Everything here is desktop-only. Either port `StepRecorder`/`FailureBundle`/the convention guards to `shared`'s androidHostTest, or record the counter-decision ("Android E2E lives in Maestro; the failure bundle is a desktop concept") in an ADR so the question does not resurface every quarter.
 
 ## Links
 

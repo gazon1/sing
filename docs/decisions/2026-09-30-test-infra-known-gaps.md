@@ -95,10 +95,12 @@ reaches_its_detail_screen` падает примерно в одном прог�
 Оба исправлены и проверены принудительным падением: пакет теперь ложится в
 `build/diagnostics/<ИмяТеста>/attempt-1/`, а `db-state.txt` печатает дамп.
 
-Отдельно: `tree-merged.txt` / `tree-unmerged.txt` в MR-1 не пишутся — это
-осознанное сокращение объёма, задокументированное в `FailureBundle` и включаемое
-флагом `-Dsingularity.ui.dumpTree=true`. Дефектом это не считаю; в отчёт попало
-потому, что ожидалось по плану.
+Отдельно: `tree-merged.txt` / `tree-unmerged.txt` в MR-1 не писались — осознанное
+сокращение объёма, задокументированное в `FailureBundle` и включаемое флагом
+`-Dsingularity.ui.dumpTree=true`. **Обновлено 2026-10-04:** `tree.txt` (unmerged,
+`printToString`) теперь пишется в бандл всегда — гэп «дерево не файл» закрыт
+(ADR `2026-10-04-desktop-test-failure-diagnostics.md`); флаг остался для
+«распечатать дерево у *проходящего* теста».
 
 ### 4. Два парсера `TestTags.kt` (исправлено)
 
