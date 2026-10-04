@@ -327,7 +327,7 @@ This skill replaced 7 narrow skills created in a single session:
 - `singularity-todo-koog-test-workarounds`
 - `singularity-todo-koog-both-platforms`
 - the updated `singularity-todo-koog-agent`
-- the updated `singularity-todo-koin-di`
+- the updated `singularity-todo-koin-dsl`
 
 Each of those was a one-shot skill for one refactor. The information is preserved — as dated entries in `docs/decisions/`. The digest is the new entry point.
 

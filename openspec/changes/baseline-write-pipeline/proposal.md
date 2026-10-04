@@ -35,9 +35,13 @@ The write pipeline is the most security-sensitive path in the codebase. It has b
 - `docs/decisions/2026-09-25-no-store-library-local-first-pattern.md`
 - `docs/decisions/2026-09-27-write-layer-soundness.md`
 - `docs/decisions/2026-09-28-mr3-repository-read-isolation.md`
-- `docs/decisions/2026-10-03-assert-canwrite-adr.md`
-- `docs/decisions/2026-10-03-write-integrity-phase0a.md`
-- `docs/decisions/2026-10-03-write-integrity-phase0b.md`
+
+<!-- 2026-10-05: three links here pointed at ADRs that were never written —
+     2026-10-03-assert-canwrite-adr.md, 2026-10-03-write-integrity-phase0a.md and
+     2026-10-03-write-integrity-phase0b.md. Removed rather than repointed: no
+     ADR with equivalent content exists, and a spec for this capability is
+     tracked in openspec/specs/MODULE-INDEX.md. If the write-integrity work
+     lands as a decision, it needs its own ADR then. -->
 
 ## Status
 

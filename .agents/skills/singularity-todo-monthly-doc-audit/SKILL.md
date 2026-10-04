@@ -33,8 +33,13 @@ Triage each finding by where it bites:
 `docs/decisions/DIGEST.md` is what every agent reads before a non-trivial task. When it is
 wrong, it is wrong everywhere at once.
 
-- **Oversized?** (>1500 lines) — the generator's selection needs tightening, not manual
+- **Oversized?** (>1250 lines) — the generator's selection needs tightening, not manual
   pruning. Read `scripts/refresh-decisions-digest.py` and see what it is pulling in.
+  The budget is `MAX_DIGEST_LINES` in that script and is enforced by
+  `scripts/check-doc-sizes.py`; both say 1250. (This skill used to say 1500, which is
+  how the digest sat 249 lines over budget without anyone noticing — one number, one
+  place. Do not introduce a second threshold.) The main lever is superseding the ADRs
+  it displaces: the generator already drops ADRs targeted by a `supersedes:` chain.
 - **A rule that the code no longer follows?** The digest is generated from ADRs'
   `## Consequences`, so this means the consequence is stale. Fix the ADR or supersede it —
   do not edit the digest directly, it will come back.
@@ -68,10 +73,22 @@ high-traffic rules against reality:
   provider in `META-INF/services/dev.detekt.api.RuleSetProvider` never runs. This is not
   hypothetical: `NoFactoryViewModelRule` sat dormant for weeks, and an ADR credited it
   with a catch it could not have made.
+- Registration is not enough — does the `ruleSetId` have a block in
+  `config/detekt/detekt.yml`? A rule can be implemented, packaged and listed in the
+  service file and still never execute, because detekt only loads rule sets present in
+  the config. Two rules (`no-direct-dispatchers`, `user-scoped-repository`) were dormant
+  this way until 2026-10-05. `./scripts/check-detekt-registrations.sh` now asserts every
+  `ruleSetId` in source has a config block.
 - Does the script that backs it still run in `check.sh`, and does that step still fail on
   a violation? `check.sh` used to swallow detekt failures with a `|| echo` and no
   `exit 1`, while the docs described lint as report-only.
-- Does `just docs-audit` exit non-zero on a finding, or only print it?
+- Does `just docs-audit` exit non-zero on a finding, or only print it? Check for
+  `--warn-only` and `|| true`: both have been used to make a red gate look green
+  locally while CI still failed.
+- If you write a throwaway audit script, do **not** anchor a declaration match at line
+  start. `^expect` finds 30 of the 32 expect/actual declarations and silently misses
+  `@Composable expect fun`, `expect suspend fun` and `expect inline fun` — the same
+  "key present but structure wrong" failure mode as the frontmatter gates.
 
 ## 5 — Vocabulary and structure
 

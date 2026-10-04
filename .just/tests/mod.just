@@ -163,13 +163,16 @@ docs-audit:
     ./scripts/check-skill-frontmatter.sh || status=1
     echo ""
     echo "=== Doc size budgets (AGENTS.md, SKILL.md, description, DIGEST.md) ==="
-    python3 scripts/check-doc-sizes.py --warn-only || status=1
+    python3 scripts/check-doc-sizes.py || status=1
     echo ""
     echo "=== Dead file references in docs, skills and KDoc ==="
     python3 scripts/check-doc-dead-refs.py || status=1
     echo ""
+    echo "=== Dangling ADR references (slugs that no longer resolve) ==="
+    python3 scripts/check-adr-references.py || status=1
+    echo ""
     echo "=== ADR frontmatter normalization (dry run) ==="
-    ./scripts/normalize-adr-frontmatter.sh --dry-run 2>/dev/null || true
+    ./scripts/normalize-adr-frontmatter.sh --dry-run || status=1
     echo ""
     echo "=== DIGEST freshness ==="
     ./scripts/refresh-decisions-digest.sh

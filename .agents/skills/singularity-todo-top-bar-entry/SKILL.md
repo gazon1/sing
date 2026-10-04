@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-top-bar-entry
-description: Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). Documents the slot-API pattern: IconButton lives in the Koin wrapper (has navigator), content stays VM-as-parameter (preview-friendly). Covers both top-bar entry and bottom-nav tab entry, with Nav3 entry registration.
+description: 'Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). Documents the slot-API pattern: IconButton lives in the Koin wrapper (has navigator), content stays VM-as-parameter (preview-friendly). Covers both top-bar entry and bottom-nav tab entry, with Nav3 entry registration.'
 ---
 
 # Top-Bar IconButton Entry Point — Architecture

@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-write-pipeline
-description: Canonical write pipeline for user-scoped repositories. Three primitives: create/edit/apply. Use when implementing create/update/restore in any repository, reviewing a PR for missing sync calls, or fixing cross-user write vulnerabilities.
+description: 'Canonical write pipeline for user-scoped repositories. Three primitives: create/edit/apply. Use when implementing create/update/restore in any repository, reviewing a PR for missing sync calls, or fixing cross-user write vulnerabilities.'
 ---
 
 # Write Pipeline — Three Canonical Primitives

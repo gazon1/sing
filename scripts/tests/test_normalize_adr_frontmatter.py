@@ -310,5 +310,53 @@ class ProcessFileTest(unittest.TestCase):
         self.assertIn('## Context', after)
 
 
+class ExitCodeTest(unittest.TestCase):
+    """The two skip classes must not be conflated.
+
+    A structurally broken ADR is a corpus defect and must fail the gate (exit 3).
+    A valid ADR the flat normalizer cannot round-trip is a tool limitation and must
+    not fail it (exit 0) — otherwise `docs-audit` is permanently red over 6
+    long-standing files and the gate gets disabled again, which is how D2 happened.
+    """
+
+    def _run(self, corpus: pathlib.Path, argv):
+        """Run main() with DECISIONS_DIR pointed at `corpus`."""
+        import contextlib
+        import io
+        old = mod.DECISIONS_DIR
+        saved_argv, saved_out = sys.argv, sys.stdout
+        mod.DECISIONS_DIR = corpus
+        sys.argv = argv
+        buf = io.StringIO()
+        code = 0
+        try:
+            with contextlib.redirect_stdout(buf):
+                mod.main()
+        except SystemExit as exc:
+            code = exc.code or 0
+        finally:
+            mod.DECISIONS_DIR = old
+            sys.argv, sys.stdout = saved_argv, saved_out
+        return code, buf.getvalue()
+
+    def test_list_valued_corpus_exits_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = pathlib.Path(tmp)
+            (corpus / '2026-10-03-list-valued.md').write_text(
+                '---\ntitle: T\ndate: 2026-10-03\ndeciders:\n  - Someone\n---\n\n# Body\n')
+            code, out = self._run(corpus, ['--dry-run'])
+        self.assertEqual(code, 0, out)
+        self.assertIn('not normalizable', out)
+        self.assertIn('0 structurally broken', out)
+
+    def test_structurally_broken_corpus_exits_three(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = pathlib.Path(tmp)
+            (corpus / '2026-10-03-broken.md').write_text(UNTERMINATED)
+            code, out = self._run(corpus, ['--dry-run'])
+        self.assertEqual(code, 3, out)
+        self.assertIn('1 structurally broken', out)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

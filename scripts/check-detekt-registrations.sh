@@ -12,6 +12,11 @@
 #   2. No duplicate rule-set block in detekt.yml.
 #   3. Every provider listed in the service file exists in the source, and every
 #      rule file that declares a provider is listed.
+#   4. (2026-10-05) Every ruleSetId declared in source has a top-level block in
+#      detekt.yml. Invariants 1-3 all passed while two rules — no-direct-dispatchers
+#      and user-scoped-repository — had no config block and had therefore never run.
+#      A rule that is implemented, packaged and registered but absent from the config
+#      is invisible to every other check in this script, so it needs its own.
 #
 # Usage: ./scripts/check-detekt-registrations.sh
 set -euo pipefail
@@ -73,6 +78,17 @@ while IFS= read -r kt; do
 done < <(find "$SRC" -name "*.kt")
 
 total=$(grep -cvE '^\s*(#|$)' "$SERVICE" || true)
+
+# 4. Every ruleSetId declared in source has a top-level block in detekt.yml.
+#    Without this, a rule can be implemented, registered and packaged and still
+#    never execute, because detekt only loads rule sets present in the config.
+while IFS= read -r rid; do
+    if ! grep -qE "^${rid}:" "$YML"; then
+        err "ruleSetId '$rid' is declared in detekt-rules/src but has no block in config/detekt/detekt.yml — the rule will never run"
+    fi
+done < <(grep -rhoE 'RuleSetId\("[a-z0-9-]+"\)' "$SRC" --include="*.kt" \
+         | grep -oE '"[a-z0-9-]+"' | tr -d '"' | sort -u)
+
 if ((ERRORS > 0)); then
     echo ""
     echo "check-detekt-registrations.sh: $ERRORS error(s) ($total registered provider(s))"

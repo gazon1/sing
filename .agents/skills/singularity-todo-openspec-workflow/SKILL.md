@@ -41,13 +41,27 @@ Before writing any OpenSpec artifact, read in this order:
 
 1. **The real code** — not grep, not a skill. Read the actual source files that implement the behavior. Grep misses wiring, initialization order, and implicit dependencies.
 2. **`openspec list --specs`** — what specs already exist for this area?
-3. **`docs/agents/domain.md`** — single-context layout: domain docs at `docs/decisions/`, skills at `.agents/skills/`.
-4. **`docs/decisions/DIGEST.md`** — architecture rules that already apply.
-5. **Relevant ADRs** — the `Context/Decision/Rationale/Consequences` for this area.
-6. **Relevant skills** — `.agents/skills/singularity-todo-*/SKILL.md`.
-7. **`docs/agents/issue-tracker.md`** — for filing and tracking issues related to the change.
+3. **`openspec/specs/MODULE-INDEX.md`** — covered *and* uncovered modules, so you can tell whether you are adding a spec for code you are changing or backfilling one for code you are not.
+4. **`docs/agents/domain.md`** — single-context layout: domain docs at `docs/decisions/`, skills at `.agents/skills/`.
+5. **`docs/decisions/DIGEST.md`** — architecture rules that already apply.
+6. **Relevant ADRs** — the `Context/Decision/Rationale/Consequences` for this area.
+7. **Relevant skills** — `.agents/skills/singularity-todo-*/SKILL.md`.
+8. **`docs/agents/issue-tracker.md`** — for filing and tracking issues related to the change.
 
 Agents that skipped step 1 produced plans that were wrong. The plans said "grep shows X" but grep doesn't show wiring.
+
+### Do not backfill specs
+
+`openspec/specs/` is deliberately small. An entry under **Not covered** in the module
+index is not debt to pay down on its own — it means the first change that touches that
+module should add the spec as part of that change. OpenSpec's own guidance:
+
+> Resist the urge to back-fill everything. Writing specs for code you aren't changing
+> feels productive and usually isn't. Those specs go stale, because nothing forces them
+> to track reality. Let real changes drive your specs.
+
+Forcing a one-time bulk conversion tends to produce a large, stale spec nobody trusts.
+Existing ADRs are **source material for exploration, not specs to convert**.
 
 ## Artifact lifecycle
 
@@ -75,9 +89,21 @@ After applying all tasks, **before archiving**, run:
 openspec validate --all --json --strict
 ```
 
+**This CLI command is the gate.** It is not the same thing as an `/opsx:verify`
+slash-command from the expanded OpenSpec profile: that is a convenience skill that
+re-reads the change and reports drift, and it is non-blocking. `openspec validate
+--all --strict` is what CI runs (`.github/workflows/docs-audit.yml`) and what
+`just os-validate` wraps. If the two are confused, "I ran verify" can mean a report
+nobody checks.
+
 If validation fails, fix the implementation — not the spec. A spec that describes behavior the code does not implement means the spec is wrong, not that the test is wrong.
 
 Exit 0 with no new findings → safe to archive.
+
+`validate` checks **structure**, not truth: it proves the spec has a Purpose, that
+requirements use SHALL/MUST, and that each has a scenario. It cannot tell you the spec
+matches the code. Reading the spec against the implementation is still your job at
+archive time.
 
 ## CLI reference
 

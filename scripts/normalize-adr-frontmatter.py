@@ -230,11 +230,20 @@ def main() -> None:
     changed = []
     unchanged = 0
     errors = []
+    unrepresentable: list[str] = []
 
     for path in entries:
         try:
             did_change, msg = process_file(path, dry_run=dry_run)
+        except UnrepresentableValue as exc:
+            # Valid ADR, but a value this flat str->str model cannot round-trip. The file
+            # is left byte-identical and the corpus is fine — this is a limitation of the
+            # normalizer, not a defect, so it must not fail the build.
+            unrepresentable.append(str(exc))
+            unchanged += 1
+            continue
         except StructuralError as exc:
+            # The frontmatter itself is untrustworthy. That is a real defect.
             errors.append(str(exc))
             continue
         if did_change:
@@ -242,26 +251,23 @@ def main() -> None:
         else:
             unchanged += 1
 
-    if dry_run:
-        print(f"[DRY RUN] {len(changed)} files need changes, {unchanged} unchanged, "
-              f"{len(errors)} skipped as structurally broken")
-        for err in errors:
-            print(f"  SKIPPED (not written): {err}")
-        if changed:
-            print("Run with --apply to write changes:")
-            for slug, msg in changed:
-                print(f"  {slug}: {msg}")
-    else:
-        print(f"Applied: {len(changed)} files changed, {unchanged} unchanged, "
-              f"{len(errors)} skipped as structurally broken")
-        for err in errors:
-            print(f"  SKIPPED (not written): {err}")
+    label = f'{len(changed)} files need changes' if dry_run else f'{len(changed)} files changed'
+    print(f"[{'DRY RUN' if dry_run else 'APPLIED'}] {label}, {unchanged} unchanged, "
+          f"{len(errors)} structurally broken, {len(unrepresentable)} not normalizable")
+    for err in errors:
+        print(f"  SKIPPED (not written): {err}")
+    for msg in unrepresentable:
+        print(f"  SKIPPED (valid YAML, not normalizable): {msg}")
+    if changed and dry_run:
+        print("Run with --apply to write changes:")
+        for slug, msg in changed:
+            print(f"  {slug}: {msg}")
+    elif changed:
         for slug, msg in changed:
             print(f"  {slug}: {msg}")
 
-    # A structural error is a real defect in the corpus, not a normal outcome: it means
-    # an ADR is silently unparseable. Exit non-zero so CI sees it, but only after writing
-    # the files that are safe to write.
+    # A structural error means an ADR is silently unparseable — a real corpus defect.
+    # Exit non-zero so CI sees it, but only after writing the files that are safe.
     if errors:
         sys.exit(3)
     if changed and dry_run:

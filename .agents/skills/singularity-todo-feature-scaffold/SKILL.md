@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-feature-scaffold
-description: Feature scaffold pattern for the Singularity Todo KMP app. Use when adding a new CRUD feature (tasks, notes, projects, tags, reminders) or extending an existing feature with a sub-repository (e.g. NoteTagRepository). Documents the 7-file template, DI registration, navigation, and testing. Canonical flow: pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (MviViewModel + sealed Intent) → Screen.
+description: 'Feature scaffold pattern for the Singularity Todo KMP app. Use when adding a new CRUD feature (tasks, notes, projects, tags, reminders) or extending an existing feature with a sub-repository (e.g. NoteTagRepository). Documents the 7-file template, DI registration, navigation, and testing. Canonical flow: pure domain validation → repository (Result<T>) → use case (only real logic) → ViewModel (MviViewModel + sealed Intent) → Screen.'
 ---
 
 # Feature Scaffold — Adding a New CRUD Feature
@@ -231,7 +231,7 @@ factory { Create<Feature>UseCase(get(), get()) }
 viewModelOf(::FeatureViewModel)
 ```
 
-See `singularity-todo-koin-di`.
+See `singularity-todo-koin-dsl`.
 
 ## Navigation
 

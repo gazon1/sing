@@ -358,3 +358,15 @@ no-combine-side-effect:
 no-empty-onclick-lambda:
   NoEmptyOnClickLambda:
     active: true
+
+# Added 2026-10-05: these two rules were implemented and registered in
+# META-INF/services, but had no detekt.yml block, so detekt never loaded them and
+# they had never run. check-detekt-registrations.sh now enforces the invariant that
+# every ruleSetId in source has a block here.
+no-direct-dispatchers:
+  NoDirectDispatchers:
+    active: true
+
+user-scoped-repository:
+  ProhibitUserIdInObserve:
+    active: true

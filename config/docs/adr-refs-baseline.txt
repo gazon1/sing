@@ -1,0 +1,36 @@
+# Accepted dangling ADR references.
+#
+# Each line is <file>:<line>:<token>. A token is a dated ADR slug that no
+# longer resolves to a file in docs/decisions/ (or its archive/).
+#
+# Seeded at 2026-10-05 with the pre-existing set, so the gate starts green
+# and every future dangling reference is a hard failure. Entries here are
+# accepted debt, not permission to ignore them: each one should eventually
+# be repointed or removed.
+#
+# Regenerate deliberately: python3 scripts/check-adr-references.py --update-baseline
+
+.agents/skills/singularity-todo-decisions-workflow/SKILL.md:17:2026-09-05-ai-provider-settings
+.agents/skills/singularity-todo-decisions-workflow/SKILL.md:30:2026-08-12-koin-runblocking
+.agents/skills/singularity-todo-test-tag-strategy/SKILL.md:117:2026-09-26-junit-tag-default-semantics
+.agents/skills/singularity-todo-test-tag-strategy/SKILL.md:157:2026-09-26-junit-tag-default-semantics
+.agents/skills/singularity-todo-test-tag-strategy/SKILL.md:163:2026-09-26-junit-tag-default-semantics
+docs/decisions/2026-09-05-android-bottom-nav.md:117:2026-09-05-android-bottom-nav-plan
+docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md:119:2026-09-17-agenda-mr3-saved-views-ui
+docs/decisions/2026-09-22-outbox-workmanager-refactor.md:156:2026-09-06-koin-suspend-bridge
+docs/decisions/2026-09-23-sync-tier3-fixes.md:201:2026-09-21-state-embedded-errors
+docs/decisions/2026-09-26-post-p0-retro.md:45:2026-09-26-pr-0-0-retro
+docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md:108:2026-09-26-junit-tag-default-semantics
+docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md:201:2026-09-26-junit-tag-default-semantics
+docs/decisions/2026-09-28-android-cold-start-nav3-serializer-crash.md:11:2026-09-28-maestro-ui-flows
+docs/decisions/2026-09-28-detekt-daemon-and-crashing-rule.md:113:2026-09-26-detekt-rules-authoring
+docs/decisions/2026-09-28-setup-hooks-broken-githooks-path.md:101:2026-09-28-maestro-ui-flows
+docs/decisions/2026-09-28-setup-hooks-broken-githooks-path.md:12:2026-09-28-maestro-ui-flows
+docs/decisions/2026-09-29-check-tags-legacy-raw-dead-code.md:45:2026-09-29-no-direct-clock-system-detekt-rule
+docs/decisions/2026-10-01-phase4-cleanup-findings.md:138:2026-10-01-r26-kotlin-time-consolidation
+docs/decisions/2026-10-01-post-mr-10-findings.md:81:2026-09-29-deferred-backlog
+docs/decisions/2026-10-02-note-body-canonical-html.md:6:2026-09-07-rich-text-encoding
+docs/decisions/2026-10-02-post-tech-debt-audit-findings.md:221:2026-10-02-tech-debt-cleanup-plan-v3
+openspec/changes/baseline-write-pipeline/proposal.md:40:2026-10-03-assert-canwrite-adr
+openspec/changes/baseline-write-pipeline/proposal.md:40:2026-10-03-write-integrity-phase0a
+openspec/changes/baseline-write-pipeline/proposal.md:41:2026-10-03-write-integrity-phase0b

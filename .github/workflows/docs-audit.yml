@@ -1,5 +1,17 @@
 name: Documentation Audit
 
+# Every step here is blocking on purpose (2026-10-05).
+#
+# This workflow previously ended each meaningful step in `|| true` and skipped
+# OpenSpec validation whenever the CLI was absent. It was titled "Documentation
+# Audit" and blocked nothing, which is how 15 unparseable skill frontmatters, an
+# over-budget AGENTS.md and 2 invalid specs accumulated. A gate that cannot fail is
+# worse than no gate: it creates false confidence.
+#
+# The OpenSpec CLI is invoked through `npx @fission-ai/openspec` so the step cannot
+# silently skip on a runner where the package is not installed globally. `ci.yml`
+# already uses the same path, so this adds no new dependency.
+
 on:
   push:
     branches: [main]
@@ -9,12 +21,16 @@ on:
       - 'docs/decisions/**'
       - 'AGENTS.md'
       - 'ARCHITECTURE.md'
+      - 'README.md'
+      - 'PROGRESS.md'
+      - 'docs/**'
+      - '.agents/skills/**'
       - 'docs/doc-maintenance.md'
       - '.github/workflows/docs-audit.yml'
-      - 'scripts/refresh-decisions-digest.*'
-      - 'scripts/normalize-adr-frontmatter.*'
-      - 'scripts/print-source-tree.*'
-      - 'openspec/**'
+      - 'config/detekt/**'
+      - 'config/docs/**'
+      - 'scripts/**'
+      - '.just/**'
 
 jobs:
   docs-audit:
@@ -22,41 +38,73 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: python -m pip install --quiet pyyaml
+
+      # Exit 3 = structurally broken ADR (unterminated frontmatter, body inside the
+      # frontmatter block, or a list/block-scalar value the normalizer cannot
+      # round-trip). The script refuses to write those files; this step makes the
+      # refusal visible instead of letting it pass unnoticed.
       - name: Check ADR frontmatter
-        run: ./scripts/normalize-adr-frontmatter.sh --dry-run || true
+        run: ./scripts/normalize-adr-frontmatter.sh --dry-run
 
       - name: Refresh DIGEST
         run: python3 scripts/refresh-decisions-digest.py
 
       - name: Check for stale open/deferred ADRs
         run: |
-          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
+          set -uo pipefail
+          STALE=$(find docs/decisions -maxdepth 1 -name "*.md" -newer docs/doc-maintenance.md \
+                  -exec grep -l "^status: open$\|^status: deferred$" {} \; 2>/dev/null || true)
           if [ -n "$STALE" ]; then
-            echo "Warning: open/deferred ADRs found (older than doc-maintenance.md):"
-            echo "$STALE"
+            echo "::error::open/deferred ADRs older than doc-maintenance.md (rule 3: none older than 30 days):"
+            echo "$STALE" | sed 's/^/  /'
+            exit 1
           fi
+          echo "No stale open/deferred ADRs."
 
       - name: Verify DIGEST has no double-suffix bugs
         run: |
+          set -uo pipefail
           DOUBLE_SUFFIX_COUNT=$(grep -c "_(from " docs/decisions/DIGEST.md || echo "0")
           if [ "$DOUBLE_SUFFIX_COUNT" -gt 100 ]; then
-            echo "Warning: DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — possible double-suffix bug"
-          else
-            echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
+            echo "::error::DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — possible double-suffix bug"
+            exit 1
           fi
+          echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
 
+      # Budget must match scripts/check-doc-sizes.py (MAX_DIGEST_LINES = 1250).
+      # This step previously used 1500, so the digest could sit 249 lines over budget
+      # and this workflow would still say it was fine.
       - name: Report DIGEST size
         run: |
+          set -uo pipefail
           LINES=$(wc -l < docs/decisions/DIGEST.md)
-          echo "DIGEST.md: $LINES lines"
-          if [ "$LINES" -gt 1500 ]; then
-            echo "Warning: DIGEST.md exceeds 1500 lines — investigate deduplication"
+          echo "DIGEST.md: $LINES lines (budget 1250)"
+          if [ "$LINES" -gt 1250 ]; then
+            echo "::error::DIGEST.md exceeds its 1250-line budget by $((LINES - 1250)) lines."
+            echo "Supersede the ADRs it displaces, or archive retros — the generator drops superseded entries first."
+            exit 1
           fi
 
-      - name: Validate OpenSpec changes
-        run: |
-          if command -v openspec &> /dev/null; then
-            openspec validate || true
-          else
-            echo "OpenSpec CLI not installed — skipping validation"
-          fi
+      - name: Doc size budgets
+        run: python3 scripts/check-doc-sizes.py
+
+      - name: Skill frontmatter parses as YAML
+        run: ./scripts/check-skill-frontmatter.sh
+
+      - name: Dead file references
+        run: python3 scripts/check-doc-dead-refs.py
+
+      - name: Dangling ADR references
+        run: python3 scripts/check-adr-references.py
+
+      - name: Custom detekt rule registrations
+        run: ./scripts/check-detekt-registrations.sh
+
+      - name: Validate OpenSpec changes and specs
+        run: npx --yes @fission-ai/openspec@1.14.0 validate --all --strict

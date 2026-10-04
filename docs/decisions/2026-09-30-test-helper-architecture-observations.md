@@ -1,7 +1,7 @@
 ---
 title: "Test helper architecture — observations and small fixes from the Ultron spike"
 date: 2026-09-30
-tags: [testing, desktop, architecture, technical-debt]
+tags: [testing, desktop, architecture, tech-debt]
 status: accepted
 ---
 

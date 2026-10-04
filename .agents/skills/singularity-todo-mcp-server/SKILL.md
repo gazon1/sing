@@ -421,5 +421,5 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 - `singularity-todo-ai-tool` — the underlying `SimpleTool<T>` pattern (every MCP tool wraps one).
 - `singularity-todo-multi-profile` — `--profile` argument parsing, profile-aware Koin modules.
 - `singularity-todo-llm-usage-tracking` — `UsageRecorder` port injected into tools.
-- `singularity-todo-koin-di` — `domainModule()` is what the MCP server starts.
+- `singularity-todo-koin-dsl` — `domainModule()` is what the MCP server starts.
 - ADR `2026-09-07-dogfooding-mcp-server` — rationale and trade-offs.

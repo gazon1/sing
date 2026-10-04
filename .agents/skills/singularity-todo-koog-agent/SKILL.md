@@ -200,7 +200,7 @@ on each tool class + `@Module @ComponentScan("...feature.ai.tools") class AiTool
 The aggregation binding stays the same (`single<Set<...>> { getAll<...>() }`)
 because `@IntoSet` does not exist in Koin 4.x.
 
-⚠️ **Avoid these patterns** (documented in `singularity-todo-koin-di` skill):
+⚠️ **Avoid these patterns** (documented in `singularity-todo-koin-dsl` skill):
 - `@Single` (rename in your head to `@Singleton` — `@Single` doesn't exist in 4.x)
 - `@IntoSet` (doesn't exist in 4.x — was a 2.x feature; use `getAll<T>()` instead)
 - `koin-annotations-compiler` artifact (doesn't exist for 4.x — use `koin-gradle-plugin`)

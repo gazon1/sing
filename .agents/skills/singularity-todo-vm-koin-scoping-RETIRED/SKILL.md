@@ -1,6 +1,8 @@
 ---
 name: singularity-todo-vm-koin-scoping-RETIRED
-description: RETIRED. Formerly argued that viewModelOf must never be used. Superseded — the canonical ViewModel registration rules live in AGENTS.md. Load singularity-todo-koin-di or singularity-todo-vm-migration-playbook instead.
+status: retired
+retired-on: 2026-09-27
+description: RETIRED. Formerly argued that viewModelOf must never be used. Superseded — the canonical ViewModel registration rules live in AGENTS.md. Load singularity-todo-koin-dsl or singularity-todo-vm-migration-playbook instead.
 ---
 
 # RETIRED — ViewModel DI Scope
@@ -19,7 +21,7 @@ which every agent loads automatically.
 **Where the rules live now:**
 
 - `AGENTS.md` — the canonical `viewModelOf` / `viewModel { }` / `koinViewModel` table.
-- `singularity-todo-koin-di` — `singleOf` / `factoryOf` gotchas, `koinBridge`.
+- `singularity-todo-koin-dsl` — `singleOf` / `factoryOf` gotchas, `koinBridge`.
 - `singularity-todo-vm-migration-playbook` — migrating a VM to the canonical shape.
 
 The one case the old skill warned about is still real and is already documented in code:

@@ -43,4 +43,13 @@ android-ui-tests serial="":
 os-validate:
     #!/bin/bash
     set -euo pipefail
-    node {{OPENSPEC_BIN}} validate --all --json --strict
+    # Resolve the CLI instead of hardcoding one developer's nvm path, which made this
+    # recipe fail on every other machine. Order: an explicit override, a global
+    # install on PATH, then npx (what CI uses).
+    if [ -n "${OPENSPEC_BIN:-}" ] && [ -f "${OPENSPEC_BIN}" ]; then
+        node "${OPENSPEC_BIN}" validate --all --json --strict
+    elif command -v openspec >/dev/null 2>&1; then
+        openspec validate --all --json --strict
+    else
+        npx --yes @fission-ai/openspec@1.14.0 validate --all --json --strict
+    fi

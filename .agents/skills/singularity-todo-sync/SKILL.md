@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-sync
-description: Sync architecture for the Singularity Todo KMP app: Hybrid Logical Clock (HLC), ConflictResolver, SyncOutbox, SyncableEntity contract, SupabaseSyncApiClient, and SyncEngine orchestration. Use when adding a new entity to sync, debugging sync conflicts, or understanding the offline-first CRDT-style merge strategy.
+description: 'Sync architecture for the Singularity Todo KMP app: Hybrid Logical Clock (HLC), ConflictResolver, SyncOutbox, SyncableEntity contract, SupabaseSyncApiClient, and SyncEngine orchestration. Use when adding a new entity to sync, debugging sync conflicts, or understanding the offline-first CRDT-style merge strategy.'
 ---
 
 # Singularity TODO — Sync Architecture

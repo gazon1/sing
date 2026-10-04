@@ -2,7 +2,7 @@
 title: Dogfooding follow-ups — observed during implementation
 date: 2026-09-07
 status: accepted
-tags: [dogfooding, followups, technical-debt]
+tags: [dogfooding, followups, tech-debt]
 updated: 2026-09-08
 ---
 

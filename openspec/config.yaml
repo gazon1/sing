@@ -20,10 +20,18 @@ skip_specs:
 # Mandatory read order before writing any OpenSpec artifact:
 #   1. Read the real code (not grep — grep misses wiring and initialization order)
 #   2. Run `openspec list --specs` to see what already exists
-#   3. Read docs/CONTEXT.md for project-level decisions
-#   4. Read docs/decisions/DIGEST.md for architecture rationale
-#   5. Read relevant ADRs in docs/decisions/
-#   6. Read relevant skills in .agents/skills/
+#   3. Read openspec/specs/MODULE-INDEX.md — it lists covered AND uncovered modules,
+#      so you can tell at a glance whether you are adding a spec or backfilling one
+#   4. Read docs/CONTEXT.md for project-level decisions
+#   5. Read docs/decisions/DIGEST.md for architecture rationale
+#   6. Read relevant ADRs in docs/decisions/
+#   7. Read relevant skills in .agents/skills/
+#
+# Do NOT backfill a spec for a module you are not changing. OpenSpec's own guidance:
+# "Writing specs for code you aren't changing feels productive and usually isn't.
+# Those specs go stale, because nothing forces them to track reality. Let real
+# changes drive your specs." A change that touches an uncovered module should add
+# the spec for that module as part of the change.
 
 context: "Kotlin Multiplatform: Android + JVM Desktop only (no iOS). Compose Multiplatform for UI, Koin 4.x for DI, MVI pattern for ViewModels, Room for persistence, Nav3 for navigation, Kotlin Flow for async. KMP port convention: interface in commonMain, two platform implementations in androidMain/jvmMain, single<Port> { Impl(get()) } in both PlatformModule.*.kt. The only expect/actual seam is platformModule() itself. DI: single { Repo(get()) } singleton; single<Port> { Impl(get()) } port; viewModelOf(::Vm) VM no params; viewModel { (p) -> Vm(get(), p) } VM with params; factory { } NEVER for ViewModels; koinViewModel() in Composables; koinInject() repositories/services only. All bindings in per-domain *DiModule.kt aggregated by core/di/Modules.kt. Never *.toTypedArray() in modules(). Testing: use fakes from test/fakes/FakeRepositories.kt; virtual time via advanceUntilIdle(); canonical VM: MutableStateFlow + scope.launch { }.collect {} (never stateIn)."
 

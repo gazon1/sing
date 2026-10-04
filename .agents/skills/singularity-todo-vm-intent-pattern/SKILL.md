@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-vm-intent-pattern
-description: The house ViewModel pattern for this project: sealed Intent + single onIntent dispatcher, routing vs domain intent separation, _latestTask cache, and when to use (or skip) a pure reducer.
+description: 'The house ViewModel pattern for this project: sealed Intent + single onIntent dispatcher, routing vs domain intent separation, _latestTask cache, and when to use (or skip) a pure reducer.'
 ---
 
 # ViewModel Intent Pattern

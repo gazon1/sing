@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-98 skills: 85 project-specific, 13 generic/meta.
+112 skills: 85 project-specific, 27 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -31,7 +31,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cross-feature-navigation` | 196 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
-| `singularity-todo-desktop-compose-ui-tests` | 269 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
+| `singularity-todo-desktop-compose-ui-tests` | 333 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 381 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. |
@@ -55,7 +55,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-mcp-dogfooding` | 202 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-mcp-server` | 424 | MCP server pattern for Singularity Todo KMP. |
-| `singularity-todo-monthly-doc-audit` | 95 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
+| `singularity-todo-monthly-doc-audit` | 112 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 401 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 325 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
 | `singularity-todo-mvi-framework` | 260 | Local MVI framework for Singularity Todo KMP. |
@@ -65,7 +65,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-note-ai-multi-op` | 324 | Note AI multi-operation implementation guide for Singularity Todo. |
 | `singularity-todo-notes-ux-patterns` | 417 | Complete collection of Notes-specific UX patterns for the Singularity Todo KMP app. |
 | `singularity-todo-notifications` | 134 | Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. |
-| `singularity-todo-openspec-workflow` | 115 | OpenSpec spec-driven workflow for this project. |
+| `singularity-todo-openspec-workflow` | 142 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
 | `singularity-todo-quality-tools` | 280 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
@@ -105,15 +105,29 @@ state *which tasks need the skill*, not summarise its contents.
 | Skill | Lines | Description |
 |---|---:|---|
 | `code-review-pr-workflow` | 191 | Author and review a pull request in this project. |
-| `debugging-investigation` | 311 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
+| `codebase-design` | 113 | Shared vocabulary for designing deep modules. |
+| `debugging-investigation` | 324 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
+| `diagnosing-bugs` | 137 | Diagnosis loop for hard bugs and performance regressions. |
 | `domain-glossary` | 89 | Decide whether a term belongs in docs/CONTEXT.md and add it correctly. |
 | `domain-modeling` | 73 | Build and sharpen a project's domain model. |
 | `grill-me-RETIRED` | 5 | RETIRED. |
 | `grill-with-docs-RETIRED` | 5 | RETIRED. |
 | `grilling` | 27 | Grill the user relentlessly about a plan, decision, or idea. |
 | `handoff` | 13 | Compact the current conversation into a handoff document for another agent to pick up. |
+| `implement` | 13 | Implement a piece of work based on a spec or set of tickets. |
+| `implement-spec` | 38 | Implement the result of /to-spec and /to-tickets in code. |
+| `improve-codebase-architecture` | 69 | Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick. |
+| `loop-me` | 29 | Grill me about specs for the workflows I want to build, within this workspace. |
 | `progress-journal` | 111 | Update PROGRESS.md during and after an epic — retro entries, PR status, blockers. |
+| `prototype` | 25 | Build a throwaway prototype to answer a design question. |
+| `research` | 11 | Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. |
+| `retro` | 42 | Conduct a retrospective on a coding session. |
 | `security-review` | 134 | Security review checklist for security-sensitive changes — credentials, tokens, auth, data export, encryption. |
+| `tdd` | 37 | Test-driven development. |
+| `to-questionnaire` | 52 | Turn a decision you can't fully answer into a questionnaire for someone else to fill in. |
+| `to-spec` | 73 | Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed. |
+| `to-tickets` | 103 | Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker). |
+| `triage` | 110 | Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and write agent-ready briefs. |
 | `ux-a11y-review` | 124 | Accessibility and UX review checklist for UI changes — contrast, touch targets, content descriptions, keyboard navigation, screen reader support. |
 | `wayfinder` | 136 | Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear. |
 | `writing-for-agents` | 80 | Writing documents for agents. |

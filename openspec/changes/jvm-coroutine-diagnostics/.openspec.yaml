@@ -1,2 +1,11 @@
 schema: spec-driven
+# 2026-10-05: this change was failing `openspec validate --all --strict` with
+# "Change must have at least one delta" because it has no specs/ directory. It
+# builds test-only diagnostic infrastructure (a failure bundle plus a writer) and
+# changes no runtime behaviour a capability spec would describe, so it is marked
+# skip_specs. Matches the precedent in
+# archive/2026-10-04-desktop-test-failure-diagnostics/.openspec.yaml.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive. If this
+# change ever grows a spec delta, delete skip_specs instead.
 skip_specs: true

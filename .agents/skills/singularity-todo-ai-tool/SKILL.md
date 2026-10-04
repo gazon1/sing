@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-ai-tool
-description: Koog AI tool creation pattern for the Singularity Todo KMP app. Use when adding a new SimpleTool<T> to the AI agent. Covers @Serializable Input/Output DTOs, SimpleTool<Input> subclass, tool name/description, Koog prompt DSL, tool registration via `koin.getAll<Tool<*, *>>()` aggregation into `KoogAgentService.tools: Set<Tool<*, *>>`, JSON schema helper, and the use-case layer that decodes the tool output. All 32+ existing tools follow this pattern.
+description: 'Koog AI tool creation pattern for the Singularity Todo KMP app. Use when adding a new SimpleTool<T> to the AI agent. Covers @Serializable Input/Output DTOs, SimpleTool<Input> subclass, tool name/description, Koog prompt DSL, tool registration via `koin.getAll<Tool<*, *>>()` aggregation into `KoogAgentService.tools: Set<Tool<*, *>>`, JSON schema helper, and the use-case layer that decodes the tool output. All 32+ existing tools follow this pattern.'
 ---
 
 # Koog AI Tool — Adding a New Tool
@@ -165,7 +165,7 @@ the 2.x annotations module and was not carried forward. In 4.x the
 same outcome is `single<Set<...>> { getAll<...>() }` — explicit, no
 annotation magic, one line shorter than the old `listOf(...)` pattern.
 
-**Future-proof alternative** (annotated, after `singularity-todo-koin-di`
+**Future-proof alternative** (annotated, after `singularity-todo-koin-dsl`
 phase 2 migration): `@Singleton class Tool(get(), get())` + `getAll<Tool>()`
 without per-tool factory bindings. Use only if the module declares
 ≥15 tools (it does — 32+ — so this win is real here).
