@@ -111,10 +111,22 @@ tasks.withType<AbstractArchiveTask>().configureEach {
 // ---------------------------------------------------------------------------
 // detekt — static analysis
 // ---------------------------------------------------------------------------
+// 2026-10-05: `ignoreFailures` was `true` here, so this task was invoked by
+// ci.yml but could not fail a build — and it was absent from check.sh, so it
+// never ran locally either. A gate that is wired but structurally incapable of
+// failing is the same defect as a gate that is never invoked: both report a
+// verdict nobody derived. It reports 0 findings, so enforcing it costs nothing
+// today and starts costing something the moment it finds anything.
+//
+// Deliberately still on detekt-minimal.yml rather than the full detekt.yml:
+// this module does not apply the :detekt-rules plugin, so the custom rule sets
+// are not on its classpath. Bringing it onto the full config is a decision, not
+// a mechanical fix, and is not taken here. What is taken here is that the
+// rules that *do* apply can now stop a build.
 detekt {
     config.setFrom(rootProject.file("config/detekt/detekt-minimal.yml"))
     buildUponDefaultConfig = true
-    ignoreFailures = true
+    ignoreFailures = false   // enforcing — a baseline covers accepted debt when there is one
     source.setFrom(
         "src/main/kotlin",
         "src/test/kotlin"
