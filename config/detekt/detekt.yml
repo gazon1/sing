@@ -364,6 +364,22 @@ ktlint:
     # detekt wants one top-level declaration matching the file name; this project
     # groups by concern.
     active: false
+  # ── Declared 2026-10-04, second pass. `main` added findings for these five
+  # between the first declaration sweep and the rebase, and a rule that reports
+  # without being named is a rule nobody chose. All five are ktlint formatting
+  # rules whose detekt default agrees with `.editorconfig`, so each is active
+  # rather than switched off — none of them contradicts a documented convention
+  # the way BackingPropertyNaming and Filename do.
+  ArgumentListWrapping:
+    active: true             # 8 findings: multi-line call argument lists
+  PropertyWrapping:
+    active: true             # 2 findings: property initialisers split across lines
+  TrailingCommaOnCallSite:
+    active: true             # 2 findings: missing trailing comma in a call site
+  NoMultipleSpaces:
+    active: true             # 1 finding: padding inside an expression
+  SpacingBetweenDeclarationsWithComments:
+    active: true             # 1 finding: a KDoc block not followed by a blank line
   NoUnusedImports:
     active: true             # 3 findings fixed 2026-10-04; a 4th appeared in
                              # TaskRowFlowTest after the rebase onto 5a175fdb and
