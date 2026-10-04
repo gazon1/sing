@@ -147,10 +147,20 @@ class KoinGraphValidationTest {
     @Test
     fun `all singletons resolve without missing bindings`() {
         val app = koinApplication {
+            // Composed as a list, not spread as varargs — the shape every production entry
+            // point uses. But read the note below before concluding that the composition
+            // is what silences KOIN-W003, because it is not: see
+            // docs/decisions/2026-10-05-koin-w003-in-a-test-graph.md.
+            //
+            // This entry point warns and is expected to. The warning means the Koin
+            // compiler could not analyse `desktopPlatformModule()` — a ~40-binding
+            // test-local mirror of platformModule() — so it skips its checks here. What
+            // survives is `checkModules()` below, which resolves the graph for real.
             modules(
-                desktopPlatformModule(),
-                *domainModule().toTypedArray(),
-                gateModule("https://github.com/singularity-todo/singularity/releases"),
+                listOf(
+                    desktopPlatformModule(),
+                    gateModule("https://github.com/singularity-todo/singularity/releases"),
+                ) + domainModule(),
             )
         }
         try {

@@ -23,12 +23,12 @@ scope) → `*Screen.kt` (Compose).
 
 ## DI: Koin 4.x (pure DSL)
 
-**DI-валидация:** `koin-compiler-plugin 1.2.1` (build-logic/Plugins.kt) обеспечивает
-compile-time проверку графа — все `get<T>()` валидируются на этапе сборки. Аннотации
-(`@Single`, `@Factory`) не используются; плагин работает с classic DSL.
-**Никогда** не используй `*domainModule().toTypedArray()` в `modules()` — это
-даёт KOIN-W003 (graph unverifiable). Используй list composition:
-`modules(listOf(...) + domainModule() + listOf(...))`.
+**DI-валидация:** `koin-compiler-plugin 1.2.1` (build-logic/Plugins.kt) даёт compile-time
+проверку графа — все `get<T>()` валидируются на сборке. Аннотации (`@Single`, `@Factory`)
+не используются; плагин работает с classic DSL.
+**Никогда** не используй `*domainModule().toTypedArray()` в `modules()`: набор модулей
+становится динамическим. Используй `modules(listOf(...) + domainModule() + listOf(...))`.
+Но чистоты это не гарантирует: KOIN-W003 бывает и при composition (см. ADR `2026-10-05-koin-w003-in-a-test-graph`).
 
 | DSL | Когда |
 |---|---|
