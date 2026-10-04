@@ -365,7 +365,10 @@ ktlint:
     # groups by concern.
     active: false
   NoUnusedImports:
-    active: true             # 3 findings, all fixed 2026-10-04
+    active: true             # 3 findings fixed 2026-10-04; a 4th appeared in
+                             # TaskRowFlowTest after the rebase onto 5a175fdb and
+                             # is fixed there too — the count is only ever true
+                             # for the tree it was measured in
   EmptyFunctionBlock:
     active: true             # NoopCalendarSyncRepositoryImpl, FakeHlcFactory — the
                              # no-op behaviour IS the point of those types
