@@ -221,6 +221,37 @@ When a VM test is flaky or stuck in `Loading`:
 
 ---
 
+## Flakes are now measured, not remembered (2026-10-04)
+
+Two flakes in this repo's history were each observed once, never reproduced, and
+filed as prose: `ProjectsFlowTest` reading a draft state before the init collector
+seeded it, and `TaskDetailCoordinatorGraphTest` waiting on a 10-second real-time
+budget under parallel load. A run that is green is indistinguishable from a run that
+is green because the test is sound, so nothing in the build noticed either.
+
+`scripts/check-flaky-tests.py` compares this run's JUnit XML against the previous
+successful run on the same branch. A **status flip** is the signal: a test that
+failed before and passes now is a flake witness, whatever this run reported.
+
+```bash
+python3 scripts/check-flaky-tests.py \
+  --current shared/build/test-results/jvmTest --previous /tmp/prev-run
+```
+
+A failure you understand goes in `config/docs/flaky-baseline.txt` with its reason —
+a bare class name acknowledges the whole class. Anything else fails the analysis.
+
+**When a test needs real time, size the budget as a hang detector, not a latency
+assertion.** A `withTimeout(10.seconds)` against real dispatchers is a coin flip on
+a loaded machine: it failed roughly one run in three while three instrumented
+modules compiled in parallel, and a coin-flip gate trains people to re-run instead
+of read. The defect it guards against — a `combine` that dies before its first
+emission — hangs *forever*, so a generous budget still catches it. And on failure,
+print the states you observed rather than a bare `TimeoutCancellationException`.
+
+See ADR `2026-10-04-measurement-integrity` and the addendum in
+`2026-10-04-test-execution-integrity`.
+
 ## See Also
 
 - `singularity-todo-test-helpers` — `testScope`, `assertIs`, `awaitState`
