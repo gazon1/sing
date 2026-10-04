@@ -127,7 +127,16 @@ fun runDesktopAppTest(
     // Read retry policy from system properties (passed via -D from gradle, e.g.
     // -Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false). When not set,
     // defaults to one attempt with strict failure reporting (no masking).
-    val maxAttempts = (System.getProperty("retry.maxAttempts") ?: "1").toIntOrNull() ?: 1
+    //
+    // coerceAtLeast(1) is load-bearing. repeat(0) never runs the test body, so
+    // lastThrowable stays null and every UI test failed with
+    // IllegalStateException("unreachable") — a message naming neither the test
+    // nor the cause. CI did exactly that: the push event passed
+    // -Dretry.maxAttempts=0 where "no retry" was meant, and all 45 desktopApp
+    // tests failed on every push while the pull_request event, using 2, stayed
+    // green and hid it.
+    val requestedAttempts = (System.getProperty("retry.maxAttempts") ?: "1").toIntOrNull() ?: 1
+    val maxAttempts = requestedAttempts.coerceAtLeast(1)
     val failOnPassedAfterRetry = (System.getProperty("retry.failOnPassedAfterRetry") ?: "true").toBoolean()
 
     try {
@@ -190,7 +199,11 @@ fun runDesktopAppTest(
             // Test passed on retry: suppress failure, report as green.
             return@runDesktopComposeUiTest
         }
-        throw lastThrowable ?: error("unreachable")
+        throw lastThrowable ?: error(
+            "Desktop UI harness ran $maxAttempts attempt(s) but neither executed the " +
+                "test body nor recorded a failure. Check retry.maxAttempts=" +
+                "$requestedAttempts (effective $maxAttempts).",
+        )
     } finally {
         clearStepRecorder()
     }

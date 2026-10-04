@@ -86,12 +86,18 @@ jobs:
       # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly.
       # PRs: lenient (max=2, failOnPassedAfterRetry=false).
       # main: strict (max=0, failOnPassedAfterRetry=true).
+      # The desktopApp UI harness reads retry.maxAttempts and does
+      # repeat(maxAttempts). It used to be 0 here, meaning "no retry" — so
+      # repeat(0) skipped every test body and all 45 desktopApp UI tests failed
+      # with IllegalStateException("unreachable") on every push. "No retry" is
+      # one attempt, which is also the harness default, so the non-PR branch
+      # only needs the strict reporting flag.
       - name: Set retry environment
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "GRADLE_OPTS=-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false" >> "$GITHUB_ENV"
           else
-            echo "GRADLE_OPTS=-Dretry.maxAttempts=0 -Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
+            echo "GRADLE_OPTS=-Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
           fi
 
       - name: Set up Python
