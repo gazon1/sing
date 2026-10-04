@@ -321,6 +321,40 @@ internal class SyncEngine(
         log.w { "Patch ${entity.patchId} failed (attempt $attempts); retrying in ${delay}ms" }
     }
 
+    /** What one pulled event did, from the loop's point of view. */
+    private sealed interface PullStep {
+        /** Applied or conflicted — the cursor may advance past it. */
+        data class Done(val conflicted: Boolean) : PullStep
+
+        /** Another profile's event. Skipped, and the cursor still advances. */
+        data object Skipped : PullStep
+
+        /**
+         * A type this client has no handler for.
+         *
+         * Distinct from [Skipped] because the two need opposite cursor treatment, and
+         * conflating them is a stall: the log interleaves every profile of the
+         * account, so an unhandled *other-profile* event would freeze this account's
+         * sync at that position forever.
+         */
+        data object Unappliable : PullStep
+    }
+
+    /**
+     * Applies one event to [scope], or says why it was not applied.
+     *
+     * Extracted so the pull loop is accounting only. The distinction it draws — skip,
+     * stall, apply — is the part worth reading on its own.
+     */
+    private suspend fun applyEvent(event: SyncEvent, scope: SyncScope): PullStep {
+        if (!event.belongsTo(scope)) return PullStep.Skipped
+        val handler = handlers[event.entityType] ?: return PullStep.Unappliable
+        return when (handler.apply(event)) {
+            is ApplyOutcome.Applied -> PullStep.Done(conflicted = false)
+            is ApplyOutcome.Conflict -> PullStep.Done(conflicted = true)
+        }
+    }
+
     /**
      * Pulls events from the server for [scope], starting after the cursor stored for
      * that scope. The caller passes the starting position so the value it applies is
@@ -343,28 +377,39 @@ internal class SyncEngine(
             var maxLsn = sinceLsn
 
             for (event in events) {
-                val handler = handlers[event.entityType]
-                if (handler == null) {
-                    // The cursor does NOT advance past this event, and the pull stops
-                    // here. The previous code did `maxLsn = maxOf(maxLsn, lsn)` first
-                    // and then `?: return@forEach`, so an event whose type this client
-                    // cannot handle advanced the cursor anyway and was never applied
-                    // again: the server considered it delivered, the client considered
-                    // it done, and the data was gone. The only trace was a pull summary
-                    // that said it had received the event and applied nothing.
-                    dropped++
-                    log.w {
-                        "Dropping event at lsn=${event.serverLsn} for unknown type " +
-                            "${event.entityType.key}; cursor stays at $maxLsn"
+                when (val step = applyEvent(event, scope)) {
+                    is PullStep.Done -> {
+                        if (step.conflicted) conflicts++ else applied++
+                        maxLsn = maxOf(maxLsn, event.serverLsn)
                     }
-                    break
-                }
 
-                when (handler.apply(event)) {
-                    is ApplyOutcome.Applied -> applied++
-                    is ApplyOutcome.Conflict -> conflicts++
+                    PullStep.Skipped -> {
+                        // Another profile's event, in a feed that is per *owner*. The
+                        // cursor advances past it: the log interleaves every profile of
+                        // the account, so treating this as "not applicable" would freeze
+                        // the cursor at the first one and the account would never sync
+                        // anything again. It is counted as dropped so the summary is
+                        // honest about what arrived.
+                        dropped++
+                        maxLsn = maxOf(maxLsn, event.serverLsn)
+                    }
+
+                    PullStep.Unappliable -> {
+                        // The cursor does NOT advance past this event, and the pull stops
+                        // here. The previous code did `maxLsn = maxOf(maxLsn, lsn)` first
+                        // and then `?: return@forEach`, so an event whose type this client
+                        // cannot handle advanced the cursor anyway and was never applied
+                        // again: the server considered it delivered, the client considered
+                        // it done, and the data was gone. The only trace was a pull summary
+                        // that said it had received the event and applied nothing.
+                        dropped++
+                        log.w {
+                            "Dropping event at lsn=${event.serverLsn} for unknown type " +
+                                "${event.entityType.key}; cursor stays at $maxLsn"
+                        }
+                        break
+                    }
                 }
-                maxLsn = maxOf(maxLsn, event.serverLsn)
             }
 
             // Persist the server LSN so the next pull resumes from this point. Written

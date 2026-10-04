@@ -2110,3 +2110,28 @@ cache, a local SDK. `check-gate-wiring.py` catches the "cannot fail" direction; 
 is the "cannot be trusted" direction, and nothing catches it. Running a gate against
 a fresh `git clone --depth 1` is the cheap test, and it is what turned a red CI job
 into a one-line fix instead of an afternoon.
+
+---
+
+## sync-client-phases-6-to-11-pending
+
+**Status:** OPEN. The sync client is being built inside-out, transport first and the
+sign-in surface last, and three classes are deliberately unwired until the phases that
+use them land. Listing them as one entry rather than three is the point: they have a
+single cause and a single closing condition, and three entries would be three places
+to forget to close.
+
+**Tracked as:** `openspec/changes/supabase-auth-and-sync/` — task groups 6, 8 and 11.
+The entry closes when phase 11 lands, at which point all three symbols have a
+production call site and the baseline rows go with it.
+
+| Symbol | Wired by | Note |
+|---|---|---|
+| `SupabaseConfigResolver` | Phase 11 (sign-in surface) | Phase 4 built the resolution rule; the screen that asks the user for a URL and key is what calls it. Its test asserts the rule — stored wins over build-time — which is the part that is easy to get wrong later. |
+| `SupabaseSyncApiClient` | Phase 6 | The stub in `SyncApi.kt` returns empty results today. Replaced, not extended. |
+| `SupabaseAuthRepository` | Phase 8 | Depends on phase 7's `SecureSessionStore` and phase 6's transport. |
+
+**Closing condition:** phase 11 lands, `find-unwired-surfaces.py` reports clean, and
+this entry is deleted. The gate that enforces it is the dead-symbol detector — a
+symbol here with a live backlog reference is tracked debt, and the same symbol without
+one is a gate failure.

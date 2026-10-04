@@ -101,11 +101,19 @@ invisible and with one they become irreversible data loss on the user's own data
 
 ## Phase 4–6 — Client transport
 
-- [ ] 4.1 `shared/` — client factory; URL and key from the secure store with a
-      build-time fallback for development
-- [ ] 5.1 `shared/` — add a profile dimension to pulled events; drop events belonging
-      to another profile before applying. Verified by: `SyncBootstrapperDispatchTest`
-      (REQ-OS-011)
+- [x] 4.1 `shared/` — `SupabaseConfigResolver`; URL and key from the secure store, with
+      a build-time fallback for development. The stored value WINS over the build-time
+      one — a debug build with a developer's test project compiled in must not silently
+      override the project a user typed. A release build cannot produce a build-time
+      config at all, so "not configured" is a state the app has to handle
+      Verified by: `SupabaseConfigResolverTest` (7)
+- [x] 5.1 `shared/` — `SyncEvent.profileId`, and the pull loop drops events belonging
+      to another profile. Skipped, NOT stalled on: the log interleaves every profile of
+      the account, so treating another profile's event as "not applicable" would freeze
+      this account's cursor at the first one and it would never sync again. An event
+      with no profile (an older server) still applies, which keeps an old server usable
+      Verified by: `SyncEnginePullTest` — the other profile's event is skipped, the
+      cursor moves past it, and the drop is counted (REQ-OS-011)
 - [ ] 6.1 `shared/` — implement the sync transport over the RPC endpoint; map failures
       onto the existing error type. Verified by: `SyncApiClientTest` — result parsing,
       sequence numbers without precision loss, RPC failure as an error not an

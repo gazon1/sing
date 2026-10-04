@@ -68,12 +68,16 @@ class SyncEventBuilder {
     var eventType = SyncEventType.CREATED
     var createdAt = System.currentTimeMillis()
 
+    /** Empty by default: an event with no profile applies to whichever scope pulls it. */
+    var profileId = ""
+
     fun build(): SyncEvent = SyncEvent(
         serverLsn = serverLsn,
         entityId = entityId,
         entityType = entityType,
         eventType = eventType,
         createdAt = createdAt,
+        profileId = profileId,
     )
 }
 

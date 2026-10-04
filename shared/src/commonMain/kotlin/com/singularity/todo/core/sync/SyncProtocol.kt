@@ -95,7 +95,21 @@ data class SyncEvent(
     val createdAt: Long,
     /** Protocol version of this event. Events from a newer protocol are skipped. */
     val protocolVersion: Int = 1,
-)
+    /**
+     * The local profile this event belongs to.
+     *
+     * Empty means the event predates the profile dimension — an older server, or an
+     * older build's row — and such an event applies to whichever scope is pulling.
+     * That default is what keeps an old server usable, and it is safe in one direction
+     * only: an event that names a profile is never applied to a different one, so the
+     * worst a stale server causes is a missing profile dimension, not another
+     * profile's data.
+     */
+    val profileId: String = "",
+) {
+    /** Whether this event belongs to [scope]'s profile. */
+    fun belongsTo(scope: SyncScope): Boolean = profileId.isEmpty() || profileId == scope.profileId
+}
 
 object SyncProtocol {
     /** Current protocol version. Events with protocolVersion > CURRENT are dropped. */

@@ -77,10 +77,11 @@ class SyncEnginePullTest {
 
     private fun signedIn() = Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh")
 
-    private fun taskEvent(lsn: Long) = syncEvent {
+    private fun taskEvent(lsn: Long, profile: String = "") = syncEvent {
         serverLsn = lsn
         entityType = DocType.Task
         entityId = "task-$lsn"
+        profileId = profile
     }
 
     private fun event(lsn: Long, type: DocType) = syncEvent {
@@ -240,6 +241,56 @@ class SyncEnginePullTest {
 
         assertEquals(0, pull.received)
         assertTrue(api.pullCalls.isEmpty(), "a signed-out client must not hit the server")
+    }
+
+    // ─── Other profiles ───────────────────────────────────────────────────────
+    //
+    // The event log is per *owner*, so a client's feed interleaves every profile of
+    // the account. Treating another profile's event as "not applicable" — which is
+    // what the unhandled-type branch does — would freeze the cursor at the first one
+    // and the account would never sync again. So it is skipped, the cursor advances,
+    // and it is counted.
+
+    @Test
+    fun `another profile's event is skipped and the cursor moves past it`() = runTest {
+        val api = FakeSyncApiClient(
+            pullEvents = listOf(
+                taskEvent(10, profile = "other"),
+                taskEvent(20),
+            ),
+        )
+        val auth = FakeSyncAuthRepository(signedIn())
+        val state = FakeSyncStateRepository()
+        val syncScope = scopeFor(auth)
+        val applied = mutableListOf<Long>()
+        val engine = engine(api, this, stateRepository = state, auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(applied))
+
+        val outcome = engine.syncOnce()
+        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
+
+        assertEquals(listOf(20L), applied, "only this profile's event may be applied")
+        assertEquals(20L, state.lastLsn(syncScope), "the cursor must move past the other profile's event")
+        assertEquals(1, pull.dropped, "it is dropped, and the count says so")
+    }
+
+    @Test
+    fun `an event with no profile applies to the pulling scope`() = runTest {
+        // An event from a server predating the profile dimension. Applying it is what
+        // keeps an old server usable; the risk is a missing dimension, never another
+        // profile's data, because an event that names a profile is never applied to a
+        // different one.
+        val api = FakeSyncApiClient(pullEvents = listOf(taskEvent(10)))
+        val auth = FakeSyncAuthRepository(signedIn())
+        val state = FakeSyncStateRepository()
+        val applied = mutableListOf<Long>()
+        val engine = engine(api, this, stateRepository = state, auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(applied))
+
+        engine.syncOnce()
+
+        assertEquals(listOf(10L), applied)
+        assertEquals(10L, state.lastLsn(scopeFor(auth)))
     }
 
     @Test
