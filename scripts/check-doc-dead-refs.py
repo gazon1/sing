@@ -413,7 +413,14 @@ _EXTERNAL_SYMBOLS = frozenset({
     "KoverProjectExtension", "KoverReport",
     "NavDisplay", "NavBackStack", "Display",       # Navigation 3 compose API
     "Test", "ClassData", "Parameterized",           # JUnit / Kotest
-    "KotlinTest", "RunTest", "Dispatchers",
+    "KotlinTest", "RunTest", "Dispatchers", "IO", "Default", "Main",
+    # java.nio and the Kotlin compiler's PSI, which the detekt-rules tests use
+    # directly (`compileContentForTest(Path)` wraps the file in a `KtScript`).
+    "Path", "KtFile", "KtScript", "KtElement", "KtDeclaration", "KtExpression",
+    "KtClass", "KtProperty", "KtParameter", "KtNamedFunction", "KtFileFacade",
+    "KtCallExpression", "KtNameReferenceExpression", "KtDotQualifiedExpression",
+    "KtAnnotationEntry", "KtValueArgument", "KtTypeReference",
+    "CompilationUnit", "Rule", "Config", "Finding", "SourceCode",
 })
 # Types that are framework-allocated and never have production call sites.
 _FRAMEWORK_ALLOCATED = frozenset({
@@ -467,6 +474,15 @@ def _build_kt_symbol_index() -> dict[str, str]:
         ROOT / "mcp-server/src/test",
         ROOT / "detekt-rules/src/test",
     ]
+    # The gate is not Kotlin-only in its sources. `singularity-todo-monthly-doc-audit`
+    # documents the 1250-line DIGEST budget as `MAX_DIGEST_LINES`, which is a constant
+    # in scripts/refresh-decisions-digest.py; a Kotlin-only index reported it as a
+    # dangling reference, and the honest reading of that report was "the doc names a
+    # constant that does not exist" when the constant was sitting in a .py file two
+    # directories away. Module-level SCREAMING_SNAKE_CASE names are the Python
+    # equivalent of a top-level declaration.
+    _PY_CONST = re.compile(r"^([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=", re.M)
+
     for base in prod_roots:
         if not base.exists():
             continue
@@ -489,6 +505,13 @@ def _build_kt_symbol_index() -> dict[str, str]:
     if detekt_yml.exists():
         for name in _DETEKT_RULE_KEY.findall(detekt_yml.read_text(encoding="utf-8")):
             index.setdefault(name, "config/detekt/detekt.yml")
+    for base in (ROOT / "scripts", ROOT / ".agents", ROOT / "mcp-server"):
+        if not base.exists():
+            continue
+        for path in base.rglob("*.py"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for m in _PY_CONST.finditer(text):
+                index.setdefault(m.group(1), path.relative_to(ROOT).as_posix())
     return index
 
 
@@ -554,11 +577,15 @@ def _scan_skill_symbol_refs(
         # symbol counts, so "do not use `Foo`" is skipped while a line that
         # merely mentions a real symbol elsewhere is still checked.
         prefix = text[max(0, m.start() - 60):m.start()]
+        # IGNORECASE is load-bearing: a sentence may open with "No `Foo` does not
+        # exist" and a case-sensitive pattern misses the capital, so the one
+        # sentence shape this rule exists to tolerate was the one it rejected.
         if re.search(
             r"\b(?:no|not|never|without|isn\x27t|aren\x27t|does\s+not|do\s+not|"
             r"cannot|can\x27t|don\x27t|doesn\x27t|instead\s+of|rather\s+than)"
             r"[^\n]{0,40}$",
             prefix,
+            re.IGNORECASE,
         ):
             continue
         line = text.count("\n", 0, m.start()) + 1
