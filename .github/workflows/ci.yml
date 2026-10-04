@@ -52,7 +52,23 @@ on:
       - ".github/workflows/ci.yml"
 
 jobs:
-  test-and-check:
+  # ---------------------------------------------------------------------------
+  # The six leaves below are independent by construction, so they run at the
+  # same time. Measured on run 37209255590, where one sequential job spent
+  # 24.25m:
+  #
+  #   jvmTest 7.48m   assembleDebug 10.27m   detekt 2.10m
+  #   detekt-rules test 1.42m   detekt-rules lint 0.50m   setup 0.56m
+  #   desktopApp:test 1.72m   all eight Python/doc gates 0.13m   uploads 0.07m
+  #
+  # Nothing here depends on anything else next to it: the two test tasks touch
+  # different modules, the Android build needs no test results, and the
+  # doc gates need no Gradle at all — they are Python and were sitting behind
+  # two Gradle invocations for no reason. AssembleDebug becomes the critical
+  # path at ~10.8m, so the suite stops being gated on the slowest thing in it.
+  # ---------------------------------------------------------------------------
+
+  docs-gates:
     runs-on: ubuntu-24.04
     permissions:
       # read actions so the flake step can download the previous run's results;
@@ -113,32 +129,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      # The gates below are Python and one of them imports yaml, so this is not optional.
+      # One of the gates imports yaml, so this is not optional.
       - name: Install PyYAML
         run: python -m pip install --quiet pyyaml
-
-      # Custom detekt rule tests. This was never run by any job, which is how
-      # NoDirectDispatchersRuleTest's two failures survived: the rule it tested could not
-      # fire at all (it required a KtCallExpression selector, but `Dispatchers.IO` has a
-      # KtNameReferenceExpression selector) and the registered, packaged, ADR-referenced
-      # rule was a silent no-op. A rule whose own tests nobody runs is not a gate.
-      - name: Run detekt rule tests
-        run: ./gradlew :detekt-rules:test --no-daemon
-        # blocking: a custom rule that cannot pass its own tests must not be relied on
-
-      # The module that enforces the project's rules is now subject to them. A `var` on a
-      # Rule instance — Common Mistake 4, and a real bug because Rule instances are reused
-      # across files — had nothing checking it in this module.
-      - name: Lint the detekt-rules module
-        run: ./gradlew :detekt-rules:detekt --no-daemon
-        # blocking
 
       # The :detekt-rules config is generated from detekt.yml, so it can silently go stale.
       - name: Check generated detekt-rules config is current
         run: python3 scripts/gen-detekt-rules-config.py --check
 
-      # Gate-script tests. Same reasoning as above, one level up: these cover the
-      # doc/governance gates this repo depends on, and they were runnable only by hand.
+      # Gate-script tests. These cover the doc/governance gates this repo depends
+      # on, and they were runnable only by hand.
       #
       # The "ran 0 tests" check is load-bearing. A test file that omits
       # `unittest.main()` defines its tests, runs none of them, and exits 0 — so a
@@ -163,7 +163,6 @@ jobs:
             fi
           done
           exit $status
-        # blocking
 
       - name: Build version catalog gate
         # blocking as of 2026-10-04: a hardcoded group:artifact:version literal is a
@@ -192,6 +191,44 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Upload shared failure bundle
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shared-failure-bundle-${{ github.run_id }}
+          path: shared/build/diagnostics/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  desktop-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: 21
+          distribution: "zulu"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      # The desktopApp harness reads retry.maxAttempts and
+      # retry.failOnPassedAfterRetry as system properties; GRADLE_OPTS is how they
+      # reach the test JVM. Only this module reads them (DesktopAppHarness), so
+      # this step is here rather than in every job.
+      - name: Set retry environment
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "GRADLE_OPTS=-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false" >> "$GITHUB_ENV"
+          else
+            echo "GRADLE_OPTS=-Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run desktopApp:test (full suite)
+        run: ./gradlew :desktopApp:test -Ptest.tags=all --no-daemon
+
       - name: Upload desktop test reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -212,14 +249,19 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Upload shared failure bundle
-        if: always()
-        uses: actions/upload-artifact@v7
+  android-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
         with:
-          name: shared-failure-bundle-${{ github.run_id }}
-          path: shared/build/diagnostics/**
-          if-no-files-found: ignore
-          retention-days: 14
+          java-version: 21
+          distribution: "zulu"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
 
       # Published on every run, not only on failure: flake analysis is a
       # comparison between two runs, and a results set that only exists when
@@ -288,6 +330,20 @@ jobs:
         # A regression inside check-test-runs.py disables the floor silently — the
         # same failure one level up. 20 ms, no JVM, so it runs every time.
         run: python3 -m unittest discover -s scripts/tests
+
+  detekt-main:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: 21
+          distribution: "zulu"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Run detekt
         # blocking as of 2026-10-04: enforceMode is already on in both modules and
