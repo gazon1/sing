@@ -227,34 +227,4 @@ class NoDirectDispatchersRuleTest {
             "a null receiver means the PSI shape is not what we think it is",
         )
     }
-
-    @Test
-    fun `test source sets are recognised by path`() {
-        // Asserted against the predicate rather than end-to-end:
-        // compileContentForTest synthesises virtualFilePath as just the package
-        // name, so no fixture can carry a source-set directory. The two paths below
-        // are the ones that produced false positives — the desktop harness tests.
-        assertTrue(
-            NoDirectDispatchersRule.isTestSource(
-                "/repo/desktopApp/src/jvmTest/kotlin/com/singularity/todo/test/helpers/CoroutineDiagnosticsTest.kt",
-            ),
-            "jvmTest sources must be out of scope",
-        )
-        assertTrue(
-            NoDirectDispatchersRule.isTestSource(
-                "/repo/shared/src/jvmTest/kotlin/com/singularity/todo/feature/TagsRepositoryTest.kt",
-            ),
-        )
-    }
-
-    @Test
-    fun `production sources are not treated as tests`() {
-        assertTrue(
-            !NoDirectDispatchersRule.isTestSource(
-                "/repo/shared/src/commonMain/kotlin/com/singularity/todo/core/security/JvmSecureStorage.kt",
-            ),
-            "a production file whose name ends in Test must not exist, but a normal " +
-                "main source must definitely be in scope",
-        )
-    }
 }

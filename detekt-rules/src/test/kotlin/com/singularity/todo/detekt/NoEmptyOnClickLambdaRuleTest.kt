@@ -49,8 +49,13 @@ class NoEmptyOnClickLambdaRuleTest {
             }
         """
         val findings = findingsIn(code)
+        // Asserted on the parameter name and the phrase the rule actually emits.
+        // The old assertion looked for the literal "Empty lambda", which only
+        // matched one earlier wording of the message — so a rule that kept firing
+        // with a better message could fail here, and a rule that stopped firing
+        // entirely still passed the sibling negative cases.
         assertTrue(
-            findings.any { it.message.contains("onClick") && it.message.contains("Empty lambda") },
+            findings.any { it.message.contains("onClick") && it.message.contains("empty lambda") },
             "expected an empty-lambda finding, got $findings",
         )
     }
@@ -95,7 +100,13 @@ class NoEmptyOnClickLambdaRuleTest {
     }
 
     @Test
-    fun `call to a non-composable with the same parameter name is not flagged`() {
+    fun `a non-composable with an onClick parameter is flagged too`() {
+        // This test used to assert 0 findings, and it passed — because the rule was
+        // gated on an 11-name allow-list of composables, so a call to `register` was
+        // invisible no matter what it was passed. The rule now keys on the
+        // *parameter* name, which is what its KDoc always promised, so this is
+        // flagged. The name changed with the expectation: leaving it "is not
+        // flagged" would have kept a test that contradicts the implementation.
         val code = """
             package com.singularity.todo.feature.tasks
 
@@ -103,7 +114,7 @@ class NoEmptyOnClickLambdaRuleTest {
                 register(onClick = { })
             }
         """
-        assertEquals(0, findingsIn(code).size, "only known composables are checked")
+        assertEquals(1, findingsIn(code).size, "an empty onClick is empty wherever it is passed")
     }
 
     // ── Preview exemptions ────────────────────────────────────────────────────────
