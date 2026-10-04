@@ -104,11 +104,15 @@ cause would have made the issue readable and the diagnosis wrong.
   decision recorded in `design.md` (the orphan policy, and transient-versus-
   persisted for a tag-driven agenda). Both are listed as Phase 0 tasks so the
   decision is not made implicitly by whoever implements first.
-- `openspec validate` could not be run: the CLI is not installed in this
-  environment. The artifacts follow the structure of the existing
-  `add-log-export` change and the spec artifacts are written without type names,
-  per the project's own spec rules — but that is a claim about the file's shape,
-  not a validation result.
+- `openspec validate --all` was run against the four new changes on
+  2026-10-04, after the PR's CI showed the `openspec-validate` job running a
+  CLI this environment does not have installed. **All four pass.** The job is
+  red for two items that came from `main` — a change with no deltas and a spec
+  without a `## Purpose` section — which is the pre-existing condition #72
+  records. Note that the repo's `openspec/config.yaml` and its existing specs
+  describe a different format from what the installed CLI enforces, so the
+  format question is itself unresolved; what is established is that these four
+  changes satisfy the tool that actually runs.
 
 ## Links
 
