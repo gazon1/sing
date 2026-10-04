@@ -2658,6 +2658,7 @@ to completion and verified leaves the tree worse than not starting it.
 
 
 
+
 **B5 — done (2026-10-04).** `DesktopNavigation.kt` (510 lines, 29 helpers) split
 into `DesktopNavigation.kt` (135, drawer + `DesktopShell`) ·
 `DesktopAssertions.kt` (328, `await*`/`assert*` + `TIMEOUT_MS` + `TAG_PATTERN` +
@@ -2680,6 +2681,7 @@ slot's constructor was narrowed to the bundles it actually reads:
 returns nothing). Either rename the file to `TaskDetailDeps.kt` or restore the
 state class it was named for. Do this together with B2, which edits the file
 anyway.
+
 
 
 
@@ -2755,6 +2757,7 @@ that rule rather than leave it on detekt's default.
 
 
 
+
 ---
 
 ## no-consecutive-blank-lines-was-never-declared
@@ -2784,6 +2787,7 @@ zero, then delete the baseline entry.
 
 Related: `autocorrect-touches-files-outside-the-change` — the same file is one of
 the five `--auto-correct` wanted to rewrite.
+
 
 
 
@@ -2835,6 +2839,7 @@ Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
 `kover-report` job was **red on `main`** for this reason. A job that is red for a
 reason nobody reads is the same failure as a gate that is green for a reason nobody
 checks.
+
 
 
 
@@ -2893,6 +2898,8 @@ cache, a local SDK. `check-gate-wiring.py` catches the "cannot fail" direction; 
 is the "cannot be trusted" direction, and nothing catches it. Running a gate against
 a fresh `git clone --depth 1` is the cheap test, and it is what turned a red CI job
 into a one-line fix instead of an afternoon.
+
+
 
 
 
