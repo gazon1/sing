@@ -8,6 +8,14 @@ the dead ends.
 Rule for adding: an entry needs a number, the MR that found it, and the checks
 already performed. "Looks wrong" is not an entry.
 
+**Every open entry is also a GitHub issue**, and the entry names it under
+"Tracked as". Two reasons: the backlog is the reasoning, the tracker is the
+queue, and a reader who finds one should not have to find the other. And a
+backlog entry that describes an *environment* rather than the code decays —
+`maestro-smoke-cannot-run-in-this-environment` was filed from here, then
+disproven on re-measurement within the hour. Re-run the entry's own "checks
+already performed" before acting on any entry whose subject is the host.
+
 ---
 
 ## sync-config-screen-unwired
@@ -120,6 +128,8 @@ which is why the step produced a finding instead of a change.
 
 ## log-export-has-no-surface
 
+**Tracked as:** #37
+
 **Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
 deleted instead of implemented.
 
@@ -151,6 +161,8 @@ not exist.
 
 ## bulk-task-operations-have-no-ui
 
+**Tracked as:** #36
+
 **Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
 the deletion list and was **kept** — see the note below.
 
@@ -175,6 +187,8 @@ some ids vanished).
 
 ## core-auth-oauth-is-entirely-unwired
 
+**Tracked as:** #38
+
 **Found in:** MR-4. The plan listed two dead symbols in
 `core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
 
@@ -195,6 +209,8 @@ MR-4 stopped at the two symbols it was asked to remove.
 
 ## log-messages-need-a-user-content-sweep
 
+**Tracked as:** #43
+
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 
@@ -212,6 +228,8 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 ---
 
 ## projects-flow-one-time-flake
+
+**Tracked as:** #40
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
 
@@ -316,6 +334,8 @@ what unblocked the Agenda epic's desktop matrix (issue #26).
 
 ## no-direct-clock-system-kdoc-claims-tests-are-exempt
 
+**Tracked as:** #42
+
 **Found in:** `refactor/tag-registry-and-robots`, while fixing the
 `NoDirectClockSystem` violation that shipped in `2e99b1d0`.
 
@@ -379,6 +399,8 @@ are intentional empty-lambda patterns that need wiring.
 
 ## no-direct-dispatchers-rule-one-whitelisted-case
 
+**Tracked as:** #44
+
 **Found in:** MR-B (tech-debt batch). `NoDirectDispatchersRule` bans
 `Dispatchers.IO/Default/Main` in production. One legitimate case was
 identified: `core/log/FileLogWriter.kt:50` uses
@@ -398,6 +420,8 @@ clean, the rule is a documentation asset rather than an active gate.
 
 ## nav-display-debug-border-not-found
 
+**Tracked as:** #45
+
 **Found in:** MR-C (tech-debt batch). The plan proposed adding a red-border
 debug overlay to `NavDisplay` when `entries.isEmpty()` as a diagnostic for
 `desktop-nav-goBack-blank-screen`. Investigation showed no such modifier
@@ -415,6 +439,8 @@ route change itself is the trigger.
 ---
 
 ## skill-symbol-clusters-many-fixes-pending
+
+**Tracked as:** #41
 
 **Found in:** Phase 1.7 (`refactor/openspec-adoption`), via
 `check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
@@ -449,6 +475,8 @@ CI will fail. The backlog owner should prioritize `nav3-nested-graphs`
 
 ## task-detail-coordinator-graph-test-times-out-under-parallel-load
 
+**Tracked as:** #39
+
 **Found in:** 2026-10-04, while verifying the identity-derivation change across three
 modules in one Gradle invocation (`:shared:jvmTest :desktopApp:test :mcp-server:test`).
 
@@ -478,6 +506,8 @@ loudly with data instead of looking like a hang. Do NOT simply raise the number.
 ---
 
 ## baseline-write-pipeline-verification-was-asserted-not-checked
+
+**Tracked as:** #35
 
 **Found in:** the OpenSpec backlog pass, 2026-10-04, while closing out
 `navigation-open-policy` and noticing that `openspec/changes/archive` was empty
@@ -514,6 +544,13 @@ shape of defect that survives every other gate in this repo.
 ---
 
 ## maestro-smoke-cannot-run-in-this-environment
+
+**Status: CLOSED as disproven (2026-10-04).** Re-probed with the emulator up:
+the flow ran to completion and failed on a real assertion, with no
+`DeviceServerDiedException`. The environment recovers; the blocker was transient.
+The failure it surfaced is a bug in the flow, tracked as #50. Kept below because
+the original symptom can return, and the record of what it was is worth more
+than a deleted paragraph.
 
 **Found in:** B5 verification of `navigation-open-policy`, 2026-10-04.
 
