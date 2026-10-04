@@ -29,42 +29,43 @@ data class ToolAnnotations(
 /**
  * Maps tool name → app-level [ToolAnnotations].
  *
- * Populated from the tool naming convention used in the app's Koog registry.
+ * Keys MUST equal the Koog tool descriptor name verbatim (`ToolRegistrar` looks
+ * them up as `TOOL_ANNOTATIONS[descriptor.name]`). Until 2026-10-04 the map used
+ * dotted names (`tasks.create`) while the registry exposes snake_case
+ * (`create_task`) — every entry was silently dead and no tool shipped
+ * annotations. `McpServerEndToEndTest` now pins this contract.
+ *
+ * Keys without a registered tool are intentionally absent.
  */
 val TOOL_ANNOTATIONS: Map<String, ToolAnnotations> = mapOf(
     // ── Tasks ──────────────────────────────────────────────────────────────────
-    "tasks.create" to ToolAnnotations(idempotentHint = true),
-    "tasks.update" to ToolAnnotations(idempotentHint = true),
-    "tasks.complete" to ToolAnnotations(idempotentHint = true),
-    "tasks.delete" to ToolAnnotations(destructiveHint = true),
-    "tasks.restore" to ToolAnnotations(),
-    "tasks.list" to ToolAnnotations(readOnlyHint = true),
-    "tasks.get" to ToolAnnotations(readOnlyHint = true),
-    "tasks.search" to ToolAnnotations(readOnlyHint = true),
-    "task.set_dependencies" to ToolAnnotations(idempotentHint = true), // MR-1
+    "create_task" to ToolAnnotations(idempotentHint = true),
+    "update_task" to ToolAnnotations(idempotentHint = true),
+    "delete_task" to ToolAnnotations(destructiveHint = true),
+    "list_tasks" to ToolAnnotations(readOnlyHint = true),
+    "get_task" to ToolAnnotations(readOnlyHint = true),
+    "search_tasks" to ToolAnnotations(readOnlyHint = true),
+    "decompose_and_create" to ToolAnnotations(),
 
     // ── Projects ───────────────────────────────────────────────────────────────
-    "projects.create" to ToolAnnotations(idempotentHint = true),
-    "projects.update" to ToolAnnotations(idempotentHint = true),
-    "projects.delete" to ToolAnnotations(destructiveHint = true),
-    "projects.list" to ToolAnnotations(readOnlyHint = true),
-    "projects.get" to ToolAnnotations(readOnlyHint = true),
+    "create_project" to ToolAnnotations(idempotentHint = true),
+    "update_project" to ToolAnnotations(idempotentHint = true),
+    "delete_project" to ToolAnnotations(destructiveHint = true),
+    "list_projects" to ToolAnnotations(readOnlyHint = true),
+    "get_project" to ToolAnnotations(readOnlyHint = true),
 
     // ── Notes ──────────────────────────────────────────────────────────────────
-    "notes.create" to ToolAnnotations(idempotentHint = true),
-    "notes.update" to ToolAnnotations(idempotentHint = true),
-    "notes.delete" to ToolAnnotations(destructiveHint = true),
-    "notes.list" to ToolAnnotations(readOnlyHint = true),
-    "notes.get" to ToolAnnotations(readOnlyHint = true),
+    "create_note" to ToolAnnotations(idempotentHint = true),
+    "update_note" to ToolAnnotations(idempotentHint = true),
+    "delete_note" to ToolAnnotations(destructiveHint = true),
+    "get_note" to ToolAnnotations(readOnlyHint = true),
 
-    // ── Tags ──────────────────────────────────────────────────────────────────
-    "tags.create" to ToolAnnotations(idempotentHint = true),
-    "tags.assign" to ToolAnnotations(),
-    "tags.list" to ToolAnnotations(readOnlyHint = true),
+    // ── Tags ───────────────────────────────────────────────────────────────────
+    "create_tag" to ToolAnnotations(idempotentHint = true),
+    "delete_tag" to ToolAnnotations(destructiveHint = true),
 
-    // ── AI + ADR ───────────────────────────────────────────────────────────────
-    "adr.write" to ToolAnnotations(openWorldHint = true),
-    "adr.list" to ToolAnnotations(readOnlyHint = true),
-    "adr.read" to ToolAnnotations(readOnlyHint = true),
-    "decompose_and_create" to ToolAnnotations(),
+    // ── ADR ────────────────────────────────────────────────────────────────────
+    "write_adr" to ToolAnnotations(openWorldHint = true),
+    "list_adrs" to ToolAnnotations(readOnlyHint = true),
+    "read_adr" to ToolAnnotations(readOnlyHint = true),
 )

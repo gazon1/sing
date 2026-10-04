@@ -8,8 +8,6 @@ import com.singularity.todo.core.files.MapFileSystem
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -104,9 +102,7 @@ class LogBundleExporterTest {
 /**
  * Minimal fake [BackupCodec] for testing [LogBundleExporter].
  */
-private class FakeBackupCodec(
-    private val failExport: Boolean = false,
-) : BackupCodec {
+private class FakeBackupCodec(private val failExport: Boolean = false) : BackupCodec {
     var calls = 0
         private set
     var lastAttachments: List<Pair<String, ByteArray>>? = null

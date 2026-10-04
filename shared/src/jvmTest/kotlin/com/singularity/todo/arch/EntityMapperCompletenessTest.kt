@@ -1,5 +1,6 @@
 package com.singularity.todo.arch
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.fail
 
@@ -22,6 +23,7 @@ import kotlin.test.fail
  *
  * See: `docs/decisions/2026-10-03-entity-mapper-completeness.md`
  */
+@Tag("fast")
 class EntityMapperCompletenessTest {
 
     companion object {
@@ -108,54 +110,54 @@ class EntityMapperCompletenessTest {
         private val MAPPER_ENTITY_FIELDS_ACCESSED = mapOf(
             "toTask" to (
                 "TaskEntity" to setOf(
-                "id", "title", "description", "priority", "kind", "projectId",
-                "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
-                "endDate", "endTime", "accentColor", "emoji", "completedAt",
-                "someday", "archivedAt", "isPinned", "recurrenceRule",
-                "outgoingLinks", "aiSuppressedTagIds", "estimateMinutes",
-                "createdAt", "updatedAt", "userId", "sync",
-            )
+                    "id", "title", "description", "priority", "kind", "projectId",
+                    "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
+                    "endDate", "endTime", "accentColor", "emoji", "completedAt",
+                    "someday", "archivedAt", "isPinned", "recurrenceRule",
+                    "outgoingLinks", "aiSuppressedTagIds", "estimateMinutes",
+                    "createdAt", "updatedAt", "userId", "sync",
+                )
             ),
             "toNote" to (
                 "NoteEntity" to setOf(
-                "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
-                "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
-                "sortOrder", "wordCount", "charCount", "outgoingLinks",
-                "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
-            )
+                    "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
+                    "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
+                    "sortOrder", "wordCount", "charCount", "outgoingLinks",
+                    "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
+                )
             ),
             "toProject" to (
                 "ProjectEntity" to setOf(
-                "id", "name", "color", "icon", "description",
-                "createdAt", "updatedAt", "isDefault", "dueDate", "team",
-                "isDeleted", "deletedAt", "parentId", "sortOrder",
-                "idempotencyKey", "externalId", "userId", "sync",
-            )
+                    "id", "name", "color", "icon", "description",
+                    "createdAt", "updatedAt", "isDefault", "dueDate", "team",
+                    "isDeleted", "deletedAt", "parentId", "sortOrder",
+                    "idempotencyKey", "externalId", "userId", "sync",
+                )
             ),
             "toTag" to (
                 "TagEntity" to setOf(
-                "id", "name", "color", "createdAt", "updatedAt",
-                "groupId", "sortOrder", "deletedAt", "userId", "sync",
-            )
+                    "id", "name", "color", "createdAt", "updatedAt",
+                    "groupId", "sortOrder", "deletedAt", "userId", "sync",
+                )
             ),
             "toTagGroup" to (
                 "TagGroupEntity" to setOf(
-                "id",
-                "name",
-                "color",
-                "createdAt",
-                "updatedAt",
-                "deletedAt",
-                "userId",
-                "sync",
-            )
+                    "id",
+                    "name",
+                    "color",
+                    "createdAt",
+                    "updatedAt",
+                    "deletedAt",
+                    "userId",
+                    "sync",
+                )
             ),
             "toReminder" to (
                 "TaskReminderEntity" to setOf(
-                "id", "taskId", "userId", "type", "offsetMinutes",
-                "fireAt", "recurringPattern", "viewId", "lastFiredAt",
-                "createdAt", "updatedAt",
-            )
+                    "id", "taskId", "userId", "type", "offsetMinutes",
+                    "fireAt", "recurringPattern", "viewId", "lastFiredAt",
+                    "createdAt", "updatedAt",
+                )
             ),
         )
 

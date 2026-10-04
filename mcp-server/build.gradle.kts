@@ -94,6 +94,15 @@ tasks.named<Jar>("jar") {
 
 tasks.named("build") { dependsOn("jar") }
 
+// distZip/distTar pack runtimeClasspath into lib/. The classpath contains the same
+// Compose/Lifecycle/SavedState artifacts under BOTH androidx.* and org.jetbrains.*
+// coordinates (same version, same file name, identical content) — e.g.
+// androidx.compose.runtime:runtime-saveable-desktop vs org.jetbrains.compose.runtime:…
+// Gradle's Zip default (FAIL) rejects that; keep the first copy, same as the fat-jar above.
+tasks.withType<AbstractArchiveTask>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // ---------------------------------------------------------------------------
 // detekt — static analysis
 // ---------------------------------------------------------------------------

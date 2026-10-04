@@ -1,11 +1,9 @@
 package com.singularity.todo.mcp
 
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
-import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.di.domainModule
+import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
@@ -16,7 +14,6 @@ import io.ktor.utils.io.asSink
 import io.ktor.utils.io.asSource
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.streams.asByteWriteChannel
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
@@ -24,7 +21,6 @@ import kotlinx.io.buffered
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
-import org.koin.dsl.module
 import java.io.File
 import java.io.OutputStreamWriter
 
@@ -84,7 +80,14 @@ fun main(args: Array<String>): Unit = runBlocking {
 // ─── Bootstrap helpers ────────────────────────────────────────────────────────
 
 /**
- * Starts Koin with the platform (CLI-only) module and the shared [domainModule].
+ * Starts Koin with the shared JVM platform [platformModule] and the shared [domainModule].
+ *
+ * The binding set is deliberately the SAME one the desktop app uses — a hand-rolled
+ * subset here drifted and left `SyncWorkScheduler`/proposal DAOs unbound, which killed
+ * `ToolRegistrar` at startup. Profile data isolation is handled post-Koin by
+ * [ProfileBootstrapper.run] via the `user_id` scope on each DAO query; the
+ * `--profile=NAME` argument is a label, not a directory suffix.
+ *
  * On failure, writes a JSON-RPC error to stdout and returns false.
  */
 private fun bootstrapKoin(profileId: String?): Boolean = try {
@@ -241,63 +244,3 @@ private fun writeJsonRpcError(code: Int, message: String) {
 private fun Array<String>.parseProfileArg(): String? = find { it.startsWith("--profile=") }
     ?.substringAfter("=")
     ?.takeIf { it.isNotBlank() }
-
-// ─── Profile-aware platformModule ─────────────────────────────────────────────
-
-/**
- * Builds the MCP server platform [org.koin.core.module.Module].
- *
- * Profile data isolation is handled post-Koin by [ProfileBootstrapper.run] via the
- * `user_id` scope on each DAO query. This module is therefore static — it has no
- * runtime-computed parameters — and the koin-compiler-plugin validates it fully.
- *
- * IMPORTANT: We inline all platform bindings here rather than using `includes()`
- * because `includes()` inside a `module {}` block creates a child scope in Koin 4,
- * making those bindings invisible to sibling modules at the root scope.
- */
-private fun platformModule(): org.koin.core.module.Module = module {
-    // Always use the default DB path so Desktop, Android, and MCP share data.
-    // The CLI `--profile=NAME` argument is now a **label** (Personal vs AI Agent),
-    // not a directory suffix — profiles are isolated by their `user_id` scope, not
-    // by a separate SQLite file. The ProfileBootstrapper handles seed + switchTo.
-    val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
-    File(dbPath).parentFile?.mkdirs()
-    wipeIfNotRoomManaged(dbPath)
-    single<AppDatabase> { AppDatabaseFactory.build(createSqlDriver(), dbPath) }
-
-    single { get<AppDatabase>().taskDao() }
-    single { get<AppDatabase>().noteDao() }
-    single { get<AppDatabase>().projectDao() }
-    single { get<AppDatabase>().tagDao() }
-    single { get<AppDatabase>().syncOutboxDao() }
-    single { get<AppDatabase>().attachmentDao() }
-    single { get<AppDatabase>().reminderDao() }
-    single { get<AppDatabase>().checklistDao() }
-    single { get<AppDatabase>().llmUsageDao() }
-    single { get<AppDatabase>().profileDao() }
-
-    single<androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>> {
-        PreferenceDataStoreFactory.create {
-            File(System.getProperty("user.home") + "/.singularity-todo/settings.preferences_pb").also {
-                it.parentFile?.mkdirs()
-            }
-        }
-    }
-
-    single<com.singularity.todo.core.security.SecureStoragePort> {
-        com.singularity.todo.core.security.JvmSecureStorage()
-    }
-    single<com.singularity.todo.core.notifications.NotificationPort> {
-        com.singularity.todo.core.notifications.JvmNotificationPort()
-    }
-    single<com.singularity.todo.core.files.FileSystem> {
-        com.singularity.todo.core.files.JvmFileSystem()
-    }
-    single<com.singularity.todo.core.files.FileRevealer> {
-        com.singularity.todo.core.files.JvmFileRevealer()
-    }
-    single<com.singularity.todo.core.backup.BackupCodec> {
-        com.singularity.todo.core.backup.JvmBackupCodec()
-    }
-    single<String> { System.getProperty("user.home") + "/.singularity-todo/backups" }
-}

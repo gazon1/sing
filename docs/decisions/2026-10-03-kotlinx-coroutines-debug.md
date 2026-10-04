@@ -28,7 +28,9 @@ Not Android. Not production. Not commonMain.
 
 ## Implementation
 
-- Agent: `-javaagent` via named Gradle configuration + `jvmArgumentProviders` (configuration-cache-safe).
+- Agent: `-javaagent` via named Gradle configuration + `jvmArgs("-javaagent:$path")` with the
+  path resolved eagerly as a plain `String` (configuration-cache-safe; the earlier
+  `jvmArgumentProviders` approach captured the DSL script and broke CC — see "CC fix" below).
 - Dependency: `kotlinx-coroutines-debug` via version catalog (version ref = coroutines = "1.11.0").
 - `CoroutineDiagnostics.dump(testClass, attempt)` — test-only utility object, returns String, no DI.
 - Fourth FailureBundle artifact: `coroutines.txt`, independent `runCatching` block.

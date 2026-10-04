@@ -40,10 +40,26 @@ object AppDatabaseFactory {
      * corresponding [androidx.room3.AutoMigration] in [AppDatabase] and an
      * [androidx.room3.migration.AutoMigrationSpec] in [Migrations].
      *
+     * The one exception is [Migration31To32] (dropped `ai_proposal.task_id` +
+     * backfill): it needs data movement BEFORE the schema rebuild, which
+     * `AutoMigrationSpec.onPostMigrate` cannot express — it is registered as a
+     * manual [androidx.room3.migration.Migration] via `addMigrations` below.
+     *
      * During **active schema development** (adding a new migration), you may
      * temporarily re-add `.fallbackToDestructiveMigration(dropAllTables = true)`
      * to this builder to skip writing the migration by hand. **Remove it before
      * committing** — leaving it in production builds causes data loss on upgrade.
+     *
+     * ## No ":memory:" — use a temp file
+     *
+     * [dbPath] must be a real file path. Room rejects the literal name `":memory:"`
+     * in `databaseBuilder` and only accepts in-memory databases through
+     * `Room.inMemoryDatabaseBuilder<T>()`, which is declared in Room's **jvmMain**
+     * source set and therefore unreachable from this commonMain seam. Tests that want
+     * a throwaway database should create a temp directory and pass a file path inside
+     * it — see [com.singularity.todo.feature.tasks.RoomTaskRepositoryContractTest],
+     * [com.singularity.todo.core.database.AppDatabaseFactoryJvmTest] and
+     * [com.singularity.todo.core.database.DesktopRestartSmokeTest].
      */
     fun build(driver: SQLiteDriver, dbPath: String): AppDatabase {
         // File-level PRAGMAs (journal_mode=WAL) — once, before Room opens the file.
@@ -52,6 +68,7 @@ object AppDatabaseFactory {
 
         return Room.databaseBuilder<AppDatabase>(name = dbPath)
             .setDriver(driver)
+            .addMigrations(Migration31To32())
             .build()
     }
 }

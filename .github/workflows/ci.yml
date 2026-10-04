@@ -28,6 +28,19 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The configuration cache store lives in the PROJECT .gradle/ directory,
+      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
+      # its own cache. Keys are per-job + per-run (restore via prefix) so every
+      # run persists newly stored entries; a hash change falls back gracefully
+      # (stale entries are simply not reused — invalidation is not a failure).
+      - name: Cache configuration cache store
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ github.job }}-${{ runner.os }}-
+
       # Compute retry policy and pass to test JVMs via GRADLE_OPTS.
       # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly.
       # PRs: lenient (max=2, failOnPassedAfterRetry=false).
@@ -45,10 +58,10 @@ jobs:
         continue-on-error: true
 
       - name: Run jvmTest (fast + slow)
-        run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon
+        run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
       - name: Run desktopApp:test
-        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon
+        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
       - name: Upload desktop failure bundle
         if: always()
@@ -68,12 +81,21 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Upload configuration cache report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
+          path: "**/build/reports/configuration-cache/**"
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Assemble Android debug
-        run: ./gradlew :androidApp:assembleDebug --no-daemon
+        run: ./gradlew :androidApp:assembleDebug --no-daemon --configuration-cache
         continue-on-error: true
 
       - name: Run detekt
-        run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon
+        run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon --configuration-cache
         continue-on-error: true
 
       - name: Find unwired surfaces
@@ -109,8 +131,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The configuration cache store lives in the PROJECT .gradle/ directory,
+      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
+      # its own cache. Keys are per-job + per-run (restore via prefix) so every
+      # run persists newly stored entries; a hash change falls back gracefully
+      # (stale entries are simply not reused — invalidation is not a failure).
+      - name: Cache configuration cache store
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ github.job }}-${{ runner.os }}-
+
       - name: Generate kover report
-        run: ./gradlew :shared:koverXmlReport --no-daemon
+        run: ./gradlew :shared:koverXmlReport --no-daemon --configuration-cache
 
       - name: Upload kover XML report
         uses: actions/upload-artifact@v4
@@ -144,9 +179,33 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The configuration cache store lives in the PROJECT .gradle/ directory,
+      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
+      # its own cache. Keys are per-job + per-run (restore via prefix) so every
+      # run persists newly stored entries; a hash change falls back gracefully
+      # (stale entries are simply not reused — invalidation is not a failure).
+      - name: Cache configuration cache store
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ github.job }}-${{ runner.os }}-
+
       - name: Check mcp-server
+        # :mcp-server:jar builds the fat JAR the E2E suite spawns (it was never
+        # built in CI before — McpServerEndToEndTest always self-skipped).
         run: |
-          ./gradlew :mcp-server:compileKotlin --no-daemon
-          ./gradlew :mcp-server:detekt --no-daemon
-          ./gradlew :mcp-server:test --no-daemon
+          ./gradlew :mcp-server:jar --no-daemon --configuration-cache
+          ./gradlew :mcp-server:detekt --no-daemon --configuration-cache
+          ./gradlew :mcp-server:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
         continue-on-error: true
+      - name: Upload configuration cache report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
+          path: "**/build/reports/configuration-cache/**"
+          if-no-files-found: ignore
+          retention-days: 14
+
