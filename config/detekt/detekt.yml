@@ -152,7 +152,7 @@ no-swallowed-cancellation:
 
 no-run-catching-in-suspend:
   NoRunCatchingInSuspend:
-    active: false
+    active: true
 
 # ---------------------------------------------------------------------------
 # naming

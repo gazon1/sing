@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Repository for task attachments — files stored locally and URLs linked remotely.
@@ -83,14 +84,14 @@ class AttachmentRepositoryImpl(
         return dao.getById(id.value, uid.value)?.toAttachment()
     }
 
-    override suspend fun create(attachment: Attachment): Result<Attachment> = runCatching {
+    override suspend fun create(attachment: Attachment): Result<Attachment> = runCatchingCancellable {
         // Stamp with the current user so a caller cannot inject attachments on behalf of another user.
         val owned = attachment.copy(userId = currentUser.scopedUserId.value)
         dao.upsert(owned.toEntity())
         owned
     }
 
-    override suspend fun delete(id: AttachmentId): Result<Unit> = runCatching {
+    override suspend fun delete(id: AttachmentId): Result<Unit> = runCatchingCancellable {
         val ts = clock.now().toEpochMilliseconds()
         val rows = dao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Attachment $id not found or not owned by current user" }
@@ -108,7 +109,7 @@ class AttachmentRepositoryImpl(
         taskId: TaskId,
         sourcePath: String,
         mimeType: String?,
-    ): Result<Attachment> = runCatching {
+    ): Result<Attachment> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val id = AttachmentDomain.generateAttachmentId()
         val ext = AttachmentDomain.extractExtension(sourcePath)
@@ -144,7 +145,7 @@ class AttachmentRepositoryImpl(
     }
 
     override suspend fun addUrlAttachment(taskId: TaskId, url: String, title: String?): Result<Attachment> =
-        runCatching {
+        runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             AttachmentDomain.validateUrl(url).getOrThrow()
 

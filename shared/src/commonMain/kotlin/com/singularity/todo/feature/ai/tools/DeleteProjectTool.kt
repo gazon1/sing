@@ -16,6 +16,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class DeleteProjectInput(val projectId: String, val reason: String? = null)
@@ -40,7 +41,7 @@ class DeleteProjectTool(
 ) : SimpleTool<DeleteProjectInput>(TypeToken.of(DeleteProjectInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteProjectInput): String {
-        val result = runCatching {
+        val result = runCatchingCancellable {
             ProjectId.fromString(args.projectId) // validate
             val proposalId = ProposalId.generate()
             val itemId = ProposalItemId.generate()

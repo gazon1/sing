@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * In-memory [ProposalRepository].
@@ -52,7 +53,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
                 .map(::withItems)
         }
 
-    override suspend fun save(proposal: AiProposal): Result<Unit> = runCatching {
+    override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
         proposals.update { it + (proposal.id.value to proposal.copy(status = derived(proposal.id.value))) }
         proposal.items.forEach { item ->
             // Mirrors the unique (proposal_id, fingerprint) index.
@@ -87,7 +88,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         return decided
     }
 
-    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatching {
+    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
         val derived = derived(proposalId.value)
         proposals.update { map ->
             val row = map[proposalId.value] ?: return@update map
@@ -96,7 +97,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         }
     }
 
-    override suspend fun retract(id: ProposalId, userId: UserId): Result<Unit> = runCatching {
+    override suspend fun retract(id: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
         val owned = proposals.value[id.value]?.userId == userId
         items.update { map ->
             map.mapValues { (key, value) ->

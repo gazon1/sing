@@ -15,6 +15,7 @@ import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 class SavedSearchRepositoryImpl(
     private val savedSearchDao: SavedSearchDao,
@@ -39,7 +40,7 @@ class SavedSearchRepositoryImpl(
         return savedSearchDao.getById(uid.value, id.raw)?.toDomain()
     }
 
-    override suspend fun upsert(search: SavedSearch): Result<SavedSearch> = runCatching {
+    override suspend fun upsert(search: SavedSearch): Result<SavedSearch> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val toInsert = if (search.userId == uid || search.userId == UserId.anonymous) {
             search.copy(userId = uid)
@@ -52,7 +53,7 @@ class SavedSearchRepositoryImpl(
         toInsert
     }
 
-    override suspend fun delete(id: SavedSearchId): Result<Unit> = runCatching {
+    override suspend fun delete(id: SavedSearchId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         savedSearchDao.delete(uid.value, id.raw)
     }

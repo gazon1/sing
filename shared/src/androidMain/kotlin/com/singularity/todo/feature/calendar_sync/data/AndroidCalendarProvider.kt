@@ -12,6 +12,7 @@ import com.singularity.todo.feature.calendar_sync.error.translateExceptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Android implementation of [CalendarProviderPort] using ContentResolver.
@@ -45,7 +46,7 @@ class AndroidCalendarProvider(
     private suspend fun resolveAppPackage(): String? = syncRepo.observeTargetAppPackage().firstOrNull()
 
     override suspend fun getAvailableCalendars(): Result<Map<String, String>> = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             translateExceptions {
                 val projection = arrayOf(
                     CalendarContract.Calendars._ID,
@@ -70,7 +71,7 @@ class AndroidCalendarProvider(
     }
 
     override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             translateExceptions {
                 val appPkg = resolveAppPackage()
                 val values = toContentValues(event, accountNameProvider(), appPkg)
@@ -84,7 +85,7 @@ class AndroidCalendarProvider(
 
     override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatchingCancellable {
                 translateExceptions {
                     val appPkg = resolveAppPackage()
                     val values = toContentValues(event, accountNameProvider(), appPkg)
@@ -99,7 +100,7 @@ class AndroidCalendarProvider(
         }
 
     override suspend fun deleteEvent(eventId: Long): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             translateExceptions {
                 val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
                 val rows = contentResolver.delete(uri, null, null)
@@ -112,7 +113,7 @@ class AndroidCalendarProvider(
 
     override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatchingCancellable {
                 translateExceptions {
                     val projection = arrayOf(
                         CalendarContract.Events._ID,

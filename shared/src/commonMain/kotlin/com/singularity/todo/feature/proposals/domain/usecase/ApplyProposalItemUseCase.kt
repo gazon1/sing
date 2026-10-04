@@ -14,6 +14,7 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Applies or refuses one AI-proposed change.
@@ -51,7 +52,7 @@ class ApplyProposalItemUseCase(
      * @return the item in its post-decision state. A failure is a precondition or
      *   dispatch error, in which case the item is still `Pending` and nothing changed.
      */
-    suspend fun confirm(itemId: ProposalItemId, userId: UserId): Result<ProposalItem> = runCatching {
+    suspend fun confirm(itemId: ProposalItemId, userId: UserId): Result<ProposalItem> = runCatchingCancellable {
         val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
         check(stored.status == ProposalItemStatus.Pending) {
             "Proposal item $itemId is already ${stored.status.name}"
@@ -63,7 +64,7 @@ class ApplyProposalItemUseCase(
         val plan = buildPlan(stored)
 
         val claimed = proposals.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, userId)
-            ?: return@runCatching stored // lost the race — someone else decided it
+            ?: return@runCatchingCancellable stored // lost the race — someone else decided it
         dispatch.dispatch(plan, userId)
         proposals.refreshStatus(claimed.proposalId, userId)
         claimed
@@ -78,7 +79,7 @@ class ApplyProposalItemUseCase(
      * the model nothing it can act on.
      */
     suspend fun reject(itemId: ProposalItemId, userId: UserId, reason: String? = null): Result<ProposalItem> =
-        runCatching {
+        runCatchingCancellable {
             val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
             val claimed = proposals.claim(
                 itemId,
@@ -86,7 +87,7 @@ class ApplyProposalItemUseCase(
                 DecidedActor.User,
                 reason?.trim()?.takeIf { it.isNotEmpty() },
                 userId,
-            ) ?: return@runCatching stored
+            ) ?: return@runCatchingCancellable stored
             proposals.refreshStatus(claimed.proposalId, userId)
             claimed
         }

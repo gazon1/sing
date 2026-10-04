@@ -15,6 +15,7 @@ import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Dependencies for [TaskCreateViewModel].
@@ -90,7 +91,7 @@ class TaskCreateViewModel(
 
     override suspend fun onSaved() {
         deps.logger.i(tag = "TaskCreateViewModel") { "task created, clearing draft" }
-        runCatching { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }
+        runCatchingCancellable { deps.draftStore.clear(TaskCreateDeps.DRAFT_KEY) }
             .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed" } }
         emit(TaskCreateUiEvent.Saved)
     }

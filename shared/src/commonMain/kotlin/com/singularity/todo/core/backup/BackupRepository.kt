@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Repository for local backup management and remote backup push/pull.
@@ -78,14 +79,14 @@ class BackupRepositoryImpl(
 
     private fun pathEndsWithZip(path: String): Boolean = path.endsWith(".zip", ignoreCase = true)
 
-    override suspend fun export(options: ExportOptions): Result<BackupResult> = runCatching {
+    override suspend fun export(options: ExportOptions): Result<BackupResult> = runCatchingCancellable {
         fs.ensureDir(backupDir)
         exporter.export(options).getOrThrow()
     }
 
     override suspend fun import(options: ImportOptions): Result<RestoreResult> = importer.import(options)
 
-    override suspend fun delete(backupId: BackupId): Result<Unit> = runCatching {
+    override suspend fun delete(backupId: BackupId): Result<Unit> = runCatchingCancellable {
         // Find by ID from backups list
         val backup = scanBackups().find { it.id == backupId }
         if (backup != null) {
@@ -93,7 +94,7 @@ class BackupRepositoryImpl(
         }
     }
 
-    override suspend fun push(backupId: BackupId): Result<String> = runCatching {
+    override suspend fun push(backupId: BackupId): Result<String> = runCatchingCancellable {
         val backup = scanBackups().find { it.id == backupId }
             ?: throw BackupError.FileNotFound(backupId.value)
         remoteService.upload(backup.path, currentUser.scopedUserId.value).getOrThrow()

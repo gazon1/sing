@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed production [TagsRepository].
@@ -43,13 +44,13 @@ class TagsRepositoryImpl(
         return tagDao.getByIdForUser(id.value, uid.value)?.toTag()
     }
 
-    override suspend fun create(item: Tag): Result<Tag> = runCatching {
+    override suspend fun create(item: Tag): Result<Tag> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         tagDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
     }
 
-    override suspend fun update(item: Tag): Result<Tag> = runCatching {
+    override suspend fun update(item: Tag): Result<Tag> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         tagDao.upsert(item.toEntity())
         item.also { syncRepository.enqueue(it) }
@@ -62,14 +63,14 @@ class TagsRepositoryImpl(
         return tag
     }
 
-    override suspend fun delete(id: TagId): Result<Unit> = runCatching {
+    override suspend fun delete(id: TagId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val ts = clock.now().toEpochMilliseconds()
         val rows = tagDao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "Tag $id not found or not owned by user" }
         // Deletion propagates as state (deletedAt) rather than a tombstone, so
         // the trashed tag itself is pushed and the server converges.
-        val row = tagDao.getByIdForUser(id.value, uid.value) ?: return@runCatching
+        val row = tagDao.getByIdForUser(id.value, uid.value) ?: return@runCatchingCancellable
         syncRepository.enqueue(row.toTag())
     }
 

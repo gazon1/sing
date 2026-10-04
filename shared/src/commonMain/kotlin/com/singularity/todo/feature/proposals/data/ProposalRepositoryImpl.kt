@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed [ProposalRepository].
@@ -61,7 +62,7 @@ class ProposalRepositoryImpl(
                 .map { rows -> rows.map { row -> hydrate(row) } }
         }
 
-    override suspend fun save(proposal: AiProposal): Result<Unit> = runCatching {
+    override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
         dao.upsertProposal(
             AiProposalEntity(
@@ -96,13 +97,13 @@ class ProposalRepositoryImpl(
         reason = reason,
     )?.toDomainOrNull()
 
-    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatching {
+    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
         val items = items.getItemsForProposal(proposalId.value)
         val derived = ProposalStatusReducer.reduce(items.map { ProposalItemStatus.valueOf(it.status) })
         dao.updateProposalStatus(proposalId.value, derived.name, clock.now().toEpochMilliseconds(), userId.value)
     }
 
-    override suspend fun retract(id: ProposalId, userId: UserId): Result<Unit> = runCatching {
+    override suspend fun retract(id: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
         items.retractPendingItems(id.value, userId.value)
         dao.updateProposalStatus(
             id.value,

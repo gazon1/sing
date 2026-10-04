@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 class ChecklistRepositoryImpl(
     private val dao: ChecklistDao,
@@ -20,7 +21,7 @@ class ChecklistRepositoryImpl(
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
         dao.watchByTask(taskId).map { list -> list.map { it.toItem() } }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
+    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatchingCancellable {
         val item = ChecklistItem(
             id = ChecklistItemId.generate(),
             taskId = taskId,
@@ -47,7 +48,7 @@ class ChecklistRepositoryImpl(
     }
 
     override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
             val now = clock.now().toEpochMilliseconds()
             val existing = dao.watchByTask(taskId).first().find { it.id == itemId.value }
@@ -56,18 +57,21 @@ class ChecklistRepositoryImpl(
             require(rows > 0) { "Checklist item $itemId not found or not owned by current user" }
         }
 
-    override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
+    override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
         val existing = dao.watchByTask(item.taskId).first().find { it.id == item.id.value }
         dao.upsert(item.toEntity(now = now, existing = existing))
     }
 
-    override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatchingCancellable {
         val rows = dao.deleteForUser(id.value, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Checklist item $id not found or not owned by current user" }
     }
 
-    override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {
+    override suspend fun createBatch(
+        taskId: String,
+        items: List<ChecklistItem>,
+    ): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
         // Read existing items so we preserve their createdAt instead of overwriting with now
         val existing = dao.watchByTask(taskId).first().associateBy { it.id }

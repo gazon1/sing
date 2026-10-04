@@ -35,6 +35,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Bundled extras for batch-loading [Task.tags] and [Task.dependsOn].
@@ -202,7 +203,7 @@ class TaskRepositoryImpl(
                 }
         }
 
-    override suspend fun create(item: Task): Result<Task> = runCatching {
+    override suspend fun create(item: Task): Result<Task> = runCatchingCancellable {
         val currentUid = currentUser.scopedUserId.value
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         val toInsert = item.copy(userId = currentUid)
@@ -215,7 +216,7 @@ class TaskRepositoryImpl(
         toInsert
     }
 
-    override suspend fun update(item: Task): Result<Task> = runCatching {
+    override suspend fun update(item: Task): Result<Task> = runCatchingCancellable {
         currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
         // Read-before-write guard: reject updates to non-existent entities.
         // Prevents silent data loss from upsert-on-missing.
@@ -274,21 +275,21 @@ class TaskRepositoryImpl(
         return task
     }
 
-    override suspend fun softDelete(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun softDelete(id: TaskId): Result<Unit> = runCatchingCancellable {
         val ts = clock.now().toEpochMilliseconds()
         val rows = taskDao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Task $id not found or not owned by current user" }
         enqueueFresh(id)
     }
 
-    override suspend fun restore(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun restore(id: TaskId): Result<Unit> = runCatchingCancellable {
         val ts = clock.now().toEpochMilliseconds()
         val rows = taskDao.restoreForUser(id.value, ts, currentUser.scopedUserId.value.value)
         require(rows > 0) { "Task $id not found or not owned by current user" }
         enqueueFresh(id)
     }
 
-    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatchingCancellable {
         val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
             ?: throw IllegalArgumentException("Task not found: ${id.value}")
         val ts = clock.now().toEpochMilliseconds()
@@ -302,7 +303,7 @@ class TaskRepositoryImpl(
         enqueueFresh(id)
     }
 
-    override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatching {
+    override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatchingCancellable {
         val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
             ?: throw IllegalArgumentException("Task not found: ${id.value}")
         val ts = clock.now().toEpochMilliseconds()
@@ -326,7 +327,11 @@ class TaskRepositoryImpl(
         return taskDao.getByIdForUser(id.value, uid)?.toTask()
     }
 
-    override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor): Result<Unit> = runCatching {
+    override suspend fun setTags(
+        taskId: TaskId,
+        tagIds: List<TagId>,
+        actor: TagEditActor,
+    ): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value.value
         // Touch the owning task first so a foreign id fails here rather than
         // silently "succeeding" with zero cross-refs written.
@@ -371,7 +376,7 @@ class TaskRepositoryImpl(
         enqueueFresh(taskId)
     }
 
-    override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatching {
+    override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value.value
         require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
         dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
@@ -403,7 +408,7 @@ class TaskRepositoryImpl(
         to: TaskId,
         verb: DependencyVerb,
         enabled: Boolean,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value.value
         require(taskDao.getByIdForUser(from.value, uid) != null) { "Task $from not found" }
         if (enabled) {

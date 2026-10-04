@@ -16,6 +16,7 @@ import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class DeleteNoteInput(val noteId: String, val reason: String? = null)
@@ -40,7 +41,7 @@ class DeleteNoteTool(
 ) : SimpleTool<DeleteNoteInput>(TypeToken.of(DeleteNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: DeleteNoteInput): String {
-        val result = runCatching {
+        val result = runCatchingCancellable {
             NoteId.fromString(args.noteId) // validate
             val proposalId = ProposalId.generate()
             val itemId = ProposalItemId.generate()

@@ -6,6 +6,7 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Deletes a project.
@@ -15,7 +16,7 @@ import kotlinx.coroutines.flow.first
  * reused by any caller (shell, AI tools, etc.).
  */
 class DeleteProjectUseCase(private val projectRepo: ProjectsRepository, private val taskRepo: TaskRepository) {
-    suspend operator fun invoke(id: ProjectId): Result<Unit> = runCatching {
+    suspend operator fun invoke(id: ProjectId): Result<Unit> = runCatchingCancellable {
         // Guard: reject if project has tasks
         val tasks = taskRepo.observeByFilter(TaskFilter.ByProject(id)).first()
         if (tasks.isNotEmpty()) {

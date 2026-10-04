@@ -254,9 +254,21 @@ fun `all contains all named icons`() {
 
 ## Reuse for Other Features
 
-This same pattern applies to:
-- **Tag emoji icons** — `TagIconRegistry` with emoji strings or `ImageVector`
-- **Priority icons** — `PriorityIconRegistry` (already implicitly exists via `Icons.Filled.Flag`)
-- **Note color accents** — `NoteColorRegistry` (see `singularity-todo-notes-ux-patterns`)
+**Status check first.** As of 2026-10-04, `ProjectIconRegistry` is the **only**
+registry that exists in the codebase. The pattern below is real and worth reusing;
+the three applications listed after it are **not implemented** — they were
+documented as if they were, which sent an agent looking for types that were never
+written.
 
-The key insight: **store a String key, resolve to `ImageVector` at render time**.
+- [x] **Project icons** — `ProjectIconRegistry` (`core/ui/`). Real; use it as the
+  reference implementation.
+- [ ] **Tag emoji icons** — would be a `TagIconRegistry`. **Does not exist.**
+  Tag icons are currently stored as a plain emoji `String` on the tag itself.
+- [ ] **Priority icons** — would be a `PriorityIconRegistry`. **Does not exist.**
+  Priority renders from a fixed `when` over `TaskPriority` using Material icons.
+- [ ] **Note color accents** — would be a `NoteColorRegistry`. **Does not exist.**
+
+If you are adding one of the missing registries, the pattern is: store a String
+key on the domain model, resolve to `ImageVector` at render time in `core/ui/`,
+and pin the public list with a test asserting the expected size. Do not assume a
+registry already exists because this file used to claim it did.

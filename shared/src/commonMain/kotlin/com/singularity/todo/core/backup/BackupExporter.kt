@@ -9,6 +9,7 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.serialization.StableJson
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 class BackupExporter(
     private val taskDao: TaskDao,
@@ -23,7 +24,7 @@ class BackupExporter(
 ) {
     private val json = StableJson
 
-    suspend fun export(options: ExportOptions): Result<BackupResult> = runCatching {
+    suspend fun export(options: ExportOptions): Result<BackupResult> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
 
         // 1. Read all entities for user

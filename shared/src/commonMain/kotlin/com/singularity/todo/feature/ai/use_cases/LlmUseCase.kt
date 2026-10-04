@@ -39,6 +39,7 @@ import com.singularity.todo.feature.ai.tools.SummarizeNoteOutput
 import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Base class for LLM-powered use cases.
@@ -49,7 +50,7 @@ import kotlinx.serialization.json.Json
  */
 abstract class LlmUseCase<I, O>(protected val tool: SimpleTool<I>, protected val outputSerializer: KSerializer<O>) {
 
-    protected suspend fun execute(input: I): Result<O> = runCatching {
+    protected suspend fun execute(input: I): Result<O> = runCatchingCancellable {
         val json = tool.execute(input)
         Json.decodeFromString(outputSerializer, json)
     }
@@ -179,7 +180,10 @@ class SuggestTagsUseCase(tool: SuggestTagsTool) :
 
 /** ProjectReviewTool returns raw text — special case, not using the generic factory */
 class ProjectReviewUseCase(private val tool: com.singularity.todo.feature.ai.tools.ProjectReviewTool) {
-    suspend operator fun invoke(projectName: String, taskTitles: List<String>): Result<String> = runCatching {
+    suspend operator fun invoke(
+        projectName: String,
+        taskTitles: List<String>,
+    ): Result<String> = runCatchingCancellable {
         tool.execute(com.singularity.todo.feature.ai.tools.ProjectReviewInput(projectName, taskTitles))
     }
 }

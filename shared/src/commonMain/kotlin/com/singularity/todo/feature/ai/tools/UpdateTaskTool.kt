@@ -13,6 +13,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class UpdateTaskInput(
@@ -45,13 +46,14 @@ class UpdateTaskTool(private val taskRepository: TaskRepository, private val clo
             title = args.title ?: existing.title,
             description = args.description ?: existing.description,
             priority = args.priority?.let {
-                runCatching {
+                runCatchingCancellable {
                     TaskPriority.valueOf(
                         it,
                     )
                 }.getOrDefault(existing.priority)
             } ?: existing.priority,
-            kind = args.kind?.let { runCatching { TaskKind.valueOf(it) }.getOrDefault(existing.kind) } ?: existing.kind,
+            kind = args.kind?.let { runCatchingCancellable { TaskKind.valueOf(it) }.getOrDefault(existing.kind) }
+                ?: existing.kind,
             projectId = args.projectId?.let { ProjectId.fromString(it) } ?: existing.projectId,
             tags = args.tagIds?.map { TagId.fromString(it) } ?: existing.tags,
             dueDate = args.dueDate?.let { if (it.isBlank()) null else LocalDate.parse(it) } ?: existing.dueDate,

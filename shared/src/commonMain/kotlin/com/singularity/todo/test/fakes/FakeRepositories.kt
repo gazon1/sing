@@ -79,6 +79,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
@@ -571,7 +572,7 @@ open class FakeTaskRepository(
 
     override suspend fun create(item: Task): Result<Task> {
         createOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store.upsert(item)
             item
         }
@@ -579,7 +580,7 @@ open class FakeTaskRepository(
 
     override suspend fun update(item: Task): Result<Task> {
         updateOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             // Production reads before writing and rejects updates to entities
             // that do not exist. The fake accepted them, so a test asserting
             // that behaviour could never fail here.
@@ -593,7 +594,7 @@ open class FakeTaskRepository(
 
     override suspend fun delete(id: TaskId): Result<Unit> {
         deleteOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             // Production `delete` soft-deletes (sets archivedAt) and keeps the row.
             // The fake hard-deleted it, so a test asserting "the task is in the
             // trash" or "deleting twice fails" could not pass against the fake.
@@ -666,7 +667,7 @@ open class FakeTaskRepository(
 
     override suspend fun softDelete(id: TaskId): Result<Unit> {
         softDeleteOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val deleted = task.copy(archivedAt = Clock.System.now())
                 store.upsert(deleted)
@@ -681,7 +682,7 @@ open class FakeTaskRepository(
 
     override suspend fun restore(id: TaskId): Result<Unit> {
         restoreOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val restored = task.copy(archivedAt = null)
                 store.upsert(restored)
@@ -691,7 +692,7 @@ open class FakeTaskRepository(
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> {
         toggleCompleteOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val toggled = if (task.completedAt != null) {
                     task.copy(completedAt = null)
@@ -705,7 +706,7 @@ open class FakeTaskRepository(
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> {
         togglePinnedOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val toggled = task.copy(isPinned = !task.isPinned)
                 store.upsert(toggled)
@@ -720,7 +721,7 @@ open class FakeTaskRepository(
 
     override suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor): Result<Unit> {
         setTagsOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[taskId.value]?.let { task ->
                 val newTags = tagIds.toSet()
                 val removed = task.tags.toSet() - newTags
@@ -745,7 +746,7 @@ open class FakeTaskRepository(
 
     override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> {
         setDependenciesOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val uid = currentUserId().value
             dao.clearDependenciesForUser(taskId.value, uid)
             deps.forEach { dep ->
@@ -759,7 +760,7 @@ open class FakeTaskRepository(
         to: TaskId,
         verb: DependencyVerb,
         enabled: Boolean,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val uid = currentUserId().value
         if (enabled) {
             dao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
@@ -806,7 +807,7 @@ class FakeChecklistRepository : ChecklistRepository {
             .sortedBy { it.sortOrder }
     }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatching {
+    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatchingCancellable {
         val item = ChecklistItem(
             id = ChecklistItemId.generate(),
             taskId = taskId,
@@ -819,7 +820,7 @@ class FakeChecklistRepository : ChecklistRepository {
     }
 
     override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val current = items.value.values.firstOrNull { it.id == itemId && it.taskId == taskId }
                 ?: throw IllegalArgumentException("Checklist item not found: $itemId")
             items.value += itemId.value to current.copy(
@@ -828,15 +829,18 @@ class FakeChecklistRepository : ChecklistRepository {
             )
         }
 
-    override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatching {
+    override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatchingCancellable {
         items.value += (item.id.value to item)
     }
 
-    override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatchingCancellable {
         items.value = items.value.filterKeys { it != id.value }
     }
 
-    override suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit> = runCatching {
+    override suspend fun createBatch(
+        taskId: String,
+        items: List<ChecklistItem>,
+    ): Result<Unit> = runCatchingCancellable {
         this.items.value += items.associateBy { it.id.value }
     }
 }
@@ -885,24 +889,24 @@ open class FakeProjectRemindersRepository(
 
     override suspend fun upsert(reminder: ProjectReminder): Result<Unit> {
         upsertOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             // Mirrors the real impl: the owner is re-stamped, never taken from the caller.
             reminders.value += (reminder.id.value to reminder.copy(userId = uid))
         }
     }
 
-    override suspend fun delete(id: ProjectReminderId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProjectReminderId): Result<Unit> = runCatchingCancellable {
         reminders.value -= (id.value)
     }
 
-    override suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit> = runCatchingCancellable {
         reminders.value -= (id.value)
     }
 
     override suspend fun deleteByProject(projectId: ProjectId): Result<Unit> {
         deleteByProjectOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             reminders.value = reminders.value.filterValues { it.projectId != projectId || it.userId != uid }
         }
@@ -924,9 +928,9 @@ open class FakeProjectRemindersRepository(
 
     override suspend fun markFired(reminderId: ProjectReminderId, lastFiredAt: Long): Result<Unit> {
         markFiredOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val existing = reminders.value[reminderId.value]
-                ?: return@runCatching
+                ?: return@runCatchingCancellable
             reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
         }
     }
@@ -967,21 +971,21 @@ open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUs
 
     override suspend fun upsert(reminder: Reminder): Result<Unit> {
         upsertOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             reminders.value += (reminder.id.value to reminder)
         }
     }
 
     override suspend fun delete(id: ReminderId): Result<Unit> {
         deleteOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             reminders.value = reminders.value.filterKeys { it != id.value }
         }
     }
 
     override suspend fun delete(id: ReminderId, userId: UserId): Result<Unit> {
         deleteWithUserIdOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             reminders.value = reminders.value.filterKeys { it != id.value }
         }
     }
@@ -1020,16 +1024,16 @@ open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUs
 
     override suspend fun deleteByTask(taskId: TaskId): Result<Unit> {
         deleteByTaskOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             reminders.value = reminders.value.filterValues { it.taskId != taskId }
         }
     }
 
     override suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit> {
         markFiredOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val existing = reminders.value[reminderId.value]
-                ?: return@runCatching
+                ?: return@runCatchingCancellable
             reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
         }
     }
@@ -1054,7 +1058,7 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
 
     override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
 
-    override suspend fun signOut(): Result<Unit> = runCatching {
+    override suspend fun signOut(): Result<Unit> = runCatchingCancellable {
         _currentSession.value = Session.SignedOut
     }
 
@@ -1107,17 +1111,17 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
         store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
     }
 
-    override suspend fun create(item: Project): Result<Project> = runCatching {
+    override suspend fun create(item: Project): Result<Project> = runCatchingCancellable {
         store.upsert(item)
         item
     }
 
-    override suspend fun update(item: Project): Result<Project> = runCatching {
+    override suspend fun update(item: Project): Result<Project> = runCatchingCancellable {
         store.upsert(item)
         item
     }
 
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatching {
+    override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store[id.value]?.takeIf { it.userId == uid }
             ?: throw NoSuchElementException("Project $id not found or not owned by current user")
@@ -1131,7 +1135,7 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
 
     // ─── SoftDeletable ───────────────────────────────────────────────────────
 
-    override suspend fun restore(id: ProjectId): Result<Unit> = runCatching {
+    override suspend fun restore(id: ProjectId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store[id.value]?.takeIf { it.userId == uid }
             ?: throw NoSuchElementException("Project $id not found or not owned by current user")
@@ -1248,14 +1252,14 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
 
     override suspend fun create(
         item: com.singularity.todo.feature.tags.Tag,
-    ): Result<com.singularity.todo.feature.tags.Tag> = runCatching {
+    ): Result<com.singularity.todo.feature.tags.Tag> = runCatchingCancellable {
         store.upsert(item)
         item
     }
 
     override suspend fun update(
         item: com.singularity.todo.feature.tags.Tag,
-    ): Result<com.singularity.todo.feature.tags.Tag> = runCatching {
+    ): Result<com.singularity.todo.feature.tags.Tag> = runCatchingCancellable {
         store.upsert(item)
         item
     }
@@ -1266,7 +1270,7 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
             store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
         }
 
-    override suspend fun delete(id: TagId): Result<Unit> = runCatching {
+    override suspend fun delete(id: TagId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store[id.value]?.takeIf { it.userId == uid }
             ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
@@ -1320,7 +1324,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         attachment: com.singularity.todo.core.attachments.Attachment,
     ): Result<com.singularity.todo.core.attachments.Attachment> {
         createOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store.upsert(attachment)
             attachment
         }
@@ -1328,7 +1332,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
 
     override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> {
         deleteOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store.remove(id.value)
         }
     }
@@ -1348,7 +1352,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         mimeType: String?,
     ): Result<com.singularity.todo.core.attachments.Attachment> {
         saveFileAttachmentOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             // `checksum` / `fileSizeBytes` stay at their defaults. Production
             // computes them from the file via the AttachmentStorage port, which
@@ -1376,7 +1380,7 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
         title: String?,
     ): Result<com.singularity.todo.core.attachments.Attachment> {
         addUrlAttachmentOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             // Production rejects malformed URLs before writing; the fake accepted
             // anything, so validation could never be exercised in a test.
             com.singularity.todo.core.attachments.AttachmentDomain.validateUrl(url)
@@ -1452,7 +1456,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         item: com.singularity.todo.feature.notes.Note,
     ): Result<com.singularity.todo.feature.notes.Note> {
         createOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store.upsert(item)
             item
         }
@@ -1462,7 +1466,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         item: com.singularity.todo.feature.notes.Note,
     ): Result<com.singularity.todo.feature.notes.Note> {
         updateOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store.upsert(item)
             item
         }
@@ -1477,7 +1481,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         deleteOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(deletedAt = Clock.System.now()))
             }
@@ -1490,7 +1494,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun restore(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         restoreOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(deletedAt = null))
             }
@@ -1549,7 +1553,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         bodyHtml: String,
     ): Result<com.singularity.todo.feature.notes.NoteId> {
         createWithContentOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             val now = Clock.System.now()
             val note = com.singularity.todo.feature.notes.Note(
@@ -1572,7 +1576,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun createNoteWithTitle(title: String): Result<com.singularity.todo.feature.notes.NoteId> {
         createNoteWithTitleOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
             val now = Clock.System.now()
@@ -1600,7 +1604,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         bodyHtml: String,
     ): Result<Unit> {
         updateContentOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(
                     existing.copy(
@@ -1619,7 +1623,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun archive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         archiveOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(archivedAt = Clock.System.now()))
             }
@@ -1628,7 +1632,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun unarchive(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         unarchiveOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(archivedAt = null))
             }
@@ -1637,7 +1641,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun setPinned(id: com.singularity.todo.feature.notes.NoteId, pinned: Boolean): Result<Unit> {
         setPinnedOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.System.now() else null))
             }
@@ -1649,7 +1653,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         color: com.singularity.todo.feature.notes.NoteColor?,
     ): Result<Unit> {
         setColorOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(color = color))
             }
@@ -1658,7 +1662,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
 
     override suspend fun setSortOrder(id: com.singularity.todo.feature.notes.NoteId, sortOrder: Int): Result<Unit> {
         setSortOrderOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(sortOrder = sortOrder))
             }
@@ -1670,7 +1674,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         links: List<String>,
     ): Result<Unit> {
         setOutgoingLinksOverride?.let { return it }
-        return runCatching {
+        return runCatchingCancellable {
             store[id.value]?.let { existing ->
                 store.upsert(existing.copy(outgoingLinks = links))
             }
@@ -1715,7 +1719,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         templateId: com.singularity.todo.feature.notes.NoteId,
         targetTitle: String,
         targetDateKey: String?,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val template = store.state.value.values.firstOrNull { it.id == templateId && it.userId == uid }
             ?: throw IllegalArgumentException("Template not found: $templateId")
@@ -1746,7 +1750,9 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         newId
     }
 
-    override suspend fun saveAsTemplate(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> = runCatching {
+    override suspend fun saveAsTemplate(
+        id: com.singularity.todo.feature.notes.NoteId,
+    ): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store[id.value]?.takeIf { it.userId == uid }
             ?: throw NoSuchElementException("Note $id not found or not owned by current user")
@@ -1756,13 +1762,13 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     override suspend fun getOrCreateDailyNote(
         dateKey: String,
         fromTemplateId: com.singularity.todo.feature.notes.NoteId?,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store.state.value.values.firstOrNull {
             it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
                 it.deletedAt == null
         }
-        if (existing != null) return@runCatching existing.id
+        if (existing != null) return@runCatchingCancellable existing.id
         val now = Clock.System.now()
         val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val template = fromTemplateId?.let {
@@ -1804,7 +1810,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         title: String,
         bodyMarkdown: String?,
         bodyHtml: String?,
-    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatching {
+    ): Result<com.singularity.todo.feature.notes.NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val now = Clock.System.now()
@@ -1863,12 +1869,12 @@ class FakeProfileRepository : ProfileRepository {
 
     override suspend fun get(id: ProfileId): Profile? = _profiles.value.find { it.id == id }
 
-    override suspend fun create(item: Profile): Result<Profile> = runCatching {
+    override suspend fun create(item: Profile): Result<Profile> = runCatchingCancellable {
         _profiles.value += item
         item
     }
 
-    override suspend fun update(item: Profile): Result<Profile> = runCatching {
+    override suspend fun update(item: Profile): Result<Profile> = runCatchingCancellable {
         _profiles.value = _profiles.value.map { if (it.id == item.id) item else it }
         item
     }
@@ -1895,7 +1901,7 @@ class FakeProfileRepository : ProfileRepository {
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
-    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatching {
+    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatchingCancellable {
         _activeProfileId.value = id
     }
 
@@ -2060,7 +2066,7 @@ class FakeSavedAgendaViewsRepository(
     override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
 
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> =
-        runCatching {
+        runCatchingCancellable {
             val now = Clock.System.now()
             val copy = view.copy(
                 id = SavedAgendaViewId.generate(),
@@ -2092,14 +2098,14 @@ class FakeSavedAgendaViewsRepository(
 
     override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
-    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatchingCancellable {
         upsertGate?.invoke()
         upsertCount++
         store.update { map -> map + (SavedAgendaViewKey.of(view.userId.value, view.id.raw) to view) }
         view
     }
 
-    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatching {
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         store.update { map -> map - SavedAgendaViewKey.of(uid.value, id.raw) }
     }

@@ -1,9 +1,34 @@
 ---
 name: singularity-todo-llm-usage-tracking
-description: LLM token usage tracking pattern for Singularity Todo KMP. Use when capturing, recording, and visualizing AI token consumption. Covers UsageRecorder port, LlmUsageEntity + Room migration v7→v8, ModelPricing table, UsageExtractor from Koog metaInfo, AI Usage debug screen, and privacy-first local-only design. Integrate with MCP server tools and ChatViewModel.
+description: LLM token usage tracking in Singularity Todo KMP. Use when capturing, recording, or visualizing AI token consumption. Covers the concrete RoomUsageRecorder, LlmUsageEntity + LlmUsageDao, and the AiUsageScreen. Read the "What exists vs what does not" section first — this skill previously documented a UsageRecorder port, a ModelPricing cost table and a UsageExtractor that were never built. Integrate with MCP server tools and ChatViewModel.
 ---
 
 # LLM Token Usage Tracking
+
+## What exists vs what does not
+
+**Check this table before following anything below.** This skill described an
+architecture that was partially built, and the gaps were not marked — an agent
+following it would write against types that do not exist. Verified 2026-10-04:
+
+| Documented here | Reality |
+|---|---|
+| `UsageRecorder` port (interface) | **Does not exist.** There is no port. `core/observability/UsageRecorder.kt` holds only the data classes `ToolUsageEvent`, `DailyUsage`, `ToolUsage`, `ModelUsage`. The one implementation is the concrete class `RoomUsageRecorder`. (There is a `LlmUsageRecorderTest` in `jvmTest`, but no `LlmUsageRecorder` in production — do not assume a second implementation exists.) |
+| `LlmUsageEntity` | **Real** — `core/database/Entities.kt`, registered in `AppDatabase`, with `LlmUsageDao`. |
+| `AiUsageScreen` | **Real** — `feature/ai/usage/AiUsageScreen.kt`. |
+| `ModelPricing` cost table | **Does not exist.** There is no pricing table and no model→cost mapping. |
+| `UsageExtractor` (reads Koog `metaInfo`) | **Does not exist.** Nothing extracts usage from `metaInfo`. |
+
+**Consequence worth knowing:** `ToolUsage.totalCostUsdMicros` and
+`ModelUsage.totalCostUsdMicros` are **nullable** (`Long?`), and they stay null
+because there is no pricing table to populate them. That is not an oversight to
+"fix" by filling in zeros — a fabricated cost is worse than an absent one. If you
+add a pricing table, those fields become the only place it surfaces.
+
+The sections titled `UsageRecorder Port`, `ModelPricing — Token Cost Table` and
+`UsageExtractor — Reading Koog metaInfo` are kept below as **design intent**, not
+as instructions. They are marked inline. If you are implementing one of them, treat
+the section as a starting sketch and verify every symbol against the code first.
 
 ## Why This Skill Exists
 
@@ -15,6 +40,8 @@ AI tools consume tokens (and money). Without tracking, you have no idea which to
 4. **Visualize** — `Settings → AI Usage` debug screen
 
 Privacy-first: all data stays in Room on-device. No Langfuse, no external services by default.
+
+Steps 1 and 3 are **not implemented**; steps 2 and 4 are.
 
 ## When to Use This Skill
 
@@ -50,66 +77,15 @@ ToolUsageEvent                         LlmUsageEntity (Room)
                                     (sparkline, per-tool, per-model)
 ```
 
-## UsageRecorder Port
+## The parts that were never built
 
-```kotlin
-// shared/src/commonMain/.../core/observability/UsageRecorder.kt
-package com.singularity.todo.core.observability
+Three sections of this skill described a `UsageRecorder` port, a `ModelPricing`
+cost table and a `UsageExtractor` for Koog `metaInfo`. **None of them exist.**
+They were moved to `DESIGN-INTENT.md` in this directory on 2026-10-04, so the
+file you are reading contains only code that is actually in the tree.
 
-import kotlinx.datetime.Instant
-
-data class ToolUsageEvent(
-    val toolName: String,           // e.g., "decompose_and_create"
-    val modelId: String,           // e.g., "gpt-4o-mini"
-    val inputTokens: Int,
-    val outputTokens: Int,
-    val totalTokens: Int,
-    val costUsdMicros: Long?,       // null if model not in pricing table
-    val durationMs: Long,
-    val profileId: String,           // from CurrentUser.profileId
-    val error: String?,             // null on success
-    val timestamp: Instant = Instant.now(),
-)
-
-interface UsageRecorder {
-    suspend fun record(event: ToolUsageEvent)
-    fun observeRecent(limit: Int = 100): Flow<List<ToolUsageEvent>>
-    fun observeByDay(days: Int = 30): Flow<List<DailyUsage>>
-    fun observeByTool(): Flow<List<ToolUsage>>
-    fun observeByModel(): Flow<List<ModelUsage>>
-    fun observeByProfile(): Flow<List<ProfileUsage>>
-    suspend fun prune(olderThanDays: Int = 90)
-}
-
-data class DailyUsage(
-    val date: String,              // "2026-09-07"
-    val totalTokens: Int,
-    val totalCostUsdMicros: Long,
-    val requestCount: Int,
-)
-
-data class ToolUsage(
-    val toolName: String,
-    val totalTokens: Int,
-    val totalCostUsdMicros: Long,
-    val callCount: Int,
-    val avgTokensPerCall: Int,
-)
-
-data class ModelUsage(
-    val modelId: String,
-    val totalTokens: Int,
-    val totalCostUsdMicros: Long,
-    val callCount: Int,
-)
-
-data class ProfileUsage(
-    val profileId: String,
-    val totalTokens: Int,
-    val totalCostUsdMicros: Long,
-    val callCount: Int,
-)
-```
+Read that file only if you are implementing one of them — and verify its symbols
+against the code first; it is 2026-era design, not a description of the repo.
 
 ## Room Entity and DAO
 
@@ -176,118 +152,6 @@ interface LlmUsageDao {
 ```
 
 **Migration v7→v8:** Additive — adds `llm_usage` table only. No schema changes to existing tables. Use `fallbackToDestructiveMigration` for dev, explicit `addMigrations()` for prod.
-
-## ModelPricing — Token Cost Table
-
-```kotlin
-// shared/src/commonMain/.../core/observability/UsageRecorder.kt (costUsdMicros field)
-package com.singularity.todo.feature.ai
-
-/**
- * Pricing in USD per 1,000,000 tokens (USD * 10^-6 per token).
- * Source: OpenAI / Anthropic / Ollama pricing pages, 2026-09-07.
- * Update this when prices change.
- */
-data class ModelPricing(
-    val inputPerMillionUsd: Double,
-    val outputPerMillionUsd: Double,
-) {
-    fun priceTokens(inputTokens: Int, outputTokens: Int): Long {
-        val inputCost = inputTokens * inputPerMillionUsd / 1_000_000
-        val outputCost = outputTokens * outputPerMillionUsd / 1_000_000
-        return ((inputCost + outputCost) * 1_000_000).toLong() // micros
-    }
-}
-
-internal object ModelPricing {
-    /** "pricing last updated: 2026-09-07" */
-    val TABLE: Map<String, ModelPricing> = buildMap {
-        // OpenAI
-        put("gpt-4o-mini", ModelPricing(0.15, 0.60))
-        put("gpt-4o", ModelPricing(2.50, 10.00))
-        put("gpt-4.1", ModelPricing(2.00, 8.00))
-        put("gpt-4.1-mini", ModelPricing(0.50, 2.00))
-        put("gpt-4.1-nano", ModelPricing(0.10, 0.40))
-        // Anthropic (via OpenAI-compatible endpoint)
-        put("claude-sonnet-4-20250514", ModelPricing(3.00, 15.00))
-        put("claude-3-5-sonnet-20241022", ModelPricing(3.00, 15.00))
-        put("claude-3-5-haiku-20241022", ModelPricing(0.80, 4.00))
-        // Ollama (local — free)
-        put("llama3", ModelPricing(0.0, 0.0))
-        put("mistral", ModelPricing(0.0, 0.0))
-        put("qwen2.5", ModelPricing(0.0, 0.0))
-    }
-
-    fun priceOrNull(modelId: String, inputTokens: Int, outputTokens: Int): Long? {
-        return TABLE[modelId]?.priceTokens(inputTokens, outputTokens)
-    }
-}
-```
-
-## UsageExtractor — Reading Koog metaInfo
-
-Koog 1.1.1 exposes usage via `Message.Assistant.metaInfo`:
-
-```kotlin
-// shared/src/commonMain/.../core/observability/RoomUsageRecorder.kt
-package com.singularity.todo.feature.ai.usage
-
-import ai.koog.prompt.executor.model.ResponseMetaInfo
-import com.singularity.todo.feature.ai.ModelPricing
-import com.singularity.todo.core.observability.ToolUsageEvent
-import kotlinx.datetime.Clock
-
-/**
- * Extracts token usage from Koog's ResponseMetaInfo.
- * Handles provider differences (OpenAI / Anthropic / Ollama).
- */
-object UsageExtractor {
-
-    fun extract(
-        metaInfo: ResponseMetaInfo?,
-        toolName: String,
-        modelId: String,
-        durationMs: Long,
-        error: String?,
-        profileId: String,
-    ): ToolUsageEvent {
-        val inputTokens = metaInfo?.inputTokensCount ?: 0
-        val outputTokens = metaInfo?.outputTokensCount ?: 0
-        val totalTokens = metaInfo?.totalTokensCount ?: (inputTokens + outputTokens)
-
-        val costMicros = ModelPricing.priceOrNull(modelId, inputTokens, outputTokens)
-
-        return ToolUsageEvent(
-            toolName = toolName,
-            modelId = modelId,
-            inputTokens = inputTokens,
-            outputTokens = outputTokens,
-            totalTokens = totalTokens,
-            costUsdMicros = costMicros,
-            durationMs = durationMs,
-            profileId = profileId,
-            error = error,
-        )
-    }
-
-    /**
-     * For data tools (no LLM call): zero tokens.
-     */
-    fun forDataTool(toolName: String, profileId: String): ToolUsageEvent {
-        return ToolUsageEvent(
-            toolName = toolName,
-            modelId = "n/a",
-            inputTokens = 0,
-            outputTokens = 0,
-            totalTokens = 0,
-            costUsdMicros = null,
-            durationMs = 0,
-            profileId = profileId,
-            error = null,
-        )
-    }
-}
-```
 
 ## Integrating into KoogAgentService
 

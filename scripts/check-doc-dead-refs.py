@@ -352,9 +352,18 @@ def main() -> int:
 
 
 _SYMBOL_RE = re.compile(r"`([^`]+)`")
+# A declaration keyword may be preceded by any number of modifiers. This regex
+# originally matched only a bare `class Foo` / `object Foo` at column 0, which made
+# `data class`, `abstract class`, `sealed interface`, `internal class` and every
+# annotated declaration invisible to the index — and `data class` is the dominant
+# declaration form in this codebase. The symptom was a `--skill-symbols` baseline
+# of 840 entries, most of them symbols that do exist.
 _TOP_LEVEL_KT = re.compile(
-    r"^(?:object|class|interface|enum\s+class|value\s+class|"
-    r"annotation\s+class|fun|val|var)\s+(\w+)",
+    r"^(?:@\w+(?:\([^)]*\))?\s*)*"                       # annotations
+    r"(?:public|internal|private|protected|abstract|final|open|sealed|data|value|"
+    r"inner|enum|annotation|expect|actual|companion|inline|infix|operator|suspend|"
+    r"const|lateinit|external|tailrec)*\s*"
+    r"(?:object|class|interface|fun|val|var|typealias)\s+(\w+)",
     re.M,
 )
 # Types that are framework-allocated and never have production call sites.
@@ -473,15 +482,38 @@ def _skill_symbols_main(_args) -> int:
         except ValueError:
             return str(path)
 
+    dangling: list[str] = []
     new_findings: list[str] = []
     for skill_md in sorted(skill_dir.glob("*/SKILL.md")):
         refs = _scan_skill_symbol_refs(skill_md)
         for line, sym in refs:
-            key = f"{skill_md.relative_to(ROOT).as_posix()}:{sym}"
-            if sym not in index and key not in accepted:
-                new_findings.append(
-                    f"  {_rel(skill_md)}:{line}: `{sym}` — not in production code"
-                )
+            if sym in index:
+                continue
+            rel = skill_md.relative_to(ROOT).as_posix()
+            dangling.append(f"{rel}:{sym}")
+            if f"{rel}:{sym}" not in accepted:
+                new_findings.append(f"  {_rel(skill_md)}:{line}: `{sym}` — not in production code")
+
+    # `--update-baseline` was accepted by the argument parser but ignored here, so
+    # the skill-symbol baseline could only ever grow. That is what left 840 entries
+    # in place after `_build_kt_symbol_index` was taught to see `data class`.
+    if getattr(_args, "update_baseline", False):
+        header = (
+            "# Kotlin symbols referenced in skill files that do not exist in\n"
+            "# production source. Regenerate with:\n"
+            "#   python3 scripts/check-doc-dead-refs.py --skill-symbols --update-baseline\n"
+            "# Run it after fixing symbols, never to silence a new one.\n"
+            "#\n"
+            "# Most of these were accepted because the skill described an architecture\n"
+            "# that was never built. The 2026-10-04 index fix (data class / abstract\n"
+            "# class / annotated declarations were invisible) removed several hundred\n"
+            # false positives in one pass.\n"
+        )
+        body = "\n".join(sorted(set(dangling)))
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(header + body + "\n", encoding="utf-8")
+        print(f"baseline rewritten: {len(set(dangling))} dangling symbol(s) -> {baseline_path}")
+        return 0
 
     if new_findings:
         print("NEW skill symbol references (not baselined):")

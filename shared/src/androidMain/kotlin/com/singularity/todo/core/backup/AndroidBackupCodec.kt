@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Android implementation using java.util.zip (available since API 1).
@@ -19,7 +20,7 @@ class AndroidBackupCodec : BackupCodec {
         attachments: List<Pair<String, ByteArray>>,
         destPath: String,
         fs: FileSystem,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         fs.ensureDir(destPath.substringBeforeLast('/', ""))
 
         val baos = ByteArrayOutputStream()
@@ -42,13 +43,18 @@ class AndroidBackupCodec : BackupCodec {
         fs.writeBytes(destPath, baos.toByteArray())
     }
 
-    override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> = runCatching {
+    override suspend fun import(
+        sourcePath: String,
+        fs: FileSystem,
+    ): Result<BackupCodec.CodecReadResult> = runCatchingCancellable {
         if (!fs.exists(sourcePath)) throw BackupError.FileNotFound(sourcePath)
         val bytes = fs.readBytes(sourcePath)
         decodeZip(bytes)
     }
 
-    override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> = runCatching {
+    override suspend fun importFromSource(
+        source: FileSource,
+    ): Result<BackupCodec.CodecReadResult> = runCatchingCancellable {
         val bytes = source.readBytes()
         decodeZip(bytes)
     }
