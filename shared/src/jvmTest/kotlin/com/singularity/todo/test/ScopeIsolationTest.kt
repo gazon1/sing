@@ -41,7 +41,7 @@ class ScopeIsolationTest {
     }
 
     @Test
-    fun `domainModule pattern — modules list spread as varargs`() {
+    fun `a composed module list shares the root scope, not a child`() {
         val platformModule = module {
             single<String> { "platform" }
         }
@@ -62,10 +62,14 @@ class ScopeIsolationTest {
         )
 
         val app = org.koin.dsl.koinApplication {
-            modules(platformModule, *domainModuleList.toTypedArray())
+            modules(listOf(platformModule) + domainModuleList)
         }
 
         try {
+            // aiModule resolves `profileStr`, which is defined in a *different* module in
+            // the same list. This is the property that composition must not break: if the
+            // composed list were assembled as child scopes, this lookup would fail rather
+            // than resolve across the boundary.
             val result: String = app.koin.get(aiDep)
             assert(result == "profile-singleton") { "Expected 'profile-singleton' but got '$result'" }
         } finally {
@@ -74,9 +78,16 @@ class ScopeIsolationTest {
     }
 
     @Test
-    fun `module returning List spreads correctly into modules varargs`() {
-        // This is the EXACT pattern used in domainModule():
-        // modules(platformModule(), *domainModule().toTypedArray())
+    fun `domainModule returning a List composes without a spread`() {
+        // The shape production uses, from Modules.kt and the three app entry points:
+        //     modules(listOf(platformModule(), coreLoggingModule()) + domainModule() + listOf(gateModule(…)))
+        //
+        // Not `*domainModule().toTypedArray()`. A spread is a dynamically-computed module
+        // set, so the Koin compiler cannot verify the graph at that entry point and emits
+        // KOIN-W003 — a warning, which means nothing fails and the pattern can creep back
+        // unnoticed. This test used to assert the spread was correct and name it "the EXACT
+        // pattern used in domainModule()", which is how a banned shape survives a
+        // codebase that has since moved on.
         val platformModule = module {
             single<String> { "platform" }
         }
@@ -97,7 +108,7 @@ class ScopeIsolationTest {
         )
 
         val app = org.koin.dsl.koinApplication {
-            modules(platformModule, *domainModule().toTypedArray())
+            modules(listOf(platformModule) + domainModule())
         }
 
         try {
