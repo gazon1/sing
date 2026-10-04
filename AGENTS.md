@@ -103,31 +103,9 @@ a `systemProperty`-reading one), a plain rerun recompiles and re-executes correc
 
 ## expect/actual порты
 
-Порты (commonMain — интерфейс, если не сказано иное; jvmMain / androidMain):
-
-| Порт | jvmMain | androidMain |
-|---|---|---|
-| `SecureStoragePort` | secret-tool + AES-GCM | EncryptedSharedPreferences |
-| `NotificationPort` | notify-send + at | AlarmManager + NotificationManager |
-| `SharePort` / `FileSharePort` | `JvmSharePort` / `JvmFileSharePort` | `AndroidSharePort` / `AndroidFileSharePort` |
-| `FileRevealer` | `JvmFileRevealer` | `AndroidFileRevealer` |
-| `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` |
-| `BackupCodec` | `JvmBackupCodec` (java.util.zip) | `AndroidBackupCodec` |
-| `TimeZoneProvider` | actual | actual |
-
-`AttachmentStorage` — **класс**, не интерфейс.
-
-**Время.** `core.platform.Clock` object больше нет (ADR `2026-09-27-remove-platform-clock-object.md`):
-`kotlin.time.Clock.System.now()` (внедряй `Clock` параметром для тестов), `core.platform.todayFlow()` /
-`todayAt(zone)` / `todayInSystemZone()` для `LocalDate`, `delayUntilNextMidnight()`.
-
-**Фабричные функции:** `createSqlDriver()`, `createHttpClient()`, `createBackgroundScope()`
-(`Dispatchers.Default`), `initLogging()`, `platformModule()`, `aiToolsModule()` (32 Koog tools),
-`createKoogPromptExecutor()`, `onSecondaryClick()`. `isDesktop` удалён — определяй платформу
-через конкретный actual, а не флаг.
-
-**Навигация** (expect/actual NavGraphs): `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
-`SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph` + парные `*EntryProvider`.
+Порт — интерфейс в `commonMain`, два actual, `single<Port>` в обоих
+`PlatformModule.*.kt`. Единственный expect/actual seam — `platformModule()`.
+Инвентарь портов, фабричные функции, время и NavGraphs — `docs/PLATFORM-REFERENCE.md`.
 
 ## Сборка
 
@@ -148,8 +126,8 @@ just detekt-baseline; just coverage; just tcheck; just tcheck-evals; just docs-a
 > `just <recipe> name=value` **не** присваивает — приходит весь токен. Только
 > позиционная форма: `just gm agenda`, не `just gm tags=agenda`.
 
-**Гейты «меры», а не «булевы»** (все блокирующие; спека —
-`openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`):
+**Гейты «меры», а не «булевы»** — все блокирующие; спека:
+`openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.
 
 `check-test-runs.py --require <set>` — прогон выполнил меньше классов/тестов, чем floor,
 **или** хоть один тест skipped · `check-coverage.py` — покрытие `com.singularity.todo.*`
