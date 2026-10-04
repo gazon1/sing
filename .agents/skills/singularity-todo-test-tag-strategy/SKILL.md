@@ -8,8 +8,8 @@ description: JUnit tag-based test filtering strategy for the Singularity Todo pr
 ## The Problem
 
 This project has two test execution environments:
-- **Fast suite** (~100 tests, <2 min): unit tests using `commonTest` + `jvmTest`
-- **Slow suite** (~16 tests, 5-15 min): integration-like tests with real delays, large fakes, or heavy setup
+- **Fast suite** (`@Tag("fast")`, the default): unit tests using `commonTest` + `jvmTest`
+- **Slow suite** (`@Tag("slow")`, opt-in): real Room/SQLite, filesystem, zip, Compose UI, Robolectric
 
 The default Gradle task (`./gradlew :shared:test`) must be fast enough for local TDD and CI gate checks. The slow suite is opt-in.
 
@@ -42,23 +42,58 @@ class SomeIntegrationTest {
 
 ## How Tag Filtering Works
 
-### Gradle Configuration (shared/build.gradle.kts)
+### Gradle Configuration (shared/build.gradle.kts, desktopApp/build.gradle.kts)
 
 ```kotlin
 tasks.withType<Test>().configureEach {
-    val tags = (project.findProperty("test.tags") as String?)
-        ?.split(",")?.orEmpty() ?: emptyList()
+    // Discovering zero tests is a misconfiguration, not a pass.
+    failOnNoDiscoveredTests = true
 
-    if (tags.isNotEmpty()) {
-        includeTags(*tags.toTypedArray())
-    } else {
-        // Default: run everything EXCEPT @Tag("slow")
-        excludeTags("slow")
+    useJUnitPlatform {
+        val tags = (project.findProperty("test.tags") as String?)
+            ?.split(",")?.orEmpty() ?: emptyList()
+        if (tags.isNotEmpty()) {
+            includeTags(*tags.toTypedArray())
+        } else {
+            // Default: run everything EXCEPT @Tag("slow")
+            excludeTags("slow")
+        }
     }
 }
 ```
 
-**Semantic:** `excludeTags("slow")` is the default. Tests without any tag run always. Only tests explicitly tagged `@Tag("slow")` are excluded by default.
+**The two modes are opposites, and only one of them tolerates a missing tag:**
+
+| | filter | an untagged class |
+|---|---|---|
+| default (no `-Ptest.tags`) | `excludeTags("slow")` | **runs** |
+| CI (`-Ptest.tags=…`) | `includeTags(…)` | **silently skipped** |
+
+JUnit matches tags **per class**. So under `includeTags(...)` a class with no `@Tag` is
+dropped from the run with no error, and Gradle still reports `BUILD SUCCESSFUL`. This is
+not theoretical: with only 16 of 218 classes tagged, CI ran 16 classes in `shared` and
+**zero** in `desktopApp` for months, and no navigation or desktop-flow test had ever run.
+
+**Every test class must carry `@Tag("fast")` or `@Tag("slow")`.** Enforced twice:
+
+- `TestTagCoverageTest` (arch test) fails the build on an untagged class that declares `@Test`;
+- `scripts/check-test-runs.py` fails when a source set executes fewer classes/tests than
+  `config/docs/test-runs-baseline.txt` — the only check that catches a *partial* skip.
+
+Both are blocking. See ADR `2026-10-04-test-execution-integrity`.
+
+### The tag is engine-specific
+
+`includeTags` sees **Jupiter** annotations only. A JUnit 4 class (`org.junit.Test`) on the
+Vintage engine carries no Platform tag even when annotated `@Tag`, so it stays invisible to
+the filter — the tag is on the class and the class still does not run. This is how 23 of 28
+`desktopApp` classes stayed unrun after they had been tagged.
+
+`desktopApp` is now Jupiter-only (`kotlin.test.Test`) and the Vintage engine is removed, so
+a JUnit 4 test there is not discovered at all — which `failOnNoDiscoveredTests` reports
+rather than silently ignoring. `shared/src/androidHostTest` still carries the Vintage
+engine for Robolectric; anything in that source set is outside the tag filter's reach, so
+do not rely on a tag to schedule it.
 
 ### Running Tests
 

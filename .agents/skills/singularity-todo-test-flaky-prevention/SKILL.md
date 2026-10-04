@@ -46,6 +46,42 @@ private val fakeReminderRepo = FakeReminderRepository()  // internal Dispatchers
 
 ---
 
+## Rule 1b: Take the Expected Identity From the Same Flow the Code Uses
+
+**Symptom:** a profile-isolation test passes on `:shared:jvmTest` and fails on
+`:shared:testAndroidHostTest` (Robolectric). Or it fails intermittently, with the
+seeded row missing from the result.
+
+**Root cause:** `CurrentUser.userId` and `ProfileAwareCurrentUser.scopedUserId` are
+`StateFlow`s seeded with a value (`"anonymous"`) and corrected later by collectors on
+`Dispatchers.Default` (see Rule 1). Two consumers that read at different instants can
+therefore get **different identities** — the race is against the collector, not against
+your test. Robolectric schedules that collector later than the JVM does, which is why one
+source set passes and the other fails.
+
+A test that recomputes the expected id with its own `combine(currentUser.userId, …)` is
+racing in exactly the same way, and can win the seeding read while the code under test
+loses it.
+
+**Fix:** derive the expected identity from the production derivation, and prefer the
+`live*` flows, which are derived from the session and cannot lag.
+
+```kotlin
+// ✅ CORRECT — the same flow the repository scopes its query with
+val scoped = currentUser.liveScopedUserId.first()
+
+// ❌ WRONG — a second derivation that races the collectors independently
+val scoped = combine(currentUser.userId, profiles.activeProfileId) { u, p -> … }.first()
+```
+
+**When you need the identity at all:** to *seed* rows the code will query for. If a test
+seeds under one identity and queries under another, every row is invisible and the failure
+looks like a filtering bug in production code. Check this before debugging the tool.
+
+Related: ADR `2026-10-04-derived-identity-flows`.
+
+---
+
 ## Rule 2: Use Fixed Dates in Domain Logic Tests
 
 **Symptom:** `AssertionFailedError: Expected value to be true` on a date-comparison test. Fails only on certain days of the week or months.

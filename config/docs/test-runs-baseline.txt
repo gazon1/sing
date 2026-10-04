@@ -1,0 +1,18 @@
+# Executed test counts, used as a floor by scripts/check-test-runs.py.
+# Format: <source-set> <classes> <tests>
+#
+# Record the SMALLEST count any legitimate run produces. The default local
+# run (no -Ptest.tags) executes only @Tag("fast") classes, so it is the
+# floor; CI's `-Ptest.tags=fast,slow` is a superset and can only be higher.
+# Recording the CI numbers here instead would make every plain local run
+# look like a regression.
+#
+# A DROP means a test class stopped being selected — an untagged class, a
+# JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do
+# not regenerate. A RISE just means tests were added.
+#
+# Regenerate with: python3 scripts/check-test-runs.py --update-baseline
+desktopApp:test 27 77
+mcp-server:test 2 10
+shared:jvmTest 142 1095
+shared:testAndroidHostTest 97 762
