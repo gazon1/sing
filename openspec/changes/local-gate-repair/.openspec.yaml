@@ -1,0 +1,15 @@
+# Local gate topology is process, not product behaviour: this change alters
+# which Gradle tasks a local recipe invokes and changes no capability a user
+# or a client can observe. The constraints it must not violate are executable
+# rather than descriptive — a gate that cannot run is worse than a gate that
+# can — so a spec delta would restate what the recipes already are supposed to
+# refuse to do.
+#
+# The reasoning is in the proposal. Measure the before-state from the recipes
+# and from `./gw tasks --all`, not from CI history: CI never used these
+# recipes, which is the whole of the defect.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive. If this
+# change ever starts describing a verification requirement rather than local
+# gate topology, delete skip_specs and write the delta.
+skip_specs: true
