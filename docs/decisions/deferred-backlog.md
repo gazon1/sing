@@ -1704,6 +1704,7 @@ each as `BacklogRef: none`, which its own header rule defines as a gate failure
 ("a line without a live backlog reference is a gate failure").
 
 **Tracked as:** #97
+**OpenSpec change:** `openspec/changes/unwired-detector-test-double-exemption/`
 
 **Status:** these are not dead code. They are test doubles that live in
 `commonMain` production source, so they are reachable from `commonTest` without
@@ -1735,6 +1736,7 @@ least one positive test (two were confirmed no-ops and fixed: see
 `2026-10-05-positive-tests-for-every-detekt-rule`). That is the minimum, not the job.
 
 **Tracked as:** #98
+**OpenSpec change:** `openspec/changes/detekt-rule-coverage-floor/`
 
 **Status:** PARTIALLY PAID (2026-10-05, later the same day). Kover is now on
 :detekt-rules (`just tkr`), so this is a number rather than prose: **92.0% line
@@ -1782,6 +1784,7 @@ regression that matters most in practice.
 It is also the only androidApp source set the module does not scan.
 
 **Tracked as:** #99
+**OpenSpec change:** `openspec/changes/androidapp-debug-lint-policy/`
 
 **Status:** OPEN — a decision, not a mechanical fix. Linting it produces 16 findings, and
 every one is in `DebugSeedActivity.kt`:
@@ -1819,6 +1822,7 @@ Not a pre-existing defect — an interaction between two changes that were each 
 on their own.
 
 **Tracked as:** #100
+**OpenSpec change:** `openspec/changes/ci-checks-parallel-split/`
 
 **Status: OPEN.** The split is designed, measured and built, but withdrawn. See
 `2026-10-05-ci-checks-run-in-parallel.md`, which is `status: superseded`.
