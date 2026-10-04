@@ -3,7 +3,6 @@ package com.singularity.todo.core.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
@@ -65,7 +64,7 @@ fun <T> NotificationHost(
     }
 
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-        SnackbarHost(hostState = snackbarHostState)
+        TaggedSnackbarHost(hostState = snackbarHostState)
     }
 
     when (val n = notification) {

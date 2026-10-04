@@ -58,13 +58,16 @@ tags:
       text: "Backup created successfully"
     timeout: 15000
 
-# 4. Clear app data (wiping all tasks).
-- stopApp
-- clearState:
-    appId: com.singularity.todo
+# 4. Clear app data (wiping all tasks), then relaunch.
+#
+# One command, not three. This said `- stopApp` / `- clearState:` /
+# `- launchApp: clearState: false`, and `clearState` is not a Maestro command —
+# it is an argument of `launchApp`. The step therefore wiped nothing, and the
+# flow went on to assert an empty inbox that still held the task it had just
+# created. It could not have passed.
 - launchApp:
     appId: com.singularity.todo
-    clearState: false
+    clearState: true
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

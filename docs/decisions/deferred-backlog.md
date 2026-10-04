@@ -650,7 +650,29 @@ catalogue rather than as a number that quietly goes stale.
 
 **Symptom:** `AgendaPresets.byTags(ids: Set<TagId>)` существует (multi-tag), но UI-входа нет. `byTag(single)` доступен через Search → tag chip → `AgendaStartRoute.Tag`. Multi-tag view (matchAll и any-tag) недоступен через UI.
 
-**Status: OPEN.** Известный продуктовый гэп. Тест A1 падает на строке byTags. Known-gap тест помечен `// TODO: known gap — no UI entry for byTags`.
+**Status: PARTIALLY RESOLVED** (2026-10-04, and the entry was out of date).
+
+The premise no longer holds. `SelectorTemplate.ByTags` is in the section
+configurator's catalogue and resolves to `Selector.Tags(ids)`, with the user's
+tags as a **multi-select** option list (`SavedAgendaScreen.kt`:
+`is SelectorTemplate.ByTags -> tags.map { … }`). A multi-tag view is reachable
+from the editor today, and the `// TODO: known gap — no UI entry for byTags`
+marker this entry referred to is gone from the tree.
+
+What genuinely had no UI was the other half: `ByTags(matchAll = true)` existed
+in the engine with `matchAll = false` hardcoded as the only constructible value
+from the editor, so "tasks carrying **all** of these tags" could not be built.
+`SelectorParameterSheet` now renders a "Match all of these tags" checkbox for
+that one template, threads the flag through `onConfirm`, and rebuilds the
+template with `.copy(matchAll = …)` before resolving — any other template
+returns itself, so the shared path is untouched. Pinned by
+`SelectorTemplateTest.by tag matchAll flips the resolved selector semantics`,
+which asserts the *semantics* differ and not merely the ids, because both
+resolutions carry the same id set.
+
+**Still open:** a first-class "view these N tags as an agenda" entry point
+(e.g. from the Tags screen). The editor can build the section; nothing starts
+one. That is a product decision, not a gap in the engine.
 
 ---
 
@@ -1431,3 +1453,83 @@ more than one place, since those are the ones a translation will move.
 The general rule is now stated twice in this file, in two directions — once for
 tags built from localised labels in code, once for flows selecting localised
 text. Both are the same defect: **a selector that a translator can move.**
+
+---
+
+## ui-reads-the-system-clock-directly-so-a-fixed-date-cannot-reach-it
+
+**Found in:** 2026-10-04, while adding a `clock` parameter to the desktop test
+harness (`runDesktopAppTest`) — the fix the backlog had asked for since MR-0.
+
+**What was added:** `runDesktopAppTest(clock = …)` binds a `FakeClock` as the
+last Koin module, so it wins over `coreModule()`'s `single<Clock> { Clock.System }`.
+That part works and is used by `AgendaBadgePolicyFlowTest.overdue_task_shows_overdue_badge`.
+
+**What it cannot reach, which is the actual finding:** most of the UI does not
+read the injected `Clock` at all. `todayInSystemZone()` is a top-level function
+in `core/platform/Clock.kt` that calls the system clock directly, and it is what
+`CalendarContent.kt:49`, `CalendarScreen.kt`, `CalendarPreview.kt` and others
+call. `AgendaTabDefinitionFlowTest` and `CalendarFlowTest` use it in the test
+body too.
+
+The first attempt at closing this applied the harness clock to
+`CalendarFlowTest` and failed with
+`Condition (some node with testTag 'calendar_day_2026_09_15' is on screen) still
+not satisfied` — the app rendered October (the host's real month) because the
+injected clock never reached it. That test was reverted; the harness parameter
+stays, because it does work for the VMs that take a `Clock` by injection.
+
+**Why this matters more than the parameter:** the `NoDirectClockSystem` detekt
+rule exists to keep production code off the system clock, and `todayInSystemZone`
+is the sanctioned escape hatch — which means the escape hatch is exactly where
+the untestable UI lives. A `Clock` in the graph is not the same as a `Clock` in
+the composition.
+
+**Do this first:** thread an injected `Clock` (or the `LocalDate` derived from
+it) into `CalendarContent` / `CalendarScreen` the way `today` is already a
+parameter there — it is a `val today: LocalDate = todayInSystemZone()` default,
+so the plumbing exists and only the default is wrong. Then `CalendarFlowTest`
+can pin a date like every other flow test. Until then, any UI assertion that
+depends on "now" is a test that reports the calendar.
+
+---
+
+## six-smoke-flows-still-red-after-the-harness-fix
+
+**Found in:** 2026-10-04, the second full `smoke` run on the fixed harness.
+
+**Result: 13 passed, 6 failed.** The three runs that day went 9/10 → 8/11 → 13/6,
+and the middle dip is the interesting one: it is what the per-flow relaunch cost
+before it waited for the activity instead of a duration (see
+`2026-10-04-maestro-flow-isolation.md`).
+
+Fixed and now green: `01-restore`, `02-isolation`, `03-cycle-tabs`,
+`02-menu-settings`, `menu-sheet`, `04-delete`, `07-cyrillic-title` — seven of the
+eleven the first run lost.
+
+**Still red, one line each, with no diagnosis yet:**
+
+| Flow | Known last reason |
+|---|---|
+| `01-round-trip` | unknown — the `clearState` command is gone and the flow no longer matches nothing |
+| `search-finds-task` | `nav_tab_today is visible` after the `todo-debug://seed` deep link |
+| `05-archive-via-menu` | unknown |
+| `06-delete-undo` | unknown — now selects `snackbar_action`, so the locale bug is out of the picture |
+| `08-date-buckets` | unknown — three `openLink` seeds in a row |
+| `09-rename-empty` | unknown — `longPressOn` is fixed, the parse error is gone |
+
+**What is honest about this entry:** five of the six are undiagnosed. The
+per-flow logs for them were rotated out of `~/.maestro/tests` before the run's
+tail was read, so the table above records what is known and no more. Re-running
+one flow at a time with `FLOW=… bash scripts/run-maestro.sh` is ~2 minutes each
+and yields the answer immediately; doing all six that way is the obvious first
+move, and it is not done yet.
+
+**The pattern worth watching:** the flows that still fail are the ones that
+reach their state through a `todo-debug://seed` deep link rather than through
+`launch-clean`. Four of the six do. The deep link depends on a live, initialised
+process, and per-flow isolation forces exactly one more restart in front of it —
+so the fix is likely one more wait (after the `openLink`, before the first
+assertion) rather than six separate bugs. That is a hypothesis, not a
+conclusion, and it is cheap to test: add the wait, re-run, see which of the six
+move.

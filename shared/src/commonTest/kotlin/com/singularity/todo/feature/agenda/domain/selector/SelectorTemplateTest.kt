@@ -60,6 +60,29 @@ class SelectorTemplateTest {
         )
     }
 
+    /**
+     * The "match all" switch in the parameter picker.
+     *
+     * `matchAll` is not a cosmetic copy field: it decides whether the section
+     * means *any* of the chosen tags or *all* of them, and the two resolve to
+     * the same set of ids either way. A test that only checked the ids would
+     * pass with the switch wired to nothing, which is how a control can look
+     * finished and change no behaviour.
+     */
+    @Test
+    fun `by tag matchAll flips the resolved selector semantics, not just the ids`() {
+        val options = listOf(SelectorOption("tag-work", "work"), SelectorOption("tag-home", "home"))
+        val chosen = setOf("tag-work", "tag-home")
+
+        val matchAny = ConfigurableSelector(SelectorTemplate.ByTags(matchAll = false), options)
+            .resolve(chosen)
+        val matchAll = ConfigurableSelector(SelectorTemplate.ByTags(matchAll = true), options)
+            .resolve(chosen)
+
+        assertEquals(Selector.Tags(setOf(TagId("tag-work"), TagId("tag-home")), matchAll = false), matchAny)
+        assertEquals(Selector.Tags(setOf(TagId("tag-work"), TagId("tag-home")), matchAll = true), matchAll)
+    }
+
     @Test
     fun `by project resolves the chosen project ids`() {
         val config = ConfigurableSelector(

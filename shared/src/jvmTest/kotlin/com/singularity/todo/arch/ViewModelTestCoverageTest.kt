@@ -89,7 +89,6 @@ private val KNOWN_UNCOVERED = setOf(
     "CalendarSyncViewModel",
     "ProfileSwitcherViewModel",
     "SearchViewModel",
-    "TagGroupsViewModel",
     "TagsViewModel",
 )
 

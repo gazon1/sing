@@ -54,6 +54,25 @@ Both halves are load-bearing, and the second one is not obvious:
   same reasoning as `helpers/relaunch.yaml`, applied to every flow rather than
   to the two that remembered to call it.
 
+### The relaunch must wait for the activity, not for a duration
+
+The first implementation used `monkey -p <pkg> 1` followed by `sleep 2`. It made
+the suite **worse**: 9/19 passed before it, 8/19 after.
+
+`monkey` returns as soon as it has dispatched the intent. The flow's first
+command then runs against a cold process, `nav_tab_today` is not there yet, and
+the failure is indistinguishable from a UI regression — the assertion says the
+tab is missing, and the tab really is missing, for a reason no amount of reading
+the flow will reveal.
+
+The fix polls `dumpsys activity activities` for `topResumedActivity=…<app>/`
+with a bounded timeout (20s, `APP_RESUME_TIMEOUT`). A sleep is a guess: it fails
+silently on a slow machine and wastes a minute on a fast one. The resumed
+activity is the condition a flow's first command actually needs, and it is
+observable, so the wait cannot pass vacuously the way a sleep can. On timeout it
+warns and runs the flow anyway — the position before the wait existed, minus the
+hang.
+
 **A was rejected** because it pushes the cost onto every flow author and cannot
 be enforced: 22 files would each need the line, and the one that forgets is
 silent. **C was rejected** as a per-flow cost that buys nothing the runner

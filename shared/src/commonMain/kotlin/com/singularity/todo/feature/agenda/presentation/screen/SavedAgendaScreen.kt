@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -254,9 +255,13 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
     pendingTemplate?.let { template ->
         SelectorParameterSheet(
             template = template,
-            onConfirm = { chosen, available ->
+            onConfirm = { chosen, available, matchAll ->
                 pendingTemplate = null
-                addSection(template, chosen, available)
+                // Rebuild the template with the semantics the user chose. Any
+                // other type returns `this`, so the common path is unchanged.
+                val resolved = (template as? SelectorTemplate.ByTags)
+                    ?.copy(matchAll = matchAll) ?: template
+                addSection(resolved, chosen, available)
             },
             onDismiss = { pendingTemplate = null },
         )
@@ -275,7 +280,7 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
 @Composable
 private fun SelectorParameterSheet(
     template: SelectorTemplate,
-    onConfirm: (chosen: Set<String>, available: List<SelectorOption>) -> Unit,
+    onConfirm: (chosen: Set<String>, available: List<SelectorOption>, matchAll: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tagRepo: TagsRepository = koinInject()
@@ -287,6 +292,10 @@ private fun SelectorParameterSheet(
 
     val options = remember(template, tags, projects) { selectorOptionsFor(template, tags, projects) }
     val selected = remember(template) { mutableStateListOf<String>() }
+    // ByTags is the one template whose *semantics* — not just its values — are
+    // the user's choice: any of the tags, or all of them. Engine-only before,
+    // so a "tasks with all three tags" view could not be built from the editor.
+    val matchAll = remember(template) { mutableStateOf(false) }
 
     MultiSelectSheet(
         title = template.label,
@@ -304,11 +313,32 @@ private fun SelectorParameterSheet(
         // Disabled until something is chosen: an empty selection resolves to no
         // section at all, and a button that silently does nothing is exactly
         // the failure this step exists to prevent.
-        onConfirm = { onConfirm(selected.toSet(), options) },
+        onConfirm = { onConfirm(selected.toSet(), options, matchAll.value) },
         onDismiss = onDismiss,
         confirmLabel = "Add section",
         confirmTestTag = TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM,
         emptyMessage = "No ${template.label.lowercase()} available yet",
+        footer = if (template is SelectorTemplate.ByTags) {
+            {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Checkbox(
+                        checked = matchAll.value,
+                        onCheckedChange = { checked -> matchAll.value = checked },
+                        modifier = Modifier.testTag(TestTags.AGENDA_TAG_MATCH_ALL),
+                    )
+                    Text(
+                        text = "Match all of these tags",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        } else {
+            null
+        },
     )
 }
 

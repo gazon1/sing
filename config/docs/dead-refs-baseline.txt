@@ -337,3 +337,20 @@ docs/decisions/2026-10-03-openspec-adoption.md:design.md
 docs/decisions/deferred-backlog.md:SyncConfigScreen.kt
 docs/decisions/deferred-backlog.md:feature/sync/presentation/SyncConfigScreen.kt
 shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/package-info.kt:DateBucketExtensions.kt
+
+# Added 2026-10-04. The five below are references to files in the *user's* repo,
+# described as a category rather than claimed to exist here. `loop-me` tells the
+# agent to keep NOTES.md about the user's own world; `retro` tells it to look
+# for a package.json / CLAUDE.md / CODING_STANDARDS.md in whatever repo it is
+# reviewing. Rewording them to avoid the check would be evasion — the reference
+# is the instruction.
+#
+# The six GLOSSARY.md references that used to be listed here were not baselined:
+# this project keeps its domain language in `docs/CONTEXT.md` (single-context
+# layout, per AGENTS.md), and the skills pointing at a filename that does not
+# exist was sending agents after a file that was never written. Repointed.
+.agents/skills/loop-me/SKILL.md:NOTES.md
+.agents/skills/retro/SKILL.md:CODING_STANDARDS.md
+.agents/skills/retro/SKILL.md:CLAUDE.md
+.agents/skills/retro/SKILL.md:package.json
+.agents/skills/retro/SKILL.md:CODING_STANDARDS.md

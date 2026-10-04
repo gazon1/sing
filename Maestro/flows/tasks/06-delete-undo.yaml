@@ -27,13 +27,17 @@ tags:
 - tapOn:
     id: task_action_delete
 # After deletion the screen pops back to the list; a snackbar appears with Undo.
+# Select by id, never by the label: this project's device locale is Russian, so
+# the button reads "Отменить" and `text: "Undo"` can never pass. The button's tag
+# is applied by TaggedSnackbarHost — Material3's SnackbarHost renders the action
+# internally and leaves no slot to tag it.
 - extendedWaitUntil:
     visible:
-      text: "Undo"
+      id: snackbar_action
     timeout: 8000
 # Undo restores the task.
 - tapOn:
-    text: "Undo"
+    id: snackbar_action
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk

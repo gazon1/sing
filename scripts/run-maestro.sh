@@ -179,6 +179,28 @@ device_alive() {
     adb -s "$SERIAL" shell echo ping 2>/dev/null | grep -q ping || return 1
 }
 
+# Waits until the app's main activity is actually resumed.
+#
+# The condition, not a duration: "resumed" is what a flow's first command
+# needs, and it is observable. A sleep is a guess that fails silently on a slow
+# machine and wastes a minute on a fast one. Bounded so a genuinely wedged app
+# cannot hang the suite — a timeout is reported and the flow runs anyway, which
+# is the same position we were in before the wait existed, minus the hang.
+APP_RESUME_TIMEOUT="${APP_RESUME_TIMEOUT:-20}"
+wait_for_app_resumed() {
+    local waited=0
+    while (( waited < APP_RESUME_TIMEOUT )); do
+        if adb -s "$SERIAL" shell dumpsys activity activities 2>/dev/null \
+            | grep -q "topResumedActivity=.*${APP_ID}/"; then
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    echo -e "${YELLOW}(app did not report resumed within ${APP_RESUME_TIMEOUT}s; running the flow anyway)${NC}" >&2
+    return 1
+}
+
 # The decisive signal is Maestro's own report that it could not talk to the
 # device, not our inference from adb: the render thread can die while adb still
 # answers, and the window is long enough that a post-hoc probe gives the wrong
@@ -276,12 +298,19 @@ for flow_file in "${FLOW_FILES[@]}"; do
     # a deep link into a stopped app seeds nothing and the flow fails at the
     # next assertion for a reason that has nothing to do with the flow. This is
     # the same reasoning as helpers/relaunch.yaml, applied to every flow.
+    #
+    # `am start` on the main activity, then wait for it to be *resumed* — not
+    # `monkey` and a fixed sleep. The first version of this used monkey, and the
+    # suite went from 9/19 to 8/19: monkey returns as soon as it has dispatched
+    # the intent, the flow's first command then runs against a cold process, and
+    # `nav_tab_today` is missing for reasons that have nothing to do with it.
+    # A bounded poll on the resumed activity is the condition that actually
+    # matters, and it cannot pass vacuously the way a sleep can.
     if device_alive; then
         adb -s "$SERIAL" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
         sleep 1
-        adb -s "$SERIAL" shell monkey -p "$APP_ID" \
-            -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
-        sleep 2
+        adb -s "$SERIAL" shell am start -n "$APP_ID/.MainActivity" >/dev/null 2>&1 || true
+        wait_for_app_resumed
     fi
     if run_one_flow "$flow_file"; then
         PASSED+=("$flow_name")

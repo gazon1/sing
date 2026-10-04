@@ -168,7 +168,80 @@ class MaestroFlowTagsTest {
         )
     }
 
+    /**
+     * Every top-level list item in a flow must name a real Maestro command.
+     *
+     * A flow file is a test that ships with no compiler, so a mistyped command
+     * is not a build error — it is a red run on a device, months later, for a
+     * reason unrelated to whatever the flow was testing. Two were found in one
+     * session: `- longPress:` (the command is `longPressOn`) and
+     * `- clearState:` (an argument of `launchApp`, not a command at all). Both
+     * sat in `smoke`, the set the `maestro-smoke` CI job runs.
+     *
+     * Neither existing check here could see either: ids resolved, paths
+     * resolved, and a flow that does not parse is still a file full of
+     * perfectly valid `id:` selectors.
+     */
+    @Test
+    fun `every flow command is a real Maestro command`() {
+        val maestroRoot = workspaceRoot.resolve("Maestro")
+        val unknown = mutableListOf<String>()
+        var checked = 0
+
+        Files.walk(maestroRoot).use { stream ->
+            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file ->
+                    COMMAND_ITEM.findAll(file.readText()).forEach { match ->
+                        checked++
+                        val command = match.groupValues[1]
+                        if (command !in KNOWN_COMMANDS) {
+                            val line = file.readText().substring(0, match.range.first)
+                                .count { it == '\n' } + 1
+                            unknown += "${maestroRoot.relativize(file)}:$line $command"
+                        }
+                    }
+                }
+        }
+
+        assertTrue(
+            checked >= 100,
+            "scanned only $checked command items — the collector is likely broken " +
+                "(expected >= 100 on the current tree)",
+        )
+        assertTrue(
+            unknown.isEmpty(),
+            "list items that are not Maestro commands (${unknown.size}/$checked):\n" +
+                unknown.joinToString("\n") { "  - $it" } +
+                "\n\nOnly top-level `- command:` items are matched; nested keys are arguments. " +
+                "If the command is real but missing from KNOWN_COMMANDS, add it there.",
+        )
+    }
+
     private companion object {
         val RUN_FLOW = Regex("""^\s*-?\s*runFlow:\s*(\S+)\s*$""", RegexOption.MULTILINE)
+
+        /**
+         * A command is a key on a **top-level list item** — `- tapOn:`. Keys one
+         * level deeper (`id:`, `visible:`, `timeout:`) are arguments, and
+         * matching those instead is how a naive version of this check reports
+         * 1200 violations and tells you nothing.
+         */
+        val COMMAND_ITEM = Regex("""^-\s+([a-zA-Z][a-zA-Z0-9]*)\s*:""", RegexOption.MULTILINE)
+
+        /**
+         * Maestro commands in use on this tree, plus the rest of the documented
+         * set. A command missing from here is a command nobody has used yet,
+         * which is the safe direction to be wrong in: adding one to a flow
+         * without adding it here fails the build and asks the question.
+         */
+        val KNOWN_COMMANDS = setOf(
+            "assertNotVisible", "assertVisible", "assertTrue", "back", "clearState",
+            "copyTextFrom", "doubleTapOn", "eraseText", "extendedWaitUntil", "hideKeyboard",
+            "inputRandomText", "inputText", "killApp", "launchApp", "longPressOn",
+            "openLink", "openNotifications", "pasteText", "pressKey", "repeat",
+            "runFlow", "runScript", "scroll", "scrollUntilVisible", "setAirplaneMode",
+            "setOrientation", "startRecording", "stopApp", "stopRecording", "swipe",
+            "takeScreenshot", "tapOn", "waitForAnimationToEnd",
+        )
     }
 }

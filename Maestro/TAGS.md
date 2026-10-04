@@ -72,6 +72,7 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
+| `AGENDA_TAG_MATCH_ALL` | `agenda_tag_match_all` | |
 | `SAVED_AGENDA_ADD_SECTION_CONFIRM` | `saved_agenda_add_section_confirm` | |
 | `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | |
 | `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | |
@@ -151,6 +152,7 @@ non-alphanumeric characters with `_`.
 | `ARCHIVE_NOTIFICATION_HOST` | `archive_notification_host` | |
 | `CHAT_NOTIFICATION_HOST` | `chat_notification_host` | |
 | `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
+| `SNACKBAR_ACTION` | `snackbar_action` | |
 | `SNACKBAR_SAVED` | `snackbar_saved` | |
 
 ### Backup
