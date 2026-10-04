@@ -2100,3 +2100,116 @@ cache, a local SDK. `check-gate-wiring.py` catches the "cannot fail" direction; 
 is the "cannot be trusted" direction, and nothing catches it. Running a gate against
 a fresh `git clone --depth 1` is the cheap test, and it is what turned a red CI job
 into a one-line fix instead of an afternoon.
+
+---
+
+## a-stale-detekt-classpath-makes-the-gate-green-with-no-custom-rules-running
+
+**Found in:** 2026-10-05, three times in one session, while adding the two rules that became
+`NoUnreportedFailurePathRule` and `AppErrorCodeRule`.
+
+**Status: OPEN**
+
+**Tracked as:** #136
+**OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
+
+**Symptom.** `:shared:detekt` reported success while no custom rule was running. Once as a hard
+failure — `ServiceConfigurationError: Provider …NoUnreportedFailurePathProvider not found`, for a
+provider that `unzip -p` showed in the jar's services file, that `javap` resolved, and that a
+standalone `ServiceLoader` probe over that exact jar loaded alongside all eighteen others. Twice as
+a **false pass**, the second time after `./gw :shared:detektBaseline` had left a baseline with
+zero custom-rule entries and `:shared:detekt` then reported a clean tree.
+
+**Ruled out.** Not the config: `config/detekt/detekt.yml` had the blocks. Not the services file:
+it listed the provider. Not the jar: verified three ways. Not the configuration cache:
+`--no-configuration-cache` did not help.
+
+**Workaround, and it is not a fix.** `./gw --stop`. Every time.
+
+**Why it is here and not just in the issue.** The lesson generalises past detekt, and this
+repository now has several instances of it: `2026-09-26-pr-0-3-retro.md` records a baseline
+regenerating "without all rules registered", #58 records the same task being cached, and this
+records the rules not being loaded at all. Three records of the same class from three directions.
+The general form — *a measurement that cannot be distinguished from its own failure* — is what the
+proposed guard targets: plant a violation, assert it is reported, run that before trusting a green.
+
+**Try next.** Reproduce deliberately: `./gw --stop`, add one rule, re-run without `--stop`. Then
+find where the plugin classpath is cached. `--no-configuration-cache` already fails, which points
+at the daemon's classloader or a Gradle transform keyed on a stale hash — dev.detekt 2.0.0-alpha.3
+builds its plugin classloader in the worker.
+
+---
+
+## detektbaseline-drops-every-custom-rule-entry
+
+**Found in:** 2026-10-05, immediately after the entry count of
+`config/detekt/baseline-shared.xml` fell from 357 to 338 without anyone deleting an entry.
+
+**Status: OPEN**
+
+**Tracked as:** #137
+**OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
+
+**Symptom.** `./gw :shared:detektBaseline` runs **without the custom rule set**. Regenerating
+silently removes every custom-rule entry; the surviving file contains built-in rules only. The
+`git diff` shows only removals, and nothing else reports it.
+
+**Why it is separate from #58.** That entry is about entries that never leave — the baseline as a
+high-water mark. This one is about entries that leave — the baseline as a lossy record. They share
+a file and an incantation, so whichever lands first must consider the other or it will reintroduce
+it.
+
+**The part that actually matters.** The lost entries are recoverable by hand. The dangerous part is
+that **regenerating the baseline is a way to turn the custom rules off and have the gate agree with
+you.** Someone clearing debt, or absorbing a new rule's findings, silently converts `just lint` from
+"the project's rules ran" to "only the built-in rules ran".
+
+**Ruled out.** Not a path problem: `:shared:detekt` in the *same daemon* still caught a planted
+`runCatching` violation, so the two tasks are demonstrably not sharing a plugin classpath. Not a
+stale daemon: reproduced after `./gw --stop`.
+
+**Try next.** `shared/build.gradle.kts` sets `baseline = …` inside the `detekt { }` extension and
+declares `detektPlugins(project(":detekt-rules"))` in a separate `dependencies { }`. Confirm
+whether the `detektBaseline` task family picks up the `detektPlugins` dependency at all, by
+bisecting that file.
+
+**Until then.** Never run `detektBaseline` without `git diff` on the baseline immediately after,
+and treat a *shrinking* custom-rule section as a red flag rather than progress. `just cr` does not
+run `detektBaseline`, so the gate itself is safe; this bites a human at a keyboard.
+
+---
+
+## a-koin-definition-body-stays-uncovered-after-being-resolved
+
+**Found in:** 2026-10-05, when the coverage ratchet charged this work a 0.40pp drop in
+`feature/calendar_sync` and the obvious fix did not fix it.
+
+**Status: OPEN**
+
+**Tracked as:** #138
+**OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
+
+**Symptom.** `CalendarSyncDiModuleKt` reads 4/18 lines covered. The four covered lines are the
+`module { }` block; the fourteen uncovered ones are the bodies of the `single { … }` and
+`viewModel { … }` definitions. `KoinGraphValidationTest` now resolves both definitions for real,
+the test passes, and the number does not move.
+
+**Three hypotheses, in order of how cheap they are to rule out.** (a) `jvmTest` was served
+`FROM-CACHE` or `UP-TO-DATE` after `just cr`'s kover wipe, so the class contributed no fresh
+coverage data — which would make the number a property of the measurement rather than of the code.
+(b) Line attribution: the lambda's lines may not reach the file-level LINE counter. (c) The
+resolution is satisfied without executing the body.
+
+**Why it is here.** A coverage number that does not describe execution is worse than no number,
+because somebody will make a decision on it. In this case the decision was whether a floor drop was
+acceptable, and the floor was adopted to the measured value with a `note` in
+`config/coverage-ratchet.json` recording that the movement is unexplained. **That note should not
+outlive the explanation** — whoever closes this should delete the note in the same commit.
+
+**Related, and older.** #59 records the Gradle test cache silently skipping the whole suite, one
+level up and with worse consequences. `gradle-test-cache-silently-skips-the-suite` in this file is
+the same finding from the previous session.
+
+**Try next.** Rule out (a) first, with `--rerun-tasks` on the single class, because it invalidates
+the other two. If it is genuinely 4/18 after a forced re-run, plant a side effect inside the
+`single { }` body and assert it happened when the definition is resolved.

@@ -49,7 +49,11 @@
       other. The `@Execution(SAME_THREAD)` pin is gone with the convention it protected.
 - [ ] Retire the `background.coroutine_failed` key only if nothing reports under it. Migrating the
       mechanism must not silently drop the group; check the dashboard before removing the key.
-      **Still open — needs the dashboard, which is not reachable from here.**
+      **Filed as #140.** It needs the dashboard, which is not reachable from here, and it is
+      blocked behind #134 in a way worth stating: a group that never received anything may mean the
+      key is unused *or* that nothing was ever sent, and the integration has never been verified
+      on a device. "The group is quiet" is only evidence once "reports are being sent at all" is
+      established.
 
 ## Close out
 
