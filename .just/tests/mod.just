@@ -64,6 +64,51 @@ clean:
     ./gw clean
 
 # ---------------------------------------------------------------------------
+# gate — the one command that means "the gates are green"
+#
+# Before this recipe, "I ran the gates" was a claim about which four commands
+# the speaker remembered. The gates existed; the set did not. Everything below
+# is already a gate somewhere else — this composes them and stops at the first
+# red, so a partial run cannot be mistaken for a full one.
+#
+# Each step prints its own banner, because a gate that fails silently halfway
+# through a 20-minute script is how a stale APK gets tested (see
+# maestro-gate-can-test-a-stale-apk).
+# ---------------------------------------------------------------------------
+
+[group('tests')]
+[doc('Run every gate in order: check.sh -> detekt -> coverage ratchet -> agenda flows (SKIP_MAESTRO=1 to skip flows)')]
+[working-directory(justfile_directory())]
+gate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    banner() { echo -e "\n\033[1;36m══ $* ══\033[0m\n"; }
+
+    banner "1/4 check.sh (tests + Android assemble + docs)"
+    SKIP_ADB={{SKIP_ADB}} ./check.sh
+
+    # check.sh runs detekt as its own step, so this is a no-op re-run on a warm
+    # build and a real check on a cold one. It is here because "I ran check.sh"
+    # is not the same claim as "I ran detekt" when the two ever drift apart.
+    banner "2/4 detekt"
+    ./scripts/check-detekt-registrations.sh
+    ./gradlew :shared:detekt :desktopApp:detekt
+
+    banner "3/4 coverage ratchet"
+    just coverage-ratchet
+
+    if [[ "${SKIP_MAESTRO:-0}" == "1" ]]; then
+        banner "4/4 agenda flows — SKIPPED (SKIP_MAESTRO=1)"
+        echo "Not run. A run without the flows does not gate the flows."
+        exit 0
+    fi
+
+    banner "4/4 agenda flows on device"
+    just gate-maestro agenda
+
+    banner "all gates green"
+
+# ---------------------------------------------------------------------------
 # Lint / static analysis
 # ktlint (formatting) is bundled via detekt-formatting plugin:
 #   - detekt    = logic, complexity, naming, style, performance
@@ -176,6 +221,27 @@ coverage-html:
     set -euo pipefail
     ./gw koverHtml
 
+[group('coverage')]
+[doc('Coverage ratchet for feature/agenda: fail if line coverage drops below the baseline')]
+[working-directory(justfile_directory())]
+coverage-ratchet *args="":
+    #!/bin/bash
+    set -euo pipefail
+    # Kover merges binary reports incrementally, so a report produced after other
+    # runs carries coverage from tests outside the current filter. The floors are
+    # only reproducible from a clean state, hence the wipe.
+    rm -rf shared/build/kover shared/build/reports/kover
+    # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default. That
+    # flag is a speed choice, not a safety one: the OOM that originally justified
+    # disabling instrumentation was misattributed (2026-09-27-write-layer-soundness.md
+    # ledger #11), and a full instrumented run was measured on 2026-10-04 at 9m27s
+    # with no OOM. It stays off by default so ./check.sh does not pay those minutes
+    # on every run.
+    ./gradlew :shared:jvmTest :shared:koverXmlReport \
+        -Pkover.jvmTest=true \
+        --console=plain
+    python3 scripts/coverage-ratchet.py {{args}}
+
 # ---------------------------------------------------------------------------
 # check — run tests + lint (report-only initially)
 # ---------------------------------------------------------------------------
@@ -189,4 +255,22 @@ ui-maestro flow="Maestro/flows" tags="":
     #!/usr/bin/env bash
     set -euo pipefail
     SERIAL="${SERIAL:-}" FLOW="{{ flow }}" TAGS="{{ tags }}" \
+        bash scripts/run-maestro.sh
+
+[group('tests')]
+[doc('Maestro gate: install the APK, then run every flow carrying a tag (positional args!)')]
+[working-directory(justfile_directory())]
+gate-maestro tags="agenda" serial="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Install first, by construction. The trap this avoids: passing
+    # SKIP_INSTALL=1 to save a minute, the emulator dying mid-run, the
+    # relaunched device holding a snapshot from before your fix — and the
+    # journeys going green against a binary that does not contain it.
+    if [[ -n "{{serial}}" ]]; then
+        ./gradlew :androidApp:installDebug -Pandroid.device="{{serial}}" --quiet
+    else
+        ./gradlew :androidApp:installDebug --quiet
+    fi
+    SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
         bash scripts/run-maestro.sh

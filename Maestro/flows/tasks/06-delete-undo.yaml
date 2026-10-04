@@ -33,13 +33,20 @@ tags:
     id: overflow_delete
 # The undo snackbar appears over the detail screen — the screen the user is
 # still on after deletion.
+#
+# Select the action by id, never by the label. This project's device runs in
+# Russian, so the button reads "Отменить" and `text: "Undo"` can never pass. The
+# tag comes from the tagged snackbar host: Material3's SnackbarHost renders the
+# action internally and leaves no slot to tag it, so the host is a project-owned
+# component. The host also re-asserts the testTag → resource-id mapping, because
+# the snackbar lives in a Popup — its own window, its own semantics root.
 - extendedWaitUntil:
     visible:
-      text: "Undo"
+      id: snackbar_action
     timeout: 8000
 # Undo restores the task in place; leave the screen and check the list.
 - tapOn:
-    text: "Undo"
+    id: snackbar_action
 - back
 - extendedWaitUntil:
     visible:

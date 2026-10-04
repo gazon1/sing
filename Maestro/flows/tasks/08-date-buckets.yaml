@@ -30,16 +30,16 @@ tags:
       id: agenda_section_overdue
     timeout: 8000
 - assertVisible:
-    id: task_item_yesterday_task
+    id: task_item_yesterdaytask
 
 # Today section should contain TodayTask.
 - assertVisible:
     id: agenda_section_today
 - assertVisible:
-    id: task_item_today_task
+    id: task_item_todaytask
 
 # Upcoming section should contain TomorrowTask.
 - assertVisible:
     id: agenda_section_upcoming
 - assertVisible:
-    id: task_item_tomorrow_task
+    id: task_item_tomorrowtask

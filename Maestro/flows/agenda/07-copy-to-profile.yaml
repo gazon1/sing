@@ -1,0 +1,61 @@
+# Copy a saved view to another profile via the card overflow menu.
+#
+# The ProfilePickerSheet lists profiles as profile_item_<slug> rows ("Personal"
+# is the seeded default). Copying to the same profile is the deterministic
+# path here: the app is freshly launched, so "Personal" always exists, and the
+# duplicate lands in the same list.
+appId: com.singularity.todo
+name: agenda-copy-to-profile
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# ── 1. Create a source view ─────────────────────────────────────────────
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_create_fab
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_create_fab
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_name_input
+- eraseText
+- inputText: "Copy Source"
+- hideKeyboard
+- tapOn:
+    id: saved_agenda_save_button
+- extendedWaitUntil:
+    notVisible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- extendedWaitUntil:
+    visible: "Copy Source"
+    timeout: 8000
+
+# ── 2. Overflow menu → Copy to profile → pick "Personal" ────────────────
+- tapOn: "⋮"
+- extendedWaitUntil:
+    visible: "Copy to profile"
+    timeout: 8000
+- tapOn: "Copy to profile"
+- extendedWaitUntil:
+    visible: "Copy to profile"
+    timeout: 8000
+- tapOn:
+    id: profile_item_personal
+# CopySuccess shows the "Copied to Personal" snackbar; the list now holds two
+# cards with the same name — one is enough to assert.
+- extendedWaitUntil:
+    visible: "Copied to Personal"
+    timeout: 8000
+- extendedWaitUntil:
+    visible: "Copy Source"
+    timeout: 8000

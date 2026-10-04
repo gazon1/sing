@@ -66,8 +66,14 @@ data class AttachmentsCallbacks(
 /**
  * A dropdown menu item for archive/delete actions in View mode.
  *
- * [testTag] carries the stable [TestTags.EditorOverflow] id so UI automation can
- * address the row regardless of the localized [label] shown on screen.
+ * @param label   User-visible text. **Localised** — the app runs in Russian on
+ *                the test device, so this is not a stable selector.
+ * @param testTag Stable, non-localised id ([TestTags.EditorOverflow.*]) so UI
+ *                automation can address the row regardless of the translated
+ *                [label]. This, not [label], is what the row's testTag is built
+ *                from: a selector derived from text a user can translate passes on
+ *                a developer machine and fails on a device set to anything else.
+ * @param onClick Invoked when the row is tapped.
  */
 data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit, val testTag: String? = null)
 

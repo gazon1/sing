@@ -90,6 +90,7 @@ block still runs and handles runtime user/profile switches correctly.
   `desktopApp:test` suite — both green. The only pre-existing desktop failure
   is `CalendarFlowTest.every_day_of_the_month_has_an_addressable_cell`, which is
   unrelated to the NoDate path.
+  *(Note: the test body was later rewritten — the original failure mode was addressed, but the test was still live at time of this finding.)*
 
 ## Open
 
@@ -100,6 +101,7 @@ block still runs and handles runtime user/profile switches correctly.
   route through a single `TaskComputed.hasNoDate`. Filed as a follow-up.
 - **`CalendarFlowTest`**: `calendar_day_2026_10_01` not displayed — pre-existing
   failure unrelated to NoDate, not fixed in this MR.
+  *(Note: the test body was later rewritten — the original failure mode was addressed.)*
 
 ## Links
 

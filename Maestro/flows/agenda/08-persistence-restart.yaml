@@ -1,0 +1,61 @@
+# Persistence: a saved view survives a full app restart (G-03).
+#
+# stopApp → launchApp WITHOUT clearState reloads the process but keeps the
+# Room database, unlike launch-clean.yaml which wipes it. This is the Android
+# mirror of the backup/restore concern in deferred-backlog (agenda_views were
+# added to BackupPayload in MR-1; this journey pins plain restart persistence).
+appId: com.singularity.todo
+name: agenda-persistence-restart
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# ── 1. Create a view ────────────────────────────────────────────────────
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_create_fab
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_create_fab
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_name_input
+- eraseText
+- inputText: "Persistent View"
+- hideKeyboard
+- tapOn:
+    id: saved_agenda_save_button
+- extendedWaitUntil:
+    notVisible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- extendedWaitUntil:
+    visible: "Persistent View"
+    timeout: 8000
+
+# ── 2. Kill the process (state preserved) and relaunch ──────────────────
+- stopApp:
+    appId: com.singularity.todo
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 10000
+
+# ── 3. The view is still in the list ────────────────────────────────────
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "Persistent View"
+    timeout: 8000

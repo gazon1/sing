@@ -68,6 +68,7 @@ yet exist — creation deferred to MR-3 (Cluster 8: new rules).
   (September 15) and also checks `today` (September 30). The failure is for Oct 1
   from the next-month pager page — likely the pager doesn't fully compose next-month
   trailing days. **Not fixed in MR-2.** Needs separate investigation.
+  *(Note: the test body was later rewritten to assert `awaitAnyDisplayed(calendarDay(midMonth.toString()))` and today's cell instead of pinning a pager index — the original failure mode was addressed, but the test was still live at time of this finding.)*
 
 All other desktop flow tests pass.
 

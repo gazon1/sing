@@ -118,4 +118,130 @@ class MaestroFlowTagsTest {
         }
         assertTrue(unknown.isEmpty(), failureMessage)
     }
+
+    /**
+     * Every relative `runFlow:` path must resolve to a file that exists.
+     *
+     * Maestro reports a wrong relative path as `Invalid File Path at …` and then
+     * fails the flow for a reason that has nothing to do with the app — five
+     * flows in `flows/tasks/` and `flows/agenda/` said `../helpers/…` where the
+     * helpers directory is two levels up, not one. The id check above could not
+     * see it: those flows parsed fine, they just pointed at nothing, and the
+     * only symptom was a red run on a device.
+     *
+     * Paths are resolved against the *including* flow's own directory, which is
+     * what Maestro does, so a flow nested one level deeper needs `../../`.
+     */
+    @Test
+    fun `every relative runFlow path resolves to an existing file`() {
+        val flowsRoot = workspaceRoot.resolve("Maestro/flows")
+        val broken = mutableListOf<String>()
+        var checked = 0
+
+        Files.walk(flowsRoot).use { stream ->
+            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file ->
+                    val dir = file.parent
+                    RUN_FLOW.findAll(file.readText()).forEach { match ->
+                        val raw = match.groupValues[1].trim()
+                        // Absolute paths and expressions cannot be resolved statically.
+                        if (raw.startsWith("/") || raw.contains("\${")) return@forEach
+                        checked++
+                        val target = dir.resolve(raw).normalize()
+                        if (!target.exists()) {
+                            broken += "${file.fileName}: $raw"
+                        }
+                    }
+                }
+        }
+
+        assertTrue(
+            checked >= 20,
+            "scanned only $checked runFlow references — collector likely broken (expected >= 20)",
+        )
+        assertTrue(
+            broken.isEmpty(),
+            "runFlow paths that resolve to nothing (${broken.size}/$checked):\n" +
+                broken.joinToString("\n") { "  - $it" } +
+                "\nPaths are relative to the flow's own directory. Helpers live in " +
+                "Maestro/helpers/, which is ../../ from a flow in Maestro/flows/<group>/.",
+        )
+    }
+
+    /**
+     * Every top-level list item in a flow must name a real Maestro command.
+     *
+     * A flow file is a test that ships with no compiler, so a mistyped command
+     * is not a build error — it is a red run on a device, months later, for a
+     * reason unrelated to whatever the flow was testing. Two were found in one
+     * session: `- longPress:` (the command is `longPressOn`) and
+     * `- clearState:` (an argument of `launchApp`, not a command at all). Both
+     * sat in `smoke`, the set the `maestro-smoke` CI job runs.
+     *
+     * Neither existing check here could see either: ids resolved, paths
+     * resolved, and a flow that does not parse is still a file full of
+     * perfectly valid `id:` selectors.
+     */
+    @Test
+    fun `every flow command is a real Maestro command`() {
+        val maestroRoot = workspaceRoot.resolve("Maestro")
+        val unknown = mutableListOf<String>()
+        var checked = 0
+
+        Files.walk(maestroRoot).use { stream ->
+            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file ->
+                    COMMAND_ITEM.findAll(file.readText()).forEach { match ->
+                        checked++
+                        val command = match.groupValues[1]
+                        if (command !in KNOWN_COMMANDS) {
+                            val line = file.readText().substring(0, match.range.first)
+                                .count { it == '\n' } + 1
+                            unknown += "${maestroRoot.relativize(file)}:$line $command"
+                        }
+                    }
+                }
+        }
+
+        assertTrue(
+            checked >= 100,
+            "scanned only $checked command items — the collector is likely broken " +
+                "(expected >= 100 on the current tree)",
+        )
+        assertTrue(
+            unknown.isEmpty(),
+            "list items that are not Maestro commands (${unknown.size}/$checked):\n" +
+                unknown.joinToString("\n") { "  - $it" } +
+                "\n\nOnly top-level `- command:` items are matched; nested keys are arguments. " +
+                "If the command is real but missing from KNOWN_COMMANDS, add it there.",
+        )
+    }
+
+    private companion object {
+        val RUN_FLOW = Regex("""^\s*-?\s*runFlow:\s*(\S+)\s*$""", RegexOption.MULTILINE)
+
+        /**
+         * A command is a key on a **top-level list item** — `- tapOn:`. Keys one
+         * level deeper (`id:`, `visible:`, `timeout:`) are arguments, and
+         * matching those instead is how a naive version of this check reports
+         * 1200 violations and tells you nothing.
+         */
+        val COMMAND_ITEM = Regex("""^-\s+([a-zA-Z][a-zA-Z0-9]*)\s*:""", RegexOption.MULTILINE)
+
+        /**
+         * Maestro commands in use on this tree, plus the rest of the documented
+         * set. A command missing from here is a command nobody has used yet,
+         * which is the safe direction to be wrong in: adding one to a flow
+         * without adding it here fails the build and asks the question.
+         */
+        val KNOWN_COMMANDS = setOf(
+            "assertNotVisible", "assertVisible", "assertTrue", "back", "clearState",
+            "copyTextFrom", "doubleTapOn", "eraseText", "extendedWaitUntil", "hideKeyboard",
+            "inputRandomText", "inputText", "killApp", "launchApp", "longPressOn",
+            "openLink", "openNotifications", "pasteText", "pressKey", "repeat",
+            "runFlow", "runScript", "scroll", "scrollUntilVisible", "setAirplaneMode",
+            "setOrientation", "startRecording", "stopApp", "stopRecording", "swipe",
+            "takeScreenshot", "tapOn", "waitForAnimationToEnd",
+        )
+    }
 }

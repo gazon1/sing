@@ -6,10 +6,14 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
+import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.feature.profile.ProfileBootstrapper
 import okio.Path
 import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.gateModule
+import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import java.io.File
 
@@ -35,6 +39,14 @@ fun main() = singleWindowApplication(
                     domainModule() +
                     listOf(gateModule(RELEASES_URL)),
             )
+    }
+
+    // Seed the default 'Personal' profile on first launch (idempotent). The
+    // profile switcher and the saved-view copy-to-profile picker list
+    // ProfileRepository rows; without a seeded row both start empty on a
+    // fresh install because nothing else writes to the profiles table.
+    createBackgroundScope().launch {
+        ProfileBootstrapper(GlobalContext.get().get()).run()
     }
 
     // SingularityTheme (inside App()) already wraps MaterialTheme.

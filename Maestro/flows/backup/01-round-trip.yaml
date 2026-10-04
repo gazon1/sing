@@ -20,7 +20,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_backup_round_trip_task
+      id: task_item_backuproundtriptask
     timeout: 8000
 
 # 2. Open Settings and navigate to Backup.
@@ -59,13 +59,16 @@ tags:
       text: "Backup created successfully"
     timeout: 15000
 
-# 4. Clear app data (wiping all tasks).
-- stopApp
-- clearState:
-    appId: com.singularity.todo
+# 4. Clear app data (wiping all tasks), then relaunch.
+#
+# One command, not three. This said `- stopApp` / `- clearState:` /
+# `- launchApp: clearState: false`, and `clearState` is not a Maestro command —
+# it is an argument of `launchApp`. The step therefore wiped nothing, and the
+# flow went on to assert an empty inbox that still held the task it had just
+# created. It could not have passed.
 - launchApp:
     appId: com.singularity.todo
-    clearState: false
+    clearState: true
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -76,7 +79,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     notVisible:
-      id: task_item_backup_round_trip_task
+      id: task_item_backuproundtriptask
     timeout: 5000
 
 # 6. Restore from backup.
@@ -118,5 +121,5 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_backup_round_trip_task
+      id: task_item_backuproundtriptask
     timeout: 8000

@@ -72,7 +72,7 @@ Extended `given()` with optional parameters using neutral defaults so existing c
 
 ```
 ./gradlew :shared:jvmTest                        # green
-./gradlew :desktopApp:test -PtestIncludes="**/CreateTaskFlowTest"  # green
+./gradlew :desktopApp:test --tests "**/CreateTaskFlowTest"  # green
 ./gradlew :shared:detekt                          # green
 ```
 

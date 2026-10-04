@@ -18,4 +18,13 @@ sealed interface AgendaUiEvent : MviEvent {
      * before this event is emitted.
      */
     data class CreateInSection(val sectionId: String) : AgendaUiEvent
+
+    /**
+     * Soft-delete with undo: the task is deleted but a snackbar is shown for 5 seconds.
+     * If the user taps Undo within that window, the task is restored.
+     *
+     * @param taskId The deleted task id (for undo).
+     * @param taskTitle Short label for the snackbar.
+     */
+    data class UndoDelete(val taskId: TaskId, val taskTitle: String) : AgendaUiEvent
 }

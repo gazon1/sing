@@ -317,6 +317,19 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "desktopAppJvmTest.root",
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // Scan roots for ViewModelTestCoverageTest: it matches a production ViewModel
+    // against the test classes that mention it, so it needs the commonTest and
+    // jvmTest trees as well as commonMain. Absent properties make its top-level
+    // vals throw, which surfaces as NoClassDefFoundError on the second test —
+    // the first failure hides behind an initialiser error.
+    systemProperty(
+        "commonTest.root",
+        layout.projectDirectory.dir("src/commonTest/kotlin").asFile.absolutePath,
+    )
+    systemProperty(
+        "jvmTest.root",
+        layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
+    )
     // Enable TAGS.md golden regeneration:
     //   ./gradlew :shared:jvmTest -PupdateGoldens=true
     if (project.findProperty("updateGoldens")?.toString() == "true") {

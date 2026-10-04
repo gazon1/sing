@@ -41,11 +41,14 @@ fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate>
     }
 }.distinctUntilChanged()
 
+/** Returns today's [LocalDate] in [zone], read from [clock]. */
+fun todayAt(clock: Clock, zone: TimeZone = TimeZone.currentSystemDefault()): LocalDate =
+    clock.now().toLocalDateTime(zone).date
+
 /** Returns today's [LocalDate] in [zone]. */
 // NoDirectClockSystemRule exemption: this is the intentional single call site.
 // If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
-internal fun todayAt(zone: TimeZone): LocalDate = Clock.System.now()
-    .toLocalDateTime(zone).date
+internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
 
 /**
  * Computes milliseconds until the next local midnight after [today] in [zone].

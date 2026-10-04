@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.Search
@@ -39,17 +40,12 @@ import com.singularity.todo.feature.nav.icon
  *
  * Sections are declarative — adding a new section means adding one entry
  *
- * @param modifier applied to the sheet's content column. Callers on Android pass
- *   `Modifier.semantics { testTagsAsResourceId = true }` here so the menu item test
- *   tags reach UI automation — the sheet lives in its own window, so an
- *   app-root flag never reaches it.
- *
  * To add new menu items
  * to the "Destinations" group, just append to [DestinationKind.menuEntries].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit, modifier: Modifier = Modifier) {
+fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
     LaunchedEffect(Unit) { sheetState.show() }
@@ -59,7 +55,9 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit, m
         modifier = Modifier.testTag(TestTags.MENU_SHEET),
     ) {
         Column(
-            modifier = modifier
+            // The sheet renders into its own window, so the app-root
+            // testTagsAsResourceId never reaches the menu items.
+            modifier = Modifier.mapTestTagsAsResourceIds()
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),

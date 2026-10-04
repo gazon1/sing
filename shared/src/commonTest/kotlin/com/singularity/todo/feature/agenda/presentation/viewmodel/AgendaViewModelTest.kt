@@ -8,8 +8,12 @@ import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.reminders.ReminderId
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -22,6 +26,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
+import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
+import kotlin.test.assertNotNull
 
 /**
  * Regression tests for [AgendaViewModel]'s Loading → Loaded transition.
@@ -47,6 +57,15 @@ import kotlin.time.Clock
 class AgendaViewModelTest {
 
     private val fakeRepo = FakeTaskRepository()
+    private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
+    private val fakeReminderScheduler = object : ReminderScheduler {
+        override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
+        override suspend fun cancel(id: ReminderId, userId: UserId) {}
+        override suspend fun cancelByTask(
+            taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+            userId: UserId,
+        ) {}
+    }
 
     private fun task(id: String, title: String) = Task(
         id = TaskId(id),
@@ -57,7 +76,14 @@ class AgendaViewModelTest {
     )
 
     private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
-        deps = AgendaDeps(taskRepo = fakeRepo, clock = Clock.System, logger = Logger, draftStore = FakeDraftStore()),
+        deps = AgendaDeps(
+            taskRepo = fakeRepo,
+            clock = Clock.System,
+            logger = Logger,
+            draftStore = FakeDraftStore(),
+            reminderScheduler = fakeReminderScheduler,
+            currentUser = fakeCurrentUser,
+        ),
         definition = AgendaPresets.Inbox,
         scope = scope,
     )
@@ -120,6 +146,60 @@ class AgendaViewModelTest {
                     section.tasks.any { it.task.id == undated.id }
                 },
                 "Undated task seeded before VM construction must reach the agenda's No Date section",
+            )
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    /**
+     * A section's '+' button must prefill *today*, not the day the definition was
+     * written.
+     *
+     * The presets used to carry hardcoded `LocalDate(2026, 10, 3)`-style constants,
+     * which happened to match the test seed and so looked right in every test while
+     * being wrong for every user on any other day: tap '+' in the Today section in
+     * November and the new task comes due in October. A saved view is a template that
+     * outlives the day it was written, so the bucket has to be resolved at tap time.
+     *
+     * The clock here is deliberately not "today" — a test that agrees with the
+     * system clock proves nothing about a constant of the same value.
+     */
+    @Test
+    fun `create in section prefills a due date relative to the injected clock`() = runTest {
+        val pinned = LocalDate(2031, 7, 9) // a Wednesday, far from any seed date
+        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
+        val draftStore = FakeDraftStore()
+        try {
+            val vm = AgendaViewModel(
+                deps = AgendaDeps(
+                    taskRepo = fakeRepo,
+                    // Noon UTC on purpose: `todayAt` resolves in the system zone,
+                    // and UTC-12…UTC+14 around noon still lands on the same date.
+                    // Pinning midnight here would make this test fail in half the
+                    // world's time zones — the exact class of date flake this epic exists to kill.
+                    clock = object : Clock {
+                        override fun now(): kotlin.time.Instant = Instant.parse("2031-07-09T12:00:00Z")
+                    },
+                    logger = Logger,
+                    draftStore = draftStore,
+                    reminderScheduler = fakeReminderScheduler,
+                    currentUser = fakeCurrentUser,
+                ),
+                definition = AgendaPresets.Today,
+                scope = vmScope,
+            )
+            runCurrent()
+
+            vm.onIntent(AgendaIntent.CreateInSection("today"))
+            runCurrent()
+
+            val draft = draftStore.load("section_create_draft_today", TaskDraft.serializer())
+            assertNotNull(draft, "the section create must have stored a draft")
+            assertEquals(
+                DueDateOption.Custom(pinned, pinned.toString()),
+                draft.dueDate,
+                "'+' in the Today section must prefill the clock's today, not a compile-time constant",
             )
         } finally {
             vmScope.close()

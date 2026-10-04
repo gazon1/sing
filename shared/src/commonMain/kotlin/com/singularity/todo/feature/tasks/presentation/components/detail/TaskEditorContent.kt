@@ -292,6 +292,7 @@ fun TaskEditorContent(
             // so the mapping is re-asserted here or every row tag stays
             // invisible to UI automation.
             modifier = Modifier.mapTestTagsAsResourceIds(),
+
         ) {
             menuItems.forEach { item ->
                 DropdownMenuItem(
@@ -305,6 +306,7 @@ fun TaskEditorContent(
                     } else {
                         Modifier
                     },
+
                 )
             }
         }
@@ -522,6 +524,7 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         menuItems = listOf(
             TaskEditorMenuItem("Archive", onClick = {}),
             TaskEditorMenuItem("Delete", onClick = {}),
+
         ),
         onBack = {},
     )
@@ -556,6 +559,7 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         menuItems = listOf(
             TaskEditorMenuItem("Archive", onClick = {}),
             TaskEditorMenuItem("Delete", onClick = {}),
+
         ),
         onBack = {},
     )

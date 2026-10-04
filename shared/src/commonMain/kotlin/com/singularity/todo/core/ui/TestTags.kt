@@ -115,6 +115,22 @@ object TestTags {
     const val SAVED_AGENDA_SAVE_BUTTON = "saved_agenda_save_button"
     const val SAVED_AGENDA_DELETE_BUTTON = "saved_agenda_delete_button"
 
+    /** Confirm button of the second "add section" step, after values are chosen. */
+    const val SAVED_AGENDA_ADD_SECTION_CONFIRM = "saved_agenda_add_section_confirm"
+
+    /** A section *type* in the "add section" template list, by label. */
+    fun agendaSectionTemplate(label: String) = "agenda_section_template_${slug(label)}"
+
+    /** One selectable value in the section parameter picker, by id. */
+    fun agendaSelectorOption(id: String) = "agenda_selector_option_${slug(id)}"
+
+    /**
+     * The "match all of these tags" checkbox in the tag section's parameter
+     * picker — the switch between "any of" and "all of", which the engine has
+     * always supported and the editor did not.
+     */
+    const val AGENDA_TAG_MATCH_ALL = "agenda_tag_match_all"
+
     /** Dynamic tag of the form `saved_agenda_card_<slug>`. */
     fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
 
@@ -255,6 +271,21 @@ object TestTags {
 
     /** The "Saved" [ResultDialog] shown after a save in editors and the saved-agenda screen. */
     const val SNACKBAR_SAVED = "snackbar_saved"
+
+    /**
+     * The action button of a transient snackbar ("Undo", and whatever a feature
+     * puts in [Notification.Undo.actionLabel]).
+     *
+     * The button used to be reachable only by its label, and the label is
+     * translated — `tasks/06-delete-undo.yaml` waited for `text: "Undo"` and
+     * could not pass on this project's Russian-locale device. A flow must never
+     * have to know what a user sees in order to tap a button.
+     *
+     * Applied by [TaggedSnackbarHost] rather than by `NotificationHost`, because
+     * Material3's own `SnackbarHost` renders the action internally and gives no
+     * slot to tag it.
+     */
+    const val SNACKBAR_ACTION = "snackbar_action"
 
     // ─── Notification hosts ─────────────────────────────────────────────────
     //

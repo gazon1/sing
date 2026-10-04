@@ -1,29 +1,31 @@
-@file:Suppress("NoDirectClockSystem")
 
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
-import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import com.singularity.todo.feature.profile.scopedUserIdFor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
 
 /**
  * Dependencies for [SavedAgendaListViewModel].
  */
-data class SavedAgendaListDeps(val repo: SavedAgendaViewsRepository, val profileRepo: ProfileRepository)
+data class SavedAgendaListDeps(
+    val repo: SavedAgendaViewsRepository,
+    val profileRepo: ProfileRepository,
+    val currentUser: ProfileAwareCurrentUser,
+)
 
 /**
  * UI state for the saved agenda views list screen.
@@ -94,13 +96,16 @@ class SavedAgendaListViewModel(
                         emit(SavedAgendaListEvent.ShowError("Profile not found"))
                         return@launch
                     }
-                    val now = Clock.System.now()
-                    val copy = SavedAgendaViewFactory.duplicateForProfile(
-                        source = sourceView,
-                        targetUserId = UserId(targetProfile.id.value),
-                        now = now,
+                    // The copy must land in the TARGET profile's data namespace,
+                    // so it needs the profile's SCOPED userId (default profile →
+                    // raw userId, else "{profileId}/{raw}") — not the profile
+                    // row's id. [scopedUserIdFor] is the shared mapping used by
+                    // [ProfileAwareCurrentUser] itself.
+                    val targetScopedId = scopedUserIdFor(
+                        profileId = targetProfile.id,
+                        userId = deps.currentUser.userId.value,
                     )
-                    deps.repo.upsert(copy)
+                    deps.repo.duplicateForProfile(sourceView, targetScopedId.value)
                         .onSuccess {
                             emit(
                                 SavedAgendaListEvent.CopySuccess(

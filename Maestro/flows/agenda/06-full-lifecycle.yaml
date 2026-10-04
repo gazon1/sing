@@ -1,0 +1,100 @@
+# Full saved-view lifecycle (G-01): empty list → create → results → edit →
+# rename → results → delete → empty.
+#
+# Mirrors desktop SavedViewsFlowTest + SavedAgendaEditFlowTest + the MR-1 fixes:
+# Save navigates back to the list (the "Save spins forever" regression), and the
+# list-level Delete is immediate while edit-mode Delete raises the confirm
+# dialog ("Delete view?" → dialog_confirm).
+#
+# Note: the card's overflow menu (⋮) is text-only — no testTag — so the menu is
+# opened with a text selector, and menu items are matched by their visible
+# labels ("Edit", "Delete").
+appId: com.singularity.todo
+name: agenda-full-lifecycle
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# ── 1. Empty saved-views list ────────────────────────────────────────────
+- tapOn:
+    id: agenda_saved_views_button
+- extendedWaitUntil:
+    visible: "No saved views yet"
+    timeout: 8000
+
+# ── 2. FAB → name → Save → back on the list with a card ─────────────────
+- tapOn:
+    id: saved_agenda_create_fab
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_name_input
+- eraseText
+- inputText: "Journey View"
+- hideKeyboard
+- tapOn:
+    id: saved_agenda_save_button
+# MR-1 fix: SaveSuccess pops the editor back to the list.
+- extendedWaitUntil:
+    notVisible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- extendedWaitUntil:
+    visible: "Journey View"
+    timeout: 8000
+
+# ── 3. Card → Results (view name is the Results top-bar title) ──────────
+- tapOn: "Journey View"
+- extendedWaitUntil:
+    visible:
+      id: top_bar_back_button
+    timeout: 8000
+- tapOn:
+    id: top_bar_back_button
+- extendedWaitUntil:
+    visible: "Journey View"
+    timeout: 8000
+
+# ── 4. Overflow menu → Edit → rename → Save ─────────────────────────────
+- tapOn: "⋮"
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 8000
+- tapOn: "Edit"
+- extendedWaitUntil:
+    visible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- tapOn:
+    id: saved_agenda_name_input
+- eraseText
+- inputText: "Journey Renamed"
+- hideKeyboard
+# The 8 preset section rows push Save below the fold on most devices.
+- swipe:
+    direction: UP
+    duration: 500
+- tapOn:
+    id: saved_agenda_save_button
+- extendedWaitUntil:
+    notVisible:
+      id: saved_agenda_name_input
+    timeout: 8000
+- extendedWaitUntil:
+    visible: "Journey Renamed"
+    timeout: 8000
+
+# ── 5. Overflow menu → Delete (immediate, no confirm on the list) ───────
+- tapOn: "⋮"
+- extendedWaitUntil:
+    visible: "Delete"
+    timeout: 8000
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible: "No saved views yet"
+    timeout: 8000
+- assertNotVisible: "Journey Renamed"

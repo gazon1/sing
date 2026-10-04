@@ -192,6 +192,83 @@ jobs:
         run: bash Maestro/scripts/check-tags.sh
         continue-on-error: true
 
+  # The first job that ever *executes* a Maestro flow in CI.
+  #
+  # Until now nothing ran a flow: the only Maestro-related step was
+  # check-tags.sh, non-blocking. That is not a theoretical gap — five flows
+  # reached main with a `runFlow:` path that resolved to nothing, and
+  # `dialog_confirm` was unusable from UIAutomator for the same reason nobody
+  # could see. Both are only observable by running the flow on a device.
+  #
+  # Scope is deliberately the curated `smoke` set (~15 flows, not the ~60 in
+  # the tree). Smoke is fast enough to gate a PR, and the flows that matter
+  # most for "did the app still start and navigate" are in it. The heavier tags
+  # (`agenda`, `regression`) stay a local gate — `just gm <tag>` — until the
+  # runner cost is known.
+  maestro-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "zulu"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # Everything that needs the device runs inside `script:`. That input is the
+      # command the action executes *while the emulator is up*, and the action
+      # kills the emulator as soon as it returns — it is not a boot gate. The
+      # first version of this job passed `script: Maestro/scripts/wait-for-boot.sh`,
+      # so the emulator was booted, reported ready, and was then torn down before
+      # the next step ran: `installDebug` failed with "No connected devices!".
+      # The job had never executed, so nothing caught it.
+      #
+      # `wait-for-boot.sh` is kept as the first command, because the action's own
+      # readiness check does not wait for the package manager.
+      - name: Install the APK and run the smoke flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          # The host emulator in this project loses its device mid-run with a
+          # gfxstream crash; run-maestro.sh already relaunches and retries, and
+          # the job timeout above bounds the worst case.
+          disable-animations: true
+          # SKIP_INSTALL is deliberately NOT set: the flows must run against the
+          # binary built in this job. run-maestro.sh reinstalls after a device
+          # recovery for the same reason — a relaunched emulator can come back
+          # holding a different build, and a green run would then prove nothing.
+          script: |
+            bash Maestro/scripts/wait-for-boot.sh
+            ./gradlew :androidApp:installDebug --no-daemon
+            TAGS=smoke MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
+
+      - name: Upload Maestro failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-failures-${{ github.run_id }}
+          path: ~/.maestro/tests/**
+          if-no-files-found: ignore
+          retention-days: 7
+
   kover-report:
     runs-on: ubuntu-latest
     steps:
@@ -255,6 +332,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kover-report
+          # Kover 0.9 names this report.xml, and since the move to settings-level
+          # aggregation the report is produced once for the whole build at the root
+          # project. The previous `xml-report.xml` never matched anything, so the
+          # artifact was silently empty on every run — `if-no-files-found: error`
+          # makes that class of mistake fail instead.
           path: build/reports/kover/report.xml
           if-no-files-found: error
 

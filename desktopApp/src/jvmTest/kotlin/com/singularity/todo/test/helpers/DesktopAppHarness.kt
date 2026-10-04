@@ -13,6 +13,7 @@ import org.koin.core.KoinApplication
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
@@ -67,6 +68,16 @@ private fun currentTestClassSimpleName(): String {
  */
 @OptIn(ExperimentalTestApi::class)
 fun runDesktopAppTest(
+    /**
+     * Optional fixed clock. Every date-dependent assertion in a flow otherwise
+     * runs against the host's real date, which is how `CalendarFlowTest` passed
+     * on 30 September and failed on 1 October — a suite whose result depends on
+     * the day it is run is a suite that reports the calendar, not the app.
+     *
+     * Bound as the last module so it wins Koin's last-definition-wins rule over
+     * `coreModule()`'s `single<Clock> { Clock.System }`.
+     */
+    clock: Clock? = null,
     overrides: Module = module {},
     checkA11y: Boolean = false,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
@@ -89,6 +100,8 @@ fun runDesktopAppTest(
                 // orphans anything written in that window and makes the row invisible
                 // to every subsequent read.
                 listOf(testPlatformModule(), testKermitModule(), gateModule(RELEASES_URL)) +
+                // Last, so a test's clock beats coreModule()'s `Clock.System`.
+                listOfNotNull(clock?.let { fixed -> module { single<Clock> { fixed } } }) +
                 listOf(overrides),
         )
     }

@@ -3,7 +3,6 @@ package com.singularity.todo.core.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.Flow
 
@@ -85,12 +85,26 @@ fun <T> NotificationHost(
         notification = null
     }
 
+    // The undo toast lives in its own window: composed as an in-window sibling it
+    // lost the z-order fight twice — the content's opaque background is drawn after
+    // it, and the shell FAB is drawn around the whole entry. It was laid out and
+    // timed correctly but never visible, so a flow could assert on a node that
+    // existed in the semantics tree while being painted under two opaque layers.
+    //
+    // A Popup has its own semantics root, so the app-root testTagsAsResourceId does
+    // not reach inside it — the tagged host re-asserts the mapping, and without it
+    // the action button is unaddressable by UI automation. That is also why the
+    // action is selected by id rather than by its label: this project's device runs
+    // in Russian, and `text: "Undo"` can never match.
     Box(modifier = modifier.fillMaxSize()) {
         Popup(
             popupPositionProvider = BottomCenterAnchorPositionProvider(),
             properties = PopupProperties(focusable = false),
         ) {
-            SnackbarHost(hostState = snackbarHostState)
+            TaggedSnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.mapTestTagsAsResourceIds(),
+            )
         }
     }
 

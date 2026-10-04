@@ -13,7 +13,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
  *
  * ## Coverage
  *
- * All 13 Selector variants are covered: DateBucket, DateRange, Statuses,
+ * All 14 Selector variants are covered: DateBucket, DateRange, Statuses,
  * Priorities, Tags, Projects, Pinned, Completed, Overdue, Regexp,
  * AllOf, AnyOf, Not, Anything.
  *

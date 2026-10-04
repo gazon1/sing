@@ -60,7 +60,7 @@ maestro test Maestro/flows/agenda/04-saved-view-results.yaml
 
 **Desktop** (blocked by pre-existing nav regression):
 ```bash
-./gradlew :desktopApp:test -PtestIncludes="**/OpenSavedViewShowsMatchingTasksFlowTest"
+./gradlew :desktopApp:test --tests "**/OpenSavedViewShowsMatchingTasksFlowTest"
 # Expected: INTERRUPTED (pre-existing desktop nav bug, not MR-11 code)
 ```
 

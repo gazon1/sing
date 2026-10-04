@@ -104,17 +104,19 @@ a `systemProperty`-reading one), a plain rerun recompiles and re-executes correc
 
 ## expect/actual порты
 
-| Порт | commonMain | jvmMain | androidMain |
-|---|---|---|---|
-| `SecureStoragePort` | интерфейс | secret-tool + AES-GCM | EncryptedSharedPreferences |
-| `NotificationPort` | интерфейс | notify-send + at | AlarmManager + NotificationManager |
-| `SharePort` | интерфейс | JvmSharePort | AndroidSharePort |
-| `FileSharePort` | интерфейс | JvmFileSharePort | AndroidFileSharePort |
-| `FileRevealer` | интерфейс | JvmFileRevealer | AndroidFileRevealer |
-| `FileSystem` | интерфейс | JvmFileSystem | AndroidFileSystem |
-| `BackupCodec` | интерфейс | JvmBackupCodec (java.util.zip) | AndroidBackupCodec |
-| `AttachmentStorage` | **класс** (не интерфейс) | — | — |
-| `TimeZoneProvider` | expect val | actual | actual |
+Порты (commonMain — интерфейс, если не сказано иное; jvmMain / androidMain):
+
+| Порт | jvmMain | androidMain |
+|---|---|---|
+| `SecureStoragePort` | secret-tool + AES-GCM | EncryptedSharedPreferences |
+| `NotificationPort` | notify-send + at | AlarmManager + NotificationManager |
+| `SharePort` / `FileSharePort` | `JvmSharePort` / `JvmFileSharePort` | `AndroidSharePort` / `AndroidFileSharePort` |
+| `FileRevealer` | `JvmFileRevealer` | `AndroidFileRevealer` |
+| `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` |
+| `BackupCodec` | `JvmBackupCodec` (java.util.zip) | `AndroidBackupCodec` |
+| `TimeZoneProvider` | actual | actual |
+
+`AttachmentStorage` — **класс**, не интерфейс.
 
 **Время.** `core.platform.Clock` object больше нет (ADR `2026-09-27-remove-platform-clock-object.md`):
 `kotlin.time.Clock.System.now()` (внедряй `Clock` параметром для тестов), `core.platform.todayFlow()` /
@@ -131,6 +133,7 @@ a `systemProperty`-reading one), a plain rerun recompiles and re-executes correc
 ## Сборка
 
 ```bash
+just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
 ./check.sh                    # тесты + Android
 ./gradlew :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
 ./gradlew :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
@@ -142,6 +145,9 @@ just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
 just detekt-baseline; just coverage; just tcheck; just tcheck-evals; just docs-audit
 ```
+
+> `just <recipe> name=value` **не** присваивает — приходит весь токен. Только
+> позиционная форма: `just gm agenda`, не `just gm tags=agenda`.
 
 **Гейты «меры», а не «булевы»** (все блокирующие; спека —
 `openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`):
@@ -197,12 +203,11 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 
 ## 🤖 Coroutine test failures
 
-On any desktop or shared JVM test failure, `build/diagnostics/<TestClass>/coroutines.txt`
-is written automatically — full coroutine snapshot (state, context, job hierarchy,
-creation and last-observed stack traces). Read it first: application frames before
-kotlinx internals indicate where the coroutine was; `lastObservedStackTrace` is where it
-died. Do NOT conclude a leak from identical stack traces alone — repeated stacks are
-normal for background collectors. ADR `2026-10-03-kotlinx-coroutines-debug.md`.
+Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt`
+(состояние, контекст, job-иерархия, стектрейлы) — читай **первым**: кадры
+приложения раньше kotlinx указывают, где корутина была, умерла она там, где
+`lastObservedStackTrace`, а одинаковые стектрейсы — не доказательство утечки.
+ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
 
 ## ❌ Что НЕ делать
 
@@ -230,21 +235,16 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 
 ## 🗂 Skills
 
-Полный каталог с описаниями — `docs/SKILLS-CATALOG.md` (auto-generated). Правила написания
-скиллов — `writing-for-agents` skill. Навигация по темам — `find-skills` / `wayfinder`.
+Каталог с описаниями — `docs/SKILLS-CATALOG.md` (auto-generated, не редактировать).
+Правила написания — `writing-for-agents`. Навигация по темам — `find-skills` / `wayfinder`.
+Ключевые: `singularity-todo-testable-vm` (canonical VM) · `feature-scaffold` ·
+`test-helpers` · `koin-di` · `mcp-server` · `quality-tools` · `maestro-flows`.
 
-Ключевые: `singularity-todo-testable-vm` (canonical VM) · `vm-migration-playbook` ·
-`feature-scaffold` · `test-helpers` · `nav3-nested-graphs` · `nav3-savedstate` · `koin-di` ·
-`ai-tool` · `mcp-server` · `sync` · `room-migration` · `quality-tools` (detekt/ktlint/kover) ·
-`clean-architecture-audit` · `worktree-isolation` · `code-review-pr-workflow` ·
-`decisions-workflow` · `openspec-workflow` · `maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
+> **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется,
+> покрыт тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`,
+> подробности — скилл `singularity-todo-unwired-surface-audit`.
 
-> **Фича «готова», но ничего не делает** — самый частый дефект проекта: код
-> компилируется, покрыт тестами и **не вызывается никем**. Проверка:
-> `scripts/find-unwired-surfaces.py`. Подробности — скилл
-> `singularity-todo-unwired-surface-audit`.
+## Agent skills
 
-Issue tracker: GitHub Issues (git@github.com:gazon1/singularity-clone-kmp.git), процедура —
-`docs/agents/issue-tracker.md`. Доменные доки: один `CONTEXT.md` в корне, ADR-и в
-`docs/decisions/` — `docs/agents/domain.md`.
-
+Issue tracker — `docs/agents/issue-tracker.md` (GitHub Issues). Доменные доки —
+`docs/agents/domain.md` (один `CONTEXT.md` в корне, ADR-и в `docs/decisions/`).

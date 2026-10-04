@@ -173,7 +173,16 @@ if [[ "${RUN_MAESTRO:-0}" == "1" ]]; then
     echo ""
     echo -e "${YELLOW}=== [opt] Maestro UI flows ===${NC}"
     if command -v maestro >/dev/null 2>&1; then
-        SERIAL="${SERIAL:-}" TAGS="${MAESTRO_TAGS:-smoke}" SKIP_INSTALL=1 \
+        # SKIP_INSTALL is the caller's decision, and it defaults to installing.
+        # Hardcoding SKIP_INSTALL=1 here looked free and was not: when the
+        # emulator dies mid-run, run-maestro.sh relaunches it from an AVD
+        # snapshot, and the reinstall that would follow is exactly what
+        # SKIP_INSTALL=1 suppresses. The flows that then "pass" are running
+        # whatever binary the snapshot happened to hold — which is how a gate
+        # ends up green against a build that does not contain the fix it is
+        # supposed to be verifying. Set SKIP_INSTALL=1 only when you know the
+        # device is intact and the APK on it is the one you just built.
+        SERIAL="${SERIAL:-}" TAGS="${MAESTRO_TAGS:-smoke}" SKIP_INSTALL="${SKIP_INSTALL:-0}" \
             bash scripts/run-maestro.sh || {
             echo -e "${RED}Maestro flows FAILED${NC}"
             exit 1

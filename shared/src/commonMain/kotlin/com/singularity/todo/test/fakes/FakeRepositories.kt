@@ -2038,6 +2038,23 @@ class FakeSavedAgendaViewsRepository(
 
     private val store = MutableStateFlow<Map<SavedAgendaViewKey, SavedAgendaView>>(emptyMap())
 
+    /**
+     * How many times [upsert] was called.
+     *
+     * A map-backed fake cannot tell "one write" from "the same write twice" —
+     * the second upsert overwrites the first and the assertion passes either
+     * way. The double-save guard is precisely about a duplicate write, so the
+     * count is the only observable that can pin it.
+     */
+    var upsertCount: Int = 0
+        private set
+
+    /**
+     * Optional gate held open across [upsert], so a test can keep a save
+     * in flight while it drives further intents. Null = write straight through.
+     */
+    var upsertGate: (suspend () -> Unit)? = null
+
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
@@ -2076,6 +2093,8 @@ class FakeSavedAgendaViewsRepository(
     override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
     override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatching {
+        upsertGate?.invoke()
+        upsertCount++
         store.update { map -> map + (SavedAgendaViewKey.of(view.userId.value, view.id.raw) to view) }
         view
     }
@@ -2099,6 +2118,8 @@ class FakeSavedAgendaViewsRepository(
     /** Clear all views for test isolation. */
     fun clear() {
         store.value = emptyMap()
+        upsertCount = 0
+        upsertGate = null
     }
 }
 

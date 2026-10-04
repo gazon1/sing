@@ -241,10 +241,14 @@ fun coreModule(): org.koin.core.module.Module = module {
     single {
         BackupImporter(
             Logger.withTag("BackupImporter"),
-            get(), get(),
-            get(), get(),
-            get(),
-            get(), get(),
+            get(),        // taskDao
+            get(),        // noteDao
+            get(),        // projectDao
+            get(),        // tagDao
+            get(),        // agendaViewDao
+            get(),        // attachmentStorage
+            get(),        // codec
+            get(),        // clock
             createFileSource = get(),
         )
     }

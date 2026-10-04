@@ -2,6 +2,27 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(RelativeBucket.NextWeek)</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(RelativeBucket.ThisWeek)</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "today", name = "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today), discard = true)</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "week", name = "This Week", order = 1, selector = Selector.DateBucket(RelativeBucket.ThisWeek), discard = true)</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19), Selector.DateBucket(RelativeBucket.ThisWeek))</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon), Selector.DateBucket(RelativeBucket.NextWeek))</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19)</ID>
+    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(thisWeekEnd, nextMon, nextFri, nextSun, followingMon)</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, discard = true, prefill = SectionPrefill("next_week", "Next week", LocalDate(2026, 10, 5)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek), order = 4, prefill = SectionPrefill("next_week", "Next week", LocalDate(2026, 10, 5)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "no_date", "No Date", Selector.DateBucket(RelativeBucket.NoDate), order = 6, prefill = SectionPrefill("no_date", "No date"), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true, prefill = SectionPrefill("overdue", "Overdue task"), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue), order = 0, discard = true, prefill = SectionPrefill("overdue", "Overdue task"), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "this_month", "This Month", Selector.DateBucket(RelativeBucket.ThisMonth), order = 5, prefill = SectionPrefill("this_month", "This month", LocalDate(2026, 10, 1)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, discard = true, prefill = SectionPrefill("this_week", "This week", LocalDate(2026, 9, 28)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek), order = 3, prefill = SectionPrefill("this_week", "This week", LocalDate(2026, 9, 28)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 0, discard = true, prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 1, discard = true, prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "today", "Today", Selector.DateBucket(RelativeBucket.Today), order = 1, prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "tomorrow", "Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow), order = 2, discard = true, prefill = SectionPrefill("tomorrow", "Task for tomorrow", LocalDate(2026, 10, 4)), )</ID>
+    <ID>ArgumentListWrapping:AgendaPresets.kt:AgendaPresets$( "yesterday", "Yesterday", Selector.DateBucket(RelativeBucket.Yesterday), order = 1, discard = true, prefill = SectionPrefill("yesterday", "Task for yesterday", LocalDate(2026, 10, 2)), )</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _fetchModelsError = MutableStateFlow&lt;String?&gt;(null)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _isFetchingModels = MutableStateFlow(false)</ID>
     <ID>BackingPropertyNaming:AiSettingsStore.kt:AiSettingsStore$private val _models = MutableStateFlow&lt;List&lt;String&gt;&gt;(emptyList())</ID>
@@ -55,6 +76,8 @@
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _parsedQuery = MutableStateFlow&lt;Query?&gt;(null)</ID>
     <ID>BackingPropertyNaming:SearchViewModel.kt:SearchViewModel$private val _queryString = MutableStateFlow("")</ID>
     <ID>BackingPropertyNaming:SessionStore.kt:DataStoreSessionStore$private val _deviceIdFlow = MutableStateFlow("")</ID>
+    <ID>BlankLineBetweenWhenConditions:SavedAgendaListScreen.kt:when (e) { is SavedAgendaListEvent.ShowError -&gt; Notification.Error(e.message) is SavedAgendaListEvent.CopySuccess -&gt; { scope.launch { snackbarHostState.showSnackbar( message = "Copied to ${e.targetProfileName}", duration = SnackbarDuration.Short, ) } Notification.None } }</ID>
+    <ID>ClassSignature:AgendaViewModel.kt:PendingDelete</ID>
     <ID>ClassSignature:LogBundleExporterTest.kt:FakeBackupCodec : BackupCodec</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
@@ -72,6 +95,7 @@
     <ID>CyclomaticComplexMethod:TaskCreateViewModel.kt:TaskCreateViewModel$override fun onIntent</ID>
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
+    <ID>EmptyFunctionBlock:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:FakeHlcFactory.kt:FakeHlcFactory.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:NoopCalendarSyncRepositoryImpl.kt:NoopCalendarSyncRepositoryImpl${}</ID>
     <ID>EndOfSentenceFormat:BackupCodec.kt:BackupCodec$* Creates a zip archive at `destPath` containing: * - `MANIFEST.json` — [manifestBytes] * - `payload.json` — [payloadBytes] * - `attachments/$name` — one entry per [attachments] pair (name → bytes)</ID>
@@ -142,6 +166,15 @@
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
     <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
     <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override fun activeProfile: Flow&lt;Profile&gt;</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override fun observe: Flow&lt;Profile?&gt;</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override fun observeAll: Flow&lt;List&lt;Profile&gt;&gt;</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun create: Result&lt;Profile&gt;</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun delete: Result&lt;Unit&gt;</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun ensureDefaults</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun get: Profile?</ID>
+    <ID>FunctionSignature:AgendaSeed.kt:AgendaSeed.&lt;no name provided&gt;$override suspend fun update: Result&lt;Profile&gt;</ID>
+    <ID>FunctionSignature:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;$override suspend fun cancelByTask</ID>
     <ID>FunctionSignature:LogBundleExporterTest.kt:FakeBackupCodec$override suspend fun importFromSource: Result&lt;BackupCodec.CodecReadResult&gt;</ID>
     <ID>Indentation:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest.Companion$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
@@ -198,7 +231,9 @@
     <ID>LoopWithTooManyJumpStatements:ConditionExprParser.kt:ConditionExprParser$while</ID>
     <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
+    <ID>MaximumLineLength:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$)</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
+    <ID>MaximumLineLength:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;$}</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
     <ID>MaximumLineLength:CalendarSyncSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
@@ -221,8 +256,11 @@
     <ID>NoEmptyOnClickLambda:ArchiveScreen.kt:{ }</ID>
     <ID>NoEmptyOnClickLambda:BackupScreen.kt:{}</ID>
     <ID>NoEmptyOnClickLambda:PomodoroScreen.kt:{ }</ID>
+    <ID>NoMultipleSpaces:CoreDiModule.kt: </ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
+    <ID>NoUnusedImports:AgendaEvaluatorMatrixTest.kt:com.singularity.todo.feature.agenda.domain.AgendaEvaluatorMatrixTest.kt</ID>
+    <ID>NoUnusedImports:AgendaScreen.kt:com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen.kt</ID>
     <ID>NoUnusedImports:BackupMigrations.kt:com.singularity.todo.core.backup.BackupMigrations.kt</ID>
     <ID>NoUnusedImports:LogBundleExporterTest.kt:com.singularity.todo.core.log.LogBundleExporterTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -311,6 +349,14 @@
     <ID>PackageNaming:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
+    <ID>ParameterListWrapping:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;$(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId, userId: UserId)</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_ALPHA = ProjectId("proj-alpha")</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_BETA = ProjectId("proj-beta")</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_HOME = TagId("tag-home")</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_URGENT = TagId("tag-urgent")</ID>
+    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
     <ID>PropertyName:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
@@ -319,6 +365,8 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
+    <ID>PropertyWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$val result = eval(listOf(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19), Selector.DateBucket(RelativeBucket.ThisWeek))</ID>
+    <ID>PropertyWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$val result = eval(listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon), Selector.DateBucket(RelativeBucket.NextWeek))</ID>
     <ID>ReturnCount:A2uiParser.kt:A2uiParser$fun parseLine: UiEvent?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseCatchUp: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseEveryWeekday: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
@@ -326,6 +374,7 @@
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:BackupFormat.kt:BackupFormat$/** MR-1: +agenda_views entity + taskDependencies (SCHEMA_VERSION 2 was taskDependencies only). */</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
     <ID>SwallowedException:QueryParser.kt:QueryParser$e: Exception</ID>
@@ -380,6 +429,8 @@
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
     <ID>TopLevelPropertyNaming:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
+    <ID>TrailingCommaOnCallSite:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "today", name = "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today), discard = true)</ID>
+    <ID>TrailingCommaOnCallSite:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "week", name = "This Week", order = 1, selector = Selector.DateBucket(RelativeBucket.ThisWeek), discard = true)</ID>
     <ID>UnusedParameter:AgendaEvaluator.kt:AgendaEvaluator$selector: Selector</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>
@@ -410,10 +461,19 @@
     <ID>UnusedParameter:SavedAgendaListScreen.kt:viewId: SavedAgendaViewId</ID>
     <ID>UnusedParameter:SectionEditorCard.kt:index: Int</ID>
     <ID>UnusedParameter:TaskSaveBar.kt:isLoading: Boolean = false</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_ALPHA = ProjectId("proj-alpha")</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_BETA = ProjectId("proj-beta")</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_HOME = TagId("tag-home")</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_URGENT = TagId("tag-urgent")</ID>
+    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
     <ID>ViewModelMustHaveKDoc:AppVersionGateViewModel.kt:AppVersionGateViewModel : MviViewModel</ID>
     <ID>ViewModelMustHaveKDoc:TagGroupsViewModel.kt:TagGroupsViewModel : MviViewModel</ID>
+    <ID>Wrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(</ID>
+    <ID>Wrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(workTomorrow, urgentTomorrow), Selector.AnyOf(listOf( Selector.Tags(setOf(TAG_WORK)), Selector.DateBucket(RelativeBucket.Tomorrow), )))</ID>
     <ID>Wrapping:BackupMigrations.kt:BackupMigrations$(</ID>
   </CurrentIssues>
 </SmellBaseline>

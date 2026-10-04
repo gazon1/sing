@@ -13,6 +13,11 @@ appId: com.singularity.todo
 name: seed-task
 ---
 - runFlow: launch-clean.yaml
+# The FAB is tab-sensitive: on the Today tab it pre-fills dueDate = today
+# (FabActionResolver), on Inbox it pre-fills no date. An undated fixture must
+# therefore be created FROM Inbox, before any tab switch.
+- tapOn:
+    id: nav_tab_inbox
 - tapOn:
     id: tasks_fab
 - tapOn:
@@ -22,8 +27,8 @@ name: seed-task
 - hideKeyboard
 - tapOn:
     id: task_editor_save
-# A task saved without a due date lands in Inbox, not Today — the agenda buckets
-# by date and an undated task has none. Switch before asserting.
+# The task was saved without a due date and Inbox buckets by date, so it sits
+# under "No Date". Return to source tab (16-return-to-source-tab) and assert.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:

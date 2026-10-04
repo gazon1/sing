@@ -11,16 +11,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -50,13 +54,27 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
     val state by coordinator.state.collectAsStateWithLifecycle()
     val navigator = LocalTasksNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var showAiSheet by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(coordinator.events) {
+        coordinator.events.collect { event ->
+            if (event is TaskDetailUiEvent.Saved) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = event.message,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            }
+        }
+    }
 
     NotificationHost(
         events = coordinator.events,
         mapper = { event: TaskDetailUiEvent ->
             when (event) {
-                is TaskDetailUiEvent.Saved -> Notification.Text(event.message, null)
+                is TaskDetailUiEvent.Saved -> Notification.None
 
                 is TaskDetailUiEvent.Error -> Notification.Error(event.message)
 

@@ -13,6 +13,8 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaLis
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
@@ -51,6 +53,8 @@ fun agendaModule(): Module = module {
                 clock = get<Clock>(),
                 logger = Logger.withTag("Agenda"),
                 draftStore = get<DraftStore>(),
+                reminderScheduler = get<ReminderScheduler>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
             ),
             definition = definition,
         )
@@ -64,6 +68,7 @@ fun agendaModule(): Module = module {
             deps = SavedAgendaListDeps(
                 repo = get(),
                 profileRepo = get(),
+                currentUser = get<ProfileAwareCurrentUser>(),
             ),
         )
     }

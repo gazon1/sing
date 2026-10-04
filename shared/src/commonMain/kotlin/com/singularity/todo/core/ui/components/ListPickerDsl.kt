@@ -61,6 +61,7 @@ class ListPickerScope<T> internal constructor() {
      * @param selected Whether this item appears as selected. No automatic highlighting is applied;
      *                 callers can use this to pre-select an item.
      * @param enabled  Whether this item is interactive. Defaults to true.
+     * @param testTag  Optional row tag for UI automation, built from `TestTags`.
      */
     fun item(
         label: String,
@@ -69,6 +70,7 @@ class ListPickerScope<T> internal constructor() {
         leading: @Composable (RowScope.() -> Unit) = {},
         selected: Boolean = false,
         enabled: Boolean = true,
+        testTag: String? = null,
     ) {
         items.add(
             ListPickerItem(
@@ -78,6 +80,7 @@ class ListPickerScope<T> internal constructor() {
                 selected = selected,
                 enabled = enabled,
                 leading = leading,
+                testTag = testTag,
             ),
         )
     }

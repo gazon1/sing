@@ -7,7 +7,7 @@ status: accepted
 
 ## Context
 
-`Selector` is a sealed interface with 15 concrete subtypes used as filter predicates in `AgendaDefinition`. MR1 stored `Selector.Tag` with discriminator `"Tag"` and a single `id` field; MR2 renamed it to `Selector.Tags` with `ids: Set<TagId>`. Both formats must be readable during the transition.
+`Selector` is a sealed interface with 14 concrete subtypes used as filter predicates in `AgendaDefinition`. MR1 stored `Selector.Tag` with discriminator `"Tag"` and a single `id` field; MR2 renamed it to `Selector.Tags` with `ids: Set<TagId>`. Both formats must be readable during the transition.
 
 kotlinx.serialization generates a `JsonContentPolymorphicSerializer` for `@Serializable sealed interface Selector`, which uses `serializer<Selector>().descriptor` internally. Since `Selector` is annotated `@Serializable(with = SelectorSerializer::class)`, calling `serializer<Selector>()` returns the custom serializer — causing infinite recursion when that serializer's `selectDeserializer` also calls `serializer<Selector>()`.
 
@@ -24,7 +24,7 @@ Replace `JsonContentPolymorphicSerializer` with a plain `KSerializer<Selector>` 
 
 **Descriptor** — `buildClassSerialDescriptor("Selector")` instead of `serializer<Selector>().descriptor`, which would recurse infinitely.
 
-**serialize()** — manually constructs `JsonObject` with `_type` for all 15 branches:
+**serialize()** — manually constructs `JsonObject` with `_type` for all 14 branches:
 ```kotlin
 is Selector.Tag -> JsonObject(
     mapOf("_type" to JsonPrimitive("Tag"), "id" to JsonPrimitive(value.id.value))
@@ -36,7 +36,7 @@ is Selector.Tags -> JsonObject(
         "matchAll" to JsonPrimitive(value.matchAll),
     )
 )
-// ... all 15 types
+// ... all 14 types
 encoder.encodeJsonElement(element)
 ```
 

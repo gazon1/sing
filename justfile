@@ -54,6 +54,8 @@ alias tah    := tests::android-host
 alias tcheck := tests::check
 alias tclean := tests::clean
 alias tm     := tests::ui-maestro
+alias gm     := tests::gate-maestro
+alias gate   := tests::gate
 
 # ----- Lint shortcuts -----
 alias lint       := tests::lint
@@ -71,6 +73,7 @@ alias os-validate := scripts::os-validate
 
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage
+alias cr       := tests::coverage-ratchet
 
 # ----- DB shortcuts -----
 alias db-a   := android::db-schema

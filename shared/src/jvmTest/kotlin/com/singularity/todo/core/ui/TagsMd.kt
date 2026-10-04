@@ -176,6 +176,11 @@ object TagsMd {
         val usedFor: String,
     )
 
+    // A flat lookup table: every branch is one row, and there is no logic to
+    // extract. Splitting it would make the table harder to read and to extend —
+    // adding a dynamic test tag means adding a row here, and that should stay a
+    // one-line change.
+    @Suppress("CyclomaticComplexMethod")
     private fun dynamicMeta(fnName: String, prefix: String): DynamicMeta = when (fnName) {
         "navTab" -> DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
 
@@ -196,6 +201,12 @@ object TagsMd {
         "savedAgendaCard" -> DynamicMeta(fnName, "Agenda", "Work", "Saved agenda cards")
 
         "agendaSection" -> DynamicMeta(fnName, "Agenda", "Today", "Agenda section headers")
+
+        "agendaSectionTemplate" ->
+            DynamicMeta(fnName, "Agenda", "By tag", "Section *types* in the add-section sheet")
+
+        "agendaSelectorOption" ->
+            DynamicMeta(fnName, "Agenda", "work", "Values in the section parameter picker")
 
         "projectCard" -> DynamicMeta(fnName, "Projects", "Project Alpha", "Project cards")
 

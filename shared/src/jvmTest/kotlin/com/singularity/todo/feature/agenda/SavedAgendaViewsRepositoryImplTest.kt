@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.agenda
 
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -27,13 +28,21 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class SavedAgendaViewsRepositoryImplTest {
 
-    private fun repo(): SavedAgendaViewsRepository {
+    private fun repo(): SavedAgendaViewsRepository = repoWithDao().first
+
+    /**
+     * The repository under test together with its DAO, so a test can assert which
+     * namespace a row physically landed in. The repository API is scoped to the
+     * *current* user, so it cannot express "the row is in someone else's
+     * namespace" — the whole point of the duplicateForProfile contract.
+     */
+    private fun repoWithDao(): Pair<SavedAgendaViewsRepository, AgendaViewDao> {
         val db = FakeAppDatabase()
         val auth = FakeAuthRepository(
             initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"),
         )
         val currentUser = FakeProfileAwareCurrentUser(authRepository = auth)
-        return SavedAgendaViewsRepositoryImpl(db.agendaViewDao(), currentUser)
+        return SavedAgendaViewsRepositoryImpl(db.agendaViewDao(), currentUser) to db.agendaViewDao()
     }
 
     private fun makeView(
@@ -168,5 +177,57 @@ class SavedAgendaViewsRepositoryImplTest {
         assertNotNull(restored)
         assertTrue(restored.sectionsJson.contains("Upcoming"))
         assertTrue(restored.sectionsJson.contains("ThisWeek"))
+    }
+
+    // ─── duplicateForProfile — the one sanctioned cross-profile write ─────────
+
+    /**
+     * Regression guard for the copy-to-profile bug found by the MR-5 Maestro run.
+     *
+     * `duplicateForProfile` used to route the copy through [SavedAgendaViewsRepositoryImpl.upsert],
+     * which re-stamps `userId` with the *current* scoped user. The copy therefore landed
+     * back in the source profile's namespace: the target profile stayed empty and the
+     * source profile gained a duplicate card. The fix writes through the DAO directly.
+     */
+    @Test
+    fun duplicateForProfile_writesTheCopyIntoTheTargetProfileNamespace() = runTest {
+        val (r, dao) = repoWithDao()
+        val original = r.upsert(makeView(id = "v1", userId = UserId("u1"), name = "Shared"))
+            .getOrThrow()
+
+        val targetScoped = "work/u1"
+        val copy = r.duplicateForProfile(original, targetScoped)
+            .getOrThrow()
+
+        // A fresh id, not an in-place overwrite of the source row.
+        assertTrue(copy.id != original.id, "the copy must get its own id")
+
+        val inTarget = dao.listAllForUser(targetScoped)
+        assertEquals(1, inTarget.size, "the copy must land in the target profile's namespace")
+        assertEquals("Shared", inTarget.single().name)
+        assertEquals(targetScoped, inTarget.single().userId)
+        assertEquals(copy.id.raw, inTarget.single().id)
+    }
+
+    /**
+     * The other half of the same bug: routing through `upsert` is what put the copy
+     * back under the source user. Assert the source namespace is left exactly as it was.
+     */
+    @Test
+    fun duplicateForProfile_doesNotRestampTheCopyIntoTheSourceNamespace() = runTest {
+        val (r, dao) = repoWithDao()
+        val original = r.upsert(makeView(id = "v1", userId = UserId("u1"), name = "Shared"))
+            .getOrThrow()
+
+        r.duplicateForProfile(original, "work/u1")
+            .getOrThrow()
+
+        val inSource = dao.listAllForUser("u1")
+        assertEquals(1, inSource.size, "the source profile must still hold only the original")
+        assertEquals(original.id.raw, inSource.single().id, "the original row must be untouched")
+        assertEquals("Shared", inSource.single().name)
+
+        // And the repository's own scoped read still sees one view, not two.
+        assertEquals(1, r.observeAll().first().size)
     }
 }
