@@ -94,17 +94,48 @@ zero errors** — it looks working. Every new rule must pass all three steps:
    run `./gradlew :shared:detekt`, confirm exactly 1 finding in
    `shared/build/reports/detekt/detekt.xml` (`source="detekt.<RuleName>"`), then
    delete the temp file.
+4. **A permanent test in `detekt-rules/src/test/`.** Step 3 is a one-time check and
+   it decays: the temp file is gone, and the next person has nothing to break. Every
+   rule class needs a test that asserts the rule fires on a violation *and* stays
+   quiet on the non-violations. Run it with `./gradlew :detekt-rules:test`.
 
 Historical: `no-runblocking` + `no-viewmodel-scope` sat inactive for days because
 step 2 was missed (see `2026-09-26-preflight-retro-findings`, R1).
 
-4. **`./gradlew --stop` after editing an existing rule.** The Gradle daemon caches the
+**The KDoc is a claim, not evidence.** Every rule defect found in the 2026-10-04
+audit (see `2026-10-04-rule-verifiability-inventory`) was invisible to code review
+because the KDoc was plausible and the implementation was quietly *narrower* than
+the prose. A rule can compile, be registered, be activated, report zero findings,
+and have never once looked at the code it claims to police. When the prose and the
+implementation disagree, the test run decides — not your reading of the PSI.
+
+Five traps this repository has actually fallen into:
+
+| Trap | Symptom | Correct shape |
+|---|---|---|
+| Selector assumed to be a call | `Dispatchers.IO` is a *property*; `as? KtCallExpression` returns null and the rule never fires | handle both `KtNameReferenceExpression` and `KtCallExpression` |
+| Primary-constructor property | `private val repo: Repo` in the constructor is a `KtParameter`, not a `KtProperty` — `declarations.filterIsInstance<KtProperty>()` misses it | check `primaryConstructorParameters` too |
+| `root.declarations` is top-level only | a class nested in an `object` is never visited | walk the tree (`KtTreeVisitorVoid`) |
+| Name filter excludes the subclass | `endsWith("Repository")` never matches `RepoImpl` | match both suffixes |
+| Documented opt-in that does not exist | an annotation that appears nowhere in the repo reads to an agent as permission, then fails to compile | use a visible `@Suppress("RuleName")` with a reason |
+
+5. **`./gradlew --stop` after editing an existing rule.** The Gradle daemon caches the
    resolved detekt plugin classpath, so a change to a rule that already runs is invisible
    until the daemon restarts. A marker string added to a finding message kept printing the
    old text across `--rerun-tasks` and `--no-configuration-cache`, and appeared on the
    first try under `--no-daemon`. Without this, "the rule does not work" and "the daemon
    is serving the old class" are indistinguishable. See
    `2026-09-28-detekt-daemon-and-crashing-rule`.
+
+6. **Assert the exact count, not just "> 0".** `NoRealDelayInTest` reported
+   `Thread.sleep` from both `visitCallExpression` and `visitDotQualifiedExpression`,
+   double-counting every occurrence. A test asserting `assertTrue(findings.isNotEmpty())`
+   would have passed. Use `assertEquals(1, findings.size)`.
+
+7. **An inactive rule is not a broken rule.** `NoRunCatchingInSuspend` is
+   `active: false` on purpose, pending a 239-site migration. Before "fixing" a rule
+   that reports nothing, check `active:` in `config/detekt/detekt.yml` and read the
+   KDoc — an audit once listed it as vacuous when it was merely switched off.
 
 **Never use inline Kotlin-compiler PSI helpers in a detekt plugin.**
 `psiUtil.collectDescendantsOfType` and friends are `inline`, so the synthetic
@@ -373,21 +404,32 @@ advanceUntilIdle()  // drains all pending coroutines
 advanceTimeBy(300L)  // advances virtual time by 300ms
 ```
 
-## Existing Rules (as of 2026-09-27)
+## Existing Rules (as of 2026-10-04)
 
-| Rule | File | RuleSet ID | What it checks |
-|------|------|------------|----------------|
-| `NoRealDelayInTestRule` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | `delay(N>1)` in test sources |
-| `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production |
-| `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-run-blocking` | `runBlocking` in production |
-| `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs (exempts `@OptIn(CombineStateInReadThrough)`) |
-| `NoStaticProfileAwareCurrentUserRule` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` |
-| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `.value =`, `seed()`, `Channel.send`, `launchIn` inside a `combine { }` transform. Restored 2026-09-27 after the 2026-09-26 orphan cleanup. |
-| `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` with no real logic (pass-through to repo) |
-| `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc` |
-| `NoFactoryViewModelRule` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | `factory { *ViewModel(...) }` / `factoryOf(::*ViewModel)` |
-| `NoOpUpdateStateRule` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | `updateState { }` whose lambda returns the receiver unchanged |
-| `MviViewModelRulesProvider` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` |
+| Rule | File | RuleSet ID | What it checks | Test |
+|------|------|------------|----------------|------|
+| `NoRealDelayInTestRule` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | `delay(N>500)` and `Thread.sleep`, including `1_000` / `1000L` spellings | `NoRealDelayInTestRuleTest` |
+| `NoDirectDispatchersRule` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | `Dispatchers.IO/Default/Main` in commonMain; whitelists `core/log/FileLogWriter.kt` | `NoDirectDispatchersRuleTest` |
+| `NoEmptyOnClickLambdaRule` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | `onClick = {}` at call sites and `onClick ?: { }` elvis fallbacks | `NoEmptyOnClickLambdaRuleTest` |
+| `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production | `NoViewModelScopeInProductionRuleTest` |
+| `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-runblocking` | `runBlocking` in production | `NoRunBlockingRuleTest` |
+| `NoStateInRule` | `NoStateInRule.kt` | `no-state-in` | `.stateIn(...)` in production VMs. **No opt-in hatch** — use `@Suppress("NoStateIn")` with a reason. | `NoStateInRuleTest` |
+| `NoStaticProfileAwareCurrentUserRule` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` | — |
+| `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `.value =`, `seed()`, `Channel.send`, `launchIn` inside a `combine { }` transform. Restored 2026-09-27 after the 2026-09-26 orphan cleanup. | `NoCombineSideEffectRuleTest` |
+| `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` method whose body is a single `repo.x()` call. Resolves the receiver through **both** body properties and primary-constructor `val`s. | `PassThroughUseCaseRuleTest` |
+| `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc`. Walks the full PSI tree, so nested classes count. | **none** |
+| `NoFactoryViewModelRule` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | `factory { *ViewModel(...) }` / `factoryOf(::*ViewModel)` | `NoFactoryViewModelRuleTest` |
+| `NoOpUpdateStateRule` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | `updateState { }` whose lambda returns the receiver unchanged | `NoOpUpdateStateRuleTest` |
+| `MviViewModelRulesProvider` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` | `MviViewModelRulesTest` |
+| `NoRunCatchingInSuspend` | `NoRunCatchingInSuspend.kt` | `no-run-catching-in-suspend` | `runCatching` in suspend. **`active: false` on purpose** — do not "fix"; the 239-site migration comes first. | `NoRunCatchingInSuspendTest` |
+| `NoSwallowedCancellation` | `NoSwallowedCancellation.kt` | `no-swallowed-cancellation` | `catch` blocks that swallow `CancellationException` | `NoSwallowedCancellationTest` |
+| `ProhibitUserIdInObserve` | `UserScopedRepositoryRulesProvider.kt` | `user-scoped-repository` | `userId`/`scopedUserId` on `watch*`/`observe*` returning `Flow`. Matches `…Repository` **and** `…RepositoryImpl`. | — |
+| `NoDirectClockSystemRule` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | direct `Clock.System` references | `NoDirectClockSystemRuleTest` |
+
+Run them all with `./gradlew :detekt-rules:test` (76 tests). The `-- Test`
+column is the honest measure of which rules you can trust without writing a
+violating file first — and it is what the 2026-10-04 inventory used to find six
+defects. See `2026-10-04-rule-verifiability-inventory`.
 
 `NoCombineSideEffectRule` and `NoGlobalScopeLaunchRule` existed at one point and were
 removed in `2026-09-26-detekt-rules-activation-audit`; do not re-add them without a

@@ -373,10 +373,19 @@ no-empty-onclick-lambda:
 # META-INF/services, but had no detekt.yml block, so detekt never loaded them and
 # they had never run. check-detekt-registrations.sh now enforces the invariant that
 # every ruleSetId in source has a block here.
+#
+# Registered 2026-10-04, and only discoverable then because the block was added:
+# the rule set was listed in the RuleSetProvider service file, so it looked wired
+# while detekt had never loaded it — the provider existed, the rule never ran, and
+# the KDoc's promise went unkept. Activating it surfaces the pre-existing
+# violations, which are baselined rather than fixed, so "declared" here means
+# "reported", not "clean". See 2026-10-04-ci-test-tag-filter-and-vacuous-gates.
 no-direct-dispatchers:
   NoDirectDispatchers:
     active: true
 
+# Same story: ProhibitUserIdInObserve is the regression guard for the
+# scopedUserId bug and had never been configured.
 user-scoped-repository:
   ProhibitUserIdInObserve:
     active: true

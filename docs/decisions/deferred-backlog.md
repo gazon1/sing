@@ -1974,3 +1974,324 @@ index.
 made the pressure visible; a queue that has to be diluted before it can be indexed is not
 being managed.
 
+
+---
+
+## recurrence-parser-is-unwired
+
+**Found in:** 2026-10-04 verifiability audit, via `find-unwired-surfaces.py`
+detector 7 (dead-symbol). The baseline line carried a backlog reference to this
+entry that did not exist, so the reference was unresolvable.
+
+**Symptom:** `RecurrenceParser.kt` is 309 lines with 27 `@see` KDoc references
+and zero production call sites. It is the inverse of an unwired forward
+operation — the parsing direction is implemented, the *applying* direction
+(`TaskRepository` → recurrence expansion) is not, so nothing ever asks the
+parser for a recurrence.
+
+**Already ruled out:** not reachable by reflection, DI or route — plain Kotlin,
+no Koin binding, no `interface` implementor.
+
+**Try next:** decide whether recurrence is a product feature. If yes, the missing
+half is the apply path (an infinite `Task` generator consumed by the agenda or
+calendar), and the parser is a reasonable starting point. If no, the 309 lines
+are a candidate for deletion. As with `core-auth-oauth-is-entirely-unwired`, a
+dead-code sweep should not make the product decision either way.
+
+---
+
+## note-editor-unwired-domain-classes
+
+**Found in:** 2026-10-04 verifiability audit, same detector as above. Three
+baseline lines shared a reference to this entry; none existed.
+
+**Symptom:** three classes in `feature/notes/domain/` have test references but no
+production call sites:
+- `NoteEditorState` (52 lines, 18 test refs) — the real editor is
+  `NoteEditor` in `presentation/viewmodel/`, which does not use this state class.
+- `DailyNoteFactory` (67 lines, 1 ref) — a pure passthrough to
+  `NotesRepository.getDailyNote` / `getOrCreateDailyNote`.
+- `TemplatePicker` (34 lines, 1 ref) — a pure passthrough to
+  `NotesRepository.watchTemplates` / `createFromTemplate` / `saveAsTemplate`.
+
+The two passthroughs would additionally be flagged by the `PassThroughUseCase`
+rule's sibling concern if ever promoted to use cases; they are domain classes
+today, so no rule fires.
+
+**Already ruled out:** `NoteEditorState` is not an alias — the VM keeps its own
+state, and the test refs are the tests written against the unused class, not
+against the shipped one.
+
+**Try next:** delete `DailyNoteFactory` and `TemplatePicker` (they add an
+indirection with no behaviour) and either delete `NoteEditorState` or move the
+editor's real state into it. The last part is a behaviour change and belongs in
+its own change, not a sweep.
+
+---
+
+## editoroverflow-test-tag-unused
+
+**Found in:** 2026-10-04 verifiability audit. `EditorOverflow` in
+`core/ui/TestTags.kt` has 12 test references and zero production composables
+apply it.
+
+**Symptom:** the same shape as `SNACKBAR_SAVED`, which was resolved by wiring the
+tag. A test tag that no production code emits is a test asserting a state the app
+can never reach — so those 12 references are either no-ops or they are skipped
+without notice.
+
+**Already ruled out:** not a dynamic lookup — the constant is referenced
+statically, and `grep` for `testTag(EditorOverflow` in `commonMain` is empty.
+
+**Try next:** find which screen the tests mean to cover and apply the tag there,
+or delete the constant and the 12 references. Confirm which first: if the tests
+pass today without the tag being emitted, they are not testing the overflow at
+all, which is the more interesting finding.
+
+---
+
+## awt-menubarinstaller-jvm-unused
+
+**Found in:** 2026-10-04 verifiability audit. `AwtMenuBarInstaller.kt` in
+`shared/src/jvmMain/` has 3 test references and no call site in JVM main.
+
+**Symptom:** a desktop menu-bar installer that nothing installs. Its tests pass
+because they instantiate it directly, which proves the class works, not that the
+desktop app has a menu bar.
+
+**Already ruled out:** not called reflectively or via a ServiceLoader — the
+desktop entry point is `desktopApp/src/jvmMain/.../main.kt`, and the installer
+is not referenced there.
+
+**Try next:** either call it from the desktop entry point (the desktop app
+currently has no native menu bar, so this is a small UI addition) or delete it
+with its tests. Note the JVM/Android split matters here: the Android app has its
+own menu, so wiring the AWT installer affects desktop only.
+
+---
+
+## detekt-rules-test-was-never-run-by-any-gate
+
+**Found in:** 2026-10-04 verifiability audit, while proving that the two
+unconfigured rulesets could fire. The proof required running
+`:detekt-rules:test` — and nothing in `check.sh`, `ci.yml` or the `justfile`
+ran it.
+
+**Symptom:** `detekt-rules/src/test/` holds 10 test classes (56 tests) covering
+the project's own custom rules. On first execution **4 failed**:
+
+- `NoDirectDispatchersRuleTest > Dispatchers_IO is flagged`
+- `NoDirectDispatchersRuleTest > Dispatchers_Default is flagged`
+- `NoDirectDispatchersRuleTest > Dispatchers_IO in FileLogWriter is whitelisted`
+- `NoEmptyOnClickLambdaRuleTest > onClick with empty lambda consumed via elvis is flagged`
+
+Two of them proved `NoDirectDispatchers` **could not fire on the code it
+targets**: the rule required `expr.selectorExpression as? KtCallExpression`,
+but `Dispatchers.IO` is a property reference, so every real call site returned
+early. The rule had never caught anything, and its own test said so. A third
+passed a file path where `compileContentForTest` wants a package name (an
+`IllegalArgumentException`, not a failed assertion). The fourth asserted
+elvis-default handling the rule never implemented.
+
+**Already ruled out:** not a stale Gradle cache — the failures reproduce from
+clean, and the same PSI defect was independently observed in a live detekt run
+against a deliberately-violating file.
+
+**Resolved in the 2026-10-04 change:** the rule was fixed to accept both
+selector forms, the two broken tests were corrected, the elvis shape was
+implemented (empty-lambda *default parameter*, not just call-site argument), and
+`:detekt-rules:test` was wired into `check.sh` and `ci.yml`. Kept here because
+the general lesson is not yet enforced: a rule class with no test can still be
+added, and 9 of the 18 rule classes have no unit test at all.
+
+**Try next:** add a positive-control test for each remaining untested rule
+(`PassThroughUseCase`, `NoRunCatchingInSuspend`, `NoRealDelayInTest`,
+`NoStateIn`, `NoOpUpdateState`, `NoFactoryViewModel`, `NoViewModelScopeInProduction`,
+`MviViewModel*`, `KDocEnforcement*`). The detekt rule-testing guide treats
+"every rule has a test" as the baseline expectation; here it was the exception.
+A rule is only as trustworthy as the test that proves it fires.
+
+---
+
+## two-rulesets-were-vacuous-52-violations-were-invisible
+
+**Found in:** 2026-10-04 verifiability change, the moment
+`NoDirectDispatchers` and `NoEmptyOnClickLambda` were made able to fire.
+`find-unwired-surfaces` and the detekt report both said "0 findings" for rules
+whose KDoc promised coverage; neither was true.
+
+**Symptom:** making the rules effective surfaced **52 pre-existing violations**
+that no gate had ever seen:
+
+| Rule | shared | desktopApp | total |
+|---|---|---|---|
+| `NoDirectDispatchers` | 19 | 2 | 21 |
+| `NoEmptyOnClickLambda` | 20 | 11 | 31 |
+
+All were baselined in the same change so the build returns to green, and
+`check-baseline-ratchet.py` now prevents the counts from growing again.
+
+**Already ruled out:** not false positives from the widened detection. The
+`Dispatchers.X` sites are direct references in production code (the rule's
+target); the empty lambdas are genuine `onDismiss`/`onClick` placeholders.
+
+**Try next, and treat as two separate pieces of work:**
+
+1. **Dispatchers (21 sites).** Each needs a `CoroutineDispatcher` constructor
+   parameter plus a Koin binding change, so it is not a mechanical edit — a
+   blind constructor rewrite would break the DI graph that
+   `koin-compiler-plugin` validates. Do them one module at a time, running
+   `:mcp-server:compileKotlin` (the DI-graph gate) after each. Note the
+   existing `FileLogWriter` path whitelist still works and must not be widened.
+2. **Empty handler lambdas (31 sites).** The `onDismiss` cluster in
+   `WhatsNewScreen` and `ContextMenuHost` suggests sheets/dialogs are given a
+   no-op dismiss rather than a real one — often a genuine wiring gap, not just
+   style. Check whether each is a preview-only placeholder before changing it;
+   the rule already exempts `@Preview` and `*preview*` files, so everything it
+   reports is production code.
+
+**Do not** blanket-suppress these to make the count drop. That is the move that
+produced this entry.
+
+---
+
+## docs-audit-workflow-was-never-valid-yaml
+
+**Found in:** 2026-10-04 verifiability change, while replacing the `|| true`
+steps in `docs-audit.yml` with real exits.
+
+**Symptom:** line 17 read `- 'openspec/**''` — a stray trailing apostrophe.
+`yaml.safe_load` rejected the file outright, which means GitHub Actions could
+not have run the workflow at all. Every step in it was advisory
+(`|| true`, `echo "Warning:"`) *and* the file could not load. Two independent
+reasons the documentation audit never happened, neither of them visible from
+reading the YAML.
+
+**Already ruled out:** not a GitHub tolerance for trailing quotes — the parser
+fails on the unbalanced scalar, the same as any YAML reader.
+
+**Resolved in the 2026-10-04 change:** the quote is fixed and the file parses.
+The advisory steps were then made real, and `Enforce DIGEST size budget` now
+fails the build.
+
+**Try next, and note the general lesson:** nothing in this repo parses
+`.github/workflows/*.yml`. A malformed workflow is invisible — it is not a test
+failure, not a lint error, just a workflow that silently does not exist. Adding
+`python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]"
+.github/workflows/*.yml` to `check.sh` is a three-line fix for an entire class
+of dead gate. It has not been added yet; this entry is the reminder.
+
+---
+
+## adr-frontmatter-drift-is-unenforced
+
+**Found in:** 2026-10-04 verifiability change, while making
+`docs-audit.yml` steps real.
+
+**Symptom:** `normalize-adr-frontmatter.sh --dry-run` exits **2** when any ADR's
+frontmatter drifts from the schema, and **8 ADRs** currently do — mostly
+`created:` where the schema wants `date:`, plus a few with no `status:` or
+`title:`. The workflow step was `... || true`, so the exit code was discarded
+and the drift accumulated unnoticed.
+
+**Deliberately still advisory.** Flipping it to blocking in the same change that
+makes other gates blocking would fail the build on pre-existing debt that has
+nothing to do with those gates, and the failure would be a wall of unrelated
+noise. That is the "enabling a gate reddens the build" hazard — real, and worth
+absorbing for a gate whose debt is *in scope*, not for one whose debt is a
+20-minute mechanical fix sitting next door.
+
+**Try next — this is small and self-contained:**
+
+```bash
+./scripts/normalize-adr-frontmatter.sh     # no --dry-run: rewrites in place
+git add docs/decisions/
+```
+
+Then delete the `continue-on-error: true` from the
+`Check ADR frontmatter` step in `docs-audit.yml`. New ADRs are already
+compliant — the one written for the 2026-10-04 change passes clean — so this only
+ever drains.
+
+---
+
+## kdoc-enforcement-rules-have-no-unit-test
+
+**Found in:** 2026-10-04 rule-verifiability inventory — the last rule class in
+`detekt-rules/` with no test file.
+
+**Symptom:** `KDocEnforcementRules.kt` contains `ViewModelMustHaveKDoc` and
+`RepositoryInterfaceMustHaveKDoc`, both active in `detekt.yml`, neither tested.
+The audit's own fix in the same change — switching them from `root.declarations`
+(top-level only) to a full tree walk — landed without a test to catch it if it
+were reverted or half-reverted.
+
+**Already ruled out:** not inert. The rules do fire; the repo is simply clean
+against them, which is indistinguishable from "never ran" until a violating file
+exists.
+
+**Try next — small and self-contained, roughly 30 lines of test:**
+- a top-level `class TaskViewModel` with no KDoc → 1 finding
+- the same class nested inside an `object` with no KDoc → 1 finding *(this is the
+  regression guard for the tree-walk fix)*
+- either of the above with a KDoc block → 0 findings
+- a `class XRepository` that is not an `interface` → 0 findings
+
+Assert exact counts. A `> 0` assertion would pass even if the tree walk
+regressed to top-level for the nested case only in some configurations.
+
+---
+
+## audit-figures-that-did-not-survive-measurement
+
+**Found in:** 2026-10-04 rule-verifiability inventory, while re-checking the
+audit's claims by execution rather than by reading code.
+
+**Symptom:** three figures in the original audit were wrong, and acting on them
+unverified would have caused damage. Recorded so the next reader does not re-import
+them from the same source.
+
+- **`NoRunCatchingInSuspend` was listed as a vacuous rule.** It is not. It is
+  registered, configured, has a passing test, and is `active: false` *on purpose*
+  pending a migration. "Inert" and "switched off" look identical from a distance
+  and need opposite responses.
+- **"109 long delay sites"** — the repository has **23** `delay(` call sites in
+  total, across `shared/src` and `desktopApp/src`.
+- **The 500 ms `NoRealDelayInTest` threshold was read as an accident.** It is a
+  documented escape hatch for `stateIn(WhileSubscribed(5000))` VMs, which
+  `TestScheduler` cannot advance past. It is now a named constant with that
+  reason attached, so the next reader sees intent rather than a magic number.
+
+**Lesson:** an audit is a hypothesis list. The value of running the gates was
+never that the audit would be right — it was that executing the claims would
+settle them. Every claim in a review should carry the command that confirms it,
+and a claim that cannot be confirmed cheaply should be labelled unverified rather
+than counted.
+
+---
+
+## each-module-needs-a-named-gate-owner
+
+**Found in:** 2026-10-04, immediately after closing the rule-verifiability
+inventory. Asked "what is still unwired?" and found `:androidApp:detekt`.
+
+**Symptom:** `androidApp/build.gradle.kts` has had a `detekt { }` block with
+`ignoreFailures = false` and `androidApp/detekt-baseline.xml` (9 entries) since
+the module was added. **No gate ever invoked the task** — not `check.sh`, not
+`ci.yml`, not the `justfile`. It runs clean (0 findings, ~16 s).
+
+This is the same defect class as `no-direct-dispatchers` and
+`user-scoped-repository`: a check that is fully configured, looks authoritative,
+and has never executed. The difference is only that this one happens to be
+satisfied, so nothing ever went red to make anyone curious.
+
+**Resolved in the 2026-10-04 change:** `:androidApp:detekt` added to both
+`check.sh` and the `Run detekt` CI step.
+
+**Try next — the general form of this problem.** `:mcp-server:detekt` sits in
+the advisory `mcp-server-check` job and is the last unwired module-level gate.
+A grep for `:detekt` across the build files will find every configured task;
+each one needs a name in a gate or it is decoration. Worth doing as a
+deliberate sweep rather than waiting for the next instance to be discovered by
+accident — the cost of a miss is unbounded, since the check is assumed to be
+running.

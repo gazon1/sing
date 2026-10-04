@@ -17,6 +17,10 @@
 #      and user-scoped-repository — had no config block and had therefore never run.
 #      A rule that is implemented, packaged and registered but absent from the config
 #      is invisible to every other check in this script, so it needs its own.
+#      (See ADR 2026-10-04-ci-test-tag-filter-and-vacuous-gates — note the name:
+#      an earlier draft of this comment pointed at
+#      2026-10-04-vacuous-verification-gates, an ADR that was never written, which is
+#      the dead reference check-doc-dead-refs.py exists to catch.)
 #
 # Usage: ./scripts/check-detekt-registrations.sh
 set -euo pipefail
@@ -76,6 +80,35 @@ while IFS= read -r kt; do
     done < <(grep -oE 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*RuleSetProvider' "$kt" \
              | grep -oE '[A-Za-z0-9_]+[[:space:]]*:' | tr -d ' :')
 done < <(find "$SRC" -name "*.kt")
+
+# 4. Every RuleSetId a provider returns has a block in detekt.yml.
+#    detekt resolves config by rule-set id. A provider whose id has no block
+#    loads with default config — which for a custom rule means "runs with
+#    whatever the rule hardcodes", or silently not at all. Either way the KDoc
+#    in the provider promises coverage the build does not deliver.
+while IFS= read -r rsid; do
+    [[ -z "$rsid" ]] && continue
+    if ! grep -qE "^${rsid}:" "$YML"; then
+        provider=$(grep -rlE "RuleSetId\(\"${rsid}\"\)" "$SRC" --include="*.kt" | head -1 | xargs -r basename)
+        err "rule-set '${rsid}' (${provider%.kt}) has no block in config/detekt/detekt.yml — the rule never runs"
+    fi
+done < <(grep -rhoE 'RuleSetId\("[^"]+"\)' "$SRC" --include="*.kt" \
+         | sed 's/RuleSetId("//;s/")//' | sort -u)
+
+# 5. Every rule-set block in detekt.yml belongs to a provider (the reverse
+#    direction: a typo'd or renamed id would otherwise satisfy invariant 4
+#    vacuously and leave a block configuring nothing).
+while IFS= read -r key; do
+    [[ -z "$key" ]] && continue
+    # Built-in detekt/ktlint sections — not provider-backed.
+    case "$key" in
+        config|processors|console-reports|comments|complexity|coroutines|\
+empty-blocks|exceptions|naming|performance|potential-bugs|style|ktlint) continue ;;
+    esac
+    if ! grep -rqE "RuleSetId\(\"${key}\"\)" "$SRC" --include="*.kt"; then
+        err "detekt.yml block '${key}' has no provider declaring that rule-set id"
+    fi
+done < <(grep -oE '^[a-z][a-z0-9-]+:' "$YML" | sed 's/:$//' | sort -u)
 
 total=$(grep -cvE '^\s*(#|$)' "$SERVICE" || true)
 

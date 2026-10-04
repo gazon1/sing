@@ -348,3 +348,17 @@ docs/decisions/2026-10-03-openspec-adoption.md:design.md
 docs/decisions/deferred-backlog.md:SyncConfigScreen.kt
 docs/decisions/deferred-backlog.md:feature/sync/presentation/SyncConfigScreen.kt
 shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/package-info.kt:DateBucketExtensions.kt
+# --- Added 2026-10-04 (verifiability change) ---
+# These skills are portable and reference files by the convention name used in
+# the skill collection they came from, not by a path in this repo. The
+# references are real prose ("check GLOSSARY.md for the term"), not claims that
+# this repository contains the file. Accepted as-is; rewriting the prose to
+# remove the mention would make the instructions less useful, not more accurate.
+.agents/skills/diagnosing-bugs/SKILL.md:GLOSSARY.md
+.agents/skills/improve-codebase-architecture/SKILL.md:GLOSSARY.md
+.agents/skills/loop-me/SKILL.md:NOTES.md
+.agents/skills/retro/SKILL.md:package.json
+.agents/skills/retro/SKILL.md:CODING_STANDARDS.md
+.agents/skills/retro/SKILL.md:CLAUDE.md
+.agents/skills/tdd/SKILL.md:GLOSSARY.md
+.agents/skills/triage/SKILL.md:GLOSSARY.md

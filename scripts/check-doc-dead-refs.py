@@ -45,6 +45,45 @@ GLOB_BUILD = ["shared/build.gradle.kts", "androidApp/build.gradle.kts",
               "desktopApp/build.gradle.kts", "mcp-server/build.gradle.kts",
               "detekt-rules/build.gradle.kts"]
 
+
+def _gitignore_patterns() -> list[re.Pattern[str]]:
+    """Compile .gitignore into anchored regexes.
+
+    A reference to a *generated* file is not a broken reference. `DIGEST.md` is
+    gitignored on purpose (see 5c0c2e9d — it is rebuilt by a post-checkout hook),
+    so it is absent in a fresh clone and present after a docs refresh. Reporting
+    it as dead made the check environment-dependent: green on a machine where
+    someone had run `just docs-regen`, red everywhere else. Consulting
+    .gitignore rather than hardcoding a name keeps the rule correct as more
+    generated artifacts appear.
+    """
+    gi = ROOT / ".gitignore"
+    if not gi.is_file():
+        return []
+    out: list[re.Pattern[str]] = []
+    for raw in gi.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("!"):
+            continue
+        # Strip a trailing '/': we only test file paths.
+        line = line.rstrip("/")
+        # A pattern containing '/' is anchored at the repo root; otherwise it
+        # matches at any depth (gitignore semantics).
+        if "/" in line:
+            pattern = re.escape(line)
+        else:
+            pattern = r"(?:^|/)" + re.escape(line) + r"$"
+        out.append(re.compile(pattern))
+    return out
+
+
+def is_generated(ref: str) -> bool:
+    """True when `ref` is gitignored — i.e. built, not authored."""
+    return any(p.search(ref) for p in _GITIGNORE)
+
+
+_GITIGNORE = _gitignore_patterns()
+
 # Files that are runtime artifacts or external, not repo sources.
 RUNTIME_ARTIFACTS = {
     "manifest.json", "payload.json", "backup.json", "data.json", "index.json",
@@ -180,6 +219,8 @@ def main() -> int:
                          "longer detected (destructive — see the refusal message)")
     ap.add_argument("--skill-symbols", action="store_true",
                     help="check Kotlin symbol references in skill files (detector 8)")
+    ap.add_argument("--quiet-generated", action="store_true",
+                    help="suppress the informational list of gitignored (generated) references")
     args = ap.parse_args()
 
     if args.skill_symbols:
@@ -216,6 +257,16 @@ def main() -> int:
         dead = [f for f in findings if f[2] == "dead"]
         drift = [f for f in findings if f[2] == "drift"]
         hist = [f for f in findings if f[2] == "historical"]
+        # A dead reference to a gitignored path is a *generated* file, not a
+        # broken link. Downgrade before baselining so it is neither reported
+        # as debt nor silently added to the baseline.
+        generated = [f for f in dead if is_generated(f[1])]
+        if generated:
+            dead = [f for f in dead if not is_generated(f[1])]
+            if not args.quiet_generated:
+                gen_list = ", ".join(sorted({f[1] for f in generated}))
+                print(f"{rel}: {len(generated)} generated reference(s) "
+                      f"(gitignored, built by a hook — not checked): {gen_list}")
         # Split dead into baselined (accepted debt) and new (must be fixed).
         baselined = [f for f in dead if f"{rel}:{f[1]}" in accepted]
         new = [f for f in dead if f"{rel}:{f[1]}" not in accepted]

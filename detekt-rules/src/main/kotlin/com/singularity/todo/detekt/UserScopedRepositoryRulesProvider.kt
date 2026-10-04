@@ -33,7 +33,9 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
  * ```
  *
  * This rule also flags implementations that declare such parameters, ensuring
- * the contract cannot be re-introduced at the concrete level.
+ * the contract cannot be re-introduced at the concrete level. (This was claimed
+ * here while the guard was `endsWith("Repository")`, which can never match
+ * `…RepositoryImpl`; see [isRepositoryLike].)
  */
 class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
 
@@ -44,7 +46,7 @@ class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
         root.accept(object : KtTreeVisitorVoid() {
             override fun visitClass(klass: KtClass) {
                 val className = klass.name
-                if (className != null && className.endsWith("Repository")) {
+                if (className != null && isRepositoryLike(className)) {
                     val body = klass.body
                     if (body != null) {
                         for (declaration in body.declarations) {
@@ -58,6 +60,18 @@ class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
             }
         })
     }
+
+    /**
+     * True for a repository *interface* (`…Repository`) or a concrete
+     * implementation (`…RepositoryImpl`).
+     *
+     * The old guard was `endsWith("Repository")`, which can never match
+     * `TaskRepositoryImpl` — so despite the KDoc promising it, implementations
+     * were never inspected. An interface bans the parameter and its implementation
+     * has to honour the same signature, so both ends are checked.
+     */
+    private fun isRepositoryLike(className: String): Boolean =
+        className.endsWith("Repository") || className.endsWith("RepositoryImpl")
 
     private fun checkFunction(fn: KtNamedFunction, className: String) {
         val name = fn.name ?: return

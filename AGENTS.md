@@ -23,12 +23,11 @@ scope) → `*Screen.kt` (Compose).
 
 ## DI: Koin 4.x (pure DSL)
 
-**DI-валидация:** `koin-compiler-plugin 1.2.1` (build-logic/Plugins.kt) даёт compile-time
-проверку графа — все `get<T>()` валидируются на сборке. Аннотации (`@Single`, `@Factory`)
-не используются; плагин работает с classic DSL.
-**Никогда** не используй `*domainModule().toTypedArray()` в `modules()`: набор модулей
-становится динамическим. Используй `modules(listOf(...) + domainModule() + listOf(...))`.
-Но чистоты это не гарантирует: KOIN-W003 бывает и при composition (см. ADR `2026-10-05-koin-w003-in-a-test-graph`).
+**DI-валидация:** `koin-compiler-plugin 1.2.1` (build-logic/Plugins.kt) даёт
+compile-time проверку графа; аннотации (`@Single`, `@Factory`) не используются.
+**Никогда** не используй `*domainModule().toTypedArray()` в `modules()` — это даёт
+KOIN-W003 (graph unverifiable). Используй list composition:
+`modules(listOf(...) + domainModule() + listOf(...))`.
 
 | DSL | Когда |
 |---|---|
@@ -226,12 +225,10 @@ ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debuggi
 Перед нетривиальной задачей прочитай `docs/decisions/DIGEST.md`. Если задача меняет
 архитектуру, контракт или обнаруживает неочевидный workaround — создай запись в
 `docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`./scripts/refresh-decisions-digest.sh`).
-
-**Писать ADR:** выбор между несколькими разумными вариантами; неочевидный workaround;
-изменение контракта между слоями; пользователь попросил зафиксировать рассуждение.
-**Не писать:** опечатки, форматирование, новый use case по существующему паттерну.
-Формат: frontmatter + `Context / Idea / Decision / Rationale / Consequences / Links`.
-Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-workflow` skill.
+**Писать:** выбор между несколькими разумными вариантами; неочевидный workaround; изменение
+контракта между слоями. **Не писать:** опечатки, форматирование, новый use case по
+существующему паттерну. Формат: frontmatter + `Context / Idea / Decision / Rationale /
+Consequences / Links`. Policy: `docs/doc-maintenance.md`, процесс — `decisions-workflow`.
 
 ## 🗂 Skills
 
@@ -248,3 +245,6 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 
 Issue tracker — `docs/agents/issue-tracker.md` (GitHub Issues). Доменные доки —
 `docs/agents/domain.md` (один `CONTEXT.md` в корне, ADR-и в `docs/decisions/`).
+**Удалённые skill-ы** (не воскрешать): `koin-suspend-bridge`, `ai-provider-settings`,
+`secret-migration`, `koog-test-workarounds`, `koog-both-platforms`, `vm-koin-scoping` —
+причина каждого в ADR с его именем в `docs/decisions/`.

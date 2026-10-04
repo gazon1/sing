@@ -209,6 +209,10 @@ docs-audit:
     ./scripts/check-skill-frontmatter.sh || status=1
     echo ""
     echo "=== Doc size budgets (AGENTS.md, SKILL.md, description, DIGEST.md) ==="
+    # No --warn-only. It returns 0 by construction, so the `|| status=1` on the
+    # old line could never fire and the budget was unenforced: `just docs-audit`
+    # reported "AGENTS.md: 264 lines (max 250)" and still exited 0. A budget that
+    # prints a violation and passes is the vacuous-gate pattern.
     python3 scripts/check-doc-sizes.py || status=1
     echo ""
     echo "=== Dead file references in docs, skills and KDoc ==="

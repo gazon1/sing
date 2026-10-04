@@ -117,8 +117,14 @@ jobs:
       - name: Run jvmTest (fast + slow)
         run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
+      # -Dsingularity.test.steps=true is what makes the failure bundle below
+      # non-empty: step recording is opt-in (DesktopAppHarness.kt:225), so
+      # without the flag an uploaded diagnostics/ directory contains nothing.
+      # -Dsingularity.test.a11y=fail makes accessibility findings fatal — all
+      # 16 flow tests already opt in, but the harness default is "" (i.e.
+      # report-only), so a violation was never able to fail the build.
       - name: Run desktopApp:test
-        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
+        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail --no-daemon --configuration-cache
 
       # The rules that enforce this repo are only trustworthy if their own tests run.
       # A custom detekt rule with no test is a rule that can silently stop matching.
@@ -217,15 +223,48 @@ jobs:
       - name: Check generated detekt-rules config is current
         run: python3 scripts/gen-detekt-rules-config.py --check
 
+      # A3/A5: detekt is no longer advisory. Two rulesets were only *registered*
+      # — no detekt.yml block — so they never loaded while their KDoc promised
+      # coverage. This step is only meaningful because
+      # check-detekt-registrations.sh (below) now fails when a RuleSetId has no
+      # block; without that, a blocking detekt still proves nothing.
+      - name: Detekt rule registry
+        run: ./scripts/check-detekt-registrations.sh
+
+      # The custom rules' own unit tests. These 56 tests had no CI step and no
+      # check.sh step, so they had never run — and 4 of them failed. Two proved
+      # NoDirectDispatchers could not fire on `Dispatchers.IO` (it required a
+      # KtCallExpression selector, but every real call site is a property
+      # reference); one passed a file path where compileContentForTest wants a
+      # package name; one asserted elvis-default handling the rule never
+      # implemented. A gate's own tests are only worth having if they run.
+      - name: Detekt rule unit tests
+        run: ./gradlew :detekt-rules:test --no-daemon
+
+      - name: Detekt baseline ratchet
+        run: python3 scripts/check-baseline-ratchet.py
+
       - name: Run detekt
         # blocking as of 2026-10-04: enforceMode is already on in both modules and
         # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
         # reports violations nobody has to fix.
-        run: ./gradlew :shared:detekt :desktopApp:detekt :detekt-rules:detekt --no-daemon --configuration-cache
+        # androidApp included deliberately: it has had a detekt block, a baseline and
+        # `ignoreFailures = false` since it was added, but no gate ever invoked the
+        # task — the same "configured but unreachable" class as the two rulesets fixed
+        # in 2026-10-04. It runs clean (0 findings, ~16 s), so wiring it costs nothing.
+        # :detekt-rules:detekt is the fourth module: the custom rules are source too,
+        # and a rule that is never linted is a rule whose own style rots unnoticed.
+        run: ./gradlew :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --no-daemon --configuration-cache
 
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
+
+      - name: Check unwired backlog references
+        run: python3 scripts/check-unwired-backlog-refs.py
+
+      - name: Audit-script regression tests
+        run: python3 -m unittest discover -s scripts/tests
 
       - name: Check doc sizes
         # DIGEST.md is generated and gitignored, so on a fresh checkout it does
@@ -250,6 +289,10 @@ jobs:
         run: python3 scripts/check-test-task-inputs.py
         # blocking: a scan root outside its module with no task input covering it
 
+      - name: Check skill symbols
+        run: python3 scripts/check-doc-dead-refs.py --skill-symbols
+        # blocking: a skill names a Kotlin symbol that does not exist
+
       # Replaced by com.singularity.todo.arch.MaestroFlowTagsTest in :shared:jvmTest
       # (blocking — any unknown id fails the build). Retained here as a non-blocking
       # lint for ad-hoc local use; continues-on-error so it never blocks a PR.
@@ -257,19 +300,10 @@ jobs:
         run: bash Maestro/scripts/check-tags.sh
         continue-on-error: true
 
-  # The first job that ever *executes* a Maestro flow in CI.
-  #
-  # Until now nothing ran a flow: the only Maestro-related step was
-  # check-tags.sh, non-blocking. That is not a theoretical gap — five flows
-  # reached main with a `runFlow:` path that resolved to nothing, and
-  # `dialog_confirm` was unusable from UIAutomator for the same reason nobody
-  # could see. Both are only observable by running the flow on a device.
-  #
-  # Scope is deliberately the curated `smoke` set (~15 flows, not the ~60 in
-  # the tree). Smoke is fast enough to gate a PR, and the flows that matter
-  # most for "did the app still start and navigate" are in it. The heavier tags
-  # (`agenda`, `regression`) stay a local gate — `just gm <tag>` — until the
-  # runner cost is known.
+  # The 15 @Tag("slow") classes (restart smoke, file/backup codec contracts,
+  # repo sync propagation). They run here instead of in the blocking job so a
+  # PR is not gated on restart-and-reopen timing, but they are no longer simply
+  # omitted: `-Ptest.tags=slow` selects exactly these and nothing else.
   maestro-smoke:
     # Pinned for the same reason as every other job here, and this one has the
     # strongest claim to it: an emulator job is the surface a kernel bump breaks
@@ -336,6 +370,32 @@ jobs:
           path: ~/.maestro/tests/**
           if-no-files-found: ignore
           retention-days: 7
+
+  slow-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "zulu"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run slow jvmTest
+        run: ./gradlew :shared:jvmTest -Ptest.tags=slow --no-daemon
+
+      - name: Upload shared failure bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slow-failure-bundle-${{ github.run_id }}
+          path: shared/build/diagnostics/**
+          if-no-files-found: ignore
+          retention-days: 14
 
   kover-report:
     runs-on: ubuntu-24.04

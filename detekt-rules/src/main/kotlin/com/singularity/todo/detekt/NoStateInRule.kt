@@ -9,9 +9,7 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtCallExpression
-import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
-import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 
@@ -19,9 +17,18 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * Bans `.stateIn(...)` calls in production code.
  *
  * The canonical VM pattern uses plain `MutableStateFlow` + `scope.launch { }.collect {}`.
- * `stateIn` is permitted only on pure read-through VMs annotated with
- * `@OptIn(CombineStateInReadThrough::class)`. This rule flags violations so they
- * can be migrated to the canonical pattern per the `vm-migration-playbook` skill.
+ * `stateIn` holds its upstream active for a fixed window after the last subscriber,
+ * which is what made VMs untestable without virtual time; the ban exists to keep
+ * that from coming back. Migrate violations with the `vm-migration-playbook` skill.
+ *
+ * There is deliberately **no opt-in hatch**. This rule used to exempt classes
+ * annotated `@OptIn(CombineStateInReadThrough::class)`, but no such annotation
+ * exists anywhere in the repository — so the exemption could never be taken, and
+ * the KDoc and the finding message both told agents to apply an annotation that
+ * would not compile. A documented escape hatch that does not exist is worse than
+ * no escape hatch: it reads as permission. If a legitimate read-through VM ever
+ * needs one, the honest form is a `@Suppress("NoStateIn")` with a reason, which
+ * at least shows up in review.
  *
  * Note: test-source exemption is not implemented via path filters in this rule.
  *
@@ -43,29 +50,18 @@ class NoStateInRule(config: Config) : Rule(config, "", null) {
         val callee = selector.calleeExpression as? KtNameReferenceExpression ?: return
         if (callee.text != "stateIn") return
 
-        // Find enclosing class
-        var current: KtExpression? = expr
-        while (current != null) {
-            if (current is KtClass) {
-                // Check for @OptIn(CombineStateInReadThrough::class)
-                if (hasCombineStateInOptIn(current)) return
-                break
-            }
-            current = current.parent as? KtExpression
-        }
-
         report(
             Finding(
                 entity = Entity.from(expr),
                 message = ".stateIn(...) is banned in production VMs. " +
                     "Use plain MutableStateFlow + scope.launch { }.collect {} instead. " +
-                    "Only pure read-through VMs with @OptIn(CombineStateInReadThrough::class) may use stateIn.",
+                    "If this is a genuine read-through VM, suppress with " +
+                    "@Suppress(\"NoStateIn\") and a reason rather than an opt-in annotation.",
                 references = emptyList(),
-                suppressReasons = emptyList(),
+                suppressReasons = listOf("NoStateIn"),
             ),
         )
     }
-
     private fun hasCombineStateInOptIn(cls: KtClass): Boolean = cls.annotationEntries.any { entry ->
         entry.typeReference?.text == "OptIn" &&
             entry.valueArguments.any { arg ->

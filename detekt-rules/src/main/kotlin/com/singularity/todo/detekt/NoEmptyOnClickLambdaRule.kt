@@ -8,6 +8,8 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
@@ -22,6 +24,11 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
  * to a composable's event-handler parameter such as `onClick`, `onConfirm`, `onDelete`.
  * These empty lambdas make it impossible to distinguish "intentionally no-op because
  * this screen is not wired yet" from "forgot to handle this event".
+ *
+ * Three shapes are reported, all keyed on the *parameter* name:
+ * - `onClick = {}` at a call site
+ * - `onClick ?: { }` as an elvis fallback in a body
+ * - (any call site passing an empty lambda to a `PARAM_NAMES` argument)
  *
  * ## Allowed patterns (not flagged)
  * - `onClick = noopClick` — the shared no-op constant from `PreviewSamples`
@@ -44,21 +51,52 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         super.visitCallExpression(expression)
         if (isPreviewContext(expression)) return
 
-        val callee = expression.calleeExpression as? KtNameReferenceExpression ?: return
-        val fnName = callee.text
-
-        // Only check well-known composable event handlers
-        if (fnName !in EVENT_HANDLERS) return
-
-        // Find named argument for each known onClick-like parameter
+        // Drive off PARAM_NAMES, not a list of known callees. This used to be
+        // gated on `fnName in EVENT_HANDLERS` — an 11-name allow-list of composables
+        // — which meant the rule could only ever see the call sites somebody had
+        // already thought to enumerate. Every `onClick = {}` passed to a composable
+        // outside that list was invisible, and the rule reported 0 findings while
+        // the production code contained them. The KDoc's promise is about the
+        // *parameter* being an event handler, so the parameter is the gate.
         for (paramName in PARAM_NAMES) {
             val arg = expression.valueArguments.find { it.getArgumentName()?.text == paramName }
             if (arg != null) {
                 val lambda = arg.getArgumentExpression() as? KtLambdaExpression
                 if (lambda != null && isEmptyLambda(lambda)) {
-                    reportFinding(lambda, paramName, fnName)
+                    val callee = expression.calleeExpression as? KtNameReferenceExpression
+                    reportFinding(lambda, paramName, callee?.text ?: "<expr>")
                 }
             }
+        }
+    }
+
+    /**
+     * Flags the elvis-fallback shape: `onClick ?: { }`.
+     *
+     * The defect is the *pair*. A handler parameter that defaults to an empty
+     * lambda is harmless on its own — `onClick()` just does nothing, and the
+     * declaration reads as a normal optional default. It becomes a real bug when
+     * the body writes `onClick ?: { }`, because the elvis can never take its
+     * right-hand branch for a non-null parameter: the fallback is dead code that
+     * reads as if it were the only place the handler is implemented. This is the
+     * same shape `find-unwired-surfaces.py` calls `default-noop`.
+     *
+     * Note this is deliberately NOT the same as flagging `onClick: () -> Unit = {}`
+     * on its own — a test in this file pins that distinction, and a declaration
+     * that never uses elvis is a normal optional-parameter default.
+     */
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+        super.visitBinaryExpression(expression)
+        if (isPreviewContext(expression)) return
+        if (expression.operationToken != KtTokens.ELVIS) return
+
+        val receiver = expression.left as? KtNameReferenceExpression ?: return
+        val paramName = receiver.text
+        if (paramName !in PARAM_NAMES) return
+
+        val fallback = expression.right as? KtLambdaExpression ?: return
+        if (isEmptyLambda(fallback)) {
+            reportFinding(fallback, paramName, "elvis fallback")
         }
     }
 
@@ -95,7 +133,8 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(lambda),
-                message = "Empty lambda passed to `$paramName` in `$fnName`. " +
+                message = "Passing an empty lambda to `$paramName` in `$fnName` defeats the " +
+                    "handler: the consumer cannot tell 'intentionally no-op' from 'not wired'. " +
                     "Use `noopClick` (for preview) or wire a real handler.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
@@ -104,22 +143,9 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
     }
 
     companion object {
-        /** Composable functions whose onClick-like parameters should be checked. */
-        private val EVENT_HANDLERS = setOf(
-            "AiActionButton",
-            "DeleteActionButton",
-            "SettingsActionRow",
-            "SettingsValueRow",
-            "BackTopAppBar",
-            "EmptyState",
-            "FilledTonalButton",
-            "Button",
-            "IconButton",
-            "IconPickerRow",
-            "SettingsSwitchRow",
-        )
-
-        /** Parameter names that indicate an event handler. */
+        /** Parameter names that indicate an event handler. This is the rule's
+         *  only gate — see [visitCallExpression] for why the callee allow-list
+         *  that used to live here was removed. */
         private val PARAM_NAMES = listOf(
             "onClick",
             "onConfirm",

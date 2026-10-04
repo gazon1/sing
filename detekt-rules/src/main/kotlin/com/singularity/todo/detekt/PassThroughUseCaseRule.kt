@@ -112,15 +112,28 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
     /**
      * Returns the simple type name of the receiver property declared in [psiClass],
      * or null if the receiver is not a property on this class.
+     *
+     * Two declaration sites have to be consulted. A property declared in the class
+     * body is a [KtProperty]; a `val`/`var` in the *primary constructor* is a
+     * [KtParameter], even though it behaves as a property. This rule originally
+     * looked only at [KtClass.declarations], so the primary-constructor form —
+     * the form this project actually writes — resolved to null and the rule
+     * returned before reporting. It therefore could not flag the pattern AGENTS.md
+     * describes as "enforced by rule". `PassThroughUseCaseRuleTest` pins both.
      */
     private fun resolveReceiverType(psiClass: KtClass, receiver: KtNameReferenceExpression): String? {
         val receiverName = receiver.getReferencedName()
 
-        val property = psiClass.declarations
-            .filterIsInstance<KtProperty>()
-            .find { it.name == receiverName }
+        val typeReference = psiClass.primaryConstructorParameters
+            .firstOrNull { it.name == receiverName }
+            ?.takeIf { it.hasValOrVar() }
+            ?.typeReference
+            ?: psiClass.declarations
+                .filterIsInstance<KtProperty>()
+                .firstOrNull { it.name == receiverName }
+                ?.typeReference
+            ?: return null
 
-        val typeReference = property?.typeReference ?: return null
         return typeReference.text // e.g. "ChecklistRepository"
     }
 }
