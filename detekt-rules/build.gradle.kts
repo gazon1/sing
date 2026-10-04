@@ -3,7 +3,15 @@ plugins {
     // Added 2026-10-05. The rule-coverage debt for this module was tracked as prose in
     // deferred-backlog.md, which nothing could verify. Kover turns it into a number CI
     // can defend. See ADR 2026-10-05-positive-tests-for-every-detekt-rule.
-    alias(libs.plugins.kover)
+    //
+    // `id(...)` and NOT `alias(libs.plugins.kover)`. settings.gradle.kts applies
+    // `org.jetbrains.kotlinx.kover.aggregation` (main, 7bba7678), which puts the Kover
+    // plugin on the classpath with no resolvable version. Asking for it again with the
+    // version attached fails configuration outright — "the plugin is already on the
+    // classpath with an unknown version" — which took :detekt-rules:test down with it
+    // even though the test task has nothing to do with coverage. No version means
+    // "use the one that is already here", which is the intent.
+    id("org.jetbrains.kotlinx.kover")
     // Added 2026-10-05: the module that enforces the project's rules is now subject to
     // them. A `var` on a Rule instance — "Common Mistake 4" in
     // singularity-todo-detekt-rules-authoring, and a genuine bug because Rule instances
