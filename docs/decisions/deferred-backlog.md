@@ -405,6 +405,8 @@ every `TextGenPort.generate()` and `streamChat()` call to `RoomUsageRecorder`.
 
 ## log-messages-user-content-sweep-deferred
 
+**Status (re-verified 2026-10-04):** CLOSED as originally scoped, verified 2026-10-04, with one caveat recorded rather than glossed. `Redaction.redactEmail()` exists and is used at `AuthRepository.kt:58,70`; the `${e.message}` interpolations in `ProfileSwitcherViewModel`, `SavedAgendaViewModel` and `SyncBootstrapper` are gone. **Caveat:** `FileLogWriter.kt:102` still logs `${e.message}`, and `QueryParser.kt:163` embeds user query text in an exception message that reaches `SearchViewModel.kt:218` — a user-visible path rather than a log. The wider user-content sweep is #43; this entry covered the credential-shaped exposures and those are done.
+
 **Found in:** MR-D (tech-debt batch). The redaction decorator scrubs credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 **Status: RESOLVED** (tech-debt session, 2026-10-02).
@@ -774,6 +776,8 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 ---
 
 ## vm-without-unit-tests
+
+**Status (re-verified 2026-10-04):** CLOSED and verified 2026-10-04. `ViewModelTestCoverageTest` fails on any ViewModel without a test unless it is in the `KNOWN_UNCOVERED` set, and the KDoc requires each allowlist entry to name its backlog entry here — so the debt is a reviewable list rather than a silent default. The residual is the allowlist itself and is tracked as #83; this entry closed because the mechanism that keeps the debt visible exists.
 
 **Found in:** MR-0, свип ViewModel vs *ViewModelTest.
 
