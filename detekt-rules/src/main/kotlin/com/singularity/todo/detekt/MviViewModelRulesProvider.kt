@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
+import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenExpression
 
@@ -39,13 +40,9 @@ private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
         val classBody = clazz.body ?: return
         val properties = classBody.properties
 
-        val hasStateFlow = properties.any { prop ->
-            prop.typeReference?.text?.contains("MutableStateFlow") == true
-        }
-
-        val hasEventChannel = properties.any { prop ->
-            val typeText = prop.typeReference?.text ?: return@any false
-            typeText.contains("Channel") || typeText.contains("MutableSharedFlow")
+        val hasStateFlow = properties.any { mentionsFlowType(it, "MutableStateFlow") }
+        val hasEventChannel = properties.any {
+            mentionsFlowType(it, "Channel") || mentionsFlowType(it, "MutableSharedFlow")
         }
 
         if (hasStateFlow && hasEventChannel) {
@@ -305,3 +302,20 @@ class MviViewModelRulesProvider : RuleSetProvider {
  */
 private fun isViewModelClass(clazz: KtClass): Boolean =
     clazz.name?.endsWith("ViewModel") == true
+
+/**
+ * True when a property's declared type *or its initialiser* mentions [typeName].
+ *
+ * Reading only `typeReference` was a silent hole: `private val s = MutableStateFlow(x)`
+ * has a null typeReference under type inference, so the property escaped the rule. The
+ * rule therefore depended on whether the author happened to write a type annotation,
+ * which has nothing to do with the thing being policed.
+ *
+ * The initialiser is a cheap textual check and needs no type resolution. It can also
+ * produce a false positive for `val s: State<UiState> = MutableStateFlow(...)`, which is
+ * why the declared type is still checked first — see [NoViewModelExtendsMviPolicy].
+ */
+private fun mentionsFlowType(prop: KtProperty, typeName: String): Boolean {
+    prop.typeReference?.text?.let { if (it.contains(typeName)) return true }
+    return prop.initializer?.text?.contains(typeName) == true
+}

@@ -14,9 +14,7 @@ import com.google.android.play.core.install.model.AppUpdateType
  *
  * Requires the app to be distributed via Google Play to receive update info.
  */
-class GooglePlayUpdateStore(
-    private val appUpdateManager: AppUpdateManager,
-) : UpdateStorePort {
+class GooglePlayUpdateStore(private val appUpdateManager: AppUpdateManager) : UpdateStorePort {
 
     companion object {
         private const val UPDATE_AVAILABLE = 1

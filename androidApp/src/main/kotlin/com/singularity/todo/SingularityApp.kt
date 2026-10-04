@@ -1,7 +1,6 @@
 package com.singularity.todo
 
 import android.app.Application
-import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.di.coreLoggingModule

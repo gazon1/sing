@@ -74,16 +74,20 @@ class AppUpdateGate(
         return store.offerUpdate(activity)
     }
 
-    private fun selectStore(snapshot: RemoteConfigSnapshot, activity: Activity): UpdateStorePort {
-        return when (snapshot.updateStoreType) {
-            UpdateStoreType.GOOGLE_PLAY -> googlePlayStore
-            UpdateStoreType.RUSTORE -> ruStore
-            UpdateStoreType.SAMSUNG -> directUrlStore
-            UpdateStoreType.DIRECT_URL -> {
-                val url = snapshot.updateStoreUrl
-                    ?: "https://play.google.com/store/apps/details?id=${activity.packageName}"
-                DirectUrlUpdateStore(activity.applicationContext, url)
-            }
+    private fun selectStore(
+        snapshot: RemoteConfigSnapshot,
+        activity: Activity,
+    ): UpdateStorePort = when (snapshot.updateStoreType) {
+        UpdateStoreType.GOOGLE_PLAY -> googlePlayStore
+
+        UpdateStoreType.RUSTORE -> ruStore
+
+        UpdateStoreType.SAMSUNG -> directUrlStore
+
+        UpdateStoreType.DIRECT_URL -> {
+            val url = snapshot.updateStoreUrl
+                ?: "https://play.google.com/store/apps/details?id=${activity.packageName}"
+            DirectUrlUpdateStore(activity.applicationContext, url)
         }
     }
 }

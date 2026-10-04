@@ -63,6 +63,7 @@ comments:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   UndocumentedPublicFunction:
     active: false
     excludes:
@@ -70,6 +71,7 @@ comments:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   EndOfSentenceFormat:
     active: true
   AbsentOrWrongFileLicense:
@@ -101,6 +103,7 @@ complexity:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   NestedBlockDepth:
     active: true
     allowedDepth: 5           # bumped from default 4
@@ -148,6 +151,7 @@ exceptions:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
     exceptionNames:
       - 'Exception'
       - 'Throwable'
@@ -178,6 +182,7 @@ naming:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   TopLevelPropertyNaming:
     active: true            # covers top-level constants and properties
   VariableNaming:
@@ -199,6 +204,7 @@ performance:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
 
 # ---------------------------------------------------------------------------
 # potential-bugs
@@ -212,6 +218,7 @@ potential-bugs:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
+      - '**/androidTest/**'
   UnsafeCast:
     active: true
   ElseCaseInsteadOfExhaustiveWhen:

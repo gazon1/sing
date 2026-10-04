@@ -17,6 +17,13 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
 
+    // The custom rule sets (via :detekt-rules plugin / ServiceLoader). Without this, no
+    // project rule applies to androidApp at all.
+    detektPlugins(project(":detekt-rules"))
+    // ktlint via detekt-formatting — required because the shared config declares a
+    //  block, and detekt rejects unknown top-level sections.
+    detektPlugins(libs.detekt.formatting)
+
     // AndroidX
     implementation(libs.androidx.activity.compose)
 
@@ -85,13 +92,28 @@ android {
 // ---------------------------------------------------------------------------
 // detekt — static analysis
 // ---------------------------------------------------------------------------
+// detekt — static analysis
+//
+// 2026-10-05: this module was on detekt-minimal.yml with ignoreFailures = true, which
+// meant it was outside the governance net in two ways at once: no custom rule applied to
+// it, and nothing it did report could fail a build. It now uses the same config as
+// :shared and :detekt-rules, with the custom rule sets on the classpath.
+//
+// The module is small (8 files in src/main) and came to 0 findings after auto-correct and
+// two real fixes, so there is no baseline to carry — `baseline-androidApp.xml` does not
+// exist and should not be created unless a future change needs one.
 detekt {
-    config.setFrom(rootProject.file("config/detekt/detekt-minimal.yml"))
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    baseline = rootProject.file("config/detekt/baseline-androidApp.xml")
+        .takeIf { it.isFile }
     buildUponDefaultConfig = true
-    ignoreFailures = true
+    ignoreFailures = false   // enforcing — a baseline covers accepted debt when there is one
+    // src/debug is deliberately NOT linted yet: DebugSeedActivity.kt is one-shot debug
+    // tooling where runBlocking and Clock.System are by design, and whether debug-only
+    // code should be held to production rules is a decision, not a mechanical fix.
+    // Recorded in deferred-backlog.md as `androidapp-debug-source-set-unlinted`.
     source.setFrom(
         "src/main/kotlin",
         "src/androidTest/kotlin",
-        "src/androidAndroidTest/kotlin"
     )
 }

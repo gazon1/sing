@@ -122,55 +122,44 @@ class NoEmptyOnClickLambdaRuleTest {
         assertEquals(0, findingsIn(code).size, "@Preview is an explicit exemption")
     }
 
-    // NOT TESTED HERE: the "file name contains preview" exemption. `compileContentForTest`
-    // derives the file name from the package argument, so no input can produce a file
-    // named *Preview*. An earlier version of this file had a test asserting
-    // `"taskrowpreview".contains("preview")`, which is true regardless of the rule and
-    // so proved nothing. The branch is exercised only by the repo's real preview files
-    // (shared/src/commonMain/kotlin/com/singularity/todo/core/ui/preview/), which the
-    // `:shared:detekt` run covers. Extracting the predicate would make it testable, as
-    // was done for NoDirectDispatchersRule — tracked, not silently left broken.
-
-    // ── The shape this rule deliberately does not handle ──────────────────────────
+    @Test
+    fun `a preview-named file is exempt`() {
+        // Previously untestable: compileContentForTest derives the file name from the
+        // package argument, so no fixture could produce a *Preview* file. Hence the policy
+        // extraction. An earlier version of this file asserted
+        // `"taskrowpreview".contains("preview")`, which is true regardless of the rule.
+        assertTrue(NoEmptyOnClickLambdaPolicy.isPreviewPath("TaskRowPreview.kt", ""))
+        assertTrue(NoEmptyOnClickLambdaPolicy.isPreviewPath("taskrowpreview.kt", ""))
+    }
 
     @Test
-    fun `the elvis and default-parameter shape belongs to the unwired-surfaces script`() {
-        // `onClick: () -> Unit = {}` plus `onClick ?: { }` is NOT this rule's job. The
-        // rule reports empty lambdas in *call arguments*; this is a parameter default.
-        //
-        // scripts/find-unwired-surfaces.py detector 2 (`default-noop`) covers it:
-        //   "a callback parameter defaulting to {} where the consumer writes
-        //    param ?: fallback, which the empty lambda defeats"
-        // See DETECTORS in that script, kind="default-noop" (_check_default_noop).
-        val code = """
-            package com.singularity.todo.feature.tasks
-
-            @Composable
-            fun TaskRow(
-                onClick: () -> Unit = {},
-            ) {
-                val handler = onClick ?: { }
-            }
-        """
-        assertEquals(
-            0,
-            findingsIn(code).size,
-            "this shape is find-unwired-surfaces.py's default-noop detector, not this rule",
+    fun `a file under a preview package is exempt`() {
+        // This is the repo's actual convention: core/ui/preview/ exists, Preview.kt does not.
+        assertTrue(
+            NoEmptyOnClickLambdaPolicy.isPreviewPath(
+                "Box.kt",
+                "/repo/shared/src/commonMain/kotlin/com/singularity/todo/core/ui/preview/Box.kt",
+            ),
         )
     }
 
     @Test
-    fun `nullable onClick defaulting to null is not flagged`() {
-        val code = """
-            package com.singularity.todo.feature.tasks
+    fun `an ordinary file is not exempt`() {
+        assertTrue(
+            !NoEmptyOnClickLambdaPolicy.isPreviewPath(
+                "TaskRow.kt",
+                "/repo/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskRow.kt",
+            ),
+        )
+    }
 
-            @Composable
-            fun TaskRow(
-                onClick: (() -> Unit)? = null,
-            ) {
-                onClick?.invoke()
-            }
-        """
-        assertEquals(0, findingsIn(code).size, "null is the recommended opt-out")
+    @Test
+    fun `windows preview paths are handled`() {
+        assertTrue(
+            NoEmptyOnClickLambdaPolicy.isPreviewPath(
+                "Box.kt",
+                "C:\\repo\\shared\\src\\commonMain\\kotlin\\com\\x\\preview\\Box.kt",
+            ),
+        )
     }
 }

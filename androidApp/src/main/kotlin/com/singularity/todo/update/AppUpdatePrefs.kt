@@ -10,9 +10,7 @@ import android.content.SharedPreferences
  * - Only 2 fields, no transactions needed
  * - Already available as a transitive dependency of the Play Core library
  */
-class AppUpdatePrefs private constructor(
-    private val prefs: SharedPreferences,
-) {
+class AppUpdatePrefs private constructor(private val prefs: SharedPreferences) {
 
     /** Returns the epoch millis of the last update offer, or 0 if never. */
     fun lastOfferedAt(): Long = prefs.getLong(KEY_LAST_OFFERED_AT, 0L)
@@ -39,10 +37,8 @@ class AppUpdatePrefs private constructor(
         private const val KEY_LAST_OFFERED_AT = "update_last_offered_at"
         private const val PREFS_FILE = "app_update_prefs"
 
-        fun create(context: Context): AppUpdatePrefs {
-            return AppUpdatePrefs(
-                context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-            )
-        }
+        fun create(context: Context): AppUpdatePrefs = AppUpdatePrefs(
+            context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE),
+        )
     }
 }

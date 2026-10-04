@@ -232,6 +232,61 @@ class RuleFiresSmokeTest {
         )
     }
 
+    @Test
+    fun `MviViewModelExt fires even when the property type is inferred`() {
+        // The blind spot this closes: the rule read only `prop.typeReference`, which is
+        // null under type inference, so `private val s = MutableStateFlow(...)` escaped
+        // it. The rule therefore depended on whether the author wrote a type annotation,
+        // which has nothing to do with the thing being policed.
+        assertFires(
+            rule(MviViewModelRulesProvider(), RuleName("MviViewModelExt")),
+            """
+            package com.example
+
+            class AgendaViewModel {
+                private val _state = MutableStateFlow(UiState.Loading)
+                private val _effects = MutableSharedFlow<Effect>()
+            }
+            """,
+            "MviViewModelExt (inferred types)",
+        )
+    }
+
+    @Test
+    fun `MviViewModelExt still fires for a declared type`() {
+        assertFires(
+            rule(MviViewModelRulesProvider(), RuleName("MviViewModelExt")),
+            """
+            package com.example
+
+            class AgendaViewModel {
+                private val _state: MutableStateFlow<UiState> = MutableStateFlow(UiState.Loading)
+                private val _effects: MutableSharedFlow<Effect> = MutableSharedFlow()
+            }
+            """,
+            "MviViewModelExt (declared types)",
+        )
+    }
+
+    @Test
+    fun `MviViewModelExt ignores an unrelated inferred property`() {
+        val found = findings(
+            rule(MviViewModelRulesProvider(), RuleName("MviViewModelExt")),
+            """
+            package com.example
+
+            class AgendaViewModel {
+                private val repository = TaskRepository()
+                private val scope = CoroutineScope(SupervisorJob())
+            }
+            """,
+        )
+        assertTrue(
+            found.isEmpty(),
+            "the initialiser check must not turn every property into a finding, got $found",
+        )
+    }
+
     // ── KDocEnforcementRules ──────────────────────────────────────────────────────
 
     @Test
