@@ -97,6 +97,21 @@ appears at compile time.
   built-in is a rule nobody chose.** `MaximumLineLength` (default 120 silently
   overriding `.editorconfig`'s 140) and `BackingPropertyNaming` are both in this
   category. Default-on is not decided-on.
+- **Follow-through (same day):** `check-rule-intent.py` now fails if a rule
+  reports findings without a declaration in `detekt.yml`. Eighteen such rules held
+  **247 of the 428** baseline entries. Getting the names right took measurement,
+  not reading: detekt validates `naming:`/`style:` keys strictly and rejected nine
+  of my first declarations as "is misspelled or does not exist" — those nine are
+  ktlint-wrapper rules, and that section does **not** validate keys, so a wrong
+  spelling there is silently ignored. The first attempt used kebab-case ids
+  (`backing-property-naming`) and removed nothing at all; the two ktlint keys
+  already in the file, `ImportOrdering` and `FunctionSignature`, are camelCase.
+  Every declaration was then confirmed by watching its baseline entries vanish.
+  That also explained the 120-vs-140 mystery: both `style:MaxLineLength` and
+  `ktlint:max-line-length` were `active: false`, and the 17 findings at 121-131
+  characters came from the ktlint rule on its unconfigured default. It is now
+  declared at 120 — the value that was always effective, so nothing relaxed.
+  **baseline-shared.xml: 428 → 338.**
 
 ## Links
 

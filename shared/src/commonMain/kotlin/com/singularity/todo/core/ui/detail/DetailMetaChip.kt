@@ -26,6 +26,11 @@ fun DetailMetaChip(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    // `onClick ?: {}` is deliberate, and the API is built around it: `onClick` is
+    // nullable precisely so a caller can render a read-only label, and the chip is
+    // disabled when it is null (`enabled = onClick != null`, below). The elvis
+    // supplies FilterChip's non-null parameter, it does not hide a missing handler.
+    @Suppress("NoEmptyOnClickLambda")
     FilterChip(
         selected = selected,
         onClick = onClick ?: {},

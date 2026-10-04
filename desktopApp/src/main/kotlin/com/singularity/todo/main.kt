@@ -34,11 +34,11 @@ fun main() = singleWindowApplication(
         logDirectory = System.getProperty("user.home")!!.toPath() / ".singularity-todo" / "logs",
     )
     startKoin {
-            modules(
-                listOf(platformModule(), coreLoggingModule()) +
-                    domainModule() +
-                    listOf(gateModule(RELEASES_URL)),
-            )
+        modules(
+            listOf(platformModule(), coreLoggingModule()) +
+                domainModule() +
+                listOf(gateModule(RELEASES_URL)),
+        )
     }
 
     // Seed the default 'Personal' profile on first launch (idempotent). The

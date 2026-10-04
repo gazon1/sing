@@ -29,6 +29,7 @@ import com.singularity.todo.feature.nav.rememberNav3State
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import org.koin.compose.koinInject
+import com.singularity.todo.core.ui.preview.noopClick
 
 private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
 
@@ -80,7 +81,8 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
             // WhatsNew is rendered as an overlay — it observes RemoteConfigPort
             // internally and only appears when the server sets a non-null payload.
             WhatsNewScreen(
-                onDismiss = { /* caller is the screen; no extra action needed */ },
+                // The dialog has no extra work on dismissal — the caller owns the result.
+                onDismiss = noopClick,
                 modifier = Modifier,
             )
         },

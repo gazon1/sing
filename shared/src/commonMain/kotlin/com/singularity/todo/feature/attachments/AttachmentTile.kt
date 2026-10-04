@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
-import com.singularity.todo.core.attachments.AttachmentDomain
+import com.singularity.todo.core.ui.formatFileSize
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
@@ -65,7 +65,7 @@ fun AttachmentTile(attachment: Attachment, onDelete: () -> Unit, modifier: Modif
         // File size (for file attachments)
         if (attachment.fileSizeBytes > 0) {
             Text(
-                text = AttachmentDomain.formatFileSize(attachment.fileSizeBytes),
+                text = formatFileSize(attachment.fileSizeBytes),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

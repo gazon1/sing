@@ -355,6 +355,18 @@ ktlint:
     active: true             # 9 findings on KDoc block formatting
   ClassSignature:
     active: true             # 1 finding: FakeBackupCodec in a test
+  PackageName:
+    # 43 findings, the same `feature.calendar_sync` sites detekt's own
+    # `naming>PackageNaming` reports — the ktlint wrapper duplicates the check.
+    # Blocked on the domain/port/ decision (plan C2), same as PackageNaming.
+    active: true
+  Indentation:
+    # Note the kebab-case `indent:` key above is a no-op: the ktlint section does
+    # not validate keys, so it was silently doing nothing while this rule ran on
+    # its default. `active: false` for auto-correct per the JDK-NPE note above;
+    # the 1 finding is hand-fixable.
+    active: true
+    auto_correct: false
   Wrapping:
     active: true
     auto_correct: true

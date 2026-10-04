@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.datetime.Instant
@@ -408,16 +409,6 @@ private fun ProjectTimeRow(
 /**
  * Formats milliseconds as "Xh Ym" or "Ym".
  */
-private fun formatDuration(ms: Long): String {
-    val totalMinutes = ms / 60_000
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) {
-        "${hours}h ${minutes}m"
-    } else {
-        "${minutes}m"
-    }
-}
 
 @Composable
 private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {

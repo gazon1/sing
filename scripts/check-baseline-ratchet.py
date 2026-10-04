@@ -44,6 +44,9 @@ from pathlib import Path
 # counting lines would break when detekt rewraps a long signature.
 _ID_RE = re.compile(r"<ID>.*?</ID>", re.DOTALL)
 
+# Module-level so the paths do not depend on the caller's working directory.
+ROOT = Path(__file__).resolve().parent.parent
+
 
 def count_entries(text: str) -> int:
     return len(_ID_RE.findall(text))
@@ -56,11 +59,16 @@ def entries(text: str) -> set[str]:
 def git_show(path: Path, rev: str = "HEAD") -> str | None:
     """Return the committed content of `path`, or None if it did not exist."""
     try:
+        rel = path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        rel = path.as_posix()
+    try:
         out = subprocess.run(
-            ["git", "show", f"{rev}:{path.as_posix()}"],
+            ["git", "show", f"{rev}:{rel}"],
             capture_output=True,
             text=True,
             check=False,
+            cwd=ROOT,
         )
     except FileNotFoundError:
         print("ERROR: git not found — cannot verify the baseline ratchet")
@@ -74,68 +82,85 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--baseline",
-        default="config/detekt/baseline-shared.xml",
-        help="baseline file to ratchet (default: config/detekt/baseline-shared.xml)",
+        action="append",
+        default=None,
+        help="baseline file to ratchet; repeatable. Default: both module baselines.",
     )
     parser.add_argument(
         "--max-growth",
         type=int,
         default=0,
-        help="entries allowed to be added per run (default: 0)",
+        help="entries allowed to be added per file per run (default: 0)",
     )
     args = parser.parse_args()
 
-    baseline = Path(args.baseline)
+    # Both module baselines are ratcheted. This originally watched only
+    # `baseline-shared.xml`, which left `baseline-desktopApp.xml` free to grow
+    # unchecked — and it had already drifted from 3 entries to 32 before anyone
+    # noticed. A ratchet that watches one of the two files is a half-ratchet.
+    baselines = (
+        [Path(p) for p in args.baseline]
+        if args.baseline
+        else [
+            ROOT / "config" / "detekt" / "baseline-shared.xml",
+            ROOT / "config" / "detekt" / "baseline-desktopApp.xml",
+        ]
+    )
+    failed = False
+    for baseline in baselines:
+        if not check_one(baseline, args.max_growth):
+            failed = True
+    return 1 if failed else 0
+
+
+def check_one(baseline: Path, max_growth: int) -> bool:
     if not baseline.is_file():
         print(f"ERROR: baseline not found: {baseline}")
-        return 1
+        return False
 
     current_text = baseline.read_text(encoding="utf-8")
     current = count_entries(current_text)
 
     committed_text = git_show(baseline)
     if committed_text is None:
-        # First introduction of this baseline. Allow it, then ratchet from here.
         print(
-            f"check-baseline-ratchet: {baseline} is new in this branch "
+            f"check-baseline-ratchet: {baseline.name} is new in this branch "
             f"({current} entries) — ratcheting from this commit"
         )
-        return 0
+        return True
 
     committed = count_entries(committed_text)
     growth = current - committed
+    name = baseline.name
 
-    if growth > args.max_growth:
+    if growth > max_growth:
         added = sorted(entries(current_text) - entries(committed_text))
         print("")
         print(
-            f"check-baseline-ratchet: FAIL — {baseline} grew by {growth} "
-            f"entry(ies) ({committed} → {current})"
+            f"check-baseline-ratchet: FAIL — {name} grew by {growth} "
+            f"entry(ies) ({committed} -> {current})"
         )
         print("")
         print("Newly suppressed findings:")
         for item in added[:20]:
             print(f"  + {item}")
         if len(added) > 20:
-            print(f"  … and {len(added) - 20} more")
+            print(f"  ... and {len(added) - 20} more")
         print("")
         print("A baseline is a ratchet, not a place to park new debt. Either")
-        print("fix the finding, or — if the rule was just enabled and the")
-        print("pre-existing volume is genuinely being baselined on purpose —")
+        print("fix the finding, or -- if a rule was just enabled and the")
+        print("pre-existing volume is genuinely being baselined on purpose --")
         print("pass --max-growth N in a commit whose message says why.")
-        return 1
+        return False
 
     if growth < 0:
         print(
-            f"check-baseline-ratchet: OK — {baseline} shrank by {-growth} "
-            f"entry(ies) ({committed} → {current})"
+            f"check-baseline-ratchet: OK -- {name} shrank by {-growth} "
+            f"entry(ies) ({committed} -> {current})"
         )
     else:
-        print(
-            f"check-baseline-ratchet: OK — {baseline} unchanged "
-            f"({current} entries)"
-        )
-    return 0
+        print(f"check-baseline-ratchet: OK -- {name} unchanged ({current} entries)")
+    return True
 
 
 if __name__ == "__main__":

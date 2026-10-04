@@ -10,12 +10,10 @@ import kotlinx.datetime.toLocalDateTime
  * and used in JVM-only environments without [java.text.SimpleDateFormat].
  */
 
-/** Formats bytes into a human-readable string: "1.2 MB", "500 B", etc. */
-internal fun formatFileSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    else -> "%.1f MB".format(bytes.toDouble() / (1024 * 1024))
-}
+/**
+ * Delegates to the shared formatter. The local copy stopped at megabytes, so a
+ * 2 GB backup rendered as "2048.0 MB"; [formatFileSize] in `core.ui` handles GB.
+ */
 
 /** Formats an epoch-milliseconds instant into a local date-time string. */
 internal fun formatBackupDate(epochMillis: Long, zone: TimeZone): String {

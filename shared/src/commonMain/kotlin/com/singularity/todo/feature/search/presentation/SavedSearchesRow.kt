@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Horizontal row of saved search chips shown above search results.
@@ -149,7 +150,7 @@ private fun SavedSearchChipWithMenu(
                         }
                     }
                 },
-                onClick = { /* handled inside column */ },
+                onClick = noopClick,
                 leadingIcon = {},
             )
             DropdownMenuItem(

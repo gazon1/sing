@@ -2341,47 +2341,51 @@ too — leaving the mismatch in place is what produced the confusion.
 
 ---
 
-## empty-handler-lambdas-are-product-gaps-not-style
+## empty-handler-lambdas-were-previews-not-product-gaps-CORRECTED
 
-**Found in:** 2026-10-04, when `NoEmptyOnClickLambda` was made able to fire and
-reported 31 sites (12 in `shared`, 11 in `desktopApp`, rest in shared fakes).
+**Found in:** 2026-10-04 by `NoEmptyOnClickLambda`, which was made able to fire
+and reported 31 sites.
 
-**Symptom:** the rule is right and the sites are real. Sampled:
+**First claim, and why it was wrong.** I wrote that these were product gaps —
+"a dead back button and a dead Create backup button in BackupScreen, an
+unclickable TaskCard in ArchiveScreen" — and filed them as work to be wired. That
+was inferred from the finding *messages*, which name the composable, not from
+reading where the lambda actually sits. On reading the files:
 
-- `BackupScreen.kt:351` — `TopAppBar(navigationIcon = { IconButton(onClick = {}) })`.
-  The back button on the backup screen does nothing.
-- `BackupScreen.kt:370` — `Button(onClick = {})` labelled **"Create backup"**. The
-  primary action of the screen is inert.
-- `ArchiveScreen.kt:166` — `TaskCard(onClick = {})`. A task is rendered and cannot
-  be opened.
+- `BackupScreen.kt` — the production composable takes `onBack: () -> Unit` and
+  wires it: `IconButton(onClick = onBack, … testTag(BACKUP_TOP_BAR_BACK))`. The
+  "Create backup" and navigation buttons are wired to real handlers. The three
+  empty lambdas are inside `private fun BackupScreenContentPreview(state)`.
+- `ArchiveScreen.kt` — same: the production `LazyColumn` wires
+  `TaskCard(onClick = { navigator.navigate(TasksGraph(Detail(task.id.value))) })`.
+  The empty `onClick` is in the `ArchiveContentPreview` helper.
 
-These are not placeholders in a preview or a disabled state. They are production
-composables where a user can see an affordance and pressing it does nothing.
+**No live product defect was found.** Every one of the 12 `shared` findings is a
+preview helper, a test builder, or a documented-intentional case.
 
-**Deliberately not fixed in the 2026-10-04 cycle.** The cycle's scope was quality
-and debt, explicitly "no new product surface" (owner decision 2). Wiring a back
-navigation, a backup-creation flow and task-detail navigation from the archive is
-product work with its own design questions, not a lint cleanup. Suppressing them
-instead would be worse: the ratchet would then hold a permanent exemption for a
-known-broken button.
+**What was actually wrong, and is fixed in the same change:**
 
-**Try next, per screen rather than per site — the counts lie:**
+1. Preview functions are named `*Preview` and use the project's `PreviewThemed`
+   wrapper, but the ones holding empty lambdas carry **no `@Preview` annotation**.
+   `NoEmptyOnClickLambda.isPreviewContext` only recognises an `@Preview`
+   annotation, a `preview` filename, or a `/preview/` directory — so the rule
+   flagged the project's own previews. All 82 `@Preview` uses elsewhere show the
+   annotation is available and simply was not applied here.
+2. The prescribed migration was never followed: the rule's KDoc says preview code
+   should use `noopClick` from `core/ui/preview/PreviewSamples.kt`. That constant
+   exists and had zero uses at these sites.
 
-1. `BackupScreen`: is the screen reachable, and is "Create backup" meant to work?
-   If yes this is a missing use case call, not a missing UI. Check
-   `find-unwired-surfaces` first — it may already be reporting the use case.
-2. `ArchiveScreen` `TaskCard(onClick = {})`: the card renders `onClick` and ignores
-   it. Either drop the parameter from the call site or navigate. Decide which by
-   looking at whether archive is a read-only browser by design.
-3. `TaskMenuActions.Companion` and the two `*Test` entries: these are builders and
-   test doubles in `commonMain`. Replace `{}` with the shared `noopClick` constant
-   and the rule is satisfied honestly. Cheapest of the three.
+**Resolved 2026-10-04:** every preview / test-builder site now passes `noopClick`,
+and `DetailMetaChip`'s `onClick ?: {}` — which is a deliberate nullable API with
+the chip disabled when null, documented on the parameter — carries a
+`@Suppress("NoEmptyOnClickLambda")` explaining exactly that.
 
-Sweep the `{}` / `{ }` sites mechanically only after the first two are settled;
-each `onDismiss = {}` on a sheet is worth one look, because "this sheet cannot be
-dismissed" is occasionally intentional and occasionally a bug.
-
----
+**Lesson, which is the real content here:** a lint finding names a *symbol*, not
+a *situation*. I read "BackupScreen.kt" and "onClick" and constructed a product
+defect that did not exist, then wrote it down with a user-visible symptom
+attached. The cost of that mistake is a backlog entry that would have sent
+someone to "fix" already-working code. A finding whose remediation is product
+behaviour is exactly the kind that must be read in place before it is recorded.
 
 ## direct-dispatchers-mostly-sit-in-platform-ports-where-they-are-correct
 
@@ -2563,3 +2567,42 @@ The same trap bit `:shared:detektBaseline` three separate ways; see
 `detektbaseline-caches-its-output-and-cannot-drain`.
 5d740f0e (fix(detekt): three more rule/doc divergences, and what the baseline is really made of)
 435d5bcb (fix(detekt): three more rule/doc divergences, and what the baseline is really made of)
+
+---
+
+## epic-b-readability-now-unblocked-gates-work
+
+**Found in:** 2026-10-04, after the verifiability work. Recorded because the
+ordering argument for it changed, not because the items are new.
+
+**Why it is worth doing now.** For the whole first phase of this project the
+refactoring backlog was not a symptom of a bad design — it was a symptom of gates
+that never ran. `TestTagsWiringTest`, `ArchitectureTest`, `HarnessConventionTest`
+and the detekt rule tests all existed and none of them executed. Any
+readability refactor was therefore unfalsifiable: the diff passed because nothing
+checked it. That is no longer true — 1406 shared + 77 desktop tests, 90 rule
+tests, and `check-gate-wiring.py` / `check-rule-intent.py` all run in CI. A
+refactor now has somewhere to fail.
+
+**Size, measured rather than estimated:**
+
+| Item | Files | Note |
+|---|---|---|
+| B2 `TaskDetailDeps` split | 4 construction sites, **16 referencing files** | 25 ctor params vs a detekt limit of 8. Fields already group cleanly: task core / adjacent features / time+identity / AI / links+proposals / config. |
+| B3 decompose 4 composables | 4 files | `BackupScreen` 451, `TaskEditorContent` 270, `RecurrencePickerSheet` 225, `AiProviderSettingsScreen` 212. Only 4 `@Suppress("LongMethod")` exist, so most of this is *un-flagged*. |
+| B4 `testTask()` fixture | 0 uses today | Tasks are the largest feature (~11.8k LOC) and have no builder. |
+| B5 split `DesktopNavigation.kt` | 1 file, 510 lines, 29 helpers | Purely mechanical: `DesktopNavigation` / `DesktopAssertions` / `DesktopInteractions`. `TIMEOUT_MS` belongs with the wait helpers. |
+
+**Order that works:** B5 before any future work on the desktop harness, so the
+next change modifies the post-split file once. B3's `BackupScreen` is also where the
+`NoEmptyOnClickLambda` previews live, so decomposing it and the preview cleanup
+touch the same file — do them together. B2 is the only one with a real blast
+radius (16 files) and should be its own commit with the DI graph check
+(`:mcp-server:compileKotlin`) run after it.
+
+**Not done in the 2026-10-04 pass** — B1 landed instead (see
+`2026-10-04-…` for the formatter merge, which was self-contained). B2–B5 are
+recorded here rather than started, because a 16-file refactor that cannot be run
+to completion and verified leaves the tree worse than not starting it.
+fb90fbc7 (refactor(ui): merge four formatter copies, and correct a finding I misread)
+b911e804 (refactor(ui): merge four formatter copies, and correct a finding I misread)

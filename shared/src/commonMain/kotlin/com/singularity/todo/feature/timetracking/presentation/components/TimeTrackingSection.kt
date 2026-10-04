@@ -26,11 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.formatDuration
+import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
-import com.singularity.todo.feature.timetracking.presentation.components.formatDuration
-import com.singularity.todo.feature.timetracking.presentation.components.formatElapsed
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -224,25 +224,3 @@ private fun TimeEntryRow(entry: TimeEntry, modifier: Modifier = Modifier) {
     }
 }
 
-internal fun formatElapsed(elapsedMs: Long): String {
-    val totalSeconds = elapsedMs / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(Locale.US, "%d:%02d", minutes, seconds)
-    }
-}
-
-internal fun formatDuration(ms: Long): String {
-    val totalMinutes = ms / 1000 / 60
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return when {
-        hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
-        hours > 0 -> "${hours}h"
-        else -> "${minutes}m"
-    }
-}
