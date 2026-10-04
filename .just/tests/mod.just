@@ -64,6 +64,51 @@ clean:
     ./gradlew clean
 
 # ---------------------------------------------------------------------------
+# gate — the one command that means "the gates are green"
+#
+# Before this recipe, "I ran the gates" was a claim about which four commands
+# the speaker remembered. The gates existed; the set did not. Everything below
+# is already a gate somewhere else — this composes them and stops at the first
+# red, so a partial run cannot be mistaken for a full one.
+#
+# Each step prints its own banner, because a gate that fails silently halfway
+# through a 20-minute script is how a stale APK gets tested (see
+# maestro-gate-can-test-a-stale-apk).
+# ---------------------------------------------------------------------------
+
+[group('tests')]
+[doc('Run every gate in order: check.sh -> detekt -> coverage ratchet -> agenda flows (SKIP_MAESTRO=1 to skip flows)')]
+[working-directory(justfile_directory())]
+gate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    banner() { echo -e "\n\033[1;36m══ $* ══\033[0m\n"; }
+
+    banner "1/4 check.sh (tests + Android assemble + docs)"
+    SKIP_ADB={{SKIP_ADB}} ./check.sh
+
+    # check.sh runs detekt as its own step, so this is a no-op re-run on a warm
+    # build and a real check on a cold one. It is here because "I ran check.sh"
+    # is not the same claim as "I ran detekt" when the two ever drift apart.
+    banner "2/4 detekt"
+    ./scripts/check-detekt-registrations.sh
+    ./gradlew :shared:detekt :desktopApp:detekt
+
+    banner "3/4 coverage ratchet"
+    just coverage-ratchet
+
+    if [[ "${SKIP_MAESTRO:-0}" == "1" ]]; then
+        banner "4/4 agenda flows — SKIPPED (SKIP_MAESTRO=1)"
+        echo "Not run. A run without the flows does not gate the flows."
+        exit 0
+    fi
+
+    banner "4/4 agenda flows on device"
+    just gate-maestro agenda
+
+    banner "all gates green"
+
+# ---------------------------------------------------------------------------
 # Lint / static analysis
 # ktlint (formatting) is bundled via detekt-formatting plugin:
 #   - detekt    = logic, complexity, naming, style, performance

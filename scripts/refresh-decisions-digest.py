@@ -12,7 +12,14 @@ from pathlib import Path
 DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
-MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
+# Per-tag section cap, lowered 10 -> 8 on 2026-10-04. Every section is already
+# an index whose entries point one link away, and 32 tags x 2 lines is 64 lines
+# of digest that no reader scrolls to. The digest is not the ADR corpus.
+MAX_ITEMS_PER_TAG = 8
+MAX_BULLETS_PER_ADR = 6  # per-tag cap on bullets contributed by a single ADR, per
+# digest-line-limit-pressure item 1. MAX_ITEMS_PER_TAG bounds a *tag*, but one
+# verbose ADR tagged `always` can fill every slot in every tag section at once.
+# The digest is an index; the body is one link away.
 
 
 def main() -> None:
@@ -143,16 +150,22 @@ def main() -> None:
         seen: set[tuple[str, str]] = set()
         items = sorted(per_tag[tag])
         shown = 0
+        per_adr: dict[str, int] = {}
         for b, s in items:
             key = (b.lower(), s)
-            if key not in seen:
-                seen.add(key)
-                if shown < MAX_ITEMS_PER_TAG:
-                    out.append(f"- {b}")
-                    shown += 1
+            if key in seen:
+                continue
+            seen.add(key)
+            if per_adr.get(s, 0) >= MAX_BULLETS_PER_ADR:
+                continue
+            per_adr[s] = per_adr.get(s, 0) + 1
+            if shown < MAX_ITEMS_PER_TAG:
+                out.append(f"- {b}")
+                shown += 1
         total = len(seen)
-        if total > MAX_ITEMS_PER_TAG:
-            out.append(f"- _... and {total - MAX_ITEMS_PER_TAG} more items_")
+        omitted = total - shown
+        if omitted > 0:
+            out.append(f"- _... and {omitted} more items_")
         out.append("")
 
     out.append("## Open / Deferred")

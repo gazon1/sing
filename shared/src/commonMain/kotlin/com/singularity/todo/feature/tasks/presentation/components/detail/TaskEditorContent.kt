@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -286,6 +287,10 @@ fun TaskEditorContent(
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
+            // A DropdownMenu renders into its own window, so the app-root
+            // testTagsAsResourceId never reaches it and every testTag inside is
+            // invisible to Maestro. See Modifier.exposeTestTagsAsResourceId.
+            modifier = Modifier.exposeTestTagsAsResourceId(),
         ) {
             menuItems.forEach { item ->
                 DropdownMenuItem(
@@ -294,6 +299,9 @@ fun TaskEditorContent(
                         showMenu = false
                         item.onClick()
                     },
+                    modifier = Modifier
+                        .testTag(TestTags.taskAction(item.action))
+                        .exposeTestTagsAsResourceId(),
                 )
             }
         }
@@ -509,8 +517,8 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         onSetDependencies = null,
         bottomBar = null,
         menuItems = listOf(
-            TaskEditorMenuItem("Archive") {},
-            TaskEditorMenuItem("Delete") {},
+            TaskEditorMenuItem("Archive", "archive") {},
+            TaskEditorMenuItem("Delete", "delete") {},
         ),
         onBack = {},
     )
@@ -543,8 +551,8 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         onSetDependencies = {},
         bottomBar = null,
         menuItems = listOf(
-            TaskEditorMenuItem("Archive") {},
-            TaskEditorMenuItem("Delete") {},
+            TaskEditorMenuItem("Archive", "archive") {},
+            TaskEditorMenuItem("Delete", "delete") {},
         ),
         onBack = {},
     )

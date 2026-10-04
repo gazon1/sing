@@ -21,6 +21,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -225,6 +226,69 @@ class SavedAgendaViewModelTest {
         val saved = fakeRepo.getById(viewId.raw)
         assertNotNull(saved)
         assertEquals("Modified", saved.name)
+    }
+
+    /**
+     * The double-save guard, pinned.
+     *
+     * `Save` writes through a repository call, so a second tap while the first
+     * is in flight would write twice. Two things prevent it: `onSave` bails on
+     * `current.isSaving`, and `emitEditingState` — which every draft intent calls
+     * to publish a new state — carries `isSaving` forward from the state it
+     * replaces. Reverting the second one is enough to break the guard, because
+     * the button re-enables and the user's next Save is a second write.
+     *
+     * The map-backed fake cannot see that: a repeated upsert of the same row
+     * leaves the store identical. Hence the gate and the count.
+     */
+    @Test
+    fun anEditDuringAnInFlightSaveDoesNotReEnableTheSaveButton() = runTest {
+        val viewId = SavedAgendaViewId.generate()
+        fakeRepo.upsertSync(
+            SavedAgendaView(
+                id = viewId,
+                userId = UserId("test-user"),
+                name = "Original",
+                sectionsJson = """{"title":"Original","sections":[]}""",
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
+            ),
+        )
+
+        val writeStarted = CompletableDeferred<Unit>()
+        val releaseWrite = CompletableDeferred<Unit>()
+        fakeRepo.upsertGate = {
+            writeStarted.complete(Unit)
+            releaseWrite.await()
+        }
+
+        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
+        advanceUntilIdle()
+        vm.onIntent(SavedAgendaIntent.NameChanged("Modified"))
+        advanceUntilIdle()
+
+        vm.onIntent(SavedAgendaIntent.Save)
+        writeStarted.await()
+
+        // The save is parked inside the repository. The user keeps typing —
+        // every draft intent republishes state through emitEditingState.
+        vm.onIntent(SavedAgendaIntent.NameChanged("Modified again"))
+
+        val inFlight = vm.state.value
+        assertIs<SavedAgendaViewState.Editing>(inFlight)
+        assertTrue(
+            inFlight.isSaving,
+            "a draft edit re-enabled Save while a write was in flight, so the next tap writes twice",
+        )
+        assertFalse(inFlight.canSave, "the save button must stay disabled while the write is in flight")
+
+        // And the second Save really is dropped by the VM, not merely by the
+        // button being disabled.
+        vm.onIntent(SavedAgendaIntent.Save)
+        releaseWrite.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, fakeRepo.upsertCount, "Save wrote more than once for one user action")
     }
 
     @Test

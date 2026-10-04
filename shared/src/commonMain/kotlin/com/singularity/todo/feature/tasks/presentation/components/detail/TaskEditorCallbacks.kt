@@ -63,8 +63,20 @@ data class AttachmentsCallbacks(
     val onDelete: (AttachmentId) -> Unit,
 )
 
-/** A dropdown menu item for archive/delete actions in View mode. */
-data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit)
+/**
+ * A dropdown menu item for archive/delete actions in View mode.
+ *
+ * @param label   User-visible text. **Localised** — the app runs in Russian on
+ *                the test device, so this is not a stable selector.
+ * @param action  Stable, non-localised action id ("archive", "delete", ...).
+ *                This, not [label], is what the testTag is built from: a
+ *                tag derived from translated text changes with the device
+ *                locale, which is exactly the sort of selector that passes on
+ *                a developer machine and fails on a device set to anything
+ *                else. See `TestTags.taskAction`.
+ * @param onClick Invoked when the row is tapped.
+ */
+data class TaskEditorMenuItem(val label: String, val action: String, val onClick: () -> Unit)
 
 /**
  * All callbacks for [TaskEditorContent], grouped by attribute.

@@ -566,6 +566,7 @@ private fun buildDetailMenuItems(
     listOf(
         TaskEditorMenuItem(
             label = "Восстановить",
+            action = "restore",
             onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
         ),
     )
@@ -573,10 +574,12 @@ private fun buildDetailMenuItems(
     listOf(
         TaskEditorMenuItem(
             label = "Архивировать",
+            action = "archive",
             onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
         ),
         TaskEditorMenuItem(
             label = "Удалить",
+            action = "delete",
             onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
         ),
     )

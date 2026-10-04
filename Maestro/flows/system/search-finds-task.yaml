@@ -40,12 +40,12 @@ tags:
 # The task must appear in results.
 - extendedWaitUntil:
     visible:
-      id: task_item_unique_searchable_task_2026
+      id: task_item_uniquesearchabletask2026
     timeout: 8000
 
 # Clear the search and verify the task disappears from results.
 - eraseText
 - extendedWaitUntil:
     notVisible:
-      id: task_item_unique_searchable_task_2026
+      id: task_item_uniquesearchabletask2026
     timeout: 5000

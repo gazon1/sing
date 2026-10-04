@@ -55,6 +55,7 @@ alias tcheck := tests::check
 alias tclean := tests::clean
 alias tm     := tests::ui-maestro
 alias gm     := tests::gate-maestro
+alias gate   := tests::gate
 
 # ----- Lint shortcuts -----
 alias lint       := tests::lint

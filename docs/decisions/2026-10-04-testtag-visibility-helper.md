@@ -94,9 +94,80 @@ alternative is a class of bug that has now cost two debugging sessions.
   are declared and used; it cannot check that they resolve on a platform. A flow
   using a dialog id is now genuinely covered, but only when someone runs it.
 
+## Amendment, 2026-10-04: the audit that was never done
+
+The first application covered the shared surfaces. It did **not** sweep for
+window-owning surfaces that had not adopted the helper yet, and two were left:
+
+1. `CreateProfileDialog` (`ProfileSwitcherScreen.kt`) — its own `AlertDialog`
+   with a `testTag`'d confirm button and a `testTag`'d name field. The flow
+   `profile/02-isolation.yaml` selects **both** by id, so it was doubly
+   unreachable.
+2. `TaskEditorDiscardDialog` (`TaskEditorSheetHost.kt`) — a hand-rolled
+   duplicate of `DiscardChangesDialog` with **zero call sites**, invisible to
+   `find-unwired-surfaces.py` because that script skips `/components/`.
+
+The first was fixed. The second was deleted rather than tagged, on the
+principle already recorded in `log-export-has-no-surface`: a tested, tagged,
+never-invoked dialog is worse than no dialog, because the next reader assumes it
+is wired. `DiscardChangesDialog` already covers the use case and delegates to
+`ConfirmActionDialog`, so the tag path is preserved.
+
+**The lesson is about the sweep, not the two fixes.** Applying a fix to the
+surfaces you happen to be looking at leaves the same bug alive in the ones you
+are not. "I fixed the dialogs" was true and incomplete at the same time, and
+only a deliberate `grep Dialog.CONFIRM` over `commonMain` found the rest. Any
+future structural fix of this shape should start with that grep, not with the
+call stack of the failure.
+
+### Second sweep, same class, three more surfaces
+
+The first sweep was itself incomplete, which is the point. Running the `smoke`
+set for the first time found the same defect in a different window type:
+
+- **`TaskEditorContent.kt` — `DropdownMenu`.** Its rows carried **no
+  `testTag` at all**, and the menu had no exposure. Two independent reasons it
+  was unreachable, either of which alone was fatal.
+- **`TaskContextMenuSheet.kt` — `ModalBottomSheet`.** Correctly tagged
+  (`TASK_CONTEXT_MENU_SHEET`), rows correctly tagged via `taskAction(label)` —
+  and still invisible to Maestro, because the sheet had no exposure. Being
+  tagged is not the same as being *findable*.
+- **`SavedAgendaCard.kt`, `ViewModeDropdown.kt`** and any other `DropdownMenu`
+  in the tree: still unaudited. This is the residue of doing the sweep by hand
+  instead of by rule.
+
+The generalisation, and the reason this amendment is longer than the ADR it
+amends: **the class of bug is "window-owning surface", and `AlertDialog` is only
+one member of it.** `ModalBottomSheet`, `DropdownMenu`, `Popup` and context menus
+all qualify. A fix scoped to the type that happened to fail first will leave the
+others behind — twice over, as this entry now records.
+
+**What would have prevented both rounds:** a check that every
+window-owning composable applies `exposeTestTagsAsResourceId()`. That is a
+static, cheap, greppable property — an `AlertDialog(` / `ModalBottomSheet(` /
+`DropdownMenu(` whose subtree does not reach the helper — and it is the obvious
+next detector for `find-unwired-surfaces.py`, which already parses Kotlin and
+already owns this class of finding. It is not done; recording it here so the
+next person does not make the same sweep a third time by hand.
+
+The stale-flow finding from the same sweep is worth separating out, because it
+is a *different* defect with the same symptom. `profile/02-isolation.yaml` also
+waited for `id: saved_agenda_name_input` after tapping the profile-create
+button, while the dialog tags that field `profile_create_name_input`. Both ids
+are declared in `TestTags.kt`, so the registry check passed, the tag was
+"correct", and the flow could never have worked. A wrong-but-valid id is
+invisible to any check that only asks whether the tag exists.
+
 ## Links
 
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTagExposure.kt`
-- `core/ui/components/ConfirmActionDialog.kt`, `core/ui/components/sheet/ListPickerSheet.kt`
+- `core/ui/components/ConfirmActionDialog.kt`, `core/ui/components/sheet/ListPickerSheet.kt`,
+  `core/ui/components/sheet/MultiSelectSheet.kt`
+- `feature/profile/ProfileSwitcherScreen.kt` (create dialog),
+  `feature/tasks/presentation/components/TaskEditorSheetHost.kt` (host; dead dialog removed)
+- `feature/tasks/presentation/components/detail/TaskEditorContent.kt` (editor overflow menu),
+  `feature/tasks/presentation/contextmenu/TaskContextMenuSheet.kt` (long-press sheet)
 - `shell/MenuBottomSheet.kt`, `androidMain/.../AndroidShellNav3.kt`
 - `docs/plans/2026-10-04-mr6-retro-gate.md` — §7
+- `docs/decisions/deferred-backlog.md` — `dialog-testtags-do-not-reach-uiautomator`,
+  `overflow-menu-rows-were-tagged-with-a-nobody-reads-scheme`

@@ -259,6 +259,30 @@ run_one_flow() {
 for flow_file in "${FLOW_FILES[@]}"; do
     flow_name="$(basename "$flow_file" .yaml)"
     echo -e "\n=== $flow_name ==="
+    # Stop the app between flows. Flows share one app instance otherwise, and
+    # whatever the previous one left behind — a modal bottom sheet, a snackbar,
+    # a half-typed editor — is still on screen when the next one starts. The
+    # failure then looks like the next flow's bug when it is really the
+    # previous flow's residue: on 2026-10-04 ten `smoke` flows failed for
+    # exactly this reason, and the one that left the sheet open was not
+    # obviously the guilty one.
+    #
+    # `force-stop` rather than a data clear: clearing would destroy the seeded
+    # profile/task a flow depends on, and flows that need a clean slate say so
+    # themselves by running helpers/launch-clean.yaml.
+    #
+    # The app is then brought back up *without* clearing state, because
+    # DebugSeedActivity resolves its Koin graph from the running process —
+    # a deep link into a stopped app seeds nothing and the flow fails at the
+    # next assertion for a reason that has nothing to do with the flow. This is
+    # the same reasoning as helpers/relaunch.yaml, applied to every flow.
+    if device_alive; then
+        adb -s "$SERIAL" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
+        sleep 1
+        adb -s "$SERIAL" shell monkey -p "$APP_ID" \
+            -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+        sleep 2
+    fi
     if run_one_flow "$flow_file"; then
         PASSED+=("$flow_name")
     else

@@ -139,6 +139,7 @@ AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
 ## Сборка
 
 ```bash
+just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
 ./check.sh                    # тесты + Android
 ./gradlew :shared:jvmTest     # быстрая проверка
 ./gradlew :androidApp:assembleDebug   # Android
@@ -147,6 +148,8 @@ AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
 
 just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
+just gm agenda   # Maestro-гейт по тегу agenda (positional args, не agenda=x!)
+just cr          # coverage ratchet
 just detekt-baseline; just coverage; just tcheck; just tcheck-evals; just docs-audit
 ```
 
@@ -229,18 +232,11 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 `clean-architecture-audit` · `worktree-isolation` · `code-review-pr-workflow` ·
 `decisions-workflow` · `openspec-workflow` · `maestro-flows` · `emulator-launch` · `unwired-surface-audit`.
 
-> **Фича «готова», но ничего не делает** — самый частый дефект проекта: код
-> компилируется, покрыт тестами и **не вызывается никем**. Проверка:
-> `scripts/find-unwired-surfaces.py`. Подробности — скилл
-> `singularity-todo-unwired-surface-audit`.
+> **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется,
+> покрыт тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`.
 
-**Удалённые skill-ы** (информация в `docs/decisions/`): ~~`koin-suspend-bridge~~
-`2026-09-05-koin-suspend-bridge.md` · ~~`ai-provider-settings~~
-`2026-09-05-llm-provider-settings.md` · ~~`secret-migration~~
-`2026-09-05-secret-storage-split.md` · ~~`koog-test-workarounds~~
-`2026-09-05-koog-test-workarounds.md` · ~~`koog-both-platforms~~
-`2026-09-05-koog-both-platforms.md` · ~~`vm-koin-scoping~~
-`2026-09-27-vm-koin-scoping-retired.md`
+**Удалённые skill-ы:** `koin-suspend-bridge` · `ai-provider-settings` · `secret-migration` ·
+`koog-test-workarounds` · `koog-both-platforms` · `vm-koin-scoping` — см. ADR в `docs/decisions/`.
 
 ## Agent skills
 

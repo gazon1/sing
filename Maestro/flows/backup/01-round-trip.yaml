@@ -19,7 +19,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_backup_round_trip_task
+      id: task_item_backuproundtriptask
     timeout: 8000
 
 # 2. Open Settings and navigate to Backup.
@@ -75,7 +75,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     notVisible:
-      id: task_item_backup_round_trip_task
+      id: task_item_backuproundtriptask
     timeout: 5000
 
 # 6. Restore from backup.
@@ -117,5 +117,5 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_backup_round_trip_task
+      id: task_item_backuproundtriptask
     timeout: 8000

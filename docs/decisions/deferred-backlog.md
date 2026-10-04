@@ -260,13 +260,28 @@ obvious remedy and will either trim content (bad) or raise the limit (worse).
 digest is an index, the ADR body is one link away. That bought ~45 lines of
 headroom at 351 entries.
 
+**Further done (2026-10-04):** the gate was found **already red** — the digest
+sat at 1255 against a 1250 limit, and `AGENTS.md` at 253 against 250, both
+before this branch touched them. Two caps added to
+`refresh-decisions-digest.py`: `MAX_BULLETS_PER_ADR = 6` (this entry's item 1,
+which had been listed here since 2026-09-30 and never done) and
+`MAX_ITEMS_PER_TAG` 10 → 8. The omission counter was corrected too, because with
+a second cap in play the old `total - MAX_ITEMS_PER_TAG` formula no longer
+described what was on screen. Digest now **1204 / 1250**, ~46 lines of headroom.
+ADR: `2026-10-04-doc-size-budget-was-already-red.md`.
+
 **Try next, if the warning returns:**
 
-1. Cap the per-ADR bullet contribution the same way (first N bullets per slug,
-   then "_… and N more_").
-2. Only if that is insufficient, raise `MAX_DIGEST_LINES` with a comment
-   explaining why the index needs the room.
-3. Keep the existing discipline regardless: Consequences bullets are
+1. The caps are the first thing to turn, not the line count. Expect
+   `MAX_ITEMS_PER_TAG` → 7 before anyone considers `MAX_DIGEST_LINES`.
+2. Only when both caps are at their floor, raise `MAX_DIGEST_LINES` with a
+   comment explaining why the index needs the room.
+3. The structural fix, if the index ever outgrows this shape: stop indexing
+   consequences. "Active entries" (427 lines) and the per-tag sections (695)
+   restate the same 432 ADRs twice; title + tags + a one-line summary, with
+   consequences left in the bodies, would be a third of the size and lose
+   nothing a reader actually uses the digest for.
+4. Keep the existing discipline regardless: Consequences bullets are
    consequences; only **Always/Never** rules belong in the Critical section.
 
 ---
@@ -457,7 +472,12 @@ val sectionPrefill = section.prefill ?: return   // ← early return, prefill ==
 ```
 Ни один preset в `AgendaPresets` не задаёт `SectionPrefill`; `Section.prefill` всегда `null`. Тап на «+» silently no-op.
 
-**Status: OPEN.** Фиксируется в MR-1 (батч-фикс). SectionPrefill должен быть добавлен в `AgendaPresets.Inbox` и другие preset'ы (MR-6 контракт: `Section.effectiveId` → prefill-дате).
+**Status: RESOLVED** (MR-1, 2026-10-03). `AgendaPresets` now sets `prefill` on
+**13 sections** across every preset (`AgendaPresets.kt:42-202`): `Inbox`/
+`Today`/`Upcoming`/custom all carry a `SectionPrefill`, so the early return at
+`section.prefill ?: return` no longer fires. The prefill dates are
+`RelativeBucket` values, not constants — see `section-prefill-dynamic-date`
+below, which this fix depended on.
 
 **Try next:** добавить `prefill = SectionPrefill.Date` в каждую секцию Inbox/Today/Upcoming с `RelativeBucket`-compatible датой.
 
@@ -474,7 +494,27 @@ val sectionPrefill = section.prefill ?: return   // ← early return, prefill ==
 
 Копирование view в профиль показывает пользователю **ничего**.
 
-**Status: OPEN.** Фиксируется в MR-1: заменить `Notification.Text(…, null)` на `Notification.Undo` для copy и на `Notification.Snackbar`/`Notification.Undo` для task-saved.
+**Status: RESOLVED** (MR-1, 2026-10-03). All three sites were rewritten:
+
+1. `TaskDetailViewScreen.kt:86` — `is TaskDetailUiEvent.Saved → Notification.None`.
+   The screen already leaves the editor on save, so a message would be noise.
+2. `SavedAgendaListScreen.kt:82` — `CopySuccess` now shows a snackbar through
+   `snackbarHostState.showSnackbar("Copied to ${e.targetProfileName}")`, so the
+   user sees the profile the view landed in.
+3. `TaskDetailContent.kt` no longer exists; its event mapping moved into
+   `TaskDetailViewScreen.kt`.
+
+A sweep of production `commonMain` finds four remaining `Notification.Text`
+sites (`ArchiveScreen`, `NoteEditorNotifications`, `ProjectsScreen` ×2) and
+**all four pass a non-null `text`**, so none of them hits `ResultDialog`'s
+`if (text == null) return`.
+
+**Still latent (not a bug, a design hazard):** `NotificationHost.kt:72` still
+routes `Notification.Text` to `ResultDialog`, and `ResultDialog` still returns
+silently on a null text. Nothing produces that combination today, so there is
+nothing to fix — but the next person who writes `Notification.Text(title, null)`
+gets silence, not an error. A follow-up would make the routing total (route a
+null text to the snackbar host, or make the parameter non-null).
 
 ---
 
@@ -484,7 +524,25 @@ val sectionPrefill = section.prefill ?: return   // ← early return, prefill ==
 
 **Symptom:** `onIntent(NameChanged)` вызывает `emitEditingState()`, который делает `setState(Editing(..., isSaving = current.isSaving))`. Если `NameChanged` приходит во время in-flight `save` (пока `isSaving = true`), новый state перезаписывает `isSaving` в `false` — кнопка Save снова enabled, пользователь может нажать повторно и создать дубликат.
 
-**Status: OPEN.** Фиксируется в MR-1: `emitEditingState` должен сохранять `isSaving` из текущего state, или `NameChanged` не должен вызывать `emitEditingState` если `isSaving == true`.
+**Status: RESOLVED** (2026-10-04, with a pin test). The symptom above describes
+the guard as *absent*; the code already had both halves, and what was missing
+was anything proving it:
+
+- `SavedAgendaViewModel.emitEditingState()` (`:234`) reads `isSaving` off the
+  state it replaces and carries it forward — so no draft intent can clear it.
+- `onSave()` (`:247`) returns early on `current.isSaving`.
+
+Neither was pinned, and a map-backed fake cannot pin it either way: a second
+`upsert` of the same row leaves the store byte-identical, so the naive
+assertion passes whether the guard exists or not. `FakeSavedAgendaViewsRepository`
+gained an `upsertCount` counter and an `upsertGate` hook to hold a write open,
+and `SavedAgendaViewModelTest.anEditDuringAnInFlightSaveDoesNotReEnableTheSaveButton`
+parks a save inside the repository, fires a `NameChanged` at it, and asserts
+`isSaving` is still `true` and `upsertCount == 1`.
+
+Teeth verified 2026-10-04: reverting `isSaving = existingIsSaving` to a
+literal `false` turns the test red, which is the only way to know the test is
+about the guard rather than about the fake.
 
 ---
 
@@ -494,7 +552,16 @@ val sectionPrefill = section.prefill ?: return   // ← early return, prefill ==
 
 **Symptom:** `agenda_views` таблица (Room) не входит в `BackupPayload`. При restore из backup все saved views теряются. Также отсутствуют: `task_reminders`, `project_reminders`, `checklist_items`, `tag_groups`, `project_tag_groups`, `saved_searches`, `time_entries`, `profiles`.
 
-**Status: OPEN.** `agenda_views` фиксируется в MR-1 (backup SCHEMA_VERSION 2→3). Остальные 8 таблиц — отдельный backlog-issue.
+**Status: PARTIALLY RESOLVED** (MR-1, 2026-10-03). `agenda_views` is in the
+backup: `BackupPayload.agendaViews` (`:17`), `BackupExporter` reads it
+(`:37`, `:49`) and counts it in the manifest (`:65`), `BackupImporter` writes it
+back (`:120`), and `BackupFormat.kt:5` records the version bump.
+
+The other eight tables are untouched and remain a real gap: `task_reminders`,
+`project_reminders`, `checklist_items`, `tag_groups`, `project_tag_groups`,
+`saved_searches`, `time_entries`, `profiles`. Note the two profile tables are
+a *different* problem from the other seven — cross-profile restore needs a
+decision about which profile becomes active, not just a DTO.
 
 ---
 
@@ -542,7 +609,16 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 
 `SavedAgendaListViewModel` относится к agenda-views фиче и будет покрыт в MR-3.
 
-**Status: OPEN.** В скоупе MR-0/MR-3: `SavedAgendaListViewModelTest` + Konsist-правило «каждый VM имеет `*ViewModelTest`» (allowlist = 12 существующих, ratchet = новые падают). Остальные 11 — отдельный backlog-issue.
+**Status: RESOLVED** (2026-10-04). This entry and `vm-without-test` below were
+the same finding, written twice: this one names the plan, the other names the
+debt. It is kept as the historical record and is not the entry to read.
+
+What happened: `SavedAgendaListViewModelTest` was written (jvmTest, alongside
+`SavedAgendaViewModelTest` and `SavedAgendaViewsRepositoryImplTest`), and the
+Konsist idea was replaced by a cheaper JVM arch test,
+`ViewModelTestCoverageTest`, which fails on any ViewModel lacking a test unless
+it is in an explicit `KNOWN_UNCOVERED` allowlist. The remaining debt and the
+next VMs to drain are tracked in **`vm-without-test`**.
 
 ---
 
@@ -552,7 +628,19 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 
 **Symptom:** KDoc в `SelectorDescriptor.kt:16` и `SelectorMatcher.kt:25` говорит «All 13 Selector variants». Реальное количество: **14** (Selector.kt: 11 leaf + 3 composite). ADR `2026-09-17-selector-serializer-plain-kserializer.md:10` говорит «15 concrete subtypes» (тоже stale). Docs-decision `2026-10-01-post-mr-10-findings.md:75`, `post-mr-14-findings.md:117`, `post-mr-11-findings.md:63` упоминают `-PtestIncludes` — флаг **не существует** в build scripts (Gradle silently ignores unknown `-P` flags).
 
-**Status: OPEN.** Doc-only фикс, включается автоматически в MR-0: поправить KDoc и ADR.
+**Status: RESOLVED** (2026-10-04). The KDoc now says 14 in both places
+(`SelectorDescriptor.kt:16`, `SelectorMatcher.kt:25`), verified against
+`Selector.kt`, which declares 14 `data class`/`data object` variants. The ADR's
+"15 concrete subtypes" and the three `-PtestIncludes` references were stale doc
+claims, not live instructions: `grep -rn testIncludes` over the build scripts
+returns nothing, and the only remaining mention of the flag anywhere in `docs/`
+is the line quoted above.
+
+**Residue worth keeping in mind:** the count was wrong because it was a hand-
+maintained number in prose. The `SelectorTemplate` catalogue added in MR-6
+(`feature/agenda/domain/selector/SelectorTemplate.kt`) is the thing to point at
+instead — it is code, so a new variant shows up as a compile error at the
+catalogue rather than as a number that quietly goes stale.
 
 ---
 
@@ -574,7 +662,30 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 
 `Selector.Tags`, `Selector.Projects`, `Selector.Priorities`, `Selector.Regexp`, `Selector.DateRange` доступны в движке, но **не в UI**.
 
-**Status: OPEN.** Known gap. Тесты F-04…F-07 живут только на unit-уровне. Тест C-12 фиксирует факт: параметры селекторов не конфигурируются.
+**Status: RESOLVED** (2026-10-04). `SavedAgendaScreen.kt` gained
+`SelectorParameterSheet` (`:276`), which opens a `MultiSelectSheet` (`:291`)
+of live options for the selected template: tags, projects, priorities, status
+and date buckets. The engine types listed above — `Selector.Tags`,
+`Selector.Projects`, `Selector.Priorities`, `Selector.Regexp`,
+`Selector.DateRange` — are now reachable from the editor.
+
+Three things were worth getting right, and each is a trap the naive version
+falls into:
+
+1. **Option list = validation list.** The ids submitted are validated against
+   the same option list the picker showed. Rebuilding the list at submit time
+   produced an empty set, and `Selector.Tags(emptySet())` matches zero tasks —
+   a section that silently filters everything away, with no error anywhere.
+2. **Unresolvable selection returns `null`,** not an empty selector. A section
+   with no valid selection is not created.
+3. **Stale ids are dropped from the sheet,** so a tag deleted after the view was
+   saved does not leave an unselectable row.
+
+`MultiSelectSheet` exists because `ListPickerSheet` is single-select by
+contract — it calls `onDismiss()` on every tap — so widening it in place would
+have broken its other callers. ADR: `2026-10-04-multi-select-sheet.md`.
+Coverage: `SelectorTemplateTest` (common) plus
+`SavedAgendaSelectorConfiguratorFlowTest` (3 desktop flows).
 
 ---
 
@@ -591,10 +702,24 @@ which matches the AGENDA_SEED but not the actual date.
 
 **Ruled out:** Runtime `Clock` is not accessible from `object` initializer.
 
-**Fix:** Add `DueDateOption.Relative(RelativeBucket)` that defers date resolution to
-`todayFlow()` at render time; or make `AgendaPresets` a factory with `clock` parameter.
-**Do this first:** Check if `RelativeBucket` already has a `toDueDateOption(today: LocalDate)`
-extension — if so, the fix is a one-liner in `handleCreateInSection`.
+**Status: RESOLVED** (2026-10-04). Neither suggested fix was needed — the third
+one was. `SectionPrefill` gained a `relativeDueDate: RelativeBucket?` field
+alongside the old `dueDate`, so a preset stores a *rule* rather than a date, and
+the date is resolved at the moment the user taps «+»:
+
+- `AgendaDefinition.kt` — `SectionPrefill.relativeDueDate`
+- `Clock.kt` — `todayAt(clock, zone)`, the one place that turns an injected
+  `Clock` into a `LocalDate`
+- `AgendaViewModel.handleCreateInSection` resolves through the injected clock
+
+`AgendaPresets` stays an `object` with no constructor parameter, because the
+resolution happens at use, not at initialisation — which is exactly the point
+the "Ruled out" note above was circling.
+
+Pinned by `SavedAgendaEditFlowTest` — *"create in section prefills a due date
+relative to the injected clock"* — which drives the VM with a `FakeClock` set
+away from the host's real date. Teeth verified: restoring the hardcoded
+`LocalDate` constant turns it red.
 
 ---
 
@@ -736,17 +861,44 @@ becomes a resource-id. Confirmed against a captured hierarchy — the dialog's
 `resource-id=""`. The same pattern applies to `ModalBottomSheet` (see the
 MR-5 note about the profile picker selecting by label).
 
-**Fix (journey):** select dialog buttons by label. Done in
-`Maestro/flows/agenda/03-saved-views-crud.yaml`.
+**Fix (journey):** superseded — journeys 03 and 07 now select by `id:`
+again, because the structural fix below made the tag work.
 
-**Fix (structural, not done):** either apply
-`Modifier.semantics { testTagsAsResourceId = true }` inside each dialog/sheet
-surface, or have the flows select by label everywhere and stop pretending
-`TestTags.Dialog.*` is an Android selector.
+**Fix (structural): DONE** (2026-10-04). `Modifier.exposeTestTagsAsResourceId()`
+is an expect/actual helper (`core/ui/TestTagExposure.kt` + `.android.kt` +
+`.jvm.kt`; a no-op on JVM) applied **inside** each window-owning surface, so
+every tagged node in it reaches UIAutomator. Applied to `ConfirmActionDialog`,
+`ListPickerSheet`, `MultiSelectSheet`, `MenuBottomSheet` (MR-6) and, on
+2026-10-04, to `CreateProfileDialog` in `ProfileSwitcherScreen` — its confirm
+button *and* its name field, which the profile flow also selects by id.
 
-**Still latent:** `Maestro/flows/profile/02-isolation.yaml:49` taps
-`id: dialog_confirm` and has the same problem. It is outside the `agenda` tag,
-so no gate runs it — which is how it stayed broken.
+The "apply it at each call site" alternative was rejected deliberately: a
+`modifier` parameter is discipline, and discipline is what fails silently at
+3am. ADR: `2026-10-04-testtag-visibility-helper.md`.
+
+**The latent case is closed too.** `Maestro/flows/profile/02-isolation.yaml`
+tapped `id: dialog_confirm` and could not find it. The flow carried a *second*
+defect on top of that one, which is the more interesting find: it waited for
+`id: saved_agenda_name_input` after tapping the profile-create button, but
+`CreateProfileDialog` tags its field `profile_create_name_input`. Both the id
+and the tag existed in `TestTags.kt`, so every existing check passed while the
+flow could never have worked. Fixed by correcting the selector and exposing the
+dialog.
+
+**Why no gate caught it:** `MaestroFlowTagsTest` resolves each `id:` against
+the `TestTags.kt` registry, which proves the tag *exists* — not that the right
+element on the right screen carries it. A wrong-but-valid id is invisible to a
+registry check; only running the flow finds it. The flow was outside the
+`agenda` tag, and the new `maestro-smoke` CI job runs the `smoke` set, which
+this flow is part of. See `maestro-ci-job-unproven`.
+
+**Note for the next sweep:** `TaskEditorDiscardDialog` was a hand-rolled
+duplicate of `DiscardChangesDialog` with zero call sites, untagged for
+automation and invisible to `find-unwired-surfaces.py` (which skips
+`/components/`). It was deleted rather than fixed. `TaskEditorSheetHost` — the
+sheet host that *is* used by eight features — carries no `testTag` of its own
+today, so it needs no exposure yet; that will change the moment a sheet puts a
+tagged control inside it.
 
 ---
 
@@ -784,16 +936,25 @@ and only a *filtered* run has ever been exercised — a filtered agenda suite,
 OOM that motivated disabling it, and that OOM was itself misattributed
 (ledger #11 above: it reproduces with Kover off and in isolation).
 
-**Do this first:** one instrumented run of the full `:shared:jvmTest` with
-`/usr/bin/time -v` for peak RSS. If it completes, the default-off status in the
-kover block is dead and can be flipped.
+**Status: MEASURED — the premise was wrong, the entry stayed open anyway**
+(2026-10-04). The measurement this entry asks for was run: a full instrumented
+`:shared:jvmTest` (every test, no filter, `-Pkover.jvmTest=true`) completed in
+**9m27s** at **PEAK_RSS 125MB**, no OOM. Peak RSS is the number that matters
+here, and it is nowhere near a memory ceiling — the `gradlew` wrapper process is
+what the measurement covers, and the forked jvmTest JVM is a separate process.
 
-**Why it matters:** until then the flag is a workaround for a workaround, and
-the ratchet measures a filtered run by necessity rather than by design. It also
-blocks merging the desktopApp report, which is what would let the Compose
-subtrees come out of the exclusion in
-`config/coverage-ratchet.json`. See
-`2026-10-04-kover-jvmtest-instrumentation-opt-in.md`.
+So the OOM that motivated disabling instrumentation reproduces with Kover *off*
+and in isolation (ledger #11 in `2026-09-27-write-layer-soundness.md`), which
+means the flag was a workaround for a workaround. It stays opt-in anyway, for a
+reason that has nothing to do with safety: `check.sh` runs on every change, and
+instrumenting every test would add ~6 minutes to each of those runs.
+`config/coverage-ratchet.json` documents the measured numbers inline so nobody
+re-derives them.
+
+**Still open:** merging the `desktopApp` report into the Kover report, which is
+what would let the three Compose subtrees come out of the `excluded_subtrees`
+list. Their 71.51% → 33.18% cliff is currently explained away in a config note
+rather than measured, and a note is a promise, not a proof.
 
 ---
 
@@ -876,3 +1037,397 @@ Specifically unproven:
 **Do this first:** run the job once on a branch and read the log before trusting
 it. If the smoke set turns out to be slow or flaky, the `timeout-minutes: 45` and
 `MAESTRO_MAX_RETRIES=1` are the first knobs to turn.
+
+**Partly answered on the host, 2026-10-04.** The `smoke` set was run locally for
+the first time, so "does it pass at all" is no longer open — it did not, and the
+run found six real defects (see `maestro-flows-share-one-app-instance-so-failures-cascade`,
+`a-flow-can-be-unrunnable-and-every-check-still-pass`,
+`overflow-menu-rows-were-tagged-with-a-nobody-reads-scheme`,
+`a-testtag-built-from-a-localised-label-changes-with-device-locale`,
+`flows-select-by-localised-text-and-the-device-is-russian`). Four are fixed and
+verified on the device.
+
+**What this changes for the CI job:** the smoke set is *not* ready to be a
+blocking gate yet, and the reason is now known rather than unknown. `smoke` runs
+on a **Russian-locale** emulator here, which surfaced a class of defect no
+English-locale run would have found; CI's emulator will have its own locale, and
+until every flow selects by id rather than by translated text, "passes in CI" and
+"passes on the host" will disagree in ways neither run can explain.
+
+So the order matters: fix the remaining locale-dependent selectors first, then
+push the branch and read the log. Doing it the other way round spends the first
+CI run as a debugging session.
+
+Still unproven, and unchanged by any of the above:
+- `reactivecircus/android-emulator-runner` + `Maestro/scripts/wait-for-boot.sh`
+  actually booting and installing;
+- wall-clock cost of the `smoke` set;
+- whether `agenda` and `regression` fit in the same budget.
+
+---
+
+## an-open-backlog-entry-does-not-mean-the-work-is-still-open
+
+**Found in:** 2026-10-04, the first iteration of the "what next" sweep — while
+asking which recorded findings were still true, instead of which were still
+*written down*.
+
+Nine entries carried `Status: OPEN` and described work that had shipped. Not one
+had been closed: `is-saving-clobber` (the guard existed, nothing pinned it),
+`section-prefill-dynamic-date` (solved by a `relativeDueDate` field, a different
+fix from the two either-or options the entry offered), `agenda-section-add-button-noop`,
+`agenda-editor-no-selector-parameter-configuration`, `agenda-views-not-in-backup`
+(agenda_views only — eight tables really are still missing), `notification-text-null-invisible`,
+`docs-rot-agenda-selector-count`, `kover-full-jvmtest-run-unmeasured` (measured,
+entry left open), and `vm-without-unit-tests`, which was a **second entry for
+the same finding** that `vm-without-test` already tracked.
+
+Two of them were actively misleading rather than merely stale. The kover entry's
+"do this first" was a measurement nobody had run, and the flag it defended was a
+workaround for a workaround. The prefill entry offered two fixes, both wrong, and
+would have led the next person into a `Clock`-injection refactor of an `object`
+that never needed one.
+
+**Why this is the expensive failure mode:** an open entry reads as a live
+commitment, so the cost is not the stale text. It is that a backlog nobody
+trusts stops being read at all — and the findings were real when they were
+written. Nine of them were.
+
+**What catches it, and what does not.** Nothing in the toolchain did, because
+every gate here answers a different question: does this compile, does the
+feature have a test, is the tag in the registry. None of them asks *is this
+finding still true*. A status line is only as current as the last person who
+remembered to look.
+
+**Do this first, next time:** sweep the backlog as part of the retro-gate, not
+as a separate task later — the retro is the only moment when the session that
+made the change still knows what it changed. A status line written during the
+change costs nothing; the same line reconstructed a week later is archaeology.
+
+---
+
+## two-ci-gates-are-red-and-nothing-local-looks-at-them
+
+**Found in:** 2026-10-04, the "what next" sweep — while adding four lines to
+`AGENTS.md` and running `just docs-audit` to see whether they broke anything.
+
+Two blocking CI steps in `.github/workflows/ci.yml` are red, and **both were
+red before this branch touched anything**:
+
+1. `Check doc sizes` — `AGENTS.md` was 253 lines against a 250 limit at HEAD;
+   `DIGEST.md` was 1255 against 1250. Fixed here (ADR
+   `2026-10-04-doc-size-budget-was-already-red`).
+2. `Check dead doc references` — `check-doc-dead-refs.py` exits 1. Verified by
+   stashing this branch's work and re-running: identical findings at HEAD, so
+   none of them are ours. The live ones are `DEAD` references to files that do
+   not exist at all — `GLOSSARY.md` in five skills, `NOTES.md`, `package.json`,
+   `CLAUDE.md`, `CODING_STANDARDS.md` in `retro` — plus two `DRIFT` entries
+   (`AGENTS.md`, `PROGRESS.md` → `openspec/config.yaml`).
+
+**Why nobody noticed:** neither gate runs in `check.sh`, which is what every
+local loop uses. They fire only on push, and the push that broke them was a
+while back. The same shape as `maestro-gate-can-test-a-stale-apk`: a gate that
+only exists in one place is a gate whose failure nobody sees.
+
+**Do this first:** the dead-refs list is the cheap one — six skill files point
+at documents that were never created (`GLOSSARY.md` especially, referenced five
+times). Either write the files or drop the references; the skill docs are
+agent-facing, so a reference to a file that is not there is an agent going
+looking for something that does not exist. The two `openspec/config.yaml`
+DRIFT entries need the real path, which the script can report with `--strict`.
+
+**Then:** add both to `just gate` (`2026-10-04-one-gate-recipe.md`). They are
+fast, they are already CI, and this episode is the argument for putting every
+gate somewhere a local run will meet it.
+
+---
+
+## a-green-gate-only-proves-the-gates-you-ran
+
+**Found in:** 2026-10-04, the same sweep. Three separate gates were red, in
+three different ways, and each had been red for a different reason that made it
+invisible:
+
+- `check-doc-sizes` — over budget by 3 and 5 lines, from growth that no step
+  checks at the moment it happens.
+- `check-doc-dead-refs` — 12 dead references, from skills that point at
+  documents nobody wrote.
+- The Maestro `smoke` set — contains a flow that can never have passed (wrong
+  but valid id), and was run by no local command and by a CI job that has never
+  executed.
+
+None of these is a missing check. Every one of the checks exists, is wired, and
+would have failed. The common failure is **coverage of the gates themselves**:
+each one only ever ran on push, or only for one tag, or only in one directory.
+
+**The generalisable part:** a green result from a gate is a claim about the set
+of gates that ran, and nothing in a normal workflow makes that set explicit. The
+fix is always the same shape — name the set, in one place, and run all of it.
+`just gate` is that place for this repo.
+
+**Cost note, because this is a trap worth seeing:** the instinct on finding a
+red gate is to fix *only* the red one and move on, which is what happened for
+`check-doc-sizes` — the digest generator and `AGENTS.md` were trimmed, and the
+dead-refs gate next to it was left red on the grounds that it was "not this
+task". Fixing one gate while leaving its neighbour red is how a repo reaches a
+state where a single `CI is green` claim is worth nothing.
+
+---
+
+## maestro-flows-share-one-app-instance-so-failures-cascade
+
+**Found in:** 2026-10-04, the first ever local run of the `smoke` set — the
+set the new `maestro-smoke` CI job runs, which had never executed anywhere.
+
+**Result: 9 passed, 10 failed.** All ten failures were this one bug.
+
+`run-maestro.sh` ran every flow against **one long-lived app process**. Whatever
+a flow left on screen — a modal bottom sheet, a snackbar, a half-typed editor —
+was still there when the next flow started. The captured hierarchy for
+`tasks-date-buckets` shows why it looked like that flow's own bug: the tree
+underneath was a task overflow sheet reading "Архивировать / Удалить", put
+there by `tasks-archive-via-menu`. `nav_tab_today` was genuinely not visible,
+because a sheet was covering it.
+
+The corroborating detail: the nine flows that passed are exactly the nine that
+run `helpers/launch-clean.yaml` (which does `launchApp: clearState: true`); the
+ten that failed are exactly the ten that do not. `seed-task.yaml` runs it
+internally, which is why the flows that seed through it mostly recovered.
+
+**Why this survived so long:** the `agenda` tag — the only tag any gate ran —
+is 8 flows that all use `launch-clean`. The broken ones are spread across
+`smoke`, `tasks` and `system`, none of which had ever been run as a set.
+
+**Fix (harness):** `run-maestro.sh` now force-stops the app before each flow and
+relaunches it **without** clearing state. Both halves are load-bearing:
+
+- `force-stop` removes the residue. A data *clear* would be wrong — it would
+  destroy the seeded profile or task the flow under test depends on.
+- The relaunch is not optional. `DebugSeedActivity` resolves its Koin graph
+  from the running process (its own KDoc says "Requires the app to already be
+  running"), so a deep link into a stopped app seeds nothing and the flow fails
+  at the next assertion.
+
+**Two unrelated defects found in the same run**, both invisible to every
+existing check:
+
+1. `Maestro/flows/tasks/09-rename-empty.yaml` used `- longPress:`. The Maestro
+   command is `longPressOn` — `longPress` is not a command at all, so the flow
+   failed at *parse* time with "Invalid Command". `05-archive-via-menu.yaml`
+   uses the correct spelling three lines apart, which is why nobody noticed.
+2. `DebugSeedActivity` dispatches on a `when` whose first matching key wins, so
+   `todo-debug://seed?task=X&profile=Y` creates the task in the *current*
+   profile and silently ignores `profile=Y`. `profile/02-isolation.yaml` used
+   exactly that URL, so its task landed in Personal and the flow's isolation
+   assertion failed — while the test it was written to guard could not have
+   passed either way. Fixed by switching profiles explicitly, then seeding.
+
+**Do this first:** the harness fix covers every future run, but 22 of 58 flows
+still do not open with `launch-clean`, so each depends on the harness for
+isolation rather than declaring it. That is fine and is the cheaper default —
+but any flow that asserts "this does not exist" needs a clean start of its own,
+because a previous flow's data will otherwise satisfy or break the assertion by
+accident.
+
+---
+
+## a-flow-can-be-unrunnable-and-every-check-still-pass
+
+**Found in:** 2026-10-04, the same first `smoke` run. `profile/02-isolation.yaml`
+was the regression guard for profile isolation — the bug where all profiles
+shared one Room namespace. It could not have passed:
+
+- it waited for `id: saved_agenda_name_input` where the profile dialog tags its
+  field `profile_create_name_input`;
+- it tapped `id: dialog_confirm` inside an `AlertDialog` that never exposed its
+  testTags to UIAutomator;
+- it seeded with a URL whose `profile=` parameter was ignored.
+
+**All three defects passed every gate in the repository.** `MaestroFlowTagsTest`
+checks that ids are *declared in* `TestTags.kt` — both wrong and right ids are
+declared, so it saw nothing. `find-unwired-surfaces.py` does not parse flows. The
+desktop Compose tests assert on the semantics tree, where the tag works. And no
+gate ran the `smoke` tag at all, so nobody had watched it fail.
+
+**The generalisable point, and the reason it is worth a backlog entry:** a flow
+is a test that ships with no compiler. `longPress:` did not fail to compile — it
+failed at Maestro's parser, on a run that had never happened. Nothing in CI
+turns "the flow file exists" into "the flow was executed", so a file can sit in
+the repository for months carrying a typo, and its presence reads as coverage.
+
+This is the strongest argument yet for `maestro-ci-job-unproven` being the first
+thing to close: a Maestro job that actually runs is the only check in the
+repository that would have caught any of the three defects above.
+
+---
+
+## overflow-menu-rows-were-tagged-with-a-nobody-reads-scheme
+
+**Found in:** 2026-10-04, the second `smoke` run, chasing why
+`archive/01-restore.yaml` failed on `id: overflow_archive` *inside* a single flow
+— so not cascade residue, and therefore a real defect.
+
+**Symptom:** the flow taps `task_editor_more_menu` (that tag is real and applied,
+`TaskDetailTopBar.kt:56`), the editor's three-dot menu opens correctly, and then
+`overflow_archive` is not there. The captured hierarchy shows the menu rendering
+"Архивировать / Удалить" — a `DropdownMenu` with **no resource-id on any row**.
+
+**Two causes, either of which alone was fatal:**
+
+1. **The rows were never tagged at all.** `TaskEditorContent.kt:286` built its
+   `DropdownMenuItem`s with only `text` and `onClick`. No `Modifier.testTag`.
+2. **The `DropdownMenu` had no exposure.** Same structural defect as the dialogs
+   in `dialog-testtags-do-not-reach-uiautomator` — a `DropdownMenu` is its own
+   window and never inherits the app-root `testTagsAsResourceId`.
+
+**The naming trap, which is the real lesson.** The flows ask for
+`overflow_archive` because `TestTags.EditorOverflow.ARCHIVE` is *declared* with
+exactly that value. But that constant has **no call site**: the overflow rows
+are tagged through a different scheme entirely, `TestTags.taskAction(label)`,
+producing `task_action_archive`. The two schemes differ by one prefix, and the
+unused one is the one a test author finds first by reading `TestTags.kt`.
+
+`TestTagsWiringTest` knew. Its `knownUnapplied` allowlist already lists all five
+`EditorOverflow.*` constants with the reason "the overflow menu renders rows
+through `TestTags.taskAction(action)`, so this constant has no call site". So
+the registry, the wiring test and the flows disagreed, and the flows were the
+only ones nobody ran.
+
+**Fix:** rows now carry `TestTags.taskAction(item.label)`, and both the
+`DropdownMenu` and its items get `exposeTestTagsAsResourceId()`. Flows
+`archive/01-restore`, `tasks/04-delete` and `tasks/06-delete-undo` were
+repointed from `overflow_*` to `task_action_*`.
+
+**Left standing, deliberately:** the five dead `EditorOverflow.*` constants stay
+in the registry, because deleting them would make `MaestroFlowTagsTest` fail —
+correctly, but for the wrong reason. A flow written tomorrow would hit the same
+trap. The honest fix is to delete the constants *and* the flows' dependence on
+them in one change, which is what the allowlist entry has been asking for since
+`2026-09-30-testtag-registry-honesty`.
+
+**Do this first:** decide whether the editor overflow should be
+`EditorOverflow.ARCHIVE` or `taskAction("Archive")` — pick one, delete the
+other, and let the registry shrink. The cost of keeping both is precisely this
+class of bug, and it has now cost two debugging sessions.
+
+`TaskContextMenuSheet` was fixed in the same pass: it *is* tagged
+(`TASK_CONTEXT_MENU_SHEET`) and its rows do use `taskAction`, but the
+`ModalBottomSheet` had no exposure, so the tag was invisible on Android for the
+same structural reason.
+
+---
+
+## never-run-gradle-while-a-maestro-gate-is-running
+
+**Found in:** 2026-10-04, twice, in one session — the second time it destroyed
+the run it was supposed to be checking.
+
+**Symptom:** mid-suite, every flow started failing with
+`Package com.singularity.todo is not installed`. A concurrent
+`./gradlew :androidApp:installDebug` (or any task touching the same APK) had
+uninstalled the app as part of its own install cycle, and the 19-flow suite kept
+running against a device that no longer had the binary. 16 failures, none of
+them a regression.
+
+**Already known, in this session's own notes:** two Gradle runs in one project
+must not overlap. That was learned from `NoSuchFileException` on
+`in-progress-results-generic.bin`. It is equally true for the device, and the
+failure mode there is much worse: a Gradle build does not fail loudly, it
+quietly removes the app that a 20-minute gate is in the middle of exercising.
+
+**Why it is not caught:** `run-maestro.sh` has device-death detection for a
+*disconnected* emulator. An uninstalled package is a perfectly healthy device.
+The first flow to hit it reports "element not found", which is indistinguishable
+from a UI regression, so the retry logic re-runs the whole thing and fails again
+for the same reason.
+
+**Do this first:** treat a Maestro gate as owning the device. While one runs,
+no Gradle — not even `compileKotlinJvm`, which looks read-only and is not (it
+shares the daemon and the APK outputs). If something must be checked
+concurrently, run it on a second checkout or accept the serial wait; the whole
+point of a gate is that its result means something.
+
+---
+
+## a-testtag-built-from-a-localised-label-changes-with-device-locale
+
+**Found in:** 2026-10-04, the third `smoke` run — after the overflow rows were
+finally tagged, `tasks/04-delete` still could not find
+`id: task_action_delete`.
+
+**Symptom:** the tag was applied, the row was on screen, the assertion still
+failed. The captured hierarchy explains it: the emulator runs in **Russian**
+(`accessibilityText=Меню` on the overflow button, "Архивировать / Удалить" in
+the menu), and the tag was built as `TestTags.taskAction(item.label)`. With
+`label = "Удалить"` that produces `task_action_удалить`. The flow asked for
+`task_action_delete`.
+
+**Why nothing caught it:** every prior check reasons about the tag *string* —
+`TestTagsWiringTest` checks the constant is applied, `MaestroFlowTagsTest` checks
+the id is declared, and the desktop Compose tests read the semantics tree, where
+the value is whatever it is and nothing compares it to an expectation. The
+localised value is perfectly valid; it is simply not the one the flow wants.
+Only a run on a device with a non-English locale surfaces it — and this repo's
+device defaults to English, so the bug would have shipped.
+
+**Fix:** `TaskEditorMenuItem` gained a stable `action: String` ("archive",
+"delete", "restore"), and the tag is built from that. `label` stays localised
+and stays for the user. Every construction site passes both.
+
+**The generalisable rule, which is the reason this is a backlog entry rather
+than a one-line fix:** *a selector must never be derived from text a user can
+translate.* The failure is silent, locale-dependent, and invisible to every
+check that only asks whether a tag exists. The same applies to
+`TestTags.taskAction` anywhere else it is fed a UI string — `TaskContextMenuSheet`
+feeds it hardcoded English labels today, which works by luck of the current
+locale, not by design.
+
+**Do this first:** grep for `testTag(` calls built from a `.label`/`.text`/
+`.title` field and convert them to a stable id. `find-unwired-surfaces.py` is the
+natural home for a check here, alongside the window-owning-surface detector
+proposed in `2026-10-04-testtag-visibility-helper.md`.
+
+---
+
+## flows-select-by-localised-text-and-the-device-is-russian
+
+**Found in:** 2026-10-04, the third `smoke` run, immediately after
+`tasks/04-delete` was fixed — and the same root cause as
+`a-testtag-built-from-a-localised-label-changes-with-device-locale`, one level
+up.
+
+**Symptom:** `tasks/06-delete-undo.yaml` waits for `text: "Undo"` and taps it.
+The emulator is Russian, so the snackbar's action button reads "Отменить" and
+the flow can never pass. `archive/01-restore.yaml` and `tasks/04-delete.yaml`
+were fixed and pass on the same device — the difference is exactly whether the
+flow selects by **id** or by **text**.
+
+**Ruled out:** this is not a flow typo. `Notification.Undo` has a perfectly good
+stable `actionLabel` field, and the delete-undo feature itself works — a user on
+a Russian device gets a working Undo button. Only the *selector* is wrong.
+
+**Why it was never noticed:** the flows were written on an English device, and
+every flow that selects by text was therefore correct at the time it was
+written. The device locale is not part of any gate's inputs, so nothing
+re-checks it.
+
+**Fix, two options, and the second is better:**
+
+1. Change the flow to select the action by whatever text the device shows. This
+   makes the flow pass and teaches nothing — it is a flow that only works in one
+   locale, which is the bug restated.
+2. **Tag the snackbar action button** and select by id. `NotificationHost.kt:59`
+   calls `snackbarHostState.showSnackbar(actionLabel = …)`; the rendered button
+   belongs to Material3's `SnackbarHost` and cannot be tagged from the call
+   site, so this needs a small custom `SnackbarHost` (or wrapping the action in
+   one). That is the same shape as the `TaskEditorSheetHost` pattern already in
+   the codebase, and it is the only option that makes the selector locale-proof.
+
+**Do this first:** option 2, then sweep every flow for `text:` selectors and
+convert the ones naming user-visible chrome. `grep -rn "text:" Maestro/flows/`
+is the starting point; the ones worth converting are the labels that appear in
+more than one place, since those are the ones a translation will move.
+
+The general rule is now stated twice in this file, in two directions — once for
+tags built from localised labels in code, once for flows selecting localised
+text. Both are the same defect: **a selector that a translator can move.**
