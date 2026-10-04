@@ -78,11 +78,14 @@ gate-relaxation decision into a correctness fix.
   `Result.failure(CancellationException)` will now see the exception instead — that
   is the intended fix, but it is a behaviour change and the full suite was the
   check for it.
-- The 8 hand-rolled `catch (e: CancellationException)` blocks in `BackupImporter`,
-  `SyncEngine`, `SyncBootstrapper`, `ClusterNotesTool`, `ClusterTasksTool` and
-  `DraftMviViewModel` are now redundant with the helper. They were left in place
-  because removing them is a separate, smaller cleanup — see
-  `deferred-backlog.md`.
+- The 24 hand-rolled `catch (e: CancellationException) { throw e }` blocks in
+  `commonMain` are **not** redundant with the helper, and this ADR originally
+  claimed they were. Sampling them (`BackupImporter`, `SyncEngine`,
+  `SyncBootstrapper`, `RemoteConfigCacheRepositoryImpl`) shows each catch does real
+  work after rethrowing — logging with context, recording partial sync state, or
+  mapping to `AppError`. `runCatchingCancellable` returns a `Result<T>` and can do
+  none of that. They are correct code and should stay. A minority that only log
+  could use `.onFailure { }`, but that is an optimisation, not a defect.
 - **`NoRunCatchingInSuspend` is now `active: true` and the baseline holds zero
   entries for it.** Any new bare `runCatching` in a suspend function fails the build
   immediately, and the ratchet will not let the count come back.
