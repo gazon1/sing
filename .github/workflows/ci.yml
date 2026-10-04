@@ -1,5 +1,13 @@
 name: CI
 
+# Runner image is pinned to ubuntu-24.04 on purpose (2026-10-05). GitHub is migrating
+# the `ubuntu-latest` label to Ubuntu 26.04 between 2026-10-19 and 2026-11-19; the
+# warning is silenced by pinning, which is the mitigation the runner-images notice
+# recommends. 26.04 moves the kernel 6.17 -> 7.0 and systemd 255 -> 259, and the
+# Android assemble plus both emulator workflows are exactly the surface that would
+# notice. Reviving `ubuntu-latest` is a deliberate migration, not a cleanup — it will
+# not come back on its own. See docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.
+
 # Path filters widened 2026-10-05. They were `openspec/**`, the workflow file and one
 # script, so the job was skipped for almost every PR — including any PR that changed a
 # detekt rule or a gate script. Steps that only run on 2 of 30 PRs are decoration.
@@ -45,14 +53,14 @@ on:
 
 jobs:
   test-and-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       # read actions so the flake step can download the previous run's results;
       # write contents is not needed and not granted.
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Strict freshness stamp: on a fresh checkout every test task runs, so results
       # that predate it cannot belong to this run. check.sh uses the tolerant
@@ -61,13 +69,13 @@ jobs:
         run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: 21
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # The configuration cache store lives in the PROJECT .gradle/ directory,
       # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
@@ -101,7 +109,7 @@ jobs:
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -175,7 +183,7 @@ jobs:
       # report is browsable; the JUnit XML is what tooling parses.
       - name: Upload shared test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: shared-test-reports-${{ github.run_id }}
           path: |
@@ -186,7 +194,7 @@ jobs:
 
       - name: Upload desktop test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-test-reports-${{ github.run_id }}
           path: |
@@ -197,7 +205,7 @@ jobs:
 
       - name: Upload desktop failure bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-failure-bundle-${{ github.run_id }}
           path: desktopApp/build/diagnostics/**
@@ -206,7 +214,7 @@ jobs:
 
       - name: Upload shared failure bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: shared-failure-bundle-${{ github.run_id }}
           path: shared/build/diagnostics/**
@@ -398,18 +406,18 @@ jobs:
           retention-days: 7
 
   kover-report:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: 21
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # The configuration cache store lives in the PROJECT .gradle/ directory,
       # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
@@ -457,7 +465,7 @@ jobs:
         run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
 
       - name: Upload kover XML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kover-report
           # Kover 0.9 names this report.xml, and since the move to settings-level
@@ -469,10 +477,10 @@ jobs:
           if-no-files-found: error
 
   openspec-validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: "contains(github.event.head_commit.message, 'openspec') || contains(github.event.pull_request.title, 'openspec') || github.event_name == 'push' || github.event_name == 'pull_request'"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Node.js
         run: node --version
       - name: OpenSpec stale check (advisory)
@@ -481,18 +489,18 @@ jobs:
         run: npx @fission-ai/openspec validate --all --json --strict
 
   mcp-server-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: 21
           distribution: "zulu"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # The configuration cache store lives in the PROJECT .gradle/ directory,
       # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
