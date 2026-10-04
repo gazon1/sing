@@ -187,6 +187,14 @@ kotlin {
 
             // Koog OkHttp HTTP backend — needed by Android actual of createKoogPromptExecutor
             implementation(libs.koog.http.client.okhttp)
+
+            // AppTracer — crash / ANR / non-fatal reporting. Android-only, so the
+            // JVM source set has no equivalent. Repeated from
+            // androidApp/build.gradle.kts on purpose: that module implements
+            // HasTracerConfiguration, and this module's `implementation`
+            // dependencies are not visible to it at compile time.
+            // See docs/decisions/2026-10-04-apptracer-integration.md
+            implementation(libs.tracer.crash.report)
         }
 
         jvmMain.dependencies {

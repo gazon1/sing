@@ -25,6 +25,16 @@ import kotlin.time.Instant
 private const val TAG = "FileLogWriter"
 
 /**
+ * How many rolling log files are retained (4 × 2 MB ≈ 8 MB by default).
+ *
+ * Internal rather than private so [LogBundleExporter] can size its bundle from the same
+ * constant. It used to hardcode its own `4`, and the two drifted silently: raising the
+ * writer's count would leave the exporter iterating the old range, so a shared log bundle
+ * would quietly drop the oldest rotated files with no error anywhere.
+ */
+internal const val LOG_FILE_COUNT = 4
+
+/**
  * A [LogWriter] that persists logs to rolling files under [logDirectory].
  *
  * - Rolls over at [fileSizeLimit] into up to [fileCount] files (default: 4 × 2 MB).
@@ -44,7 +54,7 @@ class FileLogWriter(
     val logDirectory: Path,
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
     private val fileSizeLimit: Long = DEFAULT_FILE_SIZE_LIMIT,
-    private val fileCount: Int = DEFAULT_FILE_COUNT,
+    private val fileCount: Int = LOG_FILE_COUNT,
 ) : LogWriter() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
@@ -54,6 +64,13 @@ class FileLogWriter(
 
     @Volatile
     private var shuttingDown = false
+
+    /**
+     * Re-entrancy guard for the write-failure path, which logs through Kermit and
+     * therefore re-enters [log] on the single worker thread. See [write].
+     */
+    @Volatile
+    private var writingFailure = false
 
     init {
         fileSystem.createDirectories(logDirectory)
@@ -99,7 +116,18 @@ class FileLogWriter(
             }
         }.onFailure { e ->
             // Do not crash the app when disk is full — log the failure and continue.
-            co.touchlab.kermit.Logger.e(TAG) { "Failed to write log entry: ${e.message}" }
+            // This runs ON the limitedParallelism(1) worker, so the Kermit call below
+            // re-enters log() from that same worker. Were `shuttingDown` set, log()
+            // would runBlocking-join a coroutine that can never be scheduled, since the
+            // only thread that could run it is the one now blocked: a permanent deadlock
+            // surfacing as an ANR at process exit. Suppress the re-entry instead.
+            if (writingFailure) return@onFailure
+            writingFailure = true
+            try {
+                co.touchlab.kermit.Logger.e(TAG) { "Failed to write log entry: ${e.message}" }
+            } finally {
+                writingFailure = false
+            }
         }
     }
 
@@ -116,7 +144,6 @@ class FileLogWriter(
 
     private companion object {
         const val DEFAULT_FILE_SIZE_LIMIT = 2L * 1024 * 1024
-        const val DEFAULT_FILE_COUNT = 4
         const val DRAIN_TIMEOUT_MS = 2_000L
 
         private const val MAX_TAG_LENGTH = 23

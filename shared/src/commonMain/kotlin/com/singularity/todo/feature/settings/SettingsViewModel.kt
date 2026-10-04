@@ -2,13 +2,15 @@ package com.singularity.todo.feature.settings
 
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
@@ -46,9 +48,11 @@ class SettingsViewModel(
     private val fileRevealer: FileRevealer,
     private val logBundleExporter: LogBundleExporter,
     private val fileSharePort: FileSharePort,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<SettingsUiState.Content, SettingsIntent, Nothing>(
         initialState = SettingsUiState.Content(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

@@ -21,6 +21,8 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
+import com.singularity.todo.core.observability.AndroidCrashReportingPort
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
@@ -190,6 +192,8 @@ actual fun platformModule(): Module = module {
     single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
+
+    single<CrashReportingPort> { AndroidCrashReportingPort(get()) }
 
     single<String> { get<Context>().filesDir.absolutePath + "/backups" }
 

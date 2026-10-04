@@ -50,7 +50,7 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { NotesListViewModel(repo = get()) }
+    viewModel { NotesListViewModel(repo = get(), crashReporter = get()) }
 
     // NoteEditor: ai is optional — improveNote is null when AI is not configured
     // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
@@ -87,6 +87,7 @@ fun notesModule(): org.koin.core.module.Module = module {
         NotePreview(
             repo = get(),
             linkRepo = get(),
+            crashReporter = get(),
         )
     }
 }

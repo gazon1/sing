@@ -169,7 +169,9 @@ detekt:
     ./scripts/check-detekt-registrations.sh
     # :detekt-rules is the module that enforces the project's rules, so it is
     # subject to them too — a `var` on a Rule instance had nothing checking it.
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt
+    # :androidApp is here because it was never linted at all: its source set
+    # pointed at a directory that does not exist, and this recipe never named it.
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt
 
 [group('lint')]
 [doc('Auto-fix detekt style rules + ktlint formatting violations')]
@@ -178,7 +180,7 @@ detekt-fix:
     #!/bin/bash
     set -euo pipefail
     # detekt 2.x merges formatting into the main task with autoCorrect=true in ktlint config
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt --auto-correct
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt --auto-correct
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
@@ -186,7 +188,7 @@ detekt-fix:
 detekt-baseline:
     #!/bin/bash
     set -euo pipefail
-    ./gw :shared:detektBaseline :desktopApp:detektBaseline
+    ./gw :shared:detektBaseline :desktopApp:detektBaseline :androidApp:detektBaseline
 
 [group('lint')]
 [doc('Alias for detekt (lint = detekt in this project)')]

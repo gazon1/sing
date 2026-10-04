@@ -3,6 +3,8 @@ package com.singularity.todo.feature.attachments
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -31,9 +33,11 @@ sealed interface AttachmentsIntent : MviIntent {
  */
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AttachmentsUiState, AttachmentsIntent, AttachmentsUiEvent>(
         initialState = AttachmentsUiState.Idle,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

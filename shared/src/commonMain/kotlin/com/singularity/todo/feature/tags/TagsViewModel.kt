@@ -4,6 +4,8 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -64,9 +66,11 @@ class TagsViewModel(
     private val createTag: CreateTagUseCase,
     private val updateTag: UpdateTagUseCase,
     private val currentUser: ProfileAwareCurrentUser,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
         initialState = TagsUiState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

@@ -4,12 +4,14 @@ package com.singularity.todo.feature.profile
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
 
 data class ProfileSwitcherUiState(
     val profiles: List<Profile> = emptyList(),
@@ -29,9 +31,11 @@ data class ProfileSwitcherUiState(
  */
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProfileSwitcherUiState, ProfileSwitcherIntent, Nothing>(
         initialState = ProfileSwitcherUiState(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
     private val log = Logger.withTag("ProfileSwitcherViewModel")

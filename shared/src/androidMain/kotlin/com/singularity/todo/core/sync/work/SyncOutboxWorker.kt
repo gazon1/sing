@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.sync.PushSummary
 import kotlinx.coroutines.CancellationException
 import com.singularity.todo.core.sync.SyncEngine
@@ -28,6 +29,7 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
 
     private val syncEngine: SyncEngine by inject()
     private val log = Logger.withTag("SyncOutboxWorker")
+    private val crashReporter: CrashReportingPort by inject()
 
     override suspend fun doWork(): Result = try {
         val pushResult = syncEngine.push()
@@ -46,6 +48,7 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
             },
             onFailure = { e ->
                 log.e(e) { "Push work failed" }
+                crashReporter.report(e, "sync.worker_failed")
                 if (runAttemptCount < MAX_ATTEMPTS) {
                     Result.retry()
                 } else {
@@ -57,6 +60,7 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
         throw e
     } catch (e: Exception) {
         log.e(e) { "Push work failed" }
+        crashReporter.report(e, "sync.worker_failed")
         if (runAttemptCount < MAX_ATTEMPTS) {
             Result.retry()
         } else {

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.alarms.AlarmContract
@@ -59,6 +60,7 @@ class AlarmReceiver :
     private val reminderScheduler: ReminderScheduler by inject()
     private val clock: Clock by inject()
     private val syncRepository: SyncRepository by inject()
+    private val crashReporter: CrashReportingPort by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         // Defensive: ensure Koin is initialized before injecting dependencies.
@@ -72,7 +74,10 @@ class AlarmReceiver :
         val scope = CoroutineScope(
             Dispatchers.IO +
                 SupervisorJob() +
-                CoroutineExceptionHandler { _, e -> log.e(e) { "AlarmReceiver failed" } },
+                CoroutineExceptionHandler { _, e ->
+                    log.e(e) { "AlarmReceiver failed" }
+                    crashReporter.report(e, "alarm.receiver_failed")
+                },
         )
         scope.launch {
             try {

@@ -19,6 +19,7 @@ actual fun initLogging(isDebug: Boolean, version: String, logDirectory: Path) {
         RedactingLogWriter(ColorizedWriter()),
         RedactingLogWriter(fileWriter),
     )
+    registerFileLogWriter(fileWriter)
     logStartup(version, isDebug)
 
     // Register shutdown hook to flush log buffers before exit.

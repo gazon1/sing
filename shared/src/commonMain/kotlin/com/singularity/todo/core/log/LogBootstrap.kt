@@ -26,6 +26,32 @@ import okio.Path
  */
 expect fun initLogging(isDebug: Boolean, version: String, logDirectory: Path)
 
+/**
+ * The file writer installed by the most recent [initLogging], or `null` if logging was never
+ * initialised. Held here rather than returned to the caller so the Kermit type stays inside
+ * this module: `FileLogWriter` extends Kermit's `LogWriter`, and `androidApp` does not have
+ * Kermit on its compile classpath, so naming the type there would not compile.
+ */
+private var activeFileLogWriter: FileLogWriter? = null
+
+/** Called by each platform's [initLogging] once it has built its writer. */
+internal fun registerFileLogWriter(writer: FileLogWriter) {
+    activeFileLogWriter = writer
+}
+
+/**
+ * Drains the rolling log file, so entries already handed to the writer reach disk.
+ *
+ * Android never calls `Application.onTerminate`, so nothing drains the writer when the OS
+ * kills the process. An uncaught-exception handler calls this to recover the last few
+ * lines — the operations immediately before the crash.
+ *
+ * Safe to call before [initLogging] and safe to call more than once; a no-op in both cases.
+ */
+fun flushLogs() {
+    runCatching { activeFileLogWriter?.beginShutdown() }
+}
+
 /** Internal helper — applies severity to the global [Logger]. */
 internal fun applyGlobalSeverity(isDebug: Boolean) {
     Logger.setMinSeverity(if (isDebug) Severity.Verbose else Severity.Warn)

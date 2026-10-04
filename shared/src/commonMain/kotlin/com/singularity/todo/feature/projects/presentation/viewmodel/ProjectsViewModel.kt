@@ -4,6 +4,8 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
@@ -53,9 +55,11 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
         initialState = ProjectsUiState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

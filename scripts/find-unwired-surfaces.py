@@ -499,6 +499,13 @@ def _check_orphan_binding(
         # Wired in CoreDiModule.kt; no production call site exists yet.
         "Analytics",
         "NoopAnalytics",
+        # Crash reporting — NoOpCrashReportingPort is the default value of
+        # MviViewModel's `crashReporter` parameter, so it is reached through a
+        # default rather than a call site, which the static scan cannot follow.
+        # JvmCrashReportingPort is the JVM binding and is genuinely inert by design:
+        # AppTracer is Android-only and desktop keeps its Kermit file log.
+        "NoOpCrashReportingPort",
+        "JvmCrashReportingPort",
         # Billing — NoopSubscriptionProvider is the safe stub until a real SDK is wired.
         # No production call site exists yet.
         "SubscriptionProvider",

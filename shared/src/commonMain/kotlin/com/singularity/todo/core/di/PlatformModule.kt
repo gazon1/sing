@@ -9,6 +9,7 @@ import org.koin.core.module.Module
  * - [com.singularity.todo.core.notifications.NotificationPort]
  * - [com.singularity.todo.core.files.FileSystem]
  * - [com.singularity.todo.core.backup.BackupCodec]
+ * - [com.singularity.todo.core.observability.CrashReportingPort]
  * - [ai.koog.prompt.executor.model.PromptExecutor]
  * - [androidx.datastore.core.DataStore] — Android: Preferences DataStore; JVM: FileDataStore
  */

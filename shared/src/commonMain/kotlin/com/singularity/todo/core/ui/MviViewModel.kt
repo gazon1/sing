@@ -2,8 +2,11 @@ package com.singularity.todo.core.ui
 
 import androidx.lifecycle.ViewModel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -55,10 +58,15 @@ import kotlinx.coroutines.launch
  * @param initialState The initial UI state.
  * @param extraEventCapacity Extra buffer capacity for the event [Channel]. Defaults to [Channel.BUFFERED].
  * @param scope Coroutine scope for collecting flows and launching background work.
+ * @param crashReporter Sink for the failures that pass through [catchTo]. Defaults to a
+ *   no-op, so a ViewModel built in a test is silent and nothing reaches for a global —
+ *   but a ViewModel that handles real errors should pass the injected port instead of
+ *   inheriting the default. See [NoOpCrashReportingPort].
  */
 abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     initialState: S,
     extraEventCapacity: Int = Channel.BUFFERED,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : ViewModel() {
 
@@ -124,14 +132,40 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      *
      * Use when the failure lands in state (`catchTo(label, { msg -> updateState { … } })`).
      * For the one-shot-event case prefer [emitError].
+     *
+     * Every failure that passes through here is also reported to [crashReporter] before
+     * [onError] runs, so ordering is fixed: a breadcrumb the error path emits cannot be
+     * recorded ahead of the event it relates to. [CancellationException] never arrives —
+     * [runCatchingCancellable] re-throws it before the fold — so a cancelled coroutine is
+     * never mistaken for a defect.
      */
     protected fun catchTo(errorLabel: String, onError: suspend (String) -> Unit, block: suspend () -> Result<*>): Job =
         vmScope.launch {
             runCatchingCancellable { block() }.fold(
-                onSuccess = { result -> result.onFailure { onError(it.toMessage(errorLabel)) } },
-                onFailure = { e -> onError(e.toMessage(errorLabel)) },
+                onSuccess = { result ->
+                    result.onFailure {
+                        crashReporter.report(error = it, issueKey = issueKeyFor(it, errorLabel))
+                        onError(it.toMessage(errorLabel))
+                    }
+                },
+                onFailure = { e ->
+                    crashReporter.report(error = e, issueKey = issueKeyFor(e, errorLabel))
+                    onError(e.toMessage(errorLabel))
+                },
             )
         }
+
+    /**
+     * The grouping key for a reported failure: the error's domain code when it has one,
+     * otherwise the call-site [errorLabel].
+     *
+     * Both inputs are machine-shaped by construction — codes are literals like
+     * `error.not_found`, labels are fixed strings at the call site — so the key never
+     * carries user content off-device. The label fallback is what keeps plain
+     * `IllegalArgumentException`s and driver exceptions groupable at all.
+     */
+    private fun issueKeyFor(error: Throwable, errorLabel: String): String =
+        (error as? AppError)?.code ?: errorLabel
 
     /** [catchTo] for the common case: a failure becomes a one-shot [E] built from the message. */
     protected fun emitError(errorLabel: String, errorEvent: (String) -> E, block: suspend () -> Result<*>): Job =

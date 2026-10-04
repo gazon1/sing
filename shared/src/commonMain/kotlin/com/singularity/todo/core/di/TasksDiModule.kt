@@ -183,6 +183,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
             savedSearchRepo = get(),
             taskRepo = get(),
             clock = get(),
+            crashReporter = get(),
         )
     }
 }

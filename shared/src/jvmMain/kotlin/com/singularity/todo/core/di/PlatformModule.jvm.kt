@@ -20,6 +20,8 @@ import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -137,6 +139,10 @@ actual fun platformModule(): Module = module {
     single<FileSharePort> { JvmFileSharePort() }
 
     single<BackupCodec> { JvmBackupCodec() }
+
+    // NoOp on JVM — the definition must exist even though it is inert, or
+    // injection throws inside composition and Compose retries every frame.
+    single<CrashReportingPort> { JvmCrashReportingPort() }
 
     single<String> { userHome + "/.singularity-todo/backups" }
 

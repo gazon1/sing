@@ -1,6 +1,8 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.notes.Note
@@ -38,6 +40,7 @@ internal class SyncBootstrapper(
     private val tagGroupRepo: TagGroupRepository,
     private val timeTrackingRepo: TimeTrackingRepository,
     private val log: Logger = Logger.withTag("SyncBootstrapper"),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     init {
         registerHandlers()
@@ -161,6 +164,7 @@ internal class SyncBootstrapper(
             throw e
         } catch (e: Throwable) {
             log.e(e) { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: apply failed" }
+            crashReporter.report(e, "sync.apply_failed")
             ApplyOutcome.Conflict("Apply failed: ${e.message ?: e::class.simpleName}")
         }
     }

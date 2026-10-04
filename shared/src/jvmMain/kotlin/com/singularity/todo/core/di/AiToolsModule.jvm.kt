@@ -127,7 +127,7 @@ actual fun aiToolsModule(): Module = module {
 
     viewModel { ChatViewModel(Logger.withTag("ChatViewModel"), get(), get()) }
     viewModel { AiUsageViewModel(get(), get()) }
-    viewModel { ProfileSwitcherViewModel(get()) }
+    viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get()) }
 
     // ─── GenUI ───
 
@@ -253,6 +253,7 @@ actual fun aiToolsModule(): Module = module {
             taskRepository = get<TaskRepository>(),
             projectReview = getOrNull(),
             deleteProject = get<DeleteProjectUseCase>(),
+            crashReporter = get(),
         )
     }
 

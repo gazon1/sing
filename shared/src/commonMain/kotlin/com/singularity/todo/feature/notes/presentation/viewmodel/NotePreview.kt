@@ -2,6 +2,8 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
@@ -9,11 +11,11 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.CancellationException
 
 /**
  * Read-only ViewModel for the NotePreview (view) screen.
@@ -24,9 +26,11 @@ import kotlinx.coroutines.CancellationException
 class NotePreview(
     private val repo: NotesRepository,
     private val linkRepo: InternalLinkRepository,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<NotePreviewState, NotePreviewIntent, NotesUiEvent>(
         initialState = NotePreviewState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
     private val logger = Logger.withTag("NotePreview")

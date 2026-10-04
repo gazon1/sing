@@ -1,6 +1,8 @@
 package com.singularity.todo.core.ui
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
@@ -92,9 +94,11 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     private val restore: suspend () -> D? = { null },
     private val logger: Logger,
     private val autosaveDebounceMs: Long = 500L,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<DraftUiState<D>, I, E>(
         initialState = DraftUiState(draft = initialDraft),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -231,6 +235,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     protected open fun onAutosaveError(e: Throwable) {
         logger.e(e) { "autosave failed: ${e.toMessage()}" }
+        crashReporter.report(e, "draft.autosave_failed")
     }
 
     /**
@@ -292,6 +297,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 // the task editor presented: every assertion on the editor was
                 // green and the saved task simply never appeared.
                 logger.e(e) { "save failed: ${e.toMessage()}" }
+                crashReporter.report(e, "draft.save_failed")
                 updateState { it.copy(error = e.toMessage("Save failed")) }
             } finally {
                 updateState { it.copy(isSaving = false) }

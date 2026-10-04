@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
+import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -42,7 +45,15 @@ class CalendarSyncOrchestrator(
     private val scheduler: CalendarSyncWorkScheduler,
     private val scope: CoroutineScope,
     private val dirtyHashProvider: DirtyHashProvider,
+    private val logger: Logger = Logger.withTag("CalendarSync"),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
+
+    /**
+     * Guards [start] against a second registration. Set before the coroutine is
+     * launched, so two racing callers cannot both get past the check.
+     */
+    private var started = false
 
     /**
      * Incoming trigger channel. CONFLATED: callers never block and only the
@@ -63,21 +74,45 @@ class CalendarSyncOrchestrator(
 
     /**
      * Starts the debounced collector coroutine.
-     * Safe to call multiple times — subsequent calls are no-ops after the first.
+     *
+     * ## Why each pass is guarded
+     *
+     * The collector runs on an application-scoped background dispatcher with no
+     * `CoroutineExceptionHandler`. A throw from the body therefore reaches the global
+     * handler and kills the process — and, worse in the non-fatal case, silently kills
+     * the collector, leaving calendar sync dead for the rest of the process lifetime
+     * with no symptom at all. The body reads `dirtyHashProvider.hash()`, three Room
+     * `.first()` calls, so an IO or SQLite failure is an ordinary event, not an
+     * exceptional one. Each pass is therefore caught and reported, and the collector
+     * survives to serve the next trigger.
+     *
+     * ## Idempotency
+     *
+     * Repeated calls are no-ops after the first, enforced by [started] rather than
+     * assumed. Without the guard, a second [start] would call `consumeAsFlow()` on an
+     * already-consumed channel and throw `IllegalStateException` — so this is a
+     * behavioural guarantee, not just an optimization.
      */
     fun start() {
+        if (started) return
+        started = true
         scope.launch {
             channel.consumeAsFlow()
                 .debounce(1_000L)
                 .collect { strongest ->
-                    val currentHash = dirtyHashProvider.hash()
-                    if (currentHash == lastHandedOffHash) {
+                    runCatching {
+                        val currentHash = dirtyHashProvider.hash()
+                        if (currentHash == lastHandedOffHash) {
+                            _pendingSource.value = null
+                            return@runCatching
+                        }
+                        scheduler.enqueueSync()
+                        lastHandedOffHash = currentHash
                         _pendingSource.value = null
-                        return@collect
+                    }.onFailure { error ->
+                        logger.e(error) { "Calendar sync collector pass failed (source=$strongest)" }
+                        crashReporter.report(error, "calendar_sync.collector_failed")
                     }
-                    scheduler.enqueueSync()
-                    lastHandedOffHash = currentHash
-                    _pendingSource.value = null
                 }
         }
     }

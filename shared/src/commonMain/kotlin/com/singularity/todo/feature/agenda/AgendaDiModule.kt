@@ -70,6 +70,7 @@ fun agendaModule(): Module = module {
                 profileRepo = get(),
                 currentUser = get<ProfileAwareCurrentUser>(),
             ),
+            crashReporter = get(),
         )
     }
 

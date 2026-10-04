@@ -1,6 +1,7 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -90,6 +91,7 @@ internal class SyncEngine(
     private val prefs: SyncPrefs,
     private val scheduler: SyncWorkScheduler,
     private val scope: AutoCloseableCoroutineScope,
+    private val crashReporter: CrashReportingPort,
 ) : AutoCloseable by scope {
     private val json = StableJson
 
@@ -219,6 +221,7 @@ internal class SyncEngine(
                 )
             _lastPush.value = Result.failure(err)
             log.e(e) { "Batch push failed [count=${pending.size}]" }
+            crashReporter.report(e, "sync.push_failed")
             _status.value = SyncEngineStatus.Failure(err)
             Result.failure(err)
         }
@@ -270,6 +273,7 @@ internal class SyncEngine(
                 )
             _lastPull.value = Result.failure(err)
             log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }
+            crashReporter.report(e, "sync.pull_failed")
             _status.value = SyncEngineStatus.Failure(err)
             Result.failure(err)
         }

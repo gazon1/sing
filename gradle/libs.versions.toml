@@ -51,6 +51,10 @@ androidx-work = "2.10.0"
 # Logging / Kermit
 kermit = "2.1.0"
 
+# AppTracer (ru.ok.tracer) — crash / ANR / non-fatal reporting, Android only.
+# BOM-aligned: modules below carry no version of their own.
+tracer = "1.4.0"
+
 # Markdown
 markdown-renderer = "0.43.0"
 
@@ -193,6 +197,12 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 kermit-koin = { module = "co.touchlab:kermit-koin", version.ref = "kermit" }
 
+# AppTracer — Android-only crash / ANR / non-fatal reporting.
+# Only the crash-report module is consumed, so there is nothing for a BOM to
+# align; both coordinates take the version from the single `tracer` ref, which
+# is also what the Gradle plugin resolves against.
+tracer-crash-report = { module = "ru.ok.tracer:tracer-crash-report", version.ref = "tracer" }
+
 # Markdown
 markdown-renderer = { module = "com.mikepenz:multiplatform-markdown-renderer", version.ref = "markdown-renderer" }
 markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdown-renderer" }
@@ -320,3 +330,4 @@ detekt = { id = "dev.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 koin = { id = "koin", version.ref = "koin" }
 koin-compiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koin-compiler-plugin" }
+tracer = { id = "ru.ok.tracer", version.ref = "tracer" }

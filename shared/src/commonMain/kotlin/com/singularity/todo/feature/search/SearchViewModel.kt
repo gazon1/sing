@@ -2,6 +2,8 @@ package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -15,6 +17,8 @@ import com.singularity.todo.feature.search.query.SimpleFilterMapper
 import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +28,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
 
 // ─── UI contracts ─────────────────────────────────────────────────────────────
 
@@ -98,9 +100,11 @@ class SearchViewModel(
     private val taskRepo: TaskRepository,
     private val parseQuery: (String) -> Query,
     private val clock: Clock,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<SearchUiState, SearchIntent, SearchUiEvent>(
         initialState = SearchUiState(),
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 
@@ -110,6 +114,7 @@ class SearchViewModel(
         savedSearchRepo: SavedSearchRepository,
         taskRepo: TaskRepository,
         clock: Clock,
+        crashReporter: CrashReportingPort,
     ) : this(
         searchUseCase = searchUseCase,
         savedSearchRepo = savedSearchRepo,
@@ -117,6 +122,7 @@ class SearchViewModel(
         parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
         clock = clock,
         scope = AutoCloseableCoroutineScope(),
+        crashReporter = crashReporter,
     )
 
     // ─── Internal state ────────────────────────────────────────────────────────

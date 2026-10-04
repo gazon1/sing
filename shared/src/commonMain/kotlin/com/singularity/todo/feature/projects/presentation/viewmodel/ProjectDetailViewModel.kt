@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -26,6 +28,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,9 +44,6 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 /**
  * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
@@ -66,9 +68,11 @@ class ProjectDetailViewModel(
     private val projectReminders: ProjectRemindersRepository,
     val clock: Clock,
     private val log: Logger,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
         initialState = ProjectDetailUiState.Loading,
+        crashReporter = crashReporter,
         scope = scope,
     ) {
 

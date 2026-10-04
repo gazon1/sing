@@ -29,10 +29,11 @@ open class LogBundleExporter(
     private val backupCodec: BackupCodec,
     private val fileSystem: FileSystem,
     /**
-     * Number of rolling log files. Must match [FileLogWriter.fileCount].
-     * Hardcoded here to avoid coupling to [FileLogWriter]'s private companion.
+     * Number of rolling log files. Shares [LOG_FILE_COUNT] with [FileLogWriter] so the
+     * two cannot drift — a hardcoded copy here silently truncated exported bundles
+     * whenever the writer's retention changed.
      */
-    private val fileCount: Int = 4,
+    private val fileCount: Int = LOG_FILE_COUNT,
 ) {
     /**
      * Creates a ZIP archive containing all existing log files.

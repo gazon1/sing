@@ -105,7 +105,7 @@
     <ID>EndOfSentenceFormat:DraftMviViewModelTest.kt:TestDraft$ Minimal draft for testing </ID>
     <ID>EndOfSentenceFormat:DraftMviViewModelTest.kt:TestDraftVm$ Concrete implementation under test </ID>
     <ID>EndOfSentenceFormat:LlmUseCase.kt:ProjectReviewUseCase$ ProjectReviewTool returns raw text — special case, not using the generic factory </ID>
-    <ID>EndOfSentenceFormat:PlatformModule.kt:* Platform-specific bindings: * - Database DAOs (TaskDao, NoteDao, ProjectDao, TagDao, SyncOutboxDao, AttachmentDao, ReminderDao) * - [com.singularity.todo.core.security.SecureStoragePort] * - [com.singularity.todo.core.notifications.NotificationPort] * - [com.singularity.todo.core.files.FileSystem] * - [com.singularity.todo.core.backup.BackupCodec] * - [ai.koog.prompt.executor.model.PromptExecutor] * - [androidx.datastore.core.DataStore] — Android: Preferences DataStore; JVM: FileDataStore</ID>
+    <ID>EndOfSentenceFormat:PlatformModule.kt:* Platform-specific bindings: * - Database DAOs (TaskDao, NoteDao, ProjectDao, TagDao, SyncOutboxDao, AttachmentDao, ReminderDao) * - [com.singularity.todo.core.security.SecureStoragePort] * - [com.singularity.todo.core.notifications.NotificationPort] * - [com.singularity.todo.core.files.FileSystem] * - [com.singularity.todo.core.backup.BackupCodec] * - [com.singularity.todo.core.observability.CrashReportingPort] * - [ai.koog.prompt.executor.model.PromptExecutor] * - [androidx.datastore.core.DataStore] — Android: Preferences DataStore; JVM: FileDataStore</ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.EQ$ Equal to </ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.GE$ Greater than or equal </ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.GT$ Greater than </ID>

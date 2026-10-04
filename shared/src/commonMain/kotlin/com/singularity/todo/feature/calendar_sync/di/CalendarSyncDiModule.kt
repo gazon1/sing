@@ -38,7 +38,7 @@ fun calendarSyncModule(): Module = module {
     single { DirtyHashProvider(get(), get()) }
 
     // CalendarSyncOrchestrator — singleton. Call .start() once at app startup.
-    single { CalendarSyncOrchestrator(get(), createBackgroundScope(), get()) }
+    single { CalendarSyncOrchestrator(get(), createBackgroundScope(), get(), get(), get()) }
 
     // ViewModel bound to navigation lifecycle — cancelled when the screen leaves the back stack.
     // 6-arg canonical ctor: syncRepo, calendarProvider, scheduler, appQueries, orchestrator, scope

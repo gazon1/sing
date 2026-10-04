@@ -49,10 +49,20 @@ Look for:
 
 ### Step 5 — Check crash reporting
 
-For crashes, check Firebase Crashlytics:
+Crashes and non-fatals are reported to **AppTracer** (`ru.ok.tracer`) on Android. Desktop
+has no crash reporting; use its local log file instead.
+
 1. Find the crash group for the affected version
 2. Note the exception type and stack trace
-3. Check if the same crash has occurred before
+3. Check `issueKey` to see the grouping — an `AppError` code like `error.not_found` means
+   the app named the failure; a call-site label means it was a raw exception
+4. Check if the same crash has occurred before
+5. Read the **Keys** and **Data** tabs: the startup breadcrumb carries device/build context,
+   and each ViewModel's call-site label names the operation that failed
+
+**History.** This step used to point at Firebase Crashlytics, which was never configured —
+the project had no crash SDK at all. It also told you to filter logs by `traceId`, a field
+that has never existed. Both were aspirational notes that read as instructions.
 
 ### Step 6 — Reproduce if possible
 
@@ -105,7 +115,7 @@ LOG SHOWS ERROR
   │         NO  → Continue
   │
   ├─── Is it a crash?
-  │         YES → File Crashlytics issue, check stack trace
+  │         YES → Check AppTracer for the crash group, inspect the stack trace
   │         NO  → Continue
   │
   ├─── Is it a data loss?
@@ -165,14 +175,14 @@ answer down while it is fresh.
 ## Common pitfalls
 
 1. **Ignoring WARN before ERROR** — the root cause often appears as a WARN before the ERROR
-2. **Filtering by timestamp instead of traceId** — timestamp-based filtering misses concurrent operations
+2. **Filtering by timestamp alone** — timestamp-based filtering misses concurrent operations; scope the window with the AppTracer event timestamp and the local log's own sequence
 3. **Not checking profile isolation** — many "data loss" reports are actually profile isolation working correctly
 4. **Reproducing in DEBUG vs release** — some issues only appear in release (ProGuard, stripped logs)
 
 ## Prerequisites
 
 - Log access (ADB for Android, log file for Desktop)
-- Crashlytics access for crash reports
+- AppTracer access for Android crash and non-fatal reports (not required for Desktop)
 - Profile ID of the affected user
 - Version number of the affected release
 

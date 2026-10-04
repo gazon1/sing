@@ -21,5 +21,6 @@ actual fun initLogging(isDebug: Boolean, version: String, logDirectory: Path) {
         RedactingLogWriter(platformLogWriter()),
         RedactingLogWriter(fileWriter),
     )
+    registerFileLogWriter(fileWriter)
     logStartup(version, isDebug)
 }

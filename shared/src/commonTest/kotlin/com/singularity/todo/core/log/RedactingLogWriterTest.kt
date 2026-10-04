@@ -118,4 +118,62 @@ class RedactingLogWriterTest {
         RedactingLogWriter(fake).log(Severity.Error, "auth rejected", "TestTag", cause)
         assertContains(fake.throwables.single().toString(), "[sk-redacted]")
     }
+
+    @Test
+    fun `preserves the originating stack trace`() {
+        val fake = FakeLogWriter()
+        val thrown = originatingIllegalStateException()
+        RedactingLogWriter(fake).log(Severity.Error, "boom", "TestTag", thrown)
+
+        val frames = fake.throwables.single()!!.stackTrace.map { "${it.className}.${it.methodName}" }
+        assertTrue(
+            frames.any { it.endsWith("originatingIllegalStateException") },
+            "Delegated throwable must carry the frames of the throwing site, " +
+                "not the redaction site. Got: $frames",
+        )
+    }
+
+    @Test
+    fun `redacts a credential nested in the cause chain`() {
+        val fake = FakeLogWriter()
+        val root = IllegalArgumentException("rejected for $EMAIL")
+        val wrapper = IllegalStateException("upload failed", root)
+        RedactingLogWriter(fake).log(Severity.Error, "upload failed", "TestTag", wrapper)
+
+        val delegated = fake.throwables.single()!!
+        val rendered = generateSequence(delegated as Throwable?) { it.cause }
+            .joinToString(" | ") { it.toString() }
+        assertFalse(rendered.contains(EMAIL), "Cause-chain email leaked: $rendered")
+        assertContains(rendered, "[email]")
+    }
+
+    @Test
+    fun `redacts a self-referential cause without recursing forever`() {
+        val fake = FakeLogWriter()
+        val looping = SelfCausedException("cycle for $EMAIL")
+        RedactingLogWriter(fake).log(Severity.Error, "loop", "TestTag", looping)
+
+        val rendered = generateSequence(fake.throwables.single() as Throwable?) { it.cause }
+            .joinToString(" | ") { it.toString() }
+        assertFalse(rendered.contains(EMAIL), "Cause-chain email leaked: $rendered")
+    }
+
+    @Test
+    fun `preserves the original class name in the rendered throwable`() {
+        val fake = FakeLogWriter()
+        RedactingLogWriter(fake).log(Severity.Error, "boom", "TestTag", SelfCausedException("plain"))
+        val rendered = fake.throwables.single()!!.toString()
+        assertContains(rendered, "SelfCausedException")
+    }
+}
+
+/** Thrown from a named function so the test can assert that frame survives redaction. */
+private fun originatingIllegalStateException() = IllegalStateException("thrown here")
+
+private const val EMAIL = "leaked@secret.com"
+
+/** A throwable whose cause is itself — the terminating case for cause-chain redaction. */
+private class SelfCausedException(message: String) : RuntimeException(message) {
+    override val cause: Throwable
+        get() = this
 }

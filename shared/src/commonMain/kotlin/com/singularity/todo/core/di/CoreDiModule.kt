@@ -154,6 +154,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             get(),
             get(),
             get(),
+            get(),
         )
     }
 
@@ -279,6 +280,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             fileRevealer = get(),
             logBundleExporter = get(),
             fileSharePort = get(),
+            crashReporter = get(),
         )
     }
 
@@ -302,5 +304,5 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { AttachmentsViewModel(repository = get()) }
+    viewModel { AttachmentsViewModel(repository = get(), crashReporter = get()) }
 }
