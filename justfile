@@ -71,6 +71,7 @@ alias os-validate := scripts::os-validate
 
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage
+alias cr       := tests::coverage-ratchet
 
 # ----- DB shortcuts -----
 alias db-a   := android::db-schema

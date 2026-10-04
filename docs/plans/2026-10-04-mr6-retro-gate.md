@@ -10,11 +10,11 @@
 |------|--------|
 | `SKIP_ADB=1 ./check.sh` (7 steps) | ✅ ALL CHECKS PASSED |
 | `:shared:testAndroidHostTest` | ✅ 1045 tests, 0 failures (was 2 red) |
-| `just coverage-ratchet` | ✅ 687/1006 = 68.29%, at baseline |
+| `just cr` (coverage-ratchet) | ✅ 687/1006 = 68.29%, at baseline |
 | `ViewModelTestCoverageTest` | ✅ green; allowlist = 11 |
 | `MaestroFlowTagsTest` (ids + runFlow paths) | ✅ green, 55 runFlow refs resolved |
 | `:shared:detekt :desktopApp:detekt` | ✅ 0 findings |
-| Maestro, 8 agenda journeys | MAESTRO_RESULT |
+| Maestro, 8 agenda journeys | ✅ 8/8 passed on the emulator |
 
 ---
 
@@ -131,13 +131,63 @@ reintroduced.
 
 ---
 
+### 6. A green Maestro run did not prove the binary under test was the one built
+
+**Found in:** the Phase 6 gate, chasing journey 07's empty profile picker.
+
+Journey 07 failed to find the "Personal" row. The `profiles` table on the
+device was empty — which is exactly the bug the MR-5 hotfix fixed — and yet the
+picker was correct in the source. Pulling the installed APK and reading its dex
+settled it: the `SingularityApp` class in the installed build had **zero**
+references to `ProfileBootstrapper`, while the freshly built one has it.
+
+The chain: the emulator died mid-run (the known host gfxstream crash),
+`run-maestro.sh` relaunched it from an AVD snapshot, and `SKIP_INSTALL=1`
+suppressed the reinstall. The snapshot held an older build. Every flow that
+"passed" in that run passed against a binary that predated the branch's own
+fixes.
+
+**Fix.** None in code — this is a property of the harness. The rule is now
+written into the retro-gates: after any device recovery, re-install before
+trusting a result. Journey 07 passes against the real build.
+
+**Why it is worth stating loudly:** a gate that silently tests the wrong binary
+is worse than no gate, because it converts "unknown" into "green".
+
+---
+
+### 7. Dialog testTags never reach UIAutomator on Android
+
+**Found in:** the same gate, on journey 03's delete step.
+
+`id: dialog_confirm` was not found, although `ConfirmActionDialog` tags that
+button correctly. The captured hierarchy shows the dialog rendering perfectly —
+"Delete view?", "Delete", "Cancel" — with **no resource-id on any of it**.
+
+A Compose `AlertDialog` is its own Android window. The `testTagsAsResourceId`
+semantics property is applied to the main window's root and is not inherited
+into a dialog window, so `Modifier.testTag` never becomes a resource-id there.
+
+**Fix.** Journey 03 selects the confirm button by label. The tag stays in
+`TestTags` — it is correct for the desktop Compose tests, which read the
+semantics tree directly, and MR-4 uses it there.
+
+**Consequence for the contract test:** `MaestroFlowTagsTest` cannot catch this.
+The id is declared, used, and correct; it just does not mean what a reader
+would assume on Android. `Maestro/flows/profile/02-isolation.yaml` also taps
+`id: dialog_confirm` and has the same latent problem — it is not in the agenda
+tag set, so no gate runs it. Recorded in the backlog.
+
+---
+
 ## Deferred to ADR / Backlog
 
 | Item | Reason | Where |
 |------|--------|-------|
 | The agenda editor's "Save" does not pop the screen | Journeys 03/04 both work around it; whether save-and-close is wanted is a product call, not a test fix | backlog |
-| Kover instrumentation is only proven for a filtered run | The whole-suite OOM that motivated the disable was misattributed, but nothing here re-measured the full `jvmTest` under instrumentation | ADR-worthy — see below |
+| Kover instrumentation is only proven for a filtered run | The whole-suite OOM that motivated the disable was misattributed, but nothing here re-measured the full `jvmTest` under instrumentation | backlog (see below) |
 | 5 flows in `flows/tasks/` had never been run by any gate | The agenda tag only covers `flows/agenda/`; `tasks` flows are `regression` + `tasks` and no default gate runs them | backlog |
+| `profile/02-isolation.yaml` taps `id: dialog_confirm` | Same window-inheritance problem as #7; not caught by any gate because the flow is outside the agenda tag set | backlog |
 | List-picker rows select by label in journey 07 | `ModalBottomSheet` does not expose resource-ids to UIAutomator | backlog (MR-5) |
 | 11 ViewModels without tests | Pinned by the new rule so it cannot grow | `deferred-backlog.md#vm-without-test` |
 | FakeClock in `runDesktopAppTest` | Deferred since MR-2; flow tests still read the real date | backlog (MR-2/MR-4) |
@@ -172,6 +222,23 @@ view models; the whole package including the Compose-only subtrees is 31.60% and
 is recorded in the baseline for context, because those subtrees are covered by
 the desktop flow tests that kover cannot see.
 
-The unglamorous find was the five broken `runFlow` paths — four of them committed
-and never run by any gate. That is the argument for the contract test, and for
-running the flows rather than only writing them.
+Three of the seven findings were not in the plan at all, and all three are the
+same shape: **something the tests asserted was not true.**
+
+- Five flows pointed at a `runFlow` path that resolves to nothing — four of them
+  committed and never run by any gate.
+- Journey 04 expected a discard guard that only appears on a dirty draft, and a
+  task in a section that preset does not have.
+- Journey 03 expected Save not to pop (it does) and expected a card tap to open
+  the editor (it opens results).
+
+And one is worse than a wrong expectation: **a green Maestro run had tested a
+stale APK**, because device recovery restored a snapshot and `SKIP_INSTALL=1`
+skipped the reinstall. Nothing in the harness noticed. The dex proved it. A gate
+that quietly tests the wrong binary converts "unknown" into "green", which is
+worse than having no gate — so the rule is written down rather than left to
+memory.
+
+The VM rule also earned its keep immediately: it found two untested ViewModels
+(`TagsViewModel`, `AppVersionGateViewModel`) that a grep for the class name
+missed, because each appears in the tree only inside a test for something else.

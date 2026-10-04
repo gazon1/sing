@@ -689,3 +689,62 @@ neither needs new infrastructure.
 Removing an entry there without adding a test breaks the build; adding a class
 that no longer exists also breaks the build, so the two lists cannot drift
 silently.
+
+---
+
+## dialog-testtags-do-not-reach-uiautomator
+
+**Found in:** MR-6, the Phase 6 Maestro gate. Journey 03 could not find
+`id: dialog_confirm`.
+
+`ConfirmActionDialog` tags its confirm button with `TestTags.Dialog.CONFIRM`
+(`Modifier.testTag`), and the tag is declared in `TestTags.kt` and asserted by
+the desktop Compose tests — where it works, because those read the semantics
+tree directly.
+
+On Android it does not work, and cannot: a Compose `AlertDialog` is a separate
+window. The `testTagsAsResourceId` semantics property is applied to the main
+window's root and is not inherited into it, so no `testTag` inside a dialog
+becomes a resource-id. Confirmed against a captured hierarchy — the dialog's
+"Delete" and "Cancel" render correctly and carry no resource-id at all.
+
+**Checks already performed:** pulled the failure artifact's
+`screen-hierarchy` JSON; every node in the dialog subtree has
+`resource-id=""`. The same pattern applies to `ModalBottomSheet` (see the
+MR-5 note about the profile picker selecting by label).
+
+**Fix (journey):** select dialog buttons by label. Done in
+`Maestro/flows/agenda/03-saved-views-crud.yaml`.
+
+**Fix (structural, not done):** either apply
+`Modifier.semantics { testTagsAsResourceId = true }` inside each dialog/sheet
+surface, or have the flows select by label everywhere and stop pretending
+`TestTags.Dialog.*` is an Android selector.
+
+**Still latent:** `Maestro/flows/profile/02-isolation.yaml:49` taps
+`id: dialog_confirm` and has the same problem. It is outside the `agenda` tag,
+so no gate runs it — which is how it stayed broken.
+
+---
+
+## maestro-gate-can-test-a-stale-apk
+
+**Found in:** MR-6, chasing journey 07's empty profile picker.
+
+The emulator died mid-run; `run-maestro.sh` relaunched it from an AVD snapshot
+and, with `SKIP_INSTALL=1`, did not reinstall. The snapshot held an older build.
+Every flow that "passed" in that run passed against a binary that predated the
+branch's own hotfixes — including the fix for the very bug journey 07 was
+reporting.
+
+Verified by dex rather than by inference: the installed APK's `SingularityApp`
+class had zero references to `ProfileBootstrapper`; the freshly built one has it.
+
+**Fix (process):** after any device recovery, re-install before trusting a
+result. Stated in `docs/plans/2026-10-04-mr6-retro-gate.md` §6.
+
+**Fix (harness, not done):** have `run-maestro.sh` record the installed APK's
+size and mtime at the start, compare after a recovery, and fail loudly if they
+differ — or simply drop `SKIP_INSTALL=1` on the recovery path. The flag exists
+to save time, and it costs correctness exactly when the run is already going
+wrong.
