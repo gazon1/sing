@@ -20,4 +20,16 @@
 desktopApp:test 10 30 0
 mcp-server:test 1 7 0
 shared:jvmTest 178 1445 0
-shared:testAndroidHostTest 117 1003 0
+# 998, not 1003. The 1003 was recorded by `--update-baseline` at 57074f01 and was
+# never a measurement of a real run: `shared/src/commonTest` contains exactly 998
+# `@Test` declarations, and a fresh run discovers exactly 998 — on this host and on
+# CI. A floor higher than the number of tests in the sources is unreachable by
+# construction, and it failed the kover job on the first run after it was written.
+#
+# That source set was not edited between the two commits (the diff of
+# shared/src/commonTest from 57074f01 to the merge is empty) and its build config
+# did not change either, so no test was lost. The likeliest mechanism is the one
+# this file's own freshness section describes: a results directory left over from
+# an earlier run, read by --update-baseline as if it were this one. Re-measure
+# before regenerating anything here.
+shared:testAndroidHostTest 117 998 0
