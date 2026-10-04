@@ -43,9 +43,10 @@ import kotlin.test.fail
  *
  * Scans `commonMain` production sources, excluding `test/fakes`. Two limits are
  * deliberate: the scanner tracks braces, so a reactive call whose lambda opens on a
- * later line (`collect\n{ ... }`) is not detected, and it only knows the combinator
- * names in [REACTIVE_CALLS]. Both err toward silence. A silent gap is preferable to a
- * false positive that trains people to allowlist their way past the rule.
+ * later line (`collect\n{ ... }`) is not detected, and a nested argument list
+ * (`map(f(x)) { ... }`) does not match the call pattern. Both err toward silence. A
+ * silent gap is preferable to a false positive that trains people to allowlist their
+ * way past the rule.
  */
 @Tag("fast")
 class CachedIdentityReadArchitectureTest {
@@ -76,17 +77,35 @@ class CachedIdentityReadArchitectureTest {
     }
 
     @Test
-    fun scanner_ignores_a_read_in_a_reactive_calls_argument_list() {
+    fun scanner_flags_a_read_in_a_reactive_calls_argument_list() {
         """
-        Documented gap, not an oversight. The read is evaluated once, when the flow is
-        constructed — the same one-shot semantics as an imperative repository write. The
-        price is that `combine(u.scopedUserId.value) { … }` is not flagged; such a
-        combine is useless rather than wrong, because the sampled value can never change.
+        `combine(u.scopedUserId.value)` samples the cache once and then re-runs the
+        combine forever on a value that can never change. Closing that gap was worth
+        one precise rule: the read must sit between the reactive call's own name and
+        its brace.
         """
         val source = """
             fun watch(u: ProfileAwareCurrentUser) = combine(u.scopedUserId.value) { it }
         """.trimIndent()
-        assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
+        assertEquals(1, findCachedIdentityReadsInReactiveBlocks(source).size)
+    }
+
+    @Test
+    fun scanner_allows_a_read_in_another_calls_argument_list_on_the_same_line() {
+        """
+        The shape that made the coarse version of the rule unusable: the read belongs to
+        `watchByProject(...)`, not to the `.map` after it, and it is evaluated once when
+        the flow is constructed — the same one-shot semantics as an imperative repository
+        write. Real example: TagGroupRepositoryImpl:123.
+        """
+        val source = """
+            fun watch(u: ProfileAwareCurrentUser) =
+                dao.watchByProject(projectId, u.scopedUserId.value).map { list -> list.size }
+        """.trimIndent()
+        assertTrue(
+            findCachedIdentityReadsInReactiveBlocks(source).isEmpty(),
+            "a read in a non-reactive call's arguments is not a reactive read",
+        )
     }
 
     @Test
@@ -247,7 +266,8 @@ class CachedIdentityReadArchitectureTest {
          * A reactive call whose trailing lambda opens a block. One optional
          * argument list is allowed between the name and the brace
          * (`combine(a, b) { … }`); a nested argument list is not, which makes the
-         * matcher miss `map(f(x)) { … }` — documented as a deliberate gap.
+         * matcher miss `map(f(x)) { … }` — a remaining, deliberate gap, in the same
+         * direction as the other one below.
          */
         // DOT_MATCHES_ALL lives on the Regex, not at the call site: String.replace has
         // no overload taking both options and a transform.
@@ -274,29 +294,30 @@ class CachedIdentityReadArchitectureTest {
             var depth = 0
 
             lines.forEachIndexed { index, raw ->
-                val opensBlock = REACTIVE_WITH_LAMBDA.containsMatchIn(raw)
-                val braceAt = if (opensBlock) raw.indexOf('{') else -1
+                val reactive = REACTIVE_WITH_LAMBDA.find(raw)
                 val read = CACHED_IDENTITY.find(raw)
 
                 if (read != null) {
                     // Inside a reactive body when the block opened on an earlier line, or
                     // when the read sits after this line's own `{`.
-                    //
-                    // A read in the call's *argument list* is deliberately not a finding:
-                    // it is evaluated once, when the flow is constructed, which is the
-                    // same one-shot semantics as an imperative repository write. The cost
-                    // of that choice is a known gap — `combine(u.scopedUserId.value) { … }`
-                    // samples a value that can never change and is therefore a useless
-                    // combine rather than a wrong one. Benign, and not worth a false
-                    // positive on every `dao.watchBy(id, scopedUserId.value)`.
                     val insideOpenBlock = openBlocks.isNotEmpty()
-                    val insideThisBody = braceAt >= 0 && read.range.last > braceAt
-                    if (insideOpenBlock || insideThisBody) {
+                    val insideThisBody = reactive != null && read.range.last > raw.indexOf('{', reactive.range.first)
+                    // ...or in the reactive call's OWN argument list:
+                    // `combine(u.scopedUserId.value) { … }` samples a value that can never
+                    // change and then re-runs the combine forever on it. The read must lie
+                    // between this call's name and its `{` — that is what separates it from
+                    // `dao.watchByProject(id, u.scopedUserId.value).map { … }`, where the
+                    // read belongs to a different call and is a one-shot at flow
+                    // construction, exactly like an imperative repository write.
+                    val inReactiveArgumentList = reactive != null &&
+                        read.range.first >= reactive.range.first &&
+                        read.range.last < raw.indexOf('{', reactive.range.first)
+                    if (insideOpenBlock || insideThisBody || inReactiveArgumentList) {
                         findings += Finding(index + 1, raw)
                     }
                 }
 
-                if (opensBlock) openBlocks.addLast(depth)
+                if (reactive != null) openBlocks.addLast(depth)
                 depth += raw.count { it == '{' } - raw.count { it == '}' }
                 while (openBlocks.isNotEmpty() && depth <= openBlocks.last()) {
                     openBlocks.removeLast()

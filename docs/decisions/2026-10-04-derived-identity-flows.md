@@ -141,11 +141,15 @@ round:
   first version of the rule included it. That flagged `TaskTimeSlot.start`,
   `.stop` and `.createManual` — three correct one-shot writes. A gate that fires on
   correct code is a gate people learn to bypass.
-- **A read in a reactive call's argument list is not a finding.** It is evaluated
-  once, when the flow is constructed, which is the same one-shot semantics as an
-  imperative write. The cost is a known gap: `combine(u.scopedUserId.value) { }` is
-  not flagged, and such a combine is useless rather than wrong, because the sampled
-  value can never change.
+- **A read in a reactive call's argument list was originally not a finding**, on the
+  reasoning that it is evaluated once, when the flow is constructed, which is the same
+  one-shot semantics as an imperative write. That was too coarse, and the cost was
+  real: `combine(u.scopedUserId.value) { }` samples a value that can never change and
+  then re-runs the combine forever on it. The rule now distinguishes the two by
+  position — the read must lie between the reactive call's own name and its brace.
+  `dao.watchByProject(id, u.scopedUserId.value).map { }` stays allowed, because the
+  read belongs to `watchByProject`, not to the `map`. Both shapes are pinned by
+  fixtures, since this is the distinction the whole rule turns on.
 
 **The one production finding was real.** `TaskTimeSlot`'s init block read
 `currentUser.scopedUserId.value` inside `.collect { entries -> … }` and passed it to
