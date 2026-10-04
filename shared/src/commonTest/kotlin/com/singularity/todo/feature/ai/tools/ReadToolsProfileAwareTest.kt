@@ -4,7 +4,6 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -15,8 +14,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -44,28 +43,33 @@ class ReadToolsProfileAwareTest {
     private val now = Instant.parse("2026-01-01T00:00:00Z")
 
     /**
-     * Extracts the scoped userId by directly combining [CurrentUser.userId]
-     * and [FakeProfileRepository.activeProfileId] — bypassing the
-     * [ProfileAwareCurrentUser.scopedUserId] [StateFlow] which uses
-     * [SharingStarted.Eagerly] with an initial value, so `first()` would
-     * return that initial value instead of waiting for the combined result.
+     * Builds the production user-resolution chain on the *test* scheduler.
      *
-     * After [FakeProfileRepository.switchTo] is called, this function
-     * suspends until the combine emits the updated value.
+     * [CurrentUser] seeds `_userId` with `UserId.anonymous` and only ever updates
+     * it from its collector; [ProfileAwareCurrentUser] does the same for
+     * `scopedUserId`. The tools read `scopedUserId.value` synchronously, so
+     * unless the collectors have actually run, a read returns a stale value.
+     *
+     * With `createBackgroundScope()` (Dispatchers.Default) the collectors are
+     * real background threads and the test passes on the JVM by luck of
+     * scheduling — under Robolectric it loses that race: after
+     * `FakeProfileRepository.switchTo("ai-agent")` the chain still resolves to
+     * `ai-agent/anonymous` while the fixture seeded `ai-agent/u-1`, and the
+     * read tools return nothing. `backgroundScope` puts both collectors on the
+     * test scheduler, where [runCurrent] makes them deterministic.
      */
-    private suspend fun resolveScopedUserId(
-        currentUser: ProfileAwareCurrentUser,
-        profileRepository: FakeProfileRepository,
-    ): UserId = combine(
-        currentUser.userId,
-        profileRepository.activeProfileId,
-    ) { userId, profileId ->
-        if (profileId == ProfileId.default) {
-            userId
-        } else {
-            UserId.fromString("${profileId.value}/${userId.value}")
-        }
-    }.first()
+    private fun TestScope.buildProfileAware(
+        authUserId: String,
+    ): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
+        val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
+        val profiles = FakeProfileRepository()
+        val currentUser = ProfileAwareCurrentUser(
+            currentUser = CurrentUser(auth, scope = backgroundScope),
+            profileRepository = profiles,
+            scope = backgroundScope,
+        )
+        return Triple(currentUser, auth, profiles)
+    }
 
     private fun seedTask(
         repo: FakeTaskRepository,
@@ -91,22 +95,6 @@ class ReadToolsProfileAwareTest {
         repo.add(task)
     }
 
-    private fun buildProfileAware(
-        authUserId: String,
-    ): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
-        val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
-        val profiles = FakeProfileRepository()
-        // commonTest doesn't have access to a TestScope, so we use createBackgroundScope().
-        // Safe here: tests read .value synchronously and never subscribe to the
-        // StateFlow, so the Dispatchers.Default collector never runs.
-        val currentUser = ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth, scope = createBackgroundScope()),
-            profileRepository = profiles,
-            scope = createBackgroundScope(),
-        )
-        return Triple(currentUser, auth, profiles)
-    }
-
     // ─── list_tasks ────────────────────────────────────────────────────────────
 
     @Test
@@ -115,11 +103,13 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
+        runCurrent() // let both collectors observe the profile switch
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
         // Seed a task under the scoped userId the ProfileAwareCurrentUser would
         // actually emit for the AI Agent profile.
-        val scoped = resolveScopedUserId(currentUser, profiles)
+        val scoped = currentUser.scopedUserId.value
+        assertEquals(UserId("ai-agent/u-1"), scoped, "the scoped id must be resolved before seeding")
         seedTask(repo, scoped, "AI-Agent task A")
         seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
@@ -140,8 +130,10 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
+        runCurrent() // let both collectors observe the profile switch
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        val scoped = resolveScopedUserId(currentUser, profiles)
+        val scoped = currentUser.scopedUserId.value
+        assertEquals(UserId("ai-agent/u-1"), scoped, "the scoped id must be resolved before seeding")
         val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
         seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
         seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
@@ -163,8 +155,10 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
+        runCurrent() // let both collectors observe the profile switch
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        val scoped = resolveScopedUserId(currentUser, profiles)
+        val scoped = currentUser.scopedUserId.value
+        assertEquals(UserId("ai-agent/u-1"), scoped, "the scoped id must be resolved before seeding")
         seedTask(repo, scoped, "Findable AI-Agent task")
         seedTask(repo, UserId("local-user"), "Findable personal task")
 
@@ -185,9 +179,12 @@ class ReadToolsProfileAwareTest {
             authUserId = "u-1",
         )
         profiles.switchTo(ProfileId.fromString("ai-agent"))
+        runCurrent() // let both collectors observe the profile switch
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+        val scoped = currentUser.scopedUserId.value
+        assertEquals(UserId("ai-agent/u-1"), scoped, "the scoped id must be resolved before seeding")
         seedTask(repo, UserId("local-user"), "private personal task")
-        seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
+        seedTask(repo, scoped, "agent task")
 
         val tool = SearchTasksTool(repo)
         val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
