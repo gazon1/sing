@@ -117,3 +117,54 @@ ever intentional.
 - ADR `2026-10-04-navigation-policy` — the epic whose B0 baseline this invalidated
 - `scripts/check-test-runs.py`, `config/docs/test-runs-baseline.txt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/TestTagCoverageTest.kt`
+
+# Addendum (2026-10-04): the tags themselves were not calibrated to cost
+
+This ADR enforced that every class carries a `@Tag` and that the executed count
+matches a floor. It did not ask whether the two tags mean anything — and they did
+not.
+
+Measured over a full `fast,slow` run of all three host source sets: median class
+**0.19s**, p90 **0.55s**, p95 **0.77s**, slowest **4.4s** (`McpServerEndToEndTest`,
+which spawns a JVM). Total test time across 193 classes: 58s. The Android host set
+is the same shape: p90 0.92s, max 2.1s, 39s total.
+
+Seventy-four classes were tagged `slow`. Of those, **56 contain no `delay`, no
+`withTimeout`, no Room driver, no Compose harness and no `ProcessBuilder`** — they
+are `runTest` on the virtual clock with fakes, the fastest kind of test that
+exists. `NavigationPolicyTest` (296 lines of pure policy logic), `SlugTest`,
+`ScreenFamilyTest`, `DestinationKindTest` and `MimeTypesTest` were all in that
+group.
+
+The consequence was concrete: `./gradlew :shared:jvmTest` without `-Ptest.tags`
+runs 142 of 190 classes, and **not one navigation test from this branch** —
+`NavigationPolicyTest`, `ScreenFamilyTest`, `DestinationKindTest` and
+`NavSavedStateConfigTest` only ever ran in CI. A developer had no way to see them
+locally, and the count floor recorded the small number as correct rather than
+noticing that the small number was the wrong one.
+
+**The rule now:** `slow` means the class crosses the process boundary in a way that
+can block or hang — a Compose UI harness, a real database file, the real filesystem
+or clock, a Konsist scan whose cost grows with the repository, or a spawned
+process. Everything else is `fast`, whatever it measures. Cost is a symptom; the
+kind of resource the test touches is the reason.
+
+41 classes moved `slow` → `fast`, leaving 33. The result: 184 fast, 33 slow, and the
+default local loop now runs essentially the whole suite. The floors in
+`config/docs/test-runs-baseline.txt` move with it — upward, which is the only
+direction a baseline should move without an investigation.
+
+Calibrating the tags also removed a flake source rather than hiding one.
+`TaskDetailCoordinatorGraphTest` waited on `withTimeout(10.seconds)` against real
+dispatchers and a real Room driver, and failed roughly one run in three when three
+instrumented modules compiled in parallel. The wait cannot become virtual time — the
+emissions genuinely come from other threads — so the budget was raised to one
+minute and reframed as what it actually is: a **hang detector**, not a latency
+assertion. A `combine` that dies before its first emission hangs forever, so a
+generous bound still catches it; it just costs 60 seconds instead of 10 when the
+code is broken. The failure message now prints the sequence of states it observed
+instead of a bare `TimeoutCancellationException`.
+
+Two flakes are recorded in `config/docs/flaky-baseline.txt` with their reasons, and
+`check-flaky-tests.py` compares consecutive runs to find more. See ADR
+`2026-10-04-measurement-integrity`.

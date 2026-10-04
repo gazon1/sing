@@ -279,3 +279,43 @@ alias(libs.plugins.detekt)
 re-wrapping) can trigger another (NoSemicolons), and vice versa. Run the pass
 twice and verify the second run reports zero auto-fixable findings before
 committing.
+
+## Coverage is a gated number (2026-10-04)
+
+Kover instruments **only** `com.singularity.todo.*` (`includedClasses` in
+`shared/build.gradle.kts`). That is not a performance tweak: the IntelliJ coverage
+runtime keeps one `ClassData` per loaded class, and the Koog classpath alone
+contributes 3,000+ of them — which is why `jvmTest` used to be excluded from
+instrumentation entirely (ADR `2026-09-25-test-jvm-heap-default`) and the published
+number described only the Android source set.
+
+```bash
+./gradlew :shared:koverXmlReport -Ptest.tags=fast,slow   # ~5 min, instruments every test task
+python3 scripts/check-coverage.py                       # floor: 23.0 / 18.3 / 24.4
+python3 scripts/check-coverage.py --if-present          # skip when no report exists
+```
+
+The report is `shared/build/reports/kover/report.xml` — not `xml-report.xml`, which
+is the name the CI upload step used for months while carrying nothing. Coverage is
+measured over our own packages only: a total across the whole report is dominated by
+third-party bytecode and drifts with dependency bumps.
+
+`koverXmlReport` instruments every test task and roughly triples the runtime, so it
+is not in the default `./check.sh` path — CI runs it in its own job.
+
+## The gates are tested too
+
+`scripts/tests/` holds unit tests for the gate scripts themselves, run by
+`check.sh` step 8 and in CI:
+
+```bash
+python3 -m unittest discover -s scripts/tests    # ~20 ms, no JVM
+```
+
+A regression inside `check-test-runs.py` would disable the executed-count floor
+silently — the same failure shape the gate exists to catch, one level up. The tests
+cover the failure direction (a drop, a skipped test, a missing report) as much as
+the passing one.
+
+See ADR `2026-10-04-measurement-integrity` and spec
+`openspec/specs/test-execution-integrity`.

@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-@Tag("slow")
+@Tag("fast")
 class SingularityQueryParserTest {
 
     private fun parse(input: String): Query = SingularityQueryParser(input).parse()

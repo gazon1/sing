@@ -14,7 +14,7 @@ import kotlin.test.Test
  *
  * Runs as part of `:shared:jvmTest` alongside [ArchitectureTest].
  */
-@Tag("slow")
+@Tag("fast")
 class ExtensionServiceRegistrationTest {
 
     private val serviceFileName = "META-INF/services/org.junit.jupiter.api.extension.Extension"

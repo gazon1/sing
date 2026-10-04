@@ -249,49 +249,40 @@ baseline is current and new findings exist.
 
 ## digest-line-limit-pressure
 
-**Found in:** the post-epic docs pass. `DIGEST.md` sat at 1498/1500 lines.
+**Status: RESOLVED (2026-10-04).** Two changes, both applied:
 
-**Symptom:** the digest indexes every Consequences bullet and creates a
-section per tag, so it grows with every ADR while the limit is fixed. The
-next author who writes a verbose ADR gets a failed `docs-audit` with no
-obvious remedy and will either trim content (bad) or raise the limit (worse).
+1. `MAX_BULLETS_PER_ADR = 3` in `scripts/refresh-decisions-digest.py`. A verbose ADR
+   used to fill every tag section it was tagged with, so the digest grew with the
+   wordiest author rather than with the number of decisions. The Critical section is
+   exempt — `**Always**` / `**Never**` rules are what a reader came for. The digest
+   went 1260 → 1190 lines, back under the 1250 budget with headroom.
+2. The CI doc-sizes step now regenerates the digest before measuring it. DIGEST.md is
+   gitignored, so on a fresh checkout it does not exist and the budget check silently
+   skipped the only document whose size is generated. The budget was exceeded locally
+   for an unknown stretch precisely because `check.sh` did not run the gate at all.
 
-**Partially done (2026-09-30):** `MAX_ITEMS_PER_TAG` lowered 12 → 10 — the
-digest is an index, the ADR body is one link away. That bought ~45 lines of
-headroom at 351 entries.
-
-**Try next, if the warning returns:**
-
-1. Cap the per-ADR bullet contribution the same way (first N bullets per slug,
-   then "_… and N more_").
-2. Only if that is insufficient, raise `MAX_DIGEST_LINES` with a comment
-   explaining why the index needs the room.
-3. Keep the existing discipline regardless: Consequences bullets are
-   consequences; only **Always/Never** rules belong in the Critical section.
+Remaining pressure is the "Active entries" index — one line per ADR, 421 lines and
+growing by one per decision. It is the lowest-value section in the file (a title
+list, one `ls` away). If the warning returns, cut that section before raising the
+limit.
 
 ---
 
 ## ci-gates-are-all-continue-on-error
 
-**Found in:** `refactor/tag-registry-and-robots`, while wiring `check-tags.sh`
-into `.github/workflows/ci.yml`.
+**Status: RESOLVED (2026-10-04).** All four remaining advisory gates are blocking:
+`Run detekt`, `Assemble Android debug`, `Build version catalog gate`, and the whole
+`mcp-server` job. See ADR `2026-10-04-measurement-integrity`.
 
-**Symptom:** every gate step in the `build` job carried
-`continue-on-error: true` — `Build version catalog gate`, `Run detekt`,
-`Assemble Android debug`, `Find unwired surfaces`. Only `jvmTest`,
-`desktopApp:test` and `Check Maestro test tags` could fail the workflow.
-So "CI is green" said nothing about detekt, unwired surfaces, or version
-literals.
+The `mcp-server` job was the one that mattered: it holds the profile-bootstrap
+identity tests, so the P0 data-corruption fix shipped with the tests that cover it
+unable to fail a build.
 
-**Already checked:** `:shared:detekt` enforced locally
-(`ignoreFailures = false` in `shared/build.gradle.kts` and `check.sh` step
-`[6/6]` fails on it) — this was a CI-policy gap, not a detekt gap.
-
-**Status: PARTIALLY RESOLVED.** Phase 1.1 (PR-2) flipped three gates to blocking:
-`Find unwired surfaces`, `Check doc sizes`, `Check dead doc references`.
-The remaining `continue-on-error` gates (`Run detekt`, `Assemble Android debug`)
-should be evaluated after 3 successful PRs with the current blocking gates,
-one at a time, oldest debt first.
+`Check Maestro test tags` stays `continue-on-error: true` on purpose, and the
+comment says why: it is superseded by `MaestroFlowTagsTest` in `:shared:jvmTest`,
+which is blocking and covers the same tag registry. A non-blocking step that is
+documented as a convenience for local use is not a hole; one that duplicates a
+blocking gate and is *believed* to be the gate is.
 
 ---
 
@@ -483,3 +474,61 @@ depend on real elapsed time.
 so the wait becomes virtual-time and instantaneous; failing that, replace the single 10s
 budget with a bounded poll that reports the observed wait on failure, so a slow host fails
 loudly with data instead of looking like a hang. Do NOT simply raise the number.
+
+---
+
+## baseline-write-pipeline-verification-was-asserted-not-checked
+
+**Found in:** the OpenSpec backlog pass, 2026-10-04, while closing out
+`navigation-open-policy` and noticing that `openspec/changes/archive` was empty
+while four changes sat active.
+
+`baseline-write-pipeline` is a *baseline* spec — it documents behaviour the system
+already has, with a 13-item verification checklist. Every item named a covering
+test. Checking the names against the suite: `FakeRepositoryFidelityTest` contains
+no reference to the outbox, `enqueue` or an affected-row count (all 14 of its tests
+are about read isolation and soft-delete), and `EntityMapperCompletenessTest` never
+reads a `@Query` at all — it compares mapper field access against a hand-maintained
+table. **Five attributions were wrong**, and REQ-WP-050's premise had quietly
+stopped holding: its `FIELD_ALLOWLIST` is empty and `BackupImporter` appears in
+neither the entity table nor the mapper table.
+
+The checklist is now rewritten with two states instead of one — `verified` with the
+asserting test quoted, and `not covered` with the gap named. Seven requirements
+have no assertion at all: REQ-WP-002 (affected-row return values), 012 (narrow
+updates re-read before enqueueing), 020/021 (outgoing-link persistence and
+atomicity), 030 (note tool routing — the existing test would also pass against a
+DAO bypass using the same id), 031 (canonical HTML storage), 041 (id-only writes
+rely on the DAO layer).
+
+**Already ruled out:** not an OpenSpec process problem. The change is correctly left
+unarchived — a baseline spec whose verification is 6/13 is not finished work, and
+ticking the remaining boxes without assertions would recreate the defect.
+
+**Try next:** close them in `ScopedWriteQueryIsolationTest` (new, 2026-10-04 — it
+already owns the SQL-level write invariants and has an allowlist that requires a
+reason per entry) rather than in a new file. REQ-WP-002 and REQ-WP-041 are the two
+worth doing first: a DAO mutation that returns zero rows silently is exactly the
+shape of defect that survives every other gate in this repo.
+
+---
+
+## maestro-smoke-cannot-run-in-this-environment
+
+**Found in:** B5 verification of `navigation-open-policy`, 2026-10-04.
+
+Every Maestro flow fails with `DeviceServerDiedException` on `deviceInfo` (~130ms),
+including the untouched control flow `04-delete.yaml`, so it is not the branch under
+test. The emulator is alive (`adb shell echo ok` responds) and
+`scripts/ensure-emulator.sh` finds the AVD already running, so the usual cold-start
+path is not involved.
+
+**Already ruled out:** not a tag problem (`MaestroFlowTagsTest` passes 106/106), not
+an APK problem (`:androidApp:assembleDebug` is green), not a device problem.
+
+**Try next:** this is a host/driver problem, so it is not a refactor. See ADR
+`2026-09-28-emulator-gfxstream-colorbuffer-segv` for the gfxstream history — the
+standing instruction is not to pass `-gpu` flags, because the default host GPU path
+fails periodically and has no cure. The next useful step is a fresh boot with
+`adb emu kill` + `ensure-emulator.sh` and a re-run of the control flow alone; if that
+still fails, the fix belongs to the emulator image, not to this repository.

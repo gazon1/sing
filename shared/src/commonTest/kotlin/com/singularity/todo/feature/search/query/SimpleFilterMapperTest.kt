@@ -9,7 +9,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-@Tag("slow")
+@Tag("fast")
 class SimpleFilterMapperTest {
 
     private val mapper = SimpleFilterMapper()

@@ -13,6 +13,7 @@ DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
 MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
+MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
 
 
 def main() -> None:
@@ -90,10 +91,25 @@ def main() -> None:
 
     corpus.sort()
     critical = [(b, slug_for_bullet[b.lower()]) for (t, b, s) in corpus if CRITICAL_RE.search(b)]
+
+    # Cap each ADR's contribution to the per-tag sections. A verbose ADR that
+    # lists fifteen consequences used to fill every tag section it was tagged
+    # with, so the digest grew with the wordiest author rather than with the
+    # number of decisions. The Critical section is exempt: **Always** / **Never**
+    # rules are exactly what a reader came for, and they are already a short,
+    # hand-curated list.
+    per_slug_kept: dict[str, int] = {}
+    dropped_per_slug: dict[str, int] = {}
     per_tag: dict[str, list[tuple[str, str]]] = {}
     for (t, b, s) in corpus:
-        if not CRITICAL_RE.search(b):
-            per_tag.setdefault(t, []).append((b, s))
+        if CRITICAL_RE.search(b):
+            continue
+        seen = per_slug_kept.get(s, 0)
+        if seen >= MAX_BULLETS_PER_ADR:
+            dropped_per_slug[s] = dropped_per_slug.get(s, 0) + 1
+            continue
+        per_slug_kept[s] = seen + 1
+        per_tag.setdefault(t, []).append((b, s))
 
     open_deferred = {
         s: (statuses[s], titles[s])
@@ -143,13 +159,21 @@ def main() -> None:
         seen: set[tuple[str, str]] = set()
         items = sorted(per_tag[tag])
         shown = 0
+        marker_done: set[str] = set()
         for b, s in items:
             key = (b.lower(), s)
-            if key not in seen:
-                seen.add(key)
-                if shown < MAX_ITEMS_PER_TAG:
-                    out.append(f"- {b}")
-                    shown += 1
+            if key in seen:
+                continue
+            seen.add(key)
+            if shown >= MAX_ITEMS_PER_TAG:
+                continue
+            extra = dropped_per_slug.get(s, 0)
+            if extra and s not in marker_done:
+                marker_done.add(s)
+                out.append(f"- {b} _(+{extra} more in `{s}`)_")
+            else:
+                out.append(f"- {b}")
+            shown += 1
         total = len(seen)
         if total > MAX_ITEMS_PER_TAG:
             out.append(f"- _... and {total - MAX_ITEMS_PER_TAG} more items_")
