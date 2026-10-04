@@ -10,7 +10,8 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * The shell boots: the version gate passes, auth is satisfied, and the desktop
@@ -36,6 +37,7 @@ import org.junit.Test
  * `singularity-todo-maestro-flows`.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class DesktopAppBootTest {
 
     @Test

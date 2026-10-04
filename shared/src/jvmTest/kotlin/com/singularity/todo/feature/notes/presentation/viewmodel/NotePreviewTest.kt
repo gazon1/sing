@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -23,6 +24,7 @@ import kotlin.test.assertNotNull
 import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class NotePreviewTest {
 
     private val testUserId = UserId("test-user")

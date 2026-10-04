@@ -2,9 +2,11 @@ package com.singularity.todo.core.repository
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
+@Tag("fast")
 class UserScopedWriteExtTest {
 
     @Test

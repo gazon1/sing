@@ -23,7 +23,8 @@ import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.flow.first
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/create-task.yaml`, covering the editor
@@ -44,6 +45,7 @@ import org.junit.Test
  * the "No Date" header would simply be missing. See [AgendaTabDefinitionFlowTest].
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class CreateTaskFlowTest {
 
     @Test

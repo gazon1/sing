@@ -8,7 +8,7 @@
 run:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :desktopApp:run
+    ./gw :desktopApp:run
 
 [group('run')]
 [doc('Run the desktop app headless via Xvfb (no display required)')]
@@ -16,7 +16,7 @@ run:
 run-headless:
     #!/bin/bash
     set -euo pipefail
-    xvfb-run -a ./gradlew :desktopApp:run
+    xvfb-run -a ./gw :desktopApp:run
 
 [group('run')]
 [doc('Print PID of running desktop app (empty if not running)')]

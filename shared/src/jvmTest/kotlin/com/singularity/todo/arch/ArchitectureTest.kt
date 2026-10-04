@@ -4,6 +4,7 @@ package com.singularity.todo.arch
 
 import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.fail
 
@@ -19,6 +20,7 @@ import kotlin.test.fail
  * `docs/decisions/2026-09-26-konsist-architecture-tests.md`. Adding a new entry
  * without updating the ADR is a regression.
  */
+@Tag("slow")
 class ArchitectureTest {
 
     companion object {

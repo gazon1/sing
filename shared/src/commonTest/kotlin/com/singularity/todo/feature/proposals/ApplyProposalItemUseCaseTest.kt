@@ -47,6 +47,7 @@ import kotlin.time.Duration.Companion.seconds
  * Covers the four properties that make the confirm path safe. Each corresponds to a
  * way the obvious implementation loses user data.
  */
+@org.junit.jupiter.api.Tag("fast")
 class ApplyProposalItemUseCaseTest {
 
     private val clock = FakeClock()

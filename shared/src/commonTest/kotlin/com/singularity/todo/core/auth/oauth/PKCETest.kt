@@ -1,10 +1,12 @@
 package com.singularity.todo.core.auth.oauth
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 
+@Tag("fast")
 class PKCETest {
 
     @Test

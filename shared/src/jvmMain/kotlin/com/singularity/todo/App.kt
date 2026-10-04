@@ -67,7 +67,11 @@ private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeS
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {
-        NavCallbacks(navigate = navigator::navigate, goBack = navigator::goBack)
+        NavCallbacks(
+            navigate = navigator::open,
+            goBack = navigator::goBack,
+            close = navigator::close,
+        )
     }
 
     SingularityTheme(darkTheme = darkTheme, accent = accent, fontSizeScale = fontSizeScale) {

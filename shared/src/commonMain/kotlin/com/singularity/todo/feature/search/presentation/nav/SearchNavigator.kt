@@ -20,14 +20,14 @@ open class SearchNavigator(protected val onExitGraph: (AppDestination?) -> Unit)
      * Open a task detail in the tasks graph.
      */
     open fun openTask(taskId: TaskId) {
-        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId.value)))
+        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId)))
     }
 
     /**
      * Open a note preview in the notes graph.
      */
     open fun openNote(noteId: NoteId) {
-        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(noteId.value)))
+        onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(noteId)))
     }
 
     /**

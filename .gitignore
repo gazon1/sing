@@ -1,5 +1,10 @@
 # Gradle / Kotlin Multiplatform
 .gradle/
+# Private Gradle user home created by ./gw (or direnv/.envrc). It holds the
+# daemon registry, the native dir and .tmp/; the wrapper, caches and jdks
+# entries inside it are symlinks to the real ~/.gradle.
+# See docs/decisions/2026-10-04-gradle-daemon-isolation.md
+/.gradle-user-home/
 build/
 *.class
 *.jar
@@ -86,6 +91,7 @@ target/
 # UI verification screenshots
 *.png
 scripts/__pycache__/
+scripts/tests/__pycache__/
 .zcode
 
 # Auto-generated decision digest (regenerated via post-checkout / post-merge hooks)

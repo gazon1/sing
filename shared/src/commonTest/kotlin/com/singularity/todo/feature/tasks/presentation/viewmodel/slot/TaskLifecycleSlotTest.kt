@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -15,6 +16,7 @@ import kotlin.test.assertTrue
 
 /** Covers delete-with-undo, archive-without-undo, and restore. */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskLifecycleSlotTest {
 
     private fun slot(

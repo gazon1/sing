@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.rememberDialogState
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -286,6 +287,11 @@ fun TaskEditorContent(
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
+            // The menu renders in its own popup window; the app-root
+            // testTagsAsResourceId never reaches it (same as MenuBottomSheet),
+            // so the mapping is re-asserted here or every row tag stays
+            // invisible to UI automation.
+            modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
             menuItems.forEach { item ->
                 DropdownMenuItem(
@@ -293,6 +299,11 @@ fun TaskEditorContent(
                     onClick = {
                         showMenu = false
                         item.onClick()
+                    },
+                    modifier = if (item.testTag != null) {
+                        Modifier.testTag(item.testTag)
+                    } else {
+                        Modifier
                     },
                 )
             }
@@ -509,8 +520,8 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         onSetDependencies = null,
         bottomBar = null,
         menuItems = listOf(
-            TaskEditorMenuItem("Archive") {},
-            TaskEditorMenuItem("Delete") {},
+            TaskEditorMenuItem("Archive", onClick = {}),
+            TaskEditorMenuItem("Delete", onClick = {}),
         ),
         onBack = {},
     )
@@ -543,8 +554,8 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         onSetDependencies = {},
         bottomBar = null,
         menuItems = listOf(
-            TaskEditorMenuItem("Archive") {},
-            TaskEditorMenuItem("Delete") {},
+            TaskEditorMenuItem("Archive", onClick = {}),
+            TaskEditorMenuItem("Delete", onClick = {}),
         ),
         onBack = {},
     )

@@ -3,12 +3,14 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.selector
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 
+@Tag("fast")
 class SelectorBuilderTest {
 
     // ─── allOf ────────────────────────────────────────────────────────────────

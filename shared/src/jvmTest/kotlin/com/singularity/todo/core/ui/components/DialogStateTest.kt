@@ -1,10 +1,12 @@
 package com.singularity.todo.core.ui.components
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
+@Tag("fast")
 class DialogStateTest {
 
     private sealed interface TestDialog {

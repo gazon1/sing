@@ -37,6 +37,7 @@ import kotlin.time.Clock
  * pins that behaviour so a future edit cannot quietly reopen the hole.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.jupiter.api.Tag("fast")
 class FakeRepositoryFidelityTest {
 
     private val alice = UserId("alice")

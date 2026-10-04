@@ -2,7 +2,8 @@ package com.singularity.todo.core.ui.menu
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop JVM smoke tests for [AwtMenuBarInstaller].
@@ -14,6 +15,7 @@ import org.junit.Test
  * Integration tests with a real window would verify File / Edit / View / Help
  * submenus and the Ctrl+Q quit shortcut.
  */
+@Tag("fast")
 class MenuBarTest {
 
     private fun buildSampleMenu() = buildMenuNodes {

@@ -37,6 +37,25 @@ class McpServerEndToEndTest {
 
     private val jar = File("build/libs/mcp-server.jar")
 
+    /**
+     * Spawns the fat JAR against an ISOLATED `-Duser.home` temp directory.
+     * Without this the subprocess inherits the developer's real home, runs the
+     * Room migrations against (and writes test tasks into) the developer's own
+     * `~/.singularity-todo/singularity-todo.db` — on 2026-10-04 that both
+     * exposed the v31→v32 migration bug and would have polluted real data.
+     */
+    private fun spawnServer(): Process {
+        val e2eHome = java.nio.file.Files.createTempDirectory("mcp-e2e-home")
+        return ProcessBuilder(
+            "java",
+            "-Duser.home=${e2eHome.toAbsolutePath()}",
+            "-jar",
+            jar.absolutePath,
+            "--profile=e2e-${System.currentTimeMillis()}",
+        ).redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+    }
+
     @Test
     fun server_handles_initialize_and_lists_tools() {
         assumeTrue(
@@ -44,13 +63,7 @@ class McpServerEndToEndTest {
             "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
-        val process = ProcessBuilder(
-            "java",
-            "-jar",
-            jar.absolutePath,
-            "--profile=e2e-${System.currentTimeMillis()}",
-        ).redirectError(ProcessBuilder.Redirect.PIPE)
-            .start()
+        val process = spawnServer()
 
         try {
             val transport = StdioClientTransport(
@@ -100,6 +113,10 @@ class McpServerEndToEndTest {
 
             runBlocking { client.close() }
         } catch (t: Throwable) {
+            // Destroy first: readText() on an ALIVE child's stderr blocks until
+            // EOF. Kill the process so the pipe closes and the buffered output
+            // can be drained (regression 2026-10-04: this hung the whole suite).
+            if (process.isAlive) process.destroyForcibly()
             val stderr = runCatching { process.errorStream.bufferedReader().readText() }.getOrDefault("")
             fail("MCP e2e failed: ${t.message}\n--- server stderr ---\n$stderr")
         } finally {
@@ -114,13 +131,7 @@ class McpServerEndToEndTest {
             "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
-        val process = ProcessBuilder(
-            "java",
-            "-jar",
-            jar.absolutePath,
-            "--profile=e2e-${System.currentTimeMillis()}",
-        ).redirectError(ProcessBuilder.Redirect.PIPE)
-            .start()
+        val process = spawnServer()
 
         try {
             // With no traffic on stdin and no client connected, the JVM must remain alive
@@ -143,13 +154,7 @@ class McpServerEndToEndTest {
             "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
-        val process = ProcessBuilder(
-            "java",
-            "-jar",
-            jar.absolutePath,
-            "--profile=e2e-${System.currentTimeMillis()}",
-        ).redirectError(ProcessBuilder.Redirect.PIPE)
-            .start()
+        val process = spawnServer()
 
         try {
             val transport = StdioClientTransport(
@@ -174,13 +179,13 @@ class McpServerEndToEndTest {
             )
             val createResult: CallToolResult = runBlocking {
                 withTimeout(timeMillis = 5_000) {
-                    client.callTool("tasks.create", createArgs)
+                    client.callTool("create_task", createArgs)
                 }
             }
 
             assertTrue(
                 createResult.isError == false,
-                "tasks.create returned isError=true: ${createResult.content}",
+                "create_task returned isError=true: ${createResult.content}",
             )
 
             // Extract taskId from structured JSON: {"taskId":"...","title":"...","description":null}
@@ -188,18 +193,18 @@ class McpServerEndToEndTest {
                 (createResult.content.first() as io.modelcontextprotocol.kotlin.sdk.types.TextContent).text,
             ).jsonObject
             val taskId = createJson["taskId"]?.jsonPrimitive?.content
-                ?: fail("tasks.create response missing taskId: ${createResult.content}")
+                ?: fail("create_task response missing taskId: ${createResult.content}")
 
             // Step 2: read it back
             val getResult: CallToolResult = runBlocking {
                 withTimeout(timeMillis = 5_000) {
-                    client.callTool("tasks.get", mapOf("taskId" to taskId))
+                    client.callTool("get_task", mapOf("taskId" to taskId))
                 }
             }
 
             assertTrue(
                 getResult.isError == false,
-                "tasks.get returned isError=true: ${getResult.content}",
+                "get_task returned isError=true: ${getResult.content}",
             )
 
             val getJson = Json.parseToJsonElement(
@@ -211,11 +216,15 @@ class McpServerEndToEndTest {
             assertEquals(
                 (createArgs["title"] as String),
                 gotTitle,
-                "tasks.get should return the same title that was created",
+                "get_task should return the same title that was created",
             )
 
             runBlocking { client.close() }
         } catch (t: Throwable) {
+            // Destroy first: readText() on an ALIVE child's stderr blocks until
+            // EOF. Kill the process so the pipe closes and the buffered output
+            // can be drained (regression 2026-10-04: this hung the whole suite).
+            if (process.isAlive) process.destroyForcibly()
             val stderr = runCatching { process.errorStream.bufferedReader().readText() }.getOrDefault("")
             fail("MCP e2e roundtrip failed: ${t.message}\n--- server stderr ---\n$stderr")
         } finally {

@@ -30,11 +30,11 @@ open class NotesNavigator(
     }
 
     /**
-     * Exit the notes nested graph and navigate to the tasks tab.
+     * Exit the notes nested graph and open the *detail* of [taskId].
      * Used when the user taps a [[task]] wikilink inside a note.
      */
     open fun openTask(taskId: TaskId) {
-        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
+        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId)))
     }
 
     /**

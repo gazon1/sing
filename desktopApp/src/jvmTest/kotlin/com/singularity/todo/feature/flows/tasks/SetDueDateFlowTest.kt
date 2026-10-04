@@ -10,7 +10,8 @@ import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tasks
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/02-set-due-date.yaml`, scoped to the
@@ -29,6 +30,7 @@ import org.junit.Test
  * label is reachable before a date is set.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class SetDueDateFlowTest {
 
     /**

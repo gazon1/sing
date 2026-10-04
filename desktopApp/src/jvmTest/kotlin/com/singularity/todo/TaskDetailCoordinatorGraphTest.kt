@@ -11,15 +11,19 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoord
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.testPlatformModule
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
+import org.junit.jupiter.api.Tag
+import java.util.Collections
 import kotlin.test.Test
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Pins the contract the flow tests exposed the hard way: a [TaskDetailCoordinator]
@@ -39,7 +43,13 @@ import kotlin.time.Duration.Companion.seconds
  * reaches a terminal state in real time. It also fails on the `Error` path with the
  * actual message, so a broken dependency surfaces here instead of as a hang.
  */
+@Tag("fast")
 class TaskDetailCoordinatorGraphTest {
+
+    private companion object {
+        /** Hang detector, not a latency budget — see the comment at the wait. */
+        val HANG_BUDGET = 1.minutes
+    }
 
     @Test
     fun coordinator_built_from_di_graph_leaves_loading() = runTest {
@@ -69,10 +79,31 @@ class TaskDetailCoordinatorGraphTest {
                 // first emission while taskFlow was still on its seeded null —
                 // this wait pins that the screen goes Loading → Loaded, never
                 // through Error, on the happy path.
-                val loaded = withTimeout(10.seconds) {
-                    coordinator.state.first { it is TaskDetailUiState.Loaded }
+                //
+                // The budget is a HANG detector, not a speed assertion. It cannot
+                // be virtual time: the coordinator's scope runs on
+                // Dispatchers.Default and the graph supplies a real Room driver,
+                // so the emissions genuinely come from other threads — a
+                // runTest-virtual withTimeout would either expire instantly or
+                // advance a clock nobody is waiting on. Which means its size must
+                // not depend on how loaded the machine is: at 10s this test failed
+                // roughly one run in three while three instrumented modules
+                // compiled in parallel, and a coin-flip gate trains people to
+                // re-run instead of read. A combine that dies before its first
+                // emission hangs forever, so a generous bound still catches it —
+                // it just costs 60 seconds instead of 10 when the code is broken.
+                val seen = Collections.synchronizedList(mutableListOf<TaskDetailUiState>())
+                val loaded = withTimeoutOrNull(HANG_BUDGET) {
+                    coordinator.state
+                        .onEach { seen += it }
+                        .first { it is TaskDetailUiState.Loaded }
                         as TaskDetailUiState.Loaded
                 }
+                assertNotNull(
+                    loaded,
+                    "coordinator never reached Loaded within $HANG_BUDGET; " +
+                        "states observed: ${seen.joinToString(" -> ")}",
+                )
                 assertTrue(loaded.extras is TaskDetailExtras.Ready)
             }
         } finally {

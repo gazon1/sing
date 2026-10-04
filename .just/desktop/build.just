@@ -10,14 +10,14 @@ build TARGET="run":
     set -euo pipefail
     case "{{TARGET}}" in
         run)
-            ./gradlew :desktopApp:run
+            ./gw :desktopApp:run
             ;;
         dist)
-            ./gradlew :desktopApp:createDistributable
+            ./gw :desktopApp:createDistributable
             echo "✅ desktopApp/build/compose/binaries/main/app/"
             ;;
         deb)
-            ./gradlew :desktopApp:packageDeb
+            ./gw :desktopApp:packageDeb
             echo "✅ desktopApp/build/compose/binaries/main/deb/singularity-todo_0.1.0_amd64.deb"
             ;;
         *)

@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import com.singularity.todo.core.error.AppError
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -9,6 +10,7 @@ import kotlin.test.assertIs
  * Tests for the [ContentState] sealed interface — the canonical state wrapper
  * used by [StatefulContent] to route between Loading / Empty / Error / Ready.
  */
+@Tag("fast")
 class ContentStateTest {
 
     @Test

@@ -14,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -25,6 +26,7 @@ import kotlin.time.Instant
  * Tests for pure domain logic in TaskDomain.
  * No mocks needed - all functions are pure.
  */
+@Tag("fast")
 class TasksDomainTest {
 
     // ===== validateTitle =====

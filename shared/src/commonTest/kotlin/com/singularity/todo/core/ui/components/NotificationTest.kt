@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -8,6 +9,7 @@ import kotlin.test.assertIs
  * Tests for the [Notification] sealed interface — the rendering target of [NotificationHost].
  * Verifies each variant carries the correct data.
  */
+@Tag("fast")
 class NotificationTest {
 
     @Test

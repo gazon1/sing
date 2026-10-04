@@ -1,222 +1,100 @@
-# Navigation Architecture Specification
+# Navigation map (Nav3 multi-back-stack)
 
-> This document is the authoritative reference for Nav3 navigation architecture.
-> It is a living document — any change to navigation behavior MUST update this spec.
+Inventory of every navigation key: **where it lives (container), what opens it, and what its
+inner start route is**. Source of truth: `AndroidNavEntries.kt` (androidMain) and
+`JvmNavEntries.kt` (jvmMain) — both declare the same 18 `entry<>` blocks; they differ only
+in stack persistence (saved-state vs in-memory) and in the JVM `TasksGraph` in-memory stack
+seeding.
 
-## Overview
+Architecture rationale: ADR `2026-10-04-navigation-policy.md` + skill
+`singularity-todo-nav3-nested-graphs`.
 
-The app uses **Navigation 3 (Nav3)** with a **multi-back-stack** pattern:
+## Containers
 
-- **Outer graph**: `AppDestination` routes (tabs + menu entries)
-- **Nested graphs**: `TasksRoute`, `AgendaStartRoute`, `CalendarRoute`, `NotesRoute`, `ProjectsRoute`, `SearchRoute`, `SettingsRoute`
-- **Renderer**: `NavDisplay` (shared Android + JVM component) renders all active stacks
+| Container | Holds | Created by |
+|---|---|---|
+| **Top-level destination** (13 back stacks) | app-level keys | `rememberNav3State()`: `DestinationKind.tabs` (6) + `DestinationKind.menuEntries` (7) |
+| **Pushed app-level sub-route** | app-level keys on top of the current top-level stack | `Navigator.open` (policy: `Push` / `ExitAndOpen`) |
+| **Inner feature route** | `TasksRoute` / `NotesRoute` / `ProjectsRoute` / `CalendarRoute` / `AgendaStartRoute` / `Settings` / `Search` | feature navigator (`backStack.add`) inside its graph |
 
-```
-AppDestination (outer)
-├── AgendaGraph
-│   └── AgendaStartRoute: Today, Inbox, Upcoming, Project(...), Tag(...), SavedAgendaList, SavedAgendaResults, SavedAgendaEdit, SavedAgendaCreate
-├── TasksGraph
-│   └── TasksRoute: Create(...), Detail(...)
-├── CalendarGraph
-│   └── CalendarRoute: Month(...), Day(...)
-├── NotesGraph
-│   └── NotesRoute: List, Preview(...), Editor(...)
-├── ProjectsGraph
-│   └── ProjectsRoute: List, Detail(...), Editor(...)
-└── SettingsGraph
-    └── SettingsRoute: Top, Appearance, Notifications, ...
-```
+All app-level keys are leaves of the single sealed root `AppNavKey` (see
+`AppNavKey.kt`); inner routes are also `AppNavKey` leaves (they must round-trip the
+polymorphic saved-state module) but are never valid app-level open targets.
 
----
+## Top-level destinations (own back stack)
 
-## Rule 1: `NavDisplay` dispatches on `backStack.top`, not `start`
+| Key | Inner content | Opened from (sources) |
+|---|---|---|
+| `AgendaGraph(Inbox / Today / Upcoming)` | `AgendaNavGraph(start = …)` | bottom bar tabs (3 instances), desktop drawer/menu, back-at-root returns to previous |
+| `Plans` | `ProjectsNavGraph(List)` | bottom bar tab, desktop drawer/menu |
+| `Pomodoro` | `PomodoroScreen` | bottom bar tab, desktop drawer/menu |
+| `Calendar` | `CalendarNavGraph(Month(today))` | bottom bar tab, desktop drawer/menu |
+| `Statistics` | `StatisticsScreen` | menu sheet / desktop menu |
+| `Notes` | `NotesNavGraph(List)` | menu sheet / desktop menu |
+| `AiChat` | `ChatScreen` | menu sheet / desktop menu |
+| `Search` | `SearchNavGraph` | menu sheet, Ctrl+F, top-bar search icon |
+| `Archive` | `ArchiveScreen` | menu sheet / desktop menu |
+| `ProfileSwitcher` | `ProfileSwitcherScreen` | menu sheet, `SettingsNavigator.openProfiles()` |
+| `Settings` | `SettingsNavGraph` | menu sheet, Ctrl+, |
+| `AiUsage` | `AiUsageScreen` | settings → AI usage row |
 
-`NavDisplay` renders the entry at `backStack.top`. The `start` parameter is used only to **seed** the back stack.
+Tab reselect emits `Nav3State.reselectEvents`; reselect never mutates a stack
+(REQ-NAV-006).
 
-**Consequence:** If `backStack` is seeded with `Create(null)` but the caller passes `Detail(taskId)` as `start`, the screen shown is `Create(null)` — not `Detail`.
+## Pushed app-level sub-routes (enter the current top-level stack)
 
-**Correct pattern — seed and start must match, or seed must be updated:**
+| Key | Inner start | Opened from (sources) | Notes |
+|---|---|---|---|
+| `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute())` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | `fromString` unpacking of `Detail.taskId` lives in the entry converter today (→ B2 typed id) |
+| `TasksByProject(projectId)` | *(no `entry<>` declared)* | **no production opener — unwired surface** (see `ProjectDetailUi` "see all") | candidate for follow-up issue |
+| `ProjectDetail(projectId)` | `ProjectsNavGraph(Detail)` | `TasksNavigator.openProject`, `SearchNavigator.openProject` | allow-list previously permitted from Tasks/Agenda contexts only |
+| `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | plans FAB, project detail edit | |
+| `ProjectsGraph(start)` | `ProjectsNavGraph(start.toProjectsRoute())` | projects deep link | |
+| `NotesGraph(start)` | `NotesNavGraph(start.toNotesRoute())` | `TasksNavigator.openNote*`, `SearchNavigator.openNote`, task→linked-note | previously **swallowed** by the Tasks allow-list (REQ-NAV-002) |
+| `CalendarGraph(start)` | `CalendarNavGraph` | calendar deep link | |
+| `AgendaGraph(start ≠ tab starts)` | `AgendaNavGraph(start)` | `ProjectsNavigator.openAgendaForProject`, `SearchNavigator.openTag`, saved-view deep link `deeplinkViewId` | tab instances are top-level; `Project`/`Tag`/saved-view starts are pushed |
 
-```kotlin
-// WRONG: NavDisplay will render Create(null) despite start = Detail
-entry<AppDestination.TasksGraph> { route ->
-    val tasksStack = rememberInMemoryNavBackStack(TasksRoute.Create(null))
-    TasksNavGraph(
-        start = route.start.toTasksRoute(route.initialDueDate),  // may be Detail
-        backStack = tasksStack,
-    )
-}
+**Deprecated app-level members with no `entry<>`** (removed in B4 after live-ref grep):
+`AppDestination.Inbox / Today / Upcoming`, `AppDestination.TaskDetail`,
+`AppDestination.TaskDetailCreate`, `TasksStartRoute.Inbox / Upcoming`
+(production mapping still exists: `toTasksRoute` maps the latter two to `Create(null)`).
 
-// RIGHT: when start differs from seed, add to stack before rendering
-entry<AppDestination.TasksGraph> { route ->
-    val tasksStack = rememberInMemoryNavBackStack(TasksRoute.Create(null))
-    val startRoute = route.start.toTasksRoute(route.initialDueDate)
-    if (startRoute is TasksRoute.Detail) {
-        tasksStack.add(startRoute)  // NavDisplay now renders Detail
-    }
-    TasksNavGraph(
-        start = startRoute,
-        backStack = tasksStack,
-    )
-}
-```
+**Structurally invalid app-level targets** (REQ-NAV-003 — policy rejects with a
+descriptive error): bare nested start routes — `TasksStartRoute.*`,
+`ProjectsStartRoute.*`, `NotesStartRoute.*`, `CalendarStartRoute.*`,
+`AgendaStartRoute.*` — and inner routes (`TasksRoute`, `NotesRoute`, `ProjectsRoute`,
+`CalendarRoute`, lone `Settings`/`Search`) addressed without their graph wrapper.
 
-**When seed = start (same type):** No `add()` needed.
+## Cross-feature emitters (the `onExitGraph(dest)` producers)
 
-```kotlin
-// AgendaNavGraph — seed always equals route.start by construction
-entry<AppDestination.AgendaGraph> { route ->
-    val agendaStack = rememberInMemoryNavBackStack(route.start)  // seed = start
-    AgendaNavGraph(
-        start = route.start,  // identical to seed
-        backStack = agendaStack,
-    )
-}
-```
+| Emitter | Emits (non-null) | Previously allowed by the entry allow-list? |
+|---|---|---|
+| `TasksNavigator` | `ProjectDetail`, `NotesGraph(Preview)`, `NotesGraph(EditorForTask)` | ProjectDetail ✔ / **NotesGraph ✘ swallowed** |
+| `ProjectsNavigator` | `AgendaGraph(Project)`, `TasksGraph(Detail)` | **✘ swallowed from Plans/ProjectsGraph/Editor contexts** (only `ProjectDetail` entry allowed them) |
+| `AgendaNavigator` | `TasksGraph(Detail)`, project/detail targets | TasksGraph ✔, ProjectDetail ✔ |
+| `CalendarNavigator` | tasks / project targets | TasksGraph ✔ / **ProjectDetail ✘ swallowed** |
+| `SearchNavigator` | tasks / notes / project / `AgendaGraph(Tag)` | search bypassed the allow-list (connected `navCallbacks` directly) ✔ |
+| `NotesNavigator` | `TasksGraph(Create())` — **bug: task id dropped** | ✔ but opens the wrong screen (B1 fixes to `Detail(taskId)`) |
+| `SettingsNavigator` | `ProfileSwitcher` | settings bypassed the allow-list ✔ |
 
----
+`null` from any emitter = "exit the graph" → `Navigator.close()` (was `goBack()`).
 
-## Rule 2: Cross-graph navigation via `onExitGraph`
+After B1 every entry's `onExitGraph` is the uniform
+`{ dest -> if (dest == null) nav.close() else nav.navigate(dest) }`; `navigate`
+delegates to `Navigator.open`, which resolves via `NavigationPolicy`.
 
-Nested graphs communicate with the outer graph via `onExitGraph`.
+## Platform differences
 
-```kotlin
-val navigator = TasksNavigator(stack) { dest: AppDestination? ->
-    // null = go back in outer graph
-    // AppDestination.ProjectDetail(...) = navigate to project
-    dest?.let { outerNav.navigate(it) } ?: outerNav.goBack()
-}
-```
+| Aspect | Android | Desktop JVM |
+|---|---|---|
+| Stack persistence | `rememberNavBackStack(navSavedStateConfig(), key)` (process death) | `rememberInMemoryNavBackStack(key)` (ADR `2026-09-16`) |
+| `TasksGraph` inner stack | graph dispatch by stack top (ADR `2026-10-03-nav3-backstack-top-vs-start-dispatch`) | seeded `rememberInMemoryNavBackStack`, `Detail` start pushed eagerly |
+| Shell chrome | bottom bar + menu bottom sheet | drawer + window menu bar |
+| Deep link | `singularity://task/{id}`, saved-view id → `App.kt` `LaunchedEffect` | none |
 
-**All `*Navigator` classes use `onExitGraph` for cross-graph navigation:**
+## Baseline (B0, 2026-10-04, before policy change)
 
-| Navigator | Method | Destination |
-|-----------|--------|-------------|
-| `AgendaNavigator` | `openTask(taskId)` | `TasksGraph(Detail)` |
-| `AgendaNavigator` | `openCreateInSection(sectionId)` | `TasksGraph(Create)` |
-| `CalendarNavigator` | `openTask(taskId)` | `TasksGraph(Detail)` |
-| `CalendarNavigator` | `openCreateTask(date)` | `TasksGraph(Create, initialDueDate)` |
-| `TasksNavigator` | `openProject(projectId)` | `ProjectDetail` |
-| `TasksNavigator` | `openNote(noteId)` | `NotesGraph(Preview)` |
-| `NotesNavigator` | `openTask(taskId)` | `TasksGraph(Create)` — wikilinks create, not edit |
-
-**No `onExitGraph` for same-graph navigation** — use `backStack.add(Route)`.
-
----
-
-## Rule 3: In-memory stacks on JVM, saved-state on Android
-
-**JVM Desktop:** `rememberInMemoryNavBackStack(seed)` — plain `NavBackStack(seed)` kept in memory. No process death, no saved state needed.
-
-**Android:** `rememberNavBackStack(navSavedStateConfig(), start)` — restores state from `SavedStateConfiguration` on process death.
-
-Both are wrapped in a platform-specific factory so the outer graph code is platform-agnostic.
-
----
-
-## Rule 4: `JvmNavEntries` owns all nested graph entry creation
-
-All nested graph entries for JVM Desktop are created in `shared/src/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt` via the `createJvmEntryProvider` function.
-
-**Structure:**
-
-```kotlin
-@Composable
-fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
-    // Top-level tabs
-    entry<AppDestination.Agenda> { AgendaNavGraph(...) }
-    entry<AppDestination.Tasks> { TasksNavGraph(...) }
-    // ...
-    // Nested graph entries
-    entry<AppDestination.TasksGraph> { route -> ... }
-    entry<AppDestination.AgendaGraph> { route -> ... }
-    entry<AppDestination.CalendarGraph> { route -> ... }
-    entry<AppDestination.NotesGraph> { route -> ... }
-    entry<AppDestination.ProjectsGraph> { route -> ... }
-}
-```
-
-**Platform entry providers** (androidMain) use the same structure with platform-specific NavGraph implementations.
-
----
-
-## Rule 5: Back navigation respects stack depth
-
-Every `*Navigator.back()` follows the same contract:
-
-```kotlin
-open fun back() {
-    if (backStack.size <= 1) {
-        onExitGraph(null)  // at root — exit the graph
-    } else {
-        backStack.removeLastOrNull()  // pop one level
-    }
-}
-```
-
-`size <= 1` means only the seed entry remains. Popping it would leave an empty stack, so we exit instead.
-
----
-
-## Rule 6: Tab reselect emits `reselectEvents`
-
-Tapping the **active tab** emits a `reselectEvents` event instead of switching tabs. Screens use this to reset scroll position or refresh content.
-
-**Implementation:** `Nav3State.onTabTapped(route)`:
-- If `route == topLevelRoute` → emit reselect event
-- Otherwise → switch to new tab
-
-Screens that need reselect handling collect `navCallbacks.reselectEvents` (or `Nav3State.reselectEvents`).
-
----
-
-## Rule 7: Nested graph `start` route conversion
-
-Outer destinations (`AppDestination.TasksGraph(start = TasksStartRoute.Detail(...))`) are converted to inner routes (`TasksRoute.Detail(...)`) via `toTasksRoute(initialDueDate)`:
-
-```kotlin
-private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute =
-    when (this) {
-        is AppDestination.TasksStartRoute.Create ->
-            TasksRoute.Create(initialDueDate)
-        is AppDestination.TasksStartRoute.Detail ->
-            TasksRoute.Detail(TaskId.fromString(taskId))
-        is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Create(null)     // deprecated
-        is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Create(null)   // deprecated
-    }
-```
-
-**Deprecated variants (`Inbox`, `Upcoming`)** resolve to `Create(null)` and exist for backwards compatibility with existing deep links. New navigation always uses explicit `Create` or `Detail`.
-
----
-
-## Rule 8: No `stateIn` in ViewModels — use `MutableStateFlow + scope.launch { }`
-
-Navigation state is held in `NavBackStack` (observable list). ViewModels that need to react to navigation events should collect the stack via `scope.launch { stack.collect { ... } }`, not `stateIn`.
-
-See `singularity-todo-testable-vm` skill and ADR `2026-09-27-vm-koin-scoping-retired.md`.
-
----
-
-## Verification
-
-Run the desktop navigation tests to verify this spec is upheld:
-
-```bash
-./gradlew :desktopApp:test --tests 'com.singularity.todo.feature.flows.agenda.OpenTaskFromAgendaFlowTest'
-./gradlew :desktopApp:test --tests 'com.singularity.todo.feature.flows.tasks.SetDueDateFlowTest'
-./gradlew :desktopApp:test --tests 'com.singularity.todo.feature.flows.tasks.SetPriorityFlowTest'
-./gradlew :shared:jvmTest --tests 'com.singularity.todo.arch.ArchitectureTest'
-```
-
-The Konsist rule `nav3 backStack seed mismatch requires explicit add for Detail routes` enforces Rule 1 automatically.
-
----
-
-## Related Documents
-
-- [ADR: Nav3 backStack.top vs start parameter dispatch](docs/decisions/2026-10-03-nav3-backstack-top-vs-start-dispatch.md)
-- [ADR: Single sealed NavKey root](docs/decisions/2026-09-29-single-sealed-navkey-root.md)
-- [ADR: Nav3 type asymmetry](docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md)
-- [Nav3SavedState.kt](../shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/Nav3SavedState.kt)
-- [JvmNavEntries.kt](../shared/src/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt)
+`Nav3StateReselectTest` (7), `Nav3SavedStateTest` (6), `NavSavedStateConfigTest` (4),
+`NavKeyRegistrationTest` (4), `DestinationKindTest` (8), `NavigationLabelsTest` (2),
+desktop `NavigationFlowTest` (3), `PlatformParityTest` (1),
+`OpenTaskFromAgendaFlowTest` (3) — **all green**.

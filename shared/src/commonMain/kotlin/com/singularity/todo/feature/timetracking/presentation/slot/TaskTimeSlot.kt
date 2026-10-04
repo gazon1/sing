@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,14 @@ class TaskTimeSlot(
                     timeTrackingRepo.watchEntries(taskId)
                 }
                 .collect { entries ->
-                    val openEntry = timeTrackingRepo.getOpenEntry(currentUser.scopedUserId.value)
+                    // Re-derived per emission, not read from the cache: `scopedUserId`
+                    // is a StateFlow seeded at construction and corrected by an async
+                    // collector, so sampling it here would keep querying under the
+                    // previous profile after a switch. `liveScopedUserId.first()` is a
+                    // cold derivation — it answers with the truth now, and re-answers on
+                    // the next entry. See ADR 2026-10-04-derived-identity-flows.md.
+                    val userId = currentUser.liveScopedUserId.first()
+                    val openEntry = timeTrackingRepo.getOpenEntry(userId)
                     val workEntries = entries.filter { it.kind == TimeEntryKind.Work }
                     val totalMs = workEntries.sumOf { it.durationMs ?: 0L }
                     _state.value = when {

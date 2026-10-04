@@ -10,7 +10,7 @@ SKIP_ADB := env_var_or_default("SKIP_ADB", "0")
 common:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:commonTest
+    ./gw :shared:commonTest
 
 [group('tests')]
 [doc('Run jvmTest (Room + SQLite on JVM)')]
@@ -18,7 +18,7 @@ common:
 jvm:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:jvmTest
+    ./gw :shared:jvmTest
 
 [group('tests')]
 [doc('Run testAndroidHostTest (Robolectric, no device needed)')]
@@ -26,7 +26,7 @@ jvm:
 android-host:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:testAndroidHostTest
+    ./gw :shared:testAndroidHostTest
 
 [group('tests')]
 [doc('Run common + jvm + android-host tests')]
@@ -39,12 +39,12 @@ shared:
     just tests::android-host
 
 [group('tests')]
-[doc('Run ./gradlew test (all modules)')]
+[doc('Run ./gw test (all modules)')]
 [working-directory(justfile_directory())]
 test:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew test
+    ./gw test
 
 [group('tests')]
 [doc('Run full check: tests + assembleDebug + lint (respects $SKIP_ADB)')]
@@ -61,7 +61,7 @@ check:
 clean:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew clean
+    ./gw clean
 
 # ---------------------------------------------------------------------------
 # Lint / static analysis
@@ -80,7 +80,7 @@ detekt:
     # Cheap, runs first. A duplicated rule registration fails the Gradle build
     # later with a YAML error pointing at the config rather than the real cause.
     ./scripts/check-detekt-registrations.sh
-    ./gradlew :shared:detekt :desktopApp:detekt
+    ./gw :shared:detekt :desktopApp:detekt
 
 [group('lint')]
 [doc('Auto-fix detekt style rules + ktlint formatting violations')]
@@ -89,7 +89,7 @@ detekt-fix:
     #!/bin/bash
     set -euo pipefail
     # detekt 2.x merges formatting into the main task with autoCorrect=true in ktlint config
-    ./gradlew :shared:detekt :desktopApp:detekt --auto-correct
+    ./gw :shared:detekt :desktopApp:detekt --auto-correct
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
@@ -97,7 +97,7 @@ detekt-fix:
 detekt-baseline:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:detektBaseline :desktopApp:detektBaseline
+    ./gw :shared:detektBaseline :desktopApp:detektBaseline
 
 [group('lint')]
 [doc('Alias for detekt (lint = detekt in this project)')]
@@ -154,24 +154,27 @@ tcheck-evals:
 
 # ---------------------------------------------------------------------------
 # Coverage (kotlinx-kover)
-# Measures shared (commonMain + jvmMain + androidMain) + desktopApp
+# Aggregated across every module's test JVM — see settings.gradle.kts. Always go
+# through the root `koverReport` / `koverHtml`: Kover only merges the test
+# tasks that are already in the task graph, so a bare `:koverXmlReport` would
+# report whatever a previous run left in the build directory.
 # ---------------------------------------------------------------------------
 
 [group('coverage')]
-[doc('Generate kover XML coverage reports')]
+[doc('Generate the aggregated kover XML coverage report')]
 [working-directory(justfile_directory())]
 coverage:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:koverXmlReport :desktopApp:koverXmlReport
+    ./gw koverReport
 
 [group('coverage')]
-[doc('Generate kover HTML coverage reports')]
+[doc('Generate the aggregated kover HTML coverage report')]
 [working-directory(justfile_directory())]
 coverage-html:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:koverHtmlReport :desktopApp:koverHtmlReport
+    ./gw koverHtml
 
 # ---------------------------------------------------------------------------
 # check — run tests + lint (report-only initially)

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import java.io.IOException
 import kotlin.test.assertEquals
 
@@ -28,6 +29,7 @@ import kotlin.test.assertEquals
  * the configured default.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class DataStoreCatchTest {
 
     @Test

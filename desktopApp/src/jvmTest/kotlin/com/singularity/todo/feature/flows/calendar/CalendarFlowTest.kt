@@ -10,7 +10,8 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.datetime.LocalDate
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of the three `Maestro/flows/calendar/` regression flows.
@@ -24,6 +25,7 @@ import org.junit.Test
  * literal "September 2026" would silently start failing next month.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("fast")
 class CalendarFlowTest {
 
     private val today: LocalDate = todayInSystemZone()

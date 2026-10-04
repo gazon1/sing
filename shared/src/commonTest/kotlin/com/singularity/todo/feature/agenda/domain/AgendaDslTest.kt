@@ -4,10 +4,12 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaLayout
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
+@Tag("fast")
 class AgendaDslTest {
 
     @Test

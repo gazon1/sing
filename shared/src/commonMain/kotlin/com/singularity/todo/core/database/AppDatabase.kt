@@ -80,7 +80,6 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AutoMigration(from = 28, to = 29, spec = Migration28To29::class),
         AutoMigration(from = 29, to = 30, spec = Migration29To30::class),
         AutoMigration(from = 30, to = 31, spec = Migration30To31::class),
-        AutoMigration(from = 31, to = 32, spec = Migration31To32::class),
     ],
     exportSchema = true,
 )

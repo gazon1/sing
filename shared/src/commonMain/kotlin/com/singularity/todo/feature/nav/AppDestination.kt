@@ -6,31 +6,27 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 
 /**
  * Top-level destinations shown in the Android bottom navigation bar.
  *
- * Five tabs + a separate "Menu" button that opens a `MenuBottomSheet` overlay
- * (NOT a navigation destination — see `MenuBottomSheet`).
+ * Six tabs (see [DestinationKind.tabs]) + a separate "Menu" button that opens a
+ * `MenuBottomSheet` overlay (NOT a navigation destination — see `MenuBottomSheet`).
  *
- * Mapping from screenshots (bottom bar):
- * - Inbox → Tasks (filter=Inbox)
- * - Today → Tasks (filter=Today)
- * - Plans → Projects
- * - Habits → Pomodoro
- * - Calendar → Statistics
+ * Bottom bar (six tabs): [AgendaGraph] with [AgendaStartRoute.Inbox]/[Today]/[Upcoming],
+ * [Plans], [Pomodoro], [Calendar] — see [DestinationKind.tabs].
  *
  * Why a [Serializable] sealed interface and not an enum:
  * - Type-safe payloads (e.g. [TaskDetail.taskId]) without manual route-string plumbing.
@@ -51,45 +47,6 @@ sealed interface AppDestination : AppNavKey {
     @Serializable
     data object Plans : AppDestination {
         override val title = "Plans"
-    }
-
-    /**
-     * Inbox tab — now handled by [AgendaGraph] with [AgendaStartRoute.Inbox].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Inbox] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Inbox) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Inbox)"),
-    )
-    @Serializable
-    data object Inbox : AppDestination {
-        override val title = "Inbox"
-    }
-
-    /**
-     * Today tab — now handled by [AgendaGraph] with [AgendaStartRoute.Today].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Today] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Today) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Today)"),
-    )
-    @Serializable
-    data object Today : AppDestination {
-        override val title = "Today"
-    }
-
-    /**
-     * Upcoming tab — now handled by [AgendaGraph] with [AgendaStartRoute.Upcoming].
-     * @deprecated Use [AgendaGraph] with [AgendaStartRoute.Upcoming] instead.
-     */
-    @Deprecated(
-        "Use AgendaGraph(AgendaStartRoute.Upcoming) instead",
-        replaceWith = ReplaceWith("AgendaGraph(AgendaStartRoute.Upcoming)"),
-    )
-    @Serializable
-    data object Upcoming : AppDestination {
-        override val title = "Upcoming"
     }
 
     @Serializable
@@ -150,19 +107,11 @@ sealed interface AppDestination : AppNavKey {
      */
     @Serializable
     sealed interface TasksStartRoute : AppNavKey {
-        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable
-        data object Inbox : TasksStartRoute
-
-        @Deprecated("Use Create instead — deprecated in AgendaEngine MR1", ReplaceWith("Create"))
-        @Serializable
-        data object Upcoming : TasksStartRoute
-
         @Serializable
         data class Create(val sectionPrefillKey: String? = null) : TasksStartRoute
 
         @Serializable
-        data class Detail(val taskId: String) : TasksStartRoute
+        data class Detail(val taskId: TaskId) : TasksStartRoute
     }
 
     /**
@@ -175,28 +124,8 @@ sealed interface AppDestination : AppNavKey {
     }
 
     @Serializable
-    data class TasksByProject(val projectId: String) : AppDestination {
+    data class TasksByProject(val projectId: ProjectId) : AppDestination {
         override val title = "Project Tasks"
-    }
-
-    /** @deprecated Use TasksGraph(TasksStartRoute.Create) or navigate to TasksRoute.Create internally */
-    @Deprecated(
-        "Use TasksGraph(TasksStartRoute.Create) instead",
-        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Detail(taskId))"),
-    )
-    @Serializable
-    data class TaskDetail(val taskId: String) : AppDestination {
-        override val title = "Task"
-    }
-
-    /** @deprecated Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead */
-    @Deprecated(
-        "Use TasksGraph(TasksStartRoute.Create, initialDueDate) instead",
-        replaceWith = ReplaceWith("TasksGraph(TasksStartRoute.Create, initialDueDate)"),
-    )
-    @Serializable
-    data class TaskDetailCreate(val initialDueDate: String? = null) : AppDestination {
-        override val title = "New Task"
     }
 
     @Serializable
@@ -227,7 +156,7 @@ sealed interface AppDestination : AppNavKey {
         data object List : ProjectsStartRoute
 
         @Serializable
-        data class Editor(val projectId: String? = null) : ProjectsStartRoute
+        data class Editor(val projectId: ProjectId? = null) : ProjectsStartRoute
     }
 
     /**
@@ -239,7 +168,7 @@ sealed interface AppDestination : AppNavKey {
         data object List : NotesStartRoute
 
         @Serializable
-        data class Preview(val noteId: String) : NotesStartRoute
+        data class Preview(val noteId: NoteId) : NotesStartRoute
 
         /**
          * Opens the note editor pre-attached to [taskId].
@@ -247,7 +176,7 @@ sealed interface AppDestination : AppNavKey {
          * passing both `noteId` and `taskId` to one editor instance.
          */
         @Serializable
-        data class EditorForTask(val taskId: String) : NotesStartRoute
+        data class EditorForTask(val taskId: TaskId) : NotesStartRoute
     }
 
     /**
@@ -307,9 +236,6 @@ sealed interface AppDestination : AppNavKey {
 val AppDestination.icon: ImageVector
     get() = when (this) {
         AppDestination.Plans -> Icons.Filled.Check
-        AppDestination.Inbox -> Icons.Filled.Inbox
-        AppDestination.Today -> Icons.Filled.Today
-        AppDestination.Upcoming -> Icons.Filled.DateRange
         AppDestination.Pomodoro -> Icons.Filled.Repeat
         AppDestination.Statistics -> Icons.Filled.BarChart
         AppDestination.Calendar -> Icons.Filled.CalendarMonth
@@ -322,8 +248,6 @@ val AppDestination.icon: ImageVector
         AppDestination.ProfileSwitcher -> Icons.Filled.Person
         is AppDestination.TasksGraph -> Icons.Filled.Check
         is AppDestination.TasksByProject -> Icons.Filled.Folder
-        is AppDestination.TaskDetail -> Icons.Filled.Check
-        is AppDestination.TaskDetailCreate -> Icons.Filled.Check
         is AppDestination.ProjectEditor -> Icons.Filled.Check
         is AppDestination.ProjectDetail -> Icons.Filled.Check
         is AppDestination.ProjectsGraph -> Icons.Filled.Check

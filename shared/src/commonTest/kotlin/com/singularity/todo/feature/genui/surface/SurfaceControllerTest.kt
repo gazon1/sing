@@ -7,11 +7,13 @@ import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.parser.UiEvent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
+@Tag("fast")
 class SurfaceControllerTest {
 
     @Test

@@ -2,7 +2,12 @@
 # post-merge hook: regenerate DIGEST.md after a merge or pull
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve the worktree from Git, not from this script's own path. `git worktree
+# add` runs the hook with the cwd already set to the NEW worktree, while
+# core.hooksPath may point at a different worktree's .githooks directory — so
+# deriving ROOT from ${BASH_SOURCE[0]} silently operated on the main checkout
+# and never on the worktree that was just created. Same pattern as pre-push.
+ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 # Run only when DIGEST.md exists locally (repo was cloned before it was gitignored)

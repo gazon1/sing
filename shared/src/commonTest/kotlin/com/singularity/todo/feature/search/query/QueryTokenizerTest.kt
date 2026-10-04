@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.feature.search.query.QueryTokenizer.Token
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class QueryTokenizerTest {
 
     private fun tokens(input: String): List<Token> = QueryTokenizer(input).tokens()

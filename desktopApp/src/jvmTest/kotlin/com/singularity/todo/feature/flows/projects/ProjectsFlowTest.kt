@@ -15,7 +15,8 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
-import org.junit.Test
+import kotlin.test.Test
+import org.junit.jupiter.api.Tag
 
 /**
  * Desktop mirror of `Maestro/flows/projects/01-open-detail.yaml`.
@@ -26,6 +27,7 @@ import org.junit.Test
  * same: Plans → create → name → save → card → detail.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class ProjectsFlowTest {
 
     @Test

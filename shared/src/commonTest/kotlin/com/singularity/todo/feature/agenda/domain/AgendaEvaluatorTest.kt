@@ -16,11 +16,13 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class AgendaEvaluatorTest {
 
     // Fixed date so tests are deterministic regardless of the machine's system date.

@@ -30,7 +30,7 @@ tags:
 # Clear the title field: longPress selects all text; eraseText with no arg erases it.
 - tapOn:
     id: task_editor_title_input
-- longPress:
+- longPressOn:
     id: task_editor_title_input
 - eraseText
 

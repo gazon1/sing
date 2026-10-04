@@ -1,7 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -12,8 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.Flow
 
@@ -33,6 +39,16 @@ import kotlinx.coroutines.flow.Flow
  *                   without leaking domain types into this widget.
  * @param onNavigateBack Called when [Notification.NavigateBack] is mapped.
  * @param modifier   Standard Compose modifier.
+ *
+ * ## Why the undo toast is a Popup
+ *
+ * The snackbar used to be an in-window sibling of the screen content, which
+ * put it behind two other layers at once: the content's opaque background
+ * (the host was composed before it) and the shell-level FAB (drawn after the
+ * whole entry). The toast was laid out and timed correctly but never visible
+ * — and its action label sat under the FAB even when it was. Rendering the
+ * snackbar in its own [Popup] window, anchored to the host's bounds, puts it
+ * above both. Dialog notifications were already separate windows.
  */
 @Composable
 fun <T> NotificationHost(
@@ -48,24 +64,34 @@ fun <T> NotificationHost(
         notification = mapper(event)
     }
 
-    // Present the undo toast and clear the queued notification. `showSnackbar`
-    // suspends until the toast is dismissed, so one effect both presents it and
-    // keeps the next event from stacking behind it. Taking the result here — rather
-    // than from a button callback — means a swipe-away dismissal cannot fire the
-    // action by accident.
+    // Present the undo toast. `showSnackbar` suspends until the toast is
+    // dismissed, so one effect both presents it and keeps the next event from
+    // stacking behind it. Taking the result here — rather than from a button
+    // callback — means a swipe-away dismissal cannot fire the action by
+    // accident.
+    //
+    // The queue is cleared only AFTER the snackbar finishes: this effect is
+    // keyed on `notification`, so nulling it up front would change the key and
+    // cancel `showSnackbar` on the very next frame — the toast never reaches
+    // the screen (regression covered by Maestro tasks/06-delete-undo).
     LaunchedEffect(notification) {
         val undo = notification as? Notification.Undo ?: return@LaunchedEffect
-        notification = null
         val result = snackbarHostState.showSnackbar(
             message = undo.title,
             actionLabel = undo.actionLabel,
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) undo.onAction()
+        notification = null
     }
 
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-        SnackbarHost(hostState = snackbarHostState)
+    Box(modifier = modifier.fillMaxSize()) {
+        Popup(
+            popupPositionProvider = BottomCenterAnchorPositionProvider(),
+            properties = PopupProperties(focusable = false),
+        ) {
+            SnackbarHost(hostState = snackbarHostState)
+        }
     }
 
     when (val n = notification) {
@@ -102,6 +128,23 @@ fun <T> NotificationHost(
 
         null -> { /* nothing to show */ }
     }
+}
+
+/**
+ * Positions the popup bottom-center of its anchor (the host's full-screen
+ * Box) — the same place the in-window snackbar used to sit, above the shell
+ * bottom bar but inside the nav-entry area.
+ */
+private class BottomCenterAnchorPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset(
+        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
+        y = anchorBounds.bottom - popupContentSize.height,
+    )
 }
 
 // ===== Preview =====

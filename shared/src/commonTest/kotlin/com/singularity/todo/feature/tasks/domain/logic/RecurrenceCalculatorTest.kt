@@ -7,9 +7,11 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class RecurrenceCalculatorTest {
 
     private fun d(y: Int, m: Int, day: Int) = LocalDate(y, m, day)

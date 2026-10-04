@@ -3,6 +3,7 @@ package com.singularity.todo.feature.proposals
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -11,6 +12,7 @@ import kotlin.test.assertEquals
  * pinned by construction rather than by whatever combination happened to be exercised
  * in a UI test.
  */
+@Tag("fast")
 class ProposalStatusReducerTest {
 
     @Test

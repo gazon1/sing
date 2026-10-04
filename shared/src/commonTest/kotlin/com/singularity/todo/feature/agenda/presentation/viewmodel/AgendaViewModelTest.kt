@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -42,6 +43,7 @@ import kotlin.time.Clock
  * A detached Job plus an explicit `close()` in `finally` keeps the loop bounded.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class AgendaViewModelTest {
 
     private val fakeRepo = FakeTaskRepository()

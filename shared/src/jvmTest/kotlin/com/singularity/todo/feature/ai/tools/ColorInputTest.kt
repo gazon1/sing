@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.ai.tools
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class ColorInputTest {
 
     private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue

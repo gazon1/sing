@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.ai
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -10,6 +11,7 @@ import kotlin.test.assertEquals
  * (Koog 1.1.1 + Robolectric), so we look up the model id via the production
  * path and compare against the literal expected id.
  */
+@Tag("fast")
 class ModelResolverTest {
 
     @Test fun resolvesAllKnownModelIdsToNonEmptyLLModelInstances() {

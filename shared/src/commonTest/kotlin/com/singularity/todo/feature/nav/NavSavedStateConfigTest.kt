@@ -1,7 +1,10 @@
 package com.singularity.todo.feature.nav
 
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -31,6 +34,7 @@ import kotlin.test.assertTrue
  * They run on JVM; the crashes were Android-only because only Android evaluates the
  * `SavedStateConfiguration`. Building the same configuration here reproduces both.
  */
+@Tag("fast")
 class NavSavedStateConfigTest {
 
     @Test
@@ -65,7 +69,6 @@ class NavSavedStateConfigTest {
             NotesRoute.List,
             CalendarRoute.Month("2026-09"),
             AgendaStartRoute.Today,
-            AppDestination.TasksStartRoute.Inbox,
             AppDestination.ProjectsStartRoute.List,
             AppDestination.NotesStartRoute.List,
             AppDestination.CalendarStartRoute.Month("2026-09"),
@@ -94,6 +97,13 @@ class NavSavedStateConfigTest {
             AppDestination.ProfileSwitcher,
             AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
             AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+            // B2 round-trip inventory: the five routes now carry typed entity ids —
+            // value-class properties must survive the polymorphic encode/decode too.
+            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))),
+            AppDestination.TasksByProject(ProjectId("p1")),
+            AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(NoteId("n1"))),
+            AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(TaskId("t1"))),
+            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor(ProjectId("p1"))),
             AppDestination.ProjectsGraph(),
             AppDestination.NotesGraph(),
             AppDestination.CalendarGraph(),

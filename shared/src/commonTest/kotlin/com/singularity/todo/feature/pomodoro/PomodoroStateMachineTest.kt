@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.pomodoro
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,6 +15,7 @@ import kotlin.test.assertNotEquals
  *
  * @see PomodoroDomainTest — covers `phaseSecondsOf` and `recomputeRemaining`
  */
+@Tag("fast")
 class PomodoroStateMachineTest {
 
     private val config = PomodoroConfig(

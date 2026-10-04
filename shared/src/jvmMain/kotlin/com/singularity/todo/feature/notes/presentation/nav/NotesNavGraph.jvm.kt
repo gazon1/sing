@@ -40,13 +40,7 @@ actual fun NotesNavGraph(
 ) {
     val stack: NavBackStack<NotesRoute> = backStack ?: rememberInMemoryNavBackStack(start)
 
-    val onExitGraph: (AppDestination?) -> Unit = { dest ->
-        if (dest != null) {
-            navCallbacks.navigate(dest)
-        } else {
-            navCallbacks.goBack()
-        }
-    }
+    val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
 
     val navigator = remember(stack, onExitGraph) {
         NotesNavigator(stack, onExitGraph)

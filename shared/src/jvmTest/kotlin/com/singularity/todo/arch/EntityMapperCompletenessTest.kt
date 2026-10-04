@@ -1,6 +1,10 @@
 package com.singularity.todo.arch
 
+import java.io.File
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
@@ -22,9 +26,20 @@ import kotlin.test.fail
  *
  * See: `docs/decisions/2026-10-03-entity-mapper-completeness.md`
  */
+@Tag("fast")
 class EntityMapperCompletenessTest {
 
     companion object {
+        /**
+         * `@Entity` data classes. The annotation block is multi-line for most entities
+         * (`@Entity(tableName = …, primaryKeys = […], indices = […])`), so the gap
+         * between the annotation and the declaration is bounded rather than fixed —
+         * 600 characters is far beyond the longest block in `Entities.kt`.
+         * Comments are stripped before matching, so KDoc cannot produce a hit.
+         */
+        private val ENTITY_DECLARATION =
+            Regex("""@Entity\b[\s\S]{0,600}?\bdata class (\w+)\(""")
+
         /**
          * Entities that are join/cross-ref tables with no domain model,
          * or private mappers that intentionally omit fields managed by the repository.
@@ -32,6 +47,7 @@ class EntityMapperCompletenessTest {
         private val SKIP_ENTITIES = setOf(
             "TaskTagCrossRef",
             "TaskDependencyCrossRef",
+            "ProjectInheritedTagGroupCrossRef", // join table: no domain model, by design
             "AttachmentEntity",
             "SyncOutboxEntity",
             "ChecklistItemEntity", // toItem() is private; createdAt/updatedAt/rowVersion managed by repo
@@ -94,6 +110,57 @@ class EntityMapperCompletenessTest {
                 "fireAt", "recurringPattern", "viewId", "lastFiredAt",
                 "createdAt", "updatedAt",
             ),
+            // Added 2026-10-04 by the self-completeness check below, which found this
+            // entity had a real mapper (TimeEntryMapper) that no completeness rule had
+            // ever been applied to: an omitted column here would be reset by @Upsert
+            // on every write, silently.
+            "TimeEntryEntity" to setOf(
+                "id", "taskId", "userId", "startedAt", "endedAt",
+                "kind", "source", "note", "createdAt", "updatedAt",
+                "deletedAt", "sync",
+            ),
+            // Also found by the self-completeness check on 2026-10-04. All five have
+            // mappers that were never checked: a column omitted by a mapper is reset by
+            // @Upsert on every write, and nothing here would have noticed.
+            "AgendaViewEntity" to setOf(
+                "id",
+                "userId",
+                "name",
+                "sectionsJson",
+                "createdAt",
+                "updatedAt",
+            ),
+            "AiProposalEntity" to setOf(
+                "id", "userId", "source", "status", "targetKind", "targetId",
+                "createdAt", "updatedAt", "sync",
+            ),
+            "ProposalItemEntity" to setOf(
+                "id",
+                "proposalId",
+                "kindJson",
+                "targetId",
+                "humanSummary",
+                "status",
+                "fingerprint",
+                "sortOrder",
+                "decidedAt",
+                "decidedActor",
+                "rejectionReason",
+            ),
+            "RemoteConfigEntity" to setOf(
+                "id",
+                "supabaseUrl",
+                "anonKey",
+                "updatedAt",
+            ),
+            "SavedSearchEntity" to setOf(
+                "id",
+                "userId",
+                "name",
+                "queryString",
+                "createdAt",
+                "updatedAt",
+            ),
         )
 
         /**
@@ -108,54 +175,54 @@ class EntityMapperCompletenessTest {
         private val MAPPER_ENTITY_FIELDS_ACCESSED = mapOf(
             "toTask" to (
                 "TaskEntity" to setOf(
-                "id", "title", "description", "priority", "kind", "projectId",
-                "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
-                "endDate", "endTime", "accentColor", "emoji", "completedAt",
-                "someday", "archivedAt", "isPinned", "recurrenceRule",
-                "outgoingLinks", "aiSuppressedTagIds", "estimateMinutes",
-                "createdAt", "updatedAt", "userId", "sync",
-            )
+                    "id", "title", "description", "priority", "kind", "projectId",
+                    "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
+                    "endDate", "endTime", "accentColor", "emoji", "completedAt",
+                    "someday", "archivedAt", "isPinned", "recurrenceRule",
+                    "outgoingLinks", "aiSuppressedTagIds", "estimateMinutes",
+                    "createdAt", "updatedAt", "userId", "sync",
+                )
             ),
             "toNote" to (
                 "NoteEntity" to setOf(
-                "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
-                "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
-                "sortOrder", "wordCount", "charCount", "outgoingLinks",
-                "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
-            )
+                    "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
+                    "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
+                    "sortOrder", "wordCount", "charCount", "outgoingLinks",
+                    "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
+                )
             ),
             "toProject" to (
                 "ProjectEntity" to setOf(
-                "id", "name", "color", "icon", "description",
-                "createdAt", "updatedAt", "isDefault", "dueDate", "team",
-                "isDeleted", "deletedAt", "parentId", "sortOrder",
-                "idempotencyKey", "externalId", "userId", "sync",
-            )
+                    "id", "name", "color", "icon", "description",
+                    "createdAt", "updatedAt", "isDefault", "dueDate", "team",
+                    "isDeleted", "deletedAt", "parentId", "sortOrder",
+                    "idempotencyKey", "externalId", "userId", "sync",
+                )
             ),
             "toTag" to (
                 "TagEntity" to setOf(
-                "id", "name", "color", "createdAt", "updatedAt",
-                "groupId", "sortOrder", "deletedAt", "userId", "sync",
-            )
+                    "id", "name", "color", "createdAt", "updatedAt",
+                    "groupId", "sortOrder", "deletedAt", "userId", "sync",
+                )
             ),
             "toTagGroup" to (
                 "TagGroupEntity" to setOf(
-                "id",
-                "name",
-                "color",
-                "createdAt",
-                "updatedAt",
-                "deletedAt",
-                "userId",
-                "sync",
-            )
+                    "id",
+                    "name",
+                    "color",
+                    "createdAt",
+                    "updatedAt",
+                    "deletedAt",
+                    "userId",
+                    "sync",
+                )
             ),
             "toReminder" to (
                 "TaskReminderEntity" to setOf(
-                "id", "taskId", "userId", "type", "offsetMinutes",
-                "fireAt", "recurringPattern", "viewId", "lastFiredAt",
-                "createdAt", "updatedAt",
-            )
+                    "id", "taskId", "userId", "type", "offsetMinutes",
+                    "fireAt", "recurringPattern", "viewId", "lastFiredAt",
+                    "createdAt", "updatedAt",
+                )
             ),
         )
 
@@ -170,6 +237,105 @@ class EntityMapperCompletenessTest {
             "toTag" to ("TagEntity" to setOf()),
             "toTagGroup" to ("TagGroupEntity" to setOf()),
             "toReminder" to ("TaskReminderEntity" to setOf()),
+            )
+
+        // Mappers that are not named `toX()` but map an entity both ways
+        // (`TimeEntryEntity.toDomain()` / `TimeEntry.toEntity()`). The completeness rule
+        // reads by entity name rather than by mapper name, so an entity with a
+        // non-standard mapper is reached only by appearing in ENTITY_PARAMS *and* here.
+        private val MAPPER_NON_STANDARD_ACCESSED = mapOf(
+            "TimeEntry.toEntity" to (
+                "TimeEntryEntity" to setOf(
+                    "id", "taskId", "userId", "startedAt", "endedAt",
+                    "kind", "source", "note", "createdAt", "updatedAt",
+                    "deletedAt", "sync",
+                )
+            ),
+            "SavedAgendaView.toEntity" to (
+                "AgendaViewEntity" to setOf(
+                    "id",
+                    "userId",
+                    "name",
+                    "sectionsJson",
+                    "createdAt",
+                    "updatedAt",
+                )
+            ),
+            "ProposalRepositoryImpl.save" to (
+                "AiProposalEntity" to setOf(
+                    "id",
+                    "userId",
+                    "source",
+                    "status",
+                    "targetKind",
+                    "targetId",
+                    "createdAt",
+                    "updatedAt",
+                    "sync",
+                )
+            ),
+            "ProposalRepositoryImpl.hydrate" to (
+                "ProposalItemEntity" to setOf(
+                    "id",
+                    "proposalId",
+                    "kindJson",
+                    "targetId",
+                    "humanSummary",
+                    "status",
+                    "fingerprint",
+                    "sortOrder",
+                    "decidedAt",
+                    "decidedActor",
+                    "rejectionReason",
+                )
+            ),
+            "RemoteConfigRepositoryImpl.getConfig" to (
+                "RemoteConfigEntity" to setOf(
+                    "id",
+                    "supabaseUrl",
+                    "anonKey",
+                    "updatedAt",
+                )
+            ),
+            "SavedSearch.toEntity" to (
+                "SavedSearchEntity" to setOf(
+                    "id",
+                    "userId",
+                    "name",
+                    "queryString",
+                    "createdAt",
+                    "updatedAt",
+                )
+            ),
+        )
+
+        // Entities whose mapper is a **partial projection** by design: the domain model
+        // deliberately omits some columns, so a completeness rule over the full
+        // constructor would report a false failure. Naming the omitted columns and why
+        // is the only honest option — declaring such an entity "unmapped" would be a
+        // false statement in a file whose whole purpose is to be true.
+        private val PARTIAL_MAPPERS = mapOf(
+            "CalendarSyncTaskMapEntity" to
+                "toSyncedEventRef() omits `userId` (the scoping column, applied by the " +
+                    "DAO query) and `syncedAt` (a sync audit stamp with no domain meaning)",
+            "RemoteConfigCacheEntity" to
+                "refresh() omits `id` — the row is the constant 'default' singleton, so " +
+                    "the key is written by the @Insert strategy rather than the mapper",
+        )
+
+        // `@Entity` data classes that intentionally have no domain mapper, with the
+        // reason. An entity in neither this map nor ENTITY_PARAMS is a hole in the gate,
+        // not a fact about the schema — which is what the self-completeness test catches.
+        private val UNMAPPED_ENTITIES = mapOf(
+            "LlmUsageEntity" to
+                "usage rows are written by the recorder and read back as projections; " +
+                    "no domain model, so there is no mapper to be incomplete",
+            "ProfileEntity" to
+                "the profiles table is manipulated directly by the profile bootstrap and " +
+                    "sync; Profile is not a mapped domain entity",
+            "ProjectReminderEntity" to
+                "project-level reminders are queried as rows and converted at the call " +
+                    "site; there is no ProjectReminder domain model",
         )
     }
 
@@ -192,7 +358,8 @@ class EntityMapperCompletenessTest {
         val offenders = mutableListOf<String>()
         for ((entityName, entityParams) in ENTITY_PARAMS) {
             if (entityName in SKIP_ENTITIES) continue
-            val entry = MAPPER_ENTITY_FIELDS_ACCESSED.entries.find { it.value.first == entityName }
+            val entry = (MAPPER_ENTITY_FIELDS_ACCESSED + MAPPER_NON_STANDARD_ACCESSED)
+                .entries.find { it.value.first == entityName }
                 ?: continue
             val (_, accessedFields) = entry.value
             val allowlist = FIELD_ALLOWLIST[entityName] ?: emptySet()
@@ -209,6 +376,113 @@ class EntityMapperCompletenessTest {
             "Entity constructor param(s) not accessed by toX():\\n" +
                 offenders.joinToString("\\n") { "  - $it" },
         )
+    }
+
+    /**
+     * The gate's own completeness: an `@Entity` nobody registered is an entity whose
+     * mapper is never checked, and adding a new one would not fail anything.
+     *
+     * This test is why the coverage of the other rules can be quoted at all. Before it,
+     * the table held 6 of 11 entities and a seventh could be added in silence — the same
+     * "declared but never applied" shape as `2026-09-30-testtag-registry-honesty`, in a
+     * different registry.
+     */
+    @Test
+    fun everyEntityIsEitherCheckedOrDeclaredUnmapped() {
+        val registered = ENTITY_PARAMS.keys + SKIP_ENTITIES +
+            UNMAPPED_ENTITIES.keys + PARTIAL_MAPPERS.keys
+        val unregistered = declaredEntities() - registered
+        if (unregistered.isEmpty()) return
+        fail(
+            "@Entity class(es) present in the schema but absent from this gate:\n" +
+                unregistered.joinToString("\n") { "  - $it" } +
+                "\n\nAdd it to ENTITY_PARAMS + MAPPER_ENTITY_FIELDS_ACCESSED if it has a " +
+                "mapper, or to UNMAPPED_ENTITIES with the reason it has none. An unchecked " +
+                "column is reset by @Upsert on every write.",
+        )
+    }
+
+    @Test
+    fun everyUnmappedDeclarationStatesAReason() {
+        assertTrue(
+            UNMAPPED_ENTITIES.values.none { it.isBlank() },
+            "an UNMAPPED_ENTITIES entry without a reason is a hole with paperwork",
+        )
+    }
+
+    @Test
+    fun everyUnmappedEntityStillExists() {
+        """A stale exemption is an exemption nobody is looking at any more."""
+        val stale = UNMAPPED_ENTITIES.keys - declaredEntities()
+        assertTrue(stale.isEmpty(), "UNMAPPED_ENTITIES names entities that no longer exist: $stale")
+    }
+
+    @Test
+    fun everyPartialMapperStillExists() {
+        val stale = PARTIAL_MAPPERS.keys - declaredEntities()
+        assertTrue(stale.isEmpty(), "PARTIAL_MAPPERS names entities that no longer exist: $stale")
+    }
+
+    @Test
+    fun everyPartialMapperStatesWhyItIsPartial() {
+        assertTrue(
+            PARTIAL_MAPPERS.values.none { it.isBlank() },
+            "a PARTIAL_MAPPERS entry without a reason is a silent exemption",
+        )
+    }
+
+    @Test
+    fun theCategoriesDoNotOverlap() {
+        """An entity in two categories is checked in one and exempted in the other."""
+        val unmapped = UNMAPPED_ENTITIES.keys
+        val partial = PARTIAL_MAPPERS.keys
+        val checked = ENTITY_PARAMS.keys
+        assertTrue(SKIP_ENTITIES.intersect(unmapped).isEmpty(), "entity is both skipped and unmapped")
+        assertTrue(SKIP_ENTITIES.intersect(partial).isEmpty(), "entity is both skipped and partial")
+        assertTrue(checked.intersect(unmapped).isEmpty(), "entity is both checked and unmapped")
+        assertTrue(checked.intersect(partial).isEmpty(), "entity is both checked and partial")
+    }
+
+    @Test
+    fun everySkippedEntityStillExists() {
+        val stale = SKIP_ENTITIES - declaredEntities()
+        assertTrue(stale.isEmpty(), "SKIP_ENTITIES names entities that no longer exist: $stale")
+    }
+
+    @Test
+    fun positiveControlDetectsAnUnregisteredEntity() {
+        """The rule has to fail on the case it exists for, not merely pass on the real one."""
+        val declared = setOf("TaskEntity", "LlmUsageEntity")
+        val registered = setOf("TaskEntity")
+        val skipped = emptySet<String>()
+        val unmapped = emptyMap<String, String>()
+        assertEquals(setOf("LlmUsageEntity"), declared - (registered + skipped + unmapped.keys))
+    }
+
+    // `@Entity data class` declarations across the production source set. The entities do
+    // not all live in one file — `TimeEntryEntity` sits with its DAO — so this scans the
+    // tree rather than one known path. (A KDoc here would be illegal inside a class body.)
+    private fun declaredEntities(): Set<String> {
+        val root = System.getProperty("commonMain.root")
+            ?: error(
+                "commonMain.root system property is not set — " +
+                    "see the jvmTest task config in shared/build.gradle.kts",
+            )
+        val blockComment = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
+        val lineComment = Regex("""//[^\n]*""")
+        return File(root).walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filterNot { it.path.contains("${File.separator}test${File.separator}") }
+            .flatMap { file ->
+                val source = file.readText()
+                    .replace(blockComment, "")
+                    .replace(lineComment, "")
+                ENTITY_DECLARATION.findAll(source)
+                    .map { it.groupValues[1] }
+                    .toList()
+                    .asSequence()
+            }
+            .toSet()
     }
 
     @Test

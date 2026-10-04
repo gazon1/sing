@@ -1,11 +1,13 @@
 package com.singularity.todo.core.error
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class EitherTest {
 
     @Test

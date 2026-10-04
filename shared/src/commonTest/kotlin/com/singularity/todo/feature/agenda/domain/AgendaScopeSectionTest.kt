@@ -3,11 +3,13 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
+@Tag("fast")
 class AgendaScopeSectionTest {
 
     // ─── section with selector parameter ────────────────────────────────────

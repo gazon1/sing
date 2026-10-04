@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,6 +15,7 @@ import kotlin.test.assertTrue
 /**
  * Tests for [AutoSync] trigger fan-out logic.
  */
+@Tag("fast")
 class AutoSyncTest {
 
     private fun fakePrefs(): FakeSyncPrefs = FakeSyncPrefs()

@@ -8,10 +8,12 @@ import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.testTask
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class TaskMutationsUseCaseTest {
 
     /**

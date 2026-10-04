@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -38,6 +39,7 @@ import kotlin.test.assertEquals
  * `backgroundScope` or asserts on VM state before re-enabling.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TestScopeSemanticsTest {
 
     @Test

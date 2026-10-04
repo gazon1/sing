@@ -16,7 +16,6 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.nav.ProjectsRoute
 import com.singularity.todo.feature.nav.TasksRoute
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
@@ -27,9 +26,7 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
 import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
 import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
 import com.singularity.todo.feature.statistics.StatisticsScreen
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
-import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 
 /**
@@ -52,7 +49,7 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     entry<AppDestination.Plans> {
         ProjectsNavGraph(
             start = ProjectsRoute.List,
-            onExitGraph = { nav.goBack() },
+            onExitGraph = nav.graphExit,
         )
     }
 
@@ -72,12 +69,7 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
             start = CalendarRoute.Month(
                 todayInSystemZone().toString(),
             ),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
+            onExitGraph = nav.graphExit,
         )
     }
 
@@ -123,27 +115,21 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     entry<AppDestination.ProjectEditor> { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Editor(route.projectId?.let { ProjectId.fromString(it) }),
-            onExitGraph = { nav.goBack() },
+            onExitGraph = nav.graphExit,
         )
     }
 
     entry<AppDestination.ProjectDetail> { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Detail(ProjectId.fromString(route.projectId)),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.AgendaGraph -> nav.navigate(dest)
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
+            onExitGraph = nav.graphExit,
         )
     }
 
     entry<AppDestination.ProjectsGraph> { route ->
         ProjectsNavGraph(
             start = route.start.toProjectsRoute(),
-            onExitGraph = { nav.goBack() },
+            onExitGraph = nav.graphExit,
         )
     }
 
@@ -151,12 +137,7 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     entry<AppDestination.TasksGraph> { route ->
         TasksNavGraph(
             start = route.start.toTasksRoute(route.initialDueDate),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
+            onExitGraph = nav.graphExit,
         )
     }
 
@@ -172,12 +153,7 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     entry<AppDestination.CalendarGraph> { route ->
         CalendarNavGraph(
             start = route.start.toCalendarRoute(),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
+            onExitGraph = nav.graphExit,
         )
     }
 
@@ -185,54 +161,9 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
     entry<AppDestination.AgendaGraph> { route ->
         AgendaNavGraph(
             start = route.start.toAgendaStartRoute(),
-            onExitGraph = { dest ->
-                when (dest) {
-                    is AppDestination.TasksGraph -> nav.navigate(dest)
-                    is AppDestination.ProjectDetail -> nav.navigate(dest)
-                    else -> nav.goBack()
-                }
-            },
+            onExitGraph = nav.graphExit,
         )
     }
-}
-
-/**
- * Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute].
- * Deprecated [Inbox] and [Upcoming] map to [Create] for backwards compatibility.
- */
-private fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
-    is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
-    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(TaskId.fromString(taskId))
-    is AppDestination.TasksStartRoute.Inbox -> TasksRoute.Create(null)
-    is AppDestination.TasksStartRoute.Upcoming -> TasksRoute.Create(null)
-}
-
-/** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */
-private fun AppDestination.ProjectsStartRoute.toProjectsRoute(): ProjectsRoute = when (this) {
-    is AppDestination.ProjectsStartRoute.List -> ProjectsRoute.List
-
-    is AppDestination.ProjectsStartRoute.Editor -> ProjectsRoute.Editor(
-        projectId?.let { ProjectId.fromString(it) },
-    )
-}
-
-/** Converts [AppDestination.NotesStartRoute] to the inner [NotesRoute]. */
-private fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (this) {
-    is AppDestination.NotesStartRoute.List -> NotesRoute.List
-
-    is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(
-        NoteId.fromString(noteId),
-    )
-
-    is AppDestination.NotesStartRoute.EditorForTask -> NotesRoute.Editor(
-        noteId = null,
-        taskId = TaskId.fromString(taskId),
-    )
-}
-
-/** Converts [AppDestination.CalendarStartRoute] to the inner [CalendarRoute]. */
-private fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute = when (this) {
-    is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
 }
 
 /** Converts [AgendaStartRoute] to itself (no conversion needed — same type). */

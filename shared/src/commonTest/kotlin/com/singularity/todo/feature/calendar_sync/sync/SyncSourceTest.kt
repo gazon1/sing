@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class SyncSourceTest {
 
     // ── upgrade() truth table ───────────────────────────────────────────────────

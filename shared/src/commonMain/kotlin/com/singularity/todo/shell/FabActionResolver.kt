@@ -17,7 +17,7 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  * Returns the [FabAction] for the current navigation destination, or `null` if no FAB should be shown.
  *
  * Covers modern [AppDestination.AgendaGraph] and [AppDestination.ProjectsGraph] routes.
- * The deprecated singletons [AppDestination.Inbox]/[AppDestination.Today] were removed in MR-1
+ * The deprecated singletons `AppDestination.Inbox`/`AppDestination.Today` were removed in MR-1
  * (they were dead-code entry registrations that were never reached at runtime — the shell
  * uses AgendaGraph routes instead).
  *

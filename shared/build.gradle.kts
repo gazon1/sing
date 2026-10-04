@@ -16,7 +16,6 @@ plugins {
     // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
     id("io.insert-koin.compiler.plugin") version "1.2.1"
     alias(libs.plugins.detekt)
-    alias(libs.plugins.kover)
 }
 
 koinCompiler {
@@ -258,6 +257,15 @@ kotlin {
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
+    // nothing — and the task would still report BUILD SUCCESSFUL. That is exactly how
+    // `:desktopApp:test -Ptest.tags=fast,slow` ran zero tests for months. Discovering
+    // nothing is a configuration error, not a pass.
+    // Partial selection is the other half of the problem and is not detectable here;
+    // `TestTagCoverageTest` (every test class carries a @Tag) is what keeps
+    // `-Ptest.tags=fast,slow` from silently skipping the untagged majority.
+    failOnNoDiscoveredTests = true
+
     useJUnitPlatform {
         // Jupiter parallel execution — classes run concurrently, methods within a class
         // also run concurrently by default (ExecutionMode.CONCURRENT).
@@ -344,18 +352,21 @@ dependencies {
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
 
-    // androidHostTest (Robolectric) — JVM-based Android emulator for widget/Compose UI tests.
-    // AndroidX compose-ui-test-junit4 (1.7.3) is used here, NOT the JetBrains
-    // compose-multiplatform one: AndroidX is compatible with Robolectric, JetBrains is not.
-    add("androidHostTestImplementation", libs.robolectric)
-    add("androidHostTestImplementation", libs.compose.ui.test.junit4)
-    // ApplicationProvider + the instrumentation registry the Koin graph test needs.
-    add("androidHostTestImplementation", libs.androidx.test.core)
-    add("androidHostTestImplementation", libs.androidx.testExt.junit)
-    // The test task uses the JUnit Platform (useJUnitPlatform), and Robolectric is a
-    // JUnit4 runner — without the vintage engine the platform silently skips every
-    // JUnit4 test class in this source set.
-    add("androidHostTestImplementation", libs.junit.vintage.engine)
+    // androidHostTest — the Android/Robolectric-capable source set. It currently holds
+    // no test files of its own: its only content is AndroidManifest.xml, and the 762
+    // tests it executes come from commonTest. The Robolectric / JUnit4 stack that used
+    // to be declared here went away with the tests that needed it (ADR D2's
+    // AndroidPomodoroTimerTest no longer exists), and the comment about "the Koin graph
+    // test" referred to a test that is also gone.
+    //
+    // If you add a Robolectric test here, declare the stack again in this block:
+    // `libs.robolectric`, `libs.androidx.test.core`, `libs.androidx.testExt.junit`,
+    // `libs.compose.ui.test.junit4` (AndroidX, NOT the JetBrains multiplatform one —
+    // AndroidX is Robolectric-compatible, JetBrains is not), and
+    // `libs.junit.vintage.engine`, because Robolectric is a JUnit4 runner and the task
+    // uses the JUnit Platform. Without the Vintage engine those classes are silently
+    // skipped, and the Vintage engine does not map Jupiter's @Tag onto Platform tags —
+    // see ADR 2026-10-04-test-execution-integrity.
 }
 
 // Room 3 KSP schema export
@@ -388,25 +399,10 @@ dependencies {
 // ---------------------------------------------------------------------------
 // kover — code coverage for all KMP source sets
 // ---------------------------------------------------------------------------
-kover {
-    currentProject {
-        instrumentation {
-            // Kover instruments every class loaded by the test JVM. For
-            // `:shared:jvmTest`, the heavy Koog/classpath causes the IntelliJ
-            // coverage runtime to accumulate 3000+ ClassData + 59000+ LineData
-            // entries (42% of heap) — exhausting 3-5 GB and OOMing in
-            // TaskOutgoingLinksTest.
-            // Coverage is still collected for jvmTest via the
-            // `koverXmlReport` / `koverHtmlReport` tasks when explicitly
-            // requested. See ADR-1 for heap-dump analysis.
-            disabledForTestTasks.add("jvmTest")
-        }
-    }
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
+// No `kover { }` block here. Coverage is configured once, at settings level
+// (settings.gradle.kts): the plugin applies itself to every project, so the
+// `com.singularity.todo.*` instrumentation filter arrives here as a convention
+// and the report is produced once for the whole build. A per-project report
+// would measure only this project's own test tasks — which is exactly the gap
+// that made every Compose flow test in desktopApp invisible to the number.
 

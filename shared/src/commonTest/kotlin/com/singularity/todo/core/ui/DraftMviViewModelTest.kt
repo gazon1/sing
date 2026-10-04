@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -93,6 +94,7 @@ private fun TestScope.testVm(
     scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
 )
 
+@Tag("fast")
 class DraftMviViewModelTest {
 
     @Test

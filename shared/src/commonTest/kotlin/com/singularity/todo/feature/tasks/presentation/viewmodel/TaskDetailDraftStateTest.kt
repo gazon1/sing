@@ -1,10 +1,12 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class TaskDetailDraftStateTest {
 
     private fun newState(initial: TaskDetailDraft = TaskDetailDraft.empty()) = TaskDetailDraftState(initial)

@@ -47,7 +47,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Assemble debug APK
-        run: ./gradlew :androidApp:assembleDebug --no-daemon -q
+        run: ./gradlew :androidApp:assembleDebug --no-daemon -q --configuration-cache
 
       - name: Start Android emulator (API 34, en-US, x86_64)
         uses: reactivecircus/android-emulator-runner@v2

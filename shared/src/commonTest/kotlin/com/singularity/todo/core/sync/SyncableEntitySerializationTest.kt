@@ -34,6 +34,7 @@ import kotlin.time.Clock
  * A round-trip test per entity is the cheapest way to make that invariant
  * impossible to reintroduce silently.
  */
+@org.junit.jupiter.api.Tag("fast")
 class SyncableEntitySerializationTest {
 
     private val user = UserId("u1")

@@ -113,7 +113,7 @@ fun AttachmentsSheet(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(attachments, key = { it.id }) { attachment ->
+                    items(attachments, key = { it.id.value }) { attachment ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(

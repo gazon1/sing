@@ -5,7 +5,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 object BackupMigrations {
     const val CURRENT = BackupFormat.SCHEMA_VERSION
@@ -24,32 +23,38 @@ object BackupMigrations {
     private val v1ToV2: (JsonObject) -> JsonObject = { payload ->
         val tasks = payload["tasks"]?.jsonArray?.map { task ->
             val obj = task.jsonObject
-            JsonObject(obj + mapOf(
-                "parentTaskId" to JsonPrimitive(null),
-                "estimateMinutes" to JsonPrimitive(null),
-                "recurrenceRule" to JsonPrimitive(null),
-                "outgoingLinks" to JsonArray(listOf()),
-                "aiSuppressedTagIds" to JsonArray(listOf()),
-            ))
+            JsonObject(
+                obj + mapOf(
+                    "parentTaskId" to JsonPrimitive(null),
+                    "estimateMinutes" to JsonPrimitive(null),
+                    "recurrenceRule" to JsonPrimitive(null),
+                    "outgoingLinks" to JsonArray(listOf()),
+                    "aiSuppressedTagIds" to JsonArray(listOf()),
+                ),
+            )
         } ?: emptyList()
         val notes = payload["notes"]?.jsonArray?.map { note ->
             val obj = note.jsonObject
-            JsonObject(obj + mapOf(
-                "isPinned" to JsonPrimitive(false),
-                "pinnedAt" to JsonPrimitive(null),
-                "color" to JsonPrimitive(null),
-                "sortOrder" to JsonPrimitive(0),
-                "wordCount" to JsonPrimitive(0),
-                "charCount" to JsonPrimitive(0),
-                "outgoingLinks" to JsonArray(listOf()),
-                "taskId" to JsonPrimitive(null),
-            ))
+            JsonObject(
+                obj + mapOf(
+                    "isPinned" to JsonPrimitive(false),
+                    "pinnedAt" to JsonPrimitive(null),
+                    "color" to JsonPrimitive(null),
+                    "sortOrder" to JsonPrimitive(0),
+                    "wordCount" to JsonPrimitive(0),
+                    "charCount" to JsonPrimitive(0),
+                    "outgoingLinks" to JsonArray(listOf()),
+                    "taskId" to JsonPrimitive(null),
+                ),
+            )
         } ?: emptyList()
-        JsonObject(payload + mapOf(
-            "tasks" to JsonArray(tasks),
-            "notes" to JsonArray(notes),
-            "schemaVersion" to JsonPrimitive(2),
-        ))
+        JsonObject(
+            payload + mapOf(
+                "tasks" to JsonArray(tasks),
+                "notes" to JsonArray(notes),
+                "schemaVersion" to JsonPrimitive(2),
+            ),
+        )
     }
 
     // Map<fromVersion, transform>

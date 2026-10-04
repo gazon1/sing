@@ -4,9 +4,11 @@ import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncPlan
 import com.singularity.todo.feature.calendar_sync.domain.model.SyncedEventRef
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class SyncDiffMergeTest {
 
     private fun entity(taskId: String, calendarId: String = "cal1", eventId: Long = 100L, checksum: Int = 0) =

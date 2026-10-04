@@ -17,6 +17,7 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -35,6 +36,7 @@ import kotlin.time.Clock
  * The join table is the half that actually changed user-visible behaviour, so it is
  * covered first; the tag release is asserted through the same delete.
  */
+@Tag("fast")
 class TagGroupDeleteCascadeTest {
 
     private val userId = UserId("u1")

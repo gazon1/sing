@@ -10,9 +10,10 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop Compose UI test verifying that clicking a task in the agenda opens
@@ -44,6 +45,7 @@ import org.junit.Test
  * - No stale Create screen is shown
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class OpenTaskFromAgendaFlowTest {
 
     @Test

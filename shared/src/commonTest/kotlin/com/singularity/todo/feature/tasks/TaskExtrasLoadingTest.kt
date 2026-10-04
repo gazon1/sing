@@ -13,6 +13,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -33,6 +34,7 @@ import kotlin.time.Instant
  * same end-to-end contract: seed with tags/deps → observeAll returns them.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskExtrasLoadingTest {
 
     private val testUserId = UserId("test-user")

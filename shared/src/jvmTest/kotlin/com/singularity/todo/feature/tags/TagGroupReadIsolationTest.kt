@@ -15,6 +15,7 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -24,6 +25,7 @@ import kotlin.time.Clock
  * Read-isolation for tag-group observation. Same defect class as `TagsReadIsolationTest`
  * and the `TaskDao.getById` leak closed in `2026-09-27-write-layer-soundness` (ledger #1).
  */
+@Tag("fast")
 class TagGroupReadIsolationTest {
 
     private val currentUserId = UserId("u1")

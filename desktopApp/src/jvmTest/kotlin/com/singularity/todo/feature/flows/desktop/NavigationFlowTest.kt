@@ -1,16 +1,28 @@
 package com.singularity.todo.feature.flows.desktop
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performClick
+import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of `Maestro/flows/nav/bottom-nav-tabs.yaml`.
@@ -23,6 +35,7 @@ import org.junit.Test
  * silently no-ops therefore fails instead of passing on a leftover node.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class NavigationFlowTest {
 
     @Test
@@ -60,5 +73,68 @@ class NavigationFlowTest {
         tapTab("Inbox")
 
         assertCurrentTab("Inbox")
+    }
+
+    @Test
+    fun plans_detail_survives_tab_roundtrip() = runDesktopAppTest(checkA11y = true) { koin ->
+        val epoch = Instant.fromEpochMilliseconds(0)
+        koin.get<ProjectsRepository>().upsert(
+            Project(
+                id = ProjectId.fromString("robot-project-roundtrip"),
+                name = "Roadmap",
+                color = 0xFF2196F3.toInt(),
+                createdAt = epoch,
+                updatedAt = epoch,
+                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+            ),
+        )
+
+        tapTab("Plans")
+        awaitTag(TestTags.projectCard("Roadmap")).performClick()
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+
+        tapTab("Today")
+        tapTab("Plans")
+
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+    }
+
+    /**
+     * REQ-NAV-002 — a cross-feature open must not degrade into back-navigation.
+     *
+     * Before the open policy, the Plans entry's `onExitGraph` allow-list was
+     * `{ nav.goBack() }`, so `ProjectsNavigator.openTask` from the project detail
+     * opened underneath Plans was silently swallowed: the app fell back to the
+     * project list instead of opening the task. The uniform policy callback makes
+     * the same request resolve to `ExitAndOpen` and push the tasks graph on top of
+     * the Plans stack — the project staying underneath for Back.
+     */
+    @Test
+    fun project_detail_task_opens_from_plans_instead_of_falling_back() = runDesktopAppTest(checkA11y = true) { koin ->
+        val epoch = Instant.fromEpochMilliseconds(0)
+        val project = koin.get<ProjectsRepository>().upsert(
+            Project(
+                id = ProjectId.fromString("robot-project-policy"),
+                name = "Roadmap",
+                color = 0xFF2196F3.toInt(),
+                createdAt = epoch,
+                updatedAt = epoch,
+                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+            ),
+        )
+        tasks(koin).given(due = todayInSystemZone(), title = "Ship the policy", projectId = project.id)
+
+        tapTab("Plans")
+        awaitTag(TestTags.projectCard("Roadmap")).performClick()
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+
+        // The open that used to be swallowed → task detail must appear.
+        awaitTag(TestTags.taskItem("Ship the policy")).performClick()
+        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertIsDisplayed()
+        assertTextDisplayed("Ship the policy")
+
+        // Back returns to the project — the origin stayed underneath (REQ-NAV-001).
+        clickContentDescription("Back")
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
     }
 }

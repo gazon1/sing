@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import kotlin.test.assertContains
 
 /**
@@ -16,6 +17,7 @@ import kotlin.test.assertContains
  * These do NOT test the output format — format is verified by reading actual
  * dumps during real incidents. These only confirm the agent is working.
  */
+@Tag("fast")
 class CoroutineDiagnosticsTest {
 
     @Test

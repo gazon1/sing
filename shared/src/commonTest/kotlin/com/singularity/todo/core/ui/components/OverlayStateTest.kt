@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.components
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,6 +10,7 @@ import kotlin.test.assertTrue
 /**
  * Tests for [OverlayState] — sheet/menu/snackbar coordinator.
  */
+@Tag("fast")
 class OverlayStateTest {
 
     private sealed class Sheet {

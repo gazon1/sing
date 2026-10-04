@@ -8,12 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
+import com.singularity.todo.feature.nav.rememberNavBackStackTyped
 import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
@@ -39,21 +39,9 @@ actual fun NotesNavGraph(
     modifier: Modifier,
     @Suppress("UNUSED_PARAMETER") backStack: NavBackStack<NotesRoute>?,
 ) {
-    // remember { }, not rememberSaveable { }. SavedStateConfiguration is a schema
-    // (which concrete NavKey subtypes exist), not a value to persist.
-    val savedStateConfig = navSavedStateConfig()
+    val stack: NavBackStack<NotesRoute> = rememberNavBackStackTyped(navSavedStateConfig(), start)
 
-    @Suppress("UNCHECKED_CAST")
-    val stack: NavBackStack<NotesRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<NotesRoute>
-
-    val onExitGraph: (AppDestination?) -> Unit = { dest ->
-        if (dest != null) {
-            navCallbacks.navigate(dest)
-        } else {
-            navCallbacks.goBack()
-        }
-    }
+    val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
 
     val navigator = remember(stack, onExitGraph) {
         NotesNavigator(stack, onExitGraph)

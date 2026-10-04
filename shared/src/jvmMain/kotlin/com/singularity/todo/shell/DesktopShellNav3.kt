@@ -96,7 +96,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                         .lowercase()
                 }",
                 label = dest.title,
-                onClick = { navigator.navigate(dest) },
+                onClick = { navigator.open(dest) },
             )
         }
         buildMenuNodes {
@@ -105,10 +105,10 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                 "File",
                 children = buildMenuNodes {
                     item("new_task", "New Task", shortcut = "Ctrl+N") {
-                        navigator.navigate(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create()))
+                        navigator.open(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create()))
                     }
                     item("settings", "Settings…", shortcut = "Ctrl+,") {
-                        navigator.navigate(AppDestination.Settings)
+                        navigator.open(AppDestination.Settings)
                     }
                     divider()
                     item("quit", "Quit", shortcut = "Ctrl+Q") {
@@ -124,7 +124,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                     item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {}
                     divider()
                     item("find", "Find", shortcut = "Ctrl+F") {
-                        navigator.navigate(AppDestination.Search)
+                        navigator.open(AppDestination.Search)
                     }
                 },
             )
@@ -162,7 +162,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                             selected = selected,
                             onClick = {
                                 scope.launch { drawerState.close() }
-                                navigator.navigate(destination)
+                                navigator.open(destination)
                             },
                             icon = {
                                 Icon(
@@ -183,7 +183,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
                             selected = selected,
                             onClick = {
                                 scope.launch { drawerState.close() }
-                                navigator.navigate(destination)
+                                navigator.open(destination)
                             },
                             icon = {
                                 Icon(
@@ -200,7 +200,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         content = {
             Scaffold(
                 floatingActionButton = {
-                    val action = fabActionForNav3(fabCurrent) { navigator.navigate(it) }
+                    val action = fabActionForNav3(fabCurrent) { navigator.open(it) }
                     if (action != null) {
                         FloatingActionButton(onClick = action.onClick) {
                             Icon(Icons.Default.Add, contentDescription = action.label)

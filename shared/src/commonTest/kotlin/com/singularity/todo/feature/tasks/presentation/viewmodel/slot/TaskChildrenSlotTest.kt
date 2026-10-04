@@ -7,6 +7,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -15,6 +16,7 @@ import kotlin.test.assertTrue
 
 /** Covers the child collections: checklist, subtasks, and attachments. */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskChildrenSlotTest {
 
     private fun slot(

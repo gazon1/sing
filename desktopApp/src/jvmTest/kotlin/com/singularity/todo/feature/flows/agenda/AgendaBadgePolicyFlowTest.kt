@@ -8,11 +8,12 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
+import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop Compose UI test for [com.singularity.todo.feature.agenda.domain.logic.computeAgendaBadge].
@@ -41,6 +42,7 @@ import org.junit.Test
  * - `AgendaEvaluator.computeBadge` delegates to [computeAgendaBadge]
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class AgendaBadgePolicyFlowTest {
 
     @Test

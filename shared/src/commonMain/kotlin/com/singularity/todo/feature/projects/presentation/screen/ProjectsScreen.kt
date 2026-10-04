@@ -75,7 +75,7 @@ fun ProjectsScreen() {
             state = state,
             modifier = Modifier.padding(padding),
             searchQuery = searchQuery,
-            onNavigateToProject = { id -> nav.openDetail(ProjectId.fromString(id)) },
+            onNavigateToProject = { nav.openDetail(it) },
             onCreateProject = { nav.openEditor(null) },
             onDelete = { id -> viewModel.onIntent(ProjectsIntent.Delete(id)) },
             onReviewClick = { project -> viewModel.onIntent(ProjectsIntent.ReviewProject(project)) },
@@ -155,7 +155,7 @@ private fun ProjectsContent(
     state: ProjectsUiState,
     modifier: Modifier = Modifier,
     searchQuery: String = "",
-    onNavigateToProject: (String) -> Unit,
+    onNavigateToProject: (ProjectId) -> Unit,
     onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
@@ -187,7 +187,7 @@ private fun ProjectsContent(
 private fun ProjectList(
     projects: List<ProjectWithCounts>,
     modifier: Modifier = Modifier,
-    onNavigateToProject: (String) -> Unit,
+    onNavigateToProject: (ProjectId) -> Unit,
     onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
@@ -202,7 +202,7 @@ private fun ProjectList(
                 project = row.project,
                 totalCount = row.totalCount,
                 completedCount = row.completedCount,
-                onClick = { onNavigateToProject(row.project.id.value) },
+                onClick = { onNavigateToProject(row.project.id) },
                 actions = ProjectCardActions { action ->
                     when (action) {
                         ProjectCardActions.Action.Delete -> onDelete(row.project.id)
