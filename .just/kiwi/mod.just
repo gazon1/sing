@@ -95,3 +95,23 @@ gaps limit="15":
     #!/bin/bash
     set -euo pipefail
     ./infra/kiwi/gaps.py --limit {{limit}}
+
+[group('kiwi')]
+[doc('Delete test runs outside the retention window (dry run — pass --apply to delete)')]
+[working-directory(justfile_directory())]
+prune keep="20" apply="":
+    #!/bin/bash
+    set -euo pipefail
+    if [ "{{apply}}" = "apply" ]; then
+        ./infra/kiwi/prune.py --keep {{keep}} --apply
+    else
+        ./infra/kiwi/prune.py --keep {{keep}}
+    fi
+
+[group('kiwi')]
+[doc('Fail when never-run test cases rise above the committed floor')]
+[working-directory(justfile_directory())]
+floor:
+    #!/bin/bash
+    set -euo pipefail
+    ./scripts/check-kiwi-gaps.py

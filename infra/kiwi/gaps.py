@@ -115,18 +115,27 @@ def collect_case_inventory(client: KiwiClient, product_name: str) -> dict:
 
     # Последний статус по каждому кейсу: {case_id: (execution_id, status)}.
     # Кортеж, а не строка: без execution_id нельзя отличить «статус из
-    # последнего прогона» от «статус из случайно позднего по id».
+    # последнего прогона» от «статуса из случайно позднего по id».
     last_status: dict[int, tuple[int, str]] = {}
-    for execution in client.call("TestExecution.filter", {}) or []:
-        case_id = execution.get("case")
-        if case_id is None:
-            continue
-        exec_id = execution.get("id") or 0
-        # TestExecution.filter не отдаёт дату выполнения, поэтому «последний»
-        # определяется по id: он монотонно растёт при каждой вставке.
-        prev = last_status.get(case_id)
-        if prev is None or exec_id >= prev[0]:
-            last_status[case_id] = (exec_id, execution.get("status__name", "?"))
+
+    # Фильтр обязателен, и это не оптимизация «на будущее». Запрос без него
+    # (`TestExecution.filter({})`) возвращает ВСЕ execution за всю историю
+    # стенда — включая прогоны, удалённые ротацией: удаляются TestRun, а эта
+    # выборка идёт мимо них. Стоимость росла линейно с числом прогонов, и
+    # единственным симптомом было «gaps.py идёт дольше с каждым прогоном».
+    case_ids = list(cases)
+    for start in range(0, len(case_ids), 500):
+        chunk = case_ids[start : start + 500]
+        for execution in client.call("TestExecution.filter", {"case__in": chunk}) or []:
+            case_id = execution.get("case")
+            if case_id is None:
+                continue
+            exec_id = execution.get("id") or 0
+            # TestExecution.filter не отдаёт дату выполнения, поэтому «последний»
+            # определяется по id: он монотонно растёт при каждой вставке.
+            prev = last_status.get(case_id)
+            if prev is None or exec_id >= prev[0]:
+                last_status[case_id] = (exec_id, execution.get("status__name", "?"))
 
     return {"product": product, "cases": cases, "last_status": last_status}
 

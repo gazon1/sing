@@ -100,6 +100,8 @@ alias kiwi-purge   := kiwi::purge
 alias ksync        := kiwi::sync-plan
 alias kresults     := kiwi::sync-results
 alias kgaps        := kiwi::gaps
+alias kprune       := kiwi::prune
+alias kfloor       := kiwi::floor
 
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench
