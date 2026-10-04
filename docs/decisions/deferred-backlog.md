@@ -119,7 +119,20 @@ some ids vanished).
 
 ## core-auth-oauth-is-entirely-unwired
 
-**Status: OPEN**
+**Status (re-verified 2026-10-04):** CLOSED. Deleted 2026-10-04 as part of the
+Supabase auth + sync work. The question this entry asked — "decide whether Supabase
+OAuth is still planned" — has been answered: **no**, the product ships email and
+password on Android and Desktop, and the server side is a Postgres schema with no
+OAuth dependency to speak of. The whole `core/auth/oauth/` package is gone, including
+the two platform `actual`s for secure random bytes and the three test classes.
+
+The decision itself is recorded in
+`2026-10-04-supabase-auth-email-password-only.md`. Note that
+`2026-09-30-dead-code-deleted-and-oauth-kept.md` deliberately kept this package on the
+grounds that deleting it is a product decision a dead-code sweep should not make —
+that reasoning was right, and this entry is the decision it was waiting for.
+
+The two baseline exemptions for `PKCE` and `OAuthTokenRefresh` were removed with it.
 
 **Tracked as:** #38
 
@@ -134,10 +147,7 @@ deleted in MR-4; the rest was left alone.
 **Already ruled out:** not reachable through reflection, DI or a route — it is
 plain Kotlin with no registration anywhere.
 
-**Try next:** decide whether Supabase OAuth is still planned. If yes, the file
-is a reasonable starting skeleton. If no, delete the remaining 90 lines. A
-dead-code sweep should not make the product decision either way, which is why
-MR-4 stopped at the two symbols it was asked to remove.
+**Try next:** done. Decided 2026-10-04: email + password only.
 
 ---
 

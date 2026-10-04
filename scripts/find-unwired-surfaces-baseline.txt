@@ -11,8 +11,6 @@
 # Symbol | File | Reason | BacklogRef
 
 RecurrenceParser | shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/RecurrenceParser.kt | 309 lines, 27 @see KDoc refs, 0 production call sites; inverse of an unwired forward operation | deferred-backlog.md:recurrence-parser-is-unwired
-OAuthTokenRefresh | shared/src/commonMain/kotlin/com/singularity/todo/core/auth/oauth/OAuthTokenRefresh.kt | 82 lines, 8 test refs, 0 production call sites; entire core/auth/oauth subsystem is unwired | deferred-backlog.md:core-auth-oauth-is-entirely-unwired
-PKCE | shared/src/commonMain/kotlin/com/singularity/todo/core/auth/oauth/PKCE.kt | 48 lines, 9 test refs, 0 production call sites; entire core/auth/oauth subsystem is unwired | deferred-backlog.md:core-auth-oauth-is-entirely-unwired
 NoteEditorState | shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/domain/editor/NoteEditorState.kt | 52 lines, 18 test refs, 0 production call sites; the real VM is NoteEditor (presentation/viewmodel/) which does not use it | deferred-backlog.md:note-editor-unwired-domain-classes
 DailyNoteFactory | shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/domain/DailyNoteFactory.kt | 67 lines, 1 test ref, 0 production call sites; pure passthrough to NotesRepository.getDailyNote/getOrCreateDailyNote | deferred-backlog.md:note-editor-unwired-domain-classes
 TemplatePicker | shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/domain/TemplatePicker.kt | 34 lines, 1 test ref, 0 production call sites; pure passthrough to NotesRepository.watchTemplates/createFromTemplate/saveAsTemplate | deferred-backlog.md:note-editor-unwired-domain-classes

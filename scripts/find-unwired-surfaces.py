@@ -55,6 +55,46 @@ SOURCE_ROOTS = ["shared/src", "androidApp/src", "desktopApp/src"]
 BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 LINE_COMMENT = re.compile(r"//[^\n]*")
 
+# String and char literals.
+#
+# Every alternative below is written so that no two branches can match the same
+# text. An ambiguous body like `(?:.|\n)*?` or `(?:\\.|[^"\\\n])*` backtracks
+# exponentially on an unterminated literal, and this script reads ~1200 Kotlin
+# files — a single unbalanced quote in one of them is enough to hang the gate.
+# A raw string wins over a plain one so an embedded `"""` is not cut short.
+_RAW_STRING = re.compile(r'""".*?"""', re.S)
+_STRING = re.compile(r'"[^"\\\n]*(?:\\.[^"\\\n]*)*"')
+_CHAR = re.compile(r"'[^'\\\n]*(?:\\.[^'\\\n]*)*'")
+
+
+def strip_string_literals(text: str) -> str:
+    """Blank out string and char literal *contents*, keeping the quotes.
+
+    A log tag reads ``Logger.withTag("AutoSync")`` and a log message reads
+    ``"AutoSync disabled, ignoring trigger $t"``. Neither is a call to
+    `AutoSync`; both are counted as one by a word-boundary scan, which is
+    enough to make a class with no call site look wired.
+
+    The contents are replaced rather than the whole literal so that two
+    adjacent literals on one line stay two tokens and the line count of the
+    file does not shift.
+    """
+    def blank(m: re.Match[str]) -> str:
+        return re.sub(r"[^\n]", " ", m.group(0))
+    text = _RAW_STRING.sub(blank, text)
+    text = _STRING.sub(blank, text)
+    return _CHAR.sub(blank, text)
+
+
+def strip_comments_and_strings(text: str) -> str:
+    """Drop comments, then blank string/char literal contents.
+
+    Order matters: a `//` inside a string literal is not a comment, and a
+    `"//"` inside a comment is not a string. Stripping comments first reads
+    the whole file as code, which is what the callers below want.
+    """
+    return strip_string_literals(strip_comments(text))
+
 
 def strip_comments(text: str) -> str:
     """Drop comments.
@@ -371,8 +411,12 @@ def _precompute_dead_symbol(
                 continue  # NoopX mirrors X
             prod_refs[name] = prod_refs.get(name, 0)
 
-    prod_corpus = "\n".join(prod_sources.values())
-    test_corpus = "\n".join(test_sources.values())
+    # Count references in code, not in prose about code. A KDoc link and a log
+    # tag are both word-boundary matches for the symbol they name, and both
+    # were counted as calls. That let `AutoSync` — which nothing calls, only
+    # `Logger.withTag("AutoSync")` mentions — clear the dead-symbol threshold.
+    prod_corpus = "\n".join(strip_comments_and_strings(t) for t in prod_sources.values())
+    test_corpus = "\n".join(strip_comments_and_strings(t) for t in test_sources.values())
 
     for m in re.finditer(r"\b(\w+)\b", prod_corpus):
         name = m.group(1)

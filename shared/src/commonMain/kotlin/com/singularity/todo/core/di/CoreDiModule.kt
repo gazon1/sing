@@ -203,9 +203,6 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    // AutoSync is NOT in DI — callers construct it with their own CoroutineScope.
-    // Example: val autoSync = AutoSync(get(), get(), viewModelScope)
-
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
     viewModel { SyncViewModel(get(), get(), get(), AutoCloseableCoroutineScope()) }
