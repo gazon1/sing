@@ -266,6 +266,14 @@ jobs:
       - name: Audit-script regression tests
         run: python3 -m unittest discover -s scripts/tests
 
+      # Proves the gates exist AND can fail. Part A catches a Gradle check task
+      # with a config block that no gate invokes (:androidApp:detekt was one).
+      # Part B runs each registered script gate against a sabotaged input and
+      # requires a non-zero exit — the positive control `check-doc-sizes.py
+      # --warn-only || status=1` never had.
+      - name: Gates are wired and can fail
+        run: python3 scripts/check-gate-wiring.py
+
       - name: Check doc sizes
         # DIGEST.md is generated and gitignored, so on a fresh checkout it does
         # not exist and the budget check would silently skip it. Regenerate
