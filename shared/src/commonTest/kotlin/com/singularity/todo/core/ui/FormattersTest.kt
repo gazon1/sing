@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -12,6 +13,7 @@ import kotlin.test.assertEquals
  * handled gigabytes, one stopped at megabytes) and nothing caught the
  * difference.
  */
+@Tag("fast")
 class FormattersTest {
 
     @Test

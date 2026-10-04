@@ -2,6 +2,7 @@ package com.singularity.todo.core.error
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -19,6 +20,7 @@ import kotlin.test.assertTrue
  * These tests existed as a helper's unit contract before the migration; they are
  * pinned here because the migration made them load-bearing for ~200 call sites.
  */
+@Tag("fast")
 class RunCatchingCancellableTest {
 
     @Test
