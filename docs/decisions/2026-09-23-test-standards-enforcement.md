@@ -44,8 +44,7 @@ deciders: Singularity Developer
 
 ---
 
-## Decisions
-
+## Decision
 ### D1: Все 9 ViewModel мигрированы на `MutableStateFlow` + `scope.launch { }.collect {}`
 
 Миграция проведена для:

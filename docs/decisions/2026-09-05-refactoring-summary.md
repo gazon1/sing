@@ -14,8 +14,7 @@ summary: Рефакторинг 7 пунктов: FakeRepositories seed/unificat
 но все они касаются тестируемости, консистентности fake-репозиториев и устранения
 pass-through use cases.
 
-## Decisions
-
+## Decision
 ### 1. FakeRepositories: seed() → ADD, add()/clear(), searchNotes fix
 
 **Problem:** `seed()` в `FakeTaskRepository` и `FakeChecklistRepository` заменял (_REPLACE_) всё состояние,

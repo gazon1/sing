@@ -60,8 +60,7 @@ and runs as part of the standard JVM test suite.
   intentionally omits `createdAt`/`updatedAt`/`rowVersion` (managed by the repository
   via `existing?.createdAt` in `toEntity()`)
 
-## References
-
+## Links
 - Konsist spec: `arch/EntityMapperCompletenessTest.kt`
 - MR 0.2: fixed `estimateMinutes` gap and duplicate `toProject`
 - MR 0.5: added the Konsist test

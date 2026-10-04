@@ -11,8 +11,7 @@ superseded-by: 2026-09-26-ui-testing-deferred
 
 Потребовалось написать UI-тесты, работающие на **реальном Android-устройстве** (не эмуляторе/Robolectric). Тесты должны проверять, что экран авторизации отображает поля ввода email/password и кнопки.
 
-## Ideas
-
+## Idea
 1. **UI Automator** — стандартный Android-фреймворк для UI-тестов на реальных устройствах.
 2. **Compose TestRule** — нативная поддержка JetBrains Compose test tags (`testTag`).
 3. **Espresso** — не подходит: несовместим с Robolectric и не видит Compose-элементы.

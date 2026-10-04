@@ -14,8 +14,7 @@ epic: refactor/test-suite-acceleration
 
 Jupiter parallel execution is enabled for all test modules (`:shared`, `:desktopApp`, `:mcp-server`). This required a thread-safety audit of shared test infrastructure.
 
-## Decisions
-
+## Decision
 ### D1: Jupiter method-level parallelism enabled
 
 ```kotlin

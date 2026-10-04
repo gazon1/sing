@@ -9,8 +9,7 @@ status: accepted
 
 A comprehensive audit of `ProjectDetailScreen` and `ProjectDetailViewModel` revealed 15 distinct problems spanning: preview crashes, dead UI, missing reactivity, and wrong architecture patterns. This ADR documents all decisions made during the fix, which was split into 6 atomic commits.
 
-## Decisions
-
+## Decision
 ### 1. Preview crash — VM-as-parameter, not `PreviewKoin` helper
 
 `@Preview` crashed with `IllegalStateException: KoinApplication has not been started`. Attempted a `PreviewKoin` helper that started a minimal Koin application in preview context. The Koin DSL (`factoryFor`, `include`) had different availability in the `KoinAppDeclaration` lambda, making it unworkable.

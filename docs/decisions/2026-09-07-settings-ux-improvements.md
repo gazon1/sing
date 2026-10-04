@@ -14,8 +14,7 @@ Settings UX had several rough edges compared to production apps like TickTick:
 - Text fields: every keystroke hit DataStore/SecureStorage
 - Backup destructive actions: no confirmation before restore or delete
 
-## Decisions
-
+## Decision
 ### C1 — Accent color swatches with live preview (`InterfaceSettingsScreen.kt`)
 
 - Replaced `LazyRow + AccentChip(Card)` with `Row + AccentSwatch(Box/CircleShape/40dp)`.

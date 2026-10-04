@@ -82,8 +82,7 @@ The linked `org/tasks/sync` directory is **not** an Orgzly-style HLC/outbox arch
 - **Neutral:** `SyncRepositoryImpl` now requires a `CoroutineScope` injection for the follow-up launch. DI binding in `CoreDiModule` passes `AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)`.
 - **Positive:** `FakeSyncRepository.syncOnce()` mirrors the same `isRunning()` guard — tests accurately reflect real behavior.
 
-## References
-
+## Links
 Tasks KMP sync sources (all raw GitHub URLs):
 
 - [SyncSource.kt](https://raw.githubusercontent.com/tasks/tasks/main/kmp/src/commonMain/kotlin/org/tasks/sync/SyncSource.kt) — `enum SyncSource` with `upgrade()` priority merge

@@ -291,8 +291,7 @@ This is required for compilation — any test that constructs a repository now n
 - `SyncViewModel` is `ViewModel` (extends AndroidX `ViewModel`) — standard Koin `viewModel {}` DSL applies
 - Pull handler for `DELETED` events is a stub — entities are not soft-deleted from remote events yet
 
-## Consequences (negative)
-
+## Consequences
 - `SyncableEntity` in `core/sync/` while domain models are in `feature/*/domain/` — domain → infra dependency. Accepted tradeoff: sync is a cross-cutting concern and the interface lives near the engine.
 - `Task.toJson()` uses `encodeToJsonElement` — this is `StableJson` which uses `encodeDefaults = true`, meaning default `serverVersion = 0` and `hlc = null` are always serialized. This is correct for the sync protocol (server needs to know the base version).
 - `SyncButton` rotation animation uses `rememberInfiniteTransition` — the animation restarts on recomposition with a different `status`. Acceptable because `status` is a stable key.

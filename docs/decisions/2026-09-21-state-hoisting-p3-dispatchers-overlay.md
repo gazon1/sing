@@ -18,8 +18,7 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 
 ---
 
-## Decisions
-
+## Decision
 ### 1. Dispatchers.Unconfined: init blocks → default; fire-and-forget left alone
 
 **Problem:** `Dispatchers.Unconfined` in `init { scope.launch(Dispatchers.Unconfined) { collect{} } }` blocks causes `UncompletedCoroutinesError` in tests — `Unconfined` runs `collect{}` immediately on the test thread, blocking the test coroutine forever.

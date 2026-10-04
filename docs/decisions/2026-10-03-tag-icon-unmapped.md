@@ -24,8 +24,7 @@ does not contain `icon`. The original ADR claim about the column existing was in
 are actually needed — at which point a proper schema migration (v31+) would add the
 column and map it symmetrically.
 
-## References
-
+## Links
 - `EntityMapperCompletenessTest.kt` — no allowlist entry needed for TagEntity
 - `TagEntity` definition in `core/database/Entities.kt:173`
 - `Tag` domain model in `feature/tags/Ids.kt:28`

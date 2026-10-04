@@ -15,8 +15,7 @@ Key architectural questions that arose:
 3. **Top-bar entry**: Should the IconButton live in `AgendaScreen.kt` (Koin wrapper) or `AgendaContent.kt` (content)?
 4. **`extraBufferCapacity`**: What value for `MutableSharedFlow` in ViewModels?
 
-## Decisions
-
+## Decision
 ### 1. Routing belongs on screen — no `NavigateToEdit`/`NavigateToCreate` events
 
 `ViewSelected(id)` from a list is a routing action, not a domain event. It belongs on the screen side:

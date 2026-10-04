@@ -98,8 +98,7 @@ All 4 PRs completed. Key outcomes:
 | DIGEST line growth | 1651 → 1748 (+97) |
 | Pre-existing bugs fixed | 2 |
 
-## Consequences (new DIGEST rules)
-
+## Consequences
 - Skill size check (wc -c) to be added to CI
 - `just docs-audit` to run `normalize-adr-frontmatter.sh --apply` in CI
 - Worktree: verify `jvmTest` passes before starting each PR

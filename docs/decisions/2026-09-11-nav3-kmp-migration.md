@@ -9,8 +9,7 @@ status: accepted
 
 The app used Navigation Compose (Nav2) on Android with a dead Nav2 implementation on Desktop. Android was being migrated to Navigation 3 (terrakok nav3-recipes multiplestacks pattern) but the Desktop stayed on Nav2.
 
-## Decisions
-
+## Decision
 ### 1. `App` is expect/actual at top level
 
 `App` is the expect/actual seam (common → android → jvm), not individual shell functions. This avoids the problem where a common module referencing a function that only exists on one platform.
