@@ -180,18 +180,17 @@ coverage-ratchet *args="":
     #!/bin/bash
     set -euo pipefail
     # Kover merges binary reports incrementally, so a report produced after other
-    # runs carries coverage from tests outside the current filter. The baseline is
-    # only reproducible from a clean state, hence the wipe. The alternative —
-    # comparing against whatever the last run happened to leave — is not a gate.
+    # runs carries coverage from tests outside the current filter. The floors are
+    # only reproducible from a clean state, hence the wipe.
     rm -rf shared/build/kover shared/build/reports/kover
-    # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default (see the
-    # kover block in shared/build.gradle.kts). `-Pcoverage.tests` narrows the run:
-    # the whole suite under instrumentation is both slow and memory-hungry, and
-    # `--tests` on the command line is rejected when koverXmlReport is in the same
-    # invocation.
+    # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default. That
+    # flag is a speed choice, not a safety one: the OOM that originally justified
+    # disabling instrumentation was misattributed (2026-09-27-write-layer-soundness.md
+    # ledger #11), and a full instrumented run was measured on 2026-10-04 at 9m27s
+    # with no OOM. It stays off by default so ./check.sh does not pay those minutes
+    # on every run.
     ./gradlew :shared:jvmTest :shared:koverXmlReport \
         -Pkover.jvmTest=true \
-        -Pcoverage.tests="com.singularity.todo.feature.agenda.**" \
         --console=plain
     python3 scripts/coverage-ratchet.py {{args}}
 

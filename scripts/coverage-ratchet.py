@@ -1,38 +1,39 @@
 #!/usr/bin/env python3
-"""Coverage ratchet for a package scope in a kover XML report.
+"""Coverage ratchet: fail when line coverage drops below a committed floor.
 
-Fails when measured line coverage drops below the committed baseline. The point
-is not to reach a number — it is to make a *drop* loud. Every increase has to be
-adopted deliberately with `--update`, which is also when the reviewer sees what
-caused it.
+The point is not to reach a number — it is to make a *drop* loud. Every increase
+has to be adopted deliberately with `--update`, which is also when a reviewer
+sees what caused it.
 
 ## Why this exists instead of a kover verify bound
 
 `:shared:koverXmlReport` can only aggregate test tasks whose classes kover
-instruments, and instrumentation for `:shared:jvmTest` is off by default (see
-the `kover` block in `shared/build.gradle.kts` and
-`docs/decisions/2026-09-27-write-layer-soundness.md` ledger #11). With it off,
-the report is generated but every counter under the agenda package is 0 — a
-bound pinned to that number would ratchet on nothing at all. So the measurement
-run passes `-Pkover.jvmTest=true -Pcoverage.tests=…` to instrument a filtered
-run, and this script reads the result.
+instruments, and instrumentation for `:shared:jvmTest` is **off by default** —
+with it off, the report is generated but every counter under the agenda package
+is 0, and a bound pinned to that ratchets on nothing. The measurement run
+therefore passes `-Pkover.jvmTest=true`.
+
+That flag is a *speed* choice, not a safety one. The OOM that originally
+justified disabling instrumentation was misattributed: it reproduces with kover
+off and in complete isolation (`2026-09-27-write-layer-soundness.md` ledger
+#11). A full instrumented `:shared:jvmTest` was measured on 2026-10-04 — it
+completes in 9m27s without OOM. Keeping it off by default only means
+`./check.sh` does not pay those six minutes on every run.
 
 ## Reproducibility
 
-Kover merges binary reports incrementally, so a report produced after other
-runs can carry coverage from tests outside the current filter. The baseline is
-only meaningful against a clean state, which is why the just recipe removes
+Kover merges binary reports incrementally, so a report produced after other runs
+can carry coverage from tests outside the current filter. The floors are only
+meaningful against a clean state, which is why the just recipe removes
 `shared/build/kover` before measuring. Do not point this script at a report
 produced some other way.
 
-## Scope
+## Multiple floors
 
-The default scope excludes the Compose-only subtrees
-(`presentation/screen`, `presentation/nav`, `presentation/components`): they are
-exercised by the desktopApp flow tests, which kover cannot see, so including
-them would report mostly "this harness cannot run UI tests" rather than anything
-about test quality. The whole-package number is recorded in the baseline file for
-context. See the ADR for the full reasoning.
+`config/coverage-ratchet.json` holds a list of `floors`, each with its own
+scope. A single-feature floor cannot see erosion elsewhere — with only the agenda
+floor, deleting every test in `feature/tasks` would leave the gate green — so
+there is a whole-module floor as well.
 """
 
 from __future__ import annotations
@@ -45,7 +46,9 @@ import xml.etree.ElementTree as ET
 
 DEFAULT_REPORT = "shared/build/reports/kover/report.xml"
 DEFAULT_BASELINE = "config/coverage-ratchet.json"
-DEFAULT_SCOPE = "com/singularity/todo/feature/agenda"
+# Compose-only subtrees of the agenda feature: exercised by the desktopApp flow
+# tests, which kover cannot see. Excluded from the agenda floor so it measures
+# logic coverage rather than "this harness cannot run UI tests".
 DEFAULT_EXCLUDE = (
     "com/singularity/todo/feature/agenda/presentation/screen",
     "com/singularity/todo/feature/agenda/presentation/nav",
@@ -53,13 +56,16 @@ DEFAULT_EXCLUDE = (
 )
 
 
-def line_coverage(report_path: str, scope: str, exclude: tuple[str, ...]) -> tuple[int, int]:
+def line_coverage(
+    report_path: str,
+    scope: str,
+    exclude: tuple[str, ...] = (),
+) -> tuple[int, int]:
     """Summed LINE covered/missed over the packages in scope."""
     if not os.path.isfile(report_path):
         sys.exit(
             f"coverage-ratchet: no kover report at {report_path}\n"
-            "Generate one with:\n"
-            "  just coverage-ratchet --measure   (or see the recipe for the raw gradle command)"
+            "Generate one with `just cr` (see the recipe for the raw gradle command)."
         )
     covered = missed = 0
     root = ET.parse(report_path).getroot()
@@ -72,79 +78,92 @@ def line_coverage(report_path: str, scope: str, exclude: tuple[str, ...]) -> tup
                 if counter.get("type") == "LINE":
                     covered += int(counter.get("covered", 0))
                     missed += int(counter.get("missed", 0))
-    if covered + missed == 0:
-        sys.exit(
-            f"coverage-ratchet: the report has no line data under {scope}.\n"
-            "That means nothing was instrumented for this scope — check that the\n"
-            "measurement run passed -Pkover.jvmTest=true and that kover's binary\n"
-            "reports were not stale (the just recipe clears them first)."
-        )
     return covered, missed
 
 
-def whole_package(report_path: str, scope: str) -> tuple[int, int]:
-    return line_coverage(report_path, scope, ())
+def percent_of(floor: dict, exclude: tuple[str, ...] = ()) -> tuple[int, int, float]:
+    """Measured covered/total/percent for one floor under the given exclusion."""
+    covered, missed = line_coverage(DEFAULT_REPORT, floor["scope"], exclude)
+    total = covered + missed
+    if total == 0:
+        sys.exit(
+            f"coverage-ratchet: no line data under {floor['scope']}.\n"
+            "Nothing was instrumented for this scope — check that the measurement run\n"
+            "passed -Pkover.jvmTest=true and that kover's binary reports were not stale\n"
+            "(the just recipe clears them first)."
+        )
+    return covered, total, 100.0 * covered / total
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", default=DEFAULT_REPORT)
     parser.add_argument("--baseline", default=DEFAULT_BASELINE)
-    parser.add_argument("--scope", default=DEFAULT_SCOPE)
-    parser.add_argument("--update", action="store_true", help="adopt the measured value as the new floor")
-    parser.add_argument(
-        "--measure",
-        action="store_true",
-        help="print the measured value without comparing (used by the just recipe)",
-    )
+    parser.add_argument("--update", action="store_true", help="adopt the measured values as the new floors")
+    parser.add_argument("--measure", action="store_true", help="print measurements without comparing")
     args = parser.parse_args()
-
-    covered, missed = line_coverage(args.report, args.scope, DEFAULT_EXCLUDE)
-    total = covered + missed
-    percent = 100.0 * covered / total
-    all_covered, all_missed = whole_package(args.report, args.scope)
-    all_percent = 100.0 * all_covered / (all_covered + all_missed)
-
-    print(f"scope      {args.scope} (excluding presentation/screen, nav, components)")
-    print(f"measured   {covered}/{total} lines = {percent:.2f}%")
-    print(f"context    whole package {all_covered}/{all_covered + all_missed} = {all_percent:.2f}%")
-
-    if args.measure:
-        return 0
 
     with open(args.baseline, encoding="utf-8") as handle:
         baseline = json.load(handle)
 
-    floor = float(baseline["min_line_percent"])
+    floors = baseline["floors"]
+    measured: list[tuple[dict, int, int, float]] = []
+    for floor in floors:
+        # The Compose-only exclusion applies to the agenda floor only, and is
+        # decided by the baseline naming the excluded subtrees — not by a
+        # substring match on the scope, which would silently mis-measure.
+        excluded = (
+            DEFAULT_EXCLUDE
+            if floor.get("exclude_compose_subtrees")
+            else ()
+        )
+        covered, total, percent = percent_of(floor, excluded)
+        measured.append((floor, covered, total, percent))
+        print(f"{floor['label']}")
+        print(f"  measured {covered}/{total} lines = {percent:.2f}%")
+        if excluded:
+            _, whole_total, whole_percent = percent_of(floor)  # no exclusion
+            print(f"  (whole scope {whole_total} lines = {whole_percent:.2f}%)")
+
+    if args.measure:
+        return 0
+
+    failures: list[str] = []
+    for floor, covered, total, percent in measured:
+        want = float(floor["min_line_percent"])
+        # Compare at the stored precision: the floor is rounded to 2 decimals, so
+        # an un-rounded comparison reports a phantom rise on every run.
+        if round(percent, 2) + 1e-9 < want:
+            failures.append(
+                f"  {floor['label']}: {percent:.2f}% < floor {want:.2f}%  "
+                f"({covered}/{total} lines)"
+            )
+        elif round(percent, 2) > want and not args.update:
+            print(
+                f"  {floor['label']}: rose to {percent:.2f}% (floor {want:.2f}%) — adopt with --update"
+            )
 
     if args.update:
-        baseline.update(
-            {
-                "min_line_percent": round(percent, 2),
-                "measured_covered_lines": covered,
-                "measured_total_lines": total,
-                "whole_package_percent": round(all_percent, 2),
-            }
-        )
+        for floor, covered, total, percent in measured:
+            floor["min_line_percent"] = round(percent, 2)
+            floor["measured_covered_lines"] = covered
+            floor["measured_total_lines"] = total
         with open(args.baseline, "w", encoding="utf-8") as handle:
             json.dump(baseline, handle, indent=2, ensure_ascii=False)
             handle.write("\n")
-        print(f"baseline   adopted {percent:.2f}% (was {floor:.2f}%) in {args.baseline}")
+        print(f"\nbaseline adopted in {args.baseline}")
         return 0
 
-    print(f"baseline   {floor:.2f}%")
-    # Compare at the stored precision: the baseline is rounded to 2 decimals, so
-    # an un-rounded comparison would report a phantom rise on every run.
-    if round(percent, 2) + 1e-9 < floor:
+    if failures:
+        print("\nCOVERAGE DROPPED:\n" + "\n".join(failures))
         print(
-            f"\nCOVERAGE DROPPED: {percent:.2f}% < {floor:.2f}%\n"
-            "Either a test stopped running (check the --tests filter and the kover state)\n"
-            "or production code grew without tests. If the drop is understood and\n"
-            "accepted, re-run with --update and say why in the commit message."
+            "\nEither a test stopped running (check the measurement command) or production\n"
+            "code grew without tests. If the drop is understood and accepted, re-run with\n"
+            "--update and say why in the commit message."
         )
         return 1
-    if round(percent, 2) > floor:
-        print(f"\ncoverage rose by {round(percent, 2) - floor:.2f} points — adopt it: --update")
+
+    print("\nAll floors held.")
     return 0
 
 

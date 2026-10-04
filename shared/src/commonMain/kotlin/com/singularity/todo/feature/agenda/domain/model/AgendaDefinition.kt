@@ -60,13 +60,21 @@ data class Section(
  *
  * @param sectionId The id of the section that initiated the create.
  * @param title Optional title pre-filled from the section context.
- * @param dueDate Optional due date pre-filled from the section context (e.g. a date bucket).
+ * @param dueDate Optional *absolute* due date. Use this only when the date is a
+ *   fixed point in the definition — which in practice is never, since a saved
+ *   view is a template that outlives the day it was written. For anything
+ *   date-bucketed use [relativeDueDate], resolved against today at the moment
+ *   the user taps '+'.
+ * @param relativeDueDate Date bucket resolved at tap time. [AgendaViewModel]
+ *   takes the range's `from` as the due date, so "This Week" prefills the start
+ *   of the current week and "This Month" the first of the month.
  */
 @Serializable
 data class SectionPrefill(
     val sectionId: String,
     val title: String? = null,
     val dueDate: kotlinx.datetime.LocalDate? = null,
+    val relativeDueDate: RelativeBucket? = null,
 )
 
 /**

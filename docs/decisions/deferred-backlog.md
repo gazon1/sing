@@ -663,14 +663,15 @@ and routes writes through repositories. Replace DAO calls in `BackupImporter` wi
 "every VM has a test" gate). Pre-existing — none of these were introduced by the
 agenda work.
 
-Eleven ViewModels ship with no test of their own. The rule enforces that this
+Ten ViewModels ship with no test of their own (was written as eleven; see the
+correction below). The rule enforces that this
 stops growing; this entry is the debt itself.
 
 | ViewModel | Why it is hard to test today |
 |-----------|------------------------------|
 | `AccountSettingsViewModel` | Thin wrapper over settings read/write; needs a SettingsRepository fake that does not exist yet |
 | `AiUsageViewModel` | Reads LLM usage records straight off the DAO; no fake repository for the usage table |
-| `AppVersionGateViewModel` | Version comparison against a remote config port. A fake port exists (`FakeRemoteConfigPort`) but no test drives the VM through it |
+| `AppVersionGateViewModel` | ~~No test drives it~~ — **closed 2026-10-04**, see below |
 | `ArchiveViewModel` | Archive/trash reads go through the task repository; the VM's own state machine is untested even though the queries are |
 | `AttachmentsViewModel` | File IO behind `FileSystem`; needs a fake filesystem with checksum support |
 | `AuthViewModel` | OAuth session transitions; `core-auth-oauth-is-entirely-unwired` (above) means the flow is not reachable, so there is nothing meaningful to assert yet |
@@ -678,11 +679,33 @@ stops growing; this entry is the debt itself.
 | `ProfileSwitcherViewModel` | Reads the profile list; needs a `FakeProfileRepository` wired through the same scope discipline as `ProfileAwareCurrentUser` |
 | `SearchViewModel` | `activeFilter = null` is a documented signal, not an error, so a naive test asserts the wrong contract |
 | `TagGroupsViewModel` | Cascade deletes are the interesting path and they are covered at the repository level (`TagGroupDeleteCascadeTest`), not at the VM level |
-| `TagsViewModel` | `TagRenameTest` covers the rename use case, not the VM; the VM's list/selection state is untested |
+| `TagsViewModel` | **A false positive, corrected 2026-10-04** — `TagRenameTest` *does* drive the VM through `onIntent(TagsIntent.Rename…)` and asserts both the stored row and the observed state. Covered; only the *naming* does not match the rule |
 
-**Do this first:** start with `TagsViewModel` and `AppVersionGateViewModel` —
-both already have a fixture in reach (a tag fake, a remote-config fake), so
-neither needs new infrastructure.
+**Correction, 2026-10-04.** Two claims above were wrong and are fixed in the
+table:
+
+- `TagsViewModel` **is** covered — `TagRenameTest` constructs the VM and drives
+  it through the rename intent, with success, boundary and rejection cases. The
+  original note ("covers the rename use case, not the VM") was a misread: the
+  test asserts `vm.state.value` as well as the stored row. It is on the
+  allowlist only because no test class is *named* `TagsViewModelTest`. That is
+  the rule being strict, not a coverage hole — a deliberate trade, since a
+  looser rule ("any test mentioning the VM") would pass a file that constructs
+  it in a fixture and asserts nothing about it.
+- `AppVersionGateViewModel` had **no** test at all; the only mention in the tree
+  was `FakeRemoteConfigPort`, a *fake* in the desktop helpers. Both branches of
+  its version comparison had never run. Now closed:
+  `AppVersionGateViewModelTest` (7 cases — below/at/above minimum, code-not-name
+  comparison, CheckAgain re-read, and the failed-refresh fallback that otherwise
+  strands the user on a permanent spinner).
+
+So the real list is **ten**, not eleven, and one of the two "easy ones" turned
+out to be the genuinely dangerous one: it is the only VM whose failure mode
+locks every user out of the app.
+
+**Do this first:** `TagGroupsViewModel` and `SearchViewModel` — both have their
+hard repositories already tested, so the remaining work is the VM's own state
+machine rather than new infrastructure.
 
 **Rule:** the allowlist lives in `KNOWN_UNCOVERED` in
 `shared/src/jvmTest/kotlin/com/singularity/todo/arch/ViewModelTestCoverageTest.kt`.
@@ -790,3 +813,66 @@ malformed value. It did not error — it produced a confusing downstream failure
 **Do this first:** use positional arguments (`just gm agenda`), and check the
 recipe's `[doc()]` text shows positional usage. If named arguments are wanted
 later, verify with a probe recipe first rather than assuming.
+
+---
+
+## cross-user-write-rule-measured-and-rejected
+
+**Found in:** 2026-10-04, while trying to mechanise the `assertCanWrite` bypass
+that `SavedAgendaViewsRepositoryImpl.duplicateForProfile` documents in its KDoc.
+
+The rule that looks right — "a repository method that takes a `userId` and writes
+must call `assertCanWrite`" — was written and measured. It matches **eight**
+methods in the data layer, and **seven are legitimate**:
+
+```
+ReminderRepositoryImpl::delete(id, userId)
+ProjectRemindersRepositoryImpl::delete(id, userId)
+TimeTrackingRepositoryImpl::startEntry / createManualEntry / updateNote
+ProposalRepositoryImpl::refreshStatus / retract
+```
+
+These are user-*scoped* writes: the userId goes into a DAO query that already
+reads `WHERE user_id = :userId`. Passing a userId to a scoped DAO is not a
+cross-user write. Only `duplicateForProfile` writes a row belonging to somebody
+*else*, because that is the operation's purpose.
+
+Nothing syntactic separates them — both take a `userId` and both call `upsert`.
+Telling them apart requires knowing what the DAO query does with the value,
+which is the PSI-level rule `2026-09-27-write-layer-soundness.md` ledger #18
+already deferred as disproportionate. Allowing the seven would make the list
+meaningless: it would grow with every new scoped-DAO method and could never fail
+on a real violation.
+
+**What was shipped instead:** `CrossUserWriteRegistry` — a named list of the one
+sanctioned bypass, with `CrossUserWriteRegistryTest` pinning that every entry
+still exists, that the count has not grown, and that each one documents the
+bypass in its own KDoc. It does not *catch* a new cross-user write. It makes the
+existing hole greppable, and it is honest about being a registry rather than a
+gate.
+
+**Do this first:** if the project ever wants the real rule, it belongs in
+`detekt-rules/` next to `PassThroughUseCaseRule`, and it needs to resolve the DAO
+query, not the call site.
+
+---
+
+## maestro-ci-job-unproven
+
+**Found in:** 2026-10-04, while adding the `maestro-smoke` CI job.
+
+The job is the first thing in this repository that ever *executes* a Maestro
+flow in CI. It has never run — GitHub Actions emulators are a different
+environment from the host's AVD, including for the gfxstream crash that
+`run-maestro.sh` works around locally.
+
+Specifically unproven:
+- `reactivecircus/android-emulator-runner` + `Maestro/scripts/wait-for-boot.sh`
+  boots and the APK installs;
+- the `smoke` set passes in that environment at all — some flows may depend on
+  host behaviour;
+- wall-clock cost, which is why `agenda` and `regression` were left out.
+
+**Do this first:** run the job once on a branch and read the log before trusting
+it. If the smoke set turns out to be slow or flaky, the `timeout-minutes: 45` and
+`MAESTRO_MAX_RETRIES=1` are the first knobs to turn.

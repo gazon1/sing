@@ -320,6 +320,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     inputs.dir(rootProject.layout.projectDirectory.dir("Maestro"))
         .withPropertyName("maestroFlows")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // Same reasoning, one directory over: DesktopTestHarnessEnforcementTest and
+    // ViewModelTestCoverageTest read desktopApp's test sources, and desktopApp is
+    // a separate Gradle project — so editing a desktop flow test leaves this task
+    // UP-TO-DATE and both checks unrun. Declared so they cannot skip themselves.
+    inputs.dir(rootProject.layout.projectDirectory.dir("desktopApp/src/jvmTest"))
+        .withPropertyName("desktopAppJvmTestSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Restrict this run to a test subset via -Pcoverage.tests="…", so the same
     // configuration applies when koverXmlReport pulls jvmTest in as a dependency.
     // A `--tests` flag on the command line cannot be used for that: Gradle

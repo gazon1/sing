@@ -115,6 +115,15 @@ object TestTags {
     const val SAVED_AGENDA_SAVE_BUTTON = "saved_agenda_save_button"
     const val SAVED_AGENDA_DELETE_BUTTON = "saved_agenda_delete_button"
 
+    /** Confirm button of the second "add section" step, after values are chosen. */
+    const val SAVED_AGENDA_ADD_SECTION_CONFIRM = "saved_agenda_add_section_confirm"
+
+    /** A section *type* in the "add section" template list, by label. */
+    fun agendaSectionTemplate(label: String) = "agenda_section_template_${slug(label)}"
+
+    /** One selectable value in the section parameter picker, by id. */
+    fun agendaSelectorOption(id: String) = "agenda_selector_option_${slug(id)}"
+
     /** Dynamic tag of the form `saved_agenda_card_<slug>`. */
     fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
 

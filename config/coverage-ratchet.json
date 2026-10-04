@@ -1,14 +1,30 @@
 {
-  "scope": "com/singularity/todo/feature/agenda",
+  "measurement": "./gradlew :shared:jvmTest :shared:koverXmlReport -Pkover.jvmTest=true (from a clean shared/build/kover)",
+  "measured_at": "2026-10-04",
   "excluded_subtrees": [
     "com/singularity/todo/feature/agenda/presentation/screen",
     "com/singularity/todo/feature/agenda/presentation/nav",
     "com/singularity/todo/feature/agenda/presentation/components"
   ],
-  "min_line_percent": 68.29,
-  "measured_covered_lines": 687,
-  "measured_total_lines": 1006,
-  "whole_package_percent": 31.6,
-  "measurement": "./gradlew :shared:jvmTest :shared:koverXmlReport -Pkover.jvmTest=true -Pcoverage.tests=\"com.singularity.todo.feature.agenda.**\" (from a clean shared/build/kover)",
-  "note": "Excluded subtrees are Compose-only and are covered by the desktopApp flow tests, which kover cannot see. Including them would report 31.6% and say more about the harness than about the tests."
+  "floors": [
+    {
+      "label": "feature/agenda, excluding Compose-only subtrees",
+      "scope": "com/singularity/todo/feature/agenda",
+      "min_line_percent": 71.51,
+      "measured_covered_lines": 723,
+      "measured_total_lines": 1011,
+      "whole_scope_percent": 33.18,
+      "note": "The excluded subtrees are Compose-only and are covered by the desktopApp flow tests, which kover cannot see. Including them yields 33.18% and would say more about the harness than about the tests.",
+      "exclude_compose_subtrees": true
+    },
+    {
+      "label": "whole shared module",
+      "scope": "com/singularity/todo/",
+      "min_line_percent": 17.91,
+      "measured_covered_lines": 8377,
+      "measured_total_lines": 46763,
+      "whole_scope_percent": 17.91,
+      "note": "The floor that makes the agenda ratchet mean something. Without it, deleting every test in feature/tasks would leave the gate green, since a single-feature floor cannot see erosion elsewhere."
+    }
+  ]
 }

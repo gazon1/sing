@@ -74,10 +74,6 @@ class SavedAgendaEditFlowTest {
      * Two nodes expose ScrollBy (the editor list and a background pane); the
      * first fetched is the editor LazyColumn (bounds (24,188)-(1000,744)).
      */
-    private fun DesktopComposeUiTest.scrollEditorToBottom() {
-        onAllNodes(hasScrollAction()).onFirst().performMouseInput { scroll(4_000f) }
-    }
-
     @Test
     fun card_tap_opens_results_not_editor() = runDesktopAppTest(checkA11y = true) { koin ->
         tasks(koin).givenUndated(title = "Results task")
@@ -148,9 +144,14 @@ class SavedAgendaEditFlowTest {
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextClearance()
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextInput("New Name")
 
-        // The Inbox preset's 8 section rows push the Save/Delete buttons below the
-        // 768px window fold — scroll the editor's LazyColumn to the bottom first.
-        scrollEditorToBottom()
+        // The action row is pinned below the scroll area, so Save is reachable
+        // without scrolling even with the Inbox preset's 8 sections. This line is
+        // the regression test: the row used to be the last LazyColumn item, and on
+        // a 1024x768 window the primary action of the form sat below the fold —
+        // `performClick()` on the off-screen node silently injected a click at
+        // out-of-window coordinates and the test then failed 5s later on an
+        // unrelated await. `assertIsDisplayed` before the click is what pins it.
+        awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).assertIsDisplayed()
 
         awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
 
@@ -178,9 +179,9 @@ class SavedAgendaEditFlowTest {
 
         awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
 
-        // Save/Delete sit below the fold behind the 8 preset section rows.
-        scrollEditorToBottom()
-
+        // No scroll needed: the action row is pinned below the list. The
+        // assertIsDisplayed below is the regression check — the row used to be
+        // the last item of the scrolling column.
         // Delete button exists in edit mode
         awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).assertIsDisplayed()
         awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).performClick()

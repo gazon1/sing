@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,22 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.singularity.todo.core.ui.components.sheet.MultiSelectItem
+import com.singularity.todo.core.ui.components.sheet.MultiSelectSheet
+import com.singularity.todo.feature.agenda.domain.selector.ConfigurableSelector
+import com.singularity.todo.feature.agenda.domain.selector.SelectorOption
+import com.singularity.todo.feature.agenda.domain.selector.SelectorTemplate
+import com.singularity.todo.feature.agenda.domain.selector.typeDescription
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tags.TagsRepository
+import org.koin.compose.koinInject
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -53,7 +70,6 @@ import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
-import com.singularity.todo.feature.agenda.domain.selector.typeDescription
 import com.singularity.todo.feature.agenda.presentation.components.SectionEditorCard
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
@@ -100,6 +116,10 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
 
     // Dialog state: null = no dialog/sheet, else the active dialog
     val dialogs = rememberDialogState<ActiveDialog>()
+
+    // A parameterized section type is chosen before its values are known, so the
+    // second step of "add section" outlives the sheet that started it.
+    var pendingTemplate by remember { mutableStateOf<SelectorTemplate?>(null) }
 
     // Auto-pop to previous screen when entering NotFound state
     LaunchedEffect(state) {
@@ -170,33 +190,148 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
         )
     }
 
-    // Add section bottom sheet
-    if (dialogs.active == ActiveDialog.AddSection) {
-        val nextOrder = (state as? SavedAgendaViewState.Editing)?.draft?.sections?.size
-            ?: 0
-        ListPickerSheet<Selector>(
-            title = "Add section",
-            onItemSelected = { selector ->
-                dialogs.dismiss()
-                val section = Section(
-                    id = "section_$nextOrder",
+    /**
+     * Builds a [Section] from a template plus the values the user chose, and
+     * hands it to the ViewModel.
+     *
+     * A `null` resolution (nothing valid selected) adds nothing rather than
+     * adding a section that matches no task — see [SelectorTemplate.resolve].
+     */
+    fun addSection(
+        template: SelectorTemplate,
+        chosen: Set<String>,
+        // The option list the picker actually showed. It has to be the same one
+        // the resolver validates against — re-deriving it here would use empty
+        // tag/project lists, drop every chosen id as "unknown", resolve to null
+        // and silently add nothing.
+        available: List<SelectorOption> = emptyList(),
+    ) {
+        val current = state as? SavedAgendaViewState.Editing ?: return
+        val selector = ConfigurableSelector(template, available).resolve(chosen) ?: return
+        val order = current.draft.sections.size
+        viewModel.onIntent(
+            SavedAgendaIntent.SectionAdded(
+                Section(
+                    id = "section_$order",
                     name = selector.typeDescription,
-                    order = nextOrder,
+                    order = order,
                     selector = selector,
-                )
-                viewModel.onIntent(SavedAgendaIntent.SectionAdded(section, nextOrder))
+                ),
+                order,
+            ),
+        )
+    }
+
+    // Add section, step 1: pick the section *type*.
+    if (dialogs.active == ActiveDialog.AddSection) {
+        ListPickerSheet<SelectorTemplate>(
+            title = "Add section",
+            onItemSelected = { template ->
+                dialogs.dismiss()
+                // Parameterless types are complete on their own. The rest need
+                // values first: `Selector.Tags(emptySet())` matches no task, so
+                // adding one now would create a section that can never have
+                // content.
+                if (template.requiresParameters) {
+                    pendingTemplate = template
+                } else {
+                    addSection(template, emptySet(), selectorOptionsFor(template))
+                }
             },
             onDismiss = { dialogs.dismiss() },
         ) {
-            item("Active tasks", Selector.Statuses(setOf(TaskStatus.Active)))
-            item("Completed tasks", Selector.Statuses(setOf(TaskStatus.Completed)))
-            item("Due today", Selector.DateBucket(RelativeBucket.Today))
-            item("Overdue", Selector.DateBucket(RelativeBucket.Overdue))
-            item("No date", Selector.DateBucket(RelativeBucket.NoDate))
-            item("This week", Selector.DateBucket(RelativeBucket.ThisWeek))
-            item("Next week", Selector.DateBucket(RelativeBucket.NextWeek))
+            SelectorTemplate.catalogue.forEach { template ->
+                item(
+                    label = template.label,
+                    key = template,
+                    testTag = TestTags.agendaSectionTemplate(template.label),
+                )
+            }
         }
     }
+
+    // Add section, step 2: pick the values a parameterized type needs.
+    pendingTemplate?.let { template ->
+        SelectorParameterSheet(
+            template = template,
+            onConfirm = { chosen, available ->
+                pendingTemplate = null
+                addSection(template, chosen, available)
+            },
+            onDismiss = { pendingTemplate = null },
+        )
+    }
+}
+
+/**
+ * Second step of "add section": choose the values a [SelectorTemplate] needs.
+ *
+ * Reads its options the same way the copy-to-profile picker reads profiles — a
+ * repository injected at the call site with `koinInject`, not routed through the
+ * ViewModel. The ViewModel owns the draft; a transient modal's contents have no
+ * business living in state that survives a rotation.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectorParameterSheet(
+    template: SelectorTemplate,
+    onConfirm: (chosen: Set<String>, available: List<SelectorOption>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val tagRepo: TagsRepository = koinInject()
+    val projectRepo: ProjectsRepository = koinInject()
+    val tags by remember(template) { tagRepo.observeAll() }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val projects by remember(template) { projectRepo.observeAll() }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val options = remember(template, tags, projects) { selectorOptionsFor(template, tags, projects) }
+    val selected = remember(template) { mutableStateListOf<String>() }
+
+    MultiSelectSheet(
+        title = template.label,
+        items = options.map { option ->
+            MultiSelectItem(
+                key = option.id,
+                label = option.label,
+                testTag = TestTags.agendaSelectorOption(option.id),
+            )
+        },
+        selectedKeys = selected.toSet(),
+        onToggle = { id ->
+            if (id in selected) selected.remove(id) else selected.add(id)
+        },
+        // Disabled until something is chosen: an empty selection resolves to no
+        // section at all, and a button that silently does nothing is exactly
+        // the failure this step exists to prevent.
+        onConfirm = { onConfirm(selected.toSet(), options) },
+        onDismiss = onDismiss,
+        confirmLabel = "Add section",
+        confirmTestTag = TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM,
+        emptyMessage = "No ${template.label.lowercase()} available yet",
+    )
+}
+
+/** The values available for [template], in the order the picker shows them. */
+private fun selectorOptionsFor(
+    template: SelectorTemplate,
+    tags: List<Tag> = emptyList(),
+    projects: List<Project> = emptyList(),
+): List<SelectorOption> = when (template) {
+    is SelectorTemplate.ByTags -> tags.map { SelectorOption(it.id.value, it.name) }
+
+    is SelectorTemplate.ByProjects -> {
+        val live = projects.filterNot { it.isDeleted }
+        live.map { SelectorOption(it.id.value, it.name) }
+    }
+
+    is SelectorTemplate.ByPriority -> TaskPriority.entries.map { SelectorOption(it.name, it.name) }
+
+    is SelectorTemplate.ByStatus -> TaskStatus.entries.map { SelectorOption(it.name, it.name) }
+
+    // Fixed templates never open this sheet; the catalogue is the fallback so a
+    // future parameterized type cannot resolve to a silently empty picker.
+    else -> emptyList()
 }
 
 /** Active overlay dialog. */
@@ -248,148 +383,191 @@ private fun SavedAgendaContent(
             val keyboardController = LocalSoftwareKeyboardController.current
             val listState = rememberLazyListState()
 
-            // A single LazyColumn owns scrolling. Nesting a LazyColumn inside a
-            // Column(verticalScroll()) would propagate unbounded height constraints
-            // and crash at measure time. Header (name field + section header / empty
-            // state) and footer (save + delete) are emitted via item {} so the
-            // sections list is the only itemsIndexed block.
-            LazyColumn(
-                modifier = modifier.fillMaxSize()
-                    .padding(24.dp)
-                    .imePadding(),
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                item(key = "name_field") {
-                    OutlinedTextField(
-                        value = state.draft.name,
-                        onValueChange = { onIntent(SavedAgendaIntent.NameChanged(it)) },
-                        label = { Text("View name") },
-                        placeholder = { Text("My saved view") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag(TestTags.SAVED_AGENDA_NAME_INPUT),
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Words,
-                            imeAction = ImeAction.Done,
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = { keyboardController?.hide() },
-                        ),
-                        enabled = !state.isSaving,
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                when {
-                    state.decodeError -> {
-                        item(key = "decode_error") {
-                            Text(
-                                text = "Unable to decode sections",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-
-                    state.draft.sections.isNotEmpty() -> {
-                        item(key = "sections_header") {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = "Sections",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                TextButton(onClick = onRequestAddSection) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Add")
-                                }
-                            }
-                        }
-                        itemsIndexed(
-                            items = state.draft.sections,
-                            key = { index, section -> "${section.name}#${section.order}#$index" },
-                        ) { index, section ->
-                            SectionEditorCard(
-                                section = section,
-                                index = index,
-                                canMoveUp = index > 0,
-                                canMoveDown = index < state.draft.sections.lastIndex,
-                                onMoveUp = {
-                                    val moved = state.draft.sections.toMutableList()
-                                    moved.add(index - 1, moved.removeAt(index))
-                                    onIntent(SavedAgendaIntent.SectionsReordered(moved))
-                                },
-                                onMoveDown = {
-                                    val moved = state.draft.sections.toMutableList()
-                                    moved.add(index + 1, moved.removeAt(index))
-                                    onIntent(SavedAgendaIntent.SectionsReordered(moved))
-                                },
-                                onDelete = { onIntent(SavedAgendaIntent.SectionRemoved(index)) },
-                            )
-                        }
-                    }
-
-                    else -> {
-                        item(key = "no_sections") {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    text = "No sections",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                OutlinedButton(onClick = onRequestAddSection) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Add first section")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                item(key = "actions") {
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Button(
-                        onClick = { onIntent(SavedAgendaIntent.Save) },
-                        enabled = state.canSave && !state.isSaving,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag(TestTags.SAVED_AGENDA_SAVE_BUTTON),
-                    ) {
-                        if (state.isSaving) {
-                            CircularProgressIndicator(
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.height(18.dp),
-                            )
-                        } else {
-                            Text("Save")
-                        }
-                    }
-                    // Delete button only shown in Edit mode (view != null)
-                    if (state.view != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = onRequestDelete,
-                            enabled = !state.isSaving,
+            Column(modifier = modifier.fillMaxSize()) {
+                // A single LazyColumn owns scrolling. Nesting a LazyColumn inside a
+                // Column(verticalScroll()) would propagate unbounded height constraints
+                // and crash at measure time. Header (name field + section header / empty
+                // state) are emitted via item {} so the sections list is the only
+                // itemsIndexed block; the action row is a sibling below, not an item.
+                LazyColumn(
+                    // weight, not fillMaxSize: inside a Column, fillMaxSize resolves
+                    // against the *whole* viewport and pushes the action row off-screen,
+                    // which is the very bug this layout change exists to fix. weight(1f)
+                    // takes exactly the height the action row did not claim.
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(24.dp)
+                        .imePadding(),
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    item(key = "name_field") {
+                        OutlinedTextField(
+                            value = state.draft.name,
+                            onValueChange = { onIntent(SavedAgendaIntent.NameChanged(it)) },
+                            label = { Text("View name") },
+                            placeholder = { Text("My saved view") },
+                            singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag(TestTags.SAVED_AGENDA_DELETE_BUTTON),
-                        ) {
-                            Text("Delete view")
+                                .testTag(TestTags.SAVED_AGENDA_NAME_INPUT),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = { keyboardController?.hide() },
+                            ),
+                            enabled = !state.isSaving,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    when {
+                        state.decodeError -> {
+                            item(key = "decode_error") {
+                                Text(
+                                    text = "Unable to decode sections",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+
+                        state.draft.sections.isNotEmpty() -> {
+                            item(key = "sections_header") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = "Sections",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    TextButton(onClick = onRequestAddSection) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Add")
+                                    }
+                                }
+                            }
+                            itemsIndexed(
+                                items = state.draft.sections,
+                                key = { index, section -> "${section.name}#${section.order}#$index" },
+                            ) { index, section ->
+                                SectionEditorCard(
+                                    section = section,
+                                    index = index,
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index < state.draft.sections.lastIndex,
+                                    onMoveUp = {
+                                        val moved = state.draft.sections.toMutableList()
+                                        moved.add(index - 1, moved.removeAt(index))
+                                        onIntent(SavedAgendaIntent.SectionsReordered(moved))
+                                    },
+                                    onMoveDown = {
+                                        val moved = state.draft.sections.toMutableList()
+                                        moved.add(index + 1, moved.removeAt(index))
+                                        onIntent(SavedAgendaIntent.SectionsReordered(moved))
+                                    },
+                                    onDelete = { onIntent(SavedAgendaIntent.SectionRemoved(index)) },
+                                )
+                            }
+                        }
+
+                        else -> {
+                            item(key = "no_sections") {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        text = "No sections",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    OutlinedButton(onClick = onRequestAddSection) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Add first section")
+                                    }
+                                }
+                            }
                         }
                     }
+
+                    item(key = "actions_spacer") {
+                        // The action row is no longer the last item: it is pinned
+                        // below the list, so the scrolling area only needs enough
+                        // trailing room that the final section is not flush against
+                        // it. Keeping the buttons in the LazyColumn put them below
+                        // the fold on a 1024x768 window with a full section list —
+                        // the form's primary action unreachable without scrolling.
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
                 }
+
+                SavedAgendaActionRow(
+                    state = state,
+                    onSave = { onIntent(SavedAgendaIntent.Save) },
+                    onRequestDelete = onRequestDelete,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .imePadding(),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The editor's Save / Delete row, pinned to the bottom of the viewport.
+ *
+ * Split out of [SavedAgendaContent] so the scrolling [LazyColumn] and the
+ * always-visible action row are siblings rather than the actions being the
+ * last item in the scroll — a single nested scrolling container is the one
+ * arrangement that measures correctly, and the alternative (sticky header
+ * inside the list) is not expressible with `LazyColumn` items.
+ */
+@Composable
+private fun SavedAgendaActionRow(
+    state: SavedAgendaViewState.Editing,
+    onSave: () -> Unit,
+    onRequestDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Button(
+            onClick = onSave,
+            enabled = state.canSave && !state.isSaving,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.SAVED_AGENDA_SAVE_BUTTON),
+        ) {
+            if (state.isSaving) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.height(18.dp),
+                )
+            } else {
+                Text("Save")
+            }
+        }
+        // Delete button only shown in Edit mode (view != null)
+        if (state.view != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onRequestDelete,
+                enabled = !state.isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.SAVED_AGENDA_DELETE_BUTTON),
+            ) {
+                Text("Delete view")
             }
         }
     }

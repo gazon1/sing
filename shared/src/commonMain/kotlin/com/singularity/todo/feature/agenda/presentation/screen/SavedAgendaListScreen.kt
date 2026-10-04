@@ -44,6 +44,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCard
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
@@ -76,6 +78,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         mapper = { e ->
             when (e) {
                 is SavedAgendaListEvent.ShowError -> Notification.Error(e.message)
+
                 is SavedAgendaListEvent.CopySuccess -> {
                     scope.launch {
                         snackbarHostState.showSnackbar(
@@ -195,9 +198,9 @@ fun SavedAgendaListContent(
 @Composable
 private fun ProfilePickerSheet(
     viewId: SavedAgendaViewId,
-    profileRepo: com.singularity.todo.feature.profile.domain.port.ProfileRepository,
+    profileRepo: ProfileRepository,
     onDismiss: () -> Unit,
-    onPick: (com.singularity.todo.feature.profile.ProfileId) -> Unit,
+    onPick: (ProfileId) -> Unit,
 ) {
     val profiles by profileRepo.observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())

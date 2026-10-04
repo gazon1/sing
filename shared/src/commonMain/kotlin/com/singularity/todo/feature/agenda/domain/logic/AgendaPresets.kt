@@ -34,42 +34,88 @@ object AgendaPresets {
      */
     val Inbox: AgendaDefinition = agenda("Inbox") {
         section(
-            "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue),
-            order = -1, discard = true,
+            "overdue",
+            "Overdue",
+            Selector.DateBucket(RelativeBucket.Overdue),
+            order = -1,
+            discard = true,
             prefill = SectionPrefill("overdue", "Overdue task"),
         )
         section(
-            "today", "Today", Selector.DateBucket(RelativeBucket.Today),
-            order = 0, discard = true,
-            prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)),
+            "today",
+            "Today",
+            Selector.DateBucket(RelativeBucket.Today),
+            order = 0,
+            discard = true,
+            prefill = SectionPrefill(
+                "today",
+                "New task",
+                relativeDueDate = RelativeBucket.Today,
+            ),
         )
         section(
-            "yesterday", "Yesterday", Selector.DateBucket(RelativeBucket.Yesterday),
-            order = 1, discard = true,
-            prefill = SectionPrefill("yesterday", "Task for yesterday", LocalDate(2026, 10, 2)),
+            "yesterday",
+            "Yesterday",
+            Selector.DateBucket(RelativeBucket.Yesterday),
+            order = 1,
+            discard = true,
+            prefill = SectionPrefill(
+                "yesterday",
+                "Task for yesterday",
+                relativeDueDate = RelativeBucket.Yesterday,
+            ),
         )
         section(
-            "tomorrow", "Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow),
-            order = 2, discard = true,
-            prefill = SectionPrefill("tomorrow", "Task for tomorrow", LocalDate(2026, 10, 4)),
+            "tomorrow",
+            "Tomorrow",
+            Selector.DateBucket(RelativeBucket.Tomorrow),
+            order = 2,
+            discard = true,
+            prefill = SectionPrefill(
+                "tomorrow",
+                "Task for tomorrow",
+                relativeDueDate = RelativeBucket.Tomorrow,
+            ),
         )
         section(
-            "this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek),
-            order = 3, discard = true,
-            prefill = SectionPrefill("this_week", "This week", LocalDate(2026, 9, 28)),
+            "this_week",
+            "This Week",
+            Selector.DateBucket(RelativeBucket.ThisWeek),
+            order = 3,
+            discard = true,
+            prefill = SectionPrefill(
+                "this_week",
+                "This week",
+                relativeDueDate = RelativeBucket.ThisWeek,
+            ),
         )
         section(
-            "next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek),
-            order = 4, discard = true,
-            prefill = SectionPrefill("next_week", "Next week", LocalDate(2026, 10, 5)),
+            "next_week",
+            "Next Week",
+            Selector.DateBucket(RelativeBucket.NextWeek),
+            order = 4,
+            discard = true,
+            prefill = SectionPrefill(
+                "next_week",
+                "Next week",
+                relativeDueDate = RelativeBucket.NextWeek,
+            ),
         )
         section(
-            "this_month", "This Month", Selector.DateBucket(RelativeBucket.ThisMonth),
+            "this_month",
+            "This Month",
+            Selector.DateBucket(RelativeBucket.ThisMonth),
             order = 5,
-            prefill = SectionPrefill("this_month", "This month", LocalDate(2026, 10, 1)),
+            prefill = SectionPrefill(
+                "this_month",
+                "This month",
+                relativeDueDate = RelativeBucket.ThisMonth,
+            ),
         )
         section(
-            "no_date", "No Date", Selector.DateBucket(RelativeBucket.NoDate),
+            "no_date",
+            "No Date",
+            Selector.DateBucket(RelativeBucket.NoDate),
             order = 6,
             prefill = SectionPrefill("no_date", "No date"),
         )
@@ -78,14 +124,23 @@ object AgendaPresets {
     /** Only today's tasks, with overdue shown at the top. */
     val Today: AgendaDefinition = agenda("Today") {
         section(
-            "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue),
-            order = 0, discard = true,
+            "overdue",
+            "Overdue",
+            Selector.DateBucket(RelativeBucket.Overdue),
+            order = 0,
+            discard = true,
             prefill = SectionPrefill("overdue", "Overdue task"),
         )
         section(
-            "today", "Today", Selector.DateBucket(RelativeBucket.Today),
+            "today",
+            "Today",
+            Selector.DateBucket(RelativeBucket.Today),
             order = 1,
-            prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)),
+            prefill = SectionPrefill(
+                "today",
+                "New task",
+                relativeDueDate = RelativeBucket.Today,
+            ),
         )
     }
 
@@ -97,29 +152,58 @@ object AgendaPresets {
      */
     val Upcoming: AgendaDefinition = agenda("Upcoming") {
         section(
-            "overdue", "Overdue", Selector.DateBucket(RelativeBucket.Overdue),
-            order = 0, discard = true,
+            "overdue",
+            "Overdue",
+            Selector.DateBucket(RelativeBucket.Overdue),
+            order = 0,
+            discard = true,
             prefill = SectionPrefill("overdue", "Overdue task"),
         )
         section(
-            "today", "Today", Selector.DateBucket(RelativeBucket.Today),
-            order = 1, discard = true,
-            prefill = SectionPrefill("today", "New task", LocalDate(2026, 10, 3)),
+            "today",
+            "Today",
+            Selector.DateBucket(RelativeBucket.Today),
+            order = 1,
+            discard = true,
+            prefill = SectionPrefill(
+                "today",
+                "New task",
+                relativeDueDate = RelativeBucket.Today,
+            ),
         )
         section(
-            "tomorrow", "Tomorrow", Selector.DateBucket(RelativeBucket.Tomorrow),
-            order = 2, discard = true,
-            prefill = SectionPrefill("tomorrow", "Task for tomorrow", LocalDate(2026, 10, 4)),
+            "tomorrow",
+            "Tomorrow",
+            Selector.DateBucket(RelativeBucket.Tomorrow),
+            order = 2,
+            discard = true,
+            prefill = SectionPrefill(
+                "tomorrow",
+                "Task for tomorrow",
+                relativeDueDate = RelativeBucket.Tomorrow,
+            ),
         )
         section(
-            "this_week", "This Week", Selector.DateBucket(RelativeBucket.ThisWeek),
+            "this_week",
+            "This Week",
+            Selector.DateBucket(RelativeBucket.ThisWeek),
             order = 3,
-            prefill = SectionPrefill("this_week", "This week", LocalDate(2026, 9, 28)),
+            prefill = SectionPrefill(
+                "this_week",
+                "This week",
+                relativeDueDate = RelativeBucket.ThisWeek,
+            ),
         )
         section(
-            "next_week", "Next Week", Selector.DateBucket(RelativeBucket.NextWeek),
+            "next_week",
+            "Next Week",
+            Selector.DateBucket(RelativeBucket.NextWeek),
             order = 4,
-            prefill = SectionPrefill("next_week", "Next week", LocalDate(2026, 10, 5)),
+            prefill = SectionPrefill(
+                "next_week",
+                "Next week",
+                relativeDueDate = RelativeBucket.NextWeek,
+            ),
         )
     }
 

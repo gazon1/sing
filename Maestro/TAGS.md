@@ -72,6 +72,7 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
+| `SAVED_AGENDA_ADD_SECTION_CONFIRM` | `saved_agenda_add_section_confirm` | |
 | `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | |
 | `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | |
 | `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | |
@@ -185,6 +186,8 @@ use the expanded string directly).
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
 | `agendaSection("Today")` | `"Today"` | `agenda_section_today` | Agenda section headers |
+| `agendaSectionTemplate("By tag")` | `"By tag"` | `agenda_section_template_by_tag` | Section *types* in the add-section sheet |
+| `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |

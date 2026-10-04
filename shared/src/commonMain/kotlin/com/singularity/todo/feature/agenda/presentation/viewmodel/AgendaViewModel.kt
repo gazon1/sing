@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
+import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
@@ -180,10 +182,17 @@ class AgendaViewModel(
         val section = definition.sections.find { it.effectiveId == sectionId } ?: return
         val sectionPrefill = section.prefill ?: return
 
+        // A bucket resolves against *today*, not against the day the definition
+        // was written. The presets used to carry hardcoded LocalDates, which
+        // meant tapping '+' in the Today section on any other day prefilled that
+        // one date — a saved view is a template, not a snapshot of a day.
+        val resolvedDue = sectionPrefill.dueDate
+            ?: sectionPrefill.relativeDueDate?.toDateRange(todayAt(deps.clock))?.from
+
         // Build a TaskDraft from the section prefill
         val draft = TaskDraft(
             title = sectionPrefill.title ?: "",
-            dueDate = sectionPrefill.dueDate?.let { DueDateOption.Custom(it, it.toString()) }
+            dueDate = resolvedDue?.let { DueDateOption.Custom(it, it.toString()) }
                 ?: DueDateOption.None,
         )
 
@@ -206,7 +215,4 @@ class AgendaViewModel(
  * @param taskId The deleted task id.
  * @param taskTitle Short label for the snackbar.
  */
-data class PendingDelete(
-    val taskId: TaskId,
-    val taskTitle: String,
-)
+data class PendingDelete(val taskId: TaskId, val taskTitle: String)
