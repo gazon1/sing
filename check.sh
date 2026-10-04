@@ -96,22 +96,22 @@ python3 -m unittest discover -s scripts/tests 2>&1 | tail -3 || {
 echo -e "${GREEN}gate script self-tests passed${NC}"
 
 echo -e "${YELLOW}=== [9/12] coverage floors (when a report exists) ===${NC}"
-# --if-present because :shared:koverXmlReport instruments every test task and roughly
+# --if-present because koverReport instruments every test task and roughly
 # triples the local loop; CI runs it in the kover job on every push.
 #
 # Deliberately NOT --since: this report is produced by a separate, earlier task, so the
 # run-start stamp would make it permanently "stale" and skip the check in silence. Its
 # age is printed instead, and CI — where the report is generated in the same job —
 # enforces freshness with --since.
-if [ -f shared/build/reports/kover/report.xml ]; then
-    REPORT_AGE=$(( $(date +%s) - $(stat -c %Y shared/build/reports/kover/report.xml) ))
-    echo "    report age: $((REPORT_AGE / 60)) min (re-run :shared:koverXmlReport for a current figure)"
+if [ -f build/reports/kover/report.xml ]; then
+    REPORT_AGE=$(( $(date +%s) - $(stat -c %Y build/reports/kover/report.xml) ))
+    echo "    report age: $((REPORT_AGE / 60)) min (re-run ./gradlew koverReport for a current figure)"
     python3 scripts/check-coverage.py || {
         echo -e "${RED}coverage below the recorded floor${NC}"
         exit 1
     }
 else
-    echo "    no Kover report — run ./gradlew :shared:koverXmlReport (skipped)"
+    echo "    no Kover report — run ./gradlew koverReport (skipped)"
 fi
 
 echo -e "${YELLOW}=== [10/12] doc sizes + dead doc references ===${NC}"

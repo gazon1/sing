@@ -16,7 +16,6 @@ plugins {
     // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
     id("io.insert-koin.compiler.plugin") version "1.2.1"
     alias(libs.plugins.detekt)
-    alias(libs.plugins.kover)
 }
 
 koinCompiler {
@@ -400,32 +399,10 @@ dependencies {
 // ---------------------------------------------------------------------------
 // kover — code coverage for all KMP source sets
 // ---------------------------------------------------------------------------
-kover {
-    currentProject {
-        instrumentation {
-            // Instrument ONLY our own code.
-            //
-            // The IntelliJ coverage runtime keeps one ClassData entry per loaded
-            // class for the whole life of a test fork, and the Koog classpath alone
-            // contributes 3000+ classes (ADR 2026-09-25-test-jvm-heap-default
-            // measured 3,003 ClassData / 59,368 LineData = 42% of heap). The ADR's
-            // workaround was to disable instrumentation for jvmTest entirely, which
-            // made the published coverage number describe only the Android host
-            // source set — 10.5% instruction coverage, a measurement of which test
-            // task was instrumented rather than of the code.
-            //
-            // Kover 0.9 supports filtering at instrumentation time, so the Koog
-            // classes are never instrumented and the accumulator stays proportional
-            // to our own bytecode. jvmTest forks per class (forkEvery = 1), which
-            // bounds the accumulation further.
-            includedClasses.add("com.singularity.todo.*")
-        }
-    }
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
+// No `kover { }` block here. Coverage is configured once, at settings level
+// (settings.gradle.kts): the plugin applies itself to every project, so the
+// `com.singularity.todo.*` instrumentation filter arrives here as a convention
+// and the report is produced once for the whole build. A per-project report
+// would measure only this project's own test tasks — which is exactly the gap
+// that made every Compose flow test in desktopApp invisible to the number.
 

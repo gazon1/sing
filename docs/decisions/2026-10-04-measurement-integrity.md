@@ -257,3 +257,119 @@ that `combine(u.scopedUserId.value) { }` also went unflagged, sampling a value t
 can never change. The rule now separates them by position: the read must lie between
 the reactive call's own name and its brace. Both shapes are pinned by fixtures, since
 that distinction is the one the whole rule turns on.
+
+# Addendum (2026-10-04, second): the coverage number described a test task, not the build
+
+The floor this ADR introduced was honest about its own inputs, and the input it was
+fed was still a measurement of the wrong thing.
+
+## What the number actually was
+
+Kover was applied per project. A per-project report measures that project's own
+test tasks against that project's own classes — which is correct and useless for
+this repository, because the tests and the code are in different modules.
+`desktopApp` has 27 Compose flow tests that render the real `shared` screens; under
+`:desktopApp:koverXmlReport` the whole of that execution was invisible, because the
+code being executed belongs to another project. Measured, not assumed:
+`:desktopApp:koverXmlReport` reported **3 classes / 220 instructions / 0 covered**
+while 27 tests were rendering roughly 80k instructions of shared UI. The floor
+therefore said "28 packages at 0%" about screens that had a full test suite pointed
+at them.
+
+Two tempting fixes were rejected. Writing 27+ more Compose harness tests would buy
+real coverage, but only after spending the effort on a premise — that those packages
+are untested — that the measurement contradicted. And a settings-level report
+configuring `includedClasses = com.singularity.todo.*` was chosen instead, so that
+"0% on this package" means "no test touches it" instead of "no test in the module
+that owns it touches it".
+
+## Two traps in the aggregation plugin, both verified against 0.9.9 sources
+
+**`kover { }` in `settings.gradle.kts` does not enable coverage.**
+`KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)` and nothing in
+the DSL flips it; `KoverSettingsGradlePlugin` reads it in `beforeProject` and returns
+early. The failure mode is unusually well camouflaged: the build succeeds, the Kover
+agent is attached to every test JVM, `build/kover/bin-reports/*.ic` files appear —
+because the *subproject* plugins were still doing the instrumenting — and
+`:koverXmlReport` simply does not exist. Enabling it is one call, `enableCoverage()`,
+and forgetting it is invisible in every signal except the one that matters. The
+comment in `settings.gradle.kts` names the symptom so the next reader can recognise it.
+
+**`:koverXmlReport` does not run the tests.** `KoverProjectGradlePlugin` collects
+whichever `Test` tasks are *already in the task graph* — `gradle.taskGraph.hasTask(...)` —
+and orders them against the report with `mustRunAfter`, never `dependsOn`. On a clean
+checkout the root report task therefore succeeds and writes a near-empty file, which
+is the same "succeeds without doing its job" shape as the `xml-report.xml` upload
+above. The root `koverReport` task exists to close that: it depends on every JVM test
+task by path and only then on `:koverXmlReport`, so the graph is correct by
+construction rather than by whoever remembered the right incantation.
+
+Two smaller consequences of the same change, both confirmed by running them:
+declaring `id("org.jetbrains.kotlinx.kover")` in a subproject now fails outright
+("an extension already registered with that name"), because the settings plugin
+applies the project plugin itself; and `KoverProjectExtension` in aggregation mode has
+no `currentProject { }`, so the per-project `kover { }` blocks had to go rather than
+be rewritten — the settings filter arrives in every project as a convention.
+
+## What the number says now
+
+Aggregated across every module's test JVM, over the same `-Ptest.tags=fast,slow`
+suite that produced the old number, the floor moves **23.0 / 18.3 / 24.4 →
+38.5 / 27.2 / 37.1** (instruction / branch / line). Both reports were produced on
+the same branch and the same test selection; the only difference is the scope of
+the report, which is the point.
+
+The composition of the change is more informative than its size:
+
+- **32 packages came off 0%**, worth 108,096 instructions that were previously not
+  measurable at all. They are the Compose surfaces: `agenda/presentation/screen`
+  (60.9%), `calendar/presentation/*` (64–81%), `projects/presentation/*` (13–77%),
+  `tasks/presentation/screen` (34.0%). Those packages had 27 flow tests rendering
+  them; under a per-project report the harness could not see a single instruction.
+- **6 packages entered the report for the first time** — `mcp`, `mcp/schema`,
+  `mcp/errors`, `mcp/pagination`, `debug`, `update` — because `mcp-server:test`
+  and `androidApp:test` are now part of it. Four of them (`mcp`, `mcp/errors`,
+  `mcp/pagination`, `debug`) are at 0% and `update` at 0.9%, which is a true
+  statement about a module that was simply absent from the measurement before.
+- **40 packages remain at 0%**, down from 67, holding 174,372 instructions. The
+  largest, in order: `feature/settings/screens` (34,248), `feature/search/presentation`
+  (19,448), `feature/timetracking/presentation/components` (13,124),
+  `feature/auth` (10,976), `core/ui/detail` (9,876),
+  `feature/calendar_sync/presentation` (9,840), `core/ui/components/sheet` (9,588).
+
+The last list is the real output of this exercise, and it is worth being precise
+about what it is and is not. `settings/screens` is 34,248 instructions of settings
+Compose with no test touching it; that is now a fact about the code rather than an
+artefact of which module the test lives in. It is not a claim that 34,248
+instructions need 34,248 tests, and this ADR does not pretend otherwise — the
+number is a prioritisation input, and the recommendation is to spend tests on the
+largest genuinely-untested surfaces (`settings/screens`, `search/presentation`,
+`timetracking/presentation/components`) rather than on screens that already have
+flow coverage.
+
+The floor itself is recorded from the **default local run**, without
+`-Ptest.tags=fast,slow`, for the same reason `test-runs-baseline.txt` records the
+`@Tag("fast")` counts: the floor must be the smallest number a legitimate run
+produces, or every plain local run reads as a regression. That run measures
+**25.0 / 19.1 / 24.4**, so the committed floor moved 23.0 → 25.0 instruction and
+18.3 → 19.1 branch; the line floor is unchanged at 24.4. The full-suite figures
+above are recorded in `coverage-baseline.txt` as a comment, so the size of the gap
+is visible to whoever next regenerates the file — but the number the gate enforces
+is the one a plain `./gradlew koverReport` actually produces.
+
+## A suite that no job ran
+
+Aggregating coverage meant enumerating the build's test tasks, and the enumeration
+turned up `:detekt-rules:test` — 56 tests that no CI job and no `check.sh` step ever
+runs. Four of them fail: two in `NoDirectDispatchersRuleTest` throw
+`IllegalArgumentException: filename must be a file name only and not contain any path
+elements` from `dev.detekt.test.utils.compileContentForTest`, and two more assert
+`expected: <1> but was: <0>`. The failures reproduce with `-Pkover=false` and the
+branch never touched `detekt-rules/`, so they predate this work.
+
+They are **not** fixed here, and they are deliberately kept out of `koverReport`:
+the module is `skipProjects`-ed because custom detekt rules are build tooling and do
+not belong in an application-coverage denominator, and pulling a red suite into the
+coverage job would convert an unrelated pre-existing defect into a new red job. The
+defect stays visible in this record rather than being hidden by an exclusion — the
+next person to touch `detekt-rules` should expect to find these already broken.

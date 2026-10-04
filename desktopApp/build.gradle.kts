@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.detekt)
-    alias(libs.plugins.kover)
     // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
     id("io.insert-koin.compiler.plugin") version "1.2.1"
 }
@@ -190,12 +189,9 @@ dependencies {
 // ---------------------------------------------------------------------------
 // kover — code coverage
 // ---------------------------------------------------------------------------
-kover {
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
+// Configuration lives in settings.gradle.kts: one aggregated report for the whole
+// build, so the flow tests here count towards the shared screens they render.
+// No `kover { }` block: see settings.gradle.kts. Declaring the project plugin
+// here would fail with "an extension already registered with that name" — the
+// settings-level plugin applies it to every project itself.
 

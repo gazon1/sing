@@ -223,9 +223,20 @@ jobs:
         # The stamp goes in first: the report is only evidence about the code if it
         # was produced by this run, and a report left in a restored build cache or a
         # self-hosted workspace would otherwise satisfy the floor indefinitely.
+        #
+        # `koverReport` (not `:shared:koverXmlReport`, not a bare `koverXmlReport`):
+        # coverage is aggregated at settings level (settings.gradle.kts), and the root
+        # `koverReport` task is the one that also runs the test tasks. Kover's
+        # aggregation plugin only picks up `Test` tasks that are already in the graph —
+        # `:koverXmlReport` alone would merge whatever the cache happened to hold.
+        # Aggregation is the point of the change: :desktopApp:test drives the real
+        # shared screens through a Compose harness, and under a per-project report none
+        # of that execution was measurable. Measured on the same suite, 67 packages
+        # read 0% before and 40 after; the 32 that came off account for 108,096
+        # instructions the report could not previously see.
         run: |
           echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-          ./gradlew :shared:koverXmlReport --no-daemon --configuration-cache
+          ./gradlew koverReport -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
       # kover pulls in :shared:testAndroidHostTest (the Robolectric/Android source set),
       # which no other job exercises. Without this floor, a regression that only breaks
@@ -244,7 +255,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kover-report
-          path: shared/build/reports/kover/report.xml
+          path: build/reports/kover/report.xml
           if-no-files-found: error
 
   openspec-validate:

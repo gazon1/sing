@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinxSerialization)
-    alias(libs.plugins.kover)
     alias(libs.plugins.detekt)
     application
 }
@@ -119,11 +118,6 @@ detekt {
 // ---------------------------------------------------------------------------
 // kover — code coverage
 // ---------------------------------------------------------------------------
-kover {
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
+// No `reports { }` block: coverage is reported once, from the root project
+// (settings-level Kover, see settings.gradle.kts). A per-project report here
+// would be a second, differently-scoped number for the same code.

@@ -29,8 +29,8 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 just lint            # run detekt analysis (shared + desktopApp) — enforcing
 just detekt-fix      # auto-fix detekt rules + ktlint formatting (in-place) ✅ USE THIS BEFORE COMMIT
 just detekt-baseline # regenerate baseline files (after large auto-fix pass)
-just coverage        # kover XML reports → shared/build/reports/kover/
-just coverage-html   # kover HTML reports → shared/build/reports/kover/
+just coverage        # aggregated kover XML → build/reports/kover/
+just coverage-html   # aggregated kover HTML → build/reports/kover/html/
 just tcheck          # full pipeline: tests + assembleDebug + lint
 ```
 
@@ -44,10 +44,10 @@ just tcheck          # full pipeline: tests + assembleDebug + lint
 ./gradlew :shared:detekt --rerun-tasks                        # force rerun
 ./gradlew :shared:detektBaseline :desktopApp:detektBaseline  # generate baselines
 
-# kover
-./gradlew :shared:koverXmlReport :desktopApp:koverXmlReport   # XML
-./gradlew :shared:koverHtmlReport :desktopApp:koverHtmlReport # HTML
-./gradlew :shared:koverGenerateArtifact :desktopApp:koverGenerateArtifact # generate merged artifact
+# kover — always via the ROOT aggregate task, never a per-project report
+./gradlew koverReport          # XML: runs every JVM test task, then merges
+./gradlew koverHtml      # HTML
+just coverage                  # = ./gradlew koverReport
 
 # Full check (no adb)
 SKIP_ADB=1 ./check.sh
@@ -112,8 +112,10 @@ If you see "TOML syntax error" or "plugins previously defined at line X" — you
 plugins {
     alias(libs.plugins.kotlinJvm)         // or kotlinMultiplatform, androidApplication, etc.
     alias(libs.plugins.detekt)            // MUST be listed in root build.gradle.kts with apply=false
-    alias(libs.plugins.kover)              // optional, for coverage
 }
+// Do NOT add kover here. It is applied to every project by the settings-level
+// `org.jetbrains.kotlinx.kover.aggregation` plugin, and declaring it in a module
+// fails the build with "an extension already registered with that name".
 ```
 
 **2. Add `dependencies` block with `detektPlugins`:**
@@ -136,17 +138,16 @@ detekt {
 }
 ```
 
-**4. Add kover config (optional):**
-```kotlin
-kover {
-    reports {
-        total {
-            html { onCheck = true }
-            xml { onCheck = true }
-        }
-    }
-}
-```
+**4. Coverage needs no per-module config.**
+The instrumentation filter and the single report live in `settings.gradle.kts`. A
+module that wants out of coverage adds itself to `skipProjects(...)` there, with a
+comment saying why. Do not add a `kover { reports { } }` block — it produces a second,
+differently-scoped number for the same code.
+
+**5. New test task? Add it to the root `koverReport` in `build.gradle.kts`.**
+Kover only merges the `Test` tasks that are already in the task graph; it never
+depends on them itself. A test task nobody added there is a test task whose
+execution never reaches the coverage number.
 
 **5. Generate baseline:**
 ```bash
@@ -165,12 +166,13 @@ kover {
 
 ## Current modules with quality gates
 
-| Module | detekt | kover | CI job |
-|--------|--------|-------|--------|
-| `shared` | ✅ | ✅ (xml+html onCheck) | ci.yml test-and-check |
-| `desktopApp` | ✅ | ✅ (xml+html onCheck) | ci.yml test-and-check |
-| `mcp-server` | ✅ (74 findings baseline) | ✅ | ci.yml mcp-server-check |
-| `androidApp` | ✅ | ❌ | ci.yml test-and-check (assemble only) |
+| Module | detekt | in aggregated kover | CI job |
+|--------|--------|----------------------|--------|
+| `shared` | ✅ | ✅ `jvmTest` + `testAndroidHostTest` | ci.yml test-and-check |
+| `desktopApp` | ✅ | ✅ `test` | ci.yml test-and-check |
+| `mcp-server` | ✅ (74 findings baseline) | ✅ `test` | ci.yml mcp-server-check |
+| `androidApp` | ✅ | ✅ `test` (unit tests only) | ci.yml test-and-check (assemble only) |
+| `detekt-rules` | — | ❌ `skipProjects` (build tooling, suite is red) | — |
 
 ## Custom rules (`detekt-rules` module)
 
@@ -260,7 +262,7 @@ alias(libs.plugins.detekt)
 | File pattern | What happens |
 |---|---|
 | `shared/src/**/build/reports/detekt/detekt.xml` | detekt XML report (CI artifact) |
-| `shared/src/**/build/reports/kover/report.xml` | kover XML coverage report |
+| `build/reports/kover/report.xml` | aggregated kover XML coverage report (root project) |
 | Kotlin source files | `detekt --rerun-tasks` auto-fixes in-place |
 
 ## Related skills
@@ -282,26 +284,40 @@ committing.
 
 ## Coverage is a gated number (2026-10-04)
 
-Kover instruments **only** `com.singularity.todo.*` (`includedClasses` in
-`shared/build.gradle.kts`). That is not a performance tweak: the IntelliJ coverage
-runtime keeps one `ClassData` per loaded class, and the Koog classpath alone
-contributes 3,000+ of them — which is why `jvmTest` used to be excluded from
-instrumentation entirely (ADR `2026-09-25-test-jvm-heap-default`) and the published
-number described only the Android source set.
+Coverage is configured **once, at settings level** (`settings.gradle.kts`), and the
+report is aggregated across every module's test JVM. It instruments only
+`com.singularity.todo.*` — not a performance tweak: the IntelliJ coverage runtime
+keeps one `ClassData` per loaded class, and the Koog classpath alone contributes
+3,000+ of them (ADR `2026-09-25-test-jvm-heap-default`).
 
 ```bash
-./gradlew :shared:koverXmlReport -Ptest.tags=fast,slow   # ~5 min, instruments every test task
-python3 scripts/check-coverage.py                       # floor: 23.0 / 18.3 / 24.4
-python3 scripts/check-coverage.py --if-present          # skip when no report exists
+./gradlew koverReport -Ptest.tags=fast,slow   # ~10 min, runs the tests then merges
+python3 scripts/check-coverage.py            # floor: see config/docs/coverage-baseline.txt
+python3 scripts/check-coverage.py --if-present
 ```
 
-The report is `shared/build/reports/kover/report.xml` — not `xml-report.xml`, which
-is the name the CI upload step used for months while carrying nothing. Coverage is
-measured over our own packages only: a total across the whole report is dominated by
-third-party bytecode and drifts with dependency bumps.
+### Three things that will waste your time if you do not know them
 
-`koverXmlReport` instruments every test task and roughly triples the runtime, so it
-is not in the default `./check.sh` path — CI runs it in its own job.
+1. **Use the root `koverReport`, never `:koverXmlReport`.** Kover's aggregation
+   plugin picks up the `Test` tasks that are *already in the task graph* and only
+   orders them with `mustRunAfter` — it never depends on them. `:koverXmlReport` on a
+   clean checkout succeeds and writes a nearly empty report.
+2. **`kover { }` in `settings.gradle.kts` does not enable coverage.** You must call
+   `enableCoverage()`; the extension is `convention(false)` and the block compiles and
+   runs without it. The tell is that `:koverXmlReport` does not exist as a root task.
+3. **Do not declare the kover plugin in a module.** The settings plugin applies it to
+   every project; a module-level `id("org.jetbrains.kotlinx.kover")` fails with
+   "an extension already registered with that name", and `KoverProjectExtension` here
+   has no `currentProject { }` wrapper.
+
+The report is `build/reports/kover/report.xml` (root project) — not `xml-report.xml`,
+which the CI upload step used for months while carrying nothing. It is measured over
+our own packages only: a total across the whole report is dominated by third-party
+bytecode and drifts with dependency bumps. `detekt-rules` is `skipProjects`-ed, since
+custom detekt rules are build tooling, not application code.
+
+`koverReport` instruments every test task and roughly triples the runtime, so it is
+not in the default `./check.sh` path — CI runs it in its own job.
 
 ## The gates are tested too
 

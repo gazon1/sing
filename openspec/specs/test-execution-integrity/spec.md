@@ -80,9 +80,23 @@ the code. Kover's instrumentation SHALL be filtered to the project's own package
 instead of being switched off wholesale, so third-party bytecode never enters the
 accumulator.
 
+Coverage SHALL be measured from a single report aggregated across every module's
+test JVM in the build, not from a per-module report. A per-module report measures
+that module's own test tasks against that module's own classes, which in a
+multi-module build means a test in one module that drives another module's code
+contributes nothing to the number.
+
+The build SHALL expose one entry point that both runs the test tasks and produces
+the report. The aggregation plugin only merges the test tasks that are already in
+the task graph and never depends on them itself, so a task that only renders the
+report would succeed on a clean checkout and write a nearly empty file.
+
 **Rationale:** With `jvmTest` excluded from instrumentation the report claimed 10.5%
 instruction coverage; with instrumentation filtered to `com.singularity.todo.*` the
-same suite measures 23.0%. The first number was an artefact.
+same suite measured 23.0%. The first number was an artefact of the Gradle
+configuration. Aggregating moved the same suite to 38.5% and brought 32 packages off
+0% — 108,096 instructions of Compose surface that 27 passing flow tests had been
+exercising all along while the per-module report could not see any of it.
 
 #### Scenario: Coverage drops
 
@@ -96,6 +110,14 @@ same suite measures 23.0%. The first number was an artefact.
 - **When** the gate runs
 - **Then** coverage falls below the floor and CI fails, because a vanished test task
   looks exactly like lost coverage
+
+#### Scenario: The report is requested without the tests
+
+- **Given** a clean checkout with no previous test run in the build directory
+- **When** only the report task is requested
+- **Then** the report is still produced and the gate passes, unless the entry point
+  that runs the tests is the one used — a report merged from nothing is not a
+  measurement, and a gate that accepts it is not a gate
 
 ### Requirement: REQ-4 The gates are themselves tested
 

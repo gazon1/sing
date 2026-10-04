@@ -54,11 +54,16 @@ not a measurement of today's.
 
 ## The report path
 
-Kover 0.9 writes `shared/build/reports/kover/report.xml`. The CI job uploaded
-`xml-report.xml` — a name this plugin has never produced — with no
-`if-no-files-found: error`, so the upload silently carried nothing and the
-coverage artifact had never once been published. Both facts are the same shape
-of defect this repo keeps fixing: a step that succeeds without doing its job.
+Kover 0.9 writes `<root>/build/reports/kover/report.xml`, where root is whichever
+project owns the reporting configuration — here the root project, because coverage
+is aggregated across every module (see `settings.gradle.kts`).
+
+Two path mistakes are already history, both the same shape of defect: the CI job
+uploaded `xml-report.xml`, a name this plugin has never produced, with no
+`if-no-files-found: error`, so the upload silently carried nothing; and a
+per-project report measured only that project's own test tasks, which made every
+Compose flow test in `desktopApp` invisible to the number because it rendered
+`shared` classes from another project.
 """
 import argparse
 import pathlib
@@ -67,7 +72,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "config" / "docs" / "coverage-baseline.txt"
-DEFAULT_REPORT = ROOT / "shared" / "build" / "reports" / "kover" / "report.xml"
+DEFAULT_REPORT = ROOT / "build" / "reports" / "kover" / "report.xml"
 
 #: Kover lists every class it saw, including uninstrumented third-party bytecode.
 #: Counting those would make the floor a measure of the dependency graph.
@@ -166,7 +171,7 @@ def main() -> int:
             f"the Kover report at {report} is older than --since — it describes an "
             f"earlier run, not this one"
             if stale else
-            f"no Kover report at {report} — run :shared:koverXmlReport"
+            f"no Kover report at {report} — run ./gradlew koverReport"
         )
         if args.if_present:
             print(f"{message} (skipped)")
@@ -217,7 +222,7 @@ def main() -> int:
             print(f"  {line}", file=sys.stderr)
         print(
             "\nEither real coverage was lost, or a test source set stopped being\n"
-            "measured (check :shared:koverXmlReport and check-test-runs.py first —\n"
+            "measured (check ./gradlew koverReport and check-test-runs.py first —\n"
             "a task that no longer runs looks exactly like a coverage drop).",
             file=sys.stderr,
         )

@@ -154,24 +154,27 @@ tcheck-evals:
 
 # ---------------------------------------------------------------------------
 # Coverage (kotlinx-kover)
-# Measures shared (commonMain + jvmMain + androidMain) + desktopApp
+# Aggregated across every module's test JVM — see settings.gradle.kts. Always go
+# through the root `koverReport` / `koverHtml`: Kover only merges the test
+# tasks that are already in the task graph, so a bare `:koverXmlReport` would
+# report whatever a previous run left in the build directory.
 # ---------------------------------------------------------------------------
 
 [group('coverage')]
-[doc('Generate kover XML coverage reports')]
+[doc('Generate the aggregated kover XML coverage report')]
 [working-directory(justfile_directory())]
 coverage:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:koverXmlReport :desktopApp:koverXmlReport
+    ./gradlew koverReport
 
 [group('coverage')]
-[doc('Generate kover HTML coverage reports')]
+[doc('Generate the aggregated kover HTML coverage report')]
 [working-directory(justfile_directory())]
 coverage-html:
     #!/bin/bash
     set -euo pipefail
-    ./gradlew :shared:koverHtmlReport :desktopApp:koverHtmlReport
+    ./gradlew koverHtml
 
 # ---------------------------------------------------------------------------
 # check — run tests + lint (report-only initially)
