@@ -281,7 +281,6 @@ ktlint:
     active: true
     auto_correct: true
   FunctionSignature:
-  FunctionSignature:
     # ktlint_official code style conflicts with the project's deliberate multi-line
     # override style; enabling it fights `just detekt-fix` and produces churn on every
     # Compose function with more than two parameters.
