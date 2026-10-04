@@ -10,8 +10,10 @@ are the answer to that.
 """
 
 import importlib.util
+import os
 import pathlib
 import sys
+import time
 import tempfile
 import unittest
 
@@ -96,6 +98,94 @@ class TestBaselineParsing(unittest.TestCase):
     def test_missing_file_is_empty_not_an_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(ctr.load_baseline(pathlib.Path(tmp) / "absent"), {})
+
+
+class TestFreshness(unittest.TestCase):
+    """A floor satisfied by yesterday's XML is not evidence about today."""
+
+    def test_newest_report_is_none_when_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(ctr.newest_report(pathlib.Path(tmp)))
+
+    def test_count_ignores_results_older_than_since(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            write_suite(d, "A", tests=10)
+            old = time.time() - 7200
+            for xml in d.glob("*.xml"):
+                os.utime(xml, (old, old))
+            self.assertIsNone(ctr.count(d, since=time.time() - 3600))
+            self.assertEqual(ctr.count(d, since=time.time() - 10800), (1, 10, 0))
+
+    def test_count_without_since_ignores_staleness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            write_suite(d, "A", tests=10)
+            old = time.time() - 86400
+            for xml in d.glob("*.xml"):
+                os.utime(xml, (old, old))
+            self.assertEqual(ctr.count(d), (1, 10, 0))
+
+    def test_max_age_tolerates_an_up_to_date_run(self):
+        """A UP-TO-DATE task does not rewrite its results — that is not staleness.
+
+        This is the case --since cannot serve: the results are correct for the current
+        inputs, they are simply old, and a strict check fails the second consecutive
+        local run for it.
+        """
+        saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        ctr.ROOT = tmp
+        ctr.BASELINE = tmp / "baseline.txt"
+        ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        try:
+            d = tmp / "results" / "jvmTest"
+            write_suite(d, "A", tests=50)
+            ctr.BASELINE.write_text("shared:jvmTest 1 50 0\n", encoding="utf-8")
+            old = time.time() - 3600
+            for xml in d.glob("*.xml"):
+                os.utime(xml, (old, old))
+            sys.argv = ["check-test-runs.py", "--quiet", "--max-age", "21600"]
+            self.assertEqual(ctr.main(), 0)
+            # Without --require a silent source set is not this job's business; the
+            # strict form only bites where the job promised to produce it.
+            sys.argv = [
+                "check-test-runs.py", "--quiet",
+                "--require", "shared:jvmTest", "--since", str(time.time()),
+            ]
+            self.assertEqual(ctr.main(), 1)
+        finally:
+            ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = saved
+
+    def test_since_and_max_age_are_mutually_exclusive(self):
+        saved = sys.argv
+        sys.argv = ["check-test-runs.py", "--since", "1", "--max-age", "1"]
+        try:
+            with self.assertRaises(SystemExit):
+                ctr.main()
+        finally:
+            sys.argv = saved
+
+    def test_stale_results_fail_a_required_source_set(self):
+        saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        ctr.ROOT = tmp
+        ctr.BASELINE = tmp / "baseline.txt"
+        ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        try:
+            d = tmp / "results" / "jvmTest"
+            write_suite(d, "A", tests=50)
+            ctr.BASELINE.write_text("shared:jvmTest 1 50 0\n", encoding="utf-8")
+            old = time.time() - 7200
+            for xml in d.glob("*.xml"):
+                os.utime(xml, (old, old))
+            sys.argv = [
+                "check-test-runs.py", "--require", "shared:jvmTest",
+                "--since", str(time.time() - 3600), "--quiet",
+            ]
+            self.assertEqual(ctr.main(), 1)
+        finally:
+            ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = saved
 
 
 class TestGate(unittest.TestCase):

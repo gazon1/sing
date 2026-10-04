@@ -24,6 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Strict freshness stamp: on a fresh checkout every test task runs, so results
+      # that predate it cannot belong to this run. check.sh uses the tolerant
+      # --max-age instead, because an UP-TO-DATE task does not rewrite its results.
+      - name: Stamp run start
+        run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -146,7 +152,9 @@ jobs:
       # job still goes green — that is exactly how CI ran 16 of 218 classes for months.
       # This floor compares the executed counts against a committed baseline.
       - name: Check executed test counts
-        run: python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test
+        run: |
+          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
+            --since "$RUN_STARTED"
 
       - name: Test the gate scripts
         # A regression inside check-test-runs.py disables the floor silently — the
@@ -212,7 +220,12 @@ jobs:
             cc-${{ github.job }}-${{ runner.os }}-
 
       - name: Generate kover report
-        run: ./gradlew :shared:koverXmlReport --no-daemon --configuration-cache
+        # The stamp goes in first: the report is only evidence about the code if it
+        # was produced by this run, and a report left in a restored build cache or a
+        # self-hosted workspace would otherwise satisfy the floor indefinitely.
+        run: |
+          echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          ./gradlew :shared:koverXmlReport --no-daemon --configuration-cache
 
       # kover pulls in :shared:testAndroidHostTest (the Robolectric/Android source set),
       # which no other job exercises. Without this floor, a regression that only breaks
@@ -225,7 +238,7 @@ jobs:
       # a name this plugin never produced, and had no if-no-files-found: error,
       # so the upload has always carried nothing.
       - name: Check coverage floors
-        run: python3 scripts/check-coverage.py
+        run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
 
       - name: Upload kover XML report
         uses: actions/upload-artifact@v4

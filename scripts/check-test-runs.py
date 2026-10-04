@@ -24,6 +24,29 @@ The point is that "tests passed" and "the tests ran" are different claims, and
 only the second one is worth recording. A verification step that reports
 pass/fail without reporting *how much ran* is not a baseline.
 
+## Freshness
+
+The gate reads whatever JUnit XML is on disk, and Gradle only rewrites a source
+set's directory when that task actually runs. A partial run therefore leaves the
+other sets' results from hours or days earlier, and the floor is satisfied by a run
+that never happened — which is the same defect as the one this script exists to
+catch, one level down. It bit while recording this baseline: `desktopApp:test` read
+27 classes / 77 tests from a leftover `-Ptest.tags=fast,slow` run while a plain
+`./gradlew :desktopApp:test` executes 10 / 30.
+
+Two options, because one of them is wrong in a way that only shows up locally:
+
+- `--since <epoch-seconds>` — **strict**: a source set whose newest report predates
+  the instant is reported as produced nothing. Correct in CI, where the checkout is
+  fresh and every test task runs.
+- `--max-age <seconds>` — **tolerant**: the same check with a window. Correct for a
+  local loop, and it exists because of a measured failure mode: when a test task is
+  UP-TO-DATE, Gradle does not rewrite its results directory, so `--since` marks a
+  perfectly valid run as stale. Two consecutive `check.sh` invocations would fail the
+  second one for having reused correct results.
+
+`./check.sh` uses `--max-age`; CI uses `--since`.
+
 ## Baseline
 
 `config/docs/test-runs-baseline.txt`, one line per source set:
@@ -49,6 +72,8 @@ That is how `TaskOutgoingLinksTest` sat `@Disabled` with 15 tests for a month
     scripts/check-test-runs.py                    # compare against the baseline
     scripts/check-test-runs.py --quiet            # failures only
     scripts/check-test-runs.py --update-baseline  # after adding tests
+    scripts/check-test-runs.py --since 1770000000    # strict: results must be from this run
+    scripts/check-test-runs.py --max-age 21600       # tolerant: results no older than 6h
 
 Regenerate the baseline whenever tests are *added* (counts go up, which is
 fine). Investigate before regenerating whenever they go *down* — a drop means a
@@ -58,6 +83,7 @@ import argparse
 import pathlib
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -74,10 +100,31 @@ SOURCE_SETS = {
 SUITE_RE = re.compile(r'tests="(\d+)"')
 
 
-def count(detail_dir: pathlib.Path):
-    """(classes, tests, skipped) from the JUnit XML in *detail_dir*, or None if absent."""
+def newest_report(detail_dir: pathlib.Path):
+    """Epoch mtime of the most recent JUnit XML, or None when there is none."""
     if not detail_dir.is_dir():
         return None
+    stamps = [xml.stat().st_mtime for xml in detail_dir.glob("**/*.xml")]
+    return max(stamps) if stamps else None
+
+
+def count(detail_dir: pathlib.Path, since: float | None = None, max_age: float | None = None):
+    """(classes, tests, skipped) from the JUnit XML in *detail_dir*, or None if absent.
+
+    A source set whose newest report fails the freshness check also returns None: its
+    results are from a run that did not happen in this window, and a floor satisfied by
+    yesterday's XML is not evidence about today.
+    """
+    if not detail_dir.is_dir():
+        return None
+    if since is not None or max_age is not None:
+        newest = newest_report(detail_dir)
+        if newest is None:
+            return None
+        if since is not None and newest < since:
+            return None
+        if max_age is not None and newest < time.time() - max_age:
+            return None
     classes = tests = skipped = 0
     for xml in detail_dir.glob("**/*.xml"):
         try:
@@ -117,6 +164,23 @@ def load_baseline(path: pathlib.Path):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quiet", action="store_true", help="print failures only")
+    parser.add_argument(
+        "--since",
+        type=float,
+        default=None,
+        metavar="EPOCH",
+        help="strict freshness: fail a source set whose newest JUnit report predates "
+             "this epoch-seconds stamp",
+    )
+    parser.add_argument(
+        "--max-age",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="tolerant freshness: fail a source set whose newest report is older than "
+             "this many seconds. Use this rather than --since wherever a Gradle test "
+             "task may be UP-TO-DATE and therefore not rewrite its results",
+    )
     parser.add_argument("--update-baseline", action="store_true", help="rewrite the baseline")
     parser.add_argument(
         "--require",
@@ -126,11 +190,22 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.since is not None and args.max_age is not None:
+        parser.error("--since and --max-age are mutually exclusive")
+
     required = {r.strip() for r in args.require.split(",") if r.strip()}
 
     observed = {}
+    stale = []
     for label, rel in SOURCE_SETS.items():
-        found = count(ROOT / rel)
+        detail_dir = ROOT / rel
+        newest = newest_report(detail_dir)
+        if newest is not None:
+            if args.since is not None and newest < args.since:
+                stale.append(label)
+            elif args.max_age is not None and newest < time.time() - args.max_age:
+                stale.append(label)
+        found = count(detail_dir, since=args.since, max_age=args.max_age)
         if found:
             observed[label] = found
 
@@ -180,9 +255,15 @@ def main() -> int:
             # job is supposed to produce them; Gradle already fails a job whose own test
             # step failed, so silence elsewhere means "not this job's source set".
             if label in required:
-                regressions.append(
-                    f"{label}: produced no test results in a job that requires it"
-                )
+                if label in stale:
+                    regressions.append(
+                        f"{label}: results on disk are older than --since — they are "
+                        f"from an earlier run, not this one"
+                    )
+                else:
+                    regressions.append(
+                        f"{label}: produced no test results in a job that requires it"
+                    )
             continue
         classes, tests, skipped = actual
         if classes < base_classes or tests < base_tests:

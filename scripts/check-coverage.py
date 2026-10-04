@@ -44,6 +44,14 @@ why the floor, not the old figure, is the baseline.
 A DROP is a regression to investigate. A RISE needs no edit: raise the floor in
 the same commit that caused it, so the floor keeps biting.
 
+## Freshness
+
+A coverage report is a build artifact, and a stale one is worse than none: the
+floor is satisfied by a report from a run that no longer corresponds to the code.
+`--since <epoch-seconds>` fails a report older than the given instant, for the same
+reason `check-test-runs.py` takes it — a number that describes yesterday's code is
+not a measurement of today's.
+
 ## The report path
 
 Kover 0.9 writes `shared/build/reports/kover/report.xml`. The CI job uploaded
@@ -81,9 +89,15 @@ BASELINE_HEADER = [
 ]
 
 
-def measure(report: pathlib.Path, package_prefix: str = OWN_PACKAGE_PREFIX):
-    """metric -> (covered, missed) summed over our own packages, or None if absent."""
+def measure(report: pathlib.Path, package_prefix: str = OWN_PACKAGE_PREFIX, since: float | None = None):
+    """metric -> (covered, missed) summed over our own packages, or None if absent.
+
+    Returns None when the report is missing, unreadable, contains none of our
+    packages, or — with *since* — predates that instant.
+    """
     if not report.is_file():
+        return None
+    if since is not None and report.stat().st_mtime < since:
         return None
     try:
         root = ET.parse(report).getroot()
@@ -131,6 +145,13 @@ def main() -> int:
     parser.add_argument("--baseline", default=str(BASELINE))
     parser.add_argument("--if-present", action="store_true",
                         help="exit 0 when the report does not exist")
+    parser.add_argument(
+        "--since",
+        type=float,
+        default=None,
+        metavar="EPOCH",
+        help="fail when the report predates this epoch-seconds stamp",
+    )
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
@@ -138,9 +159,15 @@ def main() -> int:
     report = pathlib.Path(args.report)
     baseline_path = pathlib.Path(args.baseline)
 
-    observed = measure(report)
+    observed = measure(report, since=args.since)
     if observed is None:
-        message = f"no Kover report at {report} — run :shared:koverXmlReport"
+        stale = report.is_file() and args.since is not None and report.stat().st_mtime < args.since
+        message = (
+            f"the Kover report at {report} is older than --since — it describes an "
+            f"earlier run, not this one"
+            if stale else
+            f"no Kover report at {report} — run :shared:koverXmlReport"
+        )
         if args.if_present:
             print(f"{message} (skipped)")
             return 0

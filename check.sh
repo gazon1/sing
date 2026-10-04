@@ -13,6 +13,12 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+# Freshness window for the test-run gate below. It is a window, not a run stamp,
+# because an UP-TO-DATE test task does not rewrite its results directory — a strict
+# "produced by this run" check would fail the second consecutive check.sh for reusing
+# results that are still correct. CI uses the strict form, where every test task runs.
+RESULT_MAX_AGE=21600
+
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -71,7 +77,8 @@ echo -e "${YELLOW}=== [7/12] executed test counts ===${NC}"
 # "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
-python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test || {
+python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
+    --max-age 21600 || {
     echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
     exit 1
 }
@@ -89,12 +96,23 @@ python3 -m unittest discover -s scripts/tests 2>&1 | tail -3 || {
 echo -e "${GREEN}gate script self-tests passed${NC}"
 
 echo -e "${YELLOW}=== [9/12] coverage floors (when a report exists) ===${NC}"
-# --if-present because :shared:koverXmlReport instruments every test task and
-# roughly triples the local loop; CI runs it in the kover job on every push.
-python3 scripts/check-coverage.py --if-present || {
-    echo -e "${RED}coverage below the recorded floor${NC}"
-    exit 1
-}
+# --if-present because :shared:koverXmlReport instruments every test task and roughly
+# triples the local loop; CI runs it in the kover job on every push.
+#
+# Deliberately NOT --since: this report is produced by a separate, earlier task, so the
+# run-start stamp would make it permanently "stale" and skip the check in silence. Its
+# age is printed instead, and CI — where the report is generated in the same job —
+# enforces freshness with --since.
+if [ -f shared/build/reports/kover/report.xml ]; then
+    REPORT_AGE=$(( $(date +%s) - $(stat -c %Y shared/build/reports/kover/report.xml) ))
+    echo "    report age: $((REPORT_AGE / 60)) min (re-run :shared:koverXmlReport for a current figure)"
+    python3 scripts/check-coverage.py || {
+        echo -e "${RED}coverage below the recorded floor${NC}"
+        exit 1
+    }
+else
+    echo "    no Kover report — run ./gradlew :shared:koverXmlReport (skipped)"
+fi
 
 echo -e "${YELLOW}=== [10/12] doc sizes + dead doc references ===${NC}"
 # Both are blocking CI gates; a local loop that skipped them let the DIGEST
