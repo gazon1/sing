@@ -34,6 +34,7 @@ import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
+import com.singularity.todo.core.sync.PatchRetryPolicy
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.RemoteConfigRepository
 import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
@@ -147,17 +148,22 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Takes both SyncPrefs (for LSN tracking) and SyncWorkScheduler (for auth-session init).
     single {
         SyncEngine(
-            Logger.withTag("SyncEngine"),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
+            log = Logger.withTag("SyncEngine"),
+            api = get(),
+            authRepository = get(),
+            outboxDao = get(),
+            deadLetterDao = get(),
+            idGenerator = get(),
+            prefs = get(),
+            scheduler = get(),
+            retryPolicy = get(),
+            scope = get(),
         )
     }
+
+    // Backoff policy for rejected patches. One instance so the outbox, the push path
+    // and the settings screen all agree on what "too many attempts" means.
+    single { PatchRetryPolicy() }
 
     // Single owner of the sync cycle. Every trigger — periodic, user-initiated,
     // WorkManager — requests through it, so two cycles cannot overlap.

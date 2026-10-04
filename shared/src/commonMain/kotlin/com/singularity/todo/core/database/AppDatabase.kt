@@ -11,6 +11,8 @@ import com.singularity.todo.core.config.RemoteConfigCacheDao
 import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
+import com.singularity.todo.core.sync.SyncDeadLetterDao
+import com.singularity.todo.core.sync.SyncDeadLetterEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
@@ -35,6 +37,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         ProjectEntity::class,
         TagEntity::class,
         SyncOutboxEntity::class,
+        SyncDeadLetterEntity::class,
         RemoteConfigEntity::class,
         AttachmentEntity::class,
         TaskReminderEntity::class,
@@ -52,7 +55,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AiProposalEntity::class,
         ProposalItemEntity::class,
     ],
-    version = 32,
+    version = 33,
     autoMigrations = [
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
         AutoMigration(from = 6, to = 7, spec = Migration6To7::class),
@@ -80,6 +83,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
         AutoMigration(from = 28, to = 29, spec = Migration28To29::class),
         AutoMigration(from = 29, to = 30, spec = Migration29To30::class),
         AutoMigration(from = 30, to = 31, spec = Migration30To31::class),
+        AutoMigration(from = 32, to = 33, spec = Migration32To33::class),
     ],
     exportSchema = true,
 )
@@ -90,6 +94,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun tagDao(): TagDao
     abstract fun syncOutboxDao(): SyncOutboxDao
+    abstract fun syncDeadLetterDao(): SyncDeadLetterDao
     abstract fun remoteConfigDao(): RemoteConfigDao
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao

@@ -336,6 +336,10 @@ class EntityMapperCompletenessTest {
             "ProjectReminderEntity" to
                 "project-level reminders are queried as rows and converted at the call " +
                     "site; there is no ProjectReminder domain model",
+            "SyncDeadLetterEntity" to
+                "a transport shelf, not an entity: rows are moved between it and " +
+                    "sync_outbox verbatim, never mapped to a domain model. Nothing " +
+                    "upserts it, so there is no column to be silently reset.",
         )
     }
 

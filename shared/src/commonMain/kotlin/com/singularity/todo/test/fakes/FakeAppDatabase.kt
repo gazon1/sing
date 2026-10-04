@@ -35,6 +35,8 @@ import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
+import com.singularity.todo.core.sync.SyncDeadLetterDao
+import com.singularity.todo.core.sync.SyncDeadLetterEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
@@ -67,7 +69,12 @@ class FakeAppDatabase : AppDatabase() {
     private val _notes = MutableStateFlow<Map<String, NoteEntity>>(emptyMap())
     private val _projects = MutableStateFlow<Map<String, ProjectEntity>>(emptyMap())
     private val _tags = MutableStateFlow<Map<String, TagEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
     private val _outbox = MutableStateFlow<Map<String, SyncOutboxEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _deadLetter = MutableStateFlow<Map<String, SyncDeadLetterEntity>>(emptyMap())
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
     private val _reminders =
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
@@ -99,6 +106,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
     override fun tagDao(): TagDao = FakeTagDao(_tags)
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
+    override fun syncDeadLetterDao(): SyncDeadLetterDao = FakeSyncDeadLetterDao(_deadLetter)
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
     override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
@@ -858,7 +866,11 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
 
     override fun watchPending(): Flow<List<SyncOutboxEntity>> = store.map { it.values.sortedBy { it.createdAt } }
 
-    override suspend fun getPending(): List<SyncOutboxEntity> = store.value.values.sortedBy { it.createdAt }
+    /** Honours the backoff filter, like the real query does. */
+    override suspend fun getPending(now: Long): List<SyncOutboxEntity> =
+        store.value.values
+            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+            .sortedBy { it.createdAt }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
         store.update { it + (entity.patchId to entity) }
@@ -866,15 +878,49 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun delete(id: String) {
         store.update { it - id }
     }
-    override suspend fun markFailed(id: String, error: String) {
+    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long) {
         store.update { current ->
             val existing = current[id] ?: return@update current
-            current + (id to existing.copy(attempts = existing.attempts + 1, lastError = error))
+            current + (
+                id to existing.copy(
+                    attempts = existing.attempts + 1,
+                    lastError = error,
+                    nextAttemptAt = nextAttemptAt,
+                )
+            )
         }
     }
+    override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
+
     override suspend fun deleteByEntity(entityId: String) {
         store.update { it.filterValues { e -> e.entityId != entityId } }
     }
+    override suspend fun clearAll() {
+        store.value = emptyMap()
+    }
+}
+
+private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<String, SyncDeadLetterEntity>>) :
+    SyncDeadLetterDao {
+
+    override fun watch(): Flow<List<SyncDeadLetterEntity>> =
+        store.map { it.values.sortedByDescending { e -> e.failedAt } }
+
+    override fun watchCount(): Flow<Int> = store.map { it.size }
+
+    override suspend fun getAll(): List<SyncDeadLetterEntity> =
+        store.value.values.sortedByDescending { it.failedAt }
+
+    override suspend fun insert(entity: SyncDeadLetterEntity) {
+        store.update { it + (entity.patchId to entity) }
+    }
+
+    override suspend fun delete(id: String): Int {
+        val present = store.value.containsKey(id)
+        store.update { it - id }
+        return if (present) 1 else 0
+    }
+
     override suspend fun clearAll() {
         store.value = emptyMap()
     }

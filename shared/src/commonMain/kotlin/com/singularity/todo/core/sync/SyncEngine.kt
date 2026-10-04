@@ -92,9 +92,11 @@ internal class SyncEngine(
     private val api: SyncApiClient,
     private val authRepository: AuthRepository,
     private val outboxDao: SyncOutboxDao,
+    private val deadLetterDao: SyncDeadLetterDao,
     private val idGenerator: IdGenerator,
     private val prefs: SyncPrefs,
     private val scheduler: SyncWorkScheduler,
+    private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     private val scope: AutoCloseableCoroutineScope,
     private val crashReporter: CrashReportingPort,
 ) : AutoCloseable by scope {
@@ -174,7 +176,8 @@ internal class SyncEngine(
         }
 
         _status.value = SyncEngineStatus.Pushing
-        val pending = outboxDao.getPending()
+        val now = System.currentTimeMillis()
+        val pending = outboxDao.getPending(now)
         if (pending.isEmpty()) {
             _status.value = SyncEngineStatus.Idle
             return Result.success(PushSummary(0, 0, 0))
@@ -199,16 +202,14 @@ internal class SyncEngine(
                     outboxDao.delete(result.patchId)
                     succeeded++
                 } else {
+                    failed++
                     if (result.isRetriable) {
-                        outboxDao.markFailed(
-                            result.patchId,
-                            result.error
-                                ?: "Unknown error",
-                        )
+                        deferOrDeadLetter(pending.firstOrNull { it.patchId == result.patchId }, result)
                     } else {
+                        // The server will never accept this patch. Keeping it would
+                        // block every patch behind it, forever.
                         outboxDao.delete(result.patchId)
                     }
-                    failed++
                 }
             }
 
@@ -230,6 +231,52 @@ internal class SyncEngine(
             _status.value = SyncEngineStatus.Failure(err)
             Result.failure(err)
         }
+    }
+
+    /**
+     * Backs a rejected patch off, or gives up on it.
+     *
+     * The count lives in SQL (`attempts = attempts + 1`) and is read back before
+     * the decision, so the increment and the decision cannot disagree when two
+     * cycles overlap.
+     *
+     * Giving up means *moving* the patch, never deleting it: a change the user made
+     * should not be destroyed because the system could not deliver it.
+     */
+    private suspend fun deferOrDeadLetter(entity: SyncOutboxEntity?, result: PatchResult) {
+        if (entity == null) return
+
+        val attempts = (outboxDao.attemptsOf(entity.patchId) ?: entity.attempts) + 1
+        val reason = result.error ?: "Unknown error"
+
+        if (retryPolicy.isExhausted(attempts)) {
+            deadLetterDao.insert(
+                SyncDeadLetterEntity(
+                    patchId = entity.patchId,
+                    entityId = entity.entityId,
+                    entityType = entity.entityType,
+                    payload = entity.payload,
+                    createdAt = entity.createdAt,
+                    failedAt = System.currentTimeMillis(),
+                    attempts = attempts,
+                    lastError = reason,
+                ),
+            )
+            outboxDao.delete(entity.patchId)
+            log.e {
+                "Patch ${entity.patchId} failed $attempts times; moved to the " +
+                    "dead letter store [error=$reason]"
+            }
+            return
+        }
+
+        val delay = retryPolicy.delayFor(attempts)
+        outboxDao.markFailed(
+            id = entity.patchId,
+            error = reason,
+            nextAttemptAt = System.currentTimeMillis() + delay,
+        )
+        log.w { "Patch ${entity.patchId} failed (attempt $attempts); retrying in ${delay}ms" }
     }
 
     /**

@@ -155,7 +155,10 @@ class Migration31To32Test {
             connection.prepare("PRAGMA user_version").use { statement ->
                 while (statement.step()) versions += statement.getInt(0)
             }
-            assertEquals(listOf(32), versions, "user_version must be 32 after upgrade")
+            // 33, not 32: Room applies the whole chain from the fixture version, so
+            // the stamp reflects the newest schema, not the migration under test. The
+            // assertion that matters is the one above it — the backfill ran.
+            assertEquals(listOf(33), versions, "user_version must be stamped after upgrade")
 
             val noteTitles = rawStrings(connection, "SELECT title FROM notes")
             assertEquals(listOf("hello"), noteTitles, "notes rows must survive the rebuild")

@@ -44,6 +44,7 @@ class SyncEnginePullTest {
         api = api,
         authRepository = auth,
         outboxDao = FakeSyncOutboxDao(),
+        deadLetterDao = FakeSyncDeadLetterDao(),
         idGenerator = SequentialIdGenerator(),
         prefs = prefs,
         scheduler = FakeSyncWorkScheduler(),

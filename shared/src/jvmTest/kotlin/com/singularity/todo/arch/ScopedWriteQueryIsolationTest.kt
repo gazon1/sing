@@ -3,6 +3,7 @@ package com.singularity.todo.arch
 import java.io.File
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -94,6 +95,46 @@ class ScopedWriteQueryIsolationTest {
     }
 
     @Test
+    fun a_query_wrapped_across_literals_is_still_extracted() {
+        // The gate must see a query however ktlint happened to wrap it. Without this
+        // it has a formatting-shaped hole: reformat a query across two literals and it
+        // stops being checked at all, which is how a write with no `user_id` predicate
+        // would sail through. The real instance: the outbox's `markFailed` query was
+        // wrapped to satisfy line length and its allowlist entry immediately reported
+        // itself stale — the gate was reporting on a query it could no longer see.
+        val wrapped = """
+            @Query(
+                "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
+                    "next_attempt_at = :nextAttemptAt WHERE patch_id = :id",
+            )
+        """.trimIndent()
+        val onOneLine = "@Query(" +
+            "\"UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
+            "next_attempt_at = :nextAttemptAt WHERE patch_id = :id\")"
+
+        assertEquals(
+            queriesIn(onOneLine).map { normalise(it.text) },
+            queriesIn(wrapped).map { normalise(it.text) },
+            "wrapping a query changed what the gate sees — the two forms must match",
+        )
+    }
+
+    @Test
+    fun a_wrapped_unscoped_write_is_still_reported() {
+        val wrapped = """
+            @Query(
+                "DELETE FROM sync_something WHERE patch_id = :id " +
+                    "AND entity_id = :entityId",
+            )
+        """.trimIndent()
+
+        assertTrue(
+            queriesIn(wrapped).any { missingUserPredicate(it.text) },
+            "a wrapped unscoped write must still be seen as unscoped",
+        )
+    }
+
+    @Test
     fun every_allowlist_entry_states_why() {
         assertTrue(
             ALLOWED_UNSCOPED.values.none { it.isBlank() },
@@ -107,7 +148,7 @@ class ScopedWriteQueryIsolationTest {
         val root = System.getProperty("commonMain.root") ?: return
         val allSql = File(root).walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
-            .flatMap { queriesIn(it.readText()).map { q -> q.text.trim().replace(Regex("\\s+"), " ").take(80) } }
+            .flatMap { queriesIn(it.readText()).map { q -> normalise(q.text) } }
             .toList()
         val stale = ALLOWED_UNSCOPED.keys.filterNot { it in allSql }
         assertTrue(
@@ -118,10 +159,36 @@ class ScopedWriteQueryIsolationTest {
 
     private data class Query(val text: String)
 
+    /**
+     * Every `@Query` string in [source], with concatenated literals joined.
+     *
+     * The join matters: ktlint wraps a long query across several literals joined by
+     * `+`, and a regex that only matches a single literal cannot see those at all.
+     * The trailing comma before the closing paren is part of that: Kotlin allows it,
+     * ktlint adds it, and without `,?` in the pattern the wrapped form stops matching.
+     * The first version of this extractor did exactly that, and the result was not a
+     * false negative in a test but a query that the gate could not see — a write
+     * invisible to the missing-`user_id` check, and an allowlist entry that
+     * "went stale" the moment the query was wrapped. Reformatting a query silently
+     * removed it from the gate.
+     */
+
+    // The key form the allowlist is written in: collapsed whitespace, 80 chars.
+    private fun normalise(sql: String): String = sql.trim().replace(Regex("\\s+"), " ").take(80)
+
     private fun queriesIn(source: String): List<Query> =
-        Regex("""@Query\(\s*"((?:[^"\\]|\\.)*)"\s*\)""", RegexOption.DOT_MATCHES_ALL)
+        Regex(
+            """@Query\(\s*((?:"(?:[^"\\]|\\.)*"\s*\+\s*)*"(?:[^"\\]|\\.)*")\s*,?\s*\)""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
             .findAll(source)
-            .map { Query(it.groupValues[1].replace("\\n", " ")) }
+            .map { match ->
+                val literals = Regex(""""((?:[^"\\]|\\.)*)"""")
+                    .findAll(match.groupValues[1])
+                    .map { it.groupValues[1].replace("\\n", " ") }
+                    .toList()
+                Query(literals.joinToString(" "))
+            }
             .toList()
 
     private fun missingUserPredicate(sql: String): Boolean {
@@ -155,12 +222,17 @@ class ScopedWriteQueryIsolationTest {
                 "single global config row, no user dimension",
             "DELETE FROM sync_outbox WHERE patch_id = :id" to
                 "sync_outbox is a transport queue with no user_id column; patch_id is a UUID",
-            "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error WHERE patch_" to
+            // Exactly the 80-character normalised prefix the gate compares against.
+            "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, next_attemp" to
                 "retry bookkeeping on a transport row keyed by a UUID",
             "DELETE FROM sync_outbox WHERE entity_id = :entityId" to
                 "entity_id is a UUID, so it cannot collide across profiles",
             "DELETE FROM sync_outbox" to
                 "full outbox drain after a successful push — deliberately cross-profile",
+            "DELETE FROM sync_dead_letter WHERE patch_id = :id" to
+                "same transport queue, same absence of a user dimension; patch_id is a UUID",
+            "DELETE FROM sync_dead_letter" to
+                "full dead-letter drain — deliberately cross-profile",
         )
     }
 }
