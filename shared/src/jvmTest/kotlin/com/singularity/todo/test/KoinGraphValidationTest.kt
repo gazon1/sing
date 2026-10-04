@@ -9,7 +9,12 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.di.domainModule
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.JvmCrashReportingPort
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncViewModel
+import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSystem
@@ -77,6 +82,15 @@ class KoinGraphValidationTest {
      * so this test can run without Android-specific dependencies.
      */
     private fun desktopPlatformModule(): Module = module {
+        // Mirrors `single<CrashReportingPort> { JvmCrashReportingPort() }` from the real
+        // PlatformModule.jvm.kt. It became load-bearing when the calendar-sync bindings started
+        // composing their own failure handler from the injected port rather than reading a
+        // process-wide one: a definition that needs `get<CrashReportingPort>()` is unresolvable
+        // in a graph that does not bind one, and this mirror is a graph.
+        single<CrashReportingPort> { JvmCrashReportingPort() }
+        // Mirrors `coreLoggingModule()`'s Logger binding, for the same reason.
+        single { Logger.withTag("App") }
+
         // ─── Room Database ──────────────────────────────────────────────
         single<AppDatabase> {
             val dbPath = System.getProperty("user.home") +
@@ -170,6 +184,18 @@ class KoinGraphValidationTest {
             assertNotNull(app.koin.get<SyncScheduler>())
             assertNotNull(app.koin.get<SyncWorkScheduler>())
             assertNotNull(app.koin.get<CalendarSyncRepository>())
+            // A Koin definition's lambda body only runs when something *resolves* it, not
+            // when the module is defined — so a definition can exist, be correct, and never
+            // execute anywhere. That is the "implemented but unwired" shape this repository
+            // audits for, and this test is the cheapest place to catch it: resolving is one line.
+            //
+            // These two were added because the calendar-sync bindings stopped being
+            // resolvable-by-accident once they started composing their failure handler from the
+            // injected port. The `CrashReportingPort` and `Logger` bindings above are what that
+            // change required here, and their absence is exactly the class of defect this test
+            // exists to find: a graph that is incomplete in a way nothing else notices.
+            assertNotNull(app.koin.get<CalendarSyncOrchestrator>())
+            assertNotNull(app.koin.get<CalendarSyncViewModel>())
         } finally {
             app.close()
         }
