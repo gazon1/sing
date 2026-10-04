@@ -4,7 +4,6 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -85,7 +84,7 @@ class ReadToolsProfileAwareTest {
         repo.add(task)
     }
 
-    private fun buildProfileAware(
+    private fun TestScope.buildProfileAware(
         authUserId: String,
     ): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(UserId.fromString(authUserId)))
@@ -95,11 +94,30 @@ class ReadToolsProfileAwareTest {
         // derived from the session, so a read never observes the pre-collector
         // "anonymous" seed regardless of when the collector happens to run.
         val currentUser = ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth, scope = createBackgroundScope()),
+            currentUser = CurrentUser(auth, scope = backgroundScope),
             profileRepository = profiles,
-            scope = createBackgroundScope(),
+            scope = backgroundScope,
         )
         return Triple(currentUser, auth, profiles)
+    }
+
+    /**
+     * Switches the active profile and returns the scoped userId the production
+     * path actually exposes once the collectors have settled.
+     *
+     * This used to re-derive the value by combining [CurrentUser.userId] with
+     * [FakeProfileRepository.activeProfileId] directly, which meant the tests
+     * asserted against a reimplementation of the logic under test rather than
+     * against [ProfileAwareCurrentUser.scopedUserId] itself.
+     */
+    private suspend fun TestScope.switchProfileAndSettle(
+        currentUser: ProfileAwareCurrentUser,
+        profiles: FakeProfileRepository,
+        profileId: ProfileId,
+    ): UserId {
+        profiles.switchTo(profileId)
+        advanceUntilIdle()
+        return currentUser.current
     }
 
     // ─── list_tasks ────────────────────────────────────────────────────────────
@@ -109,12 +127,11 @@ class ReadToolsProfileAwareTest {
         val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
         // Seed a task under the scoped userId the ProfileAwareCurrentUser would
         // actually emit for the AI Agent profile.
-        val scoped = resolveScopedUserId(currentUser, profiles)
+        val scoped = switchProfileAndSettle(currentUser, profiles, ProfileId.fromString("ai-agent"))
         seedTask(repo, scoped, "AI-Agent task A")
         seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
@@ -134,9 +151,8 @@ class ReadToolsProfileAwareTest {
         val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        val scoped = resolveScopedUserId(currentUser, profiles)
+        val scoped = switchProfileAndSettle(currentUser, profiles, ProfileId.fromString("ai-agent"))
         val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
         seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
         seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
@@ -157,9 +173,8 @@ class ReadToolsProfileAwareTest {
         val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        val scoped = resolveScopedUserId(currentUser, profiles)
+        val scoped = switchProfileAndSettle(currentUser, profiles, ProfileId.fromString("ai-agent"))
         seedTask(repo, scoped, "Findable AI-Agent task")
         seedTask(repo, UserId("local-user"), "Findable personal task")
 
@@ -179,10 +194,10 @@ class ReadToolsProfileAwareTest {
         val (currentUser, auth, profiles) = buildProfileAware(
             authUserId = "u-1",
         )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
         val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
         seedTask(repo, UserId("local-user"), "private personal task")
-        seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
+        val scoped = switchProfileAndSettle(currentUser, profiles, ProfileId.fromString("ai-agent"))
+        seedTask(repo, scoped, "agent task")
 
         val tool = SearchTasksTool(repo)
         val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
