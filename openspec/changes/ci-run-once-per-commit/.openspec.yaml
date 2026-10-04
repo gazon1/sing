@@ -1,0 +1,14 @@
+# CI run topology is process, not product behaviour: this change alters how
+# often a workflow starts, and changes no capability a user or a client can
+# observe. The constraints it must not violate are executable rather than
+# descriptive, so a spec delta would restate gates that already refuse to pass
+# incorrectly.
+#
+# The reasoning is in the proposal. Measure the before-state from ci.yml, not
+# from the Actions API: the Actions minute limit is exhausted and no run has
+# executed since.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive. If this
+# change ever starts describing a verification requirement rather than CI
+# topology, delete skip_specs and write the delta.
+skip_specs: true
