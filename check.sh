@@ -135,6 +135,16 @@ python3 scripts/check-doc-dead-refs.py || {
 }
 echo -e "${GREEN}doc gates passed${NC}"
 
+echo -e "${YELLOW}=== [10b/12] test-task input declarations ===${NC}"
+# Catches a test task that reads a tree outside its own module without declaring it as an
+# input. Such a task reports a stale verdict: the gate prints green while describing a
+# file it has not re-read. Measured 2026-10-04 on MaestroFlowTagsTest — see
+# docs/decisions/2026-10-05-test-task-external-inputs.md. 20 ms, no JVM, so it always runs.
+python3 scripts/check-test-task-inputs.py || {
+    echo -e "${RED}a test task reads a tree it does not declare as an input${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [11/12] mcp-server:compileKotlin (DI graph validation) ===${NC}"
 ./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
