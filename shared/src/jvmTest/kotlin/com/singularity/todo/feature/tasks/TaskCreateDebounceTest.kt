@@ -22,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -40,6 +41,7 @@ import kotlin.time.Clock
  * 3. Draft is cleared after successful save
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskCreateDebounceTest {
 
     private val testUserId = UserId("test-user")

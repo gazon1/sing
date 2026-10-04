@@ -2,6 +2,7 @@ package com.singularity.todo.arch
 
 import org.junit.jupiter.api.extension.Extension
 import org.junit.jupiter.api.Timeout
+import org.junit.jupiter.api.Tag
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 
@@ -13,6 +14,7 @@ import kotlin.test.Test
  *
  * Runs as part of `:shared:jvmTest` alongside [ArchitectureTest].
  */
+@Tag("slow")
 class ExtensionServiceRegistrationTest {
 
     private val serviceFileName = "META-INF/services/org.junit.jupiter.api.extension.Extension"

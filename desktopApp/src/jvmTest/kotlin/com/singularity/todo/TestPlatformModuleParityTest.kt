@@ -5,6 +5,7 @@ import com.singularity.todo.test.helpers.testPlatformModule
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -20,6 +21,7 @@ import kotlin.test.assertTrue
  * compares definition REGISTRATION only — nothing is resolved, so no real
  * database, DataStore file, or OS port is touched.
  */
+@Tag("fast")
 class TestPlatformModuleParityTest {
 
     @Test

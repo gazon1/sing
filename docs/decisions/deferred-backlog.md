@@ -297,19 +297,29 @@ one at a time, oldest debt first.
 
 ## desktop-nav-goBack-blank-screen
 
+**Status:** ✅ RESOLVED (2026-10-04) — fixed by ADR `2026-10-04-navigation-policy`, issue #27 closed.
+
 **Found in:** MR-11, while verifying `OpenSavedViewShowsMatchingTasksFlowTest`.
 
 **Symptom:** after tapping the save button in `SavedAgendaScreen` (or `TaskCreateScreen`) and then tapping the back button, the entire desktop app UI goes blank — `SemanticsTree` reports 0 nodes, every `testTag` lookup fails. Navigation itself completes (kermit log shows "Scheduled sync stopped" from clean `onEnd` path), but the compose tree is empty.
 
-**Already ruled out:**
-- Not a `Clock.System` / `FakeAppDatabase` issue: task IS persisted (visible in DB snapshot).
-- Not a `SavedAgendaViewModel` init failure: `Results` state is reached (confirmed by log).
-- Not the `goBack()` call itself failing: `currentStack.removeLastOrNull()` executes; `canGoBack` recalculates correctly.
-- Not `NavDisplay` being given an empty entry list: `state.requireBackStackFor` would throw before any render.
+**Root cause:** the JVM top-level graph stacks were created with an entry-local
+`remember { NavBackStack(...) }` inside each graph composable. That `remember` is scoped to the
+entry, and an entry that leaves `NavDisplay`'s visible set (a tab switch, or an outer push) has
+its composition disposed — so the back stack object the shell later mutated was no longer the
+one the graph rendered from. The back navigation therefore popped an entry that was no longer
+backed by a live composition, leaving `NavDisplay` with nothing to show.
 
-**Trigger shape:** `TaskCreateScreen` or `SavedAgendaScreen` → save → back → blank. The same shape hits `CreateTaskFlowTest.a_saved_task_without_a_due_date_appears_under_inbox_no_date`.
+**Fix:** the six top-level graph stacks are now created in `createJvmEntryProvider` (shell
+composition, outliving any single entry) and passed into the graphs through their `backStack`
+parameter. See ADR `2026-10-04-navigation-policy`, §B1 companion.
 
-**Try next:** add a `NavDisplay` debug modifier (e.g., a `Box` with a visible red border when `entries.isEmpty()`) to distinguish "NavDisplay receives empty list" from "compose tree fails below NavDisplay". If the red border never appears, the bug is in the `Window` or `DesktopShellNav3Root` composition above `NavDisplay`. Check whether a `LaunchedEffect` or `remember` anywhere in the shell is clearing the composition on `currentRoute` change.
+**Verification:** `SavedAgendaCreateFlowTest` and `OpenSavedViewShowsMatchingTasksFlowTest` — the
+two tests this bug blocked — now pass, as does
+`CreateTaskFlowTest.a_saved_task_without_a_due_date_appears_under_inbox_no_date`. This is also
+what unblocked the Agenda epic's desktop matrix (issue #26).
+
+**Try next (historical):** add a `NavDisplay` debug modifier (e.g., a `Box` with a visible red border when `entries.isEmpty()`) to distinguish "NavDisplay receives empty list" from "compose tree fails below NavDisplay". No longer needed — the cause was above `NavDisplay`, in stack *ownership*, exactly the branch the investigation notes pointed at.
 
 ---
 

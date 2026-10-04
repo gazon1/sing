@@ -6,6 +6,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaLayout
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -17,6 +18,7 @@ import kotlin.test.assertTrue
  * deserialize correctly, and that the `@Transient transformers = emptyList()` default
  * is applied on deserialization.
  */
+@Tag("fast")
 class AgendaDefinitionRoundTripTest {
 
     private val json get() = StableJson

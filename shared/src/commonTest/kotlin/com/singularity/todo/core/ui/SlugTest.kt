@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -10,6 +11,7 @@ import kotlin.test.assertEquals
  * The regression this prevents: a user-entered title containing a space or a
  * dash used to produce a tag no selector could reliably match.
  */
+@Tag("slow")
 class SlugTest {
 
     @Test

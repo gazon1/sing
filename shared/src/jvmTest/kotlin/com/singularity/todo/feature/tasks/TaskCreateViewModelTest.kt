@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -43,6 +44,7 @@ import kotlin.time.Clock
  * Those are verified via integration with the repository in the save tests.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskCreateViewModelTest {
 
     private val testUserId = UserId("test-user")

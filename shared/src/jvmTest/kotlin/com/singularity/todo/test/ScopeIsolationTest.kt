@@ -4,11 +4,13 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
 /**
  * Verifies that Koin scope isolation works as expected.
  */
+@Tag("fast")
 class ScopeIsolationTest {
 
     private val profileStr = named("profile-string")

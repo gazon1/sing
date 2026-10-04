@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import kotlin.coroutines.coroutineContext
 import kotlin.test.assertContains
 import kotlin.test.assertNotNull
@@ -23,6 +24,7 @@ import kotlin.test.assertTrue
  * These do NOT test the output format — format is verified by reading actual
  * dumps during real incidents. These only confirm the agent is working.
  */
+@Tag("slow")
 class CoroutineDiagnosticsTest {
 
     @Test

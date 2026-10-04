@@ -11,7 +11,8 @@ import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Tests for [Celebration] composable.
@@ -22,6 +23,7 @@ import org.junit.Test
  * - Empty [Celebration.triggerKey] renders content without effects
  * - [Celebration.haptic] = null with [Celebration.hapticsEnabled]=true does not throw
  */
+@Tag("slow")
 class CelebrationTest {
 
     private class RecordingHaptic : Haptic {

@@ -1,6 +1,7 @@
 package com.singularity.todo.arch
 
 import com.singularity.todo.core.ui.TestTagsCatalog
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -40,6 +41,7 @@ import kotlin.test.fail
  * entry only together with the work that removes it; see ADR
  * `2026-09-30-testtag-registry-honesty`.
  */
+@Tag("slow")
 class TestTagsWiringTest {
 
     /**
@@ -64,13 +66,15 @@ class TestTagsWiringTest {
         "TASKS_LIST" to
             "the Android bottom-bar list tag; the desktop shell has no bottom bar, " +
             "so no JVM counterpart applies it",
-        "EditorOverflow.DELETE" to
-            "the overflow menu renders rows through TestTags.taskAction(action), " +
-            "so this constant has no call site",
-        "EditorOverflow.ARCHIVE" to "same as DELETE",
-        "EditorOverflow.RESTORE" to "same as DELETE",
-        "EditorOverflow.PIN" to "same as DELETE",
-        "EditorOverflow.UNPIN" to "same as DELETE",
+        // EditorOverflow.DELETE / ARCHIVE / RESTORE used to sit here as debt. They were
+        // applied when the task-detail overflow menu gained stable per-row test tags
+        // (see `docs/decisions/2026-10-04-undo-snackbar-and-popup-testtags.md`), which
+        // is exactly what this test demands: drop the entry in the same change that
+        // wires the tag.
+        "EditorOverflow.PIN" to
+            "the pin/unpin overflow rows are rendered through " +
+            "TestTags.taskAction(action), so these constants have no call site yet",
+        "EditorOverflow.UNPIN" to "same as EditorOverflow.PIN",
         "SNACKBAR_SAVED" to
             "referenced by Maestro/flows/agenda/03-saved-views-crud.yaml, which " +
             "waits on a snackbar the screen never shows — see " +

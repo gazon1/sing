@@ -7,6 +7,7 @@ package com.singularity.todo.core.observability
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -16,6 +17,7 @@ import kotlin.time.Clock
  * Tests for [RoomUsageRecorder] — verifies that AI tool call events are
  * correctly persisted and observed through the DAO.
  */
+@Tag("fast")
 class LlmUsageRecorderTest {
 
     private fun makeRecorder(): RoomUsageRecorder {

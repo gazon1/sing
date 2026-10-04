@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -51,6 +52,7 @@ import kotlin.time.Clock
  * work correctly with the canonical VM shape.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class NoteEditorTest {
 
     private val testUserId = com.singularity.todo.core.ids.UserId("test-user")

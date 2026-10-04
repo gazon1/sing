@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -19,6 +20,7 @@ import kotlin.test.assertNotNull
  * is crossed with `advanceTimeBy`, so no wall-clock time passes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskDraftSlotTest {
 
     @Test

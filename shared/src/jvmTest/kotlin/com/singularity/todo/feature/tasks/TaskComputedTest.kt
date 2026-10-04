@@ -7,6 +7,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -14,6 +15,7 @@ import kotlin.test.assertTrue
 /**
  * Tests for [TaskComputed] derived predicates.
  */
+@Tag("fast")
 class TaskComputedTest {
 
     private val testUserId = UserId("test-user")

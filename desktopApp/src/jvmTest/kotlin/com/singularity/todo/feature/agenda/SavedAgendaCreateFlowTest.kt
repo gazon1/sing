@@ -13,7 +13,8 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import kotlinx.coroutines.flow.first
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Full-app flow test for creating a saved agenda view.
@@ -30,6 +31,7 @@ import org.junit.Test
  *
  * Run with: ./gradlew :desktopApp:test
  */
+@Tag("slow")
 class SavedAgendaCreateFlowTest {
 
     @Test

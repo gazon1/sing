@@ -2,9 +2,11 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.version.appVersion
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("slow")
 class BackupOptionsTest {
 
     @Test

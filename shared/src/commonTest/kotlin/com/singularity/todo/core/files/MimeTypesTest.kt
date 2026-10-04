@@ -1,8 +1,10 @@
 package com.singularity.todo.core.files
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("slow")
 class MimeTypesTest {
 
     @Test

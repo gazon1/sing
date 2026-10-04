@@ -2,6 +2,7 @@ package com.singularity.todo.core.log
 
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
@@ -22,6 +23,7 @@ private const val JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZS
 
 private const val SK_KEY = "sk-1234567890abcdefghijklmnopqrstuvwxyz"
 
+@Tag("fast")
 class RedactingLogWriterTest {
 
     /** Writes [message] through the real decorator and returns what the delegate actually saw. */

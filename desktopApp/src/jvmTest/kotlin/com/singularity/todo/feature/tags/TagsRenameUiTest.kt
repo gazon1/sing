@@ -14,10 +14,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
-import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
-import org.junit.Test
+import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 import kotlin.time.Instant
 
 /**
@@ -30,6 +31,7 @@ import kotlin.time.Instant
  *
  * Run with: ./gradlew :desktopApp:test
  */
+@Tag("slow")
 class TagsRenameUiTest {
 
     private val testUserId = UserId("test-user")

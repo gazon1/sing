@@ -39,7 +39,10 @@ sourceSets {
             // TestLogging installs a Kermit writer, for the same reason.
             implementation(libs.kermit)
             implementation(libs.junit4)
-            implementation(libs.junit.vintage.engine)
+            // No vintage engine: every desktop test is Jupiter (`kotlin.test.Test`).
+            // Under vintage, `org.junit.jupiter.api.Tag` was invisible to
+            // `includeTags(...)`, so `-Ptest.tags=fast,slow` silently selected 4 of 28
+            // classes — see the note on `failOnNoDiscoveredTests` above.
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
@@ -113,6 +116,11 @@ detekt {
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // Before every class here was tagged, `includeTags("fast","slow")` selected nothing
+    // and this task still reported BUILD SUCCESSFUL. Discovering zero tests is a
+    // configuration error, not a pass — see also `TestTagCoverageTest`.
+    failOnNoDiscoveredTests = true
+
     useJUnitPlatform {
         // Desktop UI tests mount the whole production App(). The graph is built
         // per test from testPlatformModule() — FakeAppDatabase plus inert ports —

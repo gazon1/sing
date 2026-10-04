@@ -1,10 +1,12 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class ProjectDetailDraftStateTest {
 
     private fun newState(initial: ProjectDetailDraft = ProjectDetailDraft.empty()) = ProjectDetailDraftState(initial)

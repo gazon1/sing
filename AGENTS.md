@@ -7,16 +7,11 @@
 
 `androidApp/` — Android shell. `desktopApp/` — Desktop Compose entry.
 `shared/src/commonMain/kotlin/com/singularity/todo/` — KMP library (commonMain + androidMain
-+ jvmMain + tests):
-
-- `core/` — auth, backup, coroutines, database, di, draft, error, files, ids, llm, log,
-  notifications, observability, platform, reminders, security, serialization, settings,
-  sync, tree, ui
-- `feature/` — agenda, ai, archive, attachments, auth, backup, calendar, checklist, genui,
-  notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks
-- `test/fakes/` — Fake-реализации для тестов (без моков)
-
-**iOS нет.** Только Android + JVM Desktop.
++ jvmMain + tests): `core/` (auth, backup, coroutines, database, di, draft, error, files, ids,
+llm, log, notifications, observability, platform, reminders, security, serialization, settings,
+sync, tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
+checklist, genui, notes, pomodoro, profile, projects, reminders, search, settings, statistics,
+tags, tasks), `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
 ## Канонический CRUD-паттерн (новой фичи)
 
@@ -60,9 +55,9 @@ per-domain `*DiModule.kt` (`core/di/{Core,Calendar,Notes,Projects,Tags,Tasks}DiM
 
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
-`test/fakes/FakeRepositories.kt` (`FakeTaskRepository`, `FakeNotesRepository`,
-`FakeProjectsRepository`, `FakeTagsRepository`, `FakeSettingsRepository`, `FakeSecureStorage`,
-`FakeNotificationPort`, `FakeTextGen`).
+`test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag("fast")` или
+`@Tag("slow")` — иначе `-Ptest.tags=fast,slow` в CI молча исключит его; проверяет
+`TestTagCoverageTest`.
 
 ```kotlin
 // Три формы теста (singularity-todo-test-helpers skill):
@@ -103,7 +98,10 @@ class MyViewModel(
 **`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
 **`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
-**`--rerun-tasks`** required after editing systemProperty tests — config-cache may serve stale compiled classes.
+**Stale-test-classes is NOT a thing (verified 2026-10-04)** — after editing a test (incl.
+`systemProperty`-reading `MaestroFlowTagsTest`), a plain rerun recompiles and re-executes correctly;
+changing a `systemProperty` value also re-executes `jvmTest`. `--rerun-tasks` is only a debugging
+crutch, not required. Evidence: ADR `2026-10-04-configuration-cache-hardening` §A3.
 
 ## expect/actual порты
 
@@ -129,7 +127,6 @@ class MyViewModel(
 `initLogging()` (Kermit+Logback / Kermit+Logcat), `platformModule()` (все bindings),
 `aiToolsModule()` (32 Koog tools), `createKoogPromptExecutor()` (MultiLLMPromptExecutor+OkHttp /
 AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
-
 `isDesktop` удалён — определяй платформу через конкретный actual, а не флаг.
 
 **Навигация** (expect/actual NavGraphs): `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
@@ -140,7 +137,8 @@ AndroidKoogFactory error stub), `onSecondaryClick()` (AWT / secondary pointer).
 
 ```bash
 ./check.sh                    # тесты + Android
-./gradlew :shared:jvmTest     # быстрая проверка
+./gradlew :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
+./gradlew :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
 ./gradlew :androidApp:assembleDebug   # Android
 ./gradlew :desktopApp:run      # Desktop (xvfb-run -a)
 ./gradlew :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
@@ -164,7 +162,6 @@ MCP tools меняют state только через репозитории; `wr
 timestamps — `kotlin.time.Instant`; business errors → `isError:true`, internal → `-32603`.
 Каждый AI-вызов пишет в `llm_usage` (tokens, `cost_usd_micros`, `duration_ms`, `profile_id`).
 Профили изолируют данные: `ai-agent` (🤖) для dogfooding, `personal` (🏠) для своих задач.
-
 ## 🔄 OpenSpec
 
 Spec-driven workflow: `proposal → specs → design → tasks → apply → verify → archive`.
@@ -245,20 +242,7 @@ Policy: `docs/doc-maintenance.md`. Процесс: `singularity-todo-decisions-w
 > `scripts/find-unwired-surfaces.py`. Подробности — скилл
 > `singularity-todo-unwired-surface-audit`.
 
-**Удалённые skill-ы** (информация в `docs/decisions/`): ~~`koin-suspend-bridge~~
-`2026-09-05-koin-suspend-bridge.md` · ~~`ai-provider-settings~~
-`2026-09-05-llm-provider-settings.md` · ~~`secret-migration~~
-`2026-09-05-secret-storage-split.md` · ~~`koog-test-workarounds~~
-`2026-09-05-koog-test-workarounds.md` · ~~`koog-both-platforms~~
-`2026-09-05-koog-both-platforms.md` · ~~`vm-koin-scoping~~
-`2026-09-27-vm-koin-scoping-retired.md`
+Issue tracker: GitHub Issues (git@github.com:gazon1/singularity-clone-kmp.git), процедура —
+`docs/agents/issue-tracker.md`. Доменные доки: один `CONTEXT.md` в корне, ADR-и в
+`docs/decisions/` — `docs/agents/domain.md`.
 
-## Agent skills
-
-### Issue tracker
-
-GitHub Issues (git@github.com:gazon1/singularity-clone-kmp.git). See `docs/agents/issue-tracker.md`.
-
-### Domain docs
-
-Single-context layout: one `CONTEXT.md` at the repo root, ADRs at `docs/decisions/`. See `docs/agents/domain.md`.

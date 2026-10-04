@@ -20,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -27,6 +28,7 @@ import kotlin.test.assertNull
 /**
  * Tests for [com.singularity.todo.feature.calendar.domain.logic] date arithmetic.
  */
+@Tag("fast")
 class CalendarDateMathTest {
 
     private val sept16 = LocalDate(2026, Month.SEPTEMBER, 16)

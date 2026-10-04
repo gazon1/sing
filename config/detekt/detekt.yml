@@ -280,6 +280,8 @@ ktlint:
   parameter-list-wrapping:
     active: true
     auto_correct: true
+  FunctionSignature:
+    active: false          # ktlint-official style conflicts with project's multi-line override style
 
 # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)

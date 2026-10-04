@@ -1,6 +1,7 @@
 package com.singularity.todo.arch
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -43,6 +44,7 @@ import kotlin.test.fail
  * -> … }` uses the parameter, not the field), so identifiers bound as lambda
  * parameters inside the block are excluded.
  */
+@Tag("fast")
 class ViewModelInitOrderTest {
 
     @Test

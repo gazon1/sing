@@ -9,13 +9,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.TIMEOUT_MS
+import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/toggle-task-complete.yaml` and the
@@ -37,6 +38,7 @@ import org.junit.Test
  * which only a correctly-scoped ViewModel satisfies.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class TaskRowFlowTest {
 
     @Test

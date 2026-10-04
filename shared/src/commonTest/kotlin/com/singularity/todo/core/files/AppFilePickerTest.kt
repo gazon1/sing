@@ -1,10 +1,12 @@
 package com.singularity.todo.core.files
 
 import io.github.vinceglb.filekit.dialogs.FileKitType
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@Tag("slow")
 class AppFilePickerTest {
     @Test
     fun `backup purpose filters to zip archives`() {

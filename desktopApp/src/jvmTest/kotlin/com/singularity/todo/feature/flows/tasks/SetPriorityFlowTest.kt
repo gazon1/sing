@@ -10,9 +10,10 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/01-set-priority.yaml`.
@@ -28,6 +29,7 @@ import org.junit.Test
  * benefit.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class SetPriorityFlowTest {
 
     /** Opens a seeded task's editor, which is where the attribute rows live. */

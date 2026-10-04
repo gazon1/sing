@@ -9,6 +9,7 @@ import com.singularity.todo.core.llm.SettingsReader
 import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -21,6 +22,7 @@ private fun FakeSettingsRepository.asSettingsReader() = object : SettingsReader 
     override val aiModel = this@asSettingsReader.aiModel
 }
 
+@Tag("fast")
 class OpenAiConfigTest {
 
     @Test fun resolveReturnsEmptyKeyWhenNoKeyStored() = runTest {

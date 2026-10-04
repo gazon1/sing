@@ -1,9 +1,11 @@
 package com.singularity.todo.core.ui.components
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class FieldModeTest {
 
     @Test fun viewIsSingleton() {

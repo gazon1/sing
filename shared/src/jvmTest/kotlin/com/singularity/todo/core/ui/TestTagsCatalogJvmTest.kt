@@ -2,6 +2,7 @@ package com.singularity.todo.core.ui
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.assertEquals
@@ -27,6 +28,7 @@ import kotlin.test.assertTrue
  *   what [TestTagsCatalog] produces. Regenerate with
  *   `./gradlew :shared:jvmTest -PupdateGoldens=true`.
  */
+@Tag("slow")
 class TestTagsCatalogJvmTest {
 
     // ─── Catalog parsing ────────────────────────────────────────────────────────

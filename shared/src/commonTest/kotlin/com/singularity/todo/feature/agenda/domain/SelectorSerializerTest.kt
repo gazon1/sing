@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.LocalDate
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -21,6 +22,7 @@ import kotlin.test.assertIs
  * Without [SelectorSerializer] wired on the [Selector] interface, kotlinx.serialization
  * would generate a standard polymorphic deserializer that only understands the MR2 format.
  */
+@Tag("fast")
 class SelectorSerializerTest {
 
     // Json.decodeFromString is a member function — use as json.decodeFromString<T>(string)

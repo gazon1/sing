@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -34,6 +35,7 @@ import kotlin.time.Clock
  * test body is suspended or time advances (advanceUntilIdle does not run them).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class ProjectsViewModelTest {
     private val testUserId = UserId("test-user")
     private val fakeProjectRepo = FakeProjectsRepository()

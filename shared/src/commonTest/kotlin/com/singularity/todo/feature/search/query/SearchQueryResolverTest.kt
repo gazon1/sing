@@ -4,6 +4,7 @@ package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -11,6 +12,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class SearchQueryResolverTest {
 
     // ─── Inline fakes ─────────────────────────────────────────────────────────

@@ -1,8 +1,10 @@
 package com.singularity.todo.core.auth.oauth
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class IdTokenTest {
 
     // Real JWT structure: header.payload.signature

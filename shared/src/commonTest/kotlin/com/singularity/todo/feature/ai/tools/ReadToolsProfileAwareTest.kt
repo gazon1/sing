@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -39,6 +40,7 @@ import kotlin.time.Instant
  * If anyone changes the default to a hardcoded string again, these tests
  * fail with a clear message.
  */
+@Tag("fast")
 class ReadToolsProfileAwareTest {
 
     private val now = Instant.parse("2026-01-01T00:00:00Z")

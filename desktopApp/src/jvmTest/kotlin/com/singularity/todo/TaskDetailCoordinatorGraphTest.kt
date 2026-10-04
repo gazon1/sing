@@ -17,6 +17,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -39,6 +40,7 @@ import kotlin.time.Duration.Companion.seconds
  * reaches a terminal state in real time. It also fails on the `Error` path with the
  * actual message, so a broken dependency surfaces here instead of as a hang.
  */
+@Tag("fast")
 class TaskDetailCoordinatorGraphTest {
 
     @Test

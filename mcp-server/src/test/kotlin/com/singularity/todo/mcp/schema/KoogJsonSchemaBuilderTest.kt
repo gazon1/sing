@@ -14,6 +14,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -32,6 +33,7 @@ import kotlin.test.assertTrue
  * rather than hand-rolling ToolDescriptor instances — the Koog constructor
  * signature isn't part of the public API we want to lock in.
  */
+@Tag("fast")
 class KoogJsonSchemaBuilderTest {
 
     @Test

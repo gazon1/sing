@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.notes
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+@Tag("fast")
 class LinkSchemesTest {
 
     @Test

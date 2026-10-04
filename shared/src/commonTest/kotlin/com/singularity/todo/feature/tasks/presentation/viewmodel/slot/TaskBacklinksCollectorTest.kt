@@ -9,6 +9,7 @@ import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -19,6 +20,7 @@ import kotlin.time.Clock
  * got wrong by reading `.value` from a `combine` that did not depend on it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskBacklinksCollectorTest {
 
     private class FakeLinks(

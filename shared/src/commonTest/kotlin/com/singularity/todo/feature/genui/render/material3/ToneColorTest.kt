@@ -2,9 +2,11 @@ package com.singularity.todo.feature.genui.render.material3.atoms
 
 import androidx.compose.ui.graphics.toArgb
 import com.singularity.todo.feature.genui.catalog.UiNode
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class ToneColorTest {
 
     @Test

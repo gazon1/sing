@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.notes
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class NoteFormattersTest {
 
     @Test

@@ -1,6 +1,7 @@
 package com.singularity.todo.flows
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -17,6 +18,7 @@ import kotlin.test.fail
  * Scanned from source rather than reflection because the flag lives in a default
  * parameter of a lambda, which is invisible at runtime.
  */
+@Tag("slow")
 class HarnessConventionTest {
 
     private val flowTests: List<File> by lazy {

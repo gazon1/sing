@@ -13,7 +13,8 @@ import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Verifies that every platform port in the test graph resolves to a test double,
@@ -33,6 +34,7 @@ import org.junit.Test
  *    the reason in a comment.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class PlatformParityTest {
 
     @Test

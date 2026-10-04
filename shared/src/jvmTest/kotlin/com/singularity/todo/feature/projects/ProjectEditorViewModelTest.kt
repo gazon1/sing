@@ -18,6 +18,7 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
@@ -27,6 +28,7 @@ import kotlin.time.Clock
  * Detailed save/load tests are out of scope for MR3.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class ProjectEditorViewModelTest {
 
     private val testUserId = UserId("test-user")

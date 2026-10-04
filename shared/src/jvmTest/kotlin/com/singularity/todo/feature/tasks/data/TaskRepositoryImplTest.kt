@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -32,6 +33,7 @@ import kotlin.time.Clock
  * when the current user changes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskRepositoryImplTest {
 
     private val userA = UserId("user-a")

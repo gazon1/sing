@@ -18,6 +18,8 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import java.io.File
+import java.nio.file.Files
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -56,6 +58,7 @@ import kotlin.test.assertTrue
  * 3. Keep assertions on the `TaskRepository` interface only — no DAO-level access.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("slow")
 abstract class TaskRepositoryContractTest {
 
     private val alice = UserId("alice")
@@ -253,22 +256,32 @@ class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
 
 /**
  * Runs the full [TaskRepositoryContractTest] suite against a real [TaskRepositoryImpl]
- * backed by an in-memory `BundledSQLiteDriver`.
+ * backed by a `BundledSQLiteDriver` on a throwaway file.
  *
  * Slow (~2-3 s): spins up Room, creates schema, runs SQL.
- * Run explicitly with `./gradlew :shared:jvmTest -Ptest.tags=slow`, or include in
- * CI with `--all`.
+ * Run explicitly with `./gradlew :shared:jvmTest -Ptest.tags=slow`, or in CI where
+ * `-Ptest.tags=fast,slow` includes it.
  */
 @Tag("slow")
 class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
 
-    // One in-memory database per test class — shared across all test methods.
-    // The class is instantiated once per test class by JUnit; forkEvery=1 (set in
-    // shared/build.gradle.kts) ensures no state leaks between classes.
+    // One database per test class, shared across all test methods — same shape as the
+    // sibling Room tests (AppDatabaseFactoryJvmTest, DesktopRestartSmokeTest).
+    //
+    // A real temp FILE, not ":memory:": Room rejects the literal name ":memory:" in
+    // `databaseBuilder` and only accepts in-memory databases through
+    // `Room.inMemoryDatabaseBuilder<T>()`, which is a JVM-only API — unreachable from
+    // the commonMain `AppDatabaseFactory`. A temp file exercises the production path
+    // end to end, including `applyOnceToFile` (WAL) and the registered migrations.
+    private val tempDir: File by lazy {
+        Files.createTempDirectory("singularity-task-contract-").toFile()
+            .also { it.deleteOnExit() }
+    }
+
     private val db: AppDatabase by lazy {
         AppDatabaseFactory.build(
             driver = createSqlDriver(),
-            dbPath = ":memory:",
+            dbPath = File(tempDir, "tasks.db").absolutePath,
         )
     }
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -106,6 +107,7 @@ class VmUnderTest(private val testScope: CoroutineScope) :
     }
 }
 
+@Tag("fast")
 class MviViewModelTest {
     @Test
     fun `initial state is correct`() = runTest {

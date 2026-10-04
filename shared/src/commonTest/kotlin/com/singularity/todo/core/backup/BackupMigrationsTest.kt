@@ -3,9 +3,11 @@ package com.singularity.todo.core.backup
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
+@Tag("slow")
 class BackupMigrationsTest {
 
     private val json = Json { ignoreUnknownKeys = true }

@@ -1,10 +1,12 @@
 package com.singularity.todo.core.graph
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class CycleDetectorTest {
 
     // ─── Self-loop ──────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ package com.singularity.todo.core.ui
 
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.domain.editor.NoteEditorState
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -19,6 +20,7 @@ import kotlin.test.assertTrue
  * A bug in either layer causes the "You have unsaved changes" prompt to fire
  * incorrectly (false positive) or not fire when it should (false negative).
  */
+@Tag("slow")
 class DirtyTrackingTest {
 
     // ─── DraftState — pure dirty tracking ─────────────────────────────────────

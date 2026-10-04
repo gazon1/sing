@@ -18,6 +18,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -32,6 +33,7 @@ import kotlin.time.Clock
  *
  * All tools use FakeRepositories so tests run fast without Room/SQLite.
  */
+@Tag("fast")
 class WriteToolsTest {
 
     private val clock: Clock = Clock.System

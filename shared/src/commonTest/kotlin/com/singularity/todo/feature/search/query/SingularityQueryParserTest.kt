@@ -18,11 +18,13 @@ import com.singularity.todo.feature.search.query.Relation.LE
 import com.singularity.todo.feature.search.query.SortOrder
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@Tag("slow")
 class SingularityQueryParserTest {
 
     private fun parse(input: String): Query = SingularityQueryParser(input).parse()

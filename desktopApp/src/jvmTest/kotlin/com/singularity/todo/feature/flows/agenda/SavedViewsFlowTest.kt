@@ -7,7 +7,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/agenda/02-saved-views-open.yaml`.
@@ -17,6 +18,7 @@ import org.junit.Test
  * carries over unchanged apart from the harness.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class SavedViewsFlowTest {
 
     @Test

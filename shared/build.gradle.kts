@@ -258,6 +258,15 @@ kotlin {
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
+    // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
+    // nothing — and the task would still report BUILD SUCCESSFUL. That is exactly how
+    // `:desktopApp:test -Ptest.tags=fast,slow` ran zero tests for months. Discovering
+    // nothing is a configuration error, not a pass.
+    // Partial selection is the other half of the problem and is not detectable here;
+    // `TestTagCoverageTest` (every test class carries a @Tag) is what keeps
+    // `-Ptest.tags=fast,slow` from silently skipping the untagged majority.
+    failOnNoDiscoveredTests = true
+
     useJUnitPlatform {
         // Jupiter parallel execution — classes run concurrently, methods within a class
         // also run concurrently by default (ExecutionMode.CONCURRENT).

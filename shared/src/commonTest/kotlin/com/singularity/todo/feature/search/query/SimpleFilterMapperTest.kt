@@ -2,12 +2,14 @@ package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@Tag("slow")
 class SimpleFilterMapperTest {
 
     private val mapper = SimpleFilterMapper()

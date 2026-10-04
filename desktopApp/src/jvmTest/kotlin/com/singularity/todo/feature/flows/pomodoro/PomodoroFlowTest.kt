@@ -9,7 +9,8 @@ import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/pomodoro/01-open-tab.yaml` and
@@ -33,6 +34,7 @@ import org.junit.Test
  * a seeded fixture.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class PomodoroFlowTest {
 
     @Test

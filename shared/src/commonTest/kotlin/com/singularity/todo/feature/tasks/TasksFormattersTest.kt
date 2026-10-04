@@ -2,9 +2,11 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.feature.tasks.domain.model.AiActionResult
 import com.singularity.todo.feature.tasks.domain.model.formatAiResult
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class TasksFormattersTest {
 
     @Test

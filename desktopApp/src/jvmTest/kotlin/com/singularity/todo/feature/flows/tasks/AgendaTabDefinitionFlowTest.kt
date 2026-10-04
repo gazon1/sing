@@ -8,11 +8,13 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tasks
 import com.singularity.todo.test.helpers.tapTab
+import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.plus
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Each agenda tab must evaluate **its own** definition, not the one its ViewModel
@@ -41,6 +43,7 @@ import org.junit.Test
  * @see Nav3State.toDecoratedEntries
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class AgendaTabDefinitionFlowTest {
 
     @Test
@@ -84,10 +87,10 @@ class AgendaTabDefinitionFlowTest {
 
         // The undated task is simply not part of this agenda — it must be absent,
         // not relocated under a section name borrowed from the Inbox preset.
-        org.junit.Assert.assertEquals(
-            "Upcoming must not render an Inbox 'No Date' section",
+        assertEquals(
             0,
             onAllNodesWithTag(TestTags.agendaSection("No Date")).fetchSemanticsNodes().size,
+            "Upcoming must not render an Inbox 'No Date' section",
         )
     }
 }

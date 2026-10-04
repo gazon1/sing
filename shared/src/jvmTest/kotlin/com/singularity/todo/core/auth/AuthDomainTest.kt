@@ -2,12 +2,14 @@ package com.singularity.todo.core.auth
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class AuthDomainTest {
 
     @Test

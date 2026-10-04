@@ -1,12 +1,14 @@
 package com.singularity.todo.feature.notes.domain.model
 
 import com.singularity.todo.feature.notes.LinkSchemes
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class NoteBodyTest {
 
     // ─── isEmpty ────────────────────────────────────────────────────────────────

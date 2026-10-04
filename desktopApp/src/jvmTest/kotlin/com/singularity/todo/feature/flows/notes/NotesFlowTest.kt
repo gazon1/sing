@@ -7,7 +7,8 @@ import androidx.compose.ui.test.onNodeWithText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import org.junit.Test
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/notes/create-note.yaml` and
@@ -23,6 +24,7 @@ import org.junit.Test
  * is the node these flows actually assert on.
  */
 @OptIn(ExperimentalTestApi::class)
+@Tag("slow")
 class NotesFlowTest {
 
     @Test

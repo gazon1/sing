@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -21,6 +22,7 @@ import kotlin.test.assertTrue
  * unscheduled row rather than an alarm with nothing behind it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Tag("fast")
 class TaskRemindersSlotTest {
 
     private fun slot(fakes: SlotFakes, source: TaskSource, scope: CoroutineScope) = TaskRemindersSlot(

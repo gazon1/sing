@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -15,6 +16,7 @@ import kotlin.test.assertTrue
  * Covers every [combineStates] overload plus the behaviours a coordinator depends on:
  * typed positional unpacking, emission on any upstream change, and no loss of values.
  */
+@Tag("fast")
 class CombineStatesTest {
 
     private fun flowOf(value: Int) = MutableStateFlow(value)

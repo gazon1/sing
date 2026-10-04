@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.atStartOfDayIn
+import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -76,6 +77,7 @@ private fun testTaskIn(projectId: String, title: String): Task = Task(
  *
  * Timing: uses virtual time via advanceTimeBy(1_000); runCurrent() — no real delays or spin-waiting.
  */
+@Tag("slow")
 class ProjectDetailViewModelTest {
 
     private val testUserId = UserId("test-user")
