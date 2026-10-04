@@ -2,8 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>NoDirectDispatchers:CoroutineDiagnosticsTest.kt:CoroutineDiagnosticsTest$Dispatchers.Default</ID>
-    <ID>NoDirectDispatchers:TaskDetailCoordinatorGraphTest.kt:TaskDetailCoordinatorGraphTest$Dispatchers.Default</ID>
     <ID>NoEmptyOnClickLambda:ContextMenuTest.kt:ContextMenuTest${}</ID>
     <ID>NoEmptyOnClickLambda:NotesScreenTest.kt:NotesScreenTest${}</ID>
     <ID>NoEmptyOnClickLambda:TagsRenameUiTest.kt:TagsRenameUiTest${}</ID>

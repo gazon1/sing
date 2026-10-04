@@ -2338,3 +2338,228 @@ too — leaving the mismatch in place is what produced the confusion.
 >>>>>>> 2e251adb (fix(coroutines): migrate 199 runCatching sites to runCatchingCancellable)
 
 
+
+---
+
+## empty-handler-lambdas-are-product-gaps-not-style
+
+**Found in:** 2026-10-04, when `NoEmptyOnClickLambda` was made able to fire and
+reported 31 sites (12 in `shared`, 11 in `desktopApp`, rest in shared fakes).
+
+**Symptom:** the rule is right and the sites are real. Sampled:
+
+- `BackupScreen.kt:351` — `TopAppBar(navigationIcon = { IconButton(onClick = {}) })`.
+  The back button on the backup screen does nothing.
+- `BackupScreen.kt:370` — `Button(onClick = {})` labelled **"Create backup"**. The
+  primary action of the screen is inert.
+- `ArchiveScreen.kt:166` — `TaskCard(onClick = {})`. A task is rendered and cannot
+  be opened.
+
+These are not placeholders in a preview or a disabled state. They are production
+composables where a user can see an affordance and pressing it does nothing.
+
+**Deliberately not fixed in the 2026-10-04 cycle.** The cycle's scope was quality
+and debt, explicitly "no new product surface" (owner decision 2). Wiring a back
+navigation, a backup-creation flow and task-detail navigation from the archive is
+product work with its own design questions, not a lint cleanup. Suppressing them
+instead would be worse: the ratchet would then hold a permanent exemption for a
+known-broken button.
+
+**Try next, per screen rather than per site — the counts lie:**
+
+1. `BackupScreen`: is the screen reachable, and is "Create backup" meant to work?
+   If yes this is a missing use case call, not a missing UI. Check
+   `find-unwired-surfaces` first — it may already be reporting the use case.
+2. `ArchiveScreen` `TaskCard(onClick = {})`: the card renders `onClick` and ignores
+   it. Either drop the parameter from the call site or navigate. Decide which by
+   looking at whether archive is a read-only browser by design.
+3. `TaskMenuActions.Companion` and the two `*Test` entries: these are builders and
+   test doubles in `commonMain`. Replace `{}` with the shared `noopClick` constant
+   and the rule is satisfied honestly. Cheapest of the three.
+
+Sweep the `{}` / `{ }` sites mechanically only after the first two are settled;
+each `onDismiss = {}` on a sheet is worth one look, because "this sheet cannot be
+dismissed" is occasionally intentional and occasionally a bug.
+
+---
+
+## direct-dispatchers-mostly-sit-in-platform-ports-where-they-are-correct
+
+**Found in:** 2026-10-04, when `NoDirectDispatchers` was made able to fire. It
+reported 21 sites and the plan proposed constructor-injecting a
+`CoroutineDispatcher` into each, with a Koin change per module.
+
+**Symptom:** sampling the 9 baselined `shared` sites shows most of them are the
+**platform port implementations** the `expect`/`actual` section of AGENTS.md
+describes:
+
+| File | Nature |
+|---|---|
+| `AndroidSecureStorage.kt`, `JvmSecureStorage.kt` | `SecureStoragePort` implementations |
+| `JvmNotificationPort.kt` | `NotificationPort` implementation |
+| `JvmFileRevealer.kt` | `FileRevealer` implementation |
+| `BackgroundScope.jvm.kt` / `.android.kt` | `actual fun createBackgroundScope()` — the factory, defined to return `Dispatchers.Default` |
+| `AlarmReceiver.kt`, `AndroidCalendarProvider.kt`, `AndroidCalendarAppQueries.kt` | Android platform glue, not ports |
+
+**Why injecting is the wrong fix here.** A port implementation is precisely the
+layer that *should* know it does blocking I/O — that is what the port is for.
+Making the caller supply the dispatcher pushes threading decisions back up to every
+call site, which is the coupling the port boundary exists to remove. The rule
+already has the right precedent: it whitelists `FileLogWriter` **by file path**
+precisely because ordered writes are a legitimate reason to name `Dispatchers.IO`.
+
+**The two genuinely non-port sites** are `AlarmReceiver`,
+`AndroidCalendarProvider` and `AndroidCalendarAppQueries`, and 2 desktopApp entries
+that were in *test* files (now excluded — see below). Those three Android classes
+are ordinary classes and could take an injected dispatcher, but each is constructed
+by the Android framework (`AlarmReceiver` is instantiated by the system, the other
+two are Koin singletons), so "inject a dispatcher" means changing how the framework
+constructs them. That is a design question, not a mechanical edit.
+
+**Partly resolved in the 2026-10-04 cycle:** the rule's KDoc promised to "skip all
+/test/ directories" and no such filter existed, so it flagged
+`CoroutineDiagnosticsTest` and `TaskDetailCoordinatorGraphTest` — tests that
+legitimately build a scope on a real dispatcher because they drive a real Compose
+runtime. The filter now exists and is tested.
+
+**Try next:**
+
+1. **Extend the path whitelist to the port layer**, mirroring the `FileLogWriter`
+   precedent: a `Dispatchers.*` reference inside a `*Port` implementation or a
+   documented platform factory is the design, not a violation. That removes ~6 of
+   the 9 without touching a constructor.
+2. **Decide the platform-factory question explicitly.** `createBackgroundScope()`
+   is documented in AGENTS.md as returning `Dispatchers.Default`. Either the rule
+   exempts platform factories by name, or the KDoc changes. Right now the KDoc and
+   the rule disagree.
+3. Only then consider the three Android framework classes, and treat each as an ADR
+   — "how does a framework-constructed class get a dispatcher" is a real question.
+
+Do **not** do a 21-site constructor sweep. It would touch DI bindings across four
+modules to fix sites that are architecturally correct, and the plan's own warning
+applies: enabling a rule reddens the build, but so does obeying it literally.
+
+---
+
+## two-largest-baseline-rules-contradict-documented-conventions
+
+**Found in:** 2026-10-04, while sizing up a campaign to shrink the detekt baseline.
+The plan proposed attacking the top-3 rules mechanically. Two of them are not debt.
+
+**`BackingPropertyNaming` — 53 entries, every one of them correct.**
+AGENTS.md's *canonical VM pattern* is:
+
+```kotlin
+private val _state = MutableStateFlow<UiState>(UiState.Loading)
+val state: StateFlow<UiState> = _state.asStateFlow()
+```
+
+detekt's `BackingPropertyNaming` forbids the underscore prefix. The rule is not
+configured anywhere in `config/detekt/detekt.yml` — it is running on detekt's
+built-in default, and it is flagging the project's own mandated pattern 53 times.
+"Fixing" these means renaming `_state` → `stateInternal` in 53 places and
+rewriting the canonical example in AGENTS.md, so that a style rule wins over the
+documented architecture. That is backwards.
+
+**`PackageNaming` — 43 entries, real but not mechanical.**
+Almost all are one package: `com.singularity.todo.feature.calendar_sync`. detekt
+wants no underscores in package names. The rename is a mechanical edit but it
+touches every import of that package, and the neighbouring question — whether
+repositories live in `domain/port/` — is already an open decision
+(`C2` in the restore-verifiability plan). Do them together or neither.
+
+**`LongMethod` — 39 entries, genuine, and not a campaign.**
+Decomposing 39 long methods is Epic B3-scale work with real regression risk per
+method. It wants a per-method decision, not a sweep. `BackupScreen.kt` at 451
+lines is the largest and belongs on its own.
+
+**Try next, in order:**
+
+1. **Decide `BackingPropertyNaming` explicitly** (10 minutes, removes 53 entries).
+   Either add it to `detekt.yml` with `active: false` and a comment pointing at
+   AGENTS.md's canonical pattern, or change the convention and the doc together.
+   Option 1 is almost certainly right — the underscore is doing real work, keeping
+   the mutable backing property visibly distinct from the `asStateFlow()` public
+   face.
+2. **Leave `PackageNaming` until C2 is decided**, then do the package rename in one
+   commit with its own ADR.
+3. **Leave `LongMethod`.** Work it as Epic B, biggest first.
+
+The pattern across all three is the one worth remembering: an unconfigured
+detekt built-in default is a rule nobody chose. The same thing happened with
+`style:MaximumLineLength` (default 120 silently overriding `.editorconfig`'s 140)
+and with the two rule sets that were registered but never configured. **Default-on
+is not the same as decided-on**, and a baseline full of entries that contradict
+your own architecture is a signal to look at the configuration, not the code.
+
+---
+
+## detektbaseline-caches-its-output-and-cannot-drain
+
+**Found in:** 2026-10-04, while trying to shrink the detekt baseline after fixing
+`ViewModelMustHaveKDoc`. Four attempts produced an unchanged file.
+
+**Symptom:** `:shared:detektBaseline` is a Gradle task whose output is a tracked
+source file. It gets cached like any other task, and two separate traps stack:
+
+1. **It is additive.** Running it against an existing baseline merges rather than
+   replacing, so an entry for a violation that no longer exists stays forever. The
+   file has to be deleted first for it to shrink.
+2. **It is cached.** With the file deleted, the task was still served from the
+   build cache (`2 from cache`) and the *old* file was restored. `--rerun-tasks`
+   alone was not enough; the combination that actually worked is:
+
+   ```bash
+   rm -f config/detekt/baseline-shared.xml config/detekt/baseline-desktopApp.xml
+   ./gradlew :shared:detektBaseline :desktopApp:detektBaseline \
+       --rerun-tasks --no-build-cache --no-configuration-cache --no-daemon
+   ```
+
+`./gradlew --stop` (documented in the detekt-rules-authoring skill for *rule*
+changes) does not help here — the trap is the build cache, not the daemon. Two
+attempts were lost to this, and the symptom is identical to "the fix did not
+work": the entry is still in the file.
+
+**Why it matters beyond the two entries I was chasing:** a baseline that cannot be
+made smaller is not a ratchet, it is a high-water mark. `check-baseline-ratchet.py`
+verifies the *committed* size, so it cannot detect that regeneration is a no-op.
+
+**Try next:** the delete-plus-flags incantation above is the recipe; consider
+putting it in a `just` recipe (`just detekt-baseline-drain`) so the next person
+does not rediscover it, and note in the recipe that a plain `detektBaseline` run
+only ever grows the file.
+
+---
+
+## gradle-test-cache-silently-skips-the-suite
+
+**Found in:** 2026-10-04, immediately after A1 changed the CI test tag filter. The
+verification run reported `> Task :desktopApp:test FROM-CACHE` and
+`BUILD SUCCESSFUL` — with no test having executed.
+
+**Symptom:** a test task whose inputs are unchanged is served from the build cache
+and prints success. After editing configuration (test tags, system properties,
+harness code paths) the local result can therefore be a cache hit from a run that
+predates the edit. `:shared:jvmTest` and `:desktopApp:test` are both configured with
+`forkEvery = 1` and parallel execution, which makes them expensive enough that they
+stay cacheable for long stretches.
+
+**Already ruled out:** not a no-op task — the XML reports in
+`shared/build/test-results/jvmTest/` were regenerated on a forced run and matched
+the expected class count (173 shared classes, 27 desktop classes).
+
+**Try next:** any local run that is meant to *verify a configuration change* needs
+
+```bash
+./gradlew :desktopApp:test --rerun-tasks
+```
+
+A normal run is fine for "did I break the code". It is not fine for "does the new
+configuration select the tests I think it selects" — which is exactly the question
+A1 had to answer, and the reason the CI job drops `--rerun-tasks` (CI starts from a
+cold cache anyway, so this costs nothing there).
+
+The same trap bit `:shared:detektBaseline` three separate ways; see
+`detektbaseline-caches-its-output-and-cannot-drain`.
+5d740f0e (fix(detekt): three more rule/doc divergences, and what the baseline is really made of)
+435d5bcb (fix(detekt): three more rule/doc divergences, and what the baseline is really made of)

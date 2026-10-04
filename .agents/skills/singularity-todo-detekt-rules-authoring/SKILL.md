@@ -409,7 +409,7 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | Rule | File | RuleSet ID | What it checks | Test |
 |------|------|------------|----------------|------|
 | `NoRealDelayInTestRule` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | `delay(N>500)` and `Thread.sleep`, including `1_000` / `1000L` spellings | `NoRealDelayInTestRuleTest` |
-| `NoDirectDispatchersRule` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | `Dispatchers.IO/Default/Main` in commonMain; whitelists `core/log/FileLogWriter.kt` | `NoDirectDispatchersRuleTest` |
+| `NoDirectDispatchersRule` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | `Dispatchers.IO/Default/Main` in commonMain; whitelists `core/log/FileLogWriter.kt` and all test source sets | `NoDirectDispatchersRuleTest` |
 | `NoEmptyOnClickLambdaRule` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | `onClick = {}` at call sites and `onClick ?: { }` elvis fallbacks | `NoEmptyOnClickLambdaRuleTest` |
 | `NoViewModelScopeInProductionRule` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | `viewModelScope.launch/async/cancel` in production | `NoViewModelScopeInProductionRuleTest` |
 | `NoRunBlockingRule` | `NoRunBlockingRule.kt` | `no-runblocking` | `runBlocking` in production | `NoRunBlockingRuleTest` |
@@ -417,7 +417,7 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | `NoStaticProfileAwareCurrentUserRule` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | static/global `ProfileAwareCurrentUser` | — |
 | `NoCombineSideEffectRule` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | `.value =`, `seed()`, `Channel.send`, `launchIn` inside a `combine { }` transform. Restored 2026-09-27 after the 2026-09-26 orphan cleanup. | `NoCombineSideEffectRuleTest` |
 | `PassThroughUseCaseRule` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | `UseCase` method whose body is a single `repo.x()` call. Resolves the receiver through **both** body properties and primary-constructor `val`s. | `PassThroughUseCaseRuleTest` |
-| `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc`. Walks the full PSI tree, so nested classes count. | **none** |
+| `KDocEnforcementRules` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | `ViewModelMustHaveKDoc`, `RepositoryInterfaceMustHaveKDoc`. Walks the full PSI tree, so nested classes count, and also reads a KDoc attached to the primary constructor. | `KDocEnforcementRulesTest` |
 | `NoFactoryViewModelRule` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | `factory { *ViewModel(...) }` / `factoryOf(::*ViewModel)` | `NoFactoryViewModelRuleTest` |
 | `NoOpUpdateStateRule` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | `updateState { }` whose lambda returns the receiver unchanged | `NoOpUpdateStateRuleTest` |
 | `MviViewModelRulesProvider` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | `VmScopePosition`, `VmCloseable`, `ShadowedState` | `MviViewModelRulesTest` |
@@ -426,7 +426,7 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 | `ProhibitUserIdInObserve` | `UserScopedRepositoryRulesProvider.kt` | `user-scoped-repository` | `userId`/`scopedUserId` on `watch*`/`observe*` returning `Flow`. Matches `…Repository` **and** `…RepositoryImpl`. | — |
 | `NoDirectClockSystemRule` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | direct `Clock.System` references | `NoDirectClockSystemRuleTest` |
 
-Run them all with `./gradlew :detekt-rules:test` (76 tests). The `-- Test`
+Run them all with `./gradlew :detekt-rules:test` (90 tests). The `-- Test`
 column is the honest measure of which rules you can trust without writing a
 violating file first — and it is what the 2026-10-04 inventory used to find six
 defects. See `2026-10-04-rule-verifiability-inventory`.

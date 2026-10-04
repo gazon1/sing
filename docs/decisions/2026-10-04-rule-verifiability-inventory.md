@@ -55,9 +55,11 @@ distinction obvious: `onClick: () -> Unit = {}` is a normal optional default, wh
 build green would have reproduced the original defect.
 
 **2. `:detekt-rules:test` is the load-bearing gate.** 56 tests had never been
-executed by anything; 4 failed. 76 run and pass now, after adding
-`PassThroughUseCaseRuleTest`, `NoRealDelayInTestRuleTest` and `NoStateInRuleTest`.
-One rule class (`KDocEnforcementRules`) still has no test — tracked below.
+executed by anything; 4 failed. **90 run and pass now**, after adding
+`PassThroughUseCaseRuleTest`, `NoRealDelayInTestRuleTest`, `NoStateInRuleTest` and
+`KDocEnforcementRulesTest`. All 17 rule classes now have a test — the two
+`KDocEnforcementRules` in particular were the last, and they are the regression
+guard for the tree-walk and primary-constructor-doc fixes described above.
 
 **3. Prefer a visible `@Suppress` to an invisible hatch.** With
 `CombineStateInReadThrough` gone, the sanctioned way out of `NoStateIn` is
@@ -71,15 +73,30 @@ appears at compile time.
   is a separate question, and the answer is the honest measure of how much the
   previous "0 findings" was worth — see the detekt baseline delta recorded in the
   2026-10-04 change.
-- `KDocEnforcementRules` is the last rule class without a unit test. Its two rules
-  are trivially testable (a class with and without a doc comment, nested and
-  top-level) and the nesting fix is exactly the kind of change that needs one.
-  It is recorded in `deferred-backlog.md`, not fixed here, because the remaining
-  audit items in this cycle were the higher-severity ones.
+- **Three more divergences surfaced later the same day**, all found the same way —
+  by a test or a report that disagreed with the prose:
+  - `NoDirectDispatchers` promised in its KDoc to "skip all `/test/` directories"
+    and had no such filter, so it flagged two desktop harness tests that build a
+    scope on a real dispatcher because they drive a real Compose runtime.
+  - `NoRealDelayInTest` double-counted every `Thread.sleep` (both the call visitor
+    and the dot-qualified visitor reported it). Only an `assertEquals(1, …)` test
+    caught it; a `> 0` assertion would have passed.
+  - `KDocEnforcement` read only `clazz.docComment`, so a KDoc written above
+    `class Foo( … )` — which PSI attaches to the primary constructor — looked like
+    no documentation at all.
+- The detekt baseline is now **428**, and two of its three largest rules
+  (`BackingPropertyNaming` 53, `PackageNaming` 43) contradict the project's own
+  documented conventions rather than representing debt. They are detekt built-in
+  defaults that nobody configured. See
+  `deferred-backlog.md#two-largest-baseline-rules-contradict-documented-conventions`.
 - The generalisable rule: **a rule's KDoc is a claim, not evidence.** When the two
-  disagree, the test run decides. Four of the six findings above were invisible in
-  code review because the KDoc was plausible and the implementation was quietly
-  narrower.
+  disagree, the test run decides — not your reading of the PSI. Four of the six
+  findings above were invisible in code review because the KDoc was plausible and
+  the implementation was quietly narrower.
+- Second generalisable rule, learned from the baseline: **an unconfigured detekt
+  built-in is a rule nobody chose.** `MaximumLineLength` (default 120 silently
+  overriding `.editorconfig`'s 140) and `BackingPropertyNaming` are both in this
+  category. Default-on is not decided-on.
 
 ## Links
 
