@@ -1,8 +1,7 @@
 package com.singularity.todo.core.attachments
 
-import org.junit.jupiter.api.Tag
 import com.singularity.todo.core.ui.formatFileSize
-fb90fbc7 (refactor(ui): merge four formatter copies, and correct a finding I misread)
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
