@@ -164,6 +164,9 @@ class ScanRepositoryTest(unittest.TestCase):
         # осмысленна: её рост означал бы возврат отсева abstract-баз и хелперов.
         self.assertGreater(len(self.tests), 200)
         self.assertLess(len(self.tests), 300)
+        # 260, а не 259: NoopSubscriptionProviderTest.kt объявляет класс
+        # PurchaseStateTest, и прежний отсев по «нет @Test у класса с именем
+        # файла» выбрасывал файл целиком, теряя настоящий тест.
 
     def test_abstract_bases_and_helpers_are_excluded(self):
         # Класс, который никогда не даёт прогона (abstract-база контракта или
@@ -207,7 +210,7 @@ class RunnableTestClassTest(unittest.TestCase):
 
     def test_ordinary_test_class_is_runnable(self):
         self.assertTrue(
-            sync.is_runnable_test_class(
+            sync.has_runnable_test(
                 '@Tag("fast")\nclass FooTest {\n  @Test fun x() {}\n}'
             )
         )
@@ -220,36 +223,67 @@ class RunnableTestClassTest(unittest.TestCase):
             "class FooTest {\n"
             "  @ParameterizedTest\n  fun x() {}\n"
         )
-        self.assertTrue(sync.is_runnable_test_class(source))
+        self.assertTrue(sync.has_runnable_test(source))
 
-    def test_abstract_base_is_not_runnable(self):
+    def test_abstract_base_alone_is_not_runnable(self):
+        # Файл, где есть ТОЛЬКО абстрактная база: прогонa не будет.
+        source = (
+            "@Tag(\"slow\")\nabstract class ContractTest {\n"
+            "  protected abstract fun make(): Any\n}\n"
+        )
+        self.assertFalse(sync.has_runnable_test(source))
+
+    def test_concrete_subclass_makes_the_file_runnable(self):
+        # А вот этот файл прогон даёт: сценарии исполняет подкласс, а не база.
+        # Отсеивать его было бы ошибкой — теряется настоящий тест.
         source = (
             "@Tag(\"slow\")\nabstract class ContractTest {\n"
             "  protected abstract fun make(): Any\n}\n"
             "class RoomContractTest : ContractTest() {\n"
             "  @Test fun real() {}\n}\n"
         )
-        self.assertFalse(sync.is_runnable_test_class(source))
+        self.assertTrue(sync.has_runnable_test(source))
+        self.assertEqual(sync._test_classes_in(source), ["RoomContractTest"])
 
     def test_helper_without_tests_is_not_runnable(self):
         self.assertFalse(
-            sync.is_runnable_test_class("class RunVmTest { fun run() {} }")
+            sync.has_runnable_test("class RunVmTest { fun run() {} }")
         )
 
 
 class ReadTagTest(unittest.TestCase):
-    """@Tag на уровне класса."""
+    """@Tag над нужным классом, а не первый @Tag в файле."""
 
     def test_reads_class_level_tag(self):
         source = '@Tag("slow")\nclass FooTest\n'
-        self.assertEqual(sync._read_tag(source), "slow")
+        self.assertEqual(sync._read_tag(source, "FooTest"), "slow")
 
     def test_missing_tag_is_reported_as_untagged(self):
-        self.assertEqual(sync._read_tag("class FooTest"), "untagged")
+        self.assertEqual(sync._read_tag("class FooTest", "FooTest"), "untagged")
 
-    def test_first_tag_wins(self):
-        source = '@Tag("fast")\n@Tag("slow")\nclass FooTest\n'
-        self.assertEqual(sync._read_tag(source), "fast")
+    def test_fully_qualified_tag_is_recognised(self):
+        # Файлы, где доменная сущность tags.Tag уже импортирована, пишут
+        # аннотацию полностью. Короткий regex читал их как untagged.
+        source = '@org.junit.jupiter.api.Tag("fast")\nclass FooTest\n'
+        self.assertEqual(sync._read_tag(source, "FooTest"), "fast")
+
+    def test_a_tag_on_another_class_is_not_borrowed(self):
+        # Реальный случай: FakeRepositoryFidelityTest.kt несёт @Tag на
+        # постороннем объекте. Старый код брал первый @Tag в файле, и кейс
+        # получал тег, которого у него нет.
+        source = (
+            "@Tag(\"fast\")\nprivate object Fixture\n"
+            "class FakeRepositoryFidelityTest {\n  @Test fun x() {}\n}\n"
+        )
+        self.assertEqual(
+            sync._read_tag(source, "FakeRepositoryFidelityTest"), "untagged"
+        )
+
+    def test_aliased_tag_import_is_not_required_for_the_common_form(self):
+        # Полная и короткая формы обе поддерживаются; алиас — отдельный случай
+        # TestTagCoverageTest, здесь достаточно не сломать обычный @Tag.
+        source = 'import org.junit.jupiter.api.Tag\n@Tag("slow")\nclass FooTest\n'
+        self.assertEqual(sync._read_tag(source, "FooTest"), "slow")
 
 
 class GitVersionTest(unittest.TestCase):

@@ -297,8 +297,11 @@ tasks.withType<Test>().configureEach {
             // `-Ptest.tags=all` applies no tag filter at all. This is the only
             // setting that runs untagged tests, and JUnit's includeTags()
             // excludes them — so a CI step passing a tag list silently skips
-            // every test that carries no @Tag. See the deferred-backlog entry
-            // `include-tags-excludes-untagged-tests`.
+            // every test that carries no @Tag. TestTagCoverageTest (arch) fails
+            // the build for a class in a tag-filtered source set that has no
+            // @Tag; the finding and the reasoning behind that gate's scope are
+            // under "an-untagged-test-class-is-invisible-to-a-tag-filtered-run"
+            // in `docs/decisions/deferred-backlog.md`.
             tags == listOf("all") -> Unit
             else -> includeTags(*tags.toTypedArray())
         }

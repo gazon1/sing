@@ -128,6 +128,21 @@ RUNTIME_ARTIFACTS = {
 PATH_RE = re.compile(
     r"`([A-Za-z0-9_][A-Za-z0-9_./@-]*\.(?:kt|py|sh|md|yml|yaml|kts|json|toml|sql))`"
 )
+# A backticked dated ADR slug, cited without its `.md`: `2026-10-05-some-finding`.
+#
+# Only dated slugs, never bare kebab tokens. A bare token is not decidable:
+# `singularity-todo-cross-feature-navigation` and `koin-compose-navigation3` are
+# a skill and a Gradle artifact, both living in the same backticked-kebab form as
+# a backlog heading, and a pattern that flagged those would report dozens of live
+# references dead. A leading date is what makes an ADR slug distinguishable, and
+# a false positive here would train the reader to ignore the gate.
+#
+# Worth checking because the references are invisible otherwise: build scripts
+# were not scanned at all, and `shared/build.gradle.kts` cited a backlog entry
+# under a name that exists nowhere in the repo.
+ADR_SLUG_RE = re.compile(
+    r"`(\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*)`"
+)
 # Historical ADRs are allowed to reference files that no longer exist.
 HISTORY_MARKERS = (
     "superseded in part",
@@ -178,6 +193,15 @@ def build_index() -> tuple[set[str], dict[str, list[pathlib.Path]]]:
             continue
         rel_paths.add(name)
         by_name.setdefault(name.split("/")[-1], []).append(ROOT / name)
+
+    # Dated ADR slugs are cited without their `.md`, so the bare slug has to be
+    # resolvable. Without this the check below would flag every such citation in
+    # the repo, including the correct ones.
+    for md in sorted(DECISIONS_DIR.glob("*.md")):
+        if md.name == "DIGEST.md":
+            continue
+        rel_paths.add(md.stem)
+        by_name.setdefault(md.stem, []).append(md)
     return rel_paths, by_name
 
 
@@ -223,17 +247,28 @@ def resolve(ref: str, rel_paths: set[str], by_name: dict[str, list[pathlib.Path]
 
 def scan(path: pathlib.Path, rel_paths, by_name) -> list[tuple[int, str, str]]:
     text = path.read_text(encoding="utf-8", errors="replace")
+    return scan_text(str(path), text, rel_paths, by_name)
+
+
+def scan_text(name: str, text: str, rel_paths, by_name) -> list[tuple[int, str, str]]:
+    """Dangling references in `text`, as (line, ref, verdict).
+
+    Takes the text rather than reading the file so that the rules are testable
+    without planting a broken file in the repo — the same reason the regexes
+    live in named constants.
+    """
     out = []
-    for m in PATH_RE.finditer(text):
-        ref = m.group(1)
-        verdict = resolve(ref, rel_paths, by_name)
-        if verdict == "ok":
-            continue
-        if verdict == "drift" and is_historical(text, m.start()):
-            continue
-        line = text.count("\n", 0, m.start()) + 1
-        historical = is_historical(text, m.start())
-        out.append((line, ref, "historical" if historical else verdict))
+    for pattern in (PATH_RE, ADR_SLUG_RE):
+        for m in pattern.finditer(text):
+            ref = m.group(1)
+            verdict = resolve(ref, rel_paths, by_name)
+            if verdict == "ok":
+                continue
+            if verdict == "drift" and is_historical(text, m.start()):
+                continue
+            line = text.count("\n", 0, m.start()) + 1
+            historical = is_historical(text, m.start())
+            out.append((line, ref, "historical" if historical else verdict))
     return out
 
 
@@ -269,6 +304,9 @@ def main() -> int:
     ]
     targets += sorted(SKILLS_DIR.glob("*/SKILL.md"))
     targets += sorted((ROOT / "shared/src").rglob("*.kt"))
+    # Build scripts cite ADRs too, and a dangling one there is the worst case:
+    # the comment outlives the rename, and nothing else in the tree would notice.
+    targets += [ROOT / name for name in GLOB_BUILD if (ROOT / name).is_file()]
     if args.include_adr:
         targets += [p for p in sorted(DECISIONS_DIR.glob("*.md")) if p.name != "DIGEST.md"]
 

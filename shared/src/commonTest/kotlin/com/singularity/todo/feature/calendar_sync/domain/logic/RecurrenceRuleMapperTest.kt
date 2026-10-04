@@ -1,11 +1,13 @@
 package com.singularity.todo.feature.calendar_sync.domain.logic
 
 import com.singularity.todo.feature.calendar_sync.domain.model.RecurrenceRule
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 
+@Tag("fast")
 class RecurrenceRuleMapperTest {
 
     companion object {

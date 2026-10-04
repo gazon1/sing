@@ -39,7 +39,7 @@ import kotlin.test.fail
  *
  * Every entry is debt, not a shortcut, and each needs a line saying why. Add an
  * entry only together with the work that removes it; see ADR
- * `2026-09-30-testtag-registry-honesty`.
+ * `2026-09-30-draft-save-failure-and-testtag-honesty`.
  */
 @Tag("slow")
 class TestTagsWiringTest {

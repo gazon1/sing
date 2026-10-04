@@ -384,8 +384,9 @@ class EntityMapperCompletenessTest {
      *
      * This test is why the coverage of the other rules can be quoted at all. Before it,
      * the table held 6 of 11 entities and a seventh could be added in silence — the same
-     * "declared but never applied" shape as `2026-09-30-testtag-registry-honesty`, in a
-     * different registry.
+     * "declared but never applied" shape as
+     * `2026-09-30-draft-save-failure-and-testtag-honesty`, in a different
+     * registry.
      */
     @Test
     fun everyEntityIsEitherCheckedOrDeclaredUnmapped() {

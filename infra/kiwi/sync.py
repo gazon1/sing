@@ -158,45 +158,124 @@ def _feature_of(fqn: str) -> str:
     return tail[0]
 
 
-def _read_tag(source: str) -> str:
-    """@Tag("slow") в теле класса — по правилам проекта каждый тестовый
-    класс обязан иметь тег (иначе -Ptest.tags его молча исключит).
+def _read_tag(source: str, class_name: str | None = None) -> str:
+    """Тег уровня КЛАССА, а не первый @Tag в файле.
 
-    Разбираем только аннотации уровня класса: `@Tag` на отдельном методе
-    не делает весь класс slow.
+    По правилам проекта каждый тестовый класс обязан иметь тег — иначе
+    -Ptest.tags его молча исключит из каждого прогона.
+
+    Раньше здесь стояло `re.search` по всему файлу, что неверно для файлов с
+    несколькими классами: `FakeRepositoryFidelityTest.kt` несёт `@Tag("fast")`
+    на постороннем объекте, и тестовый класс на строке 41 получал чужой тег.
+    Kiwi записал бы в свойство junit_tag значение, которого у кейса нет, —
+    и разрез бы отчёт о «медленных» кейсах, которых в этом файле не было.
+
+    Ищем ближайший @Tag над объявлением нужного класса: тот же приём, что в
+    TestTagCoverageTest. Тег на отдельном методе класс не делает slow.
     """
-    m = re.search(r'@Tag\(\s*"([^"]+)"\s*\)', source)
-    return m.group(1) if m else "untagged"
-
-
-def is_runnable_test_class(source: str) -> bool:
-    """Есть ли в файле тест, который JUnit действительно выполнит.
-
-    Отсеивает два вида файлов, которые матчились по имени `*Test.kt`, но
-    никогда не порождают прогона — а значит, в Kiwi превращаются в вечные
-    «кейсы без прогона» и портят главный сигнал отчёта:
-
-    * абстрактные базовые классы контрактов (TaskRepositoryContractTest,
-      FileSystemContractTest) — их наследуют concrete-подклассы, сами они
-      не имеют @Test;
-    * хелперы с суффиксом Test (RunVmTest, IsolatedComposeTest) — это
-      утилиты запуска, а не тесты.
-
-    Проверяется наличие @Test/@ParameterizedTest/@RepeatedTest/@TestFactory
-    и отсутствие abstract/open на самом классе. Проверка по исходнику, а не
-    по имени файла: переименовать хелпер в *Support — ничего не меняет, а
-    abstract-класс в *TestBase — тоже.
-    """
-    if not re.search(
-        r"@(Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b", source
-    ):
-        return False
-    # abstract/open класс верхнего уровня, имя которого и есть имя файла
-    return not re.search(
-        r"^\s*(internal\s+|public\s+|private\s+)?(abstract|open)\s+class\s+\w+",
-        source,
-        re.M,
+    lines = source.split("\n")
+    class_re = re.compile(
+        r"^(?:@\w+(?:\([^)]*\))?\s*)*"
+        r"(?:public |internal |private |protected |abstract |open |final |sealed |data |value )*"
+        r"(?:class|object)\s+(\w+)"
     )
+    # Полная форма `@org.junit.jupiter.api.Tag("…")` — её пишут файлы, где
+    # `com.singularity.todo.feature.tags.Tag` уже импортирован и короткое
+    # имя занято доменной сущностью. Ровно тот же приём, что в
+    # TestTagCoverageTest; без него «быстрый» класс читался как untagged.
+    tag_re = re.compile(r'@(?:org\.junit\.jupiter\.api\.)?Tag\(\s*"([^"]+)"\s*\)')
+    for index, line in enumerate(lines):
+        header = class_re.match(line.strip())
+        if not header:
+            continue
+        if class_name and header.group(1) != class_name:
+            continue
+        # Поднимаемся по аннотациям над объявлением.
+        for back in range(index - 1, -1, -1):
+            stripped = lines[back].strip()
+            if stripped.startswith("@"):
+                found = tag_re.search(stripped)
+                if found:
+                    return found.group(1)
+                continue
+            break
+    return "untagged"
+
+
+# JUnit-аннотации, порождающие прогон. @ParameterizedTest обязателен:
+# RecurrenceRuleMapperTest и RruleGeneratorTest — настоящие сюиты без
+# @Test в файле, и фильтр только по @Test выкинул бы их.
+_TEST_MEMBER = re.compile(
+    r"^\s*@(?:kotlin\.test\.)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory"
+    r"|TestTemplate)\b"
+)
+
+
+def _test_classes_in(source: str) -> list[str]:
+    """Имена тест-классов верхнего уровня, объявленных в файле.
+
+    Нужна для точного чтения тега (см. _read_tag) и для отсева, но НЕ как
+    основание для идентификатора кейса: переход на «один кейс = одно
+    объявление» меняет ключ идемпотентности и требует миграции уже залитых
+    кейсов, а не починки. Это зафиксировано в ADR и в бэклоге.
+    """
+    lines = source.split("\n")
+    header_re = re.compile(
+        r"^(?:@\w+(?:\([^)]*\))?\s*)*"
+        r"(?:public |internal |private |protected |abstract |open |final |sealed |data |value )*"
+        r"(?:class|object)\s+(\w+)"
+    )
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        header = header_re.match(line.strip())
+        if not header:
+            continue
+        name = header.group(1)
+        if not name.endswith("Test") or _is_abstract_or_open(lines[index]):
+            continue
+        if _has_test_member(lines, index):
+            out.append(name)
+    return out
+
+
+def _is_abstract_or_open(declaration: str) -> bool:
+    return re.match(
+        r"^(?:public |internal |private |protected )?(?:abstract|open)\s+", declaration
+    ) is not None
+
+
+def _has_test_member(lines: list[str], class_index: int) -> bool:
+    """Есть ли @Test-аннотация в теле класса, начавшемся на [class_index].
+
+    Считает фигурные скобки до закрытия тела, поэтому длина класса значения не
+    имеет: у EntityMapperCompletenessTest первая @Test идёт на 340-й строке,
+    и фиксированное окно в N строк отсеивало реальный тест как «пустой».
+    """
+    if "{" not in lines[class_index]:
+        return any(
+            _TEST_MEMBER.match(lines[class_index + i])
+            for i in range(1, 6)
+            if class_index + i < len(lines)
+        )
+    depth = 0
+    opened = False
+    for i in range(class_index, len(lines)):
+        for ch in lines[i]:
+            if ch == "{":
+                depth += 1
+                opened = True
+            elif ch == "}":
+                depth -= 1
+        if _TEST_MEMBER.match(lines[i]):
+            return True
+        if opened and depth == 0:
+            return False
+    return False
+
+
+def has_runnable_test(source: str) -> bool:
+    """Есть ли в файле тест, который JUnit действительно выполнит."""
+    return bool(_test_classes_in(source))
 
 
 def scan_repository() -> list[RepoTest]:
@@ -205,19 +284,17 @@ def scan_repository() -> list[RepoTest]:
         if not root.exists():
             continue
         for path in sorted(root.rglob("*Test.kt")):
+            try:
+                source = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                source = ""
             fqn = (
                 path.relative_to(root).with_suffix("").as_posix().replace("/", ".")
             )
             if not fqn.startswith(PKG_PREFIX):
                 fqn = f"{PKG_PREFIX}.{fqn}"
-            try:
-                source = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                source = ""
-            if not is_runnable_test_class(source):
-                SKIPPED_NON_TESTS.append(
-                    (fqn, _rel(path))
-                )
+            if not has_runnable_test(source):
+                SKIPPED_NON_TESTS.append((path.stem, _rel(path)))
                 continue
             found.append(
                 RepoTest(
@@ -227,7 +304,13 @@ def scan_repository() -> list[RepoTest]:
                     plan=PLAN_OF_ROOT.get(module, f"Automated — {module}"),
                     rel_path=_rel(path),
                     feature=_feature_of(fqn),
-                    tag=_read_tag(source),
+                    # Тег берём у класса, чьё имя совпадает с именем файла.
+                    # Если в файле объявлен другой тест-класс
+                    # (NoopSubscriptionProviderTest.kt → PurchaseStateTest), честный
+                    # ответ — untagged, потому что кейс назван по файлу, а тега
+                    # у этого имени нет. Это видимый признак расхождения, а не
+                    # тихая подстановка чужого тега.
+                    tag=_read_tag(source, path.stem),
                     is_arch=".arch." in fqn or fqn.endswith(".arch"),
                 )
             )

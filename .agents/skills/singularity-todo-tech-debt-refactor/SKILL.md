@@ -77,7 +77,7 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 **Priority:** Medium
 - ADR: default = plain `MutableStateFlow`, `combine+stateIn` only for pure read-through VMs
 - Candidates: `AgendaViewModel`, `SavedAgendaListViewModel`, `ProjectsViewModel`, `StatisticsViewModel`
-- Update `testable-vm` and `vm-intent-pattern` skills
+- Update `singularity-todo-testable-vm` and `singularity-todo-vm-intent-pattern` skills
 
 **Skills:** `singularity-todo-testable-vm`, `singularity-todo-decisions-workflow`
 
