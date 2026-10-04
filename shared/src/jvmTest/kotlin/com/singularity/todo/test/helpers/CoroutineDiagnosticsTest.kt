@@ -17,7 +17,7 @@ import kotlin.test.assertContains
  * These do NOT test the output format — format is verified by reading actual
  * dumps during real incidents. These only confirm the agent is working.
  */
-@Tag("slow")
+@Tag("fast")
 class CoroutineDiagnosticsTest {
 
     @Test

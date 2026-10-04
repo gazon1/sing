@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@Tag("slow")
+@Tag("fast")
 class DefaultBackupFileNamerTest {
 
     @Test

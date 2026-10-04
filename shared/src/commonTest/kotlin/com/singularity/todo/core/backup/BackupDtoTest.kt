@@ -14,7 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-@Tag("slow")
+@Tag("fast")
 class BackupDtoTest {
 
     @Test

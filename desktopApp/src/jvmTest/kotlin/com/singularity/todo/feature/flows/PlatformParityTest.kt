@@ -34,7 +34,7 @@ import kotlin.test.Test
  *    the reason in a comment.
  */
 @OptIn(ExperimentalTestApi::class)
-@Tag("slow")
+@Tag("fast")
 class PlatformParityTest {
 
     @Test

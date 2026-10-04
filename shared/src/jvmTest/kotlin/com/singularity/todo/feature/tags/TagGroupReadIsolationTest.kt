@@ -25,7 +25,7 @@ import kotlin.time.Clock
  * Read-isolation for tag-group observation. Same defect class as `TagsReadIsolationTest`
  * and the `TaskDao.getById` leak closed in `2026-09-27-write-layer-soundness` (ledger #1).
  */
-@Tag("slow")
+@Tag("fast")
 class TagGroupReadIsolationTest {
 
     private val currentUserId = UserId("u1")

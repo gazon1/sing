@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
-@Tag("slow")
+@Tag("fast")
 class FabActionResolverTest {
 
     private var navigatedTo: AppDestination? = null

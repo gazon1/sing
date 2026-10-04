@@ -26,7 +26,7 @@ import kotlin.test.Test
  * literal "September 2026" would silently start failing next month.
  */
 @OptIn(ExperimentalTestApi::class)
-@Tag("slow")
+@Tag("fast")
 class CalendarFlowTest {
 
     private val today: LocalDate = todayInSystemZone()

@@ -29,7 +29,7 @@ import kotlin.test.assertEquals
  * the configured default.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-@Tag("slow")
+@Tag("fast")
 class DataStoreCatchTest {
 
     @Test

@@ -22,7 +22,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-@Tag("slow")
+@Tag("fast")
 class AgendaEvaluatorTest {
 
     // Fixed date so tests are deterministic regardless of the machine's system date.

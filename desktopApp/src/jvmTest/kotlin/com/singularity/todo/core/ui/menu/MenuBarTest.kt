@@ -15,7 +15,7 @@ import kotlin.test.Test
  * Integration tests with a real window would verify File / Edit / View / Help
  * submenus and the Ctrl+Q quit shortcut.
  */
-@Tag("slow")
+@Tag("fast")
 class MenuBarTest {
 
     private fun buildSampleMenu() = buildMenuNodes {

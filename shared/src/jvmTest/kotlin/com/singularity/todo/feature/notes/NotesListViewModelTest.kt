@@ -23,7 +23,7 @@ import kotlin.test.assertIs
  * Smoke tests for [NotesListViewModel] — verify state initialization and filter changes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-@Tag("slow")
+@Tag("fast")
 class NotesListViewModelTest {
 
     /** Mirrors `NotesListViewModel`'s debounce window; must be ≥ the real one. */

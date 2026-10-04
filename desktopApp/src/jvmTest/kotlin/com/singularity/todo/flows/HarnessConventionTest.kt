@@ -18,7 +18,7 @@ import kotlin.test.fail
  * Scanned from source rather than reflection because the flag lives in a default
  * parameter of a lambda, which is invisible at runtime.
  */
-@Tag("slow")
+@Tag("fast")
 class HarnessConventionTest {
 
     private val flowTests: List<File> by lazy {

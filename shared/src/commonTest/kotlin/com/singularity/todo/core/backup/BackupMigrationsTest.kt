@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-@Tag("slow")
+@Tag("fast")
 class BackupMigrationsTest {
 
     private val json = Json { ignoreUnknownKeys = true }

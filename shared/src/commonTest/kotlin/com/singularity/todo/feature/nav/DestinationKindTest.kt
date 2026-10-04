@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  * on every platform. Verifies the **contract** (which destinations are
  * tabs/menu/sub-routes), not the implementation.
  */
-@Tag("slow")
+@Tag("fast")
 class DestinationKindTest {
 
     @Test

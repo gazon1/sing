@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
  *
  * Verifies: observeAll, observe, upsert, delete, and the StableJson sections round-trip.
  */
-@Tag("slow")
+@Tag("fast")
 class SavedAgendaViewsRepositoryImplTest {
 
     private fun repo(): SavedAgendaViewsRepository {

@@ -34,7 +34,7 @@ import kotlin.test.assertTrue
  * They run on JVM; the crashes were Android-only because only Android evaluates the
  * `SavedStateConfiguration`. Building the same configuration here reproduces both.
  */
-@Tag("slow")
+@Tag("fast")
 class NavSavedStateConfigTest {
 
     @Test

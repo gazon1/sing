@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@Tag("slow")
+@Tag("fast")
 class AppFilePickerTest {
     @Test
     fun `backup purpose filters to zip archives`() {

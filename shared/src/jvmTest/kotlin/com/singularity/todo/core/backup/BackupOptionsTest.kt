@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-@Tag("slow")
+@Tag("fast")
 class BackupOptionsTest {
 
     @Test

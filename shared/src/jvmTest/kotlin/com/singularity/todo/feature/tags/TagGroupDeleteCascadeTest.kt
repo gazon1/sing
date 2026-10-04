@@ -36,7 +36,7 @@ import kotlin.time.Clock
  * The join table is the half that actually changed user-visible behaviour, so it is
  * covered first; the tag release is asserted through the same delete.
  */
-@Tag("slow")
+@Tag("fast")
 class TagGroupDeleteCascadeTest {
 
     private val userId = UserId("u1")

@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  * - Archive path is returned on success
  * - Failure from BackupCodec propagates as Result.failure
  */
-@Tag("slow")
+@Tag("fast")
 class LogBundleExporterTest {
 
     private val fs: FileSystem = MapFileSystem()

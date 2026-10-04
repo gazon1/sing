@@ -33,7 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@Tag("slow")
+@Tag("fast")
 class BackupViewModelTest {
 
     private val testUserId = UserId("test-user")

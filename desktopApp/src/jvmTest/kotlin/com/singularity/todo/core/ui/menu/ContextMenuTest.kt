@@ -16,7 +16,7 @@ import kotlin.test.Test
  * test in a headless environment. These tests verify the composable renders
  * without crashing for both hidden (null) and shown (non-null) states.
  */
-@Tag("slow")
+@Tag("fast")
 class ContextMenuTest {
 
     private fun buildSampleEntries() = buildMenuNodes {

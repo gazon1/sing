@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 
 /** Covers delete-with-undo, archive-without-undo, and restore. */
 @OptIn(ExperimentalCoroutinesApi::class)
-@Tag("slow")
+@Tag("fast")
 class TaskLifecycleSlotTest {
 
     private fun slot(

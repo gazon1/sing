@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
  * The regression this prevents: a user-entered title containing a space or a
  * dash used to produce a tag no selector could reliably match.
  */
-@Tag("slow")
+@Tag("fast")
 class SlugTest {
 
     @Test

@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
  *   what [TestTagsCatalog] produces. Regenerate with
  *   `./gradlew :shared:jvmTest -PupdateGoldens=true`.
  */
-@Tag("slow")
+@Tag("fast")
 class TestTagsCatalogJvmTest {
 
     // ─── Catalog parsing ────────────────────────────────────────────────────────

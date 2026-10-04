@@ -20,7 +20,7 @@ import kotlin.test.assertEquals
  * The inventory is exhaustive-by-hand, mirroring [NavKeyRegistrationTest]: one
  * representative per declared leaf.
  */
-@Tag("slow")
+@Tag("fast")
 class ScreenFamilyTest {
 
     private fun assertFamily(expected: ScreenFamily, key: AppNavKey) {

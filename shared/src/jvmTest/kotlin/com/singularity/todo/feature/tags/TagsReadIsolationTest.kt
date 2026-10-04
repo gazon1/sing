@@ -30,7 +30,7 @@ import kotlin.time.Clock
  * class as the `TaskDao.getById` leak closed in `2026-09-27-write-layer-soundness`
  * (ledger #1).
  */
-@Tag("slow")
+@Tag("fast")
 class TagsReadIsolationTest {
 
     private val currentUserId = UserId("u1")

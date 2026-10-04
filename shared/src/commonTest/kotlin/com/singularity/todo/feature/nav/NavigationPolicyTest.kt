@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * Pure commonTest: the policy has no Compose, no state, no platform. Prior art for the
  * (from, to) table style: `Nav3StateReselectTest`.
  */
-@Tag("slow")
+@Tag("fast")
 class NavigationPolicyTest {
 
     private fun resolve(from: AppNavKey, to: AppNavKey) = NavigationPolicy.resolve(from, to)

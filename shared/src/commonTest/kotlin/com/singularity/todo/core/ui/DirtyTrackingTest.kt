@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
  * A bug in either layer causes the "You have unsaved changes" prompt to fire
  * incorrectly (false positive) or not fire when it should (false negative).
  */
-@Tag("slow")
+@Tag("fast")
 class DirtyTrackingTest {
 
     // ─── DraftState — pure dirty tracking ─────────────────────────────────────

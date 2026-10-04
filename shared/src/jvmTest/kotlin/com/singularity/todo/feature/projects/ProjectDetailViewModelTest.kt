@@ -77,7 +77,7 @@ private fun testTaskIn(projectId: String, title: String): Task = Task(
  *
  * Timing: uses virtual time via advanceTimeBy(1_000); runCurrent() — no real delays or spin-waiting.
  */
-@Tag("slow")
+@Tag("fast")
 class ProjectDetailViewModelTest {
 
     private val testUserId = UserId("test-user")

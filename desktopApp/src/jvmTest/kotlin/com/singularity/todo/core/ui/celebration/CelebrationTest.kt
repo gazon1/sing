@@ -23,7 +23,7 @@ import kotlin.test.Test
  * - Empty [Celebration.triggerKey] renders content without effects
  * - [Celebration.haptic] = null with [Celebration.hapticsEnabled]=true does not throw
  */
-@Tag("slow")
+@Tag("fast")
 class CelebrationTest {
 
     private class RecordingHaptic : Haptic {

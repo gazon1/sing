@@ -43,7 +43,7 @@ import kotlin.test.assertEquals
  * @see Nav3State.toDecoratedEntries
  */
 @OptIn(ExperimentalTestApi::class)
-@Tag("slow")
+@Tag("fast")
 class AgendaTabDefinitionFlowTest {
 
     @Test
