@@ -1,9 +1,15 @@
 ---
 title: Six independent CI checks, run in parallel
 date: 2026-10-05
-status: accepted
+status: deferred
 tags: [ci, process, performance]
 ---
+
+> **Withdrawn from the tree on 2026-10-05, hours after landing.** The measurement
+> below is correct and was reproduced twice. The implementation is not in the tree: see
+> [Why this was reverted](#why-this-was-reverted). The split is deferred, not
+> abandoned — it is `ci-parallel-split-blocked-by-new-intra-job-coupling` in
+> `deferred-backlog.md`.
 
 ## Context
 
@@ -87,8 +93,9 @@ it.
 ## Consequences
 
 - Wall clock went from 24.25m to 9.2m on the same commit, measured across two
-  runs: 2.65x. The critical path is now `jvm-tests` at 9.1m, not the sum of
-  every check in the workflow.
+  runs: 2.65x. That was the split as built; it is not the state of the tree
+  today. The critical path under the split was `jvm-tests` at 9.1m, not the sum
+  of every check in the workflow.
 - Nine jobs now start where there was one, so a 4-core private repository pays
   for concurrent runners. It is cheap relative to the wall clock, and worth
   revisiting if the bill matters more than the wait.
@@ -99,6 +106,40 @@ it.
   rather than as a position in a 25-step log.
 - `assembleDebug` remains the critical path's tail. More runner cores, or the
   compile-only trade, are the two levers left, and both are an owner's call.
+
+## Why this was reverted
+
+This ADR was written against the `test-and-check` job as it stood before this
+branch was rebased onto `main`. `main` had independently made that job *coupled*
+in three places the six-leaf split assumed absent:
+
+- `Stamp run start` writes `$RUN_STARTED`, and `Check executed test counts` and
+  `Check coverage floors` both read it to assert freshness. A count floor is only
+  meaningful against the results written by the same job in the same run; the
+  stamp and the floor have to stay in one place.
+- `Flake analysis vs previous run` reads `shared/build/test-results/jvmTest` of
+  the *current* job and the `junit-results` artifact of the *previous* run. Two
+  runs, two jobs, one comparison.
+- `main` moved kover and its floors into a job that also runs the test tasks,
+  because Kover's report has to be generated from a test run rather than from
+  whatever a cache held.
+
+Splitting on "these steps do not import each other" was true of the old job and
+false of the new one. Applying the old shape to the new job would have produced a
+green run whose count floors and flake analysis measured the wrong thing — a
+faster pipeline that quietly checks less, which is the specific failure mode this
+whole branch exists to remove.
+
+So `main`'s monolith is what ships, and this decision is recorded as measured,
+built, and withdrawn. Redoing it means designing around the coupling first:
+publish `$RUN_STARTED` as a job output, or move the count and coverage floors
+into the leaves that actually produced the results, or drop the per-run
+comparison for a stored-baseline one. That is a separate piece of work with its
+own ADR, and it is in `deferred-backlog.md`.
+
+The parts of this change that carried no coupling did stay: the widened path
+filters, the action version bumps, the `ubuntu-24.04` pin, the retry fix and the
+restored `:detekt-rules` steps are all in `ci.yml`.
 
 ## Links
 

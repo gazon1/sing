@@ -50,25 +50,10 @@ on:
       - "gradle/**"
       - "build-logic/**"
       - ".github/workflows/ci.yml"
+      - "scripts/check-openspec-stale.py"
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # The six leaves below are independent by construction, so they run at the
-  # same time. Measured on run 37209255590, where one sequential job spent
-  # 24.25m:
-  #
-  #   jvmTest 7.48m   assembleDebug 10.27m   detekt 2.10m
-  #   detekt-rules test 1.42m   detekt-rules lint 0.50m   setup 0.56m
-  #   desktopApp:test 1.72m   all eight Python/doc gates 0.13m   uploads 0.07m
-  #
-  # Nothing here depends on anything else next to it: the two test tasks touch
-  # different modules, the Android build needs no test results, and the
-  # doc gates need no Gradle at all — they are Python and were sitting behind
-  # two Gradle invocations for no reason. AssembleDebug becomes the critical
-  # path at ~10.8m, so the suite stops being gated on the slowest thing in it.
-  # ---------------------------------------------------------------------------
-
-  docs-gates:
+  test-and-check:
     runs-on: ubuntu-24.04
     permissions:
       # read actions so the flake step can download the previous run's results;
@@ -107,15 +92,15 @@ jobs:
             cc-${{ github.job }}-${{ runner.os }}-
 
       # Compute retry policy and pass to test JVMs via GRADLE_OPTS.
-      # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly.
+      # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly
+      # and does repeat(maxAttempts).
       # PRs: lenient (max=2, failOnPassedAfterRetry=false).
-      # main: strict (max=0, failOnPassedAfterRetry=true).
-      # The desktopApp UI harness reads retry.maxAttempts and does
-      # repeat(maxAttempts). It used to be 0 here, meaning "no retry" — so
-      # repeat(0) skipped every test body and all 45 desktopApp UI tests failed
-      # with IllegalStateException("unreachable") on every push. "No retry" is
-      # one attempt, which is also the harness default, so the non-PR branch
-      # only needs the strict reporting flag.
+      # main: strict (failOnPassedAfterRetry=true, one attempt).
+      # maxAttempts is deliberately ABSENT on the non-PR branch. It used to be 0 here,
+      # read as "no retry" — but "no retry" is one attempt, which is already the harness
+      # default, and repeat(0) skips every test body instead. All 45 desktopApp UI tests
+      # failed with IllegalStateException("unreachable") on every push. "Do not retry"
+      # is not "run the body zero times".
       - name: Set retry environment
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -123,46 +108,6 @@ jobs:
           else
             echo "GRADLE_OPTS=-Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
           fi
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      # One of the gates imports yaml, so this is not optional.
-      - name: Install PyYAML
-        run: python -m pip install --quiet pyyaml
-
-      # The :detekt-rules config is generated from detekt.yml, so it can silently go stale.
-      - name: Check generated detekt-rules config is current
-        run: python3 scripts/gen-detekt-rules-config.py --check
-
-      # Gate-script tests. These cover the doc/governance gates this repo depends
-      # on, and they were runnable only by hand.
-      #
-      # The "ran 0 tests" check is load-bearing. A test file that omits
-      # `unittest.main()` defines its tests, runs none of them, and exits 0 — so a
-      # broken test added without the main block would make this step pass while
-      # testing nothing. Verified by probe on 2026-10-05.
-      - name: Run gate-script tests
-        run: |
-          set -uo pipefail
-          status=0
-          for t in scripts/tests/test_*.py; do
-            echo "--- $t"
-            out=$(python3 "$t" 2>&1); rc=$?
-            echo "$out" | tail -3
-            if [ "$rc" -ne 0 ]; then
-              echo "::error::$t exited $rc"
-              status=1
-              continue
-            fi
-            if ! echo "$out" | grep -qE '^Ran [1-9][0-9]* tests?'; then
-              echo "::error::$t ran zero tests — is unittest.main() missing?"
-              status=1
-            fi
-          done
-          exit $status
 
       - name: Build version catalog gate
         # blocking as of 2026-10-04: a hardcoded group:artifact:version literal is a
@@ -175,19 +120,17 @@ jobs:
       - name: Run desktopApp:test
         run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
 
-      # A failing gradle test task prints only "See the report at
-      # <workspace path>" — a path that exists on the runner and nowhere
-      # else. Without these uploads a red build offers no stack trace at
-      # all, and the failure has to be reproduced locally. The HTML
-      # report is browsable; the JUnit XML is what tooling parses.
-      - name: Upload shared test reports
+      # The rules that enforce this repo are only trustworthy if their own tests run.
+      # A custom detekt rule with no test is a rule that can silently stop matching.
+      - name: Run detekt-rules:test
+        run: ./gradlew :detekt-rules:test --no-daemon --configuration-cache
+
+      - name: Upload desktop failure bundle
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: shared-test-reports-${{ github.run_id }}
-          path: |
-            shared/build/reports/tests/**
-            shared/build/test-results/**
+          name: desktop-failure-bundle-${{ github.run_id }}
+          path: desktopApp/build/diagnostics/**
           if-no-files-found: ignore
           retention-days: 14
 
@@ -200,75 +143,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  desktop-tests:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      # The desktopApp harness reads retry.maxAttempts and
-      # retry.failOnPassedAfterRetry as system properties; GRADLE_OPTS is how they
-      # reach the test JVM. Only this module reads them (DesktopAppHarness), so
-      # this step is here rather than in every job.
-      - name: Set retry environment
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "GRADLE_OPTS=-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false" >> "$GITHUB_ENV"
-          else
-            echo "GRADLE_OPTS=-Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
-          fi
-
-      - name: Run desktopApp:test (full suite)
-        run: ./gradlew :desktopApp:test -Ptest.tags=all --no-daemon
-
-      - name: Upload desktop test reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: desktop-test-reports-${{ github.run_id }}
-          path: |
-            desktopApp/build/reports/tests/**
-            desktopApp/build/test-results/**
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload desktop failure bundle
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: desktop-failure-bundle-${{ github.run_id }}
-          path: desktopApp/build/diagnostics/**
-          if-no-files-found: ignore
-          retention-days: 14
-
-  android-build:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
       # Published on every run, not only on failure: flake analysis is a
       # comparison between two runs, and a results set that only exists when
       # something broke is exactly the half you need.
       - name: Upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: junit-results
           path: |
@@ -304,7 +184,7 @@ jobs:
 
       - name: Upload configuration cache report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: configuration-cache-${{ github.job }}-${{ github.run_id }}
           path: "**/build/reports/configuration-cache/**"
@@ -331,37 +211,21 @@ jobs:
         # same failure one level up. 20 ms, no JVM, so it runs every time.
         run: python3 -m unittest discover -s scripts/tests
 
-  detekt-main:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+      # config/detekt/detekt-rules-module.yml is generated from config/detekt/detekt.yml,
+      # so it can go stale while both files still parse and detekt still passes — against
+      # a config that no longer says what the rules need. --check fails on drift.
+      - name: Check generated detekt-rules config is current
+        run: python3 scripts/gen-detekt-rules-config.py --check
 
       - name: Run detekt
         # blocking as of 2026-10-04: enforceMode is already on in both modules and
         # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
         # reports violations nobody has to fix.
-        run: ./gradlew :shared:detekt :desktopApp:detekt --no-daemon --configuration-cache
+        run: ./gradlew :shared:detekt :desktopApp:detekt :detekt-rules:detekt --no-daemon --configuration-cache
 
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
-
-      # DIGEST.md is generated and gitignored, so a clean checkout has no such
-      # file. Both gates below need it: the size gate budgets its line count,
-      # and the dead-reference gate reports its 11 inbound references as broken
-      # without it, failing every run. docs-audit.yml refreshes it for the
-      # same reason.
-      - name: Refresh DIGEST
-        run: python3 scripts/refresh-decisions-digest.py
 
       - name: Check doc sizes
         # DIGEST.md is generated and gitignored, so on a fresh checkout it does
@@ -584,7 +448,7 @@ jobs:
           python3 scripts/check-test-runs.py --require mcp-server:test
       - name: Upload configuration cache report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: configuration-cache-${{ github.job }}-${{ github.run_id }}
           path: "**/build/reports/configuration-cache/**"
