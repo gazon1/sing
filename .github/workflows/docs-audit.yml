@@ -16,12 +16,18 @@ on:
     paths:
       - 'docs/decisions/**'
       - 'AGENTS.md'
+      # Skills are agent-facing documentation and check-skill-frontmatter.sh runs
+      # in this workflow. Without these paths a PR that left a skill without a
+      # `description` — making it undiscoverable to the agent loader — never
+      # triggered the audit that would have caught it.
+      - '.agents/skills/**'
+      - '.just/**'
       - 'ARCHITECTURE.md'
       - 'docs/doc-maintenance.md'
+      - 'README.md'
+      - 'PROGRESS.md'
       - '.github/workflows/docs-audit.yml'
-      - 'scripts/refresh-decisions-digest.*'
-      - 'scripts/normalize-adr-frontmatter.*'
-      - 'scripts/print-source-tree.*'
+      - 'scripts/**'
       - 'openspec/**'
       - 'README.md'
       - 'PROGRESS.md'

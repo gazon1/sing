@@ -274,6 +274,20 @@ jobs:
       - name: Gates are wired and can fail
         run: python3 scripts/check-gate-wiring.py
 
+      # Sibling check one level down: a detekt rule absent from detekt.yml runs on
+      # detekt's built-in default, i.e. nobody decided it applies. 18 such rules
+      # held 247 of 428 baseline entries and two of them contradicted AGENTS.md.
+      - name: Lint rules are declared decisions
+        run: python3 scripts/check-rule-intent.py
+
+      - name: Check skill frontmatter
+        run: ./scripts/check-skill-frontmatter.sh
+        # A skill without a `description` is undiscoverable to the agent loader.
+        # This gate existed only in check.sh and `just docs-audit`, and
+        # docs-audit.yml's path filter did not include .agents/skills/** — so a PR
+        # that broke a skill's frontmatter failed nothing. ci.yml has no path
+        # filter, so it is reachable from any PR.
+
       - name: Check doc sizes
         # DIGEST.md is generated and gitignored, so on a fresh checkout it does
         # not exist and the budget check would silently skip it. Regenerate
