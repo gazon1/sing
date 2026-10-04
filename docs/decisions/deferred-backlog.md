@@ -748,3 +748,45 @@ size and mtime at the start, compare after a recovery, and fail loudly if they
 differ — or simply drop `SKIP_INSTALL=1` on the recovery path. The flag exists
 to save time, and it costs correctness exactly when the run is already going
 wrong.
+
+---
+
+## kover-full-jvmtest-run-unmeasured
+
+**Found in:** MR-6, while building the agenda coverage ratchet.
+
+Instrumentation for `:shared:jvmTest` is opt-in behind `-Pkover.jvmTest=true`,
+and only a *filtered* run has ever been exercised — a filtered agenda suite,
+~90 s, no OOM. The full suite under instrumentation has not been run since the
+OOM that motivated disabling it, and that OOM was itself misattributed
+(ledger #11 above: it reproduces with Kover off and in isolation).
+
+**Do this first:** one instrumented run of the full `:shared:jvmTest` with
+`/usr/bin/time -v` for peak RSS. If it completes, the default-off status in the
+kover block is dead and can be flipped.
+
+**Why it matters:** until then the flag is a workaround for a workaround, and
+the ratchet measures a filtered run by necessity rather than by design. It also
+blocks merging the desktopApp report, which is what would let the Compose
+subtrees come out of the exclusion in
+`config/coverage-ratchet.json`. See
+`2026-10-04-kover-jvmtest-instrumentation-opt-in.md`.
+
+---
+
+## just-name-value-args-are-not-interpreted
+
+**Found in:** MR-6 follow-up, while adding the Maestro gate recipe.
+
+`just <recipe> name=value` does **not** assign `value` to `name` in this
+environment — the whole token arrives as the value. Reproduced on just 1.57.0
+with a two-line recipe: `just p tags=agenda` echoes `tags=[tags=agenda]`, while
+`just p agenda` echoes `tags=[agenda]`.
+
+**Impact:** any recipe invoked with named arguments silently receives a
+malformed value. It did not error — it produced a confusing downstream failure
+("No flow files carry tag(s): tags=agenda"), which is the expensive kind.
+
+**Do this first:** use positional arguments (`just gm agenda`), and check the
+recipe's `[doc()]` text shows positional usage. If named arguments are wanted
+later, verify with a probe recipe first rather than assuming.

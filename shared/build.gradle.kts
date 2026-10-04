@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.PathSensitivity
 
 plugins {
 	alias(libs.plugins.kotlinMultiplatform)
@@ -309,6 +310,16 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "jvmTest.root",
         layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // MaestroFlowTagsTest reads the flow files off disk, which makes them an
+    // input to this task whether Gradle knows it or not. Declaring them keeps
+    // the task from being UP-TO-DATE after a flow-only edit — otherwise editing
+    // a journey locally leaves the contract test silently unrun, and CI (a fresh
+    // checkout) is the only place it would ever execute. A gate that can skip
+    // itself without saying so is the same failure mode as a gate that tests
+    // the wrong binary.
+    inputs.dir(rootProject.layout.projectDirectory.dir("Maestro"))
+        .withPropertyName("maestroFlows")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Restrict this run to a test subset via -Pcoverage.tests="…", so the same
     // configuration applies when koverXmlReport pulls jvmTest in as a dependency.
     // A `--tests` flag on the command line cannot be used for that: Gradle

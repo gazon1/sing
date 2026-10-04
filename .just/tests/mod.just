@@ -209,3 +209,21 @@ ui-maestro flow="Maestro/flows" tags="":
     set -euo pipefail
     SERIAL="${SERIAL:-}" FLOW="{{ flow }}" TAGS="{{ tags }}" \
         bash scripts/run-maestro.sh
+
+[group('tests')]
+[doc('Maestro gate: install the APK, then run every flow carrying a tag (positional args!)')]
+[working-directory(justfile_directory())]
+gate-maestro tags="agenda" serial="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Install first, by construction. The trap this avoids: passing
+    # SKIP_INSTALL=1 to save a minute, the emulator dying mid-run, the
+    # relaunched device holding a snapshot from before your fix — and the
+    # journeys going green against a binary that does not contain it.
+    if [[ -n "{{serial}}" ]]; then
+        ./gradlew :androidApp:installDebug -Pandroid.device="{{serial}}" --quiet
+    else
+        ./gradlew :androidApp:installDebug --quiet
+    fi
+    SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
+        bash scripts/run-maestro.sh

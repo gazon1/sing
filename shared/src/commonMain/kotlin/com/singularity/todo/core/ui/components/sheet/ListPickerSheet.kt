@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
 
 /**
  * A single item in a [ListPickerSheet].
@@ -114,6 +115,11 @@ fun <T> ListPickerSheet(
 private fun <T> ListPickerItemRow(item: ListPickerItem<T>, onSelect: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth()
+            // A modal sheet is its own Android window, so the app-root
+            // testTagsAsResourceId does not reach the rows. Without this every
+            // picker's testTag is invisible to Maestro and callers are pushed
+            // into selecting by visible label instead.
+            .exposeTestTagsAsResourceId()
             .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
             .then(
                 if (item.enabled) Modifier.clickable(onClick = onSelect) else Modifier,

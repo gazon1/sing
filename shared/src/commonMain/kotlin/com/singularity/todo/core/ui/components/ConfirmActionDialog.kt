@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.exposeTestTagsAsResourceId
 
 /**
  * Generic confirmation dialog with customizable title, text, and button labels.
@@ -44,7 +45,12 @@ fun ConfirmActionDialog(
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                modifier = Modifier.testTag(TestTags.Dialog.CONFIRM),
+                // A dialog is its own Android window, so the app-root
+                // testTagsAsResourceId never reaches it. Without this the tag is
+                // invisible to Maestro and the flow has to select by label.
+                modifier = Modifier
+                    .testTag(TestTags.Dialog.CONFIRM)
+                    .exposeTestTagsAsResourceId(),
             ) {
                 Text(confirmButtonText)
             }
@@ -52,7 +58,9 @@ fun ConfirmActionDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                modifier = Modifier.testTag(TestTags.Dialog.DISMISS),
+                modifier = Modifier
+                    .testTag(TestTags.Dialog.DISMISS)
+                    .exposeTestTagsAsResourceId(),
             ) {
                 Text(dismissButtonText)
             }

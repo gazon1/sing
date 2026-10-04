@@ -49,10 +49,8 @@ tags:
 - extendedWaitUntil:
     visible: "Copy to profile"
     timeout: 8000
-# The picker rows live in a ModalBottomSheet window whose semantics tree is
-# not exposed with resource-ids to UIAutomator, so the row is selected by its
-# visible label ("Personal" is the seeded default profile's name).
-- tapOn: "Personal"
+- tapOn:
+    id: profile_item_personal
 # CopySuccess shows the "Copied to Personal" snackbar; the list now holds two
 # cards with the same name — one is enough to assert.
 - extendedWaitUntil:

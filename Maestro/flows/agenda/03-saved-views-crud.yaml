@@ -66,11 +66,8 @@ tags:
 - extendedWaitUntil:
     visible: "Delete view?"
     timeout: 8000
-# By label, not by id: an AlertDialog is its own Android window, and the
-# testTagsAsResourceId semantics property is not inherited into it, so
-# dialog_confirm never appears in the UIAutomator hierarchy. The tag is still
-# correct for the desktop Compose tests, which read the semantics tree.
-- tapOn: "Delete"
+- tapOn:
+    id: dialog_confirm
 
 - extendedWaitUntil:
     visible: "Saved Views"

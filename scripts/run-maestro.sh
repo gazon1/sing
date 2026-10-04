@@ -243,6 +243,13 @@ run_one_flow() {
         if [[ "${SKIP_INSTALL:-0}" != "1" ]]; then
             (cd "$REPO_ROOT" && ./gradlew :androidApp:installDebug -Pandroid.device="$SERIAL" --quiet) || {
                 rm -f "$log"; return 1; }
+        else
+            # The device just came back from a relaunch. SKIP_INSTALL=1 was
+            # chosen when the device still held the APK we built; after a
+            # relaunch that assumption is false, and a flow that "passes" here
+            # may be proving nothing about the current code. Say so — a silent
+            # stale binary turns "unknown" into "green".
+            echo -e "${YELLOW}WARNING: device was relaunched and SKIP_INSTALL=1, so the binary on it is whatever the snapshot held — these results may not reflect the current build.${NC}" >&2
         fi
     done
     rm -f "$log"
