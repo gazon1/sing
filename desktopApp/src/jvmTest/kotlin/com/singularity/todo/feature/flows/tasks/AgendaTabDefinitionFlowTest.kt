@@ -58,7 +58,9 @@ class AgendaTabDefinitionFlowTest {
     }
 
     @Test
-    fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() = runDesktopAppTest(
+        checkA11y = true,
+    ) { koin ->
         val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
         tasks(koin).given(due = tomorrow, title = "Send the invoice")
 

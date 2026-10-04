@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
@@ -82,7 +83,11 @@ class OpenTaskFromAgendaFlowTest {
     @Test
     fun task_editor_shows_correct_priority_from_agenda() = runDesktopAppTest(checkA11y = true) { koin ->
         val today = todayInSystemZone()
-        tasks(koin).given(due = today, title = "High priority task", priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.High)
+        tasks(koin).given(
+            due = today,
+            title = "High priority task",
+            priority = TaskPriority.High,
+        )
 
         tapTab("Today")
         awaitTag(TestTags.taskItem("High priority task")).performClick()

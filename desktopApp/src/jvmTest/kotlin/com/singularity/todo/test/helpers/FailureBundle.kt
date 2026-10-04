@@ -81,7 +81,17 @@ data class FailureBundle(
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        listOf(screenshotFile, dbStateFile, kermitLogFile, coroutinesFile, stepsFile, treeFile, nodesFile, screenshotAnnotatedFile).forEach { file ->
+        val artifacts = listOf(
+            screenshotFile,
+            dbStateFile,
+            kermitLogFile,
+            coroutinesFile,
+            stepsFile,
+            treeFile,
+            nodesFile,
+            screenshotAnnotatedFile,
+        )
+        artifacts.forEach { file ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
             } else {

@@ -20,7 +20,7 @@ import java.io.File
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 fun main() = singleWindowApplication(
-    title = "Singularity Todo"
+    title = "Singularity Todo",
 ) {
     // Ensure data directory exists
     val dataDir = File("${System.getProperty("user.home")}/.singularity-todo")
