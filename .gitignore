@@ -5,6 +5,21 @@
 # entries inside it are symlinks to the real ~/.gradle.
 # See docs/decisions/2026-10-04-gradle-daemon-isolation.md
 /.gradle-user-home/
+# Throwaway Gradle homes used to measure the daemon boundary. `gw` and
+# .envrc create `.gradle-user-home` (ignored just above); a probe points
+# GRADLE_USER_HOME at its own ad-hoc directory instead, and that directory is
+# left behind holding a live daemon registry.
+#
+# The pattern covers the class rather than the one name that reached git:
+# `.guh-probe-xyz/daemon/9.7.1/registry.bin` and its `.lock` were committed in
+# 4c82ea8d — by the same commit that was adding this rule's neighbourhood. The
+# `-xyz` suffix was chosen by whoever ran the probe, so pinning the exact name
+# would ignore one directory and invite the next.
+#
+# A daemon registry is per-machine runtime state: a PID and a socket address,
+# meaningful only while the daemon that wrote it is alive. It is never an input
+# to a build, so there is nothing to gain by tracking it.
+/.guh-probe-*/
 build/
 *.class
 *.jar
