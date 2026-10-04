@@ -2107,6 +2107,8 @@ unconfigured rulesets could fire. The proof required running
 `:detekt-rules:test` — and nothing in `check.sh`, `ci.yml` or the `justfile`
 ran it.
 
+**Tracked as:** #135
+
 **Symptom:** `detekt-rules/src/test/` holds 10 test classes (56 tests) covering
 the project's own custom rules. On first execution **4 failed**:
 
@@ -2131,14 +2133,21 @@ against a deliberately-violating file.
 selector forms, the two broken tests were corrected, the elvis shape was
 implemented (empty-lambda *default parameter*, not just call-site argument), and
 `:detekt-rules:test` was wired into `check.sh` and `ci.yml`. Kept here because
-the general lesson is not yet enforced: a rule class with no test can still be
-added, and 9 of the 18 rule classes have no unit test at all.
+the general lesson is **not** enforced: a rule class with no test can still be
+added, and nothing notices.
 
-**Try next:** add a positive-control test for each remaining untested rule
-(`PassThroughUseCase`, `NoRunCatchingInSuspend`, `NoRealDelayInTest`,
-`NoStateIn`, `NoOpUpdateState`, `NoFactoryViewModel`, `NoViewModelScopeInProduction`,
-`MviViewModel*`, `KDocEnforcement*`). The detekt rule-testing guide treats
-"every rule has a test" as the baseline expectation; here it was the exception.
+**Corrected 2026-10-05.** The "9 of the 18 rule classes have no unit test at
+all" in this entry is **stale and was measured wrong**. It counted dedicated
+`XxxRuleTest.kt` files. `RuleFiresSmokeTest.kt` gives a positive control to every
+rule that had no dedicated file — all 20 rules are covered, and
+`:detekt-rules:test` is 146 green tests. The counting mistake is itself the
+subject of #135: a check that matches less than intended is indistinguishable
+from a check with nothing to match.
+
+**Try next (unchanged, now the only part that is open):** add a check that
+**fails when a rule class has no positive control**, and prove that check can
+fail by deleting one. Do not re-implement it as "grep for a test file named
+after the rule" — that is the check that produced the wrong number above.
 A rule is only as trustworthy as the test that proves it fires.
 
 ---
@@ -2208,10 +2217,16 @@ fails the build.
 
 **Try next, and note the general lesson:** nothing in this repo parses
 `.github/workflows/*.yml`. A malformed workflow is invisible — it is not a test
-failure, not a lint error, just a workflow that silently does not exist. Adding
-`python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]"
-.github/workflows/*.yml` to `check.sh` is a three-line fix for an entire class
-of dead gate. It has not been added yet; this entry is the reminder.
+failure, not a lint error, just a workflow that silently does not exist.
+
+**CLOSED 2026-10-04 — the class is gated, verified by sabotage.** `check.sh`
+step 14 (`workflow YAML parses`) runs `yaml.safe_load` over every
+`.github/workflows/*.yml` and exits non-zero on the first that will not parse.
+Proved it can fail rather than assuming it: appending an unterminated quoted
+scalar to `ci.yml` makes the gate exit 1 with a line and column, and removing
+it returns the gate to green. So the entry's "it has not been added yet" is no
+longer true, and the general lesson it names is now enforced rather than
+remembered. Kept for the record of how the gap was found.
 
 ---
 
