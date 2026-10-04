@@ -285,6 +285,14 @@ jobs:
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
 
+      # DIGEST.md is generated and gitignored, so a clean checkout has no such
+      # file. Both gates below need it: the size gate budgets its line count,
+      # and the dead-reference gate reports its 11 inbound references as broken
+      # without it, failing every run. docs-audit.yml refreshes it for the
+      # same reason.
+      - name: Refresh DIGEST
+        run: python3 scripts/refresh-decisions-digest.py
+
       - name: Check doc sizes
         # DIGEST.md is generated and gitignored, so on a fresh checkout it does
         # not exist and the budget check would silently skip it. Regenerate
