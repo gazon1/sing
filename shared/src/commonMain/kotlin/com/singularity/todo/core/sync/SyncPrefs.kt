@@ -106,40 +106,6 @@ class DataStoreSyncPrefs(
 }
 
 /**
- * In-memory stub of [SyncPrefs] for tests.
- * Replaced by [DataStoreSyncPrefs] in production.
- */
-class InMemorySyncPrefs(private val clock: Clock) : SyncPrefs {
-    private val _autoSyncEnabled = MutableStateFlow(false)
-    private val _enabledTriggers = MutableStateFlow(SyncTrigger.entries.toSet())
-    private val _scheduledInterval = MutableStateFlow(30.minutes)
-    private val _lastSuccessfulSyncAt = MutableStateFlow<Long?>(null)
-    private val _lastLsn = MutableStateFlow(0L)
-
-    override val autoSyncEnabled: Boolean get() = _autoSyncEnabled.value
-    override val enabledTriggers: Set<SyncTrigger> get() = _enabledTriggers.value
-    override val scheduledInterval: Duration get() = _scheduledInterval.value
-    override val lastSuccessfulSyncAt: Long? get() = _lastSuccessfulSyncAt.value
-    override val lastLsn: Long get() = _lastLsn.value
-
-    override suspend fun setAutoSyncEnabled(value: Boolean) {
-        _autoSyncEnabled.value = value
-    }
-    override suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
-        _enabledTriggers.value = triggers
-    }
-    override suspend fun setScheduledInterval(interval: Duration) {
-        _scheduledInterval.value = interval
-    }
-    override suspend fun recordSuccessfulSync() {
-        _lastSuccessfulSyncAt.value = clock.now().toEpochMilliseconds()
-    }
-    override suspend fun setLastLsn(lsn: Long) {
-        _lastLsn.value = lsn
-    }
-}
-
-/**
  * The flat, app-wide sync preferences that [SyncStateRepository] replaced.
  *
  * ## Read-only in practice — and that is the point
@@ -158,8 +124,9 @@ class InMemorySyncPrefs(private val clock: Clock) : SyncPrefs {
  * Delete this file once the adoption window has passed — the criteria are that no
  * supported upgrade path can still hold values here.
  *
- * [SyncPrefs] is backed by DataStore in production ([DataStoreSyncPrefs])
- * and by [InMemorySyncPrefs] in tests.
+ * [SyncPrefs] is backed by DataStore in production ([DataStoreSyncPrefs]) and by
+ * `InMemorySyncPrefs` in tests — the latter lives in `jvmTest`, next to its only callers,
+ * so it is no longer a class shipped in every release.
  */
 interface SyncPrefs {
     val autoSyncEnabled: Boolean

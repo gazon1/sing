@@ -7,7 +7,6 @@ package com.singularity.todo.feature.search.query
 //   correspondence; it does not terminate a derivation. See the honesty clause in the
 //   spec and docs/legal/PROVENANCE.md
 
-
 /**
  * A relative time interval, as a signed whole number of days — implementation of §5 of
  * [docs/specs/search-query-grammar.md][spec].

@@ -7,7 +7,6 @@ package com.singularity.todo.feature.search.query
 //   correspondence; it does not terminate a derivation. See the honesty clause in the
 //   spec and docs/legal/PROVENANCE.md
 
-
 /**
  * Base of the search query parser: supplies the token stream and the rule tables, and
  * declares the entry point.

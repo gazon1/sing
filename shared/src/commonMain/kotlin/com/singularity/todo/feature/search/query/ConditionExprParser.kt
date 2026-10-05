@@ -7,7 +7,6 @@ package com.singularity.todo.feature.search.query
 //   correspondence; it does not terminate a derivation. See the honesty clause in the
 //   spec and docs/legal/PROVENANCE.md
 
-
 /**
  * Recursive-descent parser for condition expressions — implementation of §3 of
  * [docs/specs/search-query-grammar.md][spec].
@@ -66,7 +65,7 @@ class ConditionExprParser(
         return parseDisjunction(0).condition
     }
 
-    /** `disjunction := conjunction ( OR conjunction )*` */
+    /** Grammar production: `disjunction := conjunction ( OR conjunction )*`. */
     private fun parseDisjunction(from: Int): Cursor {
         var cursor = parseConjunction(from)
         val parts = mutableListOf<Condition>(cursor.condition)
@@ -94,7 +93,7 @@ class ConditionExprParser(
         return Cursor(flatten(parts, BoolOp.AND), cursor.position)
     }
 
-    /** `atom := NOT expression | '(' expression ')' | word | quoted` */
+    /** Grammar production: `atom := NOT expression | '(' expression ')' | word | quoted`. */
     private fun parseAtom(from: Int): Cursor {
         if (from >= tokens.size) return Cursor(Condition.And(emptyList()), from)
         return when (val token = tokens[from]) {

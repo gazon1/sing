@@ -7,7 +7,6 @@ package com.singularity.todo.feature.search.query
 //   correspondence; it does not terminate a derivation. See the honesty clause in the
 //   spec and docs/legal/PROVENANCE.md
 
-
 /**
  * Lexer for the search query language — implementation of §1 of
  * [docs/specs/search-query-grammar.md][spec].
@@ -49,15 +48,19 @@ class QueryTokenizer(private val input: String) {
         while (pos < input.length) {
             when {
                 input[pos].isWhitespace() -> pos++
+
                 input[pos] == '(' -> {
                     out += Token.LParen
                     pos++
                 }
+
                 input[pos] == ')' -> {
                     out += Token.RParen
                     pos++
                 }
+
                 input[pos] == '"' -> pos = readQuoted(pos, out)
+
                 else -> pos = readWord(pos, out)
             }
         }
@@ -138,12 +141,12 @@ class QueryTokenizer(private val input: String) {
         /** A `"…"` string, escapes resolved. Always free text, per R2. */
         data class Quoted(override val text: String) : Token
 
-        /** `(` */
+        /** The `(` grouping token. */
         data object LParen : Token {
             override val text: String = "("
         }
 
-        /** `)` */
+        /** The `)` grouping token. */
         data object RParen : Token {
             override val text: String = ")"
         }

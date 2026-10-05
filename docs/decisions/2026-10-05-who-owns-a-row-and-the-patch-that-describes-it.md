@@ -99,4 +99,8 @@ and deserves its own consideration rather than a mention here.
 - Issue #178 for the version half of the same file's lifecycle, which this does not
   block.
 - Test plan §6.1 OB-04 and OB-05, §6.6 PL-13.
-- `2026-10-04-sync-state-model.md` — the owner-scoped rows a unit of work has to span.
+- `2026-10-04-sync-state-keyed-by-owner-and-profile.md` — the owner-scoped rows a unit of
+  work has to span. (This reference previously named a dated sync-state ADR that resolves to
+  no file in `docs/decisions/` or its archive, so the reference was dangling rather than
+  merely stale. A 2026-09-23 ADR of a similar name also exists but documents the sync API
+  shape rather than owner-scoping, so it is not the right target either.)
