@@ -1736,7 +1736,7 @@ class CellStatePrecedence(unittest.TestCase):
     def test_hole_predicates_cover_exactly_the_unsupplied_claims(self):
         holes = {state for state in CellState if state.is_hole}
         self.assertEqual(holes, {CellState.HOLE, CellState.UNREACHABLE})
-        unreachable = {state for state in CellState if not state.is_claimed}
+        unreachable = {state for state in CellState if not state.was_claimed}
         self.assertEqual(unreachable, {CellState.UNCLAIMED})
 
     def test_the_cell_no_longer_accepts_the_old_booleans(self):
@@ -1748,10 +1748,10 @@ class CellStatePrecedence(unittest.TestCase):
             CoverageCell(claimed=True, automated=False)  # type: ignore[call-arg]
 
     def test_a_retired_scenario_is_recorded_but_not_owed(self):
-        # `is_claimed` keeps the row, `is_obligation` drops it from the
+        # `was_claimed` keeps the row, `is_obligation` drops it from the
         # denominator. render.py depends on that split to avoid the
         # "0/2 claimed cells automated · 0 holes" contradiction.
-        self.assertTrue(CellState.RETIRED.is_claimed)
+        self.assertTrue(CellState.RETIRED.was_claimed)
         self.assertFalse(CellState.RETIRED.is_obligation)
-        self.assertFalse(CellState.UNCLAIMED.is_claimed)
+        self.assertFalse(CellState.UNCLAIMED.was_claimed)
         self.assertTrue(CellState.AUTOMATED.is_obligation)
