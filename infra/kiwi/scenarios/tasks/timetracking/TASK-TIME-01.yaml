@@ -64,3 +64,11 @@ expected: >-
 # `ERROR` is tagged, so a desktop carrier can now assert the *refusal* rather
 # than the swap; asserting the swap needs a signed-in session, which is a
 # harness capability and not a test.
+#
+# CORRECTED 2026-10-05 by measurement (#212): the paragraph above names the wrong
+# blocker. A desktop carrier was written and run, and the session is not it.
+# `TestPlatformModule` binds `FakeAuthRepository()` → `Session.Anonymous`, and
+# its own comment says AuthGuard treats that as signed in and gives the write
+# path a user to scope to. After clicking Start, *neither* `STOP` *nor* `ERROR`
+# appears — so the write is not being refused; the click is doing nothing at all.
+# Both cells stay holes. This row now waits on #212, not on a session.
