@@ -1,0 +1,29 @@
+{
+  "measurement": "PYTHONPATH=infra/kiwi python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
+  "measured_at": "2026-10-05",
+  "commit": "dd8ee328",
+  "corpus": {
+    "specs": 19,
+    "claimed_cells": 34,
+    "carriers": 3
+  },
+  "floors": [
+    {
+      "metric": "holes",
+      "max": 31,
+      "measured": 31,
+      "label": "claimed (scenario, target) cells with no automation",
+      "note": "The number the plan asked for, and the one 15 auth/sync specs with zero carriers blew past in a single commit: 2 -> 32, green, because nothing read it. Removing a hole is always allowed; adding one fails. Not a per-scenario list on purpose — a scenario without automation is a legitimate state, and a rule demanding otherwise would be a rule the first Android-only scenario would have to be exempted from."
+    },
+    {
+      "metric": "dark_scenarios",
+      "max": 16,
+      "measured": 16,
+      "label": "declared scenarios with a claimed target and no automation on any target",
+      "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting. 16 of the 18 live specs are dark; the two that are not are AUTH-FIRSTRUN-01 and TASK-REC-01."
+    }
+  ],
+  "known_gaps": [
+    "All 16 android cells are holes and will stay holes on a host with no device: the tier is unverifiable here, and half the matrix is not a claim anyone can keep yet. docs/testing/android-tier-runbook.md is the work order."
+  ]
+}

@@ -241,6 +241,25 @@ SCRIPT_GATES = [
         sabotage_path="shared/build.gradle.kts",
         sabotage="p.write_text(p.read_text() + '\\ndependencies { implementation(\"ru.ok.tracer:tracer-crash-report:1.4.0\") }\\n')",
         why="proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour",
+        name="traceability-ratchet",
+        cmd=[sys.executable, "scripts/check-traceability-ratchet.py"],
+        # A spec, not the floor file. The floor is the gate's own configuration,
+        # so raising it is a legitimate edit that must not be read as a
+        # regression — the control has to make the *corpus* worse instead. This
+        # is the shape of the change the gate exists for: claiming one more
+        # target on a scenario that has no carrier for it. The `assert` is what
+        # stops the control silently becoming a no-op if the spec is ever
+        # reformatted — the failure this file was written for, and it already
+        # happened once to the test-runs control.
+        sabotage_path="infra/kiwi/scenarios/tasks/checklist/TASK-CHECK-01.yaml",
+        sabotage=(
+            "import re\n"
+            "_t = p.read_text()\n"
+            "_t2, _n = re.subn(r'^targets: \\[desktop\\]$', 'targets: [desktop, android]', _t, count=1, flags=re.M)\n"
+            "assert _n == 1, 'targets line not found — the control would be a no-op'\n"
+            "p.write_text(_t2)\n"
+        ),
+        why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
     ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
@@ -454,8 +473,45 @@ def run_gate(cmd: list[str]) -> int:
     return proc.returncode
 
 
+#: Flags that disable a gate's own failure. Kept as a list rather than a
+#: per-gate field because the rule is the same for every one of them, and a
+#: per-gate field would let a gate opt itself out of the rule that covers it.
+FORBIDDEN_IN_REGISTERED_INVOCATIONS = ("--accept-growth", "--warn-only")
+
+
+def check_escape_hatches() -> list[str]:
+    """A gate registered with its own off-switch is a gate that cannot fail.
+
+    `check-traceability-ratchet.py --accept-growth` is honest: it exists for the
+    commit that knowingly opens holes, and it prints loudly when used. The
+    problem is not the flag, it is the flag in the *registered* invocation. Once
+    `--accept-growth` is in `check.sh` and in the workflow, the gate is green on
+    every future regression, and the only trace is a word in a command line that
+    no reviewer reads as a policy change — which is the same defect as a
+    `--warn-only` that got committed, one level up.
+
+    The escape stays available for a deliberate one-off; what is forbidden is
+    making it the default. So the check is on the registry entry, not on the
+    script: the flag must never appear in a `cmd` that `check.sh`, a workflow or
+    a recipe installs as the standing invocation.
+    """
+    errors: list[str] = []
+    for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES, *FIXTURE_GATES]:
+        joined = " ".join(gate.cmd)
+        for flag in FORBIDDEN_IN_REGISTERED_INVOCATIONS:
+            if flag in joined:
+                errors.append(
+                    f"gate '{gate.name}' is registered with {flag}, which turns it "
+                    f"into a gate that cannot fail. Use it for a single deliberate "
+                    f"commit invocation, never in the standing one."
+                )
+    return errors
+
+
+
 def check_can_fail() -> list[str]:
     errors: list[str] = []
+    errors += check_escape_hatches()
     # `SCRIPT_GATES + SABOTAGE_ONLY_GATES` is the sabotage registry;
     # `FIXTURE_GATES` is the same property proved a different way. Both are
     # checked here so the two kinds cannot drift apart in *when* they run.

@@ -144,6 +144,18 @@ PYTHONPATH=infra/kiwi python3 -m traceability coverage --check || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [8d/21] scenario coverage holes did not grow ===${NC}"
+# A hole is not a mistake — it is the point of the matrix. A *growing* hole
+# count is a regression, and until this gate existed nothing read these numbers:
+# the 15-spec auth/sync tranche landed with zero carriers and took the matrix
+# from 2 holes to 32 in one commit, green, because `validate` reports holes as
+# information on the same run the CI step treats as a pass. Filling a hole is
+# always allowed; opening one fails and has to be justified in review.
+python3 scripts/check-traceability-ratchet.py || {
+    echo -e "${RED}scenario coverage grew — attach a carrier, or state the growth in the commit${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [9/21] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"

@@ -233,6 +233,15 @@ jobs:
           PYTHONPATH=infra/kiwi python3 -m traceability validate
           PYTHONPATH=infra/kiwi python3 -m traceability coverage --check
 
+      # The matrix above is regenerated and compared; this one asks whether the
+      # thing it renders got worse. `validate` prints holes as information —
+      # correctly, a hole is not a mistake — on the same run this job treats as
+      # a pass, so before this gate existed the 15-spec auth/sync tranche landed
+      # with zero carriers, took the matrix from 2 holes to 32, and went green.
+      # check.sh step 8d carries the same check, because CI does not run check.sh.
+      - name: Scenario coverage holes did not grow
+        run: python3 scripts/check-traceability-ratchet.py
+
       # The result matrix describes exactly one commit, so it is an artifact and
       # never a committed file. Uploaded unconditionally: a result set that
       # exists only when something broke is the half you cannot use, and the
