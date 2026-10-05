@@ -183,6 +183,7 @@
     <ID>PackageName:CalendarSyncViewModel.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:CalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:CalendarSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
+    <ID>PackageName:CalendarSyncViewModelCapabilityTest.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:DirtyHashProvider.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:FailureType.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageName:JvmCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -226,6 +227,7 @@
     <ID>PackageNaming:CalendarSyncViewModel.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:CalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageNaming:CalendarSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
+    <ID>PackageNaming:CalendarSyncViewModelCapabilityTest.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:DirtyHashProvider.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:FailureType.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
     <ID>PackageNaming:JvmCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
