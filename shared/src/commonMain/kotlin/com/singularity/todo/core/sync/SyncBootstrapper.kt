@@ -21,6 +21,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.serializer
 import kotlinx.coroutines.CancellationException
 
@@ -190,10 +191,40 @@ internal class SyncBootstrapper(
             }
         } catch (e: CancellationException) {
             throw e
+        } catch (e: SerializationException) {
+            // The bytes on the wire will be identical on every later delivery, so
+            // waiting cannot make this decode. It is the same class as the payload that
+            // is not a document at all — one layer deeper — and it gets the same
+            // outcome: the cursor moves past it and the event is counted as dropped.
+            //
+            // Holding the cursor here instead would wedge the account on one
+            // undecodable row, forever, over a change that can never apply anyway.
+            log.w {
+                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: " +
+                    "payload does not decode, skipping"
+            }
+            ApplyOutcome.Skipped(
+                "the event payload does not decode: " +
+                    (e.message ?: e::class.simpleName.orEmpty()),
+            )
         } catch (e: Throwable) {
+            // Anything else that escapes the apply is a write that did not happen: a full
+            // disk, a broken constraint, a corrupt store. That is [ApplyOutcome.Failed],
+            // not [ApplyOutcome.Conflict] — and the difference is the whole bug.
+            //
+            // `Conflict` means "applied, but a field lost to a newer one", so the engine
+            // advances the cursor past this event. Reported here, a storage failure was
+            // therefore consumed: the server considered the change delivered, the row was
+            // never written, and no later cycle would re-request it. The user's edit was
+            // gone with nothing but a pull summary claiming the event had arrived.
+            //
+            // `Failed` keeps the cursor where it is, so the event is delivered again next
+            // cycle — the same treatment the failed-delete arm above already gets, and the
+            // one `ApplyOutcome`'s own KDoc promises for "an upsert that hit a storage
+            // error".
             log.e(e) { "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: apply failed" }
             crashReporter.report(e, "sync.apply_failed")
-            ApplyOutcome.Conflict("Apply failed: ${e.message ?: e::class.simpleName}")
+            ApplyOutcome.Failed("the write did not happen: ${e.message ?: e::class.simpleName}")
         }
     }
 }

@@ -6,7 +6,11 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -14,9 +18,11 @@ import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
+import com.singularity.todo.test.fakes.testTask
 import kotlinx.coroutines.test.TestScope
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -66,6 +72,8 @@ class SyncBootstrapperDispatchTest {
     private fun bootstrapped(
         scope: TestScope,
         api: FakeSyncApiClient = FakeSyncApiClient(),
+        taskRepo: TaskRepository = FakeTaskRepository(),
+        stateRepository: FakeSyncStateRepository = FakeSyncStateRepository(),
     ): SyncEngine {
         val engine = SyncEngine(
             log = log,
@@ -76,7 +84,7 @@ class SyncBootstrapperDispatchTest {
             outboxDao = FakeSyncOutboxDao(),
             deadLetterDao = FakeSyncDeadLetterDao(),
             idGenerator = SequentialIdGenerator(),
-            stateRepository = FakeSyncStateRepository(),
+            stateRepository = stateRepository,
             shadowDao = FakeSyncShadowDao(),
             patchBuilder = fakeSyncPatchBuilder(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
@@ -87,7 +95,7 @@ class SyncBootstrapperDispatchTest {
         )
         SyncBootstrapper(
             engine = engine,
-            taskRepo = FakeTaskRepository(),
+            taskRepo = taskRepo,
             noteRepo = FakeNotesRepository(),
             projectRepo = FakeProjectsRepository(),
             tagRepo = FakeTagsRepository(),
@@ -223,5 +231,122 @@ class SyncBootstrapperDispatchTest {
         val error = assertIs<AppError.Persistence>(pull.exceptionOrNull())
         assertEquals("sync.pull_stalled", error.code)
         assertIs<SyncEngineStatus.Failure>(engine.status.value, "a stalled pull must not leave the engine idle")
+    }
+
+    // ─── A write that does not happen (the S1) ──────────────────────────────────
+
+    /**
+     * A repository whose every write fails the way a full disk or a broken constraint
+     * fails: by throwing, not by returning a `Result`.
+     *
+     * That is the real contract. `TaskRepository.upsert` returns `Task` and throws —
+     * there is no `Result` to inspect — so the throw *is* the failure signal, and the
+     * handler above it is the only place that can classify it.
+     */
+    private class ThrowingTaskRepository : FakeTaskRepository() {
+        override suspend fun upsert(task: Task): Task =
+            throw IllegalStateException("disk is full")
+    }
+
+    private fun taskDocument(id: String): kotlinx.serialization.json.JsonElement =
+        StableJson.encodeToJsonElement(serializer<Task>(), testTask(id = TaskId.fromString(id)))
+
+    /**
+     * The classification itself, at the point it is decided.
+     *
+     * `Conflict` and `Failed` differ only in what the engine does next, and that
+     * difference is the whole defect: `Conflict` advances the cursor, `Failed` holds it.
+     */
+    @Test
+    fun `an event whose write throws is failed, not a conflict`() = runTest {
+        val engine = bootstrapped(this, taskRepo = ThrowingTaskRepository())
+        val handler = engine.handlers.getValue(DocType.Task)
+
+        val outcome = handler.apply(
+            syncEvent {
+                serverLsn = 10
+                entityType = DocType.Task
+                entityId = "t-1"
+                data = taskDocument("t-1")
+            },
+        )
+
+        assertIs<ApplyOutcome.Failed>(
+            outcome,
+            "a write that did not happen might succeed next cycle, so the cursor must " +
+                "stay. Conflict means 'applied but a field lost to a newer one' and the " +
+                "engine advances past it — which consumed the event and lost the edit.",
+        )
+    }
+
+    /**
+     * The consequence, measured on the cursor rather than on the enum.
+     *
+     * This is the assertion that would have failed before the fix. `Conflict` moved the
+     * cursor to lsn 10, the engine stamped a successful sync, and no later cycle would
+     * ever re-request an event the server considered delivered.
+     */
+    @Test
+    fun `an event whose write throws does not move the cursor`() = runTest {
+        val api = FakeSyncApiClient(
+            pullEvents = listOf(
+                syncEvent {
+                    serverLsn = 10
+                    entityType = DocType.Task
+                    entityId = "t-1"
+                    data = taskDocument("t-1")
+                },
+            ),
+        )
+        val state = FakeSyncStateRepository()
+        val engine = bootstrapped(this, api, taskRepo = ThrowingTaskRepository(), stateRepository = state)
+
+        engine.syncOnce()
+
+        assertEquals(
+            0L,
+            state.get(SyncScope("owner-1", "profile-1")).lastLsn,
+            "the cursor moved past an event whose row was never written. The server " +
+                "will not send it again, so the edit is gone with no trace.",
+        )
+    }
+
+    /**
+     * The negative control for the new `SerializationException` arm.
+     *
+     * Bytes that cannot be decoded are the *other* failure: they will arrive
+     * identically on every later cycle, so holding the cursor would wedge the account
+     * on one undecodable row forever — the outcome `ApplyOutcome.Skipped`'s own KDoc
+     * says it exists to prevent. Splitting "unusable" from "unwritten" is only correct
+     * if this one still moves.
+     */
+    @Test
+    fun `an event whose payload cannot be decoded is skipped, and does move the cursor`() = runTest {
+        val api = FakeSyncApiClient(
+            pullEvents = listOf(
+                syncEvent {
+                    serverLsn = 10
+                    entityType = DocType.Task
+                    entityId = "t-1"
+                    // A document-shaped payload that is not a Task. `ignoreUnknownKeys`
+                    // tolerates extra keys, so the failure has to be a type one.
+                    data = kotlinx.serialization.json.buildJsonObject {
+                        put("id", kotlinx.serialization.json.JsonPrimitive(42))
+                        put("title", kotlinx.serialization.json.JsonPrimitive("not a task"))
+                    }
+                },
+            ),
+        )
+        val state = FakeSyncStateRepository()
+        val engine = bootstrapped(this, api, stateRepository = state)
+
+        engine.syncOnce()
+
+        assertEquals(
+            10L,
+            state.get(SyncScope("owner-1", "profile-1")).lastLsn,
+            "an undecodable payload can never apply, so holding the cursor here would " +
+                "stop the account syncing anything else, forever, over one bad row.",
+        )
     }
 }
