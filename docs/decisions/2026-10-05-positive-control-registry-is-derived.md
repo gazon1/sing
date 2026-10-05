@@ -116,6 +116,24 @@ extracted into `partition_reporting()` so the test calls it. This is the
 `flow_has_tag` lesson from ADR `2026-10-05-gate-audit-text-shape-vs-fact`,
 re-learned: *a test of a predicate must call the predicate.*
 
+**A fourth instance, and the one that nearly got away.** The `test-runs` control
+replaced the literal `shared:jvmTest 1788 0` in the baseline. Hours later the
+floor moved to 1825 — legitimately, because a new test class was added — and
+`str.replace` began matching nothing. The gate was handed an unmodified file
+and reported the entry as a working control. It was caught only because the
+clean-tree guard fired for an unrelated reason (a stale filtered `--tests` run
+had left one class of XML on disk), and the resulting message pointed at the
+gate rather than at the control.
+
+A control that quietly stops sabotaging is worse than no control, because it is
+reported as a passing control. The sabotage now rewrites the floor by regex and
+**asserts that it changed something**, and two tests pin it:
+`test_a_sabotage_that_cannot_apply_fails_loudly` moves the floor to a value the
+original literal could not have matched, and
+`test_a_sabotage_runs_against_the_repository_as_it_is` runs every content
+sabotage against today's file and requires a diff. The first was verified red
+against the literal-value version.
+
 **Two defects found while measuring, and fixed here.** Both were in the shape
 this ADR is about — a number that reads as a measurement and cannot vary:
 
