@@ -44,7 +44,12 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-DEFAULT_REPORT = "shared/build/reports/kover/report.xml"
+# The settings-level report, at the root of the build. Coverage is configured
+# once in settings.gradle.kts rather than per project, so the report tasks are
+# registered on the root project and aggregate every subproject's test tasks.
+# A `shared/build/...` path belonged to the per-project configuration that was
+# replaced, and silently found nothing.
+DEFAULT_REPORT = "build/reports/kover/report.xml"
 DEFAULT_BASELINE = "config/coverage-ratchet.json"
 # Compose-only subtrees of the agenda feature: exercised by the desktopApp flow
 # tests, which kover cannot see. Excluded from the agenda floor so it measures

@@ -303,7 +303,12 @@ coverage-ratchet *args="":
     # A per-project task would report only that project's own test tasks — the
     # gap the settings-level block exists to close — and no longer exists at
     # all, so the qualified name failed to resolve.
-    ./gradlew :shared:jvmTest koverXmlReport \
+    # `:desktopApp:test` as well as `:shared:jvmTest`. The report is aggregated
+    # across every module's test JVM, so a run that instruments only the shared
+    # module measures only the shared module — and reads as a coverage *drop*
+    # against a floor that was recorded from the full suite. The desktop flow
+    # tests are where a large part of the shared UI is covered.
+    ./gradlew :shared:jvmTest :desktopApp:test koverXmlReport \
         -Pkover.jvmTest=true \
         --console=plain
     python3 scripts/coverage-ratchet.py {{args}}

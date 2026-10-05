@@ -5,18 +5,7 @@
 # commit that produces a higher one. A floor that only ever gets regenerated
 # downward is not a gate.
 #
-# These numbers come from the DEFAULT local run — `./gradlew koverReport` with no
-# `-Ptest.tags`, which selects only @Tag("fast") classes. That is the same rule
-# test-runs-baseline.txt follows, and for the same reason: a floor recorded from
-# CI's full suite would make every plain local run read as a regression.
-# For reference, the same build with `-Ptest.tags=fast,slow` measures
-# 38.5 / 27.2 / 37.1 — the gap is the slow suite, not a regression.
-#
-# The report is aggregated across every module's test JVM (settings.gradle.kts).
-# Before that it was per-module, and the floor it could reach was 23.0 / 18.3 / 24.4
-# on the same fast-only run.
-#
 # Regenerate with: python3 scripts/check-coverage.py --update-baseline
-INSTRUCTION 25.0
-BRANCH 19.1
-LINE 24.4
+INSTRUCTION 27.6
+BRANCH 20.7
+LINE 27.4

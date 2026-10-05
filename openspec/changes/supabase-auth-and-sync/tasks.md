@@ -246,7 +246,7 @@ invisible and with one they become irreversible data loss on the user's own data
 - [x] `just lint` clean
 - [x] `python3 scripts/find-unwired-surfaces.py` clean
 - [x] `openspec validate --all --strict` clean — 30 passed, 0 failed
-- [x] `just gate` green
+- [x] `just gate` green — all 21 steps, exit 0
 
 ## Follow-ups, recorded rather than left implicit
 
