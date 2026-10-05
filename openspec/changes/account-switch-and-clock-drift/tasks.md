@@ -30,6 +30,22 @@ names its test.
 
 ## REQ-UA-016, REQ-UA-017 — signing out and switching are different operations
 
+**Blocked by #209.** `sync_outbox` and `sync_dead_letter` carry no `owner_id`, so the
+delivery half ("deliver the departing account's queued changes") has nothing to select
+on, and the erase half has nothing to scope to — an owner-scoped delete of the outbox
+would take the *incoming* account's queued work with it. Both are unexpressible until
+the migration lands, and no ordering of DAO work gets around it.
+
+The consequence is not confined to the switch: two accounts' rows already coexist in
+the outbox (REQ-UA-006 keeps them across sign-out), and `planPush` sends all of them
+under the active scope, so one account's pending work leaves the device inside another
+account's authenticated request. REQ-UA-018 stops the response from being applied; it
+does not stop the request. That part is fixed by the migration, not by this block.
+
+- [ ] `shared/` Add `owner_id` to `sync_outbox` and `sync_dead_letter`, write it from the
+      scope the patch was built under, and scope `getPending` by it.
+      **Blocked by:** the backfill decision — a row written before the migration cannot
+      be attributed, and guessing an owner attributes one account's work to another.
 - [ ] `shared/` Keep sign-out as it is today: credentials cleared, local data retained, no
       network required. **Test:** the existing sign-out-with-the-server-unreachable test
       still passes, and local rows survive it.
