@@ -122,6 +122,18 @@ dependencies {
     // only calls the returned `Module`; it never names a Koin definition.
     implementation(libs.koin.core)
 
+    // Test-only. The rebinding this module performs is the entire reason `pro/`
+    // exists, and it was the one thing about it nothing checked: the free
+    // graph is validated by `KoinGraphValidationTest` in `:shared`, but that
+    // test cannot see a module that only exists under `-PwithPro=true`. A
+    // binding that silently stopped overriding would leave the free
+    // `FileCrashReportingPort` in place and nobody would see a crash report
+    // go anywhere.
+    testImplementation(libs.koin.test)
+    testImplementation(libs.kermit)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.kotlin.test.junit5)
+
     // The custom rule sets, matching the other modules — otherwise no project rule
     // applies to :pro at all.
     detektPlugins(project(":detekt-rules"))
@@ -132,5 +144,21 @@ detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     buildUponDefaultConfig = true
     ignoreFailures = false
-    source.setFrom("src/main/kotlin")
+    // `src/test/kotlin` joined the list on 2026-10-05 with
+    // `ProObservabilityModuleTest`. It has to be named here explicitly: detekt
+    // reports nothing about a directory it was not given, so omitting it would
+    // leave the only test in the pro catalogue unscanned and invisible.
+    // `DetektSourceSetsAreAllScannedTest` is what caught the omission.
+    source.setFrom("src/main/kotlin", "src/test/kotlin")
+}
+
+// The unit-test task. JUnit 5 because `kotlin.test` maps onto it and the rest
+// of the project uses it; without `useJUnitPlatform()` Gradle would run the
+// Jupiter engine's absence as "no tests found", which is a green build that
+// verified nothing — the exact failure mode this project keeps paying for.
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }

@@ -44,7 +44,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-icon-registry` | 273 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 103 | JvmInline value class patterns for Singularity Todo. |
-| `singularity-todo-kiwi-tcm-stand` | 255 | Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — the legacy per-test-class case mapping, the scenario traceability layer (user scenarios in Git, coverage/result matrices, Kiwi as a projection), importing Gradle JUnit results as test runs, and reporting what has never been run. |
+| `singularity-todo-kiwi-tcm-stand` | 340 | Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — the legacy per-test-class case mapping, the scenario traceability layer (user scenarios in Git, coverage/result matrices, Kiwi as a projection), importing Gradle JUnit results as test runs, and reporting what has never been run. |
 | `singularity-todo-kmp-platform-specific` | 263 | KMP expect/actual patterns for AI features and platform-only dependencies. |
 | `singularity-todo-kmp-reorderable` | 226 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
 | `singularity-todo-koin-dsl` | 101 | Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf vs viewModel {}, singleOf / factoryOf, koinBridge for suspend factories, and where bindings live (per-domain *DiModule.kt, with core/di/Modules.kt as an aggregator). |

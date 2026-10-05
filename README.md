@@ -34,6 +34,52 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 
 ---
 
+## Licensing
+
+This is an **open-core** project. The split is real, not aspirational, and it is
+verified by a gate on every commit.
+
+| | Licence | Built by default? |
+|---|---|---|
+| Everything outside `pro/` | [Apache-2.0](LICENSE) | **Yes** |
+| `pro/` | [FSL-1.1-ALv2](LICENSE.pro) | No — needs `-PwithPro=true` |
+
+A default build contains no `pro` code at all. `settings.gradle.kts` includes
+`:pro` only when the build is run with `-PwithPro=true`, so:
+
+```bash
+./gradlew :androidApp:assembleDebug                      # Apache-2.0 only
+./gradlew :androidApp:assembleDebug -PwithPro=true      # includes pro/
+```
+
+`scripts/check-pro-licence-boundary.py` enforces the direction of the dependency
+(no Apache-2.0 file imports `com.singularity.todo.pro`), the absence of
+non-OSI vendor dependencies from the free build, and that the free artifact
+really is free — `--verify-apk` inspects a built APK at the dex level. A licence
+split asserted only in a document is a claim the project cannot honour.
+
+Under FSL-1.1-ALv2 the `pro/` modules convert to Apache-2.0 two years after they
+are last used commercially.
+
+### Provenance
+
+Some code here is derived from other projects, and saying so is part of the
+release rather than an apology for it. The task query language under
+`feature/search/query/` derives from [Orgzly](https://github.com/orgzly/orgzly-android)
+(GPL-3.0) and was **rewritten** against a written specification — see
+[`docs/specs/search-query-grammar.md`](docs/specs/search-query-grammar.md). No
+GPL or source-available code is vendored.
+
+Every non-original file is classified in
+[`docs/legal/PROVENANCE.md`](docs/legal/PROVENANCE.md), machine-readably in
+`config/legal/provenance-registry.tsv`, and attested in
+[`NOTICE`](NOTICE). `PORTED` — the one class that would have blocked
+publication — is empty. No plagiarism detection was run, and most unmarked
+`.kt` files are classified `ORIGINAL` by absence of markers rather than by
+inspection; both limits are stated in the provenance document.
+
+---
+
 ## Quickstart
 
 ### Build
@@ -131,7 +177,7 @@ Run `just docs-audit` to check doc freshness, normalize ADRs, and regenerate DIG
 | Concern | Solution |
 |---|---|
 | DI | Koin 4.x pure DSL (NOT annotations) |
-| Database | Room with auto-migrations (schema v1 → v12+) |
+| Database | Room with auto-migrations (schema v37, `SCHEMA_VERSION` in `AppDatabase.kt`) |
 | Async | Kotlin Coroutines + Flow |
 | Logging | Kermit (multiplatform) |
 | Date/Time | kotlinx-datetime |

@@ -3123,3 +3123,99 @@ guessing. Budget it as a small Gradle task plus a Konsist check, not a grep.
 positives": a 45-entry allowlist of libraries that are definitely used is
 indistinguishable, to the next reader, from a 45-entry list of libraries that
 genuinely are not.
+
+---
+
+## billing-entitlement-is-a-port-without-a-caller
+
+**Found in:** 2026-10-05, while assessing what stands between the tree and the
+first paid feature.
+
+**Status: OPEN**
+
+**Tracked as:** #204
+
+**Symptom:** `core/billing` is five files — `SubscriptionProvider`,
+`SubscriptionInfo`, `PurchaseState`, `purchaseStateFor`, `NoopSubscriptionProvider` —
+registered in `CoreDiModule` and injected nowhere. `hasPro` gates nothing; there
+is no second `if (hasPro)` anywhere in the tree.
+
+**The defect inside it, which matters more than the missing caller.**
+`purchaseStateFor` reads the provider's flow by downcasting it:
+
+    (flow as? MutableStateFlow)?.value
+
+`NoopSubscriptionProvider` exposes a `MutableStateFlow`, so the cast succeeds and
+the tests pass. A real provider — Google Play Billing, RevenueCat — will expose a
+read-only `StateFlow` or a `SharedFlow`, and `asStateFlow()` returns a
+`ReadonlyStateFlow` that is **not** a `MutableStateFlow`. The cast then yields
+`null` for a paying user, and the derived state says "no subscription": a customer
+who has paid is denied. No exception, no log line, no crash.
+
+The existing test is named `hasPro true when subscription is present` and
+asserts the opposite, with a comment saying the positive case needs a real
+provider. That is an accurate description of why the case is unwritable today,
+but it leaves the defect invisible: a test named for the behaviour it does not
+check reads as coverage in any inventory.
+
+**A second defect in the same function, found while writing the first one up.**
+`hasAccount` is derived as `info != null` — that is, "the user has an *active
+paid subscription*". Its own KDoc says "the user has a linked account (even free
+tier)". A free-tier user with a signed-in account therefore reads as
+`hasAccount = false`. The two fields cannot both be right: with a single
+`SubscriptionProvider` source, `hasAccount` is not a function of entitlement at
+all, and deriving it from a paid subscription is what makes the triple look
+independently meaningful when it is not.
+
+This one is also inert today, for the same reason as the first, and it is worth
+naming separately because it will not be fixed by fixing the cast: the KDoc and
+the body disagree about what the field *means*, and that is a decision about the
+entitlement model rather than a type error.
+
+**Already ruled out:** not reachable today. Nothing injects the port, so the
+function is not called in production and the bug cannot yet deny anyone. It is
+recorded now because it becomes a *revenue* defect the moment the first paid
+feature is wired — which is the one moment nobody is re-reading this code.
+
+**Try next:** decide the paid feature first, then fix the read. The fix is
+mechanical — `subscription.first()` in a `suspend` function, or expose a
+`currentSubscription` property on the port — but choosing it means deciding
+whether entitlement is a *snapshot* (a suspend read) or *state* (a Flow the UI
+observes), and that choice belongs with the feature, not with a bug report. Write
+the missing positive-case test with a fake provider exposing a read-only
+`StateFlow` before shipping anything that charges money.
+
+---
+
+## gate-wiring-runs-before-the-tests-it-depends-on
+
+**Found in:** 2026-10-05, while re-running the full gate after adding tests to
+`:pro`.
+
+**Status: OPEN**
+
+**Tracked as:** #206
+
+**Symptom:** `check.sh` invokes `check-gate-wiring.py` at step 7 and
+`:shared:jvmTest` at step 9. Part B of the wiring check proves each registered
+gate *can fail*, and one of those gates — `check-test-runs.py` — reads the JUnit
+XML produced by those test tasks. On a tree where the XML is absent or stale (a
+fresh clone, or after any `--tests`-filtered run) the check reports
+
+    ERROR: gate 'test-runs' already fails on a clean tree (exit 1)
+
+and `check.sh` exits 1 before reaching the step that would have produced what it
+wants. Verified against a clean tree with this session's changes stashed, so it
+is not caused by the new tests.
+
+**Already ruled out:** not a false alarm. The gate is correct — it genuinely
+cannot demonstrate that `test-runs` fails, because on this tree `test-runs` fails
+for an unrelated reason.
+
+**Try next:** move the wiring check after the test tasks. Nothing before step 7
+depends on it, and it does not need to run early. The tempting alternative —
+having the wiring check skip the `test-runs` control when the XML is absent — is
+worse: it teaches the reader that "no results yet" is an acceptable state, which
+is the exact reading this project keeps eliminating. Not done here because it
+changes what the local gate's exit code means, and that deserves its own commit
+rather than arriving as a drive-by.
