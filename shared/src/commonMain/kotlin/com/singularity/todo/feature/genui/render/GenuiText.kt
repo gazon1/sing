@@ -3,7 +3,7 @@ package com.singularity.todo.feature.genui.render
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.genui.function.A2uiFunctionContext
 import com.singularity.todo.feature.genui.function.A2uiFunctionRegistry
 import com.singularity.todo.feature.genui.function.FormatString
@@ -13,6 +13,7 @@ import com.singularity.todo.feature.genui.function.TemplateSegment
 import com.singularity.todo.feature.genui.schema.DataModel
 import com.singularity.todo.feature.genui.schema.UiPath
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -124,7 +125,7 @@ class TemplateResolver(
 @Composable
 fun DataContext.templateResolver(): TemplateResolver {
     val functions: A2uiFunctionRegistry = LocalGenuiFunctions.current
-    val today: LocalDate = remember { todayInSystemZone() }
+    val today: LocalDate = remember(clock) { todayAt(clock, TimeZone.currentSystemDefault()) }
     return remember(functions, today, dataModel) {
         TemplateResolver(functions, today) { path: String -> dataModel?.get(UiPath.parse(path)) }
     }

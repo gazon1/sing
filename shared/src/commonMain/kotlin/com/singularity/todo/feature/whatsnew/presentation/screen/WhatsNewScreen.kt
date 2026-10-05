@@ -83,21 +83,8 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
             return@LaunchedEffect
         }
 
-        val lines = payload.lineSequence().filter { it.isNotBlank() }.toList()
-        val outcomes = lines.map { line: String -> parser.parseLine(line) }
-        val rejected = outcomes.count { outcome: A2uiParseOutcome ->
-            outcome is A2uiParseOutcome.Failed ||
-                (outcome is A2uiParseOutcome.Parsed && outcome.errors.any { it.severity != A2uiSeverity.ADVISORY })
-        }
-        droppedLines = rejected
-
         val id = SurfaceId("whatsnew")
-        controller.reset()
-        outcomes.forEach { outcome: A2uiParseOutcome ->
-            if (outcome is A2uiParseOutcome.Parsed) {
-                processor.apply(outcome.event, outcome.errors)
-            }
-        }
+        droppedLines = playReleaseNotes(payload, id, parser, processor, controller)
         surfaceId = id
     }
 
@@ -120,6 +107,7 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         onDataChange = { _, _, _ ->
             // WhatsNew surfaces are read-only.
         },
+        clock = koinInject(),
     )
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -143,5 +131,35 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Applies a release-note payload to a controller, and reports how many lines it refused.
+ *
+ * Retargeted onto [surfaceId] exactly as the chat session does. Without that the surface is filed
+ * under whatever the payload happens to name, and this screen points at a surface that may not be
+ * there — the same defect per-answer ownership fixed everywhere else.
+ */
+private fun playReleaseNotes(
+    payload: String,
+    surfaceId: SurfaceId,
+    parser: A2uiParser,
+    processor: A2uiMessageProcessor,
+    controller: SurfaceController,
+): Int {
+    val outcomes: List<A2uiParseOutcome> = payload.lineSequence()
+        .filter { it.isNotBlank() }
+        .map { line: String -> parser.parseLine(line) }
+        .toList()
+    controller.reset()
+    outcomes.forEach { outcome: A2uiParseOutcome ->
+        if (outcome is A2uiParseOutcome.Parsed) {
+            processor.apply(outcome.event.retargeted(surfaceId), outcome.errors)
+        }
+    }
+    return outcomes.count { outcome: A2uiParseOutcome ->
+        outcome is A2uiParseOutcome.Failed ||
+            (outcome is A2uiParseOutcome.Parsed && outcome.errors.any { it.severity != A2uiSeverity.ADVISORY })
     }
 }

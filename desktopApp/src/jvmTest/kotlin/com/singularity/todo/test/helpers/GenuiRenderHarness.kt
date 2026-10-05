@@ -28,8 +28,16 @@ import com.singularity.todo.feature.genui.render.material3.Material3Catalog
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
+import com.singularity.todo.test.fakes.FakeClock
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlin.time.Instant
+
+/**
+ * The moment every harness fixture is drawn at: a Monday, mid-morning, far from any boundary a
+ * date format could disagree about.
+ */
+private val FIXED_INSTANT: Instant = Instant.parse("2026-03-02T10:00:00Z")
 
 /** The identifier every harness fixture uses. Two would only hide a retargeting bug. */
 val GenuiSurfaceId: SurfaceId = SurfaceId("harness")
@@ -100,6 +108,9 @@ fun runGenuiRenderTest(
         registry = registry,
         onAction = { surfaceId, name, data -> presses += GenuiPress(surfaceId, name, data) },
         onDataChange = { surfaceId, path, value -> writes += GenuiWrite(surfaceId, path, value) },
+        // A fixed date, so "Today" and `formatRelative` mean something the test can assert. Reading
+        // the wall clock here would make every date-bearing assertion depend on the day it runs.
+        clock = FakeClock(FIXED_INSTANT),
     )
 
     val owner: TestLifecycleOwner = TestLifecycleOwner()

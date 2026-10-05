@@ -12,6 +12,7 @@ import com.singularity.todo.feature.genui.surface.component
 import com.singularity.todo.feature.genui.surface.rootRef
 import com.singularity.todo.feature.genui.surface.value
 import com.singularity.todo.feature.genui.surface.SurfaceId
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonElement
@@ -25,6 +26,11 @@ import kotlinx.serialization.json.JsonObject
  * subscribes to the whole surface cannot avoid re-rendering when any part of it changes, and a
  * tree of containers multiplies that cost by the number of nodes.
  *
+ * @param clock the clock renderers read "today" from. A card that says "Today" and a template
+ *   that calls `formatRelative` both need the date, and neither should read it from the system:
+ *   a surface that cannot be rendered for a known date cannot be tested against one, and a due
+ *   chip that reads the wall clock at draw time is a component whose test has to be written
+ *   around the day it happens to run.
  * @param onAction called when the user activates a control
  * @param onDataChange called when the user edits a form field. The value is already written to the
  *   surface's data model by then; this is a notification, not the write itself, so a read-only
@@ -36,6 +42,7 @@ class DefaultDataContext(
     val registry: ComponentRegistry,
     val onAction: (SurfaceId, String, JsonObject?) -> Unit,
     val onDataChange: (SurfaceId, UiPath, JsonElement) -> Unit,
+    val clock: Clock,
 ) {
     /** The whole surface map, for callers that need to know what exists rather than what changed. */
     val surfaces: StateFlow<Map<SurfaceId, Surface>> = controller.surfaces
@@ -88,12 +95,14 @@ fun rememberDataContext(
     registry: ComponentRegistry,
     onAction: (SurfaceId, String, JsonObject?) -> Unit,
     onDataChange: (SurfaceId, UiPath, JsonElement) -> Unit,
-): DefaultDataContext = remember(surfaceId, controller, registry, onAction, onDataChange) {
+    clock: Clock,
+): DefaultDataContext = remember(surfaceId, controller, registry, onAction, onDataChange, clock) {
     DefaultDataContext(
         surfaceId = surfaceId,
         controller = controller,
         registry = registry,
         onAction = onAction,
         onDataChange = onDataChange,
+        clock = clock,
     )
 }

@@ -109,6 +109,7 @@ private fun GenuiMessageSurface(
         // here would leave every button on every generated screen decorative.
         onAction = { _, name, data -> onSurfaceAction(name, data) },
         onDataChange = { _, _, _ -> },
+        clock = koinInject(),
     )
     GenuiSurface(ctx, Modifier.fillMaxWidth().padding(vertical = 4.dp))
 }

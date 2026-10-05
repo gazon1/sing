@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.components.formatDueChip
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.genui.catalog.UiNode
@@ -25,6 +25,7 @@ import com.singularity.todo.feature.genui.render.DataContext
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -50,7 +51,7 @@ internal fun ComponentRegistry.registerDomainComponents() {
 @Composable
 private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modifier) {
     val title: String = ctx.resolveText(card.title)
-    val today = remember { todayInSystemZone() }
+    val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
     val dueText: String? = if (card.duePath != null) {
         ctx.value(card.duePath).collectAsStateWithLifecycle(initialValue = null).value.text()
     } else {
@@ -93,7 +94,7 @@ private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modi
 
 @Composable
 private fun DueDateView(due: UiNode.DueDate, ctx: DataContext, modifier: Modifier) {
-    val today = remember { todayInSystemZone() }
+    val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
     val bound: JsonElement? = if (due.path != null) {
         ctx.value(due.path).collectAsStateWithLifecycle(initialValue = null).value
     } else {
