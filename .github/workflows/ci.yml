@@ -346,6 +346,15 @@ jobs:
       - name: Check unwired backlog references
         run: python3 scripts/check-unwired-backlog-refs.py
 
+      # An entity change without a SCHEMA_VERSION bump compiles, passes every
+      # test, and throws IllegalStateException at first query for every user
+      # with an existing database — because every test creates its own database
+      # and a fresh one has no identity hash to mismatch. That is how
+      # `sync_shadow.server_version` reached a shipped build.
+      - name: Room schema integrity
+        run: python3 scripts/check-room-schema-integrity.py
+        # blocking: an existing install must be able to upgrade
+
       - name: Audit-script regression tests
         run: python3 -m unittest discover -s scripts/tests
 

@@ -188,7 +188,8 @@ would train the annotation to mean nothing.
 
 `git rev-list --count --all` = 1 270 commits, all between 2026-09-30 and 2026-10-05.
 Three author addresses, one of them a real personal address
-(`newbox2517@inbox.ru`). No secrets: the only hits for "secret" are file *names* in
+(the author's own, redacted here — the value lives in the commit objects, not in
+this document). No secrets: the only hits for "secret" are file *names* in
 `SKILL.md` and ADRs, and `infra/kiwi/secrets.env` is gitignored and never committed.
 
 The whole `feature/search/query/` package arrived in **one** commit, `b6394207`, and
@@ -219,10 +220,10 @@ silent:
   `gazon1@users.noreply.github.com` form is used instead.
 
 A `.mailmap` rewrites the *display* of history only. `git log --all --format='%ae'`
-still returns `newbox2517@inbox.ru` across 20 commits, and `%an` still returns
-`Drobin Max` — because the address and the name live in the commit objects. **Shipping
-the mailmap and assuming the address is gone is the mistake this section exists to
-prevent.** W2 must rewrite the objects.
+still returns the personal address across 20 commits, and `%an` still returns the
+real display name — because the address and the name live in the commit objects.
+**Shipping the mailmap and assuming the address is gone is the mistake this section
+exists to prevent.** W2 must rewrite the objects.
 
 ## Consequences
 

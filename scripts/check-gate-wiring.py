@@ -263,6 +263,20 @@ SCRIPT_GATES = [
         ),
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
     ),
+    ScriptGate(
+        name="room-schema-integrity",
+        cmd=[sys.executable, "scripts/check-room-schema-integrity.py"],
+        # The exact defect this gate was written after: `SyncColumns.server_version`
+        # was added to `sync_shadow`, the export moved to 37, and `SCHEMA_VERSION`
+        # stayed at 36. Room's identity-hash check then failed for every user with
+        # an existing database — an `IllegalStateException` at first query, invisible
+        # to a suite whose tests each create their own database. Sabotaging the
+        # annotation reproduces that state, so the control is the real bug rather
+        # than a convenient one.
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt",
+        sabotage="p.write_text(p.read_text().replace('const val SCHEMA_VERSION = 37', 'const val SCHEMA_VERSION = 36'))",
+        why="an entity change without a version bump passes every test and crashes every existing install on upgrade",
+    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both
