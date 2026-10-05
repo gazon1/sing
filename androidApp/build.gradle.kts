@@ -191,12 +191,25 @@ detekt {
         .takeIf { it.isFile }
     buildUponDefaultConfig = true
     ignoreFailures = false   // enforcing — a baseline covers accepted debt when there is one
-    // src/debug is deliberately NOT linted yet: DebugSeedActivity.kt is one-shot debug
-    // tooling where runBlocking and Clock.System are by design, and whether debug-only
-    // code should be held to production rules is a decision, not a mechanical fix.
-    // Recorded in deferred-backlog.md as `androidapp-debug-source-set-unlinted`.
+    // `src/debug` is scanned. It was not, and that was the defect: a source set detekt
+    // is not told about is a source set where a real defect can hide indefinitely, and
+    // it is invisible from the report — detekt scans what it is told to scan and says
+    // nothing about what it was not told to scan.
+    //
+    // The six findings that remain are carried in the baseline with a reason each, not
+    // suppressed by source set. A seeder that blocks a thread, stamps real time and
+    // swallows failures is doing its job, and the rules forbidding those are right for
+    // production code; but baselining them as one blanket exemption would make them
+    // indistinguishable from the nine formatting defects that were genuinely fixed. The
+    // split was measured before anything changed: 15 findings, 9 fixed, 6 baselined.
+    //
+    // Policy and the alternative considered: openspec/changes/androidapp-debug-lint-policy,
+    // docs/decisions/2026-10-05-debug-source-set-is-linted.md, issue #99.
+    // `DetektSourceSetsAreAllScannedTest` fails if a source set is added to this module
+    // and not here, which is the class of defect this line used to be.
     source.setFrom(
         "src/main/kotlin",
         "src/androidTest/kotlin",
+        "src/debug/kotlin",
     )
 }

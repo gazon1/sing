@@ -50,7 +50,9 @@ import kotlinx.datetime.toLocalDateTime
  * seeding the activity always brings [com.singularity.todo.MainActivity] up
  * (CLEAR_TOP|SINGLE_TOP), whether it was already beneath us or not.
  */
-class DebugSeedActivity : Activity(), KoinComponent {
+class DebugSeedActivity :
+    Activity(),
+    KoinComponent {
 
     override fun onResume() {
         super.onResume()
@@ -115,10 +117,12 @@ class DebugSeedActivity : Activity(), KoinComponent {
 
                 taskRepo.upsert(task)
             }
+
             params.containsKey("note") -> {
                 val title = params["note"]!!
                 notesRepo.createNoteWithTitle(title)
             }
+
             params.containsKey("project") -> {
                 val name = params["project"]!!
                 val now = Clock.System.now()
@@ -135,6 +139,7 @@ class DebugSeedActivity : Activity(), KoinComponent {
 
                 projectsRepo.create(project)
             }
+
             params.containsKey("profile") -> {
                 val name = params["profile"]!!
                 profileRepo.ensureDefaults()
@@ -156,20 +161,20 @@ class DebugSeedActivity : Activity(), KoinComponent {
         }
     }
 
-    private fun parseParams(uri: Uri): Map<String, String> {
-        return uri.encodedQuery
-            ?.split("&")
-            ?.mapNotNull { part ->
-                val kv = part.split("=", limit = 2)
-                if (kv.size == 2) {
-                    val key = Uri.decode(kv[0])
-                    val value = Uri.decode(kv[1])
-                    if (key.isNotBlank() && value.isNotBlank()) key to value else null
-                } else null
+    private fun parseParams(uri: Uri): Map<String, String> = uri.encodedQuery
+        ?.split("&")
+        ?.mapNotNull { part ->
+            val kv = part.split("=", limit = 2)
+            if (kv.size == 2) {
+                val key = Uri.decode(kv[0])
+                val value = Uri.decode(kv[1])
+                if (key.isNotBlank() && value.isNotBlank()) key to value else null
+            } else {
+                null
             }
-            ?.toMap()
-            ?: emptyMap()
-    }
+        }
+        ?.toMap()
+        ?: emptyMap()
 
     /**
      * Resolves a date expression to [LocalDate].
@@ -187,7 +192,9 @@ class DebugSeedActivity : Activity(), KoinComponent {
 
         return when (expr.lowercase()) {
             "today" -> today
+
             "tomorrow" -> LocalDate.fromEpochDays(today.toEpochDays() + 1)
+
             else -> {
                 val relMatch = Regex("^([+-]?)(\\d+)d$").matchEntire(expr.lowercase())
                 if (relMatch != null) {

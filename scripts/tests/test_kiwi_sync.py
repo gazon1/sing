@@ -336,6 +336,97 @@ class RunnableTestClassTest(unittest.TestCase):
         )
 
 
+class StringAwareClassBodyTest(unittest.TestCase):
+    """A literal brace must not be able to end a class body early.
+
+    The Kotlin side of this same question is watched by
+    `ClassBodyScannerAgreementTest` in `:shared`. This is the Python side, and it
+    needed the fix rather than a watcher: the naive counter reported *no test
+    member* for a class that has one, and a class with no test member is reported
+    untagged and therefore never selected by `-Ptest.tags`. That is the D1 shape
+    the whole fixture table exists to prevent, arriving through a different door.
+    """
+
+    def test_unbalanced_brace_in_a_literal_above_a_test(self):
+        # The dangerous direction, stated as a verdict: a class with a test reads
+        # as having none, so it looks untagged and looks unrun.
+        source = (
+            "class FooTest {\n"
+            '    private val probe = "}"\n'
+            "    @Test\n"
+            "    fun a() {}\n"
+            "}\n"
+        )
+        self.assertTrue(
+            sync.has_runnable_test(source),
+            "an unbalanced brace inside a string literal truncated the class body, "
+            "so a class with a @Test was read as having none",
+        )
+
+    def test_unbalanced_brace_after_the_test_is_harmless(self):
+        source = (
+            "class FooTest {\n"
+            "    @Test\n"
+            "    fun a() {}\n"
+            '    private val tail = "{"\n'
+            "}\n"
+        )
+        self.assertTrue(sync.has_runnable_test(source))
+
+    def test_a_literal_containing_a_brace_pair_does_not_shift_depth(self):
+        source = (
+            "class FooTest {\n"
+            '    private val json = "{\"k\": 1}"\n'
+            "    @Test\n"
+            "    fun a() {}\n"
+            "}\n"
+        )
+        self.assertTrue(sync.has_runnable_test(source))
+
+    def test_string_templates_are_still_counted_as_code(self):
+        """A `${...}` template is code, not literal text.
+
+        Blanking the literal must not blank the template inside it: `a ${b} c`
+        has real braces that legitimately open and close a scope, and ignoring
+        them would push the body end somewhere else entirely.
+        """
+        source = (
+            "class FooTest {\n"
+            '    private val id = "task-${n}"\n'
+            "    @Test\n"
+            "    fun a() {}\n"
+            "}\n"
+        )
+        self.assertTrue(sync.has_runnable_test(source))
+
+    def test_stripping_preserves_length_so_offsets_do_not_drift(self):
+        line = '    private val probe = "}"  // a comment with { and }'
+        self.assertEqual(len(sync._strip_literals_and_comments(line)), len(line))
+
+    def test_a_line_comment_ending_the_line_is_removed(self):
+        self.assertNotIn(
+            "{",
+            sync._strip_literals_and_comments('val a = 1 // this { is prose'),
+        )
+
+    def test_escaped_quote_does_not_end_the_literal(self):
+        """A backslash-quote inside a literal must not close it.
+
+        Without escape handling the scanner reads this as two literals with the
+        text between them treated as code, so whatever braces sit there start
+        counting. The observable proof is that the whole literal is blanked as
+        one unit — `hi` is gone — rather than only the part before the escape.
+        """
+        line = '    val s = "he said \\"hi\\""'
+        stripped = sync._strip_literals_and_comments(line)
+        self.assertEqual(len(stripped), len(line))
+        self.assertNotIn("hi", stripped)
+        self.assertNotIn("he said", stripped)
+        # The code before the literal survives, which is what makes this an
+        # assertion about the literal rather than about blanking the line.
+        self.assertIn("val s =", stripped)
+
+
 class ReadTagTest(unittest.TestCase):
     """@Tag над нужным классом, а не первый @Tag в файле."""
 

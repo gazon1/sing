@@ -1473,18 +1473,28 @@ It is also the only androidApp source set the module does not scan.
 **Tracked as:** #99
 **OpenSpec change:** `openspec/changes/androidapp-debug-lint-policy/`
 
-**Status:** OPEN — a decision, not a mechanical fix. Linting it produces 16 findings, and
-every one is in `DebugSeedActivity.kt`:
+**Status: CLOSED.** 2026-10-05, by `openspec/changes/androidapp-debug-lint-policy` and
+ADR `2026-10-05-debug-source-set-is-linted.md`. `src/debug` is now scanned; 9 findings
+were auto-corrected and 6 are baselined with a reason each. **The recorded split below was
+wrong** — measurement found 15 findings, not 16, and 6 to baseline rather than 4 — which is
+why the change's first task was to measure before changing anything. The policy was not:
+lint it, rather than exempt the source set, because "not linted" and "linted with
+everything suppressed" are the same hiding place with a different badge.
+
+The original entry:
+
+> **Status:** OPEN — a decision, not a mechanical fix. Linting it produces 16 findings, and
+> every one is in `DebugSeedActivity.kt`:
 - `NoRunBlocking` (1) and `NoDirectClockSystem` (4) — a one-shot debug seeder blocks a
   background thread and stamps seed timestamps; both are the point of the tool
 - `TooGenericExceptionCaught` (1) — a seeding tool that must not crash the app
 - `BlankLineBetweenWhenConditions` (5), `ClassSignature` (2), and 3 more formatting
   findings, which are auto-correctable
 
-**Not done deliberately.** Half of these would need a suppression, because the rules are
-correct for production and wrong for a debug seeder. Whether debug-only tooling should be
-held to production rules — or exempted by source set, or held with a narrower rule set — is
-a call for whoever owns the debug tooling, and it generalises to every future
+**Now resolved.** Half of these needed a suppression, because the rules are correct for
+production and wrong for a debug seeder — and each suppression says so in terms of the tool
+rather than of debug code, so a seventh finding has to be a decision instead of joining the
+pile. The decision generalises to every future
 `src/debug` file.
 
 **Try next:** decide the policy first, then wire it. The cheapest policy is to lint it

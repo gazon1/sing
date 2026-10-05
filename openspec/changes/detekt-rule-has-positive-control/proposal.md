@@ -20,6 +20,46 @@ tests had been failing since they were written; the two that passed asserted the
 rule *stays quiet*, which a rule that never fires satisfies trivially. Nobody
 read the result, because no gate ran that module's tests.
 
+## The same question applies to gates, and only the gate half was asked
+
+This change scopes the requirement to custom **detekt rules**, which is the right
+scope for a change in `detekt-rules/`. It is worth recording that the question
+generalises and that the general case has been half-answered, because the same
+defect was found in a gate during the audit this change belongs to.
+
+`docs/decisions/2026-10-05-gate-audit-text-shape-vs-fact` asked every gate that
+decides whether a test run counts as evidence two questions: *what input passes
+silently*, and *is there a synthetic negative control*. Thirteen gates were
+audited. One had a live defect — `flow_has_tag` compared a tag for string
+equality, so a tag with one trailing space was dropped from every run — and
+three more surfaced only while writing the negative controls for the repair.
+
+The pattern is identical to the rule case: a gate that matches nothing is
+indistinguishable from a gate that is working, and nothing in a green report
+distinguishes "there is nothing wrong" from "nothing was looked at".
+
+**The two are not the same work, though, and conflating them would be a
+mistake.** A detekt rule's positive control is a test that makes the rule fire.
+A gate's negative control is a *sabotaged input that must fail the gate* — the
+inverse. The useful property is shared, the artefact is not, and a check written
+for rules will not serve gates. So this change stays where it is, and the gate
+half is recorded as its own follow-up with the audit as its input:
+
+- `scripts/check-gate-wiring.py` already sabotage-tests registered gates, which
+  is the gate-side equivalent of a positive control and already exists.
+- What is missing is a gate that asks *which gates have never been sabotaged* —
+  the same derivation-from-registration requirement the second task below states
+  for rules.
+- The audit table is the input: for each gate, the silent input found (or "none
+  found") and whether a synthetic control exists.
+
+**Measured, 2026-10-05, over the thirteen audited gates:** one live defect
+found, three more found by the repair's own negative controls, and nine gates
+with a documented input that passes them silently. The two gates added since
+(`check-test-runs.py`'s by-results half and the class-body scanner guard) each
+ship with a negative control that was verified to fail first, which is the
+arrangement the follow-up should hold every gate to.
+
 Every rule has a positive control today. `RuleFiresSmokeTest.kt` supplies one
 for every rule that has no dedicated test class, and the per-rule classes cover
 the rest — 20 rules, 146 green tests. **That is the state, not the guarantee.**

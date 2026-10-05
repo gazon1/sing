@@ -48,12 +48,29 @@
 # scripts/check-test-runs.py, which compares declared fast classes against the
 # classes that actually produced a JUnit report.
 #
-# **200 -> 222 is real growth**, and the way it was caught is the argument for that
-# by-results check. The sync and auth work landed 27 new `@Tag("fast")` classes,
-# and the count floor was satisfied the whole time — 200 classes, 1616 tests,
-# unchanged — while 27 declared classes produced no report at all. Only the
+# **200 -> 222 classes was real growth**, and the way it was caught is the argument
+# for the by-results check. The sync and auth work landed 27 new `@Tag("fast")`
+# classes, and the count floor was satisfied the whole time — 200 classes, 1616
+# tests, unchanged — while 27 declared classes produced no report at all. Only the
 # by-results half saw it, because it asks the direct question ("did this specific
 # declared class run") instead of comparing against a number.
+#
+# **The class column is gone** (2026-10-05). It became redundant once the
+# by-results check existed: that check already fails when a declared class produced
+# no report, which is what the class count was for, and it fails by name rather than
+# by subtraction. Every other way a class count moves — a class deleted, a class
+# emptied, two classes merged — moves the test count too, so the test count fires
+# wherever the class column would have, and the class column never fired alone.
+# Keeping both meant raising a floor whenever a test was added, which is friction
+# that trains people to regenerate it without reading it.
+#
+# **`--update-baseline` now refuses a drop.** The header above says a drop means
+# "investigate; do not regenerate", and the tool did not enforce its own rule:
+# a filtered `--tests <one class>` run leaves one class of XML on disk, and the
+# tool read that as a measurement and wrote a floor of **1 test** for a source set
+# that runs 1788. It was found by being bitten, and it is the same incident as the
+# 1003 above, reached the same way. `--allow-drop` is the override, and a deliberate
+# deletion is exactly when it is the right one.
 #
 # **This block used to be un-bounded, and regenerating destroyed these notes.**
 # `--update-baseline` rewrote the whole file from a header literal held in the
@@ -63,7 +80,7 @@
 # convention is already used by `Maestro/TAGS.md`.
 #
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
-desktopApp:test 10 33 0
-mcp-server:test 1 7 0
-shared:jvmTest 222 1785 0
+desktopApp:test 33 0
+mcp-server:test 7 0
+shared:jvmTest 1788 0
 # GENERATED:END

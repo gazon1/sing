@@ -189,10 +189,20 @@ class ClassBodyScannerAgreementTest {
         while (i < line.length) {
             val ch = line[i]
             if (inString) {
+                // Every branch appends exactly one character, the escape ones
+                // included. The contract is that the result is the same length as
+                // the input, so a caller can map one to the other — the oracle
+                // needs that to stay comparable with the production counter.
                 when {
-                    escaped -> escaped = false
+                    escaped -> {
+                        escaped = false
+                        out.append(' ')
+                    }
 
-                    ch == BACKSLASH -> escaped = true
+                    ch == BACKSLASH -> {
+                        escaped = true
+                        out.append(' ')
+                    }
 
                     ch == QUOTE -> {
                         inString = false

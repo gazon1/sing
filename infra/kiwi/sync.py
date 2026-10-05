@@ -271,12 +271,62 @@ def _is_abstract_or_open(declaration: str) -> bool:
     ) is not None
 
 
+def _strip_literals_and_comments(line: str) -> str:
+    """Строка с обнулёнными литералами и комментариями, длина сохранена.
+
+    Символьный обход, а не регулярка: у регулярки были бы свои представления о
+    том, что такое строка, и эталон не смог бы заметить, что реализация ошибается
+    — а это единственная работа этого метода.
+    """
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+    n = len(line)
+    while i < n:
+        ch = line[i]
+        if in_string:
+            # Each branch appends exactly one character, including the escape
+            # ones. Omitting them shortens the line, and the function's contract is
+            # that the result is the same length as the input so a caller can map
+            # one to the other.
+            if escaped:
+                escaped = False
+                out.append(" ")
+            elif ch == "\\":
+                escaped = True
+                out.append(" ")
+            elif ch == '"':
+                in_string = False
+                out.append(" ")
+            else:
+                out.append(" ")
+        elif ch == '"':
+            in_string = True
+            out.append(" ")
+        elif ch == "/" and i + 1 < n and line[i + 1] == "/":
+            out.append(" " * (n - i))
+            break
+        else:
+            out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _has_test_member(lines: list[str], class_index: int) -> bool:
     """Есть ли @Test-аннотация в теле класса, начавшемся на [class_index].
 
     Считает фигурные скобки до закрытия тела, поэтому длина класса значения не
     имеет: у EntityMapperCompletenessTest первая @Test идёт на 340-й строке,
     и фиксированное окно в N строк отсеивало реальный тест как «пустой».
+
+    Скобки считаются по строке с вырезанными литералами и комментариями. Без
+    этого непарная скобка внутри строки ('"', или JSON в сообщении assert)
+    сдвигает глубину, тело класса обрывается раньше, и класс читается как
+    «без тестов» — то есть как нетегированный и потому никогда не
+    запускаемый. Kotlin-сторона того же вопроса закрыта стражем
+    ClassBodyScannerAgreementTest; здесь это сделано сразу, потому что
+    дешевле, чем ещё один страж с эталоном.
     """
     if "{" not in lines[class_index]:
         return any(
@@ -287,7 +337,7 @@ def _has_test_member(lines: list[str], class_index: int) -> bool:
     depth = 0
     opened = False
     for i in range(class_index, len(lines)):
-        for ch in lines[i]:
+        for ch in _strip_literals_and_comments(lines[i]):
             if ch == "{":
                 depth += 1
                 opened = True

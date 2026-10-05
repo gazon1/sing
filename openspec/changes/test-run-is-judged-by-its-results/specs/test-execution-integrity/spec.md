@@ -1,5 +1,56 @@
 # test-execution-integrity
 
+## MODIFIED Requirements
+
+### Requirement: REQ-1 Executed test counts are a floor, not a report
+
+CI SHALL compare the number of executed tests per source set against a committed
+floor, and SHALL fail when a source set runs fewer than the floor records.
+
+The floor SHALL be the smallest count any legitimate run produces — the default
+local run, which excludes `@Tag("slow")` — so that a fuller CI run is never
+mistaken for a regression.
+
+The number of executed test *classes* is no longer part of the floor. It was
+subsumed by the by-results check in REQ-13, which fails when a declared class
+produced no report — the same defect the class count existed to catch, caught by
+name rather than by subtraction. Every other way a class count moves (a class
+deleted, a class emptied, two classes merged) moves the test count too, so the
+test count fires wherever the class count would have.
+
+A tool that updates the floor SHALL refuse to record a lower count without an
+explicit override, and SHALL say which source sets dropped. A drop means tests
+stopped being selected, which is a defect to investigate; a tool that regenerates
+one converts a caught defect into an accepted one.
+
+**Rationale:** `includeTags` matches per class. A class can stop being selected —
+an untagged class, a JUnit 4 class on the Vintage engine, a narrowed filter —
+with no error and a green task. Gradle reports `BUILD SUCCESSFUL` for a run that
+executed nothing. The class count was the blunt instrument for that; the
+by-results check is the same guarantee stated per class, and keeping both meant
+raising a floor whenever a test was added, which is friction that trains people
+to regenerate it without reading it.
+
+#### Scenario: A class loses its tag
+
+- **Given** the baseline records 1785 tests for `shared:jvmTest`
+- **When** a test class's `@Tag` is removed
+- **Then** the verification gates fail, naming the class that produced no report
+- **And** the test-count floor is also below its record
+
+#### Scenario: Tests are added
+
+- **Given** the run executes more tests than the floor records
+- **Then** the gates pass, and the floor is raised in the same commit
+
+#### Scenario: A partial run is mistaken for a measurement
+
+- **Given** a results directory holding only the suites a filtered `--tests` run
+  selected
+- **When** the floor is updated
+- **Then** the tool refuses, naming the source set and the drop
+- **And** the recorded floor is unchanged
+
 ## ADDED Requirements
 
 ### Requirement: REQ-13 A declared test class that produced no report fails the build
