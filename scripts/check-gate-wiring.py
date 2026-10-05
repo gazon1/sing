@@ -241,6 +241,8 @@ SCRIPT_GATES = [
         sabotage_path="shared/build.gradle.kts",
         sabotage="p.write_text(p.read_text() + '\\ndependencies { implementation(\"ru.ok.tracer:tracer-crash-report:1.4.0\") }\\n')",
         why="proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour",
+    ),
+    ScriptGate(
         name="traceability-ratchet",
         cmd=[sys.executable, "scripts/check-traceability-ratchet.py"],
         # A spec, not the floor file. The floor is the gate's own configuration,
