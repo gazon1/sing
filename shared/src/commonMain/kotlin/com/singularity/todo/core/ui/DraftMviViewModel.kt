@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -104,7 +103,16 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
 
     private val draftState = DraftState(initialDraft)
 
-    private val effectJobs = ConcurrentHashMap<Any, Job>()
+    /**
+     * In-flight draft effects, keyed by the [launchDraftEffect] key that started them.
+     *
+     * A plain map because this is touched only from [launchDraftEffect], which the UI
+     * calls on the main thread and which reads, replaces and cancels synchronously
+     * before returning — the coroutines it stores are *launched* elsewhere, but the
+     * map is not shared with them. `ConcurrentHashMap` said otherwise, and said it
+     * about a class that does not exist on Kotlin/Native.
+     */
+    private val effectJobs = mutableMapOf<Any, Job>()
 
     /** Current draft value. Use inside [updateDraft] transforms. */
     protected val draft: D get() = draftState.value

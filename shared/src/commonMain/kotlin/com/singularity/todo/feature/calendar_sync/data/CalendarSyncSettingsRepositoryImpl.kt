@@ -4,22 +4,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.singularity.todo.core.datastore.catchDataStoreIoError
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import java.io.IOException
-
-/**
- * Emits [emptyPreferences] when [IOException] is thrown (e.g. corrupted DataStore file),
- * re-throwing all other exceptions.
- */
-private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
-    catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
 
 /**
  * DataStore-backed implementation of [CalendarSyncRepository].
@@ -42,7 +33,7 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
     }
 
     override fun observeEnabled(): Flow<Boolean> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[CALENDAR_SYNC_ENABLED] ?: false }
 
     override suspend fun setEnabled(enabled: Boolean) {
@@ -50,7 +41,7 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
     }
 
     override fun observeTargetCalendarId(): Flow<String?> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[CALENDAR_SYNC_TARGET_ID] }
 
     override suspend fun setTargetCalendarId(calendarId: String) {
@@ -58,7 +49,7 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
     }
 
     override fun observeTargetAppPackage(): Flow<String?> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[CALENDAR_SYNC_APP_PKG] }
 
     override suspend fun setTargetAppPackage(packageName: String?) {
@@ -72,7 +63,7 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
     }
 
     override fun observeLastSyncedAt(): Flow<Long?> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[CALENDAR_SYNC_LAST_AT] }
 
     override suspend fun setLastSyncedAt(ts: Long) {
@@ -80,7 +71,7 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
     }
 
     override fun observeStatus(): Flow<CalendarSyncStatus> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { prefs ->
             val statusName = prefs[CALENDAR_SYNC_STATUS]
             when (statusName) {

@@ -46,7 +46,7 @@ class DataStoreNotificationsSettingsRepository(dataStore: DataStore<Preferences>
     private val reminderPref = enumPref(
         nsKey(SettingsNamespace.NOTIFICATIONS, "reminder_default"),
         SettingsDefaults.Notifications.REMINDER_DEFAULT,
-        ReminderOffset::class,
+        ReminderOffset.entries,
     )
 
     override val enabled: Flow<Boolean> get() = enabledPref.flow

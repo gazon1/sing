@@ -3,12 +3,9 @@ package com.singularity.todo.feature.whatsnew.presentation
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
+import com.singularity.todo.core.datastore.catchDataStoreIoError
 import kotlinx.coroutines.flow.first
-import java.io.IOException
 
 /**
  * DataStore-backed persistence for the WhatsNew screen.
@@ -20,13 +17,6 @@ import java.io.IOException
  *
  * Use [WhatsNewPrefs.create] in Koin modules to construct from a `DataStore<Preferences>`.
  */
-/**
- * Emits [emptyPreferences] when [IOException] is thrown (e.g. corrupted DataStore file),
- * re-throwing all other exceptions.
- */
-private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
-    catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
-
 class WhatsNewPrefs private constructor(private val dataStore: DataStore<Preferences>) {
 
     /**
@@ -48,7 +38,7 @@ class WhatsNewPrefs private constructor(private val dataStore: DataStore<Prefere
     }
 
     private suspend fun lastShownHash(): String = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .first()[KEY_LAST_HASH] ?: ""
 
     companion object {

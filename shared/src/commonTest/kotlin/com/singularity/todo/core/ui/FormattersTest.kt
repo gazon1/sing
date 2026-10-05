@@ -1,8 +1,11 @@
 package com.singularity.todo.core.ui
 
+import kotlinx.datetime.Month
+import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 /**
  * The shared formatters, tested directly.
@@ -62,5 +65,72 @@ class FormattersTest {
         // stopped at MB, so a 2 GB backup rendered as "2048.0 MB".
         assertEquals("1.0 GB", formatFileSize(1024L * 1024 * 1024))
         assertEquals("2.0 GB", formatFileSize(2L * 1024 * 1024 * 1024))
+    }
+
+    /**
+     * The gigabyte branch rounds to one decimal, and does it in integer arithmetic.
+     *
+     * It used to be `"%.1f GB".format(bytes / gibibyte.toDouble())`, which formats in
+     * the *device's* locale: a user with a comma decimal separator saw "2,0 GB" on
+     * every attachment and backup size in the app. These cases pin the rounding
+     * itself, so swapping the arithmetic back to a `Double` cannot silently change
+     * what a size reads as.
+     */
+    @Test
+    fun `gigabytes round to one decimal`() {
+        val gib = 1024L * 1024 * 1024
+        assertEquals("1.5 GB", formatFileSize(gib + gib / 2))
+        assertEquals("1.1 GB", formatFileSize(gib + gib / 10 + 1))
+        assertEquals("1.0 GB", formatFileSize(gib + gib / 20))
+        // Just over the threshold, which is the case a truncating implementation
+        // would render "1.0 GB" for every file up to 1.05 GB.
+        assertEquals("1.0 GB", formatFileSize(gib + 1))
+        // A Long near the ceiling must not overflow the `bytes * 10` a naive
+        // implementation would reach for.
+        assertEquals("8589934592.0 GB", formatFileSize(Long.MAX_VALUE))
+    }
+
+    @Test
+    fun `month abbreviations are English three-letter names`() {
+        assertEquals("Jan", monthAbbreviation(Month.JANUARY))
+        assertEquals("Sep", monthAbbreviation(Month.SEPTEMBER))
+        assertEquals("Dec", monthAbbreviation(Month.DECEMBER))
+    }
+
+    /**
+     * Every month must produce three characters, not a longer name: this replaced
+     * `SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())`, and the length is the
+     * part that keeps a table row from wrapping.
+     */
+    @Test
+    fun `every month abbreviates to exactly three characters`() {
+        Month.entries.forEach { month ->
+            assertEquals(3, monthAbbreviation(month).length, month.name)
+        }
+    }
+
+    @Test
+    fun `month day time reads as it did under SimpleDateFormat`() {
+        val utc = TimeZone.UTC
+        val instant = Instant.parse("2026-11-05T14:30:00Z")
+
+        assertEquals("Nov 5, 14:30", formatMonthDayTime(instant, utc))
+    }
+
+    @Test
+    fun `month day time zero-pads the clock and leaves the day bare`() {
+        val instant = Instant.parse("2026-01-09T09:04:00Z")
+
+        assertEquals("Jan 9, 09:04", formatMonthDayTime(instant, TimeZone.UTC))
+    }
+
+    /** A non-UTC zone must actually shift the rendered hour, not be ignored. */
+    @Test
+    fun `month day time renders in the zone it is given`() {
+        val instant = Instant.parse("2026-11-05T23:30:00Z")
+
+        // CET, not CEST: November is an hour ahead, not two.
+        assertEquals("Nov 6, 00:30", formatMonthDayTime(instant, TimeZone.of("Europe/Berlin")))
+        assertEquals("Nov 5, 23:30", formatMonthDayTime(instant, TimeZone.UTC))
     }
 }

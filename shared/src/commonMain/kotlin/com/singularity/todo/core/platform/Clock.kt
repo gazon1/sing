@@ -6,12 +6,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 /**
  * Emits the current [LocalDate] in [zone] immediately, then re-emits exactly once
@@ -49,6 +51,26 @@ fun todayAt(clock: Clock, zone: TimeZone = TimeZone.currentSystemDefault()): Loc
 // NoDirectClockSystemRule exemption: this is the intentional single call site.
 // If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
 internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
+
+/** The local wall-clock time at [instant] in [zone]. */
+fun localTimeAt(instant: Instant, zone: TimeZone = TimeZone.currentSystemDefault()): LocalDateTime =
+    instant.toLocalDateTime(zone)
+
+/**
+ * The current local wall-clock time, to the second.
+ *
+ * For the places that stamp a name onto something — an exported log bundle, a
+ * filename — where a [LocalDate] is too coarse but a full timestamp is noise.
+ *
+ * A caller that needs the clock *injected* so a test can assert the stamp should
+ * take a [Clock] itself and use [localTimeAt]: "now" for a log file name is a
+ * property of the moment the export ran, not a dependency of the exporter, and
+ * asserting it is the test's job rather than the production object's.
+ *
+ * NoDirectClockSystemRule exemption: this is the intentional single call site.
+ * If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
+ */
+fun nowInSystemZone(): LocalDateTime = localTimeAt(Clock.System.now())
 
 /**
  * Computes milliseconds until the next local midnight after [today] in [zone].

@@ -6,6 +6,7 @@ import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.ModelUsageRow
 import com.singularity.todo.core.database.ToolUsageRow
+import com.singularity.todo.core.ids.nextId
 import com.singularity.todo.core.platform.TimeConstants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,7 +28,7 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
 
     suspend fun record(event: ToolUsageEvent) {
         val entity = LlmUsageEntity(
-            id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${java.util.UUID.randomUUID()}",
+            id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${nextId()}",
             profileId = event.profileId,
             toolName = event.toolName,
             modelId = event.modelId,

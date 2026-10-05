@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.formatElapsed
+import com.singularity.todo.core.ui.monthAbbreviation
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -35,7 +36,6 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -259,15 +259,7 @@ private fun formatDayLabel(date: LocalDate): String {
     val yesterday = LocalDate.fromEpochDays(today.toEpochDays() - 1)
     return when (date) {
         today -> "Today"
-
         yesterday -> "Yesterday"
-
-        else -> {
-            val monthNames = listOf(
-                "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-            )
-            "${monthNames[date.month.number - 1]} ${date.day}"
-        }
+        else -> "${monthAbbreviation(date.month)} ${date.day}"
     }
 }

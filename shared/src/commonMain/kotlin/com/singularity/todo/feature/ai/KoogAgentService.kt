@@ -17,6 +17,14 @@ import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.accept
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -24,8 +32,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.net.HttpURLConnection
-import java.net.URI
 import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
@@ -135,19 +141,36 @@ class KoogAgentService(
     }
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatchingCancellable {
-        val url = URI("$baseUrl/models").toURL()
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
-        conn.setRequestProperty("Authorization", "Bearer $apiKey")
-        conn.setRequestProperty("Accept", "application/json")
-        conn.connectTimeout = 10_000
-        conn.readTimeout = 15_000
-        try {
-            val response = conn.inputStream.bufferedReader().readText()
-            val parsed = Json.parseToJsonElement(response)
-            parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
-        } finally {
-            conn.disconnect()
+        val response = httpClient.get("$baseUrl/models") {
+            header(HttpHeaders.Authorization, "Bearer $apiKey")
+            accept(ContentType.Application.Json)
+        }.bodyAsText()
+        val parsed = Json.parseToJsonElement(response)
+        parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
+    }
+
+    /**
+     * Lazily built, and never closed.
+     *
+     * This service is a DI singleton, so the client shares the process lifetime —
+     * which for the desktop app is the app's lifetime, and is the way a Ktor client is
+     * meant to be owned. Building it lazily means the many tests that construct a
+     * `KoogAgentService` and never list models pay nothing and leak nothing.
+     *
+     * It was `java.net.HttpURLConnection` before, opened and disconnected per call.
+     * That has no `java.net` on a non-JVM target at all, and Ktor was already a
+     * dependency for the rest of this feature.
+     */
+    private val httpClient: HttpClient by lazy {
+        HttpClient {
+            expectSuccess = false
+            install(HttpTimeout) {
+                connectTimeoutMillis = 10_000
+                // Stands in for `HttpURLConnection.readTimeout`: an upper bound on
+                // the whole exchange, not just the socket read, which is what a user
+                // refreshing a model list is actually waiting for.
+                requestTimeoutMillis = 15_000
+            }
         }
     }
 }

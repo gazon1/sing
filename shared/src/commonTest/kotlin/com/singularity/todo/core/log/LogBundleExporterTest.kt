@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -100,12 +101,45 @@ class LogBundleExporterTest {
 }
 
 /**
- * Minimal fake [BackupCodec] for testing [LogBundleExporter].
+ * The archive name is the only reason the exporter knows what time it is.
+ *
+ * It was `SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)` and is now a
+ * `kotlinx-datetime` format, and the two agree on the digits only if every field is
+ * explicitly zero-padded — the kotlinx default is "no padding", which would make a
+ * bundle exported at 09:04 sort as `…-90412` between its neighbours. Sorting the
+ * exported files is the whole use of putting a timestamp in a filename, so the shape
+ * is asserted rather than trusted.
  */
+@Tag("fast")
+class LogBundleExporterStampTest {
+
+    @Test
+    fun `the archive name is a fixed-width sortable timestamp`() = runTest {
+        val codec = FakeBackupCodec()
+        val sut = LogBundleExporter("/logs", codec, MapFileSystem())
+
+        val path = sut.export().getOrThrow()
+
+        val stamp = Regex("""^/logs/singularity-logs-(\d{8}-\d{6})\.zip$""")
+            .matchEntire(path)
+            ?.groupValues
+            ?.get(1)
+        assertNotNull(stamp, "archive name was not a fixed-width timestamp: $path")
+
+        // The manifest carries the same stamp, so a bundle can be traced to a name.
+        assertTrue(codec.lastManifest!!.contains(stamp))
+    }
+}
+
+/** Minimal fake [BackupCodec] for testing [LogBundleExporter]. */
 private class FakeBackupCodec(private val failExport: Boolean = false) : BackupCodec {
     var calls = 0
         private set
     var lastAttachments: List<Pair<String, ByteArray>>? = null
+        private set
+    var lastDestPath: String? = null
+        private set
+    var lastManifest: String? = null
         private set
 
     override suspend fun export(
@@ -117,6 +151,8 @@ private class FakeBackupCodec(private val failExport: Boolean = false) : BackupC
     ): Result<Unit> {
         calls++
         lastAttachments = attachments
+        lastDestPath = destPath
+        lastManifest = manifestBytes.decodeToString()
         return if (failExport) {
             Result.failure(IllegalStateException("synthetic export failure"))
         } else {

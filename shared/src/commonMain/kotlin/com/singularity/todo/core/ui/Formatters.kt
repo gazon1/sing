@@ -1,6 +1,9 @@
 package com.singularity.todo.core.ui
 
-import java.util.Locale
+import kotlinx.datetime.Month
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 /*
  * Pure display formatters shared by more than one screen.
@@ -17,12 +20,38 @@ import java.util.Locale
  * They live here rather than in a feature because "how do I render 3725 ms" is a
  * question three features were each answering separately. Nothing here touches
  * state, so it is testable without a Compose runtime.
+ *
+ * ## No `String.format`, and why that is not only about `Locale`
+ *
+ * Every number here is padded by hand. The reason is not that `java.util.Locale`
+ * is unavailable off the JVM — it is that `"%.1f".format(x)` with no `Locale`
+ * argument formats in the *device's* locale, so a user whose separator is a comma
+ * saw "2,0 GB" on an attachment while the same value read "2.0 GB" everywhere
+ * else, and the file-size column became unparseable. The zero-padding helpers below
+ * cannot have a locale, so the question does not arise.
  */
+
+/**
+ * Left-pads to two digits: `7` → `"07"`, `59` → `"59"`.
+ *
+ * Two overloads rather than a generic `T : Number` because [kotlin.String.padStart]
+ * is the only operation involved and a generic would buy a `Number.toString()` that
+ * has to be re-implemented per type anyway.
+ */
+private fun Int.padded(): String = toString().padStart(2, '0')
+
+private fun Long.padded(): String = toString().padStart(2, '0')
 
 /**
  * Elapsed milliseconds as a clock: "4:07", or "1:02:03" once past an hour.
  *
  * Truncates to whole seconds — this is a duration display, not a stopwatch.
+ *
+ * The leading field is bare and the ones after it are zero-padded, which is what
+ * `"%d:%02d"` / `"%d:%02d:%02d"` produced: an elapsed of 7 seconds reads "0:07", not
+ * "00:07". Padding the first field too looked tidier and was wrong — a stopwatch
+ * display that always showed two digits for minutes drew a false distinction between
+ * "0:07" and "00:07" that the number does not contain.
  */
 fun formatElapsed(elapsedMs: Long): String {
     val totalSeconds = elapsedMs / 1000
@@ -30,9 +59,9 @@ fun formatElapsed(elapsedMs: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (hours > 0) {
-        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        "$hours:${minutes.padded()}:${seconds.padded()}"
     } else {
-        String.format(Locale.US, "%d:%02d", minutes, seconds)
+        "$minutes:${seconds.padded()}"
     }
 }
 
@@ -53,6 +82,9 @@ fun formatDuration(ms: Long): String {
     }
 }
 
+/** The unit the size formatter steps up at — and the only branch that rounds. */
+private const val GIBIBYTE = 1024L * 1024 * 1024
+
 /**
  * Bytes as a human-readable size: "500 B", "1 KB", "12 MB", "2.0 GB".
  *
@@ -61,10 +93,45 @@ fun formatDuration(ms: Long): String {
  * decimal. Rounding consistently would change the size shown next to every
  * attachment and backup, which is a visual decision rather than a de-duplication
  * — so the quirk is preserved and pinned by `FormattersTest`.
+ *
+ * The gigabyte branch rounds to one decimal in integer arithmetic, with the quotient
+ * and the remainder handled separately so `bytes * 10` cannot overflow a `Long`, and
+ * `%10` on the result yields the fractional digit without a second division.
  */
 fun formatFileSize(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"
+
     bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
-    else -> "%.1f GB".format(bytes.toDouble() / (1024 * 1024 * 1024))
+
+    bytes < GIBIBYTE -> "${bytes / (1024 * 1024)} MB"
+
+    else -> {
+        val tenths = (bytes / GIBIBYTE) * 10 + ((bytes % GIBIBYTE) * 10 + GIBIBYTE / 2) / GIBIBYTE
+        "${tenths / 10}.${tenths % 10} GB"
+    }
+}
+
+/**
+ * [month] as a short English name: "Jan" … "Dec".
+ *
+ * Derived from the enum constant's own name rather than a hand-kept table, so a
+ * month added to the enum cannot be missing from this list. The trade is that the
+ * result is English on every device: the alternative is a localised month name from
+ * a platform API, and this codebase already renders English month abbreviations on
+ * the task logbook, so a second screen answering the same question in the user's
+ * language would be the inconsistency.
+ */
+fun monthAbbreviation(month: Month): String =
+    month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+
+/**
+ * [instant] as "Nov 5, 14:30" in [zone] — the shape a time-tracking entry list
+ * shows, month abbreviation, day of month, and 24-hour clock.
+ */
+fun formatMonthDayTime(
+    instant: Instant,
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+): String {
+    val local = instant.toLocalDateTime(zone)
+    return "${monthAbbreviation(local.month)} ${local.day}, ${local.hour.padded()}:${local.minute.padded()}"
 }

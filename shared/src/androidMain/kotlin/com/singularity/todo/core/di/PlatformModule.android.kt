@@ -26,6 +26,8 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.platform.AndroidHostEnvironment
+import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.haptics.AndroidHaptic
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.security.AndroidSecureStorage
@@ -185,6 +187,8 @@ actual fun platformModule(): Module = module {
     single<NotificationPort> { AndroidNotificationPort(get()) }
 
     single<FileSystem> { AndroidFileSystem(get()) }
+
+    single<HostEnvironmentPort> { AndroidHostEnvironment(get()) }
 
     single<FileRevealer> { AndroidFileRevealer(get()) }
 

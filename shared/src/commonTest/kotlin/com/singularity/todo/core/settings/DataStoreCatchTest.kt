@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import com.singularity.todo.core.datastore.catchDataStoreIoError
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Tag
 import java.io.IOException
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /**
  * Verifies that `.catch { emit(emptyPreferences()) }` is applied to [PreferenceWrappers] flows,
@@ -67,6 +70,35 @@ class DataStoreCatchTest {
 
         assertEquals(1.0f, wrapper.flow.first())
     }
+
+    /**
+     * The half of the contract that is easy to lose.
+     *
+     * Swallowing everything instead of I/O errors would make this suite pass and the
+     * app wrong: a cancelled read would render as "no settings", and a programming
+     * error would be indistinguishable from a corrupt file. This is the assertion that
+     * says the catch is narrow.
+     */
+    @Test
+    fun a_failure_that_is_not_io_still_propagates() = runTest {
+        val store = failingDataStore(IllegalStateException("bug in the caller"))
+        val wrapper = BooleanPref(prefSpecOf(booleanPreferencesKey("flag"), default = false, store = store))
+
+        val thrown = assertFailsWith<IllegalStateException> { wrapper.flow.first() }
+        assertEquals("bug in the caller", thrown.message)
+    }
+
+    @Test
+    fun the_io_callback_sees_the_failure_that_was_swallowed() = runTest {
+        val store = ioExceptionThrowingDataStore()
+        val seen = mutableListOf<Throwable>()
+
+        val value = store.data.catchDataStoreIoError { seen += it }.first()
+
+        assertEquals(emptyPreferences(), value)
+        assertEquals(1, seen.size, "the draft store logs here; a swallowed failure must still be reportable")
+        assertTrue(seen.single() is IOException)
+    }
 }
 
 // ─── Test infrastructure ──────────────────────────────────────────────────────────────
@@ -79,6 +111,14 @@ private fun ioExceptionThrowingDataStore(): DataStore<Preferences> = object : Da
     override val data: Flow<Preferences> = flow {
         throw IOException("Simulated DataStore corruption")
     }
+
+    override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
+        transform(emptyPreferences())
+}
+
+/** A [DataStore] whose [data] flow fails with [failure] on subscription. */
+private fun failingDataStore(failure: Throwable): DataStore<Preferences> = object : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { throw failure }
 
     override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
         transform(emptyPreferences())

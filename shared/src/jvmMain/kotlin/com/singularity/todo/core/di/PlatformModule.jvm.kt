@@ -24,6 +24,8 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.platform.HostEnvironmentPort
+import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.JvmSecureStorage
@@ -135,6 +137,8 @@ actual fun platformModule(): Module = module {
     single<Haptic> { createHaptic() }
 
     single<FileSystem> { JvmFileSystem() }
+
+    single<HostEnvironmentPort> { JvmHostEnvironment() }
 
     single<FileRevealer> { JvmFileRevealer() }
 

@@ -3,14 +3,13 @@ package com.singularity.todo.core.auth
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.singularity.todo.core.datastore.catchDataStoreIoError
 import com.singularity.todo.core.ids.IdGenerator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -65,13 +64,13 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
     }
 
     override val accessToken: Flow<String?> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[ACCESS_TOKEN] }
     override val refreshToken: Flow<String?> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[REFRESH_TOKEN] }
     override val userEmail: Flow<String?> = dataStore.data
-        .catchIOExceptionEmitEmpty()
+        .catchDataStoreIoError()
         .map { it[USER_EMAIL] }
 
     // Lazily initialized on first getOrInitDeviceId() call — not blocking at construction.
@@ -82,7 +81,7 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
     override suspend fun getOrInitDeviceId(): String {
         _deviceId?.let { return it }
         val prefs = dataStore.data
-            .catchIOExceptionEmitEmpty()
+            .catchDataStoreIoError()
             .first()
         val stored = prefs[DEVICE_ID]
         val id = stored ?: idGenerator.next().also { newId ->
@@ -129,10 +128,3 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         }
     }
 }
-
-/**
- * Emits [emptyPreferences] when [java.io.IOException] is thrown (e.g. corrupted DataStore file),
- * re-throwing all other exceptions.
- */
-private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
-    catch { e -> if (e is java.io.IOException) emit(emptyPreferences()) else throw e }

@@ -3,16 +3,14 @@ package com.singularity.todo.core.draft
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.datastore.catchDataStoreIoError
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
-import java.io.IOException
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Production [DraftStore] backed by [DataStore].
@@ -26,14 +24,10 @@ class DataStoreDraftStore(
 ) : DraftStore {
 
     override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? {
-        val data = dataStore.data.catch { e ->
-            if (e is IOException) {
+        val data = dataStore.data
+            .catchDataStoreIoError { e ->
                 logger.w(tag = "DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
-                emit(emptyPreferences())
-            } else {
-                throw e
             }
-        }
             .first()
         val json = data[stringPreferencesKey(key)]
             ?: return null

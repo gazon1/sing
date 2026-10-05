@@ -1,11 +1,12 @@
 package com.singularity.todo.core.log
 
 import com.singularity.todo.core.backup.BackupCodec
-import com.singularity.todo.core.files.FileSystem
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.platform.nowInSystemZone
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.format.DateTimeFormat
+import kotlinx.datetime.format.Padding
 
 /**
  * Collects the rolling log files produced by [FileLogWriter] into a single
@@ -43,7 +44,7 @@ open class LogBundleExporter(
      *   could not be written.
      */
     open suspend fun export(): Result<String> = runCatchingCancellable {
-        val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+        val timestamp = BUNDLE_STAMP.format(nowInSystemZone())
         val archiveName = "singularity-logs-$timestamp.zip"
         val archivePath = "$logDirectory/$archiveName"
 
@@ -80,5 +81,29 @@ open class LogBundleExporter(
             .filter { fileSystem.exists(it) }
             .map { path -> path.substringAfterLast('/') to fileSystem.readBytes(path) }
         return files
+    }
+
+    private companion object {
+        /**
+         * `yyyyMMdd-HHmmss` in the device's own time zone.
+         *
+         * Every field is explicitly [Padding.ZERO] rather than left to the default:
+         * the default is "no padding", and a bundle exported at 09:04 would then be
+         * named `…-90412` — still unique, but no longer lexically sortable against the
+         * bundles around it, which is the only reason a timestamp is in the name.
+         *
+         * The zone is the device's, matching what the log lines inside the bundle say.
+         * A UTC stamp would have made an export filed under one day and read under
+         * another.
+         */
+        val BUNDLE_STAMP: DateTimeFormat<LocalDateTime> = LocalDateTime.Format {
+            year(Padding.ZERO)
+            monthNumber(Padding.ZERO)
+            day(Padding.ZERO)
+            chars("-")
+            hour(Padding.ZERO)
+            minute(Padding.ZERO)
+            second(Padding.ZERO)
+        }
     }
 }

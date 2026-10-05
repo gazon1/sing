@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlin.time.Instant
 
 /**
  * In-memory implementation of the Room [AppDatabase] contract — same shape as
@@ -1399,7 +1400,7 @@ private class FakeLlmUsageDao(private val store: MutableStateFlow<Map<String, Ll
     ): Flow<List<com.singularity.todo.core.database.DailyUsageRow>> = store.map { rows ->
         rows.values
             .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
-            .groupBy { java.time.Instant.ofEpochMilli(it.createdAt).toString().take(10) }
+            .groupBy { Instant.fromEpochMilliseconds(it.createdAt).toString().take(10) }
             .map { (date, items) ->
                 com.singularity.todo.core.database.DailyUsageRow(
                     date = date,

@@ -28,12 +28,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.formatElapsed
+import com.singularity.todo.core.ui.formatMonthDayTime
 import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Time tracking section shown in the task detail's extraSections.
@@ -200,8 +198,7 @@ fun TimeTrackingSection(
 
 @Composable
 private fun TimeEntryRow(entry: TimeEntry, modifier: Modifier = Modifier) {
-    val dateFormat = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
-    val startStr = dateFormat.format(Date(entry.startedAt.toEpochMilliseconds()))
+    val startStr = formatMonthDayTime(entry.startedAt)
     val durationStr = entry.durationMs?.let { formatDuration(it) } ?: "in progress"
 
     Row(

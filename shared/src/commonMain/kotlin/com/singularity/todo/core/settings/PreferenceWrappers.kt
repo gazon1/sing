@@ -3,19 +3,10 @@ package com.singularity.todo.core.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
+import com.singularity.todo.core.datastore.catchDataStoreIoError
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import java.io.IOException
-import kotlin.reflect.KClass
-
-/**
- * Emits [emptyPreferences] when [IOException] is thrown (e.g. corrupted DataStore file),
- * re-throwing all other exceptions.
- */
-private fun Flow<Preferences>.catchIOExceptionEmitEmpty(): Flow<Preferences> =
-    catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
+import kotlin.enums.EnumEntries
 
 /**
  * Internal holder for preference metadata. Used by [BooleanPref], [IntPref], [StringPref],
@@ -33,7 +24,7 @@ internal data class PrefSpec<T>(
 value class BooleanPref internal constructor(private val spec: PrefSpec<Boolean>) {
     val flow: Flow<Boolean>
         get() = spec.dataStore.data
-            .catchIOExceptionEmitEmpty()
+            .catchDataStoreIoError()
             .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Boolean) {
@@ -46,7 +37,7 @@ value class BooleanPref internal constructor(private val spec: PrefSpec<Boolean>
 value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
     val flow: Flow<Int>
         get() = spec.dataStore.data
-            .catchIOExceptionEmitEmpty()
+            .catchDataStoreIoError()
             .map {
                 val raw = it[spec.key] ?: spec.default
                 spec.range?.let { raw.coerceIn(it) } ?: raw
@@ -63,7 +54,7 @@ value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
 value class StringPref internal constructor(private val spec: PrefSpec<String>) {
     val flow: Flow<String>
         get() = spec.dataStore.data
-            .catchIOExceptionEmitEmpty()
+            .catchDataStoreIoError()
             .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: String) {
@@ -76,7 +67,7 @@ value class StringPref internal constructor(private val spec: PrefSpec<String>) 
 value class FloatPref internal constructor(private val spec: PrefSpec<Float>) {
     val flow: Flow<Float>
         get() = spec.dataStore.data
-            .catchIOExceptionEmitEmpty()
+            .catchDataStoreIoError()
             .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Float) {
@@ -103,19 +94,27 @@ class NullableStringPref internal constructor(
 }
 
 /**
- * Enum preference stored as string (`.name`). Reading uses [KClass.java.enumConstants]
- * to recover the enum value; invalid stored strings fall back to [default].
+ * Enum preference stored as string (`.name`). Reading recovers the value by name out of
+ * [entries]; a stored string that matches no constant falls back to [default].
+ *
+ * ## Why the caller passes [EnumEntries] instead of a [KClass]
+ *
+ * Recovering the constants from a `KClass` means `KClass.java.enumConstants`, and
+ * `java.lang.Class` does not exist on Kotlin/Native — a preference read that compiles
+ * on the only two targets this project builds. [EnumEntries] is the multiplatform type
+ * the compiler hands you for `SomeEnum.entries`, so the caller already holds it and no
+ * reflection is involved at any point.
  */
 class EnumPref<T : Enum<T>> internal constructor(
     private val dataStore: DataStore<Preferences>,
     private val key: Preferences.Key<String>,
     private val default: T,
-    private val klass: KClass<T>,
+    private val entries: EnumEntries<T>,
 ) {
     val flow: Flow<T>
         get() = dataStore.data.map { prefs ->
             prefs[key]?.let { name ->
-                klass.java.enumConstants.find { it.name == name }
+                entries.firstOrNull { it.name == name }
             } ?: default
         }
 

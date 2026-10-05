@@ -28,6 +28,7 @@ import com.singularity.todo.feature.ai.tools.GetNoteTool
 import com.singularity.todo.feature.ai.tools.GetProjectTool
 import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ImproveNoteTool
+import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.ai.tools.ListAdrsTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
@@ -184,9 +185,11 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::UpdateProjectTool)
     factoryOf(::CreateTagTool)
     factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
-    factoryOf(::ListAdrsTool)
-    factoryOf(::ReadAdrTool)
-    factoryOf(::WriteAdrTool)
+    // Stateless and shared: it resolves its decisions directory once, at construction.
+    single { AdrStorage(get()) }
+    factory { ListAdrsTool(get()) }
+    factory { ReadAdrTool(get()) }
+    factory { WriteAdrTool(get()) }
 
     // ─── AI tools list for KoogAgentService ───
 

@@ -13,7 +13,11 @@ class AttachmentDomainTest {
     fun generateAttachmentIdCreatesValidFormat() {
         val id = AttachmentDomain.generateAttachmentId()
         assertTrue(id.value.startsWith("att_"))
-        assertEquals(36 + 4, id.value.length) // UUID is 36 chars + "att_" prefix
+        // A ULID is 26 Crockford base32 characters, plus the "att_" prefix. The body is
+        // opaque and never parsed, so the assertion that matters is the shape — a
+        // fixed length keeps two attachment ids from being confused with one another in
+        // a log line. This used to be 36 + 4 while the id was a `java.util.UUID`.
+        assertEquals(26 + 4, id.value.length)
     }
 
     @Test

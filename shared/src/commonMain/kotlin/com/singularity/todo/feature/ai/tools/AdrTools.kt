@@ -2,9 +2,10 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
+import com.singularity.todo.core.platform.HostEnvironmentPort
+import com.singularity.todo.core.platform.todayInSystemZone
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.lang.System.getProperty
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -12,6 +13,9 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+
+/** Directory name, relative to whichever root [AdrStorage] settles on. */
+private const val DECISIONS_DIR_NAME = "docs/decisions"
 
 /**
  * ADR (Architecture Decision Record) storage helper.
@@ -21,25 +25,44 @@ import kotlin.io.path.writeText
  * Frontmatter: YAML with `title`, `date`, `tags`.
  *
  * Uses `kotlin.io.path` stdlib (cross-platform) rather than `java.io.File`.
+ *
+ * ## Why the environment arrives as a constructor parameter
+ *
+ * This used to be an `object` that asked `System.getProperty("user.dir")` and
+ * `System.getProperty("user.home")` for itself. Neither property exists off the JVM,
+ * and an object cannot be handed a fake — so a test could not point the ADR tools at
+ * a temporary directory, and on Android the lookup was two undocumented properties
+ * away from a null dereference. It is a class now, and [HostEnvironmentPort] says
+ * what it needs without naming a platform.
  */
-object AdrStorage {
-
-    private const val DECISIONS_DIR_NAME = "docs/decisions"
+class AdrStorage(private val host: HostEnvironmentPort) {
 
     /**
-     * Returns the absolute path to the decisions directory.
-     * Uses `user.dir` (project root) when `docs/decisions/` exists there,
-     * otherwise falls back to `~/.singularity-todo/docs/decisions/`.
+     * The absolute path to the decisions directory: the project root when
+     * `docs/decisions/` is there, otherwise a per-user copy.
+     *
+     * Resolved once, at construction. The answer cannot change under a running app —
+     * a directory that appears after the tools are built would be a different process
+     * — and resolving per call would re-stat the filesystem on every read.
      */
-    fun decisionsDir(): String {
-        val workingDir = getProperty("user.dir")
-        val projectAdrDir = Path("$workingDir/$DECISIONS_DIR_NAME")
+    private val decisionsDir: String = resolveDecisionsDir()
+
+    private fun resolveDecisionsDir(): String {
+        val projectAdrDir = Path("${host.workingDirectory()}/$DECISIONS_DIR_NAME")
         return if (projectAdrDir.exists() && projectAdrDir.isDirectory()) {
             projectAdrDir.toString()
         } else {
-            Path(getProperty("user.home"), ".singularity-todo", DECISIONS_DIR_NAME).toString()
+            Path(host.homeDirectory(), ".singularity-todo", DECISIONS_DIR_NAME).toString()
         }
     }
+
+    /**
+     * The resolved decisions directory.
+     *
+     * Public because every tool's answer carries a path, and a caller — or a test —
+     * that is told "written to X" should be able to check X rather than trust it.
+     */
+    fun decisionsDir(): String = decisionsDir
 
     fun filePath(slug: String): String = "${decisionsDir()}/$slug.md"
 
@@ -93,7 +116,7 @@ object AdrStorage {
     }
 
     fun listAdrs(): List<AdrSummary> {
-        val dirPath = Path(decisionsDir())
+        val dirPath = Path(decisionsDir)
         if (!dirPath.isDirectory()) return emptyList()
         return dirPath.listDirectoryEntries("*.md")
             .mapNotNull { filePath ->
@@ -104,9 +127,9 @@ object AdrStorage {
     }
 
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
-        val dirPath = Path(decisionsDir())
+        val dirPath = Path(decisionsDir)
         dirPath.createDirectories()
-        val date = java.time.LocalDate.now().toString()
+        val date = todayInSystemZone().toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
         val frontmatter = "---\ntitle: \"$title\"\ndate: $date\ntags: $tagsStr\n---\n\n"
         val path = Path(filePath(slug))
@@ -150,14 +173,14 @@ object AdrStorage {
 @Serializable
 data class ListAdrsInput(val limit: Int = 50)
 
-class ListAdrsTool :
+class ListAdrsTool(private val storage: AdrStorage) :
     SimpleTool<ListAdrsInput>(
         TypeToken.of(ListAdrsInput::class.java),
         NAME,
         DESCRIPTION,
     ) {
     override suspend fun execute(args: ListAdrsInput): String {
-        val adrs = AdrStorage.listAdrs().take(args.limit)
+        val adrs = storage.listAdrs().take(args.limit)
         return Json.encodeToString(
             AdrStorage.ListAdrsOutput.serializer(),
             AdrStorage.ListAdrsOutput(adrs),
@@ -173,14 +196,14 @@ class ListAdrsTool :
 @Serializable
 data class ReadAdrInput(val slug: String)
 
-class ReadAdrTool :
+class ReadAdrTool(private val storage: AdrStorage) :
     SimpleTool<ReadAdrInput>(
         TypeToken.of(ReadAdrInput::class.java),
         NAME,
         DESCRIPTION,
     ) {
     override suspend fun execute(args: ReadAdrInput): String {
-        val adr = AdrStorage.readAdr(args.slug)
+        val adr = storage.readAdr(args.slug)
             ?: return Json.encodeToString(
                 AdrStorage.ReadAdrOutput.serializer(),
                 AdrStorage.ReadAdrOutput(args.slug, "(not found)", "", emptyList(), ""),
@@ -200,14 +223,14 @@ class ReadAdrTool :
 @Serializable
 data class WriteAdrInput(val slug: String, val title: String, val tags: List<String> = emptyList(), val body: String)
 
-class WriteAdrTool :
+class WriteAdrTool(private val storage: AdrStorage) :
     SimpleTool<WriteAdrInput>(
         TypeToken.of(WriteAdrInput::class.java),
         NAME,
         DESCRIPTION,
     ) {
     override suspend fun execute(args: WriteAdrInput): String {
-        val path = AdrStorage.writeAdr(args.slug, args.title, args.tags, args.body)
+        val path = storage.writeAdr(args.slug, args.title, args.tags, args.body)
         return Json.encodeToString(
             AdrStorage.WriteAdrOutput.serializer(),
             AdrStorage.WriteAdrOutput(args.slug, path, args.title),

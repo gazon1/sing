@@ -91,8 +91,22 @@ larger than the bug it exposes. The gate finds the same imports in milliseconds.
   with the sync row-checksum removal. When it does, the baseline entry must be deleted
   or the build fails — which is the intended behaviour, not a nuisance.
 
+## Update, 2026-10-05
+
+The eleven survivors are gone, and the list above was short in a way that mattered:
+`commonMain` held **21** JVM references across 14 files, and the gate above could see
+only 17 of them — four were fully qualified rather than imported, and one baseline entry
+named a file that no longer held the import. The gate now matches references anywhere in
+code, and checks that a baseline entry's `file` is the file that holds the site.
+
+The decision to gate rather than sweep still stands; the sweep happened, later than this
+entry expected, because the count turned out to be double what the baseline recorded.
+See [2026-10-05-commonmain-jvm-references-closed](./2026-10-05-commonmain-jvm-references-closed.md).
+
 ## Links
 
+- [2026-10-05-commonmain-jvm-references-closed](./2026-10-05-commonmain-jvm-references-closed.md)
+  — closes the survivors and repairs the gate
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/files/FileChecksum.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/CommonMainJvmApiTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/ScopedWriteQueryIsolationTest.kt`

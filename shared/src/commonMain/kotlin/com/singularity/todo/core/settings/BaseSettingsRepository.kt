@@ -6,7 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import kotlin.reflect.KClass
+import kotlin.enums.EnumEntries
 
 /**
  * Base class for typed DataStore-backed settings repositories.
@@ -38,8 +38,11 @@ abstract class BaseSettingsRepository(internal val dataStore: DataStore<Preferen
     protected fun nullableStringPref(name: String): NullableStringPref =
         NullableStringPref(dataStore, stringPreferencesKey(name))
 
-    protected fun <T : Enum<T>> enumPref(name: String, default: T, klass: KClass<T>): EnumPref<T> =
-        EnumPref(dataStore, stringPreferencesKey(name), default, klass)
+    protected fun <T : Enum<T>> enumPref(
+        name: String,
+        default: T,
+        entries: EnumEntries<T>,
+    ): EnumPref<T> = EnumPref(dataStore, stringPreferencesKey(name), default, entries)
 
     /** Convenience: form a namespaced preference key string. */
     protected fun nsKey(namespace: String, name: String): String = "$namespace.$name"
