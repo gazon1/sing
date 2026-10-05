@@ -9,6 +9,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 
 /**
@@ -35,6 +36,9 @@ object AgendaEvaluator {
      */
     fun evaluate(tasks: List<Task>, definition: AgendaDefinition, today: LocalDate): List<RenderedSection> {
         var remaining = tasks.toSet()
+        // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
+        // table per call, so asking per row was quadratic in the task count.
+        val blockedIds = TaskComputed.blockedIds(tasks)
         return definition.sections
             .sortedBy { it.order }
             .mapNotNull { section ->
@@ -51,8 +55,8 @@ object AgendaEvaluator {
                     tasks = matched.map { task ->
                         AgendaRowItem(
                             task = task,
-                            badge = computeBadge(task, section.selector, today, tasks),
-                            isBlocked = TaskComputed.isBlocked(task, tasks),
+                            badge = computeBadge(task, today, blockedIds),
+                            isBlocked = task.id in blockedIds,
                         )
                     },
                     badge = matched.size.takeIf { it > 0 },
@@ -75,6 +79,6 @@ object AgendaEvaluator {
     )
     fun matches(task: Task, selector: Selector, today: LocalDate): Boolean = selector.matches(task, today)
 
-    private fun computeBadge(task: Task, selector: Selector, today: LocalDate, allTasks: List<Task>): AgendaBadge? =
-        computeAgendaBadge(task, today, allTasks)
+    private fun computeBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): AgendaBadge? =
+        computeAgendaBadge(task, today, blockedIds)
 }

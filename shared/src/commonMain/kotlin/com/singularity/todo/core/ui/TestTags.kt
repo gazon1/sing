@@ -132,6 +132,11 @@ object TestTags {
     const val RECURRENCE_OPTION_YEARLY_ON_DATE = "recurrence_option_yearly_on_date"
     const val RECURRENCE_OPTION_NONE = "recurrence_option_none"
 
+    // ── Recurrence end date ───────────────────────────────────────────────────
+    const val RECURRENCE_ENDS_NEVER = "recurrence_ends_never"
+    const val RECURRENCE_ENDS_ON_DATE = "recurrence_ends_on_date"
+    const val RECURRENCE_END_DATE_VALUE = "recurrence_end_date_value"
+
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"

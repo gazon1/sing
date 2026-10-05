@@ -22,9 +22,11 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiS
 import com.singularity.todo.feature.reminders.ProjectReminder
 import com.singularity.todo.feature.reminders.ProjectReminderId
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
@@ -87,6 +89,35 @@ class ProjectDetailViewModel(
     // state two writers and open a lost-update window.
 
     private val hideCompletedFlow = MutableStateFlow(false)
+
+    /**
+     * Hides tasks blocked by unfinished dependencies.
+     *
+     * Folded into [TaskVisibility] rather than combined as a sixth flow: the
+     * `combine` below is already at kotlinx's five-argument limit, and a vararg
+     * call would collapse to `Array<Any?>`. Two toggles that always travel
+     * together are one input, not two.
+     */
+    private val hideBlockedFlow = MutableStateFlow(false)
+
+    /** The two independent list filters, as one value. */
+    private data class TaskVisibility(val hideCompleted: Boolean = false, val hideBlocked: Boolean = false)
+
+    private val visibilityFlow = combine(hideCompletedFlow, hideBlockedFlow, ::TaskVisibility)
+
+    /**
+     * Ids of tasks blocked by an unfinished dependency, resolved against the
+     * **full** task list.
+     *
+     * Never computed against a filtered list. A dependency that "Hide completed"
+     * or another filter has hidden still blocks whatever it blocks — resolving
+     * against the survivors would let hiding a task retroactively unblock its
+     * dependents. Mirrors `AgendaEvaluator`, which passes the complete list too.
+     *
+     * Built only when the filter is on, so the default view pays nothing for it.
+     */
+    private fun blockedIds(allTasks: List<Task>): Set<TaskId> =
+        TaskComputed.blockedIds(allTasks)
 
     /** Emits null on start (loading placeholder), then the project flow. */
     private val _projectFlow = MutableStateFlow<Project?>(null)
@@ -215,15 +246,18 @@ class ProjectDetailViewModel(
                 _projectFlow.flatMapLatest { p ->
                     if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
                 },
-                hideCompletedFlow,
-            ) { project, tasks, childProjects, parent, hideCompleted ->
+                visibilityFlow,
+            ) { project, tasks, childProjects, parent, visibility ->
                 when {
                     project == null -> ProjectDetailUiState.Loading
 
                     project.isDeleted -> ProjectDetailUiState.NotFound
 
                     else -> {
-                        val visibleTasks = if (hideCompleted) tasks.filter { it.completedAt == null } else tasks
+                        val visibleTasks = tasks.filter { task ->
+                            (!visibility.hideCompleted || task.completedAt == null) &&
+                                (!visibility.hideBlocked || task.id !in blockedIds(tasks))
+                        }
                         ProjectDetailUiState.Content(
                             ui = ProjectDetailUi(
                                 project = project,
@@ -233,7 +267,8 @@ class ProjectDetailViewModel(
                                 childProjects = childProjects,
                                 parent = parent,
                             ),
-                            hideCompleted = hideCompleted,
+                            hideCompleted = visibility.hideCompleted,
+                            hideBlocked = visibility.hideBlocked,
                             parentOptions = emptyList(),
                             availableTasks = emptyList(),
                         )
@@ -287,6 +322,8 @@ class ProjectDetailViewModel(
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.ToggleHideCompleted -> hideCompletedFlow.value = !hideCompletedFlow.value
+
+            is ProjectDetailIntent.Domain.ToggleHideBlocked -> hideBlockedFlow.value = !hideBlockedFlow.value
 
             is ProjectDetailIntent.Domain.SetReminder -> setReminder(intent.offsetMinutes)
 

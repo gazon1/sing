@@ -5,6 +5,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
@@ -101,5 +102,27 @@ class RecurrenceFormattersTest {
         val spec = Monthly(RecurrenceBase.FROM_DUE, 1)
         val preview = RecurrenceFormatters.nextOccurrencePreview(d(2026, 1, 1), spec)
         assertEquals("Next: 2026-02-01", preview)
+    }
+
+    // ─── End date ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `label shows the end date so a self-stopping series explains itself`() {
+        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
+            .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
+        assertEquals("Weekly until 2026-12-31", RecurrenceFormatters.label(spec))
+    }
+
+    @Test
+    fun `label is unchanged for an unbounded series`() {
+        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
+        assertEquals("Weekly", RecurrenceFormatters.label(spec))
+    }
+
+    @Test
+    fun `label keeps its base marker alongside the end date`() {
+        val spec = Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
+            .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
+        assertEquals("↑ Weekly until 2026-12-31", RecurrenceFormatters.label(spec))
     }
 }

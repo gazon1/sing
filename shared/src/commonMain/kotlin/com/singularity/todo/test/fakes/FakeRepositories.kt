@@ -574,7 +574,21 @@ open class FakeTaskRepository(
     var setTagsOverride: Result<Unit>? = null
     var setDependenciesOverride: Result<Unit>? = null
 
-    /** Seeds tasks by merging into existing state (adds or overwrites by id). */
+    /**
+     * Seeds tasks by merging into existing state (adds or overwrites by id).
+     *
+     * ## The trap this does not warn you about
+     *
+     * Reads are scoped to the current user, so a task seeded with a `userId`
+     * other than this fake's current user is **invisible** — `get` returns null,
+     * `observeByFilter` returns an empty list, and the test fails on an assertion
+     * about behaviour rather than about the seed.
+     *
+     * The default is [TestUsers.DEFAULT]. When you need a different one, pass
+     * `FakeTaskRepository(explicitCurrentUser = ...)` so the seed and the reader
+     * agree. Seeding another user's data on purpose (a read-isolation test) is
+     * legitimate — it just has to be deliberate.
+     */
     fun seed(vararg tasks: Task) = store.seed(tasks.toList())
 
     fun add(task: Task) = store.upsert(task)

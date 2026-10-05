@@ -61,7 +61,10 @@ object RecurrenceFormatters {
 
             is Yearly -> "Yearly(${MONTH_NAMES.getOrElse(spec.month) { spec.month.toString() }} ${spec.day})"
         }
-        return prefix + content
+        // A series that will stop on its own should say so — otherwise it vanishes
+        // from the list with nothing on the task having explained why.
+        val suffix = spec.termination?.endDate?.let { " until $it" } ?: ""
+        return prefix + content + suffix
     }
 
     private fun intervalLabel(amount: Int, unit: DateTimeUnit.DateBased): String = when (unit) {

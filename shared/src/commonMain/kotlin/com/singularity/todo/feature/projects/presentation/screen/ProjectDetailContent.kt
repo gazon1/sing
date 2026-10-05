@@ -106,6 +106,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                 ProjectBodySection(
                     ui = s.ui,
                     hideCompleted = s.hideCompleted,
+                    hideBlocked = s.hideBlocked,
                     availableTasks = s.availableTasks,
                     actions = actions,
                     nav = nav,

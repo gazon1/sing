@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -34,12 +35,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label
@@ -47,6 +50,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskEditorShee
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
+import kotlinx.datetime.plus
 
 private val WEEKDAY_NAMES = listOf(
     "Mon" to 1,
@@ -132,14 +136,31 @@ fun RecurrencePickerSheet(
         )
     }
 
-    fun buildSpec(): RecurrenceSpec = when (selectedType) {
-        SpecType.INTERVAL_DAY -> Interval(selectedBase, intervalAmount, DateTimeUnit.DAY)
-        SpecType.INTERVAL_WEEK -> Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK)
-        SpecType.INTERVAL_MONTH -> Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH)
-        SpecType.INTERVAL_YEAR -> Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR)
-        SpecType.WEEKLY -> Weekly(selectedBase, selectedWeekdays)
-        SpecType.MONTHLY -> Monthly(selectedBase, monthlyDay)
-        SpecType.YEARLY -> Yearly(selectedBase, yearlyMonth, yearlyDay)
+    /**
+     * Last date this series may recur on, or null for "never ends".
+     *
+     * Seeded from the rule being edited so opening the sheet on a bounded series
+     * shows the bound rather than silently clearing it.
+     */
+    var endDate by remember { mutableStateOf(currentSpec?.termination?.endDate) }
+
+    /** Whether the date picker is open over this sheet. */
+    var pickingEndDate by remember { mutableStateOf(false) }
+
+    fun buildSpec(): RecurrenceSpec {
+        // A series with no end date stores `termination = null` rather than an
+        // empty wrapper, so an unbounded rule keeps exactly the JSON it had
+        // before this field existed.
+        val termination = endDate?.let { RecurrenceTermination(it) }
+        return when (selectedType) {
+            SpecType.INTERVAL_DAY -> Interval(selectedBase, intervalAmount, DateTimeUnit.DAY, termination)
+            SpecType.INTERVAL_WEEK -> Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK, termination)
+            SpecType.INTERVAL_MONTH -> Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH, termination)
+            SpecType.INTERVAL_YEAR -> Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR, termination)
+            SpecType.WEEKLY -> Weekly(selectedBase, selectedWeekdays, termination)
+            SpecType.MONTHLY -> Monthly(selectedBase, monthlyDay, termination)
+            SpecType.YEARLY -> Yearly(selectedBase, yearlyMonth, yearlyDay, termination)
+        }
     }
 
     val spec = remember(
@@ -151,6 +172,7 @@ fun RecurrencePickerSheet(
         monthlyDay,
         yearlyMonth,
         yearlyDay,
+        endDate,
     ) { buildSpec() }
 
     TaskEditorSheetHost(
@@ -277,6 +299,77 @@ fun RecurrencePickerSheet(
 
             Spacer(Modifier.height(16.dp))
 
+            // ── Ends ───────────────────────────────────────────────────────
+            // Off by default: an unbounded series keeps the behaviour it had
+            // before this control existed.
+            Text(
+                text = "Ends",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag(TestTags.RECURRENCE_ENDS_NEVER)
+                    .selectable(
+                        selected = endDate == null,
+                        onClick = { endDate = null },
+                        role = Role.RadioButton,
+                    )
+                    .padding(vertical = 6.dp, horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = endDate == null, onClick = null)
+                Text(
+                    text = "Never",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag(TestTags.RECURRENCE_ENDS_ON_DATE)
+                    .selectable(
+                        selected = endDate != null,
+                        // Default to a year out rather than today: an end date of
+                        // today would stop the series on its very next occurrence.
+                        onClick = { endDate = endDate ?: anchorDate.plus(1, DateTimeUnit.YEAR) },
+                        role = Role.RadioButton,
+                    )
+                    .padding(vertical = 6.dp, horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = endDate != null, onClick = null)
+                Text(
+                    text = "On date",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            if (endDate != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag(TestTags.RECURRENCE_END_DATE_VALUE)
+                        .clickable { pickingEndDate = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = endDate.toString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "Change",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
             // ── Preview ────────────────────────────────────────────────────
             Text(
                 text = "Preview",
@@ -302,6 +395,19 @@ fun RecurrencePickerSheet(
 
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    // The date picker opens over this sheet rather than replacing it, so the
+    // frequency chosen above is still on screen to sanity-check the bound against.
+    if (pickingEndDate) {
+        DatePickerSheet(
+            initialDate = endDate,
+            onDateSelected = { date ->
+                endDate = date
+                pickingEndDate = false
+            },
+            onDismiss = { pickingEndDate = false },
+        )
     }
 }
 
