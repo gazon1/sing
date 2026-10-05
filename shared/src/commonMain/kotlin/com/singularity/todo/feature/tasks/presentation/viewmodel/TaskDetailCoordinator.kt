@@ -321,7 +321,14 @@ class TaskDetailCoordinator(
         retryVersion.value++
     }
 
-    @Suppress("LongMethod")
+    // LongMethod and CyclomaticComplexMethod are both suppressed, and both for the
+    // same reason: this is a dispatch table for a sealed hierarchy, and splitting
+    // it up would move the routing away from the list of routes. The complexity
+    // grew by four when the timer intents stopped being passed through as-is and
+    // started being translated (#212) — each one needs its own construction now.
+    // That is a real cost, paid deliberately: passing the object straight through
+    // is precisely what made every timer intent land in a silent `else`.
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     override fun onIntent(intent: TaskDetailIntent.Domain) {
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> completion.onIntent(intent)
