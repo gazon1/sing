@@ -66,6 +66,12 @@ class FakeSyncOutboxDao : SyncOutboxDao {
         rows.removeAll { it.ownerId == ownerId && it.entityId == entityId }
     }
 
+    override suspend fun deleteForOwner(ownerId: String): Int {
+        val doomed = rows.filter { it.ownerId == ownerId }
+        rows.removeAll { it.ownerId == ownerId }
+        return doomed.size
+    }
+
     override suspend fun clearAll() {
         rows.clear()
     }
@@ -155,6 +161,12 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
     }
 
     override suspend fun delete(id: String): Int = if (rows.removeAll { it.patchId == id }) 1 else 0
+
+    override suspend fun deleteForOwner(ownerId: String): Int {
+        val doomed = rows.filter { it.ownerId == ownerId }
+        rows.removeAll { it.ownerId == ownerId }
+        return doomed.size
+    }
 
     override suspend fun clearAll() {
         rows.clear()
@@ -285,6 +297,12 @@ class FakeSyncShadowDao : SyncShadowDao {
         patchId: String,
     ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
         it.copy(inFlightJson = null, inFlightPatchId = null)
+    }
+
+    override suspend fun deleteForOwner(ownerId: String): Int {
+        val keys = rows.keys.filter { it.ownerId == ownerId }
+        keys.forEach(rows::remove)
+        return keys.size
     }
 
     override suspend fun clearScope(ownerId: String, profileId: String) {

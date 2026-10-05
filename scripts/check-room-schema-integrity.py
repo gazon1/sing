@@ -105,6 +105,7 @@ FACTORY = ROOT / "shared/src/commonMain/kotlin/com/singularity/todo/core/databas
 MANUAL_MIGRATIONS: dict[tuple[int, int], str] = {
     (31, 32): "Migration31To32",
     (37, 38): "Migration37To38",
+    (38, 39): "Migration38To39",
 }
 
 # The oldest schema version this project still promises to upgrade a user from.

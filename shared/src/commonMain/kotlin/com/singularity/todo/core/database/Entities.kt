@@ -312,7 +312,7 @@ data class LlmUsageEntity(
  */
 @Entity(
     tableName = "profiles",
-    indices = [Index(value = ["name"])],
+    indices = [Index(value = ["name"]), Index(value = ["user_id"])],
 )
 data class ProfileEntity(
     @PrimaryKey val id: String,
@@ -322,6 +322,16 @@ data class ProfileEntity(
     @ColumnInfo("is_default") val isDefault: Boolean,
     @ColumnInfo("created_at") val createdAt: Long, // epoch millis
     @ColumnInfo("updated_at") val updatedAt: Long, // epoch millis
+    /**
+     * Whose profile this is, or null while it belongs to nobody.
+     *
+     * Nullable with **no** default, so a construction site states an owner or says plainly
+     * that there is none — the two are different facts and must not collapse into `""`.
+     *
+     * Null is the normal state for a profile created before sign-in, and rows upgraded from
+     * v38 are null too: see `Migration38To39` for why they are not guessed.
+     */
+    @ColumnInfo("user_id") val userId: String? = null,
 )
 
 // ─── Tag Groups ────────────────────────────────────────────────────────────────

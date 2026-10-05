@@ -64,20 +64,50 @@ idiom already exists in `removeTagRefForUser`, which scopes through
 `EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)`; the erase needs
 that shape, run before the parents go.
 
+**The erase's scope is not the plain owner id.** A profile is not a column on the data
+tables — `tasks`, `notes`, `projects`, `tags`, `time_entries` and `agenda_views` have no
+`profile_id`. The profile survives only as the shape of the id, via `scopedUserIdFor`:
+the default profile's rows are the bare owner, every other profile's are
+`"profile/owner"`. `WHERE user_id = :owner` therefore erases one profile and leaves the
+rest, succeeding silently. Decided in
+`2026-10-06-a-profile-is-owned-and-an-erase-resolves-its-ids-first`: `profiles` gains a
+`user_id` (migration 38→39), the ids are resolved in Kotlin, and the deletes select on an
+exact list rather than a `LIKE` — a suffix match cannot tell `prof/u1` from `eu1`.
+
 - [ ] `shared/` Keep sign-out as it is today: credentials cleared, local data retained, no
       network required. **Test:** the existing sign-out-with-the-server-unreachable test
       still passes, and local rows survive it.
 - [ ] `shared/` Add the switch as a distinct path, not a variant of sign-out, and make the
       distinction visible in the code rather than in a comment. **Test:** a gate or test
       asserting the two are separate entry points.
+- [x] `shared/` Resolve an owner to the exact ids an erase would remove, before anything is
+      deleted, so the decision about what belongs to whom is reviewable on its own.
+      **Test:** `OwnerRowIdResolverTest` — 8 tests, including the profile-prefix case that
+      a `user_id = :owner` delete silently misses, and the suffix lookalike. Verified by
+      mutation: making the owner read blind fails 2 of 8, and they are the two about
+      another account's and an unowned profile.
+- [x] `shared/` Give `profiles` a `user_id`, so "whose profile is this" is answerable
+      instead of inferred from a string prefix. Nullable: a profile made before sign-in
+      belongs to nobody, which is a fact and not a missing value.
+      **Test:** `Migration38To39Test` — 4 tests, asserting an existing profile comes out
+      unowned rather than guessed at. Verified by mutation: a `DEFAULT` on the new column
+      fails 2 of 4.
+- [x] `shared/` Delete every table the owner holds, children before their parents — four
+      child tables, not two: `task_tags`/`task_dependencies`/`checklist_items` through
+      `tasks`, and `project_tag_groups` through `projects`.
+      **Test:** `OwnerScopedEraserTest` — 9 tests, each asserting both that the departing
+      account's child rows are gone AND that another account's survive, since a count can
+      be right while the survivors are wrong. Verified by mutation: deleting parents first
+      fails 2 of 9, and they are the two orphan tests.
 - [ ] `shared/` Before erasing, deliver the departing account's queued changes under its
       own session. **Test:** the outgoing push carries the departing account's scope.
 - [ ] `shared/` Erase only after the delivery succeeded. **Test:** a delivery that fails
       leaves every row in place and the incoming account not signed in.
 - [ ] `shared/` Refuse a switch that cannot deliver, with a message naming the network.
       **Test:** offline with queued work — nothing is erased and nothing is half-applied.
-- [ ] `shared/` Wipe by owner, so every profile of the departing account goes and not only
-      the active one. **Test:** two profiles, one switch, both gone.
+- [x] `shared/` Wipe by owner, so every profile of the departing account goes and not only
+      the active one. **Test:** two profiles, one erase, both gone — `OwnerRowIdResolverTest`
+      covers the resolution; the end-to-end switch is the remaining task above.
 - [ ] `shared/` Report progress during the switch so it cannot be mistaken for a hang.
       **Test:** the state names the delivery step while it runs.
 

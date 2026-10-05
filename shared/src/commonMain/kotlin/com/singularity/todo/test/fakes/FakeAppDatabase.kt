@@ -13,6 +13,8 @@ import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.OwnerEraseDao
+import com.singularity.todo.core.database.OwnerScopeDao
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.database.ProjectDao
@@ -31,6 +33,7 @@ import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
@@ -160,6 +163,25 @@ class FakeAppDatabase : AppDatabase() {
     override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals)
     override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
+    override fun ownerEraseDao(): OwnerEraseDao = FakeOwnerEraseDao(
+        tasks = _tasks,
+        taskTags = _taskTags,
+        taskDependencies = _taskDependencies,
+        checklist = _checklist,
+        projects = _projects,
+        projectTagGroups = _projectTagGroups,
+        notes = _notes,
+        tags = _tags,
+        tagGroups = _tagGroups,
+        taskReminders = _reminders,
+        projectReminders = _projectReminders,
+    )
+
+    override fun ownerScopeDao(): OwnerScopeDao = FakeOwnerScopeDao(
+        tasks = _tasks,
+        projects = _projects,
+    )
+
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
         _taskTags.value = emptyList()
@@ -191,6 +213,14 @@ class FakeAppDatabase : AppDatabase() {
 
     fun seedTasks(items: List<TaskEntity>) {
         _tasks.value = items.associateBy { it.id }
+    }
+
+    /**
+     * Tag cross-references, as a list rather than keyed by anything — the table's key is
+     * the pair, and the fake's child deletes filter through it by `taskId`.
+     */
+    fun seedTagRefs(items: List<TaskTagCrossRef>) {
+        _taskTags.value = items
     }
     fun seedNotes(items: List<NoteEntity>) {
         _notes.value = items.associateBy { it.id }
@@ -941,6 +971,14 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun deleteByEntity(ownerId: String, entityId: String) {
         store.update { it.filterValues { e -> e.ownerId != ownerId || e.entityId != entityId } }
     }
+
+    /** `DELETE FROM sync_outbox WHERE owner_id = :ownerId` — every profile's patches of that owner. */
+    override suspend fun deleteForOwner(ownerId: String): Int {
+        val doomed = store.value.values.filter { it.ownerId == ownerId }
+        store.update { current -> current.filterValues { it.ownerId != ownerId } }
+        return doomed.size
+    }
+
     override suspend fun clearAll() {
         store.value = emptyMap()
     }
@@ -965,6 +1003,13 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
         val present = store.value.containsKey(id)
         store.update { it - id }
         return if (present) 1 else 0
+    }
+
+    /** `DELETE FROM sync_dead_letter WHERE owner_id = :ownerId` — the shelf holds several owners at once. */
+    override suspend fun deleteForOwner(ownerId: String): Int {
+        val doomed = store.value.values.filter { it.ownerId == ownerId }
+        store.update { current -> current.filterValues { it.ownerId != ownerId } }
+        return doomed.size
     }
 
     override suspend fun clearAll() {
@@ -1118,6 +1163,19 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
 
     override suspend fun clearScope(ownerId: String, profileId: String) {
         store.update { current -> current.filterKeys { it.ownerId != ownerId || it.profileId != profileId } }
+    }
+
+    /**
+     * `DELETE FROM sync_shadow WHERE owner_id = :ownerId`.
+     *
+     * Deliberately not scoped by profile, unlike [clearScope]: the real query takes every
+     * profile of the owner, and a leftover shadow on another profile would make that
+     * profile's next sync believe the server confirmed rows the device no longer holds.
+     */
+    override suspend fun deleteForOwner(ownerId: String): Int {
+        val doomed = store.value.count { it.key.ownerId == ownerId }
+        store.update { current -> current.filterKeys { it.ownerId != ownerId } }
+        return doomed
     }
 
     override suspend fun clearAll() {
@@ -1624,6 +1682,24 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
     }
 
     override suspend fun count(): Int = store.value.size
+
+    override suspend fun listOwnedBy(userId: String): List<ProfileEntity> =
+        store.value.values.filter { it.userId == userId }.sortedBy { it.createdAt }
+
+    override suspend fun claimUnowned(userId: String): Int {
+        var claimed = 0
+        store.update { current ->
+            current.mapValues { (id, profile) ->
+                if (profile.userId == null) {
+                    claimed++
+                    profile.copy(userId = userId)
+                } else {
+                    profile
+                }
+            }
+        }
+        return claimed
+    }
 }
 
 // ─── AgendaViewDao ────────────────────────────────────────────────────────────
@@ -1986,5 +2062,146 @@ private class FakeProposalItemDao(
             .sortedByDescending { it.decidedAt ?: 0L }
             .take(limit)
             .map { it.fingerprint }
+    }
+}
+
+// ─── OwnerScopeDao ─────────────────────────────────────────────────────────────
+
+/**
+ * In-memory [OwnerScopeDao] — the parent id sets REQ-UA-017 scopes its erase by.
+ *
+ * Split from [FakeOwnerEraseDao] because it is a split in the real contract too: these
+ * are reads, those are writes, and the whole reason the caller holds these ids before
+ * it deletes anything is that a delete cannot find the children that named a parent
+ * once that parent is gone.
+ */
+private class FakeOwnerScopeDao(
+    private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
+    private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
+) : OwnerScopeDao {
+
+    override suspend fun listTaskIdsForOwner(scopedUserIds: List<String>): List<String> =
+        tasks.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+
+    override suspend fun listProjectIdsForOwner(scopedUserIds: List<String>): List<String> =
+        projects.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+}
+
+// ─── OwnerEraseDao ─────────────────────────────────────────────────────────────
+
+/**
+ * In-memory [OwnerEraseDao] — every owner-scoped delete REQ-UA-017 performs.
+ *
+ * It lives in one fake class for the same reason it lives in one real DAO: the four
+ * child tables carry no `user_id`, so their deletes are only correct when the parent
+ * id sets — read from [FakeOwnerScopeDao] first — still resolve against live parents,
+ * and the caller is the thing that decides that order.
+ *
+ * Every sub-select is read from the **live** parent store at call time, never from a
+ * captured list — `OwnerScopedEraser` passes the ids it read moments earlier, and a
+ * fake that trusted that list would keep passing after the real query stopped
+ * selecting through `tasks`/`projects`.
+ */
+private class FakeOwnerEraseDao(
+    private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
+    private val taskTags: MutableStateFlow<List<TaskTagCrossRef>>,
+    private val taskDependencies: MutableStateFlow<List<TaskDependencyCrossRef>>,
+    private val checklist: MutableStateFlow<Map<String, ChecklistItemEntity>>,
+    private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
+    private val projectTagGroups: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
+    private val notes: MutableStateFlow<Map<String, NoteEntity>>,
+    private val tags: MutableStateFlow<Map<String, TagEntity>>,
+    private val tagGroups: MutableStateFlow<Map<String, TagGroupEntity>>,
+    private val taskReminders: MutableStateFlow<Map<Pair<String, String>, TaskReminderEntity>>,
+    private val projectReminders: MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>,
+) : OwnerEraseDao {
+
+    // ── Children: scoped through their parent, at call time ───────────────────
+
+    /**
+     * The `{ id IN taskIds AND user_id IN scopedUserIds }` sub-select the three
+     * task-scoped child deletes share, resolved against the store as it is now.
+     */
+    private fun parentTaskIds(taskIds: List<String>, scopedUserIds: List<String>): Set<String> =
+        tasks.value.values
+            .filter { it.id in taskIds && it.userId in scopedUserIds }
+            .mapTo(mutableSetOf()) { it.id }
+
+    override suspend fun deleteTagRefs(taskIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = parentTaskIds(taskIds, scopedUserIds)
+        val doomed = taskTags.value.filter { it.taskId in parents }
+        taskTags.update { refs -> refs.filterNot { it.taskId in parents } }
+        return doomed.size
+    }
+
+    /** Both directions: a surviving task must not keep pointing at a deleted one. */
+    override suspend fun deleteDependencies(taskIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = parentTaskIds(taskIds, scopedUserIds)
+        val doomed = taskDependencies.value.filter { it.taskId in parents || it.dependsOnTaskId in parents }
+        taskDependencies.update { refs ->
+            refs.filterNot { it.taskId in parents || it.dependsOnTaskId in parents }
+        }
+        return doomed.size
+    }
+
+    override suspend fun deleteChecklistItems(taskIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = parentTaskIds(taskIds, scopedUserIds)
+        val doomed = checklist.value.values.filter { it.taskId in parents }
+        checklist.update { current -> current.filterValues { it.taskId !in parents } }
+        return doomed.size
+    }
+
+    /** Scoped through `projects`, not `tasks` — the same parent the real query names. */
+    override suspend fun deleteInheritedTagGroups(projectIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = projects.value.values
+            .filter { it.id in projectIds && it.userId in scopedUserIds }
+            .mapTo(mutableSetOf()) { it.id }
+        val doomed = projectTagGroups.value.filter { it.projectId in parents }
+        projectTagGroups.update { list -> list.filterNot { it.projectId in parents } }
+        return doomed.size
+    }
+
+    // ── Parents: straight membership on `user_id` ─────────────────────────────
+
+    override suspend fun deleteTasks(scopedUserIds: List<String>): Int {
+        val doomed = tasks.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        tasks.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteNotes(scopedUserIds: List<String>): Int {
+        val doomed = notes.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        notes.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteProjects(scopedUserIds: List<String>): Int {
+        val doomed = projects.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        projects.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteTags(scopedUserIds: List<String>): Int {
+        val doomed = tags.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        tags.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteTagGroups(scopedUserIds: List<String>): Int {
+        val doomed = tagGroups.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        tagGroups.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteTaskReminders(scopedUserIds: List<String>): Int {
+        val doomed = taskReminders.value.values.filter { it.userId in scopedUserIds }
+        taskReminders.update { current -> current.filterValues { it.userId !in scopedUserIds } }
+        return doomed.size
+    }
+
+    override suspend fun deleteProjectReminders(scopedUserIds: List<String>): Int {
+        val doomed = projectReminders.value.values.filter { it.userId in scopedUserIds }
+        projectReminders.update { current -> current.filterValues { it.userId !in scopedUserIds } }
+        return doomed.size
     }
 }

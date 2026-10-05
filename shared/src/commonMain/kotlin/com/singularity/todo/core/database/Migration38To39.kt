@@ -1,62 +1,60 @@
 package com.singularity.todo.core.database
 
-import androidx.room3.migration.AutoMigrationSpec
+import androidx.room3.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 
 /**
- * Migration from v38 to v39 — Google Calendar sync storage.
+ * Migration from v38 to v39 — a profile learns whose it is.
  *
- * Adds three tables and changes no existing one:
+ * Adds a nullable `user_id` to `profiles`, leaving existing rows NULL.
  *
- * - `calendar_sync_state` — the incremental cursor per (user, provider, calendar)
- * - `google_event_shadow` — the last agreed field values, i.e. a merge's common ancestor
- * - `calendar_import_event` — foreign events offered to the user as tasks
+ * ## Why the profile had no owner
  *
- * `google_event_shadow` also carries `cancelled_at`, added here rather than in a migration of
- * its own. It was written as a separate 39 → 40 step while the sync was being built, and there
- * is no reason to keep it: nothing ever shipped the table, so no installation can be sitting at
- * a v39 whose shadows predate the column. Collapsing it makes the exported schema describe one
- * real upgrade path instead of two, one of which no user could ever take.
+ * Every other user-scoped table carries one, and `profiles` did not. That was survivable
+ * while a profile was only a namespace to switch between, and stopped being survivable the
+ * moment REQ-UA-017 asked whose data to erase.
  *
- * ## Why this is a pure addition
+ * A profile is not recorded anywhere else either. `tasks`, `notes`, `projects`, `tags`,
+ * `time_entries` and `agenda_views` have no `profile_id` column — the profile survives only as
+ * the shape of the id in `scopedUserIdFor`:
  *
- * The obvious implementation would have retyped `calendar_sync_task_map.event_id` from
- * `INTEGER` to `TEXT`, because Google event ids are opaque strings. That was rejected: a
- * column type change with real rows behind it is the one kind of migration that can lose
- * data, and Google state does not need to share a table with the device-calendar path.
- * The two providers have different shapes, different cursors and different lifecycles, so
- * they get separate tables and the existing one is left exactly as it was.
+ * ```
+ * default profile → "owner"
+ * any other       → "prof-a/owner"
+ * ```
  *
- * ## Why `user_id` is in every primary key
+ * So an owner-scoped delete had to *infer* a profile from a string prefix. The inference is
+ * what this migration removes: `WHERE user_id = :owner` erases the default profile only and
+ * leaves every other one behind, silently, in the shape of success.
  *
- * The existing tables key on `id` alone, and that is sound: ids are ULIDs
- * (`core/ids/IdGen.kt`), 80 bits of randomness, already a global namespace. A Google
- * event or calendar id is an opaque string scoped to one account, and two profiles on one
- * device can hold the *same* one. So these new tables — the ones keyed by a remote
- * identifier — put `user_id` in the key. See the two-port ADR.
+ * ## Why the column is nullable
  *
- * ## Why `cancelled_at` is nullable and unbackfilled
+ * A profile created before sign-in belongs to nobody yet, and "nobody" is a real state rather
+ * than a missing value — the account-less session owns its data, and that data is not owned by
+ * a profile row that happened to exist already. NOT NULL would force a placeholder identity
+ * that every later read would take for a real owner, which is worse than an honest NULL.
  *
- * Cancelling an event in Google had been implemented as "delete the shadow, keep the task",
- * with a comment saying that this stops *"the next push"* from re-creating the event. There
- * was no next push at the time — the local-side write walk came later, and when it did,
- * deleting the shadow made the planner see a task with no event at all and **re-insert the
- * very event the user had just cancelled**. The comment named the failure correctly and the
- * code did not prevent it, which is the worst combination: the intent is documented and the
- * behaviour is the opposite.
+ * ## Why existing rows are left NULL
  *
- * The repair is to keep the row and mark it, rather than delete it. A shadow with
- * `cancelled_at` set means "this task's event existed and the user removed it", which is
- * exactly what the push planner needs in order to leave it alone.
+ * A pre-existing profile's owner is not derivable after the fact: the rows it owns name the
+ * owner, but a profile may hold rows from several accounts' scopes over its lifetime, and
+ * nothing recorded which was which. Guessing would file one account's profile under another —
+ * the same silent misattribution the 37→38 outbox backfill refused — and it would then decide
+ * which account's profile gets erased on the next switch.
  *
- * `NULL` means "not cancelled", so nothing needs backfilling — and a backfill would be the
- * dangerous kind: marking every pre-existing row cancelled would make the planner skip every
- * task on the calendar, and the sync would go quiet with no error anywhere.
+ * Nothing is cleared here, unlike that migration. The rows themselves stay valid and stay
+ * usable; what is missing is only the attribution, and the cost of the upgrade is that a
+ * profile created before v39 is invisible to an owner-scoped erase until it is claimed.
  *
- * One interaction with the existing sweep: `deleteNotIn` drops shadows whose event is no longer
- * in Google's listing, which would erase tombstones on the very pass that creates them. The
- * engine feeds cancelled event ids into the keep-list, so a tombstone outlives the pass that
- * wrote it and is dropped only when the account loses it entirely.
- *
- * Nothing else to specify: no existing table is altered, which is why this spec is empty.
+ * See `docs/decisions/2026-10-06-a-profile-is-owned-and-an-erase-resolves-its-ids-first.md`.
  */
-class Migration38To39 : AutoMigrationSpec
+class Migration38To39 : Migration(38, 39) {
+    override suspend fun migrate(connection: SQLiteConnection) {
+        // Nullable with no default: SQLite adds a nullable column without one, and an
+        // existing row correctly reads NULL rather than an empty string that would be
+        // indistinguishable from an owner whose id happens to be empty.
+        connection.execSQL("ALTER TABLE profiles ADD COLUMN user_id TEXT")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS index_profiles_user_id ON profiles (user_id)")
+    }
+}

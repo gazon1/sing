@@ -312,6 +312,14 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
 
+    // ── Owner-scoped erase ──────────────────────────────────────────────────────
+    //
+    // See `OwnerEraseDao` — the deletes live there, grouped by operation rather than
+    // scattered across the eight DAOs that own the tables. They have an order that is
+    // load-bearing, and an order is easier to keep correct in one place.
+    //
+    // See ADR 2026-10-06-a-profile-is-owned-and-an-erase-resolves-its-ids-first.
+
     // ── Backup symmetry (restore symmetry for export) ──────────────────────────
 
     @Query("SELECT * FROM task_dependencies WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
@@ -898,6 +906,31 @@ interface ProfileDao {
 
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
+
+    /**
+     * Profiles owned by [userId], oldest first.
+     *
+     * The read half of an owner-scoped erase. It is a separate call from the deletes on
+     * purpose: resolution is reversible and deletable is not, so the ids are resolved,
+     * checked, and only then acted on.
+     *
+     * Profiles with a NULL `user_id` are excluded — they belong to nobody, so nobody's
+     * erase takes them. See `Migration38To39` for why that state is normal rather than
+     * a gap to be filled in.
+     */
+    @Query("SELECT * FROM profiles WHERE user_id = :userId ORDER BY created_at ASC")
+    suspend fun listOwnedBy(userId: String): List<ProfileEntity>
+
+    /**
+     * Claims every unowned profile for [userId].
+     *
+     * Used when an account signs in over data created before it existed: the rows are
+     * the user's, and the profile they live in has no owner yet. Claims NULL-owner rows
+     * only — a profile already owned by someone else is never taken, so this cannot
+     * reassign an account's profile to whoever signs in next.
+     */
+    @Query("UPDATE profiles SET user_id = :userId WHERE user_id IS NULL")
+    suspend fun claimUnowned(userId: String): Int
 }
 
 // ─── Tag Group DAO ─────────────────────────────────────────────────────────────

@@ -180,7 +180,7 @@ Run `just docs-audit` to check doc freshness, normalize ADRs, and regenerate DIG
 | Concern | Solution |
 |---|---|
 | DI | Koin 4.x pure DSL (NOT annotations) |
-| Database | Room with auto-migrations (schema v38, `SCHEMA_VERSION` in `AppDatabase.kt`) |
+| Database | Room with auto-migrations (schema v40, `SCHEMA_VERSION` in `AppDatabase.kt`) |
 | Async | Kotlin Coroutines + Flow |
 | Logging | Kermit (multiplatform) |
 | Date/Time | kotlinx-datetime |

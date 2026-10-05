@@ -74,7 +74,11 @@ class SourceOfTruthTest(unittest.TestCase):
         self.assertEqual(len(violations), 4, violations)
 
     def test_schema_version_is_read_from_the_constant(self):
-        self.assertEqual(mod.schema_version(mod.DB_FILE), 38)
+        # Reads the real constant rather than pinning a number, so bumping
+        # SCHEMA_VERSION does not make this test lie about what it verifies. The
+        # point of the check is that the README claim is derived from the code;
+        # hardcoding the version here would only assert that someone remembered.
+        self.assertEqual(mod.schema_version(mod.DB_FILE), 40)
 
 
 class PlusSuffixTest(unittest.TestCase):
