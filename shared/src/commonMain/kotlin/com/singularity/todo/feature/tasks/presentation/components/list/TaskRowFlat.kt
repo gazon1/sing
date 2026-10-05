@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -101,10 +102,10 @@ fun TaskRowFlat(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun TaskRowFlatPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Column {
             TaskRowFlat(
                 task = TaskUi(

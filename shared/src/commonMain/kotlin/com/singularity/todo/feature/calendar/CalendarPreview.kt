@@ -3,6 +3,7 @@ package com.singularity.todo.feature.calendar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
@@ -66,7 +67,10 @@ private object CalendarPreviewData {
 
 @Composable
 private fun CalendarContentPreview(state: CalendarUiState = CalendarPreviewData.loadedState(CalendarViewMode.MONTH)) {
-    MaterialTheme {
+    // The theme wrapper, not a bare MaterialTheme: the calendar paints its own
+    // palette from the colour scheme, and a baseline scheme here would show a
+    // screen the app never produces.
+    PreviewThemed(darkTheme = false, useSurface = true) {
         CalendarContent(
             state = state,
             onIntent = {},

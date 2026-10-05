@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -167,10 +168,10 @@ private fun lerpColor(start: Color, end: Color, fraction: Float): Color = Color(
     alpha = start.alpha + (end.alpha - start.alpha) * fraction,
 )
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
+@Preview(showBackground = true)
 @Composable
 private fun TaskCheckboxPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Lg),
             modifier = Modifier.padding(TaskListSpacing.Lg).size(280.dp, 60.dp),

@@ -6,6 +6,7 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
@@ -52,6 +53,9 @@ class ArchitectureTest {
 
         /** File name including extension, for rules that key on the file rather than the package. */
         private fun KoFileDeclaration.fileName(): String = path.replace('\\', '/').substringAfterLast('/')
+
+        /** File's own text, for rules that match call sites rather than declarations. */
+        private fun KoFileDeclaration.sourceText(): String = text.replace('\\', '/')
 
         /**
          * Source-set-relative path, forward slashes, with the `kotlin/` source root
@@ -172,6 +176,18 @@ class ArchitectureTest {
             "com/singularity/todo/feature/genui/render/material3/atoms/TextRenderer.kt",
             "com/singularity/todo/feature/notes/Ids.kt",
         )
+
+        /**
+         * The ceiling for `colour allowlist does not grow`.
+         *
+         * Set to the entry count at the moment the ratchet landed: six files, of
+         * which one (`feature/notes/Ids.kt`) is permanent — a domain value class,
+         * not theming. The other five are the remainder of #199 and #197, and every
+         * one of them lowers this number. When it reaches one, delete the ratchet:
+         * a ceiling of one with a permanent single entry is a documented fact, not
+         * a guard.
+         */
+        private const val COLOUR_ALLOWLIST_CEILING = 6
 
         /**
          * Files allowed to reach the filesystem from commonMain.
@@ -335,6 +351,45 @@ class ArchitectureTest {
             offenders,
             "a feature composable must read the active theme; fixed colours belong in a theme file",
         ) { it.path }
+    }
+
+    @Test
+    fun `a preview uses the app theme, not a bare MaterialTheme`() {
+        // A bare `MaterialTheme { }` gives the M3 *baseline* scheme. Once a
+        // composable reads `MaterialTheme.colorScheme`, that is a palette the app
+        // never produces — and the preview is the only place a human sees the
+        // screen without launching it. Seven previews did exactly this after the
+        // task surfaces moved onto the theme, and they rendered a screen that
+        // looked plausible and was wrong.
+        //
+        // The wrapper is the fix; this rule is what stops it coming back.
+        val offenders = scope.files
+            .filter { it.sourceText().contains("@Preview") }
+            .filter { it.sourceText().contains("MaterialTheme {") }
+        assertNoOffenders(
+            offenders,
+            "a @Preview must wrap in PreviewThemed, not a bare MaterialTheme — see PreviewSamples.kt",
+        ) { it.path }
+    }
+
+    @Test
+    fun `the colour allowlist does not grow`() {
+        // The colour rule protects additively: a new literal in a feature composable
+        // fails the build. It does not stop anyone from *exempting* the file, which
+        // is how a list of debt becomes permanent without a single line of
+        // remediation. Debt retired by paperwork is not debt retired.
+        //
+        // The ceiling is the number of entries the list had when this rule landed.
+        // Lowering it is the point of the rule: #199 and #197 each remove entries,
+        // and a change that raises the count has to say here why, in the diff.
+        val actual = COLOUR_LITERAL_ALLOWLIST.size
+        assertTrue(
+            actual <= COLOUR_ALLOWLIST_CEILING,
+            "COLOUR_LITERAL_ALLOWLIST grew from $COLOUR_ALLOWLIST_CEILING to $actual entries. " +
+                "Exempting a file is not the same as converting it: either convert the file to the " +
+                "theme (and remove its entry), or state the exemption and raise this ceiling in the " +
+                "same commit — with a reason, not a number.",
+        )
     }
 
     @Test
