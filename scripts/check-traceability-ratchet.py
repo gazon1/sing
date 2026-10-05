@@ -118,7 +118,14 @@ def _metrics(coverage) -> tuple[dict[str, int], list[str]]:
         and any(cell.claimed for cell in row.values())
         and not any(cell.claimed and cell.automated for cell in row.values())
     ]
-    return {"holes": len(coverage.holes()), "dark_scenarios": len(dark)}, dark
+    return (
+        {
+            "holes": len(coverage.holes()),
+            "dark_scenarios": len(dark),
+            "unreachable_cells": len(coverage.unreachable_holes()),
+        },
+        dark,
+    )
 
 
 METRICS: tuple[Metric, ...] = (
@@ -130,6 +137,11 @@ METRICS: tuple[Metric, ...] = (
     Metric(
         key="dark_scenarios",
         label="declared scenarios with a claim and no automation on any target",
+        worse_when="higher",
+    ),
+    Metric(
+        key="unreachable_cells",
+        label="claimed cells whose spec declares the tier unable to reach them",
         worse_when="higher",
     ),
 )

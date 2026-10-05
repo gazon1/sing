@@ -244,6 +244,24 @@ def cmd_carrier(args) -> int:
         )
         return 1
 
+    # The check that would have saved the most time this session. A probe failing
+    # is the exact input to two opposite mistakes: narrow the spec (TASK-TIME-01,
+    # wrong — the feature was in commonMain) or write the test anyway. A spec that
+    # says the target is unreachable is a claim about the *tier*, made on purpose,
+    # so the generator refuses instead of producing a probe that cannot pass.
+    if target in spec.unreachable:
+        print(
+            f"ERROR: {scenario} помечает '{target.value}' как недостижимый "
+            f"(unreachable).\n"
+            f"Зонд тут бесполезен: сценарий заявлен, но ни один автоматический "
+            f"носитель на этом тире его не достанет — нужно второе устройство, "
+            f"управление сетью или ручной прогон.\n"
+            f"Почему это важно: провалившийся зонд раньше читался двумя "
+            f"противоположными способами, и оба применялись. Если поле стоит "
+            f"не по делу — уберите его из спеки, и тогда разбираться будет с чем."
+        )
+        return 1
+
     # The link set, not the filename, is what says a carrier exists. Checking
     # for a file at the computed path found nothing for `TASK-REC-01` and wrote
     # a second, competing carrier next to the real one — the generated name

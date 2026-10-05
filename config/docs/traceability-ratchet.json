@@ -21,6 +21,13 @@
       "measured": 16,
       "label": "declared scenarios with a claimed target and no automation on any target",
       "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it per platform into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting. Lowered 16 -> 15 on 2026-10-05 when TASK-TIME-01 stopped being dark: the spec had claimed desktop for the first time (which alone would have been +1 holes and failed this gate) and the desktop carrier that landed with the fix took the total back to 31."
+    },
+    {
+      "metric": "unreachable_cells",
+      "max": 6,
+      "measured": 6,
+      "label": "claimed cells whose spec declares the tier unable to reach them",
+      "note": "These are counted in `holes` as well, so reclassifying an ordinary hole as unreachable does not move the total — which is the point, and also the hole this floor closes. Without it, marking every unsupplied claim `unreachable` would make the queue look un-actionable while the number stayed at 32, and the cheap move is always the one that leaves the metric alone. The two metrics together mean a reclassification has to be paid for in one bucket or the other. The 6 are the three sync scenarios that are *defined* by a second device (SYNC-INCOMING-01, SYNC-OFFLINE-01, SYNC-PROFILES-01) on both tiers; the rest of the sync area is one-device and stays probe-able."
     }
   ],
   "known_gaps": [
