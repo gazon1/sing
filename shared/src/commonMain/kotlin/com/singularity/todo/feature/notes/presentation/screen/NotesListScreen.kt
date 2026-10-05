@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.theme.NoteSwipeColors
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
@@ -554,8 +555,11 @@ fun SwipeableNoteCard(
 private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue, isArchived: Boolean) {
     val color by animateColorAsState(
         targetValue = when (dismissValue) {
-            SwipeToDismissBoxValue.StartToEnd -> Color(0xFFFFB300)
-            SwipeToDismissBoxValue.EndToStart -> if (isArchived) Color(0xFF43A047) else Color(0xFFE53935)
+            SwipeToDismissBoxValue.StartToEnd -> NoteSwipeColors.Archive
+
+            SwipeToDismissBoxValue.EndToStart ->
+                if (isArchived) NoteSwipeColors.UnArchive else NoteSwipeColors.Delete
+
             SwipeToDismissBoxValue.Settled -> Color.Transparent
         },
         label = "swipe_bg",

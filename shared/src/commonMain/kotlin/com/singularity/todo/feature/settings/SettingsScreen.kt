@@ -39,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -47,6 +46,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.theme.AiStatusColors
 import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.SharePort
@@ -107,13 +107,6 @@ private val SettingsTab.icon
         SettingsTab.Backup -> Icons.Filled.CloudUpload
         SettingsTab.Account -> Icons.Filled.AccountCircle
     }
-
-/** AI connection-status badge colors, named instead of inline hex + `// comment`. */
-private object AiStatusColors {
-    val Ok = Color(0xFF4CAF50)
-    val Error = Color(0xFFF44336)
-    val Unknown = Color(0xFF9E9E9E)
-}
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {

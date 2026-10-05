@@ -150,14 +150,6 @@ class ArchitectureTest {
          * not a theme file yet. Every entry is a tracked follow-up — an allowlist
          * entry without an issue is how an allowlist becomes permanent.
          *
-         * - `NotesListScreen.kt` — swipe backgrounds: archive amber, archive-done
-         *   green, delete red. These are *semantic* (what the swipe will do), not
-         *   decoration, so they must not follow the accent even after conversion.
-         * - `ProfileSwitcherScreen.kt`, `StatisticsScreen.kt`,
-         *   `SettingsScreen.kt` — 20 literals of the same defect the Tasks feature
-         *   had: fixed values that cannot follow the theme. Note these three live
-         *   directly under `feature/<x>/`, NOT under a `presentation` segment.
-         * - `TextRenderer.kt` — genui atom defaults.
          * - `feature/notes/Ids.kt` — **not** a UI palette. `NoteColor` is a domain
          *   value class holding the user's note-highlight colour; it is data, not
          *   theming, and it is the one entry that should stay listed permanently.
@@ -169,25 +161,29 @@ class ArchitectureTest {
          * this rule exists to prevent, reproduced inside the rule itself.
          */
         private val COLOUR_LITERAL_ALLOWLIST = setOf(
-            "com/singularity/todo/feature/notes/presentation/screen/NotesListScreen.kt",
-            "com/singularity/todo/feature/profile/ProfileSwitcherScreen.kt",
-            "com/singularity/todo/feature/settings/SettingsScreen.kt",
-            "com/singularity/todo/feature/statistics/StatisticsScreen.kt",
-            "com/singularity/todo/feature/genui/render/material3/atoms/TextRenderer.kt",
             "com/singularity/todo/feature/notes/Ids.kt",
         )
 
         /**
          * The ceiling for `colour allowlist does not grow`.
          *
-         * Set to the entry count at the moment the ratchet landed: six files, of
-         * which one (`feature/notes/Ids.kt`) is permanent — a domain value class,
-         * not theming. The other five are the remainder of #199 and #197, and every
-         * one of them lowers this number. When it reaches one, delete the ratchet:
+         * Six when the ratchet landed, now **one**, and the one is permanent
+         * (`feature/notes/Ids.kt` — a domain value class, not theming); the others
+         * is the remainder of #197, and it lowers this number too.
+         *
+         * Four of the six were *relocated* rather than converted, and that is the
+         * finding: #199 was filed as four screens with "the same defect as the
+         * tasks feature", and measuring them showed three hold verdicts or
+         * categorical scales — a validation status, a swipe consequence, a chart
+         * series palette, a per-profile identity tint. None of those is a theme
+         * role, and converting them would have tied "this is overdue" and "which
+         * profile is this" to a colour preference. They moved into the theme
+         * package, where a reader finds them, and stopped pretending to be
+         * derived. When it reaches one, delete the ratchet:
          * a ceiling of one with a permanent single entry is a documented fact, not
          * a guard.
          */
-        private const val COLOUR_ALLOWLIST_CEILING = 6
+        private const val COLOUR_ALLOWLIST_CEILING = 1
 
         /**
          * Files allowed to reach the filesystem from commonMain.
@@ -363,9 +359,14 @@ class ArchitectureTest {
         // looked plausible and was wrong.
         //
         // The wrapper is the fix; this rule is what stops it coming back.
+        //
+        // `codeOnly()` on the theme check, and deliberately not on the `@Preview`
+        // scan: a file has to *say* `@Preview` to be a preview, but a comment
+        // explaining this very rule quotes `MaterialTheme {` verbatim, and reading
+        // that as an offender would make the fix unrepresentable in its own repo.
         val offenders = scope.files
             .filter { it.sourceText().contains("@Preview") }
-            .filter { it.sourceText().contains("MaterialTheme {") }
+            .filter { "MaterialTheme {" in it.codeOnly() }
         assertNoOffenders(
             offenders,
             "a @Preview must wrap in PreviewThemed, not a bare MaterialTheme — see PreviewSamples.kt",
