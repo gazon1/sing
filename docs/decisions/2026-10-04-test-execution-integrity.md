@@ -60,9 +60,21 @@ needs all three:
   tagged" and "tests discovered".
 
 The floor records the **smallest count any legitimate run produces** — the
-default local run executes only `@Tag("fast")` classes, and CI's
-`fast,slow` run is a superset. Recording the CI numbers instead would make every
-plain local run look like a regression.
+default local run excludes `@Tag("slow")` and therefore runs every `@Tag("fast")`
+class *plus any untagged one*, which is why it, and not the CI run, is the run to
+record. Recording the CI numbers instead would make every plain local run look
+like a regression.
+
+**Corrected 2026-10-05.** This paragraph said the local run "executes only
+`@Tag("fast")` classes, and CI's `fast,slow` run is a superset". The second half
+is false: CI passes `includeTags`, so it runs tagged classes only and skips
+untagged ones, while the local default runs both. The two selections are
+*different*, not nested. It was measured — 0 untagged test classes, once the
+fully-qualified `@org.junit.jupiter.api.Tag` form is counted — and the
+practical consequence is recorded in ADR
+`2026-10-05-gate-audit-text-shape-vs-fact`: a CI run can legitimately produce a
+*lower* test count than a local one, and a floor recorded from CI could then be
+unreachable locally.
 
 # Decision
 

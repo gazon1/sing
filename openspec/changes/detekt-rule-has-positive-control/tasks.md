@@ -33,7 +33,7 @@
       registry of positive controls from the places gates are actually invoked
       (`check.sh`, the workflows, and the `just` recipes), so a gate with no
       control is a finding rather than an absence. Measured 2026-10-05: 19
-      registered gates, 17 with a measured control and 2 exempt with a reason
+      registered gates, 16 with a measured control and 2 exempt with a reason
       each. See ADR `2026-10-05-positive-control-registry-is-derived`.
       An earlier version of this task named "the audit table in ADR
       `2026-10-05-gate-audit-text-shape-vs-fact`, thirteen gates" as an existing

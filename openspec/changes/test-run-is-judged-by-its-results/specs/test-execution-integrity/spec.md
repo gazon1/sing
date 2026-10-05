@@ -75,8 +75,13 @@ reported success. This requirement asks the direct question instead: not "did fe
 things run than last time" but "did this specific declared class run". That is a fact
 about the run rather than a judgement about the source, so a JUnit annotation form no
 text predicate knows about is still caught by it. `fast` and not `slow` is a
-correctness argument, not convenience: the default local run excludes `slow`, so it
-executes exactly the `fast` classes, and any tagged-filter run is a superset.
+correctness argument, not convenience: CI always passes an explicit tag list, so
+"did a declared `fast` class run" is the question that matters there, and
+`TestTagCoverageTest` separately holds the untagged population at zero — which
+is what makes `fast` the whole of what CI should have run. The default local run
+excludes `slow` but also runs untagged classes, so it is a superset of `fast`
+rather than equal to it; that is why `slow` is out of scope, since a `slow` class
+is excluded from every local run by design.
 
 #### Scenario: A declared class is silently skipped
 

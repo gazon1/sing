@@ -12,8 +12,8 @@ registered gate can fail: it mutates a committed file and requires a non-zero
 exit. That is the right shape, and it was applied to eight gates.
 
 What it did not have was a check on the registry itself. `SCRIPT_GATES` was a
-hand-written list, and measured on 2026-10-05 it held **8 of the 19** gate
-scripts that a gate actually invokes. The eleven without an entry were
+hand-written list, and measured on 2026-10-05 it held **8 of the 18** gate
+scripts that a gate actually invokes. The **ten** without an entry were
 indistinguishable, in that list, from the eight with one. Three of them decide
 whether a test run counts as evidence — `check-test-runs.py`,
 `check-coverage.py`, `check-flaky-tests.py`.
@@ -99,7 +99,7 @@ regressions were found by breaking the code and watching for red, and both are
 recorded as tests rather than as prose, because prose does not run:
 
 - A `\./?` in the pattern requires a literal dot, so it matched only the
-  `./scripts/*.sh` invocations — **3 of 19** gates. The check reported a short
+  `./scripts/*.sh` invocations — **3 of 18** gates. The check reported a short
   list and called it complete. `test_the_python3_invocation_without_a_dot_slash_is_registered`.
 - No word boundary meant `Maestro/scripts/check-tags.sh` matched as
   `scripts/check-tags.sh`, a path that does not exist, and Part F then demanded
@@ -159,10 +159,12 @@ this ADR is about — a number that reads as a measurement and cannot vary:
   root property. The rule is one-directional, so removing the property leaves
   nothing to check and the gate returns 0 — the first attempt at this control
   did exactly that, and the comment in the registry says so.
-- Part B now runs 17 controls; all were measured green individually before being
-  committed to the registry.
-- `scripts/tests/test_check_gate_wiring.py` gains 11 tests, two of which are
-  negative controls over the derivation itself.
+- Part B now runs 17 controls (14 sabotage, 3 fixture) across 16 gate scripts —
+  `check-doc-dead-refs.py` carries two, one per mode. All were measured green
+  individually before being committed to the registry.
+- `scripts/tests/test_check_gate_wiring.py` gains 13 tests, two of which are
+  negative controls over the derivation itself, plus two added later when a
+  control turned out to have stopped sabotaging silently.
 
 ## Links
 
