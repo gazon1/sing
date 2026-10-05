@@ -91,6 +91,30 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
     fun signIn(userId: UserId = UserId.generate()) {
         sessions.value = Session.SignedIn(userId, "test@x.com", "access", "refresh")
     }
+
+    /**
+     * Any session at all, including signing out and the account-less one.
+     *
+     * Not three named transitions, because a name per case is a name to keep in step
+     * with the sealed hierarchy — and `signOut` is already taken by [AuthRepository],
+     * where it means "ask the provider too", which is the opposite of what these tests
+     * want. One setter, and the test says which session it means.
+     */
+    fun set(session: Session) {
+        sessions.value = session
+    }
+
+    /**
+     * The same account with a new access and refresh token.
+     *
+     * A token refresh replaces [Session] wholesale while leaving the account alone,
+     * and a push response that arrived across one must still be applied. A test that
+     * could not express this would be satisfied by a re-check comparing whole
+     * sessions — which is the wrong rule, and one that discards nearly every push.
+     */
+    fun refreshToken(userId: UserId = UserId.generate()) {
+        sessions.value = Session.SignedIn(userId, "test@x.com", "access-2", "refresh-2")
+    }
 }
 
 /**

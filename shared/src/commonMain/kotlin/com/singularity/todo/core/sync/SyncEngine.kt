@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.auth.accountIdOrNull
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toAppError
@@ -21,8 +22,18 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * Summary of a push operation.
+ *
+ * [discarded] counts results the server answered that this client refused to apply,
+ * because the account the request was made under is no longer signed in (REQ-UA-018).
+ * It is a fourth number rather than a [failed] one because nothing failed: the server
+ * accepted the work, and the local device has declined to act on the answer. Counting
+ * it as [succeeded] would mark rows delivered that are still queued; counting it as
+ * [failed] would say the server rejected patches it accepted, which is the wrong
+ * repair to go looking for. It carries the weight of a distinct field precisely so
+ * that neither of those two readings is available by accident — the old three-field
+ * summary could not say "the server took it and we ignored it" at all.
  */
-data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int)
+data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int, val discarded: Int = 0)
 
 /**
  * Summary of a pull operation.
@@ -341,14 +352,21 @@ internal class SyncEngine(
      */
     internal suspend fun push(): Result<PushSummary> {
         val session = authRepository.currentSession.value
-        if (session !is Session.SignedIn) {
-            return Result.success(PushSummary(0, 0, 0))
+        val signedIn = session is Session.SignedIn
+        if (signedIn) _status.value = SyncEngineStatus.Pushing
+
+        // One exit for "there is nothing to push", whether that is because nobody is
+        // signed in or because the queue is empty. They are the same answer — an empty
+        // summary over an untouched outbox — and splitting them across two returns cost
+        // the budget the discard below needs.
+        val plan = if (signedIn) {
+            planPush().getOrElse { return phases.pushFailed(it.toAppError(), 0) }
+        } else {
+            null
         }
-
-        _status.value = SyncEngineStatus.Pushing
-
-        val plan = planPush().getOrElse { return phases.pushFailed(it.toAppError(), 0) }
         if (plan == null) {
+            // Idle in the signed-out case too, which is a no-op: no push is in flight,
+            // because the only thing that sets Pushing is three lines above.
             _status.value = SyncEngineStatus.Idle
             return Result.success(PushSummary(0, 0, 0))
         }
@@ -358,6 +376,33 @@ internal class SyncEngine(
 
         return try {
             val response = api.batchPush(plan.request)
+
+            // REQ-UA-018: is the account that authorised this request still the one
+            // signed in? Compared by account, not by session — see ADR
+            // 2026-10-05-a-push-response-is-matched-by-account-not-by-session, and the
+            // token-refresh case that decides it. `null` means there is no account to
+            // match, and that is deliberately not a match.
+            val requestedBy = session.accountIdOrNull
+            val nowSignedInAs = authRepository.currentSession.value.accountIdOrNull
+
+            if (requestedBy != nowSignedInAs) {
+                // The rows stay queued, the shadow keeps its in-flight marker, and the
+                // server's answer is not acted on. Applying it is the defect #181
+                // describes: the previous account's work marked delivered on behalf of
+                // whoever is signed in now, with the device and the server disagreeing
+                // and nothing left to say so. Nothing is lost by discarding — the row is
+                // still in the outbox and the next cycle under an account entitled to
+                // send it delivers it, which the test class checks end to end.
+                log.e {
+                    "Push response discarded: requested under [$requestedBy], " +
+                        "now [$nowSignedInAs]. ${pending.size} row(s) stay queued."
+                }
+                val discarded = PushSummary(0, 0, 0, discarded = response.results.size)
+                _lastPush.value = Result.success(discarded)
+                _status.value = SyncEngineStatus.Idle
+                return Result.success(discarded)
+            }
+
             var succeeded = 0
             var failed = 0
 
@@ -389,7 +434,9 @@ internal class SyncEngine(
                         // fields this one was carrying, instead of diffing against a
                         // state the server never reached.
                         outboxDao.delete(result.patchId)
-                        if (active != null && patch != null) settleShadow(patch, applied = false, scope = active)
+                        if (active != null && patch != null) {
+                            settleShadow(patch, applied = false, scope = active)
+                        }
                     }
                 }
             }

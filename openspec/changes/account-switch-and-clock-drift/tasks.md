@@ -49,15 +49,27 @@ names its test.
 
 ## REQ-UA-018 — queued work belongs to the account that made it
 
-- [ ] `shared/` Re-check the session before applying a push response; if it is not the
-      session the request was made under, discard the response and leave the rows queued.
-      **Test:** the session is switched while a push is suspended; the rows are still
-      queued and the shadows are untouched.
-- [ ] `shared/` Settle a response only under the captured scope, never a re-read one.
+Matched by **account**, not by session — ADR
+`2026-10-05-a-push-response-is-matched-by-account-not-by-session`. A token refresh replaces the
+session wholesale and is the server's own doing; comparing sessions would discard nearly every push
+response and leave the outbox permanently undrained, silently.
+
+- [x] `shared/` Re-check the account before applying a push response; if it is not the
+      account the request was made under, discard the response and leave the rows queued.
+      **Test:** `SyncEnginePushIdentityTest` — the session is switched while a push is
+      suspended; the rows are still queued and the shadows are untouched. Also the
+      negative case, that a *token refresh* on the same account is still applied.
+- [x] `shared/` Report the discard as its own outcome, so it cannot be read as a delivery
+      or as a server refusal. `PushSummary.discarded`.
+      **Test:** a discarded response reports `discarded = 1` and `succeeded = 0`.
+- [x] `shared/` Settle a response only under the captured scope, never a re-read one.
       **Test:** the profile changes mid-flight and the shadow is settled under the
       original profile.
-- [ ] `shared/` Pin the existing no-network sign-out behaviour with a test, so the
+- [x] `shared/` Pin the existing no-network sign-out behaviour with a test, so the
       distinction from a switch is regression-protected on both sides.
+- [x] `shared/` Give `FakeSyncApiClient` a suspend hook that fires while the request is in
+      flight. Without it the state above is unreachable from a test, and a delay proves
+      nothing about whether the code re-read anything.
 
 ## REQ-OS-019 — the clock is merged, and a wrong one stops the write
 
