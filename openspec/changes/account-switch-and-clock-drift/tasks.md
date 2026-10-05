@@ -28,24 +28,42 @@ names its test.
 - [ ] `shared/` Treat declining the choice as a completed sign-in, not a failure.
       **Test:** the session is signed in and only the account-less data is gone.
 
+## REQ-UA-019 — queued work is sent only by the account that made it
+
+The sending half of ownership, and the part #209 found. REQ-UA-018 covers the *answer*:
+a response is applied only by the account that asked. It cannot cover the request,
+because by the time the response arrives the bytes are gone and discarding the response
+does not call them back.
+
+- [x] `shared/` Add `owner_id` to `sync_outbox` and `sync_dead_letter`, required and with
+      no Kotlin default, so no construction site can leave it unset.
+      **Test:** the entities do not compile without an owner.
+- [x] `shared/` Migration 37→38 adds the column and clears both tables, rather than
+      attributing rows that predate it — guessing would file one account's unsent work
+      under another, and silently.
+      **Test:** `Migration32To33Test` asserts the fixture's rows are gone. That test used
+      to promise the opposite, so the reversal is asserted rather than quietly dropped.
+- [x] `shared/` Scope `getPending` and `deleteByEntity` by owner, and write the owner from
+      the scope the patch was built under — not a scope read again at insert time, which
+      a profile switch in between would move.
+      **Test:** `SyncEngineOutboxOwnershipTest`. Verified by mutation: neutering the
+      filter fails 2 of 5, and they are the two about another account's queue.
+- [x] `shared/` A patch shelved in the dead letter keeps the owner it was queued under.
+      **Test:** the same class, reached through a retriable refusal with attempts
+      exhausted — a terminal refusal is a different branch and never reaches the shelf.
+- [x] `shared/` `planPush` reads the scope first, because it is what says whose queue this
+      push is, and makes no request at all when this owner has nothing queued.
+
 ## REQ-UA-016, REQ-UA-017 — signing out and switching are different operations
 
-**Blocked by #209.** `sync_outbox` and `sync_dead_letter` carry no `owner_id`, so the
-delivery half ("deliver the departing account's queued changes") has nothing to select
-on, and the erase half has nothing to scope to — an owner-scoped delete of the outbox
-would take the *incoming* account's queued work with it. Both are unexpressible until
-the migration lands, and no ordering of DAO work gets around it.
+**The queue half is unblocked by REQ-UA-019.** What remains is the owner-scoped erase,
+which needs the same scoping across every table that can hold the departing account's
+rows — and that part has its own trap: `task_tags` and `task_dependencies` carry no
+`user_id` and declare no foreign keys, so removing `tasks` first would orphan them. The
+idiom already exists in `removeTagRefForUser`, which scopes through
+`EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)`; the erase needs
+that shape, run before the parents go.
 
-The consequence is not confined to the switch: two accounts' rows already coexist in
-the outbox (REQ-UA-006 keeps them across sign-out), and `planPush` sends all of them
-under the active scope, so one account's pending work leaves the device inside another
-account's authenticated request. REQ-UA-018 stops the response from being applied; it
-does not stop the request. That part is fixed by the migration, not by this block.
-
-- [ ] `shared/` Add `owner_id` to `sync_outbox` and `sync_dead_letter`, write it from the
-      scope the patch was built under, and scope `getPending` by it.
-      **Blocked by:** the backfill decision — a row written before the migration cannot
-      be attributed, and guessing an owner attributes one account's work to another.
 - [ ] `shared/` Keep sign-out as it is today: credentials cleared, local data retained, no
       network required. **Test:** the existing sign-out-with-the-server-unreachable test
       still passes, and local rows survive it.

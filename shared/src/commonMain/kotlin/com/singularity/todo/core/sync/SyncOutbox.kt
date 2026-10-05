@@ -21,6 +21,19 @@ import kotlinx.coroutines.flow.Flow
 @Entity(tableName = "sync_outbox")
 data class SyncOutboxEntity(
     @PrimaryKey @ColumnInfo("patch_id") val patchId: String,
+    /**
+     * The account this patch belongs to.
+     *
+     * Required and without a default, so no construction site can leave it unset — the
+     * failure mode this column exists to prevent is precisely a row nobody can attribute.
+     *
+     * Without it the outbox is a bag of work rather than per-account work: `getPending`
+     * returned every row regardless of who wrote it, and `planPush` built one request
+     * from all of them under the *active* scope. So work queued by one account left the
+     * device inside another account's authenticated request — and REQ-UA-018, which
+     * discards the answer, cannot un-send the request. #209.
+     */
+    @ColumnInfo("owner_id", defaultValue = "''") val ownerId: String,
     @ColumnInfo("entity_id") val entityId: String,
     @ColumnInfo("entity_type") val entityType: String,
     val payload: String, // Serialized DeltaPatch JSON
@@ -48,13 +61,31 @@ interface SyncOutboxDao {
      *
      * The [nextAttemptAt] filter is what makes backoff real: without it a failed
      * patch is re-sent on the very next cycle regardless of how recently it failed.
+     *
+     * The `ownerId` filter is REQ-UA-019 and is not a refinement of the backoff filter
+     * — it is what makes the result *addressable*. Queues from different accounts
+     * coexist on purpose (REQ-UA-006 keeps work across a sign-out), so an unscoped
+     * read is every account's work in one list, and the caller builds one request from
+     * all of it under whichever scope happens to be active.
      */
     @Query(
         "SELECT * FROM sync_outbox " +
-            "WHERE next_attempt_at IS NULL OR next_attempt_at <= :now " +
+            "WHERE owner_id = :ownerId " +
+            "AND (next_attempt_at IS NULL OR next_attempt_at <= :now) " +
             "ORDER BY created_at ASC",
     )
-    suspend fun getPending(now: Long): List<SyncOutboxEntity>
+    suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity>
+
+    /**
+     * How many patches an account still owes the server.
+     *
+     * The switch needs this to know whether a delivery can be attempted at all, and
+     * it has to be an owner's own count: a queue holding another account's work is not
+     * a reason to refuse a switch, and treating it as one would make switching
+     * impossible on any device that had ever held two accounts.
+     */
+    @Query("SELECT COUNT(*) FROM sync_outbox WHERE owner_id = :ownerId")
+    suspend fun countPendingFor(ownerId: String): Int
 
     /** Insert a new patch */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -80,9 +111,17 @@ interface SyncOutboxDao {
     @Query("SELECT attempts FROM sync_outbox WHERE patch_id = :id")
     suspend fun attemptsOf(id: String): Int?
 
-    /** Delete all patches for an entity */
-    @Query("DELETE FROM sync_outbox WHERE entity_id = :entityId")
-    suspend fun deleteByEntity(entityId: String)
+    /**
+     * Delete all patches an account has queued for one entity.
+     *
+     * Owner-scoped because coalescing must not reach across accounts. Entity ids are
+     * UUIDs so two accounts rarely share one, but "rarely" is not "never" — and the
+     * unscoped form, if it ever fired, would have one account's enqueue silently
+     * discard another account's unsent work, which is the failure REQ-UA-019 exists to
+     * prevent, reached from the other direction.
+     */
+    @Query("DELETE FROM sync_outbox WHERE owner_id = :ownerId AND entity_id = :entityId")
+    suspend fun deleteByEntity(ownerId: String, entityId: String)
 
     /** Clear the entire outbox */
     @Query("DELETE FROM sync_outbox")

@@ -880,11 +880,23 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
 
     override fun watchPending(): Flow<List<SyncOutboxEntity>> = store.map { it.values.sortedBy { it.createdAt } }
 
-    /** Honours the backoff filter, like the real query does. */
-    override suspend fun getPending(now: Long): List<SyncOutboxEntity> =
+    /**
+     * Honours both filters the real query does — the owner's, and the backoff's.
+     *
+     * The owner filter is not decoration. This fake implemented only the backoff one
+     * for its whole life, which means a test could put two accounts' rows in one table
+     * and still see a "pending" list containing both: precisely the state REQ-UA-019
+     * says must not arise, and precisely what a fake that quietly drops half a query's
+     * conditions will let a test assert as correct.
+     */
+    override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
         store.value.values
+            .filter { it.ownerId == ownerId }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
             .sortedBy { it.createdAt }
+
+    override suspend fun countPendingFor(ownerId: String): Int =
+        store.value.values.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
         store.update { it + (entity.patchId to entity) }
@@ -906,8 +918,8 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     }
     override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
 
-    override suspend fun deleteByEntity(entityId: String) {
-        store.update { it.filterValues { e -> e.entityId != entityId } }
+    override suspend fun deleteByEntity(ownerId: String, entityId: String) {
+        store.update { it.filterValues { e -> e.ownerId != ownerId || e.entityId != entityId } }
     }
     override suspend fun clearAll() {
         store.value = emptyMap()

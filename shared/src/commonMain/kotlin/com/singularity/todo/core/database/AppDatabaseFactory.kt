@@ -68,7 +68,12 @@ object AppDatabaseFactory {
 
         return Room.databaseBuilder<AppDatabase>(name = dbPath)
             .setDriver(driver)
-            .addMigrations(Migration31To32())
+            .addMigrations(
+                Migration31To32(),
+                // Clears the queue tables, so it cannot be an AutoMigrationSpec — that
+                // can only describe a schema change. See Migration37To38.
+                Migration37To38(),
+            )
             .build()
     }
 }

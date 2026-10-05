@@ -250,10 +250,14 @@ internal class SyncEngine(
         // nothing. Without this the outbox grows without bound under fast editing,
         // and the shadow's "promote only if this patch still owns the marker" guard
         // could never fire.
-        outboxDao.deleteByEntity(entity.syncId)
+        // The owner is the scope this patch was built under — not a scope read again
+        // here, which could be a different one if the profile moved between the two.
+        // The patch itself was diffed against that scope's shadow, so it belongs to it.
+        outboxDao.deleteByEntity(active.ownerId, entity.syncId)
         outboxDao.insert(
             SyncOutboxEntity(
                 patchId = patch.patchId,
+                ownerId = active.ownerId,
                 entityId = entity.syncId,
                 entityType = entity.docType.key,
                 payload = payload,
@@ -311,27 +315,39 @@ internal class SyncEngine(
      */
     private suspend fun planPush(): Result<PushPlan?> {
         val nowMillis = now()
-        // Read before the request, and inside a guard: this used to be the one line
-        // between setting the status and entering the try, so a database that could not
-        // be read left the engine advertising a push that was never attempted.
-        val pending = phases.localStorage("sync.outbox.read", "read the pending changes") {
-            outboxDao.getPending(nowMillis)
-        }
-            .getOrElse { return Result.failure(it.toAppError()) }
-        if (pending.isEmpty()) return Result.success(null)
 
-        val patches = pending.map { entity ->
-            json.decodeFromString<DeltaPatch>(entity.payload)
-        }
-
-        // Read the scope once, before the request is built, and use that same
-        // value for the profile on the wire and for settling the shadow. Reading
-        // it again afterwards would let a profile switch in between put this
+        // Read the scope FIRST, because it is what says whose queue this push is.
+        // It is read once and that same value goes on the wire and settles the shadow —
+        // reading it again afterwards would let a profile switch in between put this
         // cycle's patches under one profile and their shadow under another.
         val active = phases.localStorage("sync.scope.read", "read the active sync scope") {
             scopeProvider.current.first()
         }
             .getOrElse { return Result.failure(it.toAppError()) }
+
+        // Read before the request, and inside a guard: this used to be the one line
+        // between setting the status and entering the try, so a database that could not
+        // be read left the engine advertising a push that was never attempted.
+        //
+        // No scope becomes an empty queue rather than a branch of its own, so that
+        // "nothing of this owner's to send" has exactly one answer. Reading past it
+        // would put one account's queued work in another account's request
+        // (REQ-UA-019), and a push with no profile id has nothing to attribute on the
+        // server either.
+        val pending = active
+            ?.let { scope ->
+                phases.localStorage("sync.outbox.read", "read the pending changes") {
+                    outboxDao.getPending(nowMillis, scope.ownerId)
+                }
+            }
+            ?.getOrElse { return Result.failure(it.toAppError()) }
+            ?: emptyList()
+
+        if (pending.isEmpty()) return Result.success(null)
+
+        val patches = pending.map { entity ->
+            json.decodeFromString<DeltaPatch>(entity.payload)
+        }
 
         return Result.success(
             PushPlan(
@@ -495,6 +511,11 @@ internal class SyncEngine(
             deadLetterDao.insert(
                 SyncDeadLetterEntity(
                     patchId = entity.patchId,
+                    // Carried over from the row being shelved, rather than read from a
+                    // scope now: the patch is set aside because of what happened to it,
+                    // so it stays that patch's, and a profile that moved in between must
+                    // not file it under the wrong account.
+                    ownerId = entity.ownerId,
                     entityId = entity.entityId,
                     entityType = entity.entityType,
                     payload = entity.payload,

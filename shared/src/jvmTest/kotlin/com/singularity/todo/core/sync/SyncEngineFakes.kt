@@ -23,10 +23,22 @@ class FakeSyncOutboxDao : SyncOutboxDao {
 
     override fun watchPending(): Flow<List<SyncOutboxEntity>> = MutableStateFlow(snapshot())
 
-    /** Honours [SyncOutboxDao.getPending]'s backoff filter, or a test asserts on a
-     *  fake that has no backoff to begin with. */
-    override suspend fun getPending(now: Long): List<SyncOutboxEntity> =
-        snapshot().filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+    /**
+     * Honours both of [SyncOutboxDao.getPending]'s filters, or a test asserts on a fake
+     * that has neither.
+     *
+     * The owner filter is the one this fake exists to be honest about. An earlier
+     * version implemented only the backoff filter, and so would have kept passing a
+     * test that put two accounts' work in one table — which is the whole thing
+     * REQ-UA-019 says must not happen.
+     */
+    override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+        snapshot()
+            .filter { it.ownerId == ownerId }
+            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+
+    override suspend fun countPendingFor(ownerId: String): Int =
+        rows.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
         rows.removeAll { it.patchId == entity.patchId }
@@ -50,8 +62,8 @@ class FakeSyncOutboxDao : SyncOutboxDao {
 
     override suspend fun attemptsOf(id: String): Int? = rows.firstOrNull { it.patchId == id }?.attempts
 
-    override suspend fun deleteByEntity(entityId: String) {
-        rows.removeAll { it.entityId == entityId }
+    override suspend fun deleteByEntity(ownerId: String, entityId: String) {
+        rows.removeAll { it.ownerId == ownerId && it.entityId == entityId }
     }
 
     override suspend fun clearAll() {
