@@ -384,6 +384,16 @@ jobs:
       - name: Lint rules are declared decisions
         run: python3 scripts/check-rule-intent.py
 
+      # The other half of that question, and the one that was missing here.
+      # check-rule-intent asks whether a rule was *declared*; a rule can be
+      # declared, configured, and provably able to fire, and still be switched
+      # off for a whole file by one @file:Suppress line that no gate could see.
+      # 12 production files did exactly that, hiding 38 direct Clock.System
+      # reads, and the gate that catches it ran in check.sh only — so a file that
+      # needed no comment locally could arrive on main unremarked.
+      - name: Every file-level suppression says what it hides
+        run: python3 scripts/check-suppression-intent.py
+
       # docs/SKILLS-CATALOG.md is generated from skill frontmatter and was
       # committed stale on a clean tree with nothing noticing. The catalog is what
       # an agent reads to choose a skill, so a stale line count or description
