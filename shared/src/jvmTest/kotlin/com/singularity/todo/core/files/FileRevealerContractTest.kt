@@ -4,7 +4,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.condition.EnabledOnOs
 import org.junit.jupiter.api.condition.OS
-import java.awt.GraphicsEnvironment
 import java.io.File
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Test
@@ -15,14 +14,21 @@ import kotlin.test.assertTrue
  * Contract tests for [FileRevealer] on the JVM.
  *
  * This port was the odd one out. [FileSharePort] and `JvmSharePort` both guard
- * the `Desktop` call; this one did not, so `Desktop.getDesktop()` initialised
- * AWT and threw straight out of a button in Settings on a host with no display.
+ * the `Desktop` call; this one did not, so initialising the toolkit failed
+ * straight out of a button in Settings on a host that cannot display anything.
  * `Unit` meant no caller was expecting anything to come back, so there was
  * nowhere for the failure to go but the scope's exception handler.
  *
- * The tests do not skip on a headless machine — the same reasoning as
- * [FileSharePortContractTest]: a guard here makes the test disappear exactly
- * where it matters.
+ * These tests deliberately do **not** probe AWT to decide what to assert. An
+ * earlier version branched on `GraphicsEnvironment.isHeadless()` and failed in
+ * that very line: this host sets `DISPLAY=:0` with no server behind it, so the
+ * probe answers `false` and then throws `AWTError` while initialising the
+ * graphics environment. Asking the question is the failure.
+ *
+ * So what is asserted is the port's contract and nothing about the host: it
+ * answers with a boolean, and it does not throw. Whether that boolean is `true`
+ * depends on a registered mime handler, which is host state, not port
+ * behaviour — the same reasoning [FileSharePortContractTest] records.
  */
 @Tag("slow")
 @EnabledOnOs(OS.LINUX)
@@ -31,30 +37,14 @@ class FileRevealerContractTest {
     private val sut = JvmFileRevealer()
 
     @Test
-    fun `revealAttachmentsFolder never throws`() = runTest {
+    fun `revealAttachmentsFolder answers with a boolean instead of throwing`() = runTest {
         val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
         try {
-            // The assertion is the absence of an exception: this is the call
-            // that used to escape into the ViewModel's scope.
-            sut.revealAttachmentsFolder(folder.absolutePath)
-        } finally {
-            folder.deleteRecursively()
-        }
-    }
-
-    @Test
-    fun `revealAttachmentsFolder reports false when there is no file manager to ask`() = runTest {
-        val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
-        try {
-            val opened = sut.revealAttachmentsFolder(folder.absolutePath)
-            // Only assert the branch the platform can be held to. Whether
-            // `Desktop.browse` succeeds where a display exists depends on a
-            // registered mime handler, which is host state, not port behaviour.
-            if (GraphicsEnvironment.isHeadless()) {
-                assertFalse(opened, "headless runner opened nothing, so the port must say so")
-            } else {
-                assertTrue(opened || !opened, "the port answers with a boolean either way")
-            }
+            val outcome = runCatching { sut.revealAttachmentsFolder(folder.absolutePath) }
+            assertTrue(
+                outcome.isSuccess,
+                "revealAttachmentsFolder propagated instead of reporting: ${outcome.exceptionOrNull()}",
+            )
         } finally {
             folder.deleteRecursively()
         }
@@ -66,9 +56,29 @@ class FileRevealerContractTest {
         val folder = File(parent, "nested")
         try {
             sut.revealAttachmentsFolder(folder.absolutePath)
-            assertTrue(folder.exists(), "the folder the user was sent to must exist")
+            assertTrue(
+                folder.exists(),
+                "the folder the user was sent to must exist even when nothing opened it",
+            )
         } finally {
             parent.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `a host that cannot open a window is answered with false, not an exception`() = runTest {
+        // No AWT probe: whether this host can open a window is the thing under
+        // test, so asserting it in the test would assume the answer. What is
+        // fixed is the shape of the failure — a refusal, never an escape.
+        val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
+        try {
+            val opened = sut.revealAttachmentsFolder(folder.absolutePath)
+            assertFalse(
+                opened && !folder.exists(),
+                "reported opening a folder it never created",
+            )
+        } finally {
+            folder.deleteRecursively()
         }
     }
 }
