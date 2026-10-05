@@ -248,10 +248,16 @@ class ScanRepositoryTest(unittest.TestCase):
         # что пути в TEST_ROOTS разошлись с реальностью. Верхняя граница тоже
         # осмысленна: её рост означал бы возврат отсева abstract-баз и хелперов.
         self.assertGreater(len(self.tests), 200)
-        self.assertLess(len(self.tests), 300)
+        self.assertLess(len(self.tests), 310)
         # 260, а не 259: NoopSubscriptionProviderTest.kt объявляет класс
         # PurchaseStateTest, и прежний отсев по «нет @Test у класса с именем
         # файла» выбрасывал файл целиком, теряя настоящий тест.
+        #
+        # Верхняя граница поднята с 300 на 310, когда счётчик достиг ровно 300:
+        # платформенный гейт PlatformClaimWiringTest стал 300-м классом и упал на
+        # `300 not less than 300`. Граница намеренно двигается вместе с числом
+        # классов, но медленнее него — 310 это 7 запасных классов, а не «сколько
+        # бы ни понадобилось». Если упадёт снова, дело не в счётчике.
 
     def test_abstract_bases_and_helpers_are_excluded(self):
         # Класс, который никогда не даёт прогона (abstract-база контракта или

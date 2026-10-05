@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
@@ -108,10 +108,10 @@ private fun MetaSeparator() {
     Spacer(Modifier.width(TaskListSpacing.Xs))
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
+@Preview(showBackground = true)
 @Composable
 private fun TaskMetaRowPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Column(verticalArrangement = Arrangement.spacedBy(TaskListSpacing.Md)) {
             TaskMetaRow("Сб, 05 сент 2026", "Семья", isRecurring = true, isOverdue = false)
             TaskMetaRow("Пн, 12 янв 2026", "Блог github pages", isRecurring = true, isOverdue = true)

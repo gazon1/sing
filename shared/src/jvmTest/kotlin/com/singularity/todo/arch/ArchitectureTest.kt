@@ -6,6 +6,7 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
@@ -52,6 +53,22 @@ class ArchitectureTest {
 
         /** File name including extension, for rules that key on the file rather than the package. */
         private fun KoFileDeclaration.fileName(): String = path.replace('\\', '/').substringAfterLast('/')
+
+        /** File's own text, for rules that match call sites rather than declarations. */
+        private fun KoFileDeclaration.sourceText(): String = text.replace('\\', '/')
+
+        /**
+         * Source-set-relative path, forward slashes, with the `kotlin/` source root
+         * dropped: `com/singularity/todo/feature/notes/Ids.kt`.
+         *
+         * This is what allowlists key on, so an entry names one file rather than
+         * every file that happens to share a base name.
+         */
+        private fun relativePath(file: KoFileDeclaration): String {
+            val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+            val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
+            return under.substringAfter("/kotlin/").ifEmpty { under }
+        }
 
         private fun KoFileDeclaration.importFqns(): List<String> = imports.map { it.name }
 
@@ -133,26 +150,40 @@ class ArchitectureTest {
          * not a theme file yet. Every entry is a tracked follow-up — an allowlist
          * entry without an issue is how an allowlist becomes permanent.
          *
-         * - `NotesListScreen.kt` — swipe backgrounds: archive amber, archive-done
-         *   green, delete red. These are *semantic* (what the swipe will do), not
-         *   decoration, so they must not follow the accent even after conversion.
-         * - `ProfileSwitcherScreen.kt`, `StatisticsScreen.kt`,
-         *   `SettingsScreen.kt` — 20 literals of the same defect the Tasks feature
-         *   had: fixed values that cannot follow the theme. Note these three live
-         *   directly under `feature/<x>/`, NOT under a `presentation` segment.
-         * - `TextRenderer.kt` — genui atom defaults.
-         * - `Ids.kt` — **not** a UI palette. `NoteColor` is a domain value class
-         *   holding the user's note-highlight colour; it is data, not theming, and
-         *   it is the one entry that should stay listed permanently.
+         * - `feature/notes/Ids.kt` — **not** a UI palette. `NoteColor` is a domain
+         *   value class holding the user's note-highlight colour; it is data, not
+         *   theming, and it is the one entry that should stay listed permanently.
+         *
+         * Matched by path suffix, not by bare file name. Four files in this
+         * repository are called `Ids.kt`, so a bare-name entry silently allowed
+         * all four — and a literal added to a sibling feature's `Ids.kt` would
+         * have passed the gate while going unnoticed. That is the failure mode
+         * this rule exists to prevent, reproduced inside the rule itself.
          */
         private val COLOUR_LITERAL_ALLOWLIST = setOf(
-            "NotesListScreen.kt",
-            "ProfileSwitcherScreen.kt",
-            "StatisticsScreen.kt",
-            "SettingsScreen.kt",
-            "TextRenderer.kt",
-            "Ids.kt",
+            "com/singularity/todo/feature/notes/Ids.kt",
         )
+
+        /**
+         * The ceiling for `colour allowlist does not grow`.
+         *
+         * Six when the ratchet landed, now **one**, and the one is permanent
+         * (`feature/notes/Ids.kt` — a domain value class, not theming); the others
+         * is the remainder of #197, and it lowers this number too.
+         *
+         * Four of the six were *relocated* rather than converted, and that is the
+         * finding: #199 was filed as four screens with "the same defect as the
+         * tasks feature", and measuring them showed three hold verdicts or
+         * categorical scales — a validation status, a swipe consequence, a chart
+         * series palette, a per-profile identity tint. None of those is a theme
+         * role, and converting them would have tied "this is overdue" and "which
+         * profile is this" to a colour preference. They moved into the theme
+         * package, where a reader finds them, and stopped pretending to be
+         * derived. When it reaches one, delete the ratchet:
+         * a ceiling of one with a permanent single entry is a documented fact, not
+         * a guard.
+         */
+        private const val COLOUR_ALLOWLIST_CEILING = 1
 
         /**
          * Files allowed to reach the filesystem from commonMain.
@@ -308,7 +339,7 @@ class ArchitectureTest {
         // scoped to a `presentation` segment would pass while 22 real literals sat
         // outside it — a green gate over an unchanged problem.
         val offenders = scope.files
-            .filterNot { it.fileName() in COLOUR_LITERAL_ALLOWLIST }
+            .filterNot { file -> relativePath(file) in COLOUR_LITERAL_ALLOWLIST }
             .filter { it.packageName().startsWith("$PKG.feature") }
             .filterNot { "/theme/" in it.path.replace('\\', '/') }
             .filter { file -> "Color(0x" in file.codeOnly() }
@@ -316,6 +347,50 @@ class ArchitectureTest {
             offenders,
             "a feature composable must read the active theme; fixed colours belong in a theme file",
         ) { it.path }
+    }
+
+    @Test
+    fun `a preview uses the app theme, not a bare MaterialTheme`() {
+        // A bare `MaterialTheme { }` gives the M3 *baseline* scheme. Once a
+        // composable reads `MaterialTheme.colorScheme`, that is a palette the app
+        // never produces — and the preview is the only place a human sees the
+        // screen without launching it. Seven previews did exactly this after the
+        // task surfaces moved onto the theme, and they rendered a screen that
+        // looked plausible and was wrong.
+        //
+        // The wrapper is the fix; this rule is what stops it coming back.
+        //
+        // `codeOnly()` on the theme check, and deliberately not on the `@Preview`
+        // scan: a file has to *say* `@Preview` to be a preview, but a comment
+        // explaining this very rule quotes `MaterialTheme {` verbatim, and reading
+        // that as an offender would make the fix unrepresentable in its own repo.
+        val offenders = scope.files
+            .filter { it.sourceText().contains("@Preview") }
+            .filter { "MaterialTheme {" in it.codeOnly() }
+        assertNoOffenders(
+            offenders,
+            "a @Preview must wrap in PreviewThemed, not a bare MaterialTheme — see PreviewSamples.kt",
+        ) { it.path }
+    }
+
+    @Test
+    fun `the colour allowlist does not grow`() {
+        // The colour rule protects additively: a new literal in a feature composable
+        // fails the build. It does not stop anyone from *exempting* the file, which
+        // is how a list of debt becomes permanent without a single line of
+        // remediation. Debt retired by paperwork is not debt retired.
+        //
+        // The ceiling is the number of entries the list had when this rule landed.
+        // Lowering it is the point of the rule: #199 and #197 each remove entries,
+        // and a change that raises the count has to say here why, in the diff.
+        val actual = COLOUR_LITERAL_ALLOWLIST.size
+        assertTrue(
+            actual <= COLOUR_ALLOWLIST_CEILING,
+            "COLOUR_LITERAL_ALLOWLIST grew from $COLOUR_ALLOWLIST_CEILING to $actual entries. " +
+                "Exempting a file is not the same as converting it: either convert the file to the " +
+                "theme (and remove its entry), or state the exemption and raise this ceiling in the " +
+                "same commit — with a reason, not a number.",
+        )
     }
 
     @Test

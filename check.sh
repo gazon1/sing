@@ -65,6 +65,17 @@ python3 scripts/check-unwired-backlog-refs.py || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [4b/21] declared dependencies are used ===${NC}"
+# material-kolor sat in the catalog and on the classpath for a release, imported
+# by nobody — and `find-unwired-surfaces.py` cannot see that, because it counts
+# symbols and an unused dependency has none until something imports it. The gate
+# reads resolved artifacts rather than the catalog, because a coordinate does not
+# determine an import package: `…compose.material3:material3` is `androidx.…`.
+python3 scripts/check-dependency-usage.py || {
+    echo -e "${RED}a declared dependency is imported by nothing${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [5/21] detekt baseline ratchet ===${NC}"
 
 echo -e "${YELLOW}=== [6/21] backlog entries are classifiable and within budget ===${NC}"
