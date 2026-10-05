@@ -353,6 +353,25 @@ class EntityMapperCompletenessTest {
                 "is written by narrow column-level UPDATEs, never @Upsert, so the " +
                 "'unchecked column is reset by @Upsert' rule this gate protects " +
                 "against does not apply to it.",
+            "CalendarSyncStateEntity" to
+                "a cursor, not domain data: the per-calendar Google incremental token " +
+                "and the last pull/push times. It has no domain model because nothing " +
+                "outside the sync engine reasons about it — the pull reads the token, " +
+                "writes a new one, and that is the whole contract. Every write is a " +
+                "whole-row @Insert(REPLACE) that sets all seven columns, so no column " +
+                "can be left unchecked and reset.",
+            "GoogleEventShadowEntity" to
+                "the 3-way merge's common ancestor, deliberately not a mapped domain " +
+                "entity: the merge reads it as a set of field values and writes it back " +
+                "whole, and turning it into a mapper would add a translation that could " +
+                "drop a field — the exact failure this table exists to make impossible, " +
+                "since a dropped field reads as 'that value was never agreed'. The " +
+                "payload is serialised by EventShadowCodec and round-trip tested.",
+            "CalendarImportEventEntity" to
+                "a staging shelf for foreign events, not a domain entity: a row exists " +
+                "until the user adopts it, at which point it becomes a Task and this row " +
+                "is a record of the link. Read as rows and converted at the call site, " +
+                "in the same shape as ProjectReminderEntity above.",
         )
     }
 

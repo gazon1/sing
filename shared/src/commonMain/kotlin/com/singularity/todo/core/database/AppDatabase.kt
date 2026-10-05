@@ -19,8 +19,14 @@ import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventDao
+import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventEntity
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncStateDao
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncStateEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowDao
+import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowEntity
 import com.singularity.todo.feature.proposals.data.AiProposalEntity
 import com.singularity.todo.feature.proposals.data.ProposalDao
 import com.singularity.todo.feature.proposals.data.ProposalItemDao
@@ -40,7 +46,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 37
+const val SCHEMA_VERSION = 39
 
 /**
  * Room database for Android.
@@ -74,6 +80,9 @@ const val SCHEMA_VERSION = 37
         AiProposalEntity::class,
         ProposalItemEntity::class,
         SyncShadowEntity::class,
+        CalendarSyncStateEntity::class,
+        GoogleEventShadowEntity::class,
+        CalendarImportEventEntity::class,
     ],
     version = SCHEMA_VERSION,
     autoMigrations = [
@@ -108,6 +117,8 @@ const val SCHEMA_VERSION = 37
         AutoMigration(from = 34, to = 35, spec = Migration34To35::class),
         AutoMigration(from = 35, to = 36, spec = Migration35To36::class),
         AutoMigration(from = 36, to = 37, spec = Migration36To37::class),
+        AutoMigration(from = 37, to = 38, spec = Migration37To38::class),
+        AutoMigration(from = 38, to = 39, spec = Migration38To39::class),
     ],
     exportSchema = true,
 )
@@ -122,6 +133,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncStateDao(): SyncStateDao
 
     abstract fun syncShadowDao(): SyncShadowDao
+
+    // Google Calendar sync. Separate from calendarSyncTaskMapDao, which stays the
+    // device-calendar path; see the two-port ADR for why they do not share a table.
+    abstract fun calendarSyncStateDao(): CalendarSyncStateDao
+    abstract fun googleEventShadowDao(): GoogleEventShadowDao
+    abstract fun calendarImportEventDao(): CalendarImportEventDao
     abstract fun remoteConfigDao(): RemoteConfigDao
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao

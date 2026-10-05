@@ -43,8 +43,14 @@ import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventDao
+import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventEntity
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncStateDao
+import com.singularity.todo.feature.calendar_sync.data.CalendarSyncStateEntity
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowDao
+import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowEntity
 import com.singularity.todo.feature.proposals.data.AiProposalEntity
 import com.singularity.todo.feature.proposals.data.ProposalDao
 import com.singularity.todo.feature.proposals.data.ProposalItemDao
@@ -100,6 +106,16 @@ class FakeAppDatabase : AppDatabase() {
     private val _remoteConfigs = MutableStateFlow<Map<String, RemoteConfigEntity>>(emptyMap())
     private val _remoteConfigCache = MutableStateFlow<RemoteConfigCacheEntity?>(null)
     private val _calendarSyncTaskMap = MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>(emptyMap())
+
+    // Google Calendar sync. Keyed the way the real primary keys are — by user first —
+    // so a fake that let one profile see another's row would hide exactly the bug the
+    // composite key exists to prevent.
+    private val _calendarSyncState =
+        MutableStateFlow<Map<Triple<String, String, String>, CalendarSyncStateEntity>>(emptyMap())
+    private val _googleEventShadow =
+        MutableStateFlow<Map<Pair<String, String>, GoogleEventShadowEntity>>(emptyMap())
+    private val _calendarImportEvents =
+        MutableStateFlow<Map<Pair<String, String>, CalendarImportEventEntity>>(emptyMap())
     private val _savedSearches = MutableStateFlow<Map<String, SavedSearchEntity>>(emptyMap())
     private val _tagGroups = MutableStateFlow<Map<String, TagGroupEntity>>(emptyMap())
     private val _projectTagGroups = MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>(emptyList())
@@ -131,6 +147,10 @@ class FakeAppDatabase : AppDatabase() {
     override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
     override fun remoteConfigCacheDao(): RemoteConfigCacheDao = FakeRemoteConfigCacheDao(_remoteConfigCache)
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
+    override fun calendarSyncStateDao(): CalendarSyncStateDao = FakeCalendarSyncStateDao(_calendarSyncState)
+    override fun googleEventShadowDao(): GoogleEventShadowDao = FakeGoogleEventShadowDao(_googleEventShadow)
+    override fun calendarImportEventDao(): CalendarImportEventDao =
+        FakeCalendarImportEventDao(_calendarImportEvents)
     override fun savedSearchDao(): SavedSearchDao = FakeSavedSearchDao(_savedSearches)
     override fun tagGroupDao(): TagGroupDao = FakeTagGroupDao(_tagGroups)
     override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(
@@ -1326,6 +1346,119 @@ private class FakeCalendarSyncTaskMapDao(private val store: MutableStateFlow<Map
         store.update { current ->
             current.filterValues { it.userId != null }
         }
+    }
+}
+
+// ─── Google Calendar sync DAOs ──────────────────────────────────────────────────
+
+private class FakeCalendarSyncStateDao(
+    private val store: MutableStateFlow<Map<Triple<String, String, String>, CalendarSyncStateEntity>>,
+) : CalendarSyncStateDao {
+
+    private fun key(userId: String, provider: String, calendarId: String) = Triple(userId, provider, calendarId)
+
+    override suspend fun get(userId: String, provider: String, calendarId: String): CalendarSyncStateEntity? =
+        store.value[key(userId, provider, calendarId)]
+
+    override suspend fun upsert(state: CalendarSyncStateEntity) {
+        store.update {
+            it + (key(state.userId, state.provider, state.calendarId) to state)
+        }
+    }
+
+    override suspend fun deleteForProvider(userId: String, provider: String) {
+        store.update { current ->
+            current.filterKeys { it.first != userId || it.second != provider }
+        }
+    }
+
+    /**
+     * Drops the token for one calendar only. A fake that reset every calendar would hide
+     * the scoping bug this exists to make obvious.
+     */
+    override suspend fun invalidateToken(userId: String, provider: String, calendarId: String) {
+        store.update { current ->
+            current.mapValues { (k, v) ->
+                if (k == key(userId, provider, calendarId)) v.copy(nextSyncToken = null) else v
+            }
+        }
+    }
+}
+
+private class FakeGoogleEventShadowDao(
+    private val store: MutableStateFlow<Map<Pair<String, String>, GoogleEventShadowEntity>>,
+) : GoogleEventShadowDao {
+
+    override suspend fun get(userId: String, eventId: String): GoogleEventShadowEntity? =
+        store.value[userId to eventId]
+
+    override suspend fun getAll(userId: String): List<GoogleEventShadowEntity> =
+        store.value.values.filter { it.userId == userId }
+
+    override fun observeMapped(userId: String): Flow<List<GoogleEventShadowEntity>> =
+        store.map { values -> values.values.filter { it.userId == userId && it.taskId != null } }
+
+    override suspend fun upsert(shadow: GoogleEventShadowEntity) {
+        store.update { it + ((shadow.userId to shadow.eventId) to shadow) }
+    }
+
+    override suspend fun delete(userId: String, eventId: String) {
+        store.update { it - (userId to eventId) }
+    }
+
+    override suspend fun deleteNotIn(userId: String, liveEventIds: List<String>) {
+        store.update { current ->
+            // Scoped to this user: another profile's rows are not ours to delete even when
+            // their event ids are absent from the live set.
+            current.filterValues { it.userId != userId || it.eventId in liveEventIds }
+        }
+    }
+
+    override suspend fun deleteAllForUser(userId: String) {
+        store.update { current -> current.filterValues { it.userId != userId } }
+    }
+}
+
+private class FakeCalendarImportEventDao(
+    private val store: MutableStateFlow<Map<Pair<String, String>, CalendarImportEventEntity>>,
+) : CalendarImportEventDao {
+
+    override fun observeUnconverted(userId: String): Flow<List<CalendarImportEventEntity>> =
+        store.map { values ->
+            values.values
+                .filter { it.userId == userId && it.taskId == null }
+                .sortedBy { it.startsAt }
+        }
+
+    override suspend fun getAll(userId: String): List<CalendarImportEventEntity> =
+        store.value.values.filter { it.userId == userId }
+
+    override suspend fun get(userId: String, eventId: String): CalendarImportEventEntity? =
+        store.value[userId to eventId]
+
+    override suspend fun upsert(event: CalendarImportEventEntity) {
+        store.update { it + ((event.userId to event.eventId) to event) }
+    }
+
+    override suspend fun delete(userId: String, eventId: String) {
+        store.update { it - (userId to eventId) }
+    }
+
+    override suspend fun linkTask(userId: String, eventId: String, taskId: String) {
+        store.update { current ->
+            val k = userId to eventId
+            current[k]?.let { current + (k to it.copy(taskId = taskId)) } ?: current
+        }
+    }
+
+    override suspend fun deleteOlderThan(userId: String, beforeMs: Long) {
+        store.update { current ->
+            current.filterValues { it.userId != userId || (it.startsAt ?: Long.MAX_VALUE) >= beforeMs }
+        }
+    }
+
+    override suspend fun deleteAllForUser(userId: String) {
+        store.update { current -> current.filterValues { it.userId != userId } }
     }
 }
 
