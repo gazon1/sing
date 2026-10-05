@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.ai.tools
 
+import kotlin.time.Instant
+import com.singularity.todo.test.fakes.TEST_TZ
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -45,7 +48,13 @@ class AdrStorageRoundTripTest {
     private fun storageFor(hasDecisionsDir: Boolean): AdrStorage {
         val working = tempDir()
         if (hasDecisionsDir) working.resolve("docs/decisions").mkdirs()
-        return AdrStorage(FakeHost(working.absolutePath, tempDir().absolutePath))
+        return AdrStorage(
+            host = FakeHost(working.absolutePath, tempDir().absolutePath),
+            // A fixed instant, so a round-trip test can assert the frontmatter
+            // date instead of accepting the day it ran (#91).
+            clock = FakeClock(Instant.parse("2026-09-16T10:00:00Z")),
+            timeZone = TEST_TZ,
+        )
     }
 
     @Test

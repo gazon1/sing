@@ -1,9 +1,10 @@
 package com.singularity.todo.feature.flows.agenda
 
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -15,6 +16,7 @@ import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Desktop Compose UI test verifying that clicking a task in the agenda opens
@@ -48,10 +50,11 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class OpenTaskFromAgendaFlowTest {
-
     @Test
-    fun clicking_task_in_today_section_opens_task_detail_editor() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun clicking_task_in_today_section_opens_task_detail_editor() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
         tasks(koin).given(due = today, title = "Existing task")
 
         tapTab("Today")
@@ -66,8 +69,7 @@ class OpenTaskFromAgendaFlowTest {
     }
 
     @Test
-    fun task_editor_shows_correct_due_date_from_agenda() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun task_editor_shows_correct_due_date_from_agenda() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = today, title = "Dated task")
 
         tapTab("Today")
@@ -81,8 +83,7 @@ class OpenTaskFromAgendaFlowTest {
     }
 
     @Test
-    fun task_editor_shows_correct_priority_from_agenda() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun task_editor_shows_correct_priority_from_agenda() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(
             due = today,
             title = "High priority task",
@@ -96,5 +97,12 @@ class OpenTaskFromAgendaFlowTest {
         // Priority row shows the label for High priority
         assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
         assertTextDisplayed("High priority")
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

@@ -19,6 +19,11 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 data class AgendaDeps(
     val taskRepo: TaskRepository,
     val clock: kotlin.time.Clock,
+    // Required beside the clock (#91). `todayAt` no longer defaults its zone, so a
+    // ViewModel that resolves a relative due date has to be told which one; taking
+    // it from the host here would put back exactly the machine-dependence the
+    // parameter was removed to remove.
+    val timeZone: com.singularity.todo.core.platform.TimeZoneProvider,
     val logger: Logger,
     val draftStore: DraftStore,
     val reminderScheduler: ReminderScheduler,

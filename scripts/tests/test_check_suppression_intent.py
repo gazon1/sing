@@ -241,14 +241,21 @@ class TestCurrentRepositoryState(unittest.TestCase):
     def test_every_current_suppression_is_justified(self):
         """The gate is green, and the count is pinned so a change is visible.
 
-        Ten files, as of 2026-10-05: nine `@file:Suppress("NoDirectClockSystem")`
-        and one `@file:Suppress("NoRealDelayInTest")`. Every one carries a reason —
-        three as a comment on the file, six through `JUSTIFIED_FILE_SUPPRESSIONS`.
-        The number is a measurement, not a target: it moves when a file is fixed,
-        and that is supposed to show up in review.
+        Eight files as of 2026-10-05, down from twelve: the four LIVE DEFECT
+        entries were fixed (the #91 work) and `FakeRepositories.kt` moved its
+        exemption into the rule's allow-list. Seven are
+        `@file:Suppress("NoDirectClockSystem")` and one
+        `@file:Suppress("NoRealDelayInTest")`. Every one carries a reason — five as
+        a comment on the file, two through `JUSTIFIED_FILE_SUPPRESSIONS`, and the
+        two task screens that forward a `now` into `TimeEntryEditorSheet` inline.
+
+        The count is a measurement, not a target: it moves when a file is fixed and
+        when a deferral is recorded, and both are supposed to show up in review.
+        The test moved 12 -> 6 -> 8 within one session, and each move had a cause
+        worth seeing.
         """
         findings = csi.scan_file_suppressions()
-        self.assertEqual(len(findings), 10, f"expected 10, got {len(findings)}")
+        self.assertEqual(len(findings), 8, f"expected 8, got {len(findings)}")
         self.assertEqual(
             {rule for _, rule, _, _ in findings},
             {"NoDirectClockSystem", "NoRealDelayInTest"},

@@ -3,7 +3,6 @@ package com.singularity.todo.feature.calendar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
@@ -18,7 +17,6 @@ import kotlinx.datetime.LocalDate
  * Follows the preview-with-koin pattern: manual VM state construction, no Koin.
  */
 private object CalendarPreviewData {
-    private val today = todayInSystemZone()
     private val sep = kotlinx.datetime.Month.SEPTEMBER
 
     private fun d(day: Int) = LocalDate(2026, sep, day)
@@ -51,7 +49,12 @@ private object CalendarPreviewData {
             viewMode = viewMode,
             visibleDates = visibleRange(anchor, viewMode),
             tasksByDate = sampleTasks.groupedByDate(),
-            today = today,
+            // A fixed date, not the host's today. A preview that highlights
+            // "now" changes what it renders from one day to the next, which is
+            // the same host-dependence #91 is about, in a file nobody thought to
+            // check: this used to be `private val today = todayInSystemZone()` on
+            // the data holder above.
+            today = LocalDate(2026, 9, 16),
             selectedDate = anchor,
             isMiniCalendarOpen = isMiniOpen,
             headerLabel = "September 2026",
@@ -67,7 +70,6 @@ private fun CalendarContentPreview(state: CalendarUiState = CalendarPreviewData.
         CalendarContent(
             state = state,
             onIntent = {},
-            today = todayInSystemZone(),
         )
     }
 }

@@ -63,8 +63,11 @@
 # by-results half saw it, because it asks the direct question ("did this specific
 # declared class run") instead of comparing against a number.
 #
-# **1788 -> 1825 tests was real growth**: `ChecklistOrderingTest`, added with the
-# fix for the ordering defect it proves. Re-measured on the default run (no
+# **1788 -> 1825 -> 1836 tests was real growth.** 1825 was `ChecklistOrderingTest`,
+# added with the fix for the ordering defect it proves. 1836 is three date
+# assertions in `SearchQueryResolverTest`, added with #91: the first tests in the
+# repository that can *state* a resolved date, which they could not while the
+# resolver read the system clock. Both re-measured on the default run (no
 # `-Ptest.tags`), which is the run a floor is supposed to describe.
 #
 # **The class column is gone** (2026-10-05). It became redundant once the
@@ -94,5 +97,5 @@
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 33 0
 mcp-server:test 7 0
-shared:jvmTest 1825 0
+shared:jvmTest 1836 0
 # GENERATED:END

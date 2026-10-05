@@ -277,7 +277,14 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // RemoteConfigPort: Room + network-backed runtime config snapshot.
     // Consumes SyncApiClient (stub in MR-2) and Clock.
-    single<RemoteConfigPort> { com.singularity.todo.core.config.RemoteConfigCacheRepositoryImpl(get(), get()) }
+    single<RemoteConfigPort> {
+        com.singularity.todo.core.config.RemoteConfigCacheRepositoryImpl(
+            cacheDao = get(),
+            syncApi = get(),
+            log = get(),
+            clock = get(),
+        )
+    }
 
     // SyncBootstrapper: registers pull handlers for all DocTypes.
     // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).

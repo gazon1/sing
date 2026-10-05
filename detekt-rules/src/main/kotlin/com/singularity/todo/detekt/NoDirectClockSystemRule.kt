@@ -101,6 +101,7 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
      * saying so. That is the trade — one directory whose contents are all fakes, in
      * exchange for not maintaining a per-file list. It is also the placement rule that
      * #191 asks for, stated where it can be enforced.
+     *
      */
     internal fun isAllowedPath(path: String): Boolean {
         val normalized = path.replace('\\', '/')

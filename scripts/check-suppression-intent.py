@@ -202,33 +202,14 @@ def has_adjacent_reason(block: str) -> bool:
 # still carrying the suppression it justifies. A registry that cannot notice its
 # own staleness is a sink, not a list.
 JUSTIFIED_FILE_SUPPRESSIONS: dict[str, str] = {
-    # ── Live defects, tracked. The clock is read at a point a test cannot reach.
-    "shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NoteEditor.kt":
-        "LIVE DEFECT (#91). `NoteEditor.kt:319` reads the system clock directly to "
-        "stamp a note. The ViewModel takes no clock, so no test can pin the "
-        "timestamp and any assertion about recency is non-deterministic. Fixing it "
-        "means threading a clock into the editor, which is the same work as every "
-        "other site in this group.",
-    "shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileSwitcherViewModel.kt":
-        "LIVE DEFECT (#91). `ProfileSwitcherViewModel.kt:76` reads the system clock "
-        "to stamp a profile switch. No clock is injected, so the value is fixed by "
-        "the host's wall clock at run time.",
-    "shared/src/commonMain/kotlin/com/singularity/todo/core/config/RemoteConfigCacheRepositoryImpl.kt":
-        "LIVE DEFECT (#91). `RemoteConfigCacheRepositoryImpl.kt:70` stamps "
-        "`fetchedAtEpochMillis` from the system clock; the class has no clock "
-        "parameter at all, so a test cannot say when it fetched. The fix is a "
-        "constructor parameter, the same shape the other repositories already use.",
-    "shared/src/commonMain/kotlin/com/singularity/todo/core/di/CalendarDiModule.kt":
-        "LIVE DEFECT (#91), and the one that matters most of this group. Line 32 "
-        "computes the date the whole calendar hangs on — "
-        "`today = Clock.System.now()…` — *inside the DI module*, at graph-construction "
-        "time. No test can supply a different value without replacing the graph, "
-        "which is why a desktop flow test could not pin a date and was reverted "
-        "(see the issue's evidence section). `core/di/CoreDiModule.kt` is already in "
-        "the rule's allow-list for the same reason: a module that wires a default is "
-        "where a default has to be written. This file is the second such module and "
-        "was missed, which is the argument for moving the entry from a file list to "
-        "a directory.",
+    # ── Live defects, tracked. ────────────────────────────────────────────────
+    #
+    # Kept as a section even though it is now empty: the four entries that lived
+    # here were fixed on 2026-10-05 (CalendarDiModule, NoteEditor,
+    # ProfileSwitcherViewModel, RemoteConfigCacheRepositoryImpl — all of #91), and
+    # the section is where the next one goes. An empty list is the honest state; a
+    # deleted section is a shape that has to be re-invented.
+    #
     # ── Live injection, blanket suppression nonetheless. The parameter is honoured;
     #    only its *default* names the system clock, and the rule reads that as a call.
     "shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/data/SavedAgendaViewsRepositoryImpl.kt":

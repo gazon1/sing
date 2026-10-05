@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
@@ -79,6 +77,10 @@ internal class NoteEditor(
     private val applyProposal: ApplyProposalItemUseCase,
     private val log: Logger,
     private val currentUser: ProfileAwareCurrentUser,
+    // Stamps the `modified` field of an AI proposal. Read from the system clock it
+    // was a value no test could choose, and a proposal's timestamp is exactly the
+    // kind of thing a test wants to assert (#91).
+    private val clock: Clock,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     // Derived from crashReporter rather than a bare factory call: the autosave lambda below
     // launches on this scope, and a launch whose body throws with no handler escalates to the
@@ -316,7 +318,7 @@ internal class NoteEditor(
 
         val noteId = current.id
         val userId = currentUser.scopedUserId.value
-        val now = Clock.System.now()
+        val now = clock.now()
 
         val result = ai.run(action, current.title, current.html).getOrNull()
         val (kind, summary) = when (action) {

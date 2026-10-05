@@ -4,6 +4,8 @@
 
 package com.singularity.todo.feature.tasks
 
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.TEST_TZ
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
@@ -30,7 +32,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Tests for [TaskCreateViewModel].
@@ -47,6 +49,14 @@ import kotlin.time.Clock
 @Tag("fast")
 class TaskCreateViewModelTest {
 
+    /**
+     * A fixed instant, so a draft that resolves `DueDateOption.Today` gets a date
+     * this file can state. The use case was handed `Clock.System` before #91, so
+     * the resolved date was a property of the day the suite ran — and nothing in
+     * these tests asserted it, so nothing failed when it moved.
+     */
+    private val taskNow: Instant = Instant.parse("2026-09-16T09:00:00Z")
+
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeDraftStore = FakeDraftStore()
@@ -62,7 +72,8 @@ class TaskCreateViewModelTest {
         val deps = TaskCreateDeps(
             createFromDraft = CreateTaskFromDraftUseCase(
                 fakeTaskRepo,
-                Clock.System,
+                FakeClock(taskNow),
+                TEST_TZ,
                 fakeCurrentUser,
                 fakeChecklistRepository,
                 fakeAttachmentRepository,

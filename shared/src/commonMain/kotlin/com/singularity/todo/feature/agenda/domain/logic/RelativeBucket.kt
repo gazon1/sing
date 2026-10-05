@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda.domain.logic
 
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -63,9 +62,8 @@ private fun LocalDate.endOfMonth(): LocalDate {
 /** Inclusive date range. */
 data class DateRange(val from: LocalDate, val to: LocalDate)
 
-/**
- * Re-exported from [com.singularity.todo.core.platform.todayInSystemZone]
- * so that agenda logic files can import it without a full package path.
- */
-@Suppress("NOTHING_TO_INLINE")
-inline fun todayInSystemZone(): kotlinx.datetime.LocalDate = com.singularity.todo.core.platform.todayInSystemZone()
+// The `inline fun todayInSystemZone()` that used to be re-exported here is gone
+// (2026-10-05, #91). It was a convenience wrapper around the system clock, and
+// two spellings of "today, unreadable" is one more than a domain logic file
+// should have to choose between. Callers now take the date they are given: a
+// bucket is computed from a date, not from the wall clock.

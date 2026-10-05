@@ -96,7 +96,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get(), get()) }
-    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get()) }
+    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
     factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
@@ -114,7 +114,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     single<TagLookup> { DaoTagLookup(get()) }
     single<ProjectLookup> { DaoProjectLookup(get()) }
     single<SearchQueryResolver> {
-        DefaultSearchQueryResolver(get(), get())
+        DefaultSearchQueryResolver(get(), get(), get(), get())
     }
 
     // PomodoroTimer is registered in platform-specific modules:

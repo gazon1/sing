@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.profile
 
 import co.touchlab.kermit.Logger
@@ -32,6 +30,10 @@ data class ProfileSwitcherUiState(
  */
 class ProfileSwitcherViewModel(
     private val profileRepository: ProfileRepository,
+    // Stamps a newly created profile. Defaults to the system clock so the DI
+    // binding and any existing construction site keep working, but it is a
+    // parameter, so a test can choose the value it then asserts (#91).
+    private val clock: Clock,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProfileSwitcherUiState, ProfileSwitcherIntent, Nothing>(
@@ -73,7 +75,7 @@ class ProfileSwitcherViewModel(
 
     private fun create(name: String, emoji: String, colorIdx: Int) {
         catchTo("Failed to create profile", { msg -> _errorMessage.value = msg }) {
-            val now = Clock.System.now()
+            val now = clock.now()
             profileRepository.create(
                 Profile(
                     id = ProfileId.generate(),
