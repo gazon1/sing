@@ -277,6 +277,18 @@ SCRIPT_GATES = [
         sabotage="p.write_text(p.read_text().replace('const val SCHEMA_VERSION = 37', 'const val SCHEMA_VERSION = 36'))",
         why="an entity change without a version bump passes every test and crashes every existing install on upgrade",
     ),
+    ScriptGate(
+        name="dependency-usage",
+        cmd=[sys.executable, "scripts/check-dependency-usage.py", "--quiet"],
+        sabotage_path="scripts/dependency-usage-allowlist.txt",
+        # The gate runs against the repository, so the control can use the same
+        # invocation and the same target every time — no fabricated resolution,
+        # no Gradle, and no second input format to keep honest. Dropping one
+        # allowlist line turns that dependency into a finding the gate must
+        # report, which is exactly the moment the list stops matching reality.
+        sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'kermit-koin' not in l) + '\\n')",
+        why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one",
+    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both

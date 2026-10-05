@@ -370,6 +370,19 @@ jobs:
       - name: Audit-script regression tests
         run: python3 -m unittest discover -s scripts/tests
 
+      # 14 dependencies were declared, resolved onto a classpath and imported by
+      # nothing — and material-kolor sat that way for a release, while the nine
+      # accent choices all rendered the same blue because the palette it should
+      # have been generating was two hard-coded schemes. `find-unwired-surfaces.py`
+      # cannot see this: it counts symbols, and an unused dependency has no symbol
+      # until something imports it.
+      #
+      # The gate maps each *declared* coordinate to the package roots its artifact
+      # actually contributes, which the version catalog cannot answer — #205
+      # measured that a prefix heuristic reports 45 unused and every one is used.
+      - name: Declared dependencies are used
+        run: python3 scripts/check-dependency-usage.py
+
       # Proves the gates exist AND can fail. Part A catches a Gradle check task
       # with a config block that no gate invokes (:androidApp:detekt was one).
       # Part B runs each registered script gate against a sabotaged input and

@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.elevatedSurfaceColor
 
@@ -116,10 +117,10 @@ private fun CountBadge(count: Int) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun TaskListHeaderPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Column {
             TaskListHeader(
                 title = "Сегодня",

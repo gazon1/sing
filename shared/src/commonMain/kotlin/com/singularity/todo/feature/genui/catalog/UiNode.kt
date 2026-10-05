@@ -11,7 +11,9 @@ import kotlinx.serialization.json.JsonObject
  * A node in a GenUI declarative UI surface.
  * Each variant maps to a JSON `kind` discriminator for polymorphic serialization.
  *
- * @see BasicCatalog for the list of allowed kinds.
+ * @see SingularityCatalog for the declared contract — which kinds exist and what each one accepts.
+ *   This hierarchy is the internal representation; the catalog is what the model is told, and the
+ *   validator checks the model's message against the catalog before any node is built.
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -73,6 +75,28 @@ sealed interface UiNode {
     @Serializable
     @SerialName("modal")
     data class Modal(val child: NodeRef, val openPath: UiPath) : UiNode
+
+    @Serializable
+    @SerialName("task_card")
+    data class TaskCard(
+        val title: String,
+        val duePath: UiPath? = null,
+        val projectPath: UiPath? = null,
+        val done: Boolean = false,
+        val action: String? = null,
+    ) : UiNode
+
+    @Serializable
+    @SerialName("due_date")
+    data class DueDate(val path: UiPath? = null, val value: String? = null, val style: DueStyle = DueStyle.Relative) :
+        UiNode
+
+    @Serializable
+    @SerialName("project_chip")
+    data class ProjectChip(val name: String? = null, val path: UiPath? = null, val tone: Tone = Tone.Neutral) : UiNode
+
+    @Serializable
+    enum class DueStyle { Relative, Absolute, Both }
 
     // ─── Shared enums ───────────────────────────────────────────────────────
 

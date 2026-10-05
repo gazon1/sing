@@ -87,10 +87,22 @@ class SyncEnginePushTest {
         return Triple(engine, outbox, deadLetter)
     }
 
-    private suspend fun FakeSyncOutboxDao.seed(patchId: String, attempts: Int = 0, createdAt: Long = 1L) {
+    /**
+     * Owner-scoped like [SyncOutboxDao.getPending], so the row is only ever visible to
+     * a push run under `owner-push` — which is the scope this class wires the engine
+     * with. Seeding it under any other owner would produce a queue that looks empty,
+     * and a test asserting on it would pass for the wrong reason.
+     */
+    private suspend fun FakeSyncOutboxDao.seed(
+        patchId: String,
+        attempts: Int = 0,
+        createdAt: Long = 1L,
+        ownerId: String = "owner-push",
+    ) {
         insert(
             SyncOutboxEntity(
                 patchId = patchId,
+                ownerId = ownerId,
                 entityId = "entity-$patchId",
                 entityType = DocType.Task.key,
                 payload = StableJson.encodeToString(

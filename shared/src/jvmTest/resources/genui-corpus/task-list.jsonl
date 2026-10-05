@@ -1,0 +1,7 @@
+{"createSurface":{"surfaceId":"s1","rootId":"root","components":[{"id":"root","kind":"column","children":["head","list"]},{"id":"head","kind":"heading","text":"Today","level":2},{"id":"list","kind":"list","children":["c1","c2","c3"],"direction":"Vertical"},{"id":"c1","kind":"task_card","title":"${upper(/t/0/title)}","duePath":"/t/0/due","projectPath":"/t/0/project","action":"open_task"},{"id":"c2","kind":"task_card","title":"${/t/1/title}","duePath":"/t/1/due"},{"id":"c3","kind":"task_card","title":"${/t/2/title}"}]}}
+{"updateData":{"surfaceId":"s1","path":"/t/0/title","value":"Buy groceries"}}
+{"updateData":{"surfaceId":"s1","path":"/t/1/title","value":"Finish the report"}}
+{"updateData":{"surfaceId":"s1","path":"/t/2/title","value":"Send the invoice"}}
+{"updateData":{"surfaceId":"s1","path":"/t/0/due","value":"2026-10-05"}}
+{"updateData":{"surfaceId":"s1","path":"/t/1/due","value":"2026-10-07"}}
+{"updateComponents":{"surfaceId":"s1","components":[{"id":"empty","kind":"text","value":"Nothing overdue."},{"id":"done","kind":"badge","text":"3 done","tone":"Positive"},{"id":"rule","kind":"divider"}]}}

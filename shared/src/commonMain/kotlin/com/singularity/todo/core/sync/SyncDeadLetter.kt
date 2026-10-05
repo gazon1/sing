@@ -25,6 +25,16 @@ import kotlinx.coroutines.flow.Flow
 @Entity(tableName = "sync_dead_letter")
 data class SyncDeadLetterEntity(
     @PrimaryKey @ColumnInfo("patch_id") val patchId: String,
+    /**
+     * The account this patch belongs to.
+     *
+     * Required and without a default, so every construction site has to state who the
+     * work is for. It was optional for the life of this table, and the queue was
+     * therefore unattributable: a switch could not deliver one account's set-aside work
+     * without risking another's, and an owner-scoped erase had nothing to scope to —
+     * it would have taken the incoming account's work with the outgoing one's. #209.
+     */
+    @ColumnInfo("owner_id", defaultValue = "''") val ownerId: String,
     @ColumnInfo("entity_id") val entityId: String,
     @ColumnInfo("entity_type") val entityType: String,
     val payload: String,

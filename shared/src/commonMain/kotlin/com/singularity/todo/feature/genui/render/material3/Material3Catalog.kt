@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.genui.render.material3
 
 import com.singularity.todo.feature.genui.render.ComponentRegistry
+import com.singularity.todo.feature.genui.render.domain.registerDomainComponents
 import com.singularity.todo.feature.genui.render.material3.atoms.registerBadge
 import com.singularity.todo.feature.genui.render.material3.atoms.registerHeading
 import com.singularity.todo.feature.genui.render.material3.atoms.registerIcon
@@ -26,7 +27,7 @@ import com.singularity.todo.feature.genui.render.material3.layout.registerRow
  *
  * Usage:
  * ```
- * val registry = ComponentRegistry().also { Material3Catalog.install(it) }
+ * val registry = ComponentRegistry().also { Material3Catalog.installAll(it) }
  * ```
  */
 object Material3Catalog {
@@ -45,5 +46,17 @@ object Material3Catalog {
         registerTabs()
         registerIcon()
         registerModal()
+    }
+
+    /**
+     * Everything the client can draw: the Material3 set plus the domain components.
+     *
+     * The domain renderers live in their own package but are installed from here, because "what can
+     * this client render" is one question and it has one answer. An installation that covered only
+     * the Material3 half would leave a surface half-drawn with no error anywhere.
+     */
+    fun installAll(registry: ComponentRegistry) = registry.apply {
+        install(registry)
+        registerDomainComponents()
     }
 }

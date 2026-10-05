@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -90,10 +91,10 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun TaskRowContentPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Column {
             TaskRowContent(
                 task = TaskUi(

@@ -18,3 +18,13 @@ interface GenuiTransport {
      */
     suspend fun send(prompt: String, systemPrompt: String): Flow<String>
 }
+
+/**
+ * The platform's model connection, before usage is accounted for.
+ *
+ * A distinct type from [GenuiTransport] so that the decorated transport and the one it wraps can
+ * both be bindings without either overriding the other. Registering the raw provider as
+ * [GenuiTransport] and the recording wrapper under the same key would make the result depend on
+ * which module was added last, which is not a property anyone should have to know.
+ */
+interface BaseGenuiTransport : GenuiTransport

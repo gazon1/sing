@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
@@ -113,10 +114,10 @@ fun EmptyStateCompact(text: String, modifier: Modifier = Modifier, icon: ImageVe
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
+@Preview(showBackground = true)
 @Composable
 private fun EmptyStatePreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         EmptyState(
             title = "Задач пока нет",
             description = "Добавьте первую задачу, нажав на синюю кнопку снизу",

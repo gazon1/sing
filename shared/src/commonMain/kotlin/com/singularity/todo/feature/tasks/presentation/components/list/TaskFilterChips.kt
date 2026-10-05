@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -106,10 +107,10 @@ private fun FilterChip(label: String, count: Int, isSelected: Boolean, onClick: 
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun TaskFilterChipsPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Row {
             TaskFilterChips(
                 selected = TaskStatus.All,

@@ -5,9 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
-import com.singularity.todo.core.ui.theme.LocalAccentColor
-import com.singularity.todo.core.ui.theme.LocalIsDarkTheme
-import com.singularity.todo.core.ui.theme.SingularityAccents
 
 /**
  * Color palette for the Calendar screen.
@@ -42,65 +39,44 @@ val LocalCalendarPalette = compositionLocalOf<CalendarPalette> {
 /** Provides the [CalendarPalette] for all composables in [content]. */
 @Composable
 fun ProvideCalendarPalette(content: @Composable () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val accent = LocalAccentColor.current
-    // Resolved from the active theme, NOT from isSystemInDarkTheme(): the app's dark mode is a
-    // user setting that can disagree with the system, and a system-derived branch would paint
-    // the navy dark palette on top of a light app.
-    val isDark = LocalIsDarkTheme.current
-    val palette: CalendarPalette = if (isDark) {
-        darkCalendarPalette(accent)
-    } else {
-        lightCalendarPalette(scheme, accent)
-    }
+    // One palette for both modes. `ColorScheme` already differs by mode, so a
+    // dark/light branch here could only ever disagree with the theme.
+    val palette = calendarPalette(MaterialTheme.colorScheme)
     CompositionLocalProvider(LocalCalendarPalette provides palette, content = content)
 }
 
-/** Dark palette — tuned for the deep navy/blue-grey aesthetic of the reference screenshots. */
-private fun darkCalendarPalette(accent: SingularityAccents): CalendarPalette {
-    val accentColor = accent.color
-    return CalendarPalette(
-        background = Color(0xFF0B1220),
-        surface = Color(0xFF101A2C),
-        gridLine = Color(0xFF1C2740),
-        gridLineStrong = Color(0xFF263252),
-        taskDefault = Color(0xFF2A3B5C),
-        taskDone = Color(0xFF1A2438),
-        taskOverdue = Color(0xFF3A2230),
-        taskSelected = accentColor,
-        textPrimary = Color(0xFFE7ECF5),
-        textSecondary = Color(0xFF8792A8),
-        textMuted = Color(0xFF5C6784),
-        link = Color(0xFF5AA9F5),
-        accent = accentColor,
-        todayBadge = accentColor,
-        divider = Color(0xFF1C2740),
-        nowIndicator = Color(0xFF4FA8FF),
-    )
-}
-
-/** Light palette — derived from the app's [MaterialTheme.colorScheme]. */
-private fun lightCalendarPalette(
-    scheme: androidx.compose.material3.ColorScheme,
-    accent: SingularityAccents,
-): CalendarPalette {
-    val accentColor = accent.color
-    return CalendarPalette(
+/**
+ * The calendar palette, derived from the active theme.
+ *
+ * This used to have a second, hand-written dark branch — sixteen navy hex values
+ * tuned against a dark scheme the app no longer ships. The file claimed they were
+ * "tuned for the deep navy aesthetic of the reference screenshots", which made a
+ * stale palette read as a deliberate brand choice: a reviewer comparing two
+ * branches would see one following the theme and one not, and reasonably
+ * conclude the difference was intentional. It never was — it was the branch
+ * nobody revisited. Because the theme's dark mode is a user setting rather than a
+ * system read-through, that branch was only reachable when the two happened to
+ * agree, so it shipped effectively unreviewed.
+ *
+ * Two fields stay fixed because they are verdicts rather than roles: a completed
+ * task and an overdue task must read differently whatever the accent is.
+ */
+private fun calendarPalette(scheme: androidx.compose.material3.ColorScheme): CalendarPalette =
+    CalendarPalette(
         background = scheme.background,
         surface = scheme.surface,
         gridLine = scheme.outlineVariant,
         gridLineStrong = scheme.outline,
         taskDefault = scheme.surfaceVariant,
         taskDone = scheme.surfaceVariant.copy(alpha = 0.7f),
-        taskOverdue = Color(0xFF3A2230).copy(alpha = 0.15f),
-        taskSelected = accentColor,
+        taskOverdue = scheme.errorContainer.copy(alpha = 0.45f),
+        taskSelected = scheme.primary,
         textPrimary = scheme.onSurface,
         textSecondary = scheme.onSurfaceVariant,
         textMuted = scheme.onSurface.copy(alpha = 0.5f),
         link = scheme.primary,
-        accent = accentColor,
-        todayBadge = accentColor,
+        accent = scheme.primary,
+        todayBadge = scheme.primary,
         divider = scheme.outlineVariant,
-        nowIndicator = accentColor,
+        nowIndicator = scheme.primary,
     )
-}

@@ -1,213 +1,163 @@
 package com.singularity.todo.feature.genui.parser
 
-import com.singularity.todo.feature.genui.catalog.NodeRef
-import com.singularity.todo.feature.genui.catalog.UiNode
-import com.singularity.todo.feature.genui.schema.UiPath
-import com.singularity.todo.feature.genui.surface.SurfaceId
+import com.singularity.todo.feature.genui.catalog.A2uiCatalog
+import com.singularity.todo.feature.genui.catalog.SingularityCatalog
+import com.singularity.todo.feature.genui.core.A2uiError
+import com.singularity.todo.feature.genui.core.A2uiErrorCode
+import com.singularity.todo.feature.genui.core.A2uiParseOutcome
+import com.singularity.todo.feature.genui.core.A2uiSeverity
+import com.singularity.todo.feature.genui.core.FramedLine
+import com.singularity.todo.feature.genui.core.LineFramer
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Parses A2UI JSON-Lines into [UiEvent].
+ * Parses A2UI JSON-Lines into [A2uiParseOutcome].
  *
- * Each line of the input stream is one JSON object with a single top-level key
- * naming the operation. Example:
- * ```
- * {"createSurface":{"surfaceId":"s1","rootId":"r1","components":[...]}}
- * ```
+ * Pure: no state, no dependencies beyond the catalog the operations are checked against.
  *
- * This parser is **pure** — it has no side effects and no dependencies.
- * Pass a line of JSON, get a [UiEvent] (or `null` for blank lines).
+ * Every input is classified rather than discarded. The previous signature returned `UiEvent?`, and
+ * a blank line, a malformed line, an unknown operation, an unknown component kind and a missing
+ * required property all produced the same `null` — five different problems the caller could not
+ * count, could not report, and could not tell a model about.
  *
- * Forward compatibility: events with a schema version newer than
- * [A2UI_CURRENT_SCHEMA_VERSION] are skipped (return `null`).
+ * This class decides *what a line is*. Turning the body of a recognised message into an event is
+ * [A2uiMessageDecoder]'s job, because the two answer different questions: one is about the
+ * envelope and the other about the contract, and a line can fail either without the other being
+ * consulted.
  */
-class A2uiParser(private val json: Json = defaultJson) {
+class A2uiParser(private val catalog: A2uiCatalog = SingularityCatalog, private val json: Json = defaultJson) {
 
-    fun parseLine(line: String): UiEvent? {
-        if (line.isBlank()) return null
-        val element = runCatching { json.parseToJsonElement(line) }.getOrNull() ?: return null
-        val obj = element.jsonObject
+    private val messages: A2uiMessageDecoder = A2uiMessageDecoder(catalog)
 
-        // Schema version gate: skip events from a future schema.
-        // Forward compatibility is handled by StableJson.ignoreUnknownKeys on the server side.
-        val schemaVersion = obj["schemaVersion"]?.jsonPrimitive?.intOrNull ?: A2UI_CURRENT_SCHEMA_VERSION
-        if (schemaVersion > A2UI_CURRENT_SCHEMA_VERSION) return null
-
-        val op = obj.keys.firstOrNull() ?: return null
-        val data = obj[op]?.jsonObject ?: return null
-
-        return when (op) {
-            "createSurface" -> parseCreateSurface(data)
-            "updateComponents" -> parseUpdateComponents(data)
-            "updateData" -> parseUpdateData(data)
-            "deleteSurface" -> parseDeleteSurface(data)
-            else -> null
+    /** Classifies one complete line. */
+    fun parseLine(line: String): A2uiParseOutcome =
+        if (line.isBlank()) {
+            A2uiParseOutcome.Skipped(A2uiErrorCode.MALFORMED_LINE, "blank line")
+        } else {
+            classify(line)
         }
+
+    /**
+     * Reads the line as an envelope and dispatches it.
+     *
+     * Prose never reaches here: the framer routes it to [FramedLine.Prose], and a line that starts
+     * with `{` was a message the model meant to send. If it cannot be read, the contract was broken
+     * and the model has to be told — reported as a skip it would be swallowed by the correction
+     * loop, and an answer made only of unreadable JSON would be accepted as a success with nothing
+     * on screen.
+     */
+    private fun classify(line: String): A2uiParseOutcome =
+        when (val element: JsonElement? = runCatching { json.parseToJsonElement(line) }.getOrNull()) {
+            is JsonObject -> parseEnvelope(element)
+            null -> unreadable("not valid JSON")
+            else -> unreadable("not a JSON object")
+        }
+
+    /**
+     * Which of the four operations this is, and then what it says.
+     *
+     * The operation is looked up among the known keys rather than taken from whichever key happens
+     * to come first. Taking the first key meant any object whose leading field was not a message
+     * body — a version field, a comment, a stray key — was forced through the decoder and refused,
+     * which reads as "unknown operation" and is a completely different problem.
+     */
+    private fun parseEnvelope(envelope: JsonObject): A2uiParseOutcome {
+        val declared: Int? = envelope["schemaVersion"]?.let { (it as? JsonPrimitive)?.intOrNull }
+        if (declared != null && declared > A2UI_CURRENT_SCHEMA_VERSION) {
+            return A2uiParseOutcome.Failed(unsupportedVersion(declared))
+        }
+        val operation: String = OPERATIONS.firstOrNull { it in envelope }
+            ?: return A2uiParseOutcome.Failed(unknownOperation())
+        val body: JsonObject = envelope[operation] as? JsonObject
+            ?: return A2uiParseOutcome.Failed(operationIsNotAnObject(operation))
+        return messages.decode(operation, body)
     }
 
     /**
-     * Transforms a flow of raw JSON strings into a flow of parsed [UiEvent].
-     * Line-by-line: each string element should be one JSON object.
+     * Classifies a stream of complete lines.
+     *
+     * For callers that already have lines — the release-note payload is whole lines, not tokens.
      */
-    fun parseStream(lines: kotlinx.coroutines.flow.Flow<String>): kotlinx.coroutines.flow.Flow<UiEvent> =
-        kotlinx.coroutines.flow.flow {
-            lines.collect { line ->
-                parseLine(line)?.let { emit(it) }
-            }
-        }
-
-    // ─── Private parsing helpers ────────────────────────────────────────────
-
-    private fun parseCreateSurface(data: JsonObject): UiEvent? {
-        val surfaceIdStr = data["surfaceId"]?.jsonPrimitive?.content ?: return null
-        val rootIdStr = data["rootId"]?.jsonPrimitive?.content ?: return null
-        val componentsArray: JsonArray = data["components"]?.jsonArray ?: return null
-        val components = mutableMapOf<String, UiNode>()
-
-        for (element: JsonElement in componentsArray) {
-            val comp: JsonObject = element.jsonObject
-            val id: String = comp["id"]?.jsonPrimitive?.content ?: continue
-            val kind: String = comp["kind"]?.jsonPrimitive?.content ?: continue
-            val node: UiNode = parseNode(kind, comp) ?: continue
-            components[id] = node
-        }
-
-        return UiEvent.CreateSurface(
-            surfaceId = SurfaceId(surfaceIdStr),
-            rootId = NodeRef(rootIdStr),
-            components = components,
-        )
+    fun parseStream(lines: Flow<String>): Flow<A2uiParseOutcome> = flow {
+        lines.collect { line -> emit(parseLine(line)) }
     }
 
-    private fun parseUpdateComponents(data: JsonObject): UiEvent? {
-        val surfaceIdStr = data["surfaceId"]?.jsonPrimitive?.content ?: return null
-        val componentsArray: JsonArray = data["components"]?.jsonArray ?: return null
-        val components = mutableMapOf<String, UiNode>()
-
-        for (element: JsonElement in componentsArray) {
-            val comp: JsonObject = element.jsonObject
-            val id: String = comp["id"]?.jsonPrimitive?.content ?: continue
-            val kind: String = comp["kind"]?.jsonPrimitive?.content ?: continue
-            val node: UiNode = parseNode(kind, comp) ?: continue
-            components[id] = node
-        }
-
-        return UiEvent.UpdateComponents(
-            surfaceId = SurfaceId(surfaceIdStr),
-            components = components,
-        )
+    /**
+     * Reassembles a stream of model output fragments into lines, then classifies each one.
+     *
+     * Prose is not an error and is not emitted as a failure: a reply that opens with a sentence and
+     * then gives a surface is a reply with both parts, and reporting the sentence to the model as a
+     * contract violation would be the worst possible answer to a user who asked a question.
+     */
+    fun parseTokens(tokens: Flow<String>): Flow<A2uiParseOutcome> = flow {
+        val framer: LineFramer = LineFramer()
+        tokens.collect { chunk -> framer.accept(chunk).forEach { emit(it.asOutcome()) } }
+        framer.finish().forEach { emit(it.asOutcome()) }
     }
 
-    private fun parseUpdateData(data: JsonObject): UiEvent? {
-        val surfaceIdStr = data["surfaceId"]?.jsonPrimitive?.content ?: return null
-        val pathStr: String = data["path"]?.jsonPrimitive?.content ?: return null
-        val value: JsonElement = data["value"] ?: return null
-        return UiEvent.UpdateData(
-            surfaceId = SurfaceId(surfaceIdStr),
-            path = UiPath.parse(pathStr),
-            value = value,
-        )
+    /**
+     * A framed line that has not been read yet, as an outcome of its own.
+     *
+     * Prose and an already-dropped line are both recorded as skips rather than failures: the framer
+     * has said what it is, and re-reporting it would put a sentence the user is reading into the
+     * correction prompt.
+     */
+    private fun FramedLine.asOutcome(): A2uiParseOutcome = when (this) {
+        is FramedLine.Message -> parseLine(text)
+        is FramedLine.Prose -> A2uiParseOutcome.Skipped(A2uiErrorCode.MALFORMED_LINE, "prose")
+        is FramedLine.Dropped -> A2uiParseOutcome.Skipped(A2uiErrorCode.LINE_TOO_LONG, reason)
     }
 
-    private fun parseDeleteSurface(data: JsonObject): UiEvent? {
-        val surfaceIdStr = data["surfaceId"]?.jsonPrimitive?.content ?: return null
-        return UiEvent.DeleteSurface(surfaceId = SurfaceId(surfaceIdStr))
-    }
+    // ─── Envelope rejections ───────────────────────────────────────────────
 
-    private fun parseNode(kind: String, obj: JsonObject): UiNode? = when (kind) {
-        "text" -> obj["value"]?.jsonPrimitive?.content?.let { UiNode.Text(it, toneOf(obj["tone"])) }
+    private fun unreadable(detail: String): A2uiParseOutcome.Failed = A2uiParseOutcome.Failed(
+        A2uiError(
+            code = A2uiErrorCode.MALFORMED_LINE,
+            message = "The line looks like a message but is $detail.",
+            pointer = "/",
+            severity = A2uiSeverity.MESSAGE,
+        ),
+    )
 
-        "heading" -> obj["text"]?.jsonPrimitive?.content?.let { t ->
-            UiNode.Heading(t, obj["level"]?.jsonPrimitive?.content?.toIntOrNull() ?: 2)
-        }
+    private fun unsupportedVersion(declared: Int): A2uiError = A2uiError(
+        code = A2uiErrorCode.UNSUPPORTED_SCHEMA_VERSION,
+        message = "This client implements schema version $A2UI_CURRENT_SCHEMA_VERSION; " +
+            "the message declares $declared.",
+        pointer = "/schemaVersion",
+    )
 
-        "button" -> obj["label"]?.jsonPrimitive?.content?.let { l ->
-            UiNode.Button(
-                label = l,
-                action = obj["action"]?.jsonPrimitive?.content,
-                data = obj["data"]?.jsonObject,
-            )
-        }
+    /**
+     * The legal operations travel with the rejection.
+     *
+     * A model that guessed an operation name cannot infer the right one, and a message saying only
+     * "no known operation" is the one rejection text it has least to act on.
+     */
+    private fun unknownOperation(): A2uiError = A2uiError(
+        code = A2uiErrorCode.UNKNOWN_OPERATION,
+        message = "No known operation in this message.",
+        pointer = "/",
+        allowed = OPERATIONS.sorted(),
+    )
 
-        "column" -> UiNode.Column(childrenOf(obj["children"]))
-
-        "row" -> UiNode.Row(childrenOf(obj["children"]))
-
-        "card" -> obj["child"]?.jsonPrimitive?.content?.let { UiNode.Card(NodeRef(it)) }
-
-        "list" -> UiNode.ListView(
-            children = childrenOf(obj["children"]),
-            direction = directionOf(obj["direction"]),
-        )
-
-        "divider" -> UiNode.Divider
-
-        "badge" -> obj["text"]?.jsonPrimitive?.content?.let { t ->
-            UiNode.Badge(t, toneOf(obj["tone"]))
-        }
-
-        "text_field" -> obj["label"]?.jsonPrimitive?.content?.let { l ->
-            UiNode.TextField(
-                label = l,
-                path = pathOf(obj["path"]),
-                initial = obj["initial"]?.jsonPrimitive?.content ?: "",
-            )
-        }
-
-        "checkbox" -> obj["label"]?.jsonPrimitive?.content?.let { l ->
-            UiNode.Checkbox(
-                label = l,
-                path = pathOf(obj["path"]),
-                initial = obj["initial"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false,
-            )
-        }
-
-        "tabs" -> {
-            val tabsArray: JsonArray = obj["tabs"]?.jsonArray ?: return null
-            val tabs: List<UiNode.Tab> = tabsArray.mapNotNull { el: JsonElement ->
-                val t: JsonObject = el.jsonObject
-                val title: String = t["title"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                val child: String = t["child"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                UiNode.Tab(title, NodeRef(child))
-            }
-            UiNode.Tabs(tabs)
-        }
-
-        "icon" -> obj["name"]?.jsonPrimitive?.content?.let { UiNode.Icon(it) }
-
-        "modal" -> obj["child"]?.jsonPrimitive?.content?.let { child ->
-            UiNode.Modal(NodeRef(child), pathOf(obj["openPath"]))
-        }
-
-        else -> null
-    }
-
-    private fun childrenOf(el: JsonElement?): List<NodeRef> {
-        val arr: JsonArray = el?.jsonArray ?: return emptyList()
-        return arr.mapNotNull { it.jsonPrimitive.content }.map { NodeRef(it) }
-    }
-
-    private fun pathOf(el: JsonElement?): UiPath = el?.jsonPrimitive?.content?.let { UiPath.parse(it) } ?: UiPath.Root
-
-    private fun toneOf(el: JsonElement?): UiNode.Tone = el?.jsonPrimitive?.content?.let { s ->
-        runCatching { UiNode.Tone.valueOf(s) }.getOrNull()
-    } ?: UiNode.Tone.Default
-
-    private fun directionOf(el: JsonElement?): UiNode.Direction = el?.jsonPrimitive?.content?.let { s ->
-        runCatching { UiNode.Direction.valueOf(s) }.getOrNull()
-    } ?: UiNode.Direction.Vertical
+    private fun operationIsNotAnObject(operation: String): A2uiError = A2uiError(
+        code = A2uiErrorCode.MALFORMED_LINE,
+        message = "'$operation' is not a JSON object.",
+        pointer = "/$operation",
+    )
 
     companion object {
-        /** Current A2UI schema version. Events with schemaVersion > this are skipped. */
+        /** Current A2UI schema version. Events with schemaVersion > this are rejected. */
         const val A2UI_CURRENT_SCHEMA_VERSION = 1
+
+        /** The four operations this client implements. */
+        val OPERATIONS: Set<String> = setOf("createSurface", "updateComponents", "updateData", "deleteSurface")
 
         @OptIn(ExperimentalSerializationApi::class)
         val defaultJson = Json {
