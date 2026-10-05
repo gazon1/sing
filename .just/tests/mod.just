@@ -150,7 +150,12 @@ gate:
     fi
 
     banner "4/4 agenda flows on device"
-    just gate-maestro agenda
+    # `tests::gate-maestro`, for the same reason as `just cr` above: this recipe lives
+    # in the `tests` module, so its unqualified name does not resolve from here. That
+    # fix was applied to the ratchet call site and missed this one, so the gate died at
+    # step 4 with "justfile does not contain recipe `gate-maestro`" after three green
+    # steps — the worst place for it to break, because the work before it is real.
+    just tests::gate-maestro agenda
 
     banner "all gates green"
 

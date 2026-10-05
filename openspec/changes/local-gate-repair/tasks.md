@@ -29,6 +29,11 @@
 
 ## Verify
 
+- [ ] In `gate` step 4, replace `just gate-maestro` with `just tests::gate-maestro`. Same
+      unqualified-name defect as `just cr` above, in the one call site that fix missed:
+      the recipe lives in the `tests` module, so from `gate` the bare name does not
+      resolve. Found 2026-10-05 — `just gate` completed three green steps and then died
+      with `justfile does not contain recipe 'gate-maestro'` before reaching the flows.
 - [ ] `just gate SKIP_MAESTRO=1` reaches step 4 and reports the Maestro flows as skipped. That
       run does not verify the flows, and the recipe says so — keep that honest.
 - [ ] Note the runtime. `coverage-ratchet` runs the full instrumented suite, which the recipe's

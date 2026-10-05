@@ -20,18 +20,18 @@
     {
       "label": "whole shared module",
       "scope": "com/singularity/todo/",
-      "min_line_percent": 27.32,
-      "measured_covered_lines": 12933,
-      "measured_total_lines": 47342,
+      "min_line_percent": 27.5,
+      "measured_covered_lines": 13036,
+      "measured_total_lines": 47399,
       "whole_scope_percent": 17.91,
       "note": "The floor that makes the agenda ratchet mean something. Without it, deleting every test in feature/tasks would leave the gate green, since a single-feature floor cannot see erosion elsewhere."
     },
     {
       "label": "feature/tasks (per-feature floor)",
       "scope": "com/singularity/todo/feature/tasks",
-      "min_line_percent": 33.4,
+      "min_line_percent": 33.42,
       "measured_covered_lines": 1878,
-      "measured_total_lines": 5623,
+      "measured_total_lines": 5620,
       "whole_scope_percent": 26.59,
       "note": "Largest feature by line count. Without its own floor, deleting every task test would still leave the whole-module floor green."
     },
@@ -56,9 +56,9 @@
     {
       "label": "feature/ai (per-feature floor)",
       "scope": "com/singularity/todo/feature/ai",
-      "min_line_percent": 23.57,
-      "measured_covered_lines": 405,
-      "measured_total_lines": 1718,
+      "min_line_percent": 25.33,
+      "measured_covered_lines": 436,
+      "measured_total_lines": 1721,
       "whole_scope_percent": 21.16,
       "note": "Every AI call is metered into llm_usage, so an unnoticed coverage drop here also hides an untested billing path."
     },
@@ -83,9 +83,9 @@
     {
       "label": "feature/calendar_sync (per-feature floor)",
       "scope": "com/singularity/todo/feature/calendar_sync",
-      "min_line_percent": 23.94,
+      "min_line_percent": 24.01,
       "measured_covered_lines": 181,
-      "measured_total_lines": 756,
+      "measured_total_lines": 754,
       "whole_scope_percent": 18.19,
       "note": "Long-lived debounced collector, hard to test by hand."
     }
