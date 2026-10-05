@@ -2,6 +2,7 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -71,11 +72,22 @@ class SyncEventBuilder {
     /** Empty by default: an event with no profile applies to whichever scope pulls it. */
     var profileId = ""
 
+    /**
+     * The document the event carries, or null for an event that has none.
+     *
+     * Added because the builder had no such field, which meant **every** event in the
+     * suite was built without a payload — and an event without a payload is exactly
+     * the case a handler reports as unusable rather than applied. The suite could not
+     * notice, because it never built the other kind.
+     */
+    var data: JsonElement? = null
+
     fun build(): SyncEvent = SyncEvent(
         serverLsn = serverLsn,
         entityId = entityId,
         entityType = entityType,
         eventType = eventType,
+        data = data,
         createdAt = createdAt,
         profileId = profileId,
     )

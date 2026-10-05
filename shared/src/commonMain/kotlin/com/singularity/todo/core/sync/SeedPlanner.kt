@@ -8,7 +8,6 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.flow.firstOrNull
 
 /**
@@ -56,9 +55,31 @@ internal class SeedPlanner(
     private val projectRepo: ProjectsRepository,
     private val tagRepo: TagsRepository,
     private val tagGroupRepo: TagGroupRepository,
-    private val timeTrackingRepo: TimeTrackingRepository,
     private val log: Logger = Logger.withTag("SeedPlanner"),
 ) {
+
+    companion object {
+        /**
+         * The document types this planner can enqueue.
+         *
+         * Declared here, beside the repositories that produce them, and compared by
+         * `SyncBootstrapperDispatchTest` against the registered pull handlers. The test
+         * used to hold its own hand-written list of the same thing, and the two drifted:
+         * the seed grew a sixth type, the list did not, and the result was a client that
+         * uploaded a document it had no way to apply — which stalls the receiving
+         * account's cursor on that event and never advances.
+         *
+         * Adding a repository to the constructor means adding its type here, and the
+         * test then fails until a pull handler is registered in the same change.
+         */
+        val SEEDED_TYPES: Set<DocType> = setOf(
+            DocType.Task,
+            DocType.Note,
+            DocType.Project,
+            DocType.Tag,
+            DocType.TagGroup,
+        )
+    }
 
     /**
      * Queues everything this scope already holds, once.
@@ -113,13 +134,23 @@ internal class SeedPlanner(
             addAll(projectRepo.observeAll().firstOrNull().orEmpty())
             addAll(tagRepo.observeAll().firstOrNull().orEmpty())
             addAll(tagGroupRepo.observeAll().firstOrNull().orEmpty())
-            // Time entries are per task and there is no "all entries" observation,
-            // so they are gathered through the tasks above. Entries whose task has
-            // gone are not seeded, and that is the honest answer: an orphaned entry
-            // belongs to a document the user can no longer see.
-            tasks.forEach { task ->
-                addAll(timeTrackingRepo.watchEntries(task.id).firstOrNull().orEmpty())
-            }
+            // Time entries are deliberately NOT seeded.
+            //
+            // Seeding one enqueues a `time_entry` patch, and the pull side has no
+            // handler for that type — a registered handler that can *delete* an entry
+            // but not create or update one, because `TimeTrackingRepository` models
+            // tracking as a state machine (`startEntry` / `stopEntry`) and has no
+            // upsert to apply a remote document with. So the second device to sync
+            // this account hit an event it could not apply, and an unappliable event
+            // does not advance the cursor: the account's sync stopped there, forever,
+            // for everything and not just time entries.
+            //
+            // Not seeding is not a decision that tracked time is device-local. It is
+            // the smaller change: today a second device receives nothing and its sync
+            // breaks instead, so nobody is worse off. What the right answer is —
+            // an upsert on the port and a sixth handler, or time entries staying on
+            // one device — is a product question, filed as #177. The invariant below
+            // is what stops the two halves drifting apart again in the meantime.
         }
     }
 }

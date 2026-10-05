@@ -3,6 +3,7 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
@@ -14,11 +15,14 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import kotlinx.coroutines.test.TestScope
+import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Which [DocType]s [SyncBootstrapper] actually wires to a pull handler.
@@ -48,6 +52,12 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class SyncBootstrapperDispatchTest {
+    /**
+     * The engine reads this for every timestamp, and the tests below assert on two of
+     * them. Movable rather than fixed so a backoff deferral can be observed expiring
+     * without the test waiting in real time.
+     */
+    private val clock = MutableClock()
 
     private val log = Logger.withTag("SyncBootstrapperDispatchTest")
 
@@ -71,6 +81,7 @@ class SyncBootstrapperDispatchTest {
             patchBuilder = fakeSyncPatchBuilder(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
+            clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
         )
@@ -90,27 +101,86 @@ class SyncBootstrapperDispatchTest {
     fun `the pull dispatch table covers every type that is pushed`() = runTest {
         val engine = bootstrapped(this)
 
-        // The types that have a push call site. Each one that can arrive from the
-        // server needs a handler, or the cursor stalls on it.
-        val pushed = setOf(DocType.Task, DocType.Note, DocType.Project, DocType.Tag, DocType.TagGroup)
-
         assertEquals(
-            pushed,
+            SeedPlanner.SEEDED_TYPES,
             engine.handlers.keys,
-            "every pushed DocType needs a pull handler",
+            "every DocType the client can enqueue needs a pull handler, or the " +
+                "receiving account's cursor stalls on the first such event and never " +
+                "advances again. A type is only correct on one side of this: " +
+                "the seed must not enqueue what the dispatch table cannot apply.",
+        )
+    }
+
+    @Test
+    fun `a type with no pull handler is not one the seed can enqueue`() = runTest {
+        // The other direction, and the one that actually bit: the seed was uploading
+        // time entries while this table could only delete them. Stated on its own so
+        // the failure names which side is wrong.
+        val unhandled = DocType.entries - bootstrapped(this).handlers.keys
+
+        assertTrue(
+            unhandled.intersect(SeedPlanner.SEEDED_TYPES).isEmpty(),
+            "seeded but not appliable: ${unhandled.intersect(SeedPlanner.SEEDED_TYPES)}. " +
+                "Either register a pull handler, or stop enqueueing the type.",
         )
     }
 
     @Test
     fun `TimeEntry has no pull handler, and the reason is pinned`() = runTest {
+        // Pinned rather than fixed. `TimeTrackingRepository` models tracking as a state
+        // machine (`startEntry` / `stopEntry`) and has no upsert, so there is no way to
+        // apply a remote document — which is why the table can delete a time entry and
+        // not create one.
+        //
+        // The seed stopped enqueueing them, which is the smaller change: a second device
+        // used to receive nothing *and* stall its cursor, so nobody is worse off. If
+        // tracked time should sync, this test and the seed are both wrong and change
+        // together — see #177 for the product question this defers.
         val engine = bootstrapped(this)
 
         assertNull(
             engine.handlers[DocType.TimeEntry],
-            "TimeEntry cannot be upserted from a remote event. When a TimeEntry push is " +
-                "wired up, register a handler here in the same change — otherwise the " +
-                "pull loop stalls on the first time-entry event and never advances.",
+            "TimeEntry has gained a pull handler. Register it here, add DocType.TimeEntry " +
+                "to SeedPlanner.SEEDED_TYPES in the same change, and delete this test — " +
+                "the two assertions above then carry the invariant.",
         )
+    }
+
+    @Test
+    fun `an event with no document is skipped, not applied`() = runTest {
+        // The decision itself, where it is made. `SyncEnginePullTest` covers what the
+        // engine does with each outcome; this covers that a payload-less event produces
+        // the outcome that lets the feed continue.
+        val engine = bootstrapped(this)
+        val handler = engine.handlers.getValue(DocType.Task)
+
+        val outcome = handler.apply(
+            syncEvent {
+                serverLsn = 10
+                entityType = DocType.Task
+                entityId = "t-1"
+                data = null
+            },
+        )
+
+        assertIs<ApplyOutcome.Skipped>(outcome, "no document means it was never applied")
+    }
+
+    @Test
+    fun `an event whose payload is not a document is skipped, not applied`() = runTest {
+        val engine = bootstrapped(this)
+        val handler = engine.handlers.getValue(DocType.Task)
+
+        val outcome = handler.apply(
+            syncEvent {
+                serverLsn = 10
+                entityType = DocType.Task
+                entityId = "t-1"
+                data = kotlinx.serialization.json.JsonPrimitive("not an object")
+            },
+        )
+
+        assertIs<ApplyOutcome.Skipped>(outcome)
     }
 
     @Test
@@ -127,10 +197,14 @@ class SyncBootstrapperDispatchTest {
         val engine = bootstrapped(this, api)
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
 
-        assertEquals(1, pull.received)
-        assertEquals(0, pull.applied, "nothing may be applied for a type with no handler")
-        assertEquals(1, pull.dropped, "the unappliable event must be reported, not hidden")
+        // Reported as a failure, because a cycle that stopped early is not a cycle that
+        // finished. The cursor assertion lives in `SyncEnginePullTest`; what matters
+        // here is that the caller is told, rather than seeing a summary that says one
+        // event arrived and nothing was wrong.
+        val pull = (outcome as SyncOutcome.Success).pull
+        val error = assertIs<AppError.Persistence>(pull.exceptionOrNull())
+        assertEquals("sync.pull_stalled", error.code)
+        assertIs<SyncEngineStatus.Failure>(engine.status.value, "a stalled pull must not leave the engine idle")
     }
 }

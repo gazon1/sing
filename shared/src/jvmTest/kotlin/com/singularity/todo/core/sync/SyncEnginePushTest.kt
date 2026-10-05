@@ -10,6 +10,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import kotlinx.coroutines.test.TestScope
+import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -37,6 +38,12 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncEnginePushTest {
+    /**
+     * The engine reads this for every timestamp, and the tests below assert on two of
+     * them. Movable rather than fixed so a backoff deferral can be observed expiring
+     * without the test waiting in real time.
+     */
+    private val clock = MutableClock()
 
     private val log = Logger.withTag("SyncEnginePushTest")
 
@@ -69,6 +76,7 @@ class SyncEnginePushTest {
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = policy,
+            clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
         )
@@ -115,7 +123,7 @@ class SyncEnginePushTest {
         assertNotNull(row.nextAttemptAt, "a failed patch must be deferred")
         // A real delay, not a zero that reads as "deferred" while behaving as "now".
         assertTrue(
-            (row.nextAttemptAt ?: 0) - System.currentTimeMillis() > 0,
+            (row.nextAttemptAt ?: 0) - clock.millis > 0,
             "nextAttemptAt must be in the future",
         )
         assertTrue(dead.rows.isEmpty())
@@ -137,10 +145,63 @@ class SyncEnginePushTest {
 
         // Once the backoff has elapsed, it goes out again.
         outbox.rows.single().let { row ->
-            outbox.rows[0] = row.copy(nextAttemptAt = System.currentTimeMillis() - 1)
+            outbox.rows[0] = row.copy(nextAttemptAt = clock.millis - 1)
         }
         engine.push()
         assertEquals(2, api.pushCalls.size, "an elapsed backoff must allow a retry")
+    }
+
+    // ── PU-05: the attempt counter is state, not a local variable ──────────────
+    //
+    // Both tests below were unwritable before the clock was injected. The first
+    // needed a row that already had nine attempts, which meant reading what the
+    // engine persisted and then failing it once more; the second needed a deferral
+    // to *elapse*, which means moving time, and there was no clock to move.
+
+    @Test
+    fun `an attempt count persisted by an earlier run is read back, not restarted`() = runTest {
+        // The defect this pins: an implementation that keeps the attempt count in a
+        // local variable dead-letters nothing until this process has failed the patch
+        // maxAttempts times itself. Across a restart — the common case, since backoff
+        // is measured in hours — that never happens and the row retries forever.
+        val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 3)
+        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+        val (engine, outbox, dead) = engine(api, this, policy = policy)
+
+        // What a previous run left behind: nine failures already recorded.
+        outbox.seed("p1", attempts = 2)
+        outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = clock.millis - 1)
+        engine.push()
+
+        val parked = dead.rows.singleOrNull()
+        assertNotNull(
+            parked,
+            "one more failure past the limit must park the row; " +
+                "attempts still in the outbox: ${outbox.rows.map { it.attempts }}",
+        )
+        assertEquals(3, parked.attempts)
+    }
+
+    @Test
+    fun `a deferral is eligible again once the clock has moved past it`() = runTest {
+        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+        val (engine, outbox, _) = engine(api, this)
+        outbox.seed("p1")
+
+        engine.push()
+        assertEquals(1, api.pushCalls.size)
+        val deferredUntil = outbox.rows.single().nextAttemptAt
+        assertNotNull(deferredUntil, "the first failure must defer rather than retry at once")
+
+        // Still before the deferral: not eligible, and no second request goes out.
+        clock.advanceBy(1)
+        engine.push()
+        assertEquals(1, api.pushCalls.size, "a deferral must hold until the clock reaches it")
+
+        // Past it: eligible, with no real waiting anywhere in the test.
+        clock.advanceBy((deferredUntil ?: 0) - clock.millis + 1)
+        engine.push()
+        assertEquals(2, api.pushCalls.size, "an elapsed deferral must allow the retry")
     }
 
     @Test
@@ -153,7 +214,7 @@ class SyncEnginePushTest {
         repeat(3) {
             // Expire the backoff between attempts so the patch is eligible each time.
             if (outbox.rows.isNotEmpty()) {
-                outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = System.currentTimeMillis() - 1)
+                outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = clock.millis - 1)
             }
             engine.push()
         }

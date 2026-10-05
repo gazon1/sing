@@ -11,6 +11,7 @@ import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,10 +92,34 @@ sealed interface SyncEngineStatus {
 
 /**
  * Outcome of applying a [SyncEvent] during pull.
+ *
+ * The distinction that matters is not applied versus not-applied but **whether trying
+ * again could ever help**, because that is what decides the cursor. Every arm here
+ * except [Applied] used to be reported as [Applied], and the result was a pull summary
+ * that said it had received an event and applied it while the row was never written.
  */
 sealed interface ApplyOutcome {
     data object Applied : ApplyOutcome
+
+    /** Applied, but a field lost to a newer one. The cursor still advances. */
     data class Conflict(val reason: String) : ApplyOutcome
+
+    /**
+     * This event cannot be applied and never will be — a payload that is absent or is
+     * not a document. Retrying re-delivers the same bytes, so the cursor advances past
+     * it and the event is counted as dropped.
+     *
+     * Advancing is the whole point. A permanently unusable event that blocked the cursor
+     * would stop the account syncing anything else, forever, over one bad row.
+     */
+    data class Skipped(val reason: String) : ApplyOutcome
+
+    /**
+     * This event could not be applied but a later attempt might succeed — a delete
+     * that failed, an upsert that hit a storage error. The cursor stays put, so the
+     * event is delivered again on the next cycle.
+     */
+    data class Failed(val reason: String) : ApplyOutcome
 }
 
 /**
@@ -123,10 +148,25 @@ internal class SyncEngine(
     private val patchBuilder: SyncPatchBuilder,
     private val scheduler: SyncWorkScheduler,
     private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
+    /**
+     * Wall-clock time, injected.
+     *
+     * The backoff, the patch timestamp, the outbox row's creation time and the
+     * "last synced" stamp are all wall-clock readings, and all of them used to be
+     * taken from `System.currentTimeMillis()` at six call sites. That made every
+     * time-dependent behaviour of this class untestable: a test could not observe a
+     * deferral, could not let one expire, and could not assert what timestamp a patch
+     * carries. Required rather than defaulted, so a new call site has to decide
+     * rather than inherit the wall clock.
+     */
+    private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
     private val crashReporter: CrashReportingPort,
 ) : AutoCloseable by scope {
     private val json = StableJson
+
+    /** One reading of the injected clock, in the unit this class stores. */
+    private fun now(): Long = clock.now().toEpochMilliseconds()
 
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
     val status: StateFlow<SyncEngineStatus> = _status.asStateFlow()
@@ -178,7 +218,7 @@ internal class SyncEngine(
     suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
         val active = scopeProvider.current.first()
             ?: return@runCatchingResult
-        val patch = patchBuilder.build(entity, active, System.currentTimeMillis())
+        val patch = patchBuilder.build(entity, active, now())
         val payload = json.encodeToString(patch)
 
         // Coalesce per entity before inserting, so an entity has at most one patch
@@ -194,7 +234,7 @@ internal class SyncEngine(
                 entityId = entity.syncId,
                 entityType = entity.docType.key,
                 payload = payload,
-                createdAt = System.currentTimeMillis(),
+                createdAt = now(),
             ),
         )
     }
@@ -247,12 +287,12 @@ internal class SyncEngine(
      * so that [push] can tell a quiet cycle from a broken one without a second read.
      */
     private suspend fun planPush(): Result<PushPlan?> {
-        val now = System.currentTimeMillis()
+        val nowMillis = now()
         // Read before the request, and inside a guard: this used to be the one line
         // between setting the status and entering the try, so a database that could not
         // be read left the engine advertising a push that was never attempted.
         val pending = phases.localStorage("sync.outbox.read", "read the pending changes") {
-            outboxDao.getPending(now)
+            outboxDao.getPending(nowMillis)
         }
             .getOrElse { return Result.failure(it.toAppError()) }
         if (pending.isEmpty()) return Result.success(null)
@@ -389,7 +429,7 @@ internal class SyncEngine(
                     entityType = entity.entityType,
                     payload = entity.payload,
                     createdAt = entity.createdAt,
-                    failedAt = System.currentTimeMillis(),
+                    failedAt = now(),
                     attempts = attempts,
                     lastError = reason,
                 ),
@@ -406,7 +446,7 @@ internal class SyncEngine(
         outboxDao.markFailed(
             id = entity.patchId,
             error = reason,
-            nextAttemptAt = System.currentTimeMillis() + delay,
+            nextAttemptAt = now() + delay,
         )
         log.w { "Patch ${entity.patchId} failed (attempt $attempts); retrying in ${delay}ms" }
     }
@@ -420,12 +460,25 @@ internal class SyncEngine(
         data object Skipped : PullStep
 
         /**
-         * A type this client has no handler for.
+         * Applied by no means, and never will be: the payload was absent or was not a
+         * document. The cursor advances — the same bytes will arrive again, and blocking
+         * here would end the account's sync over one unusable row — but the event is
+         * counted as dropped and the reason is logged.
          *
-         * Distinct from [Skipped] because the two need opposite cursor treatment, and
-         * conflating them is a stall: the log interleaves every profile of the
-         * account, so an unhandled *other-profile* event would freeze this account's
-         * sync at that position forever.
+         * This arm is what stops an event with no payload being reported as applied.
+         * It used to return `Applied`, so the server considered it delivered, the client
+         * considered it done, and the row was never written again.
+         */
+        data class AppliedButUnusable(val reason: String) : PullStep
+
+        /**
+         * Not applied, and a later attempt might succeed. The cursor stays here, so the
+         * event is delivered again next cycle.
+         *
+         * Distinct from [Skipped] and [AppliedButUnusable] because the two of those
+         * need opposite cursor treatment, and conflating them is a stall: the log
+         * interleaves every profile of the account, so an unhandled *other-profile*
+         * event would freeze this account's sync at that position forever.
          */
         data object Unappliable : PullStep
     }
@@ -439,9 +492,11 @@ internal class SyncEngine(
     private suspend fun applyEvent(event: SyncEvent, scope: SyncScope): PullStep {
         if (!event.belongsTo(scope)) return PullStep.Skipped
         val handler = handlers[event.entityType] ?: return PullStep.Unappliable
-        return when (handler.apply(event)) {
+        return when (val outcome = handler.apply(event)) {
             is ApplyOutcome.Applied -> PullStep.Done(conflicted = false)
             is ApplyOutcome.Conflict -> PullStep.Done(conflicted = true)
+            is ApplyOutcome.Skipped -> PullStep.AppliedButUnusable(outcome.reason)
+            is ApplyOutcome.Failed -> PullStep.Unappliable
         }
     }
 
@@ -465,6 +520,9 @@ internal class SyncEngine(
             var conflicts = 0
             var dropped = 0
             var maxLsn = sinceLsn
+            // Set when the loop stops early, so the cycle reports why instead of
+            // reporting the partial page as a completed one.
+            var stalled: String? = null
 
             for (event in events) {
                 when (val step = applyEvent(event, scope)) {
@@ -484,6 +542,19 @@ internal class SyncEngine(
                         maxLsn = maxOf(maxLsn, event.serverLsn)
                     }
 
+                    is PullStep.AppliedButUnusable -> {
+                        // Never applicable, so never retried — but also never *applied*,
+                        // and the two must not be reported the same way. Advancing the
+                        // cursor is correct; calling this a success is what made the loss
+                        // silent.
+                        dropped++
+                        maxLsn = maxOf(maxLsn, event.serverLsn)
+                        log.w {
+                            "Skipping unusable event at lsn=${event.serverLsn}: " +
+                                "${step.reason}; cursor advances, the change is not applied"
+                        }
+                    }
+
                     PullStep.Unappliable -> {
                         // The cursor does NOT advance past this event, and the pull stops
                         // here. The previous code did `maxLsn = maxOf(maxLsn, lsn)` first
@@ -493,6 +564,7 @@ internal class SyncEngine(
                         // it done, and the data was gone. The only trace was a pull summary
                         // that said it had received the event and applied nothing.
                         dropped++
+                        stalled = "an event this client cannot apply is at lsn=${event.serverLsn}"
                         log.w {
                             "Dropping event at lsn=${event.serverLsn} for unknown type " +
                                 "${event.entityType.key}; cursor stays at $maxLsn"
@@ -508,9 +580,25 @@ internal class SyncEngine(
             // happens to be current is how two profiles end up sharing a position.
             stateRepository.setLastLsn(scope, maxLsn)
             // Stamp lastSuccessfulSyncAt so the UI "Last synced" field stays current.
-            stateRepository.recordSuccessfulSync(scope, System.currentTimeMillis())
+            stateRepository.recordSuccessfulSync(scope, now())
 
             val summary = PullSummary(events.size, applied, conflicts, dropped)
+
+            // A cycle that stopped early is not a cycle that finished. Reporting it as
+            // a success stamped "last synced" on a device that is now stuck behind an
+            // event it will re-receive on every subsequent cycle and never apply — the
+            // symptom was a sync that looked healthy and did nothing.
+            if (stalled != null) {
+                val error = AppError.Persistence(
+                    "Sync stopped: $stalled. The events after it will keep arriving, " +
+                        "and this device will not apply them until that one can be.",
+                    code = "sync.pull_stalled",
+                )
+                _lastPull.value = Result.failure(error)
+                _status.value = SyncEngineStatus.Failure(error)
+                return Result.failure(error)
+            }
+
             _lastPull.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)

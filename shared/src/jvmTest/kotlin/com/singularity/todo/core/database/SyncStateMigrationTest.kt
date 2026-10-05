@@ -10,6 +10,7 @@ import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncTrigger
 import com.singularity.todo.core.sync.InMemorySyncPrefs
 import kotlinx.coroutines.flow.first
+import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -141,7 +142,7 @@ class SyncStateMigrationTest {
         try {
             val repo = RoomSyncStateRepository(
                 dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(),
+                legacyPrefs = InMemorySyncPrefs(MutableClock()),
                 idGenerator = SequenceIdGenerator("device"),
             )
             val a = SyncScope("owner-1", "profile-a")
@@ -166,7 +167,7 @@ class SyncStateMigrationTest {
         try {
             val repo = RoomSyncStateRepository(
                 dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(),
+                legacyPrefs = InMemorySyncPrefs(MutableClock()),
                 idGenerator = SequenceIdGenerator("device"),
             )
             val fresh = SyncScope("owner-new", "profile-new")
@@ -187,7 +188,7 @@ class SyncStateMigrationTest {
     fun `the legacy flat values are adopted once, and a reset cursor is not written back`() = runTest {
         val db = openMigrated()
         try {
-            val legacy = InMemorySyncPrefs().apply {
+            val legacy = InMemorySyncPrefs(MutableClock()).apply {
                 setLastLsn(777)
                 setAutoSyncEnabled(false)
                 setScheduledInterval(45.minutes)
@@ -220,7 +221,7 @@ class SyncStateMigrationTest {
         try {
             val repo = RoomSyncStateRepository(
                 dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(),
+                legacyPrefs = InMemorySyncPrefs(MutableClock()),
                 idGenerator = SequenceIdGenerator("device"),
             )
             val scope = SyncScope("owner-1", "profile-a")
@@ -257,7 +258,7 @@ class SyncStateMigrationTest {
             )
             val repo = RoomSyncStateRepository(
                 dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(),
+                legacyPrefs = InMemorySyncPrefs(MutableClock()),
                 idGenerator = SequenceIdGenerator("device"),
             )
 
@@ -276,7 +277,7 @@ class SyncStateMigrationTest {
         try {
             val repo = RoomSyncStateRepository(
                 dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(),
+                legacyPrefs = InMemorySyncPrefs(MutableClock()),
                 idGenerator = SequenceIdGenerator("device"),
             )
             repo.setLastLsn(SyncScope("owner-1", "profile-a"), 10)

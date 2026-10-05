@@ -5,14 +5,17 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import kotlinx.coroutines.test.TestScope
+import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -32,6 +35,12 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncEnginePullTest {
+    /**
+     * The engine reads this for every timestamp, and the tests below assert on two of
+     * them. Movable rather than fixed so a backoff deferral can be observed expiring
+     * without the test waiting in real time.
+     */
+    private val clock = MutableClock()
 
     private val log = Logger.withTag("SyncEnginePullTest")
 
@@ -71,17 +80,27 @@ class SyncEnginePullTest {
         // session forever, so a scope parented to the test's own job would leave an
         // active child at the end of the test body — which `runTest` reports as
         // UncompletedCoroutinesError after a full minute of waiting.
+        clock = clock,
         scope = testScope(scope.backgroundScope),
         crashReporter = NoOpCrashReportingPort(),
     )
 
     private fun signedIn() = Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh")
 
+    /**
+     * A task event that carries a document.
+     *
+     * It has to. The builder defaulted `data` to null, so every event in this suite was
+     * payload-less — and a payload-less event is one no real handler can apply. A test
+     * that then asserted "the event was applied" was asserting against a shape the
+     * server never sends.
+     */
     private fun taskEvent(lsn: Long, profile: String = "") = syncEvent {
         serverLsn = lsn
         entityType = DocType.Task
         entityId = "task-$lsn"
         profileId = profile
+        data = jsonObject("id" to "task-$lsn")
     }
 
     private fun event(lsn: Long, type: DocType) = syncEvent {
@@ -90,9 +109,111 @@ class SyncEnginePullTest {
         entityId = "e-$lsn"
     }
 
+    private fun eventWithoutData(lsn: Long) = syncEvent {
+        serverLsn = lsn
+        entityType = DocType.Task
+        entityId = "e-$lsn"
+        data = null
+    }
+
     private fun recordApplied(into: MutableList<Long>) = EntityApply { event ->
         into += event.serverLsn
         ApplyOutcome.Applied
+    }
+
+    /**
+     * A handler that behaves like the real ones about payload: no document means it
+     * could not be applied and never will be, so it is skipped rather than applied.
+     *
+     * The stub above records every event it is handed, which is the wrong shape for
+     * these cases — it said `Applied` for an event with nothing in it, and the pull
+     * test then looked like it was proving the engine steps over one. The decision to
+     * return `Skipped` belongs to the bootstrapper and is tested there; what is tested
+     * here is what the engine *does* with each outcome.
+     */
+    private fun recordHonestApplication(into: MutableList<Long>) = EntityApply { event ->
+        if (event.data == null) {
+            ApplyOutcome.Skipped("the event carries no document")
+        } else {
+            into += event.serverLsn
+            ApplyOutcome.Applied
+        }
+    }
+
+    // ── #175: an event that was not applied must not be reported as applied ──
+    //
+    // Both of these were `ApplyOutcome.Applied`. That one value is what made the loss
+    // silent: the server considered the event delivered, the client considered it done,
+    // and the row was never written again — with a pull summary saying it had arrived.
+
+    @Test
+    fun `an event with no payload is dropped and the cursor moves past it`() = runTest {
+        val api = FakeSyncApiClient(
+            pullEvents = listOf(taskEvent(10), eventWithoutData(20), taskEvent(30)),
+        )
+        val auth = FakeSyncAuthRepository(signedIn())
+        val state = FakeSyncStateRepository()
+        val syncScope = scopeFor(auth)
+        val applied = mutableListOf<Long>()
+        val engine = engine(api, this, stateRepository = state, auth = auth)
+        engine.registerHandler(DocType.Task, recordHonestApplication(applied))
+
+        val pull = (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+
+        // 30, not 20: an unusable event must not block the feed, or one bad row ends
+        // this account's sync for good. Reaching 30 is the assertion — it says the event
+        // at 20 was stepped over rather than stalled on.
+        assertEquals(30L, state.lastLsn(syncScope), "an unusable event must not block the feed")
+        assertEquals(listOf(10L, 30L), applied, "lsn 20 carried no document, so nothing applied it")
+        // And it is counted as dropped, not applied: the difference is the whole point.
+        assertEquals(1, pull.dropped, "an event that was never applied must not be counted as applied")
+        assertEquals(2, pull.applied)
+    }
+
+    @Test
+    fun `an event with no payload is not a failed cycle`() = runTest {
+        // Distinct from the unhandled-*type* case, which does stall. The difference is
+        // whether a retry could help: the same bytes will arrive again, so failing the
+        // cycle would retry a payload that is not going to improve and would never let
+        // the account finish a sync.
+        val api = FakeSyncApiClient(pullEvents = listOf(eventWithoutData(10)))
+        val auth = FakeSyncAuthRepository(signedIn())
+        val engine = engine(api, this, stateRepository = FakeSyncStateRepository(), auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(mutableListOf()))
+
+        val outcome = engine.syncOnce()
+
+        assertTrue(
+            (outcome as SyncOutcome.Success).pull.isSuccess,
+            "an unusable payload is skipped, not treated as a failure: $outcome",
+        )
+        assertIs<SyncEngineStatus.Idle>(engine.status.value)
+    }
+
+    @Test
+    fun `a delete that did not happen leaves the cursor where it was`() = runTest {
+        // The server's delete is the only event that would ever remove the row, so
+        // advancing past it strands the local copy with nothing left to say so.
+        val api = FakeSyncApiClient(
+            pullEvents = listOf(
+                syncEvent {
+                    serverLsn = 10
+                    entityType = DocType.Task
+                    entityId = "t-1"
+                    eventType = SyncEventType.DELETED
+                },
+            ),
+        )
+        val auth = FakeSyncAuthRepository(signedIn())
+        val state = FakeSyncStateRepository()
+        val syncScope = scopeFor(auth)
+        val engine = engine(api, this, stateRepository = state, auth = auth)
+        engine.registerHandler(DocType.Task) { ApplyOutcome.Failed("the delete did not happen") }
+
+        val pull = (engine.syncOnce() as SyncOutcome.Success).pull
+
+        assertEquals(0L, state.lastLsn(syncScope), "a delete that did not happen must be delivered again")
+        assertEquals("sync.pull_stalled", assertIs<AppError.Persistence>(pull.exceptionOrNull()).code)
     }
 
     @Test
@@ -113,14 +234,23 @@ class SyncEnginePullTest {
         engine.registerHandler(DocType.Task, recordApplied(applied))
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
 
         assertEquals(listOf(10L), applied, "only the task event should be applied")
         // 10, not 0: the cursor is the last position that was *applied*. lsn 20 is not
         // consumed, so the next pull asks from 10 and receives it again. The original
         // bug stored 20 here, and the event was never seen again.
         assertEquals(10L, state.lastLsn(syncScope), "the cursor must stop before the unknown type")
-        assertEquals(1, pull.dropped, "the unappliable event must be reported")
+
+        // The cycle now reports the stall instead of a partial page as a success. It
+        // used to return `Success` here and stamp "last synced", which is what made a
+        // permanently stalled account look healthy.
+        val pull = (outcome as SyncOutcome.Success).pull
+        val error = assertIs<AppError.Persistence>(pull.exceptionOrNull())
+        assertEquals("sync.pull_stalled", error.code)
+        assertTrue(
+            error.message.orEmpty().contains("20"),
+            "the message has to name the position the device is stuck at: ${error.message}",
+        )
     }
 
     @Test

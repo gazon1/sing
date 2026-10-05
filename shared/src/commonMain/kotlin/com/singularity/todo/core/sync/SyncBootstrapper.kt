@@ -117,14 +117,14 @@ internal class SyncBootstrapper(
                         log.w {
                             "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: no data, skipping"
                         }
-                        return ApplyOutcome.Applied
+                        return ApplyOutcome.Skipped("the event carries no document")
                     }
                     val obj = data as? kotlinx.serialization.json.JsonObject
                         ?: run {
                             log.w {
                                 "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: data is not JsonObject, skipping"
                             }
-                            return ApplyOutcome.Applied
+                            return ApplyOutcome.Skipped("the event payload is not a document")
                         }
                     applyRemote(obj)
                     log.d { "Pull event [${event.eventType}][lsn=${event.serverLsn}]: applied" }
@@ -152,12 +152,23 @@ internal class SyncBootstrapper(
                     outcome.fold(
                         onSuccess = {
                             log.d { "Pull event [DELETED][lsn=${event.serverLsn}]: deleted" }
+                            ApplyOutcome.Applied
                         },
-                        onFailure = {
-                            log.e { "Pull event [${event.entityId}][DELETED][lsn=${event.serverLsn}]: delete failed" }
+                        onFailure = { e ->
+                            // Reported as `Applied`, the server's delete is considered
+                            // delivered while the row is still here, and the cursor moves
+                            // past the only event that would ever remove it. The local and
+                            // remote rows then differ with nothing left to say so.
+                            log.e(e) {
+                                "Pull event [${event.entityId}][DELETED]" +
+                                    "[lsn=${event.serverLsn}]: delete failed"
+                            }
+                            ApplyOutcome.Failed(
+                                "the delete did not happen: " +
+                                    (e.message ?: e::class.simpleName.orEmpty()),
+                            )
                         },
                     )
-                    ApplyOutcome.Applied
                 }
             }
         } catch (e: CancellationException) {

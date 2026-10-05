@@ -10,6 +10,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -26,6 +27,12 @@ import kotlin.time.Duration.Companion.minutes
 class DataStoreSyncPrefs(
     private val dataStore: DataStore<Preferences>,
     private val scope: AutoCloseableCoroutineScope,
+    /**
+     * Wall-clock time, injected like everywhere else. The "last synced" stamp is the
+     * only thing this reads, and reading it from the system directly meant a test
+     * could not assert what the screen shows without tolerating a real clock.
+     */
+    private val clock: Clock,
 ) : SyncPrefs {
 
     private object Keys {
@@ -87,9 +94,9 @@ class DataStoreSyncPrefs(
     }
 
     override suspend fun recordSuccessfulSync() {
-        val now = System.currentTimeMillis()
-        _lastSuccessfulSyncAt.value = now
-        dataStore.edit { it[Keys.LAST_SUCCESSFUL_SYNC_AT] = now }
+        val nowMillis = clock.now().toEpochMilliseconds()
+        _lastSuccessfulSyncAt.value = nowMillis
+        dataStore.edit { it[Keys.LAST_SUCCESSFUL_SYNC_AT] = nowMillis }
     }
 
     override suspend fun setLastLsn(lsn: Long) {
@@ -102,7 +109,7 @@ class DataStoreSyncPrefs(
  * In-memory stub of [SyncPrefs] for tests.
  * Replaced by [DataStoreSyncPrefs] in production.
  */
-class InMemorySyncPrefs : SyncPrefs {
+class InMemorySyncPrefs(private val clock: Clock) : SyncPrefs {
     private val _autoSyncEnabled = MutableStateFlow(false)
     private val _enabledTriggers = MutableStateFlow(SyncTrigger.entries.toSet())
     private val _scheduledInterval = MutableStateFlow(30.minutes)
@@ -125,7 +132,7 @@ class InMemorySyncPrefs : SyncPrefs {
         _scheduledInterval.value = interval
     }
     override suspend fun recordSuccessfulSync() {
-        _lastSuccessfulSyncAt.value = System.currentTimeMillis()
+        _lastSuccessfulSyncAt.value = clock.now().toEpochMilliseconds()
     }
     override suspend fun setLastLsn(lsn: Long) {
         _lastLsn.value = lsn

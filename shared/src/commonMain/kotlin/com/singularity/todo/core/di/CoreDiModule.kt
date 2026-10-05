@@ -195,7 +195,7 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SyncApiClient> { SupabaseSyncApiClient(get<SyncRpc>()) }
 
     // SyncPrefs: DataStore-backed (not in-memory).
-    single<SyncPrefs> { DataStoreSyncPrefs(get(), get()) }
+    single<SyncPrefs> { DataStoreSyncPrefs(get(), get(), clock = get()) }
 
     // Patches are built here rather than inside SyncEngine, so the diff has one
     // owner and can be tested without a push path.
@@ -219,6 +219,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             patchBuilder = get(),
             scheduler = get(),
             retryPolicy = get(),
+            clock = get(),
             scope = get(),
             crashReporter = get(),
         )
@@ -305,7 +306,6 @@ fun coreModule(): org.koin.core.module.Module = module {
             projectRepo = get(),
             tagRepo = get(),
             tagGroupRepo = get(),
-            timeTrackingRepo = get(),
         )
     }
 

@@ -11,8 +11,6 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
-import com.singularity.todo.test.fakes.FakeClock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -137,7 +135,6 @@ class SeedPlannerTest {
         projectRepo = FakeProjectsRepository(),
         tagRepo = FakeTagsRepository(),
         tagGroupRepo = FakeTagGroupRepository(),
-        timeTrackingRepo = FakeTimeTrackingRepository(FakeClock()),
     )
 
     private fun task(id: String) = Task(

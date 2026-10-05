@@ -12,6 +12,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import kotlinx.coroutines.test.TestScope
+import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -43,6 +44,12 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncEngineStorageFailureTest {
+    /**
+     * The engine reads this for every timestamp, and the tests below assert on two of
+     * them. Movable rather than fixed so a backoff deferral can be observed expiring
+     * without the test waiting in real time.
+     */
+    private val clock = MutableClock()
 
     private val log = Logger.withTag("SyncEngineStorageFailureTest")
     private val json = StableJson
@@ -89,6 +96,7 @@ class SyncEngineStorageFailureTest {
             patchBuilder = fakeSyncPatchBuilder(shadow),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-storage", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
+            clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
         )
