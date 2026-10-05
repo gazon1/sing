@@ -105,6 +105,18 @@ run it", check whether the defect is in the part that actually needs running.
   `RunnableTestMember`, the Python `_TEST_MEMBER`, and the by-results check,
   which parses nothing. The first two are bound by the fixture table. Adding a
   third *text* implementation is now a review finding.
+- **Checked against the traceability machinery, not assumed.** The plan this
+  audit belongs to flagged one point where the two efforts meet: the definition
+  of a runnable test, which had to be a single implementation rather than two
+  that drift a third time. When that plan landed (`ccdabe18`,
+  `infra/kiwi/traceability/`), the claim was verified rather than trusted:
+  `junit_xml.py` reads the report and never classifies source, and `links.py`
+  locates a carrier by a spec-id prefix token and a `@DisplayName` — a different
+  question from "does this class contain a member JUnit executes". The
+  runnable-test predicate therefore still exists exactly once in text, in
+  `sync.py`, and the fixture table binds it on both language sides. The Kotlin
+  set in `RunnableTestMember` and the Python set in `sync.py` remain the only
+  two spellings of it.
 - `check-test-runs.py` depends on `infra/kiwi/sync.py` loading, and that
   dependency is a trap of its own. The first version returned `None` on an
   import failure and the caller skipped the source set — so appending one failing

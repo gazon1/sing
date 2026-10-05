@@ -89,6 +89,50 @@ not exist.
 
 ---
 
+## flow-has-tag-drops-a-flow-whose-tag-has-a-trailing-space
+
+**Status: CLOSED.** 2026-10-05.
+
+**Tracked as:** [#148](https://github.com/gazon1/singularity-clone-kmp/issues/148)
+
+**Found in:** the gate audit in
+`2026-10-05-gate-audit-text-shape-vs-fact` (0A.5), which asked every test gate
+"what input passes silently?". Reproduced by probe the same day, not inferred.
+
+**Symptom:** `flow_has_tag` (`scripts/run-maestro.sh:166`) compares a flow's
+header tag to the requested tag with awk string equality. A tag with one
+trailing space does not match, so `TAGS=smoke scripts/run-maestro.sh` omits that
+flow and says nothing. Nothing asserts that every flow is reachable by some tag,
+so a flow dropped this way disappears from every suite while every gate stays
+green — the same shape as the D1 defect, where two classes were reported clean
+by the gate that exists to report them.
+
+**Already ruled out:** not a Maestro behaviour. `--include-tags` is ignored when
+a single file is passed, which is exactly why the filter is applied in the
+script; the comparison is the script's own.
+
+**Fix, and why the first deferral was the wrong call.** The tag matching moved
+out of `run-maestro.sh` into `scripts/maestro-flow-tags.sh`, a sourceable file
+with no adb or emulator dependency, and both ends of the comparison are now
+trimmed. This was filed rather than fixed alongside the other gate repairs
+because the change could not be exercised in that environment — which turned out
+to be the wrong reason. The matching is pure text and is now unit tested
+(`scripts/tests/test_maestro_flow_tags.py`, 16 cases) with no device at all.
+
+Three further defects surfaced while writing those tests, none visible before:
+the tag block was never terminated, so a step like `- tapOn: 'x'` under
+`commands:` was read as a tag and `TAGS=tapOn:` would have selected every flow;
+`tags:  # comment` did not open the block; and a CRLF-edited flow kept a `\r`
+in its tag and matched nothing.
+
+The tests add the invariant that closes the loop and which nothing in CI
+asserted before: every flow declares at least one tag, every declared tag
+selects its own flow, and every `TAGS=` value CI asks for resolves to at least
+one flow. Measured over the current tree: 58 flows, none untagged, no
+unreachable tag, `TAGS=smoke` selects 19.
+
+---
+
 ## bulk-task-operations-have-no-ui
 
 **Status: OPEN**
@@ -1148,6 +1192,27 @@ so the plumbing exists and only the default is wrong. Then `CalendarFlowTest`
 can pin a date like every other flow test. Until then, any UI assertion that
 depends on "now" is a test that reports the calendar.
 
+**Scope, measured 2026-10-05** (the plan that produced this entry called the
+class "wider than believed"; these are the counts, so the next attempt starts
+from facts rather than from the suspicion):
+
+- 17 call sites of `todayInSystemZone()` across 10 files under `commonMain`:
+  `feature/agenda/domain/logic/RelativeBucket.kt`,
+  `feature/calendar/CalendarPreview.kt`,
+  `feature/calendar/presentation/screen/{CalendarContent,CalendarScreen}.kt`,
+  `feature/nav/AppDestination.kt`, `feature/search/query/SearchQueryResolver.kt`,
+  `feature/tasks/domain/usecase/CreateTaskFromDraft.kt`,
+  `shell/FabActionResolver.kt`, `core/observability/RoomUsageRecorder.kt`,
+  and `core/platform/Clock.kt` itself.
+- 17 direct `Clock.System.now()` calls under `feature/**`.
+
+Two of those reach the core of what a scenario matrix would assert:
+`CreateTaskFromDraft` (creating a task with `due = today`) and
+`SearchQueryResolver` (searching by date ranges around today). Neither is
+deterministic today, so a `TASK-*` or `SEARCH-01` scenario written against
+either would be non-deterministic by construction — which is why the fix is a
+class-level injection plus a rule, not a point fix in the calendar.
+
 ---
 
 ## six-smoke-flows-still-red-after-the-harness-fix
@@ -1193,6 +1258,23 @@ so the fix is likely one more wait (after the `openLink`, before the first
 assertion) rather than six separate bugs. That is a hypothesis, not a
 conclusion, and it is cheap to test: add the wait, re-run, see which of the six
 move.
+
+**Attempted 2026-10-05, not completed — the device would not boot.**
+`scripts/ensure-emulator.sh` started `Medium_Phone`, but `adb devices` went
+`emulator-5554 offline` and then dropped the device from the list entirely while
+the emulator process was still alive; 12 polling attempts over ~4 minutes never
+reached `device`. No flow was run, so **no new diagnosis was produced and the
+table above is unchanged**. This is the host-side gfxstream instability recorded
+in `2026-09-28-emulator-gfxstream-colorbuffer-segv.md` and in `AGENTS.md` ("Maestro
+currently fails in this environment"), showing up as a device that never
+registers. Re-run the six one at a time on a host where the emulator boots; the
+per-flow `FLOW=…` recipe in the paragraph above is still the right first move.
+
+Related: a debug APK now carries its git sha in `versionName`
+(`0.1.0+g<sha>`, see `androidApp/build.gradle.kts`) and `run-maestro.sh`
+refuses to run when the installed binary's sha disagrees with the checkout.
+That check is why the next run cannot silently report a result for a
+snapshot-restored APK.
 ---
 
 ## test-doubles-in-commonmain-source

@@ -19,7 +19,14 @@
 #   FLOW=Maestro/flows/tasks scripts/run-maestro.sh # one directory
 #   SERIAL=emulator-5554 scripts/run-maestro.sh    # pin the device
 #   SKIP_INSTALL=1 scripts/run-maestro.sh          # reuse the installed APK
+#   ALLOW_STALE_APK=1 scripts/run-maestro.sh       # run against an older binary deliberately
 #   MAESTRO_MAX_RETRIES=0 scripts/run-maestro.sh   # do not retry a lost device
+#
+# Before any flow runs, the script verifies that the installed APK is the one
+# this checkout builds: a debug build carries `+g<git-sha>` in versionName, and
+# a mismatch is a hard failure. A restored emulator snapshot and a manual
+# SKIP_INSTALL=1 both leave an arbitrary binary on the device, and both used to
+# produce a green run describing it. ALLOW_STALE_APK=1 is the opt-out.
 set -euo pipefail
 
 APP_ID="com.singularity.todo"
@@ -88,6 +95,43 @@ else
     (cd "$REPO_ROOT" && ./gradlew :androidApp:installDebug -Pandroid.device="$SERIAL" --quiet)
 fi
 
+# ── 3b. Provenance: is the installed binary the one this checkout builds? ────
+# Every result below this line describes the APK that is installed right now.
+# When that APK is not the APK this checkout produces, the results describe
+# something else — a snapshot-restored emulator and a manual SKIP_INSTALL=1 both
+# reach this state, and both produce a green run that proves nothing about the
+# commit. Size and mtime cannot catch it: a rebuild that changed only the sources
+# under test satisfies both.
+#
+# The debug build carries `+g<sha>` in versionName (see androidApp/build.gradle.kts),
+# so identity is readable from the device itself rather than asserted locally.
+# ALLOW_STALE_APK=1 downgrades this to a warning for the one case where the older
+# binary is genuinely what you want to test; it is not a default.
+if [[ "${ALLOW_STALE_APK:-0}" != "1" ]]; then
+    EXPECTED_SHA="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+    INSTALLED_VERSION="$(adb -s "$SERIAL" shell dumpsys package com.singularity.todo 2>/dev/null \
+        | grep -m1 'versionName=' | sed 's/.*versionName=//' | tr -d '\r' || true)"
+    INSTALLED_SHA="none"
+    [[ "$INSTALLED_VERSION" == *"+"* ]] && INSTALLED_SHA="${INSTALLED_VERSION##*+}"
+
+    if [[ "$INSTALLED_SHA" == "none" ]]; then
+        echo -e "${RED}Cannot read a build id from the installed APK (versionName='${INSTALLED_VERSION:-<empty>}').${NC}" >&2
+        echo -e "${RED}The installed binary is therefore unidentifiable, and a run against it${NC}" >&2
+        echo -e "${RED}proves nothing about this checkout. Reinstall, or set ALLOW_STALE_APK=1${NC}" >&2
+        echo -e "${RED}if an older binary is what you intend to test.${NC}" >&2
+        exit 1
+    fi
+    if [[ "$EXPECTED_SHA" != "unknown" && "$INSTALLED_SHA" != "$EXPECTED_SHA" ]]; then
+        echo -e "${RED}Installed APK is not this checkout's build.${NC}" >&2
+        echo -e "${RED}  checkout: g${EXPECTED_SHA}${NC}" >&2
+        echo -e "${RED}  installed: g${INSTALLED_SHA}  (versionName ${INSTALLED_VERSION})${NC}" >&2
+        echo -e "${RED}Every flow result would describe the other binary. Drop SKIP_INSTALL, or${NC}" >&2
+        echo -e "${RED}set ALLOW_STALE_APK=1 to run against it deliberately.${NC}" >&2
+        exit 1
+    fi
+    echo "APK provenance OK: g${INSTALLED_SHA}"
+fi
+
 # ── 4. Clear logcat so a post-run FATAL scan is attributable ────────────────
 adb -s "$SERIAL" logcat -c
 
@@ -118,20 +162,11 @@ echo "Discovered ${#FLOW_FILES[@]} flow file(s):"
 printf '  %s\n' "${FLOW_FILES[@]}"
 
 # Maestro's --include-tags is ignored when a single file is passed, so the tag
-# filter is applied here. A flow matches when its header carries the tag.
-flow_has_tag() {
-    local file="$1" tag="$2"
-    awk -v want="$tag" '
-        /^---[[:space:]]*$/ { in_tags = 0 }
-        /^tags:/ { in_tags = 1; next }
-        in_tags && /^[[:space:]]*-/ {
-            line = $0
-            sub(/^[[:space:]]*-[[:space:]]*/, "", line)
-            if (line == want) { found = 1; exit }
-        }
-        END { exit found ? 0 : 1 }
-    ' "$file"
-}
+# filter is applied here. The matching itself lives in a separate, sourceable
+# file so it can be unit tested without a device: see
+# scripts/maestro-flow-tags.sh and scripts/tests/test_maestro_flow_tags.py.
+# shellcheck source=scripts/maestro-flow-tags.sh
+source "$REPO_ROOT/scripts/maestro-flow-tags.sh"
 
 if [[ -n "$TAGS" ]]; then
     FILTERED=()
@@ -288,10 +323,22 @@ run_one_flow() {
         else
             # The device just came back from a relaunch. SKIP_INSTALL=1 was
             # chosen when the device still held the APK we built; after a
-            # relaunch that assumption is false, and a flow that "passes" here
-            # may be proving nothing about the current code. Say so — a silent
-            # stale binary turns "unknown" into "green".
-            echo -e "${YELLOW}WARNING: device was relaunched and SKIP_INSTALL=1, so the binary on it is whatever the snapshot held — these results may not reflect the current build.${NC}" >&2
+            # relaunch that assumption is false. The provenance check in §3b
+            # ran against the pre-relaunch binary, so it has to run again —
+            # a restored snapshot can put a different APK on the device.
+            echo -e "${YELLOW}WARNING: device was relaunched and SKIP_INSTALL=1, so the binary on it is whatever the snapshot held.${NC}" >&2
+            if [[ "${ALLOW_STALE_APK:-0}" != "1" ]]; then
+                REINSTALLED_VERSION="$(adb -s "$SERIAL" shell dumpsys package "$APP_ID" 2>/dev/null \
+                    | grep -m1 'versionName=' | sed 's/.*versionName=//' | tr -d '\r' || true)"
+                REINSTALLED_SHA="none"
+                [[ "$REINSTALLED_VERSION" == *"+"* ]] && REINSTALLED_SHA="${REINSTALLED_VERSION##*+}"
+                if [[ "$REINSTALLED_SHA" == "none" || "$REINSTALLED_SHA" != "$EXPECTED_SHA" ]]; then
+                    echo -e "${RED}Relaunched device holds g${REINSTALLED_SHA} (${REINSTALLED_VERSION:-<empty>}), not g${EXPECTED_SHA}.${NC}" >&2
+                    echo -e "${RED}These results would describe the wrong binary. Reinstall, or set${NC}" >&2
+                    echo -e "${RED}ALLOW_STALE_APK=1 to run against it deliberately.${NC}" >&2
+                    rm -f "$log"; return 1
+                fi
+            fi
         fi
     done
     rm -f "$log"
