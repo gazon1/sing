@@ -17,11 +17,14 @@ static analysis, and all of them could be true while a transitive dependency put
 sees the artifact rather than the intention.
 """
 
+import hashlib
 import importlib.util
 import pathlib
+import shutil
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'check-pro-licence-boundary.py'
 spec = importlib.util.spec_from_file_location('check_pro_licence_boundary', MODULE_PATH)
@@ -197,6 +200,69 @@ class SourceRuleTest(unittest.TestCase):
 class SelfTestEntryPointTest(unittest.TestCase):
     def test_self_test_passes(self):
         self.assertEqual(mod.self_test(), 0)
+
+
+class LicenceFileTest(unittest.TestCase):
+    """The Apache half had no licence file, and the gate passed.
+
+    `check_licence_files` originally verified only `LICENSE.pro`, so the
+    repository reached a state where the FSL terms were committed and the Apache
+    terms were missing — with 1328 files governed by nothing in the tree. These
+    tests pin the rule that closes it, and the digest comparison specifically
+    rather than a substring check: a truncated or summarised licence still
+    contains the phrase "Apache License".
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.root = Path(self.tmp)
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def _licence_files(self):
+        return mod.check_licence_files(self.root)
+
+    def test_missing_license_is_a_violation(self):
+        (self.root / 'LICENSE.pro').write_text(mod._LICENCE_PRO, encoding='utf-8')
+        (self.root / 'NOTICE').write_text(mod._COMPLIANT_NOTICE, encoding='utf-8')
+        messages = [v.args[0] for v in self._licence_files()]
+        self.assertTrue(any('LICENSE is missing' in m for m in messages), messages)
+
+    def test_missing_notice_is_a_violation(self):
+        (self.root / 'LICENSE.pro').write_text(mod._LICENCE_PRO, encoding='utf-8')
+        shutil.copyfile(mod.ROOT / 'LICENSE', self.root / 'LICENSE')
+        messages = [v.args[0] for v in self._licence_files()]
+        self.assertTrue(any('NOTICE is missing' in m for m in messages), messages)
+
+    def test_non_canonical_license_is_a_violation(self):
+        (self.root / 'LICENSE.pro').write_text(mod._LICENCE_PRO, encoding='utf-8')
+        (self.root / 'NOTICE').write_text(mod._COMPLIANT_NOTICE, encoding='utf-8')
+        (self.root / 'LICENSE').write_text(
+            'Apache License, Version 2.0\n\nYou may do anything you like.\n', encoding='utf-8'
+        )
+        messages = [v.args[0] for v in self._licence_files()]
+        self.assertTrue(any('not the canonical' in m for m in messages), messages)
+
+    def test_notice_missing_an_upstream_is_a_violation(self):
+        (self.root / 'LICENSE.pro').write_text(mod._LICENCE_PRO, encoding='utf-8')
+        shutil.copyfile(mod.ROOT / 'LICENSE', self.root / 'LICENSE')
+        (self.root / 'NOTICE').write_text('Singularity Todo\n', encoding='utf-8')
+        messages = [v.args[0] for v in self._licence_files()]
+        self.assertTrue(any('Tasks.org' in m or 'Orgzly' in m for m in messages), messages)
+
+    def test_the_real_repository_satisfies_the_rule(self):
+        self.assertEqual(mod.check_licence_files(mod.ROOT), [])
+
+    def test_expected_digest_matches_the_real_license(self):
+        # The constant is a claim about a file. If someone re-fetches the licence
+        # and it changes, this fails rather than the gate silently accepting
+        # whatever is on disk.
+        actual = hashlib.md5((mod.ROOT / 'LICENSE').read_bytes()).hexdigest()
+        self.assertEqual(actual, mod.APACHE_2_0_MD5)
+
+    def test_fixture_copies_a_canonical_license(self):
+        mod._write_fixture_licence(self.root)
+        digest = hashlib.md5((self.root / 'LICENSE').read_bytes()).hexdigest()
+        self.assertEqual(digest, mod.APACHE_2_0_MD5)
 
 
 if __name__ == '__main__':

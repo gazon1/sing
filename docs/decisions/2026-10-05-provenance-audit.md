@@ -205,8 +205,16 @@ cannot be left behind.
 
 ### 6. `.mailmap`
 
+**Superseded 2026-10-05.** The file was removed from the published tree. It mapped
+the author's real name and personal address into the public identity, and the
+argument below is the argument for removing it: a mailmap rewrites *display* only,
+so shipping it alongside a real address is worse than not shipping it — it reads
+as a sanitisation that did not sanitise. The private repository keeps its history
+honest under its real identity; the published tree has a single synthetic author
+because its history is a single squashed commit and needs no mapping at all.
+
 All three author addresses and all three display names — including the real personal
-name — are mapped to a single published identity, `gazon1 <gazon1@users.noreply.github.com>`.
+name — were mapped to a single published identity, `gazon1 <gazon1@users.noreply.github.com>`.
 `git shortlog --all -sne` now reports one author, 1 273 commits.
 
 Two details cost a measurement each, and both are recorded because the failure is
@@ -226,6 +234,21 @@ real display name — because the address and the name live in the commit object
 exists to prevent.** W2 must rewrite the objects.
 
 ## Consequences
+
+**The Apache half had no licence file.** Re-deriving the publication tree on
+2026-10-05 found that `LICENSE` and `NOTICE` were never committed — only
+`LICENSE.pro` was. So the repository was one step from publishing 1 328 files
+under Apache-2.0 with nothing in the tree stating those terms, while the gate
+that exists to police the licence split passed. `check_licence_files` verified
+only `LICENSE.pro`; the check now covers all three files, comparing `LICENSE`
+against the canonical Apache-2.0 text by md5 rather than by substring, because a
+truncated or summarised licence still contains the phrase "Apache License".
+`NOTICE` must carry the Tasks.org and Orgzly attributions — `PROVENANCE.md`
+records the derivation, but `PROVENANCE.md` is internal documentation and
+`NOTICE` is what travels with a distributed copy.
+
+This is the same failure the audit was commissioned to prevent, one level up: the
+provenance of code was checked and the terms of the repository were not.
 
 **Blocked until cleared:** nothing outstanding. Both blockers found by this audit —
 the `PORTED` package and `ru.ok.tracer` — were cleared on 2026-10-05 (see §2 and §3).
