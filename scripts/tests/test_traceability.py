@@ -497,6 +497,7 @@ class CoverageAndResults(unittest.TestCase):
         matrix = build_results(build_coverage({"TASK-REC-01": _spec()}, []), [], "deadbee")
         self.assertIn("deadbee", render_result_matrix(matrix))
 
+
     def test_every_scenario_appears_exactly_once_in_the_table(self):
         # Exactly once per table: a duplicate row means a scenario was counted
         # twice, which would inflate the coverage ratio.
@@ -509,6 +510,60 @@ class CoverageAndResults(unittest.TestCase):
 
     def test_targets_iterate_in_a_fixed_order(self):
         self.assertEqual([t.value for t in ALL_TARGETS], ["android", "desktop"])
+
+class ResultMatrixScopeLine(unittest.TestCase):
+    """A `⌛` column must not read as "not automated" (#150 option 3).
+
+    The Android flows run in a different workflow from the one that builds the
+    matrix, so their column is legitimately empty. Left unexplained, an empty
+    column looks exactly like a coverage hole, and a reader who believes that
+    will not look for the flows that do exist.
+    """
+
+    def _render(self, with_android: bool) -> str:
+        link = _link()
+        flow = Link(
+            scenario=link.scenario,
+            target=Target.ANDROID,
+            level=link.level,
+            carrier=Carrier.MAESTRO,
+            source=REPO_ROOT / "Maestro/flows/tasks/17-create-daily-recurring.yaml",
+            key=None,
+        )
+        links = [link] + ([flow] if with_android else [])
+        results = [(link, "passed", "")]
+        if with_android:
+            results.append((flow, "passed", ""))
+        return render_result_matrix(
+            build_results(build_coverage({"TASK-REC-01": _spec()}, links), results, "abc1234")
+        )
+
+    def test_missing_android_is_explained_not_just_empty(self):
+        rendered = self._render(with_android=False)
+        self.assertIn("android did not report", rendered)
+        self.assertIn("not \"not automated\"", rendered)
+        # The line must name the workflow, or the reader still has nowhere to go.
+        self.assertIn("maestro-smoke.yml", rendered)
+
+    def test_a_full_run_does_not_claim_a_caveat(self):
+        # The caveat is about the CI wiring, not about Android as a target. With
+        # both columns filled it would be noise, and noise in a generated header
+        # is how a real note stops being read.
+        rendered = self._render(with_android=True)
+        self.assertIn("Every target reported", rendered)
+        self.assertNotIn("maestro-smoke.yml", rendered)
+
+    def test_reported_targets_are_named(self):
+        self.assertIn("**Reported here:** desktop", self._render(with_android=False))
+        self.assertIn("**Reported here:** android, desktop", self._render(with_android=True))
+
+    def test_a_run_with_nothing_at_all_says_so(self):
+        matrix = build_results(build_coverage({"TASK-REC-01": _spec()}, []), [], "abc1234")
+        rendered = render_result_matrix(matrix)
+        self.assertIn("No target reported a result", rendered)
+        # Otherwise a fully-empty matrix reads as a table full of not-run cells
+        # that someone forgot to fill, rather than a run that never happened.
+        self.assertNotIn("**Reported here:**", rendered)
 
 
 class LinkInvariants(unittest.TestCase):

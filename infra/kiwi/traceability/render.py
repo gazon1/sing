@@ -12,7 +12,7 @@ timestamp would make every regeneration a diff.
 
 from __future__ import annotations
 
-from traceability.coverage import ALL_TARGETS, Coverage, ResultMatrix
+from traceability.coverage import ALL_TARGETS, Coverage, Outcome, ResultMatrix
 from traceability.spec import ScenarioSpec
 
 __all__ = ["render_coverage_matrix", "render_result_matrix", "GENERATED_BANNER"]
@@ -47,6 +47,49 @@ def _legend_results() -> list[str]:
         "| ⌛ | claimed, but no result at this commit |",
         "| — | target not claimed |",
     ]
+
+
+#: Why an Android column can be empty on a run that did ask for it. Stated in
+#: the artefact itself rather than left to a reader who assumes the flows are
+#: un-automated.
+_ANDROID_CAVEAT = (
+    "The Android flows run in `maestro-smoke.yml`, a different workflow from the "
+    "one that builds this matrix, so their JUnit XML never reaches it. A `⌛` in "
+    "that column means \"not filled here\", not \"not automated\" — the flows are "
+    "tagged and run, and `Maestro/flows/**` is the source for the coverage matrix."
+)
+
+
+def _ran_targets(matrix: ResultMatrix) -> list[str]:
+    """Targets this run produced a result for.
+
+    A target that reported nothing is indistinguishable, from the matrix alone,
+    between "ran and produced nothing" (an error elsewhere) and "was not part of
+    this run". Listing the ones that did report makes the remaining column cells
+    read correctly.
+    """
+    reported = {
+        target
+        for row in matrix.cells.values()
+        for target, cell in row.items()
+        if cell.outcome is not Outcome.NOT_RUN
+    }
+    return [t.value for t in ALL_TARGETS if t in reported]
+
+
+def _scope_line(ran: list[str]) -> str:
+    missing = [t.value for t in ALL_TARGETS if t.value not in ran]
+    if not ran:
+        return (
+            "**No target reported a result in this run** — every cell below is "
+            "`⌛` or `—` by construction, not by outcome."
+        )
+    scope = f"**Reported here:** {', '.join(ran)}."
+    if "android" in missing:
+        return f"{scope} android did not report. {_ANDROID_CAVEAT}"
+    if missing:
+        return f"{scope} {', '.join(missing)} did not report in this run."
+    return f"{scope} Every target reported."
 
 
 def render_coverage_matrix(coverage: Coverage) -> str:
@@ -99,8 +142,16 @@ def render_result_matrix(matrix: ResultMatrix) -> str:
 
     Names the commit in its header because it describes exactly one identified
     commit, and a result matrix that does not say which one is a riddle.
+
+    Also names the targets that actually ran. A permanent ``⌛`` in the Android
+    column otherwise reads as "not automated", which is a different and wrong
+    claim: the flows are automated and tagged, they are executed in a different
+    workflow from the one that builds this matrix, and their JUnit XML is
+    discarded. Saying so in the header is the honest minimum — the alternative
+    was chosen over adding an emulator to the main pipeline.
     """
     coverage = matrix.coverage
+    ran = _ran_targets(matrix)
     lines: list[str] = [
         f"<!-- GENERATED — CI artifact for commit {matrix.commit}. Do not commit. -->",
         "",
@@ -109,6 +160,8 @@ def render_result_matrix(matrix: ResultMatrix) -> str:
         f"**Commit `{matrix.commit}`** — this table describes this commit only.",
         f"Testcases kept: {matrix.kept}, dropped as unlinked: {matrix.dropped}, "
         f"flow results that matched no scenario: {matrix.unmapped}.",
+        "",
+        _scope_line(ran),
         "",
         *_legend_results(),
         "",
