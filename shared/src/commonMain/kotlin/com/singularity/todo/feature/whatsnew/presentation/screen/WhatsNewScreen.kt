@@ -19,10 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.config.RemoteConfigPort
+import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
+import com.singularity.todo.feature.genui.core.A2uiParseOutcome
+import com.singularity.todo.feature.genui.core.A2uiSeverity
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.render.ComponentRegistry
-import com.singularity.todo.feature.genui.render.GenuiRenderer
-import com.singularity.todo.feature.genui.render.material3.Material3Catalog
+import com.singularity.todo.feature.genui.render.GenuiSurface
 import com.singularity.todo.feature.genui.render.rememberDataContext
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
@@ -55,9 +57,13 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
     var surfaceId by remember { mutableStateOf<SurfaceId?>(null) }
     var droppedLines by remember { mutableStateOf(0) }
-    val controller = remember { SurfaceController() }
-    val parser = remember { A2uiParser() }
-    val registry = remember { ComponentRegistry().also { Material3Catalog.install(it) } }
+    // Resolved rather than built here. This screen used to construct its own parser, controller and
+    // registry, which meant the layer's own instances were the ones nothing used — and that two
+    // surfaces in the app would not have shared a data model even if they had been related.
+    val controller: SurfaceController = koinInject()
+    val registry: ComponentRegistry = koinInject()
+    val parser: A2uiParser = koinInject()
+    val processor: A2uiMessageProcessor = koinInject()
 
     val snapshot by remoteConfig.observe().collectAsStateWithLifecycle()
 
@@ -78,12 +84,20 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         }
 
         val lines = payload.lineSequence().filter { it.isNotBlank() }.toList()
-        val parsed = lines.mapNotNull { parser.parseLine(it) }
-        droppedLines = lines.size - parsed.size
+        val outcomes = lines.map { line: String -> parser.parseLine(line) }
+        val rejected = outcomes.count { outcome: A2uiParseOutcome ->
+            outcome is A2uiParseOutcome.Failed ||
+                (outcome is A2uiParseOutcome.Parsed && outcome.errors.any { it.severity != A2uiSeverity.ADVISORY })
+        }
+        droppedLines = rejected
 
         val id = SurfaceId("whatsnew")
         controller.reset()
-        parsed.forEach { controller.apply(it) }
+        outcomes.forEach { outcome: A2uiParseOutcome ->
+            if (outcome is A2uiParseOutcome.Parsed) {
+                processor.apply(outcome.event, outcome.errors)
+            }
+        }
         surfaceId = id
     }
 
@@ -120,10 +134,7 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            GenuiRenderer(
-                surfaceId = currentSurfaceId,
-                ctx = ctx,
-            )
+            GenuiSurface(ctx = ctx)
             if (droppedLines > 0) {
                 Text(
                     text = "$droppedLines release note line(s) couldn't be rendered.",

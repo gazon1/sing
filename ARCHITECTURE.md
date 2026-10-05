@@ -48,7 +48,7 @@
 | `projects/` | `ProjectsScreen` | `ProjectsViewModel`, `ProjectDetail`, `ProjectEditorViewModel` | `ProjectsRepository` |
 | `tags/` | — | `TagsViewModel` | `TagsRepository` |
 | `search/` | — | — | — |
-| `ai/` | `ChatScreen` | `ChatViewModel`, `GenUi*ViewModel` | — |
+| `ai/` | `ChatScreen` | `ChatViewModel` | — |
 | `auth/` | `LoginScreen` | `AuthViewModel` | `AuthRepository` |
 | `settings/` | `SettingsScreen` + sub-screens | `SettingsViewModel`, `AccountSettingsViewModel`, `TagPickerViewModel` | `SettingsRepository` |
 | `backup/` | `BackupScreen` | `BackupViewModel` | `BackupRepository` |
@@ -58,7 +58,7 @@
 | `archive/` | — | `ArchiveViewModel` | — |
 | `calendar/` | `CalendarScreen` | `CalendarViewModel` | — |
 | `checklist/` | — | `ChecklistViewModel` | `ChecklistRepository` |
-| `genui/` | — | `GenUi*ViewModel` | — |
+| `genui/` | — | — | — |
 | `pomodoro/` | — | `PomodoroViewModel` | — |
 | `profile/` | — | `ProfileViewModel` | `ProfileRepository` |
 | `statistics/` | — | `StatisticsViewModel` | — |
@@ -467,6 +467,7 @@ when (val result = repo.create(task)) {
 | R12 | Custom detekt rule `PassThroughUseCase` | `detekt-rules/` module — live rule в `:detekt-rules` |
 | R16 | FakeReminderRepository централизован | `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt` |
 | R23 | GenUI subsystem ADR | `feature/genui/` — catalog, parser, render, schema |
+| 2026-10-05 | GenUI catalog as contract | `feature/genui/catalog/` is the one declaration; `core/` parses, validates and applies; `engine/` talks to the model |
 
 ### ❌ Отменено
 

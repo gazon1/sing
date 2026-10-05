@@ -37,6 +37,15 @@ sourceSets {
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             // TestLogging installs a Kermit writer, for the same reason.
             implementation(libs.kermit)
+            // GenuiSurface collects with collectAsStateWithLifecycle, which needs a
+            // LifecycleOwner. The app's window supplies one; a bare setContent does not, so the
+            // harness has to provide its own or every surface renders nothing and every assertion
+            // fails on a missing node rather than on anything the test is about.
+            implementation(libs.androidx.lifecycle.runtime.compose)
+            // The GenUI render harness exposes data-model values (JsonElement, JsonObject) to
+            // assert what a bound field wrote; :shared declares serialization as
+            // `implementation`, so it is not visible transitively.
+            implementation(libs.kotlinx.serialization.json)
             // No vintage engine: every desktop test is Jupiter (`kotlin.test.Test`).
             // Under vintage, `org.junit.jupiter.api.Tag` was invisible to
             // `includeTags(...)`, so `-Ptest.tags=fast,slow` silently selected 4 of 28

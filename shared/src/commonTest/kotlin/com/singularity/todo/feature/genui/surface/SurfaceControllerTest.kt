@@ -60,7 +60,7 @@ class SurfaceControllerTest {
         )
         val surface = ctrl.surfaces.value[SurfaceId("s1")]
         assertNotNull(surface)
-        assertEquals(2, surface!!.components.size)
+        assertEquals(2, surface.components.size)
         assertNotNull(surface.components["r2"])
     }
 
@@ -91,7 +91,7 @@ class SurfaceControllerTest {
         assertNotNull(surface)
         assertEquals(
             kotlinx.serialization.json.JsonPrimitive("Alice"),
-            surface!!.dataModel.get(com.singularity.todo.feature.genui.schema.UiPath.of("name")),
+            surface.dataModel.get(com.singularity.todo.feature.genui.schema.UiPath.of("name")),
         )
     }
 
@@ -110,9 +110,11 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun applyParseErrorDoesNotCrashAndDoesNotChangeState() {
+    fun applyingAnUpdateToAnUnknownSurfaceChangesNothing() {
+        // A message for a surface that was never created used to arrive as a no-op with no
+        // explanation; the reason it is a no-op is now reported by the caller as UNKNOWN_SURFACE.
         val ctrl = SurfaceController()
-        ctrl.apply(UiEvent.ParseError(input = "bad json", message = "invalid"))
+        ctrl.apply(UiEvent.UpdateComponents(SurfaceId("absent"), mapOf("t" to UiNode.Text("x"))))
         assertEquals(emptyMap<SurfaceId, Surface>(), ctrl.surfaces.value)
     }
 
