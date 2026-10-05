@@ -140,6 +140,87 @@ class SyncEnginePullTest {
         }
     }
 
+    // ── #176: a cycle drains the feed, or says it could not ───────────────────
+
+    @Test
+    fun `a backlog larger than one page is drained in the same cycle`() = runTest {
+        // The defect: one request per cycle and no loop. An account with 250 pending
+        // changes got 50 of them, reported "synced", and left the other 200 for a cycle
+        // that would only run if something else triggered it.
+        val api = FakeSyncApiClient(pullEvents = (1..250).map { taskEvent(it.toLong() * 10) })
+        val auth = FakeSyncAuthRepository(signedIn())
+        val state = FakeSyncStateRepository()
+        val syncScope = scopeFor(auth)
+        val applied = mutableListOf<Long>()
+        val engine = engine(api, this, stateRepository = state, auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(applied))
+
+        val pull = (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+
+        assertEquals(250, applied.size, "the cycle must not stop at the end of the first page")
+        assertEquals(250, pull.received)
+        assertEquals(250, pull.applied)
+        // And the stored cursor is the end of the last page, not the end of the first.
+        assertEquals(2500L, state.lastLsn(syncScope))
+    }
+
+    @Test
+    fun `a backlog that fits one page asks exactly once`() = runTest {
+        // The other side of the loop: an account with nothing to do must not pay for a
+        // second round trip, or every idle sync becomes two requests forever.
+        val api = FakeSyncApiClient(pullEvents = (1..10).map { taskEvent(it.toLong()) })
+        val auth = FakeSyncAuthRepository(signedIn())
+        val engine = engine(api, this, stateRepository = FakeSyncStateRepository(), auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(mutableListOf()))
+
+        (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+
+        assertEquals(1, api.pullCalls.size, "a short page is the end of the feed; asking again is waste")
+    }
+
+    @Test
+    fun `a page that is exactly full is followed by one more request, and the empty answer is the end`() = runTest {
+        val api = FakeSyncApiClient(
+            pullEvents = (1..PULL_PAGE_SIZE).map { taskEvent(it.toLong()) },
+        )
+        val auth = FakeSyncAuthRepository(signedIn())
+        val engine = engine(api, this, stateRepository = FakeSyncStateRepository(), auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(mutableListOf()))
+
+        (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+
+        // A full page is not proof that more exists, and it is not proof that it does
+        // not. The only way to know is to ask, and the empty answer is the proof.
+        assertEquals(2, api.pullCalls.size)
+        assertEquals(
+            PULL_PAGE_SIZE.toLong(),
+            api.pullCalls.last().second,
+            "the second request must resume after the last event of the first page",
+        )
+    }
+
+    @Test
+    fun `a feed that never advances stops instead of asking for the same page forever`() = runTest {
+        // A server that ignores the position and answers with the same page is the one
+        // failure mode a loop adds that a single request could not have: without the
+        // guard this is an infinite loop, which in a sync cycle is a hang that looks
+        // like a busy app.
+        val stuck = FakeSyncApiClient(
+            pullEvents = listOf(taskEvent(1), taskEvent(2)),
+        ).apply { ignoreSinceLsn = true }
+        val auth = FakeSyncAuthRepository(signedIn())
+        val engine = engine(stuck, this, stateRepository = FakeSyncStateRepository(), auth = auth)
+        engine.registerHandler(DocType.Task, recordApplied(mutableListOf()))
+
+        val outcome = engine.syncOnce()
+
+        assertTrue(
+            (outcome as SyncOutcome.Success).pull.isSuccess,
+            "a feed that will not advance is the server's problem to report, not a " +
+                "reason to fail the user's cycle: $outcome",
+        )
+    }
+
     // ── #175: an event that was not applied must not be reported as applied ──
     //
     // Both of these were `ApplyOutcome.Applied`. That one value is what made the loss

@@ -35,6 +35,18 @@ data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int)
 data class PullSummary(val received: Int, val applied: Int, val conflicts: Int, val dropped: Int = 0)
 
 /**
+ * How many events one pull request asks for.
+ *
+ * A page is the unit the feed is read in, and the loop reads until a short page says
+ * it has reached the end. The value is a trade, not a constant of nature: a larger page
+ * means fewer round trips and a longer pause holding the status as [Pulling], a smaller
+ * one means the opposite. 100 is an order of magnitude above the median backlog and far
+ * below the point where a page takes noticeable time to apply, so most cycles finish in
+ * one request and the ones that do not are the ones that genuinely had more to read.
+ */
+const val PULL_PAGE_SIZE = 100
+
+/**
  * Outcome of a single sync run (push + pull).
  */
 sealed interface SyncOutcome {
@@ -526,62 +538,70 @@ internal class SyncEngine(
         _status.value = SyncEngineStatus.Pulling
 
         return try {
-            val events = api.getEventsSince(sinceLsn)
+            var received = 0
             var applied = 0
             var conflicts = 0
             var dropped = 0
             var maxLsn = sinceLsn
-            // Set when the loop stops early, so the cycle reports why instead of
-            // reporting the partial page as a completed one.
             var stalled: String? = null
+            // The position the *next* request reads from. Distinct from maxLsn, which
+            // is the position that was actually dealt with and is the one stored: if a
+            // page ends and the next request resumes from maxLsn, a page that was
+            // fetched but not fully applied would be fetched again — which is correct —
+            // and a page that was fully applied would be fetched twice, which is not.
+            var readFrom = sinceLsn
+            // Whether a page came back exactly full, which is the only signal a
+            // client-only loop has that more may exist. Never treated as "there is
+            // more"; only as "we cannot tell", which is what gets said out loud.
+            var lastPageFull = false
 
-            for (event in events) {
-                when (val step = applyEvent(event, scope)) {
-                    is PullStep.Done -> {
-                        if (step.conflicted) conflicts++ else applied++
-                        maxLsn = maxOf(maxLsn, event.serverLsn)
-                    }
+            // Four ways out of a loop, each with a reason, reads as four reasons to
+            // forget one. The guard is a condition and the exits are statements, so
+            // every way the loop can end is visible in one place.
+            var keepGoing = true
+            while (keepGoing) {
+                val page = api.getEventsSince(readFrom, limit = PULL_PAGE_SIZE)
+                if (page.isEmpty()) {
+                    keepGoing = false
+                } else {
+                    received += page.size
+                    lastPageFull = page.size >= PULL_PAGE_SIZE
 
-                    PullStep.Skipped -> {
-                        // Another profile's event, in a feed that is per *owner*. The
-                        // cursor advances past it: the log interleaves every profile of
-                        // the account, so treating this as "not applicable" would freeze
-                        // the cursor at the first one and the account would never sync
-                        // anything again. It is counted as dropped so the summary is
-                        // honest about what arrived.
-                        dropped++
-                        maxLsn = maxOf(maxLsn, event.serverLsn)
-                    }
+                    val outcome = applyPage(page, scope)
+                    applied += outcome.applied
+                    conflicts += outcome.conflicts
+                    dropped += outcome.dropped
+                    maxLsn = maxOf(maxLsn, outcome.maxLsn)
+                    stalled = outcome.stalled
 
-                    is PullStep.AppliedButUnusable -> {
-                        // Never applicable, so never retried — but also never *applied*,
-                        // and the two must not be reported the same way. Advancing the
-                        // cursor is correct; calling this a success is what made the loss
-                        // silent.
-                        dropped++
-                        maxLsn = maxOf(maxLsn, event.serverLsn)
+                    // Resume after the last thing this page carried, which is the whole
+                    // page: everything in it was dealt with.
+                    val next = page.maxOf { it.serverLsn }
+                    if (next <= readFrom) {
+                        // No progress. The server answered with events at or before
+                        // the position asked from, so asking again returns the same
+                        // page. This is a loop that would otherwise never end, and it
+                        // is the one failure mode a client-only pagination adds that a
+                        // single request could not have.
                         log.w {
-                            "Skipping unusable event at lsn=${event.serverLsn}: " +
-                                "${step.reason}; cursor advances, the change is not applied"
+                            "The feed returned no position past lsn=$readFrom; " +
+                                "stopping rather than asking again for the same page"
                         }
+                        keepGoing = false
+                    } else {
+                        readFrom = next
+                        // A short page is the end of the feed. A full one is not proof
+                        // of anything either way, so the loop asks once more and the
+                        // emptiness of that answer is the proof.
+                        keepGoing = stalled == null && lastPageFull
                     }
+                }
+            }
 
-                    PullStep.Unappliable -> {
-                        // The cursor does NOT advance past this event, and the pull stops
-                        // here. The previous code did `maxLsn = maxOf(maxLsn, lsn)` first
-                        // and then `?: return@forEach`, so an event whose type this client
-                        // cannot handle advanced the cursor anyway and was never applied
-                        // again: the server considered it delivered, the client considered
-                        // it done, and the data was gone. The only trace was a pull summary
-                        // that said it had received the event and applied nothing.
-                        dropped++
-                        stalled = "an event this client cannot apply is at lsn=${event.serverLsn}"
-                        log.w {
-                            "Dropping event at lsn=${event.serverLsn} for unknown type " +
-                                "${event.entityType.key}; cursor stays at $maxLsn"
-                        }
-                        break
-                    }
+            if (lastPageFull && stalled == null) {
+                log.d {
+                    "A page of exactly $PULL_PAGE_SIZE events arrived; the feed may hold " +
+                        "more, and a client-only loop cannot tell. The next cycle asks again."
                 }
             }
 
@@ -593,7 +613,7 @@ internal class SyncEngine(
             // Stamp lastSuccessfulSyncAt so the UI "Last synced" field stays current.
             stateRepository.recordSuccessfulSync(scope, now())
 
-            val summary = PullSummary(events.size, applied, conflicts, dropped)
+            val summary = PullSummary(received, applied, conflicts, dropped)
 
             // A cycle that stopped early is not a cycle that finished. Reporting it as
             // a success stamped "last synced" on a device that is now stuck behind an
@@ -622,16 +642,6 @@ internal class SyncEngine(
             phases.pullFailed(e.toAppError(), sinceLsn)
         }
     }
-
-    /**
-     * Moves the in-flight shadow to confirmed, or releases it.
-     *
-     * Called for every patch the server answers for, and never for one it did not:
-     * a patch that is still in the outbox owns its in-flight marker, and a shadow
-     * promoted for a patch the server never saw would make the next edit diff
-     * against a state the server does not have, which is silent divergence rather
-     * than a visible failure.
-     */
     private suspend fun settleShadow(
         patch: DeltaPatch,
         applied: Boolean,
@@ -660,4 +670,80 @@ internal class SyncEngine(
             )
         }
     }
+
+    /**
+     * One page of the feed, dealt with, and what it cost.
+     *
+     * Split out of [pull] because the loop and the classification are two different
+     * questions and the second is the one worth reading on its own: for each event,
+     * what it means for the cursor. A page that stops early says so in [stalled]
+     * rather than returning, because the caller has a cursor and a summary to settle
+     * and must not settle them twice.
+     */
+    private suspend fun applyPage(page: List<SyncEvent>, scope: SyncScope): PageOutcome {
+        var applied = 0
+        var conflicts = 0
+        var dropped = 0
+        var maxLsn = 0L
+        var stalled: String? = null
+
+        for (event in page) {
+            when (val step = applyEvent(event, scope)) {
+                is PullStep.Done -> {
+                    if (step.conflicted) conflicts++ else applied++
+                    maxLsn = maxOf(maxLsn, event.serverLsn)
+                }
+
+                PullStep.Skipped -> {
+                    // Another profile's event, in a feed that is per *owner*. The cursor
+                    // advances past it: the log interleaves every profile of the
+                    // account, so treating this as "not applicable" would freeze the
+                    // cursor at the first one and the account would never sync anything
+                    // again. It is counted as dropped so the summary is honest about
+                    // what arrived.
+                    dropped++
+                    maxLsn = maxOf(maxLsn, event.serverLsn)
+                }
+
+                is PullStep.AppliedButUnusable -> {
+                    // Never applicable, so never retried — but also never *applied*, and
+                    // the two must not be reported the same way. Advancing the cursor is
+                    // correct; calling this a success is what made the loss silent.
+                    dropped++
+                    maxLsn = maxOf(maxLsn, event.serverLsn)
+                    log.w {
+                        "Skipping unusable event at lsn=${event.serverLsn}: ${step.reason}; " +
+                            "cursor advances, the change is not applied"
+                    }
+                }
+
+                PullStep.Unappliable -> {
+                    // The cursor does NOT advance past this event, and the page stops
+                    // here. The previous code did `maxLsn = maxOf(maxLsn, lsn)` first
+                    // and then `?: return@forEach`, so an event whose type this client
+                    // cannot handle advanced the cursor anyway and was never applied
+                    // again: the server considered it delivered, the client considered
+                    // it done, and the data was gone. The only trace was a pull summary
+                    // that said it had received the event and applied nothing.
+                    dropped++
+                    stalled = "an event this client cannot apply is at lsn=${event.serverLsn}"
+                    log.w {
+                        "Dropping event at lsn=${event.serverLsn} for unknown type " +
+                            "${event.entityType.key}; cursor stays at $maxLsn"
+                    }
+                    break
+                }
+            }
+        }
+        return PageOutcome(applied, conflicts, dropped, maxLsn, stalled)
+    }
+
+    /** What one page of the feed cost, and whether it stopped early. */
+    private data class PageOutcome(
+        val applied: Int,
+        val conflicts: Int,
+        val dropped: Int,
+        val maxLsn: Long,
+        val stalled: String?,
+    )
 }

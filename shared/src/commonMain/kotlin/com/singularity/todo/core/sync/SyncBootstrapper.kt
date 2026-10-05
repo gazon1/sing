@@ -132,8 +132,24 @@ internal class SyncBootstrapper(
                 }
 
                 SyncEventType.DELETED -> {
-                    // Convert entityId String → typed ID at the boundary, then call repo.delete().
-                    // Soft-delete is applied when the entity supports it; hard-delete repos ignore it.
+                    // Convert entityId String to the typed ID at the boundary, then ask
+                    // the repository to delete.
+                    //
+                    // Every implementation dispatched to here makes that a *soft* delete —
+                    // `TaskRepositoryImpl.delete` delegates to `softDelete`, and the rest
+                    // call `softDeleteForUser` — which is what keeps the trash item on the
+                    // receiving device instead of destroying it. That is a property of
+                    // those repositories, not of this dispatch, and nothing here checks
+                    // it: a new synced type whose `delete` is a genuine hard delete would
+                    // silently remove the row — trash and all — on every other device,
+                    // and nothing would say so. See #196.
+                    //
+                    // A `RESTORED` event does not come here. It is handled above, in the
+                    // same branch as `CREATED` and `UPDATED`, and applied as an ordinary
+                    // upsert of a document whose delete marker is clear. That is a
+                    // different operation from `SoftDeletable.restore`, and the two are
+                    // kept consistent only by the server putting the right document in
+                    // the event.
                     val outcome: Result<Unit> = when (event.entityType) {
                         DocType.Task -> taskRepo.delete(TaskId.fromString(event.entityId))
 

@@ -131,6 +131,18 @@ class FakeSyncApiClient(
     var failWith: Throwable? = null
 
     /**
+     * When set, [getEventsSince] ignores the position it is given and answers from
+     * the start of [pullEvents] every time.
+     *
+     * Models a server that does not honour the cursor — a proxy that caches, a
+     * read replica lagging, a bug in the RPC. It is here because a pagination loop
+     * must terminate against it: a loop that only ever meets a well-behaved feed
+     * cannot be shown to stop, and not stopping is a hang the user sees as a busy
+     * app rather than as a sync that made no progress.
+     */
+    var ignoreSinceLsn: Boolean = false
+
+    /**
      * Answers for successive pushes, drained before [pushResponse].
      *
      * The constructor takes one response for every call, which is enough for a test
@@ -151,7 +163,7 @@ class FakeSyncApiClient(
         pullCalls.add(authenticatedAs to sinceLsn)
         failWith?.let { throw it }
         return pullEvents
-            .filter { it.serverLsn > sinceLsn }
+            .filter { ignoreSinceLsn || it.serverLsn > sinceLsn }
             .sortedBy { it.serverLsn }
             .take(limit)
     }
