@@ -3131,7 +3131,21 @@ genuinely are not.
 **Found in:** 2026-10-05, while assessing what stands between the tree and the
 first paid feature.
 
-**Status: OPEN**
+**Status: CLOSED — 2026-10-05. Both defects fixed; the port is still unconsumed, which is now a deliberate state rather than an oversight.** Closed by
+`docs/decisions/2026-10-05-entitlement-is-scoped-by-sync-scope.md` and
+`openspec/changes/entitlement-belongs-to-a-sync-scope/`.
+
+The cast that denied paying customers is gone: `entitlement(scope): StateFlow<Entitlement>`
+is read-only in its signature, so there is no mutable supertype to downcast to.
+`hasAccount` is independent of subscription, `Unknown` is separate from a denial, and
+`refresh` returns `Result` so an outage cannot present itself as a paywall. Entitlement is
+scoped by `SyncScope` — the pair sync state belongs to — and the positive case that was
+named-but-never-written now exists against a fake shaped like a real provider.
+
+What remains true and is not a defect: no real billing provider is connected, so every
+scope reads `Unknown`. That is the honest state of a project that has not shipped a paid
+feature. Wiring the first paid feature is now a consumer question rather than a
+port-correctness one.
 
 **Tracked as:** #204
 

@@ -1,11 +1,11 @@
-@file:Suppress("NoDirectClockSystem")
-// Forwards a `now` to `TimeEntryEditorSheet`, which takes it as a required parameter.
-// The read here is *choosing* the value, not inventing one — the sheet is the thing
-// that was fixed. Threading the choice from the one place that resolves the clock
-// is four signature changes across three screens, ending in a call no desktop
-// Compose test on this host can execute (#201). Recorded in ADR
-// `2026-10-05-today-is-two-required-parameters`; `check-suppression-intent.py`
-// requires this reason to exist, which is the enforcement this needs.
+// `now` is a required parameter, passed on to `TimeEntryEditorSheet` and to the
+// nested `TaskEditorContent`, exactly as `TaskDetailContent` does. This screen has
+// no call site — `find-unwired-surfaces.py` reports it, and `dad11e6b`'s note says
+// deleting another branch's deliberate carrier is the owner's call, not this one's.
+// It is threaded anyway because `TaskEditorContent` now requires the argument and
+// this file calls it: leaving the read here would keep a wall-clock call alive in a
+// screen nobody can currently reach, which is the shape that gets re-wired later
+// with the defect intact.
 
 package com.singularity.todo.feature.tasks.presentation.screen
 
@@ -79,13 +79,16 @@ import com.singularity.todo.feature.timetracking.presentation.components.TimeEnt
 import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Task detail screen (View mode) for the tasks nested navigation graph.
  */
 @Composable
-fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) {
+fun TaskDetailViewScreen(
+    taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+    now: Instant,
+) {
     val vm: TaskDetailCoordinator = koinViewModel { parametersOf(taskId) }
     val navigator = LocalTasksNavigator.current
     val state by vm.state.collectAsStateWithLifecycle()
@@ -246,6 +249,7 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                     },
                     onBack = { navigator.back() },
                     onAiClick = { showAiSheet = true },
+                    now = now,
                 )
 
                 if (showAiSheet) {
@@ -262,8 +266,7 @@ fun TaskDetailViewScreen(taskId: com.singularity.todo.feature.tasks.domain.model
                 if (showTimeEntrySheet) {
                     TimeEntryEditorSheet(
                         taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
-                        // See `TaskEditorSheetsHost` — the same reason (#91).
-                        now = Clock.System.now(),
+                        now = now,
                         onSave = { startedAtMs, endedAtMs, kind, note ->
                             vm.onIntent(
                                 TaskDetailIntent.Domain.CreateManual(

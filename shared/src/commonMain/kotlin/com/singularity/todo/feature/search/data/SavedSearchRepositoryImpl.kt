@@ -21,9 +21,20 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * The parameter was declared and never read — `clock` appeared once in the file,
  * on its own declaration line, and its default was the only reason the rule had
  * anything to report here. It was almost certainly copied from
- * `SavedAgendaViewsRepositoryImpl`, which does read its clock. Whether saved
- * searches *should* be timestamped from an injected clock is a behaviour
- * question and is tracked in #192 rather than answered here.
+ * `SavedAgendaViewsRepositoryImpl`, which does read its clock.
+ *
+ * Answered 2026-10-05 (#192): a saved search *does* depend on the moment it is
+ * run, and it always has — but the clock belongs one layer up. `due:<n days>`
+ * is turned into a date range by `DefaultSearchQueryResolver`, which takes
+ * `Clock` and `TimeZoneProvider` as required parameters and recomputes the range
+ * from `todayAt(clock, zone)` on every `resolve`, so a search saved on Tuesday
+ * and opened on Friday asks about Friday. This repository stores the query
+ * string and maps rows; it computes no date at all, so a `Clock` here would be
+ * a parameter that exists only to look deliberate.
+ *
+ * So the answer is: recompute from now, and the recomputation already has its
+ * clock. Re-adding the parameter would recreate the dead line under a better
+ * justification, which is the same defect with a comment attached.
  *
  * The suppression carried no reason, so it switched the rule off for a whole
  * file over the one line that had been written in the codebase's own injectable

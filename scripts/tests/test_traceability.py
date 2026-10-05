@@ -27,9 +27,12 @@ if str(_KIWI_DIR) not in sys.path:
 from traceability import ValidationError  # noqa: E402
 from traceability.coverage import (  # noqa: E402
     ALL_TARGETS,
+    CellState,
+    CoverageCell,
     Outcome,
     build_coverage,
     build_results,
+    classify,
 )
 from traceability.junit_xml import parse_junit  # noqa: E402
 from traceability.kiwi_publish import OUTCOME_TO_KIWI, build_runs, run_publish  # noqa: E402
@@ -1674,3 +1677,81 @@ class CarrierRefusesUnreachableTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("dry run", result.stdout)
+
+
+class CellStatePrecedence(unittest.TestCase):
+    """The five states, and the one function that decides between them.
+
+    `CoverageCell` used to carry four independent booleans. That let a caller
+    build a cell nothing could render — `claimed=False, automated=True` most
+    plainly — and the glyph cascade quietly fell through and printed the
+    unclaimed dash, so an impossible cell was indistinguishable from an ordinary
+    one. These tests pin the replacement: one value, a fixed precedence, and no
+    way to say something the matrix has no column for.
+    """
+
+    def test_there_are_exactly_five_states(self):
+        # A sixth state is a change of model, not an addition, and the glyph
+        # table has to grow with it.
+        self.assertEqual(len(list(CellState)), 5)
+
+    def test_every_state_has_its_own_glyph(self):
+        glyphs = [state.glyph for state in CellState]
+        self.assertEqual(len(set(glyphs)), len(glyphs), glyphs)
+
+    def test_a_retired_scenario_outranks_a_carrier(self):
+        # The case the booleans could not express without contradiction: a
+        # scenario retired *after* it was automated. Rendering it `●` would keep
+        # it in the matrix forever, looking supplied.
+        self.assertIs(
+            classify(claimed=True, automated=True, deprecated=True, reachable=True),
+            CellState.RETIRED,
+        )
+
+    def test_reachability_only_distinguishes_two_kinds_of_hole(self):
+        self.assertIs(
+            classify(claimed=True, automated=False, deprecated=False, reachable=True),
+            CellState.HOLE,
+        )
+        self.assertIs(
+            classify(claimed=True, automated=False, deprecated=False, reachable=False),
+            CellState.UNREACHABLE,
+        )
+
+    def test_an_unclaimed_target_is_never_a_hole(self):
+        self.assertIs(
+            classify(claimed=False, automated=False, deprecated=False, reachable=True),
+            CellState.UNCLAIMED,
+        )
+
+    def test_the_unsatisfiable_input_folds_to_something_renderable(self):
+        # `claimed and not automated` is the state the old shape could not
+        # refuse. It now reads as unclaimed, which is the only claim about the
+        # target that is actually true.
+        self.assertIs(
+            classify(claimed=False, automated=True, deprecated=False, reachable=True),
+            CellState.UNCLAIMED,
+        )
+
+    def test_hole_predicates_cover_exactly_the_unsupplied_claims(self):
+        holes = {state for state in CellState if state.is_hole}
+        self.assertEqual(holes, {CellState.HOLE, CellState.UNREACHABLE})
+        unreachable = {state for state in CellState if not state.is_claimed}
+        self.assertEqual(unreachable, {CellState.UNCLAIMED})
+
+    def test_the_cell_no_longer_accepts_the_old_booleans(self):
+        # The point of the refactor, stated as a test: the four facts are
+        # consumed once, by `classify`. A caller that still has them cannot hand
+        # them over, so the impossible combinations cannot be constructed at all
+        # rather than being constructed and quietly rendered wrong.
+        with self.assertRaises(TypeError):
+            CoverageCell(claimed=True, automated=False)  # type: ignore[call-arg]
+
+    def test_a_retired_scenario_is_recorded_but_not_owed(self):
+        # `is_claimed` keeps the row, `is_obligation` drops it from the
+        # denominator. render.py depends on that split to avoid the
+        # "0/2 claimed cells automated · 0 holes" contradiction.
+        self.assertTrue(CellState.RETIRED.is_claimed)
+        self.assertFalse(CellState.RETIRED.is_obligation)
+        self.assertFalse(CellState.UNCLAIMED.is_claimed)
+        self.assertTrue(CellState.AUTOMATED.is_obligation)

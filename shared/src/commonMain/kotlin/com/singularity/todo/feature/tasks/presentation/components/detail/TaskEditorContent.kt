@@ -1,12 +1,11 @@
-@file:Suppress("NoDirectClockSystem")
-// Forwards a `now` to `TimeEntryEditorSheet`, which takes it as a required parameter.
-// The read here is *choosing* the value, not inventing one — the sheet is the thing
-// that was fixed. Threading the choice from the one place that resolves the clock
-// is four signature changes across three screens, ending in a call no desktop
-// Compose test on this host can execute (#201). Recorded in ADR
-// `2026-10-05-today-is-two-required-parameters`; `check-suppression-intent.py`
-// requires this reason to exist, which is the enforcement this needs.
-
+// `now` is a required parameter, threaded from the entry point down to
+// `TimeEntryEditorSheet`, which takes it as required. It used to be read here as
+// `Clock.System.now()` behind a file-level suppression whose recorded reason was
+// "threading it is four signature changes across three screens, ending in a call
+// no desktop Compose test on this host can execute (#201)". That reason is now
+// paid: the signature change is not the obstacle it was described as, and a
+// suppression whose justification is "we have not done the work yet" is a
+// suppression that outlives its justification.
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.layout.Arrangement
@@ -56,7 +55,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import androidx.compose.material3.MaterialTheme
-import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Unified task editor Composable for both Create and View modes.
@@ -139,6 +138,7 @@ fun TaskEditorContent(
     menuItems: List<TaskEditorMenuItem>,
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
+    now: Instant,
 ) {
     val sheets = rememberDialogState<TaskEditorSheet>()
     var showMenu by remember { mutableStateOf(false) }
@@ -378,9 +378,11 @@ fun TaskEditorContent(
             menuItems = menuItems,
         ),
         activeSheet = sheets.active,
-        // Passed down so the time-entry sheet's "now" default comes from one place
-        // in the screen rather than from a clock it reads itself (#91).
-        now = Clock.System.now(),
+        // Passed down so the time-entry sheet's "now" default comes from the one
+        // place that resolved the clock, rather than from a clock this screen
+        // reaches for itself (#91). `now` is required, so a caller that has not
+        // decided what "now" is cannot compile.
+        now = now,
         onSheetDismiss = { sheets.dismiss() },
     )
 }
@@ -411,7 +413,12 @@ private fun StartDateRow(
  * Used by [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
  */
 @Composable
-fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, isCompleted: Boolean = false) {
+fun TaskEditorContent(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    isCompleted: Boolean = false,
+    now: Instant,
+) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
         titleDraft = model.titleDraft,
@@ -452,6 +459,7 @@ fun TaskEditorContent(model: TaskEditorModel, callbacks: TaskEditorCallbacks, is
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
+        now = now,
     )
 }
 
@@ -506,6 +514,7 @@ private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, u
         bottomBar = null,
         menuItems = emptyList(),
         onBack = {},
+        now = PreviewSamples.now,
     )
 }
 
@@ -540,6 +549,7 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
 
         ),
         onBack = {},
+        now = PreviewSamples.now,
     )
 }
 
@@ -575,5 +585,6 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
 
         ),
         onBack = {},
+        now = PreviewSamples.now,
     )
 }

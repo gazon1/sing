@@ -139,11 +139,18 @@ class NoDirectClockSystemWhitelistTest {
     }
 
     @Test
-    fun `the test fakes directory is allowed`() {
-        // Structural exemption, added with the `FakeRepositories.kt` cleanup: a
-        // directory whose files are all test doubles, in the rule rather than as a
-        // per-file `@file:Suppress`.
-        assertTrue(
+    fun `a fake reading the system clock is no longer allowed`() {
+        // The `/test/fakes/` exemption existed only while `FakeRepositories.kt`
+        // stamped entity timestamps with `Clock.System.now()`. Those 20 reads now
+        // go through an injected `Clock` defaulting to `FakeClock`, so nothing
+        // under the directory reads the wall clock and the exemption matches
+        // nothing. An allowance that matches nothing is indistinguishable from a
+        // working check, and it would silently re-open the door the next time a
+        // fake reached for `Clock.System` — in a file nobody would think to audit,
+        // because fakes are exempt by design in every other project this borrows
+        // conventions from.
+        assertEquals(
+            false,
             NoDirectClockSystemRule(TestConfig()).isAllowedPath(
                 "/repo/shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt",
             ),
@@ -151,23 +158,30 @@ class NoDirectClockSystemWhitelistTest {
     }
 
     @Test
-    fun `a production file outside the fakes directory is still reported`() {
-        // The point of a directory entry rather than a name match: `Fake` in a
-        // filename does not make a file a fake.
+    fun `no file under the fakes directory reads the system clock`() {
+        // The positive control for the entry removed above: the exemption is gone
+        // because the reads are gone, not because the check was loosened.
+        //
+        // This runs the real rule over the real files rather than grepping them
+        // for the string "Clock.System". A grep would flag the file's own
+        // header comment, which names the call it replaced — and a guard that
+        // fails when someone explains themselves is a guard that gets deleted.
+        val rule = NoDirectClockSystemRule(TestConfig())
+        val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
+        val offenders = repoFiles()
+            .filter { it.contains("/test/fakes/") }
+            .mapNotNull { path ->
+                val source = File(repoRoot(), path)
+                if (!source.isFile) return@mapNotNull null
+                val ktFile = compileContentForTest(source.readText(), "com.example")
+                rule.visitFile(ktFile, languageSettings)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { path }
+            }
         assertEquals(
-            false,
-            NoDirectClockSystemRule(TestConfig()).isAllowedPath(
-                "/repo/shared/src/commonMain/kotlin/com/singularity/todo/feature/FakeThing.kt",
-            ),
-        )
-    }
-
-    @Test
-    fun `the fakes directory exists in the tree`() {
-        val matches = repoFiles().filter { it.contains("/test/fakes/") }
-        assertTrue(
-            matches.isNotEmpty(),
-            "no file in the repo sits under /test/fakes/ — the allow-list entry is stale",
+            emptyList<String>(),
+            offenders,
+            "a test double reads the wall clock — pass a `Clock` (default `FakeClock`) instead",
         )
     }
 
@@ -204,12 +218,16 @@ class NoDirectClockSystemWhitelistTest {
 }
 
 /** Repo-relative paths of every .kt file, used to assert whitelist targets still exist. */
-private fun repoFiles(): List<String> {
+private fun repoRoot(): File {
     var dir = File(".").absoluteFile
     while (!File(dir, "settings.gradle.kts").isFile && dir.parentFile != null) {
         dir = dir.parentFile
     }
-    val root = dir
+    return dir
+}
+
+private fun repoFiles(): List<String> {
+    val root = repoRoot()
     return root.walkTopDown()
         .filter { it.isFile && it.name.endsWith(".kt") }
         .map { it.relativeTo(root).invariantSeparatorsPath }

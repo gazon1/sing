@@ -188,7 +188,14 @@ class SettingsViewModel(
 
     private fun openAttachmentsFolder() {
         vmScope.launch {
-            fileRevealer.revealAttachmentsFolder(fileRevealer.attachmentsBasePath())
+            val opened = fileRevealer.revealAttachmentsFolder(fileRevealer.attachmentsBasePath())
+            // The port answers with a boolean precisely so this branch can
+            // exist. Swallowing it would leave the button looking broken with no
+            // way to tell a refused file manager from a folder that simply took
+            // a moment to open.
+            if (!opened) {
+                updateState { it.copy(errorMessage = "Could not open the attachments folder") }
+            }
         }
     }
 
