@@ -2,8 +2,13 @@
 # 📜 SCRIPTS — bench, refresh-decisions, android-ui-tests, os-validate
 # Wrappers around existing project scripts in ./scripts/
 # ==============================================================================
-
-OPENSPEC_BIN := "/home/max/.nvm/versions/node/v24.14.0/lib/node_modules/@fission-ai/openspec/bin/openspec.js"
+#
+# There is deliberately no OpenSpec path constant here. An earlier version had
+# `OPENSPEC_BIN := "/home/<user>/.nvm/..."`, which was wrong twice over: it named
+# one developer's machine, and the `os-validate` recipe reads a *shell* variable
+# (`${OPENSPEC_BIN:-}`) rather than a just variable (`{{OPENSPEC_BIN}}`), so the
+# constant never reached the recipe at all. The recipe resolves the CLI itself —
+# env override → PATH → `npx` — which is what the comment in the recipe says.
 
 [group('scripts')]
 [doc('Measure RSS/VmPeak of running desktop app (auto-detects PID)')]

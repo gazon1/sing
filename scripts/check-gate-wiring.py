@@ -213,6 +213,31 @@ SCRIPT_GATES = [
         why="a stale symbol reference must fail until baselined",
     ),
     ScriptGate(
+        name="publication-hygiene",
+        cmd=[sys.executable, "scripts/check-publication-hygiene.py"],
+        # A source file, not the allowlist. The allowlist is the gate's escape
+        # hatch, so widening it is a decision a review should see in the diff of
+        # a real file rather than in a data file that reads as configuration. The
+        # sabotage writes a machine path into a tracked file outside every
+        # allowlisted prefix — the exact shape this gate was written for, and the
+        # one a future editor would reintroduce by pasting a command from a
+        # terminal.
+        sabotage_path="README.md",
+        sabotage="p.write_text(p.read_text() + '\\nBuild it with `cd /home/sabotage/probe`.\\n')",
+        why="a machine-specific path in a public file is unrecoverable once published",
+    ),
+    ScriptGate(
+        name="readme-claims",
+        cmd=[sys.executable, "scripts/check-readme-claims.py"],
+        # README.md, because the gate's entire claim is that this file states
+        # numbers which must match the tree. A wrong schema version is the
+        # cheapest drift to introduce and the first thing a reader would see.
+        # The self-tests cover the parse rules; this covers the wiring.
+        sabotage_path="README.md",
+        sabotage="p.write_text(p.read_text().replace('schema v38', 'schema v31'))",
+        why="a README that contradicts the tree is the first failure a reader sees",
+    ),
+    ScriptGate(
         name="skill-frontmatter",
         cmd=["./scripts/check-skill-frontmatter.sh"],
         sabotage_path=".agents/skills/singularity-todo-koin-dsl/SKILL.md",

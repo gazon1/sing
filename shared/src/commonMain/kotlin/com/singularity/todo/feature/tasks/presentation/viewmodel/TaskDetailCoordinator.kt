@@ -14,6 +14,7 @@ import com.singularity.todo.feature.tasks.presentation.state.FirstRun
 import com.singularity.todo.feature.tasks.presentation.state.FirstRunResolver
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
@@ -320,7 +321,14 @@ class TaskDetailCoordinator(
         retryVersion.value++
     }
 
-    @Suppress("LongMethod")
+    // LongMethod and CyclomaticComplexMethod are both suppressed, and both for the
+    // same reason: this is a dispatch table for a sealed hierarchy, and splitting
+    // it up would move the routing away from the list of routes. The complexity
+    // grew by four when the timer intents stopped being passed through as-is and
+    // started being translated (#212) — each one needs its own construction now.
+    // That is a real cost, paid deliberately: passing the object straight through
+    // is precisely what made every timer intent land in a silent `else`.
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     override fun onIntent(intent: TaskDetailIntent.Domain) {
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> completion.onIntent(intent)
@@ -367,11 +375,20 @@ class TaskDetailCoordinator(
 
             is TaskDetailIntent.Domain.RunAiAction -> ai.onIntent(intent)
 
-            is TaskDetailIntent.Domain.Start,
-            is TaskDetailIntent.Domain.Stop,
-            is TaskDetailIntent.Domain.CreateManual,
-            is TaskDetailIntent.Domain.Tick,
-            -> timeSlot.onIntent(intent)
+            is TaskDetailIntent.Domain.Start -> timeSlot.onIntent(TaskTimeSlotIntent.Start)
+
+            is TaskDetailIntent.Domain.Stop -> timeSlot.onIntent(TaskTimeSlotIntent.Stop)
+
+            is TaskDetailIntent.Domain.CreateManual -> timeSlot.onIntent(
+                TaskTimeSlotIntent.CreateManual(
+                    startedAtMs = intent.startedAtMs,
+                    endedAtMs = intent.endedAtMs,
+                    kind = intent.kind,
+                    note = intent.note,
+                ),
+            )
+
+            is TaskDetailIntent.Domain.Tick -> timeSlot.onIntent(TaskTimeSlotIntent.Tick(intent.elapsedMs))
 
             is TaskDetailIntent.Domain.ConfirmProposalItem -> {
                 val apply = deps.collaboration.applyProposal ?: return

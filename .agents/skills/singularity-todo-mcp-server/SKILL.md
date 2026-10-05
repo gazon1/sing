@@ -305,19 +305,22 @@ val nextCursor = if (items.size == PAGE_SIZE) {
 
 ## ZCode MCP Config
 
-Add to `~/.zcode/mcp/servers.toml` (check `zcode-guide:zcode-configuration-guide` for exact location):
+Add to `~/.zcode/mcp/servers.toml` (check `zcode-guide:zcode-configuration-guide` for exact
+location). Replace `/absolute/path/to/your/clone` below with the absolute path of **your**
+clone — it has to be absolute because the editor launches the server from its own working
+directory:
 
 ```toml
 [[servers]]
 name = "singularity-todo-agent"
 command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile=ai-agent"]
-cwd = "/home/max/AndroidStudioProjects/singularity_cllone_kmp"
+cwd = "/absolute/path/to/your/clone"
 description = "MCP server for AI-agent dogfooding"
 
 [[servers]]
 name = "singularity-todo-personal"
 command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile=personal"]
-cwd = "/home/max/AndroidStudioProjects/singularity_cllone_kmp"
+cwd = "/absolute/path/to/your/clone"
 description = "MCP server for personal tasks"
 ```
 

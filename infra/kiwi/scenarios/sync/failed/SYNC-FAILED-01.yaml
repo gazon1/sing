@@ -1,7 +1,7 @@
 # Scenario specification for SYNC-FAILED-01.
 #
-# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
-# авторизация и синхронизация.md`, §7, flow UX-K). Linkage to automation is *not*
+# A user scenario from the auth/sync test plan (the project's auth & sync
+# test plan, §7, flow UX-K). Linkage to automation is *not*
 # here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-FAILED-01` Maestro tag).
 #
 # The plan states that screen names are provisional: the steps and the checks stand

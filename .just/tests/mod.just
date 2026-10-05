@@ -267,6 +267,18 @@ docs-audit:
     python3 scripts/check-provenance.py || status=1
     python3 scripts/check-provenance.py --self-test || status=1
     echo ""
+    echo "=== Publication hygiene (no machine-specific residue in a public tree) ==="
+    # Same two-command shape as the provenance rule above, for the same reason:
+    # the self-test is what proves the rules still fire. These two are the last
+    # line of defence before publication — a snapshot is irreversible, so this
+    # is cheaper than a force-push afterwards.
+    python3 scripts/check-publication-hygiene.py || status=1
+    python3 scripts/check-publication-hygiene.py --self-test || status=1
+    echo ""
+    echo "=== README claims (a number in the README is the number in the tree) ==="
+    python3 scripts/check-readme-claims.py || status=1
+    python3 scripts/check-readme-claims.py --self-test || status=1
+    echo ""
     echo "=== ADR status policy (vocabulary, supersede chains, stale open) ==="
     python3 scripts/check_adr_status.py || status=1
     echo ""

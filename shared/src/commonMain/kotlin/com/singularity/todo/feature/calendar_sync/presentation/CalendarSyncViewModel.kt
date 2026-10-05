@@ -69,6 +69,18 @@ data class CalendarSyncUiState(
      * nothing in it and no explanation.
      */
     val googleError: String? = null,
+    /**
+     * Whether this platform can sync to a system calendar at all.
+     *
+     * Defaults to `true`, and flips to `false` when [CalendarProviderPort.getAvailableCalendars]
+     * fails with an unsupported-platform error — which is what `NoopCalendarProvider` returns.
+     *
+     * Without this the screen lies. On Desktop, `setEnabled` wrote to a repository whose
+     * `observeEnabled()` is `flowOf(false)`: the switch was flipped optimistically, nothing
+     * corrected it, and the user was left looking at an enabled toggle that had never synced
+     * anything. A capability flag is the honest signal, and the failure result already carries it.
+     */
+    val isSupported: Boolean = true,
 ) {
     /** True when the user has connected Google and picked a calendar. */
     val googleReady: Boolean get() = googleConnected && selectedGoogleCalendarId != null
@@ -355,6 +367,10 @@ class CalendarSyncViewModel(
                         it.copy(
                             availableApps = apps,
                             isLoading = false,
+                            // The provider is the authority on whether this platform can sync at
+                            // all; its failure is the capability signal. Read it here so the UI
+                            // can say so instead of presenting controls that do nothing.
+                            isSupported = false,
                         )
                     }
                 }

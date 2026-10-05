@@ -185,10 +185,10 @@ sealed interface TaskDetailIntent : MviIntent {
         // ── Time Tracking ─────────────────────────────────────────────────
 
         /** Start the time tracker for this task. */
-        data object Start : Domain, TaskTimeSlotIntent
+        data object Start : Domain
 
         /** Stop the running time tracker. */
-        data object Stop : Domain, TaskTimeSlotIntent
+        data object Stop : Domain
 
         /**
          * Create a manual time entry.
@@ -202,8 +202,7 @@ sealed interface TaskDetailIntent : MviIntent {
             val endedAtMs: Long,
             val kind: TimeEntryKind,
             val note: String?,
-        ) : Domain,
-            TaskTimeSlotIntent
+        ) : Domain
 
         /**
          * Update the displayed elapsed time (called by the UI ticker).

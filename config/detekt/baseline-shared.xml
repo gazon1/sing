@@ -179,6 +179,7 @@
     <ID>PackageName:CalendarSyncTaskMapDao.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:CalendarSyncTaskMapMappers.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:CalendarSyncViewModel.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
+    <ID>PackageName:CalendarSyncViewModelCapabilityTest.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageName:CalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:CalendarSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:DelayLoopGoogleSyncPeriodicTrigger.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -206,8 +207,8 @@
     <ID>PackageName:GoogleSyncEngine.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:GoogleSyncEnginePushTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:GoogleSyncEngineTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
-    <ID>PackageName:GoogleSyncLifecycleTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:GoogleSyncEntities.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
+    <ID>PackageName:GoogleSyncLifecycleTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:GoogleSyncPeriodicTrigger.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:GoogleSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageName:GoogleTaskApplier.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
@@ -261,6 +262,7 @@
     <ID>PackageNaming:CalendarSyncTaskMapDao.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:CalendarSyncTaskMapMappers.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:CalendarSyncViewModel.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
+    <ID>PackageNaming:CalendarSyncViewModelCapabilityTest.kt:package com.singularity.todo.feature.calendar_sync.presentation</ID>
     <ID>PackageNaming:CalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageNaming:CalendarSyncWorker.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
     <ID>PackageNaming:DelayLoopGoogleSyncPeriodicTrigger.kt:package com.singularity.todo.feature.calendar_sync.work</ID>

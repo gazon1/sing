@@ -19,6 +19,7 @@ import com.singularity.todo.feature.ai.tools.CreateTaskTool
 import com.singularity.todo.feature.ai.tools.DecomposeAndCreateTool
 import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
 import com.singularity.todo.feature.ai.tools.DeleteNoteTool
+import com.singularity.todo.feature.ai.tools.DeleteProjectTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
 import com.singularity.todo.feature.ai.tools.ExtractActionsTool
@@ -31,6 +32,7 @@ import com.singularity.todo.feature.ai.tools.ImproveNoteTool
 import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.ai.tools.ListAdrsTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
+import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.ProjectReviewTool
@@ -179,6 +181,15 @@ actual fun aiToolsModule(): Module = module {
     factory { DeleteNoteTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     factoryOf(::CreateProjectTool)
     factoryOf(::UpdateProjectTool)
+    // Registered on both platforms, and the Android list used to stop here.
+    // `scripts/check-readme-claims.py` caught the consequence: the AI agent on
+    // Android could create and update a project but had no tool to read the
+    // existing ones or delete one, so a conversation that named a project the
+    // user could not see or remove. Both tools take only commonMain
+    // dependencies (ProjectsRepository, ProposalRepository, ProfileAwareCurrentUser,
+    // Clock), so there was never a platform reason for the gap.
+    factory { DeleteProjectTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
+    factoryOf(::ListProjectsTool)
     factoryOf(::CreateTagTool)
     factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     // Stateless and shared: it resolves its decisions directory once, at construction.
@@ -220,6 +231,8 @@ actual fun aiToolsModule(): Module = module {
             get<DeleteNoteTool>(),
             get<CreateProjectTool>(),
             get<UpdateProjectTool>(),
+            get<DeleteProjectTool>(),
+            get<ListProjectsTool>(),
             get<CreateTagTool>(),
             get<DeleteTagTool>(),
             get<ListAdrsTool>(),

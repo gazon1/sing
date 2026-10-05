@@ -83,11 +83,22 @@ class TaskDetailTimeTrackingSectionTest {
 
         awaitTag(TestTags.TimeTracking.START).assertIsDisplayed()
 
-        // Clicked so that a future regression cannot pass by rendering a dead
-        // control: the click must at least be dispatched without throwing, and
-        // the chip must still be the one thing under the finger afterwards.
-        awaitTag(TestTags.TimeTracking.START).performClick()
-        awaitTag(TestTags.TimeTracking.START)
+        // The click that used to live here has moved to `TaskTimeCarrierTest`, and
+        // its removal is the point.
+        //
+        // This test asserted "the click is dispatched without throwing, and the
+        // chip is still the one thing under the finger afterwards". That assertion
+        // passed only because the click did *nothing* — #212 was a type collision
+        // that dropped every timer intent into a silent `else { }`, so the chip
+        // could not change whatever happened. When the collision was fixed the
+        // timer started, the chip became Stop, and this test failed on correct
+        // behaviour.
+        //
+        // A guard that pins the defect in place is worse than no guard: it turns
+        // the fix into a regression. What this test is for is narrower and still
+        // worth having — the desktop task detail *renders* time tracking, which
+        // is the #187 regression. Whether the control then works is
+        // `TASK-TIME-01`'s question, and it now has a carrier to ask it.
     }
 
     private object TestTimeZone : TimeZoneProvider {

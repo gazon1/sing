@@ -1096,15 +1096,55 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
 
     override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
+    // These three used to be `Result.success(Unit)` — a success that changed
+    // nothing, so a UI flow that signed in would report "you are signed in" while
+    // the session stayed anonymous. Nothing could catch that from the UI, because
+    // the UI had nothing to observe: `ProfileAwareCurrentUser` reads the session,
+    // and the session never moved. Every auth journey therefore had a fake
+    // underneath it that could not be asserted against, which is the whole reason
+    // the `AUTH-*` scenarios have no carriers.
+    //
+    // They now transition, keeping the current `userId` so the account does not
+    // silently change identity underneath data a test already seeded — a sign-in
+    // that swapped the owner would orphan every row and fail somewhere far from
+    // here.
+    override suspend fun signIn(email: String, password: String): Result<Unit> =
+        runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
 
-    override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
+    override suspend fun signInAnonymously(): Result<Unit> =
+        runCatchingCancellable { _currentSession.value = Session.Anonymous(currentUserId) }
+
+    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> =
+        runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
+
+    /**
+     * The identity this repository currently holds, whichever session carries it.
+     *
+     * Falls back to [TestUsers.DEFAULT] when signed out, so a test that starts
+     * from `SignedOut` and signs in gets the same owner as one that started
+     * anonymous — otherwise the two would seed under different owners and the
+     * difference would read as a product bug.
+     */
+    private val currentUserId: UserId
+        get() = when (val s = _currentSession.value) {
+            is Session.SignedIn -> s.userId
+            is Session.Anonymous -> s.userId
+            else -> TestUsers.DEFAULT
+        }
+
+    private fun signedInAs(userId: UserId, email: String): Session.SignedIn = Session.SignedIn(
+        userId = userId,
+        email = email,
+        // Opaque to everything downstream; a test asserts on the session's
+        // identity, never on the token, so a constant says "this stands in for a
+        // credential" and cannot be mistaken for one.
+        accessToken = "fake-access-token",
+        refreshToken = "fake-refresh-token",
+    )
 
     override suspend fun signOut(): Result<Unit> = runCatchingCancellable {
         _currentSession.value = Session.SignedOut
     }
-
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> = Result.success(Unit)
 
     /**
      * Switches the session to a new anonymous user with [userId].

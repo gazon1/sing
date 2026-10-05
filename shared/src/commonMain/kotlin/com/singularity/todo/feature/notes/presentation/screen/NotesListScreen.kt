@@ -101,6 +101,13 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
     // A created note is opened on the id the repository returned. The ViewModel cannot
     // hand one back synchronously — the write is launched — and a locally generated id
     // names a note that does not exist. See `NotesUiEvent.NavigateToEditor`.
+    // The `else` is not the #212 shape, and deliberately so. This screen consumes a
+    // union of events it does not own, so ignoring the ones it has no reaction to
+    // is correct — unlike a dispatcher whose `else` was swallowing an intent
+    // addressed to it. Audited 2026-10-06 because the pattern search that found
+    // #212 pointed here too. The comment sits above the `when` rather than between
+    // the branches: a comment between them makes that branch read as multiline,
+    // which detekt's BlankLineBetweenWhenConditions then demands a blank line for.
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
