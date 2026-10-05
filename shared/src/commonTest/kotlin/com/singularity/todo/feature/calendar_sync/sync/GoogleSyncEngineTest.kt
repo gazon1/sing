@@ -39,6 +39,13 @@ class GoogleSyncEngineTest {
         val patched = mutableListOf<Pair<String, String>>()
         val cancelled = mutableListOf<String>()
 
+        /**
+         * Recorded because "a cancelled event must never be re-created" is only testable if
+         * `insert` is observed. Without it the fake silently succeeds and the one call the
+         * tombstone exists to prevent goes unnoticed.
+         */
+        val inserted = mutableListOf<String>()
+
         override suspend fun listCalendars() =
             emptyList<com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary>()
 
@@ -48,7 +55,10 @@ class GoogleSyncEngineTest {
                 ?: ChangePage(events = emptyList(), nextSyncToken = "token-end-${requestedTokens.size}")
         }
 
-        override suspend fun insert(calendarId: String, event: GoogleEvent) = event
+        override suspend fun insert(calendarId: String, event: GoogleEvent): GoogleEvent {
+            inserted += event.title ?: ""
+            return event
+        }
 
         override suspend fun patch(
             calendarId: String,
@@ -233,11 +243,13 @@ class GoogleSyncEngineTest {
     }
 
     /**
-     * Cancelled is not deleted. The mapping goes; the task stays. Re-creating the event
-     * would be the worst outcome, because the user removed it on purpose.
+     * Cancelled is not deleted, and that is the whole point. The mapping is *marked*
+     * cancelled rather than removed: deleting the row made the planner see a task with no
+     * event and re-insert the very event the user had just cancelled. Re-creating it would be
+     * the worst outcome, because the user removed it on purpose.
      */
     @Test
-    fun `a cancelled event drops its mapping and is not re-created`() = runTest {
+    fun `a cancelled event is tombstoned and is not re-created`() = runTest {
         val db = FakeAppDatabase()
         val source = FakeSource(
             mapOf(null to listOf(ChangePage(events = listOf(event(1, status = GoogleEventStatus.Cancelled))))),
@@ -258,8 +270,12 @@ class GoogleSyncEngineTest {
         val result = engine(source, db).sync("primary")
 
         assertEquals(0, result.seen, "a cancelled event is not live")
-        assertNull(db.googleEventShadowDao().get("user-1", "evt_1"), "the mapping must go")
+        val shadow = db.googleEventShadowDao().get("user-1", "evt_1")
+        assertNotNull(shadow, "the tombstone must survive the pass that wrote it")
+        assertNotNull(shadow?.cancelledAt, "the row must be marked, not removed")
+        assertEquals("task-1", shadow?.taskId, "the task link is what the planner needs")
         assertTrue(source.patched.isEmpty(), "a cancelled event must never be written back")
+        assertTrue(source.inserted.isEmpty(), "a cancelled event must never be re-inserted")
     }
 
     // ─── Profile isolation ──────────────────────────────────────────────

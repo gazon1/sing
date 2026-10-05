@@ -46,7 +46,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 40
+const val SCHEMA_VERSION = 39
 
 /**
  * Room database for Android.
@@ -121,7 +121,6 @@ const val SCHEMA_VERSION = 40
         // the two queue tables, and an AutoMigrationSpec can only describe a schema
         // change. See Migration37To38 for why the rows go.
         AutoMigration(from = 38, to = 39, spec = Migration38To39::class),
-        AutoMigration(from = 39, to = 40, spec = Migration39To40::class),
     ],
     exportSchema = true,
 )

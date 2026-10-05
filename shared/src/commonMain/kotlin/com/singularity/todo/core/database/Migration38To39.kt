@@ -11,6 +11,12 @@ import androidx.room3.migration.AutoMigrationSpec
  * - `google_event_shadow` — the last agreed field values, i.e. a merge's common ancestor
  * - `calendar_import_event` — foreign events offered to the user as tasks
  *
+ * `google_event_shadow` also carries `cancelled_at`, added here rather than in a migration of
+ * its own. It was written as a separate 39 → 40 step while the sync was being built, and there
+ * is no reason to keep it: nothing ever shipped the table, so no installation can be sitting at
+ * a v39 whose shadows predate the column. Collapsing it makes the exported schema describe one
+ * real upgrade path instead of two, one of which no user could ever take.
+ *
  * ## Why this is a pure addition
  *
  * The obvious implementation would have retyped `calendar_sync_task_map.event_id` from
@@ -28,6 +34,29 @@ import androidx.room3.migration.AutoMigrationSpec
  * device can hold the *same* one. So these new tables — the ones keyed by a remote
  * identifier — put `user_id` in the key. See the two-port ADR.
  *
- * Nothing to specify: no existing table is altered, which is why this spec is empty.
+ * ## Why `cancelled_at` is nullable and unbackfilled
+ *
+ * Cancelling an event in Google had been implemented as "delete the shadow, keep the task",
+ * with a comment saying that this stops *"the next push"* from re-creating the event. There
+ * was no next push at the time — the local-side write walk came later, and when it did,
+ * deleting the shadow made the planner see a task with no event at all and **re-insert the
+ * very event the user had just cancelled**. The comment named the failure correctly and the
+ * code did not prevent it, which is the worst combination: the intent is documented and the
+ * behaviour is the opposite.
+ *
+ * The repair is to keep the row and mark it, rather than delete it. A shadow with
+ * `cancelled_at` set means "this task's event existed and the user removed it", which is
+ * exactly what the push planner needs in order to leave it alone.
+ *
+ * `NULL` means "not cancelled", so nothing needs backfilling — and a backfill would be the
+ * dangerous kind: marking every pre-existing row cancelled would make the planner skip every
+ * task on the calendar, and the sync would go quiet with no error anywhere.
+ *
+ * One interaction with the existing sweep: `deleteNotIn` drops shadows whose event is no longer
+ * in Google's listing, which would erase tombstones on the very pass that creates them. The
+ * engine feeds cancelled event ids into the keep-list, so a tombstone outlives the pass that
+ * wrote it and is dropped only when the account loses it entirely.
+ *
+ * Nothing else to specify: no existing table is altered, which is why this spec is empty.
  */
 class Migration38To39 : AutoMigrationSpec

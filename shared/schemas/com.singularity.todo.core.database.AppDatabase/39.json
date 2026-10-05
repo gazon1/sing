@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 38,
-    "identityHash": "4d9d92130effbb1d75729818e9a65f6c",
+    "version": 39,
+    "identityHash": "a455377a0ba690c2e446249ce5e8bc2f",
     "entities": [
       {
         "tableName": "tasks",
@@ -870,13 +870,20 @@
       },
       {
         "tableName": "sync_outbox",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`patch_id` TEXT NOT NULL, `entity_id` TEXT NOT NULL, `entity_type` TEXT NOT NULL, `payload` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `last_error` TEXT, `next_attempt_at` INTEGER, PRIMARY KEY(`patch_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`patch_id` TEXT NOT NULL, `owner_id` TEXT NOT NULL DEFAULT '', `entity_id` TEXT NOT NULL, `entity_type` TEXT NOT NULL, `payload` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `last_error` TEXT, `next_attempt_at` INTEGER, PRIMARY KEY(`patch_id`))",
         "fields": [
           {
             "fieldPath": "patchId",
             "columnName": "patch_id",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "ownerId",
+            "columnName": "owner_id",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
           },
           {
             "fieldPath": "entityId",
@@ -928,13 +935,20 @@
       },
       {
         "tableName": "sync_dead_letter",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`patch_id` TEXT NOT NULL, `entity_id` TEXT NOT NULL, `entity_type` TEXT NOT NULL, `payload` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `failed_at` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `last_error` TEXT, PRIMARY KEY(`patch_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`patch_id` TEXT NOT NULL, `owner_id` TEXT NOT NULL DEFAULT '', `entity_id` TEXT NOT NULL, `entity_type` TEXT NOT NULL, `payload` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `failed_at` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `last_error` TEXT, PRIMARY KEY(`patch_id`))",
         "fields": [
           {
             "fieldPath": "patchId",
             "columnName": "patch_id",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "ownerId",
+            "columnName": "owner_id",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
           },
           {
             "fieldPath": "entityId",
@@ -2496,7 +2510,7 @@
       },
       {
         "tableName": "google_event_shadow",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `event_id` TEXT NOT NULL, `task_id` TEXT, `calendar_id` TEXT NOT NULL, `etag` TEXT, `base_json` TEXT NOT NULL, `remote_updated_at` INTEGER, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`, `event_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `event_id` TEXT NOT NULL, `task_id` TEXT, `calendar_id` TEXT NOT NULL, `etag` TEXT, `base_json` TEXT NOT NULL, `remote_updated_at` INTEGER, `cancelled_at` INTEGER, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`, `event_id`))",
         "fields": [
           {
             "fieldPath": "userId",
@@ -2535,6 +2549,11 @@
           {
             "fieldPath": "remoteUpdatedAt",
             "columnName": "remote_updated_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cancelledAt",
+            "columnName": "cancelled_at",
             "affinity": "INTEGER"
           },
           {
@@ -2649,7 +2668,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4d9d92130effbb1d75729818e9a65f6c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a455377a0ba690c2e446249ce5e8bc2f')"
     ]
   }
 }

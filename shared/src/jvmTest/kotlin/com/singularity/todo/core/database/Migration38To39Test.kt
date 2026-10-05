@@ -20,11 +20,12 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The v38 → v39 upgrade ([Migration39To40]).
+ * The v38 → v39 upgrade ([Migration38To39]).
  *
  * v38 is a pure addition: three new tables, no existing table altered. Room validates the
  * DDL against the exported schema when the database opens, so what the schema *cannot*
@@ -40,6 +41,10 @@ import kotlin.test.assertTrue
  *    two profiles on one device can hold the same one. If the key forgot the user, one
  *    profile's sync would read and delete the other's rows — a bug with no error message,
  *    just a calendar that quietly empties.
+ * 3. **`cancelled_at` arrives unbackfilled.** It was added in the same migration as the
+ *    table it lives on, so this covers the tombstone column too. `NULL` has to mean "not
+ *    cancelled"; a backfill would mark every live event cancelled and the push planner would
+ *    silently stop writing *everything*.
  */
 @Tag("fast")
 class Migration38To39Test {
@@ -280,6 +285,66 @@ class Migration38To39Test {
                 "an adopted event must stop being offered",
             )
             assertEquals("task-new", db.calendarImportEventDao().get("user-1", "evt-foreign")?.taskId)
+        } finally {
+            db.close()
+        }
+    }
+
+    private fun shadow(eventId: String = "evt-1", taskId: String = "task-1") = GoogleEventShadowEntity(
+        userId = "user-1",
+        eventId = eventId,
+        taskId = taskId,
+        calendarId = "primary",
+        etag = "etag-1",
+        baseJson = """{"title":"Dentist"}""",
+        remoteUpdatedAt = null,
+        lastSyncedAt = 1_700_000_000_000,
+    )
+
+    @Test
+    fun `a pre-existing shadow reads back as not cancelled`() = runTest {
+        // The dangerous outcome of this column: if old rows came out marked cancelled, the
+        // push planner would skip every task on the calendar and the sync would go quiet with
+        // no error anywhere.
+        val db = openMigrated()
+        try {
+            db.googleEventShadowDao().upsert(shadow())
+
+            val read = assertNotNull(db.googleEventShadowDao().get("user-1", "evt-1"))
+
+            assertNull(read.cancelledAt, "a row written before the migration must not be marked cancelled")
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun `a tombstone round-trips`() = runTest {
+        val db = openMigrated()
+        try {
+            db.googleEventShadowDao().upsert(shadow().copy(cancelledAt = 1_700_000_500_000))
+
+            val read = assertNotNull(db.googleEventShadowDao().get("user-1", "evt-1"))
+
+            assertEquals(1_700_000_500_000, read.cancelledAt)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun `the rest of the shadow row survives the upgrade`() = runTest {
+        // The column is additive; losing the ancestor or the task link would turn a
+        // cancellation into a much worse event — the planner would insert a duplicate.
+        val db = openMigrated()
+        try {
+            db.googleEventShadowDao().upsert(shadow())
+
+            val read = assertNotNull(db.googleEventShadowDao().get("user-1", "evt-1"))
+
+            assertEquals("task-1", read.taskId)
+            assertEquals("etag-1", read.etag)
+            assertEquals("""{"title":"Dentist"}""", read.baseJson)
         } finally {
             db.close()
         }
