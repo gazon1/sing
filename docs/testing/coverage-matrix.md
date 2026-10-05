@@ -17,7 +17,7 @@ below; the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**19 scenarios · 3/34 claimed cells automated · 31 holes**
+**19 scenarios · 3/35 claimed cells automated · 32 holes**
 
 ## feature.auth
 
@@ -56,7 +56,7 @@ below; the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `TASK-CHECK-01` | Add a checklist item to a task | — | ○ | The item persists with its text and its completed state, so the list survives closing and reopening the editor on the… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
-| `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | — | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |
+| `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | ○ | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |
 
 ## Holes
 
@@ -93,6 +93,7 @@ Claimed but not automated:
 - `SYNC-STATUS-01` / desktop
 - `TASK-CHECK-01` / desktop
 - `TASK-TIME-01` / android
+- `TASK-TIME-01` / desktop
 
 ## Scenario details
 
@@ -353,7 +354,7 @@ Steps:
 
 **confirmed** · P1 · `#TASK-TIME`
 
-**Given:** A task exists, the app is signed in, and the task's detail view is open on Android, where the time-tracking section is part of the detail screen.
+**Given:** A task exists, the app is signed in, and the task's detail view is open.
 
 Steps:
 

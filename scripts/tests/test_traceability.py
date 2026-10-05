@@ -1520,7 +1520,17 @@ class PerScenarioRuleIsExercisable(unittest.TestCase):
         target, carriers = next(
             (t, v) for t, v in by_target.items() if len({l.scenario for l in v}) >= 2
         )
-        reporting, silent = carriers[0], carriers[1]
+        # Report exactly one and assert on every other, rather than picking
+        # carriers[1]. The first version did pick carriers[1] and passed while
+        # the desktop carried two scenarios; the moment a third landed it picked
+        # the reporting one and failed. That is not a flake — it is the test
+        # asserting an accident of ordering, which is how the `--partial` test in
+        # this same file shipped a wrong belief earlier. The rule says nothing
+        # about order: report one, and every other scenario on that target must
+        # be named.
+        scenarios = sorted({l.scenario for l in carriers})
+        reporting = next(l for l in carriers if l.scenario == scenarios[0])
+        silent = [s for s in scenarios if s != scenarios[0]]
 
         d = pathlib.Path(tempfile.mkdtemp())
         key = reporting.key
@@ -1531,5 +1541,11 @@ class PerScenarioRuleIsExercisable(unittest.TestCase):
         with self.assertRaises(NoResultsError) as ctx:
             normalise(specs, links, {target: [d]}, "abc")
         message = str(ctx.exception)
-        self.assertIn(f"{silent.scenario}/{target.value}", message)
+        for scenario in silent:
+            self.assertIn(
+                f"{scenario}/{target.value}",
+                message,
+                f"{scenario} produced no result on {target.value} but the rule did not name it",
+            )
+        self.assertNotIn(f"{reporting.scenario}/{target.value}", message)
         self.assertNotIn("ни одного тесткейса", message)

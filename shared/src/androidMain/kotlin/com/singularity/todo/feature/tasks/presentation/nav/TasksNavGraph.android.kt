@@ -15,7 +15,7 @@ import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.nav.rememberNavBackStackTyped
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
-import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailViewScreen
+import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
 
 /**
  * Android implementation of [TasksNavGraph].
@@ -56,7 +56,7 @@ actual fun TasksNavGraph(
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
             entryProvider = entryProvider {
-                entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
+                entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
                 entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
             },
         )
@@ -65,6 +65,6 @@ actual fun TasksNavGraph(
 
 @Composable
 actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = entryProvider {
-    entry<TasksRoute.Detail> { route -> TaskDetailViewScreen(route.taskId) }
+    entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
     entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
 }

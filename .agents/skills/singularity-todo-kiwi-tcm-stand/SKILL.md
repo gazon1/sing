@@ -275,10 +275,14 @@ fun probe() = composeTestRule {
 
 Two measured results, so you know what you are choosing between:
 
-| Scenario | Probe cost | Outcome |
+| Сценарий | Зонд | Что он на самом деле сказал |
 |---|---|---|
-| `TASK-TIME-01` | probe failed | `TaskDetailViewScreen` (the one with time tracking) is wired only in `TasksNavGraph.android.kt`; the JVM graph composes a different screen. Android-only, and the tags belong to a Maestro flow. |
-| `AUTH-FIRSTRUN-01` | probe passed | The desktop harness session is `Anonymous`, so "there is no sign-in wall" is assertable from JVM with no fixture at all. |
+| `AUTH-FIRSTRUN-01` | прошёл | Сессия desktop-харнесса — `Anonymous`, поэтому «стены входа нет» утверждается с JVM без фикстур вообще. |
+| `TASK-TIME-01` | **не прошёл, и это была ложь, а не факт о платформе** | Зонд доказал, что на desktop секции тайм-трекинга нет. Я записал это как «UI только на Android» и сузил спеку до `targets: [android]`. На самом деле вся фича лежит в `commonMain` (10 файлов, репозиторий и фейс в общем модуле), а desktop-экран её не рендерил из-за расхождения экранов, о котором никто не знал. Теперь секция на обеих платформах, спека заявляет оба тира. |
+
+**Зонд измеряет код, а не платформу.** «Зонд не прошёл» означает «этого узла нет в этом дереве» — и это не то же самое, что «эта возможность существует только здесь». Прежде чем сузить спеку до одного тира, спросите: **фича лежит в `commonMain`?** Если да, то отсутствие узла — это дыра в коде, а не свойство платформы, и правильный ответ — починить, а не сузить спеку. Ошибочное сужение выглядит как аккуратность и необратимо: оно делает spec корректным по отношению к коду, который неверен.
+
+Есть честный случай сужения: `ModalBottomSheet` на desktop — отдельное окно, и кросс-рутовый селектор для него строить не надо. Там различие **структурное и измеренное** (дерево побайтово идентично, клик по контрольной строке работает), а не «фича случайно не долетела».
 
 If the probe fails, **delete the test and the spec's desktop target** rather than
 leaving a test that asserts the control exists. An unreachable `●` is worse than

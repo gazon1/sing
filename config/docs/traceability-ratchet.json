@@ -4,26 +4,26 @@
   "commit": "dd8ee328",
   "corpus": {
     "specs": 19,
-    "claimed_cells": 34,
+    "claimed_cells": 35,
     "carriers": 3
   },
   "floors": [
     {
       "metric": "holes",
-      "max": 31,
-      "measured": 31,
+      "max": 32,
+      "measured": 32,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "The number the plan asked for, and the one 15 auth/sync specs with zero carriers blew past in a single commit: 2 -> 32, green, because nothing read it. Removing a hole is always allowed; adding one fails. Not a per-scenario list on purpose — a scenario without automation is a legitimate state, and a rule demanding otherwise would be a rule the first Android-only scenario would have to be exempted from."
+      "note": "The number the plan asked for, and the one 15 auth/sync specs with zero carriers blew past in a single commit: 2 -> 32, green, because nothing read it. Removing a hole is always allowed; adding one fails. Raised 31 -> 32 on 2026-10-05 for one reason, recorded here because a raised floor is only defensible if the reason is in the repo: TASK-TIME-01 was narrowed to `targets: [android]` on the strength of a failed reachability probe, and the narrowing was wrong. The time-tracking feature is entirely in commonMain, and the desktop task detail was not rendering it because a merge (f2a87c7c) had put the two platform navigation graphs on different screens. The spec now claims both targets because that is true of the product, and the desktop cell is a hole because no carrier can assert it yet — the timer will not start under the anonymous desktop harness session and TaskTimeSlot.start() discards the failure with an empty onFailure, so the failure is indistinguishable from a dead control (#196). A claim that is true and unsupplied is a hole; a spec narrowed to match a bug is neither honest nor a coverage claim."
     },
     {
       "metric": "dark_scenarios",
       "max": 16,
       "measured": 16,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting. 16 of the 18 live specs are dark; the two that are not are AUTH-FIRSTRUN-01 and TASK-REC-01."
+      "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it per platform into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting. Lowered 16 -> 15 on 2026-10-05 when TASK-TIME-01 stopped being dark: the spec had claimed desktop for the first time (which alone would have been +1 holes and failed this gate) and the desktop carrier that landed with the fix took the total back to 31."
     }
   ],
   "known_gaps": [
-    "All 16 android cells are holes and will stay holes on a host with no device: the tier is unverifiable here, and half the matrix is not a claim anyone can keep yet. docs/testing/android-tier-runbook.md is the work order."
+    "16 android cells are holes and stay holes on a host with no device: the tier is unverifiable here, and that is more than half the matrix. docs/testing/android-tier-runbook.md is the work order. Because every android hole is 1-for-1, no desktop work can move the total by more than 1; the android tier is where the count is."
   ]
 }
