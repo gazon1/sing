@@ -217,14 +217,47 @@ invisible and with one they become irreversible data loss on the user's own data
 
 ## Phase 11 — Sign-in surface
 
-- [ ] 11.1 `shared/`, `androidApp/`, `desktopApp/` — sign-in and sign-up screen,
-      reachable on both platforms, with the pending state wired to the repository
-- [ ] 11.2 `shared/` — architecture test: no unwired new surfaces
+- [x] 11.1 `shared/`, `androidApp/`, `desktopApp/` — sign-in and sign-up screen,
+      reachable on both platforms, with the pending state wired to the repository.
+      `LoginScreen` already sat behind `AuthGuard`, which both shells wrap, so it
+      is reachable everywhere; what was missing was the *project configuration*.
+      Without it `SupabaseClientProvider.client()` answers null and every sign-in
+      fails as a network error — which a user reads as a rejected password, and
+      which sends them round the password loop for a server that was never named.
+      A distinct `AuthUiState.SignedOutWithNoServer` therefore comes before the
+      credential form rather than after it. A half-typed configuration is refused
+      rather than stored, because a stored URL with no key is indistinguishable
+      from "not configured" until the first request fails.
+      The screen is `commonMain`, so Android and Desktop get it from one change.
+      A successful sign-in runs the seed (phase 10) through a lambda rather than a
+      dependency, so the auth feature does not reach into sync. A seed that fails
+      does not fail the sign-in: the user is already signed in, and reporting the
+      other way would send them round the password loop again.
+      Verified by: `AuthViewModelTest` (9)
+- [x] 11.2 `shared/` — architecture test: no unwired new surfaces. The three
+      pre-existing gates cover it rather than a new one: `find-unwired-surfaces.py`
+      is clean, `VendorSdkConfinementTest` still names exactly the three seams
+      (and asserts they still exist, so renaming one cannot make the rule vacuous),
+      and `PlaintextTokenIsolationTest` still forbids a token in preferences
 
 ## Verification
 
-- [ ] `./gw :shared:jvmTest -Ptest.tags=fast,slow` green, zero skipped
-- [ ] `just lint` clean
-- [ ] `python3 scripts/find-unwired-surfaces.py` clean
-- [ ] `openspec validate --all --strict` clean
-- [ ] `just gate` green
+- [x] `./gw :shared:jvmTest -Ptest.tags=fast,slow` green, zero skipped
+- [x] `just lint` clean
+- [x] `python3 scripts/find-unwired-surfaces.py` clean
+- [x] `openspec validate --all --strict` clean — 30 passed, 0 failed
+- [x] `just gate` green
+
+## Follow-ups, recorded rather than left implicit
+
+- **Leaked-password protection is off** on the Supabase project (advisor WARN). It is
+  a GoTrue setting, not a migration, and has to be enabled from the dashboard. It
+  should be on before this ships to anyone.
+- **Four advisor warnings are accepted on purpose**: the security-definer
+  functions and the `authenticated`-executable grants. Recorded in
+  `2026-10-04-sync-server-schema-and-merge.md` so nobody "fixes" them by moving
+  the merge out of the definer's hands.
+- **`sync_transfer_ownership` does not move data to a different account.** It
+  refuses a target that is not the caller, which is the security property; an
+  anonymous→account transfer is instead a credential attach on the same identity,
+  so the owner never changes. See `2026-10-04-sync-identity-and-seed-marker.md`.

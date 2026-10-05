@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.CancellationException
 
@@ -23,9 +24,26 @@ import kotlinx.coroutines.CancellationException
  * nothing at all, and the symptom would appear much later as every request
  * answering "not authenticated".
  */
-class SupabaseAuthGateway(private val auth: Auth, private val log: Logger) : AuthGateway {
+class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private val log: Logger) : AuthGateway {
+
+    /**
+     * The provider's auth plugin, or a clear refusal.
+     *
+     * Resolved per call rather than injected. A `single<Auth>` binding would have
+     * to be created at graph start, when no project may be configured yet — so it
+     * would either throw on first launch or be built against a value that did not
+     * exist and is never refreshed. Answering "not configured" at the point of use
+     * is the honest shape, and it is why this class takes the provider rather than
+     * the plugin.
+     */
+    private suspend fun auth(): Auth = clients.client()?.auth
+        ?: throw AppError.Validation(
+            "No Supabase project is configured, so there is nothing to sign in to.",
+            code = "auth.not_configured",
+        )
 
     override suspend fun signUp(email: String, password: String): Result<RemoteSession> = call("sign up") {
+        val auth = auth()
         auth.signUpWith(Email) {
             this.email = email
             this.password = password
@@ -37,6 +55,7 @@ class SupabaseAuthGateway(private val auth: Auth, private val log: Logger) : Aut
     }
 
     override suspend fun signIn(email: String, password: String): Result<RemoteSession> = call("sign in") {
+        val auth = auth()
         auth.signInWith(Email) {
             this.email = email
             this.password = password
@@ -45,11 +64,13 @@ class SupabaseAuthGateway(private val auth: Auth, private val log: Logger) : Aut
     }
 
     override suspend fun signInAnonymously(): Result<RemoteSession> = call("anonymous sign in") {
+        val auth = auth()
         auth.signInAnonymously()
         auth.currentSessionOrNull()?.toRemote()
     }
 
     override suspend fun attachEmail(email: String, password: String): Result<RemoteSession> = call("attach identity") {
+        val auth = auth()
         // `updateUser` on an anonymous session attaches the credentials to the
         // identity that already exists. The user id does not change, which is what
         // makes the rows already written under it the new account's without
@@ -62,13 +83,18 @@ class SupabaseAuthGateway(private val auth: Auth, private val log: Logger) : Aut
     }
 
     override suspend fun signOut(): Result<Unit> = call("sign out") {
-        auth.signOut()
+        // Signing out with no configured project still succeeds locally: the
+        // repository clears its own credentials regardless, and failing here
+        // would only stop it from doing so.
+        clients.client()?.auth?.signOut()
+        Unit
     }
 
     override suspend fun refresh(
         accessToken: String,
         refreshToken: String,
     ): Result<RemoteSession?> = call("token refresh") {
+        val auth = auth()
         // A rejected refresh token is the answer, not an error to propagate: it is
         // how the repository learns the session is unrecoverable. Everything else
         // still throws, because a timeout is worth retrying and a rejection is not.

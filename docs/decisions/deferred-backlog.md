@@ -2115,30 +2115,24 @@ into a one-line fix instead of an afternoon.
 
 ## sync-auth-repository-is-still-a-stub
 
-**Status:** OPEN (opened 2026-10-04 as `sync-client-phases-6-to-11-pending`; narrowed
-after phases 6 and 11's transport work closed two of its three symbols).
+**Status:** RESOLVED (2026-10-04). Phase 8 replaced the stub; `AuthRepositoryTest` (20)
+covers it. Kept in the file rather than deleted because the shape of the defect is
+worth remembering, and because the section below it is the reason it was tracked at
+all.
 
-`SupabaseAuthRepository` is bound in the DI graph and its methods validate their
-arguments and do nothing else. It is not dead code and the dead-symbol detector does
-not flag it — a bound class has a production call site — which is exactly why it
-needs an entry of its own: **the gate that would otherwise catch this passes.**
+The class was bound in the DI graph and its methods validated their arguments and
+did nothing else. It was not dead code and the dead-symbol detector did not flag it:
+a bound class has a production call site. That is exactly why it needed an entry of
+its own — **the gate that would otherwise have caught it passed.**
 
-| Symbol | Closed by | Note |
-|---|---|---|
-| `SupabaseSyncApiClient` | Phase 6, done | The stub that returned empty results is gone. The real client is in `SupabaseSyncApiClient.kt` over the `SyncRpc` port, with `SyncApiClientTest` (19) covering parsing, 64-bit log positions, and a failure arriving as an `AppError` rather than an exception. |
-| `SupabaseConfigResolver` | Phase 6, done | Wired from the other direction than expected. `SupabaseClientProvider` resolves the configuration in order to decide whether a client can exist at all, so the resolver gained a production call site without the sign-in screen existing. The screen in phase 11 supplies the *value*; this phase supplied the *need for one*. |
-| `SupabaseAuthRepository` | Phase 8 | Depends on phase 7's `SecureSessionStore` and phase 6's transport, both of which now exist. `migrateAnonymousTo` throws unconditionally and `signUp`/`signIn` return success having done nothing. |
+`SupabaseConfigResolver` had sat in the same table while wired by nothing, and the
+detector was right to flag it. But the moment `SupabaseClientProvider` appeared and
+started resolving configurations, the flag cleared, because the binding *is* a
+production reference. A binding proves that something can reach the class; it says
+nothing about whether the class does anything. Reachability is not behaviour, and a
+gate that measures reachability cannot tell a wired class from a working one.
 
-**Closing condition:** phase 8 lands and the repository actually calls
-`SupabaseClientProvider.auth`, at which point this entry is deleted.
-
-**The part worth keeping.** This entry exists because of what the dead-symbol
-detector does *not* say. `SupabaseConfigResolver` sat in the same table while wired by
-nothing, and the gate was correct to flag it — but the moment
-`SupabaseClientProvider` appeared and started resolving configurations, the flag
-cleared. That is the desired behaviour, and it is also the mechanism by which a
-class that is bound but inert becomes invisible: the binding *is* a production
-reference, and a binding proves nothing about behaviour. A gate that measures
-reachability cannot distinguish a wired class from a working one.
-
-**Tracked as:** `openspec/changes/supabase-auth-and-sync/` — task 8.1 and 8.2.
+The general form: a DI container makes a whole category of stub invisible to
+reachability checks, because a stub is bound and called and simply returns. Catching
+those needs a different signal — a test asserting the *effect* — not a better
+reachability rule.

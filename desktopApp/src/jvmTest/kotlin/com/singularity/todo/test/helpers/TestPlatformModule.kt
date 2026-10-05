@@ -17,7 +17,7 @@ import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.core.sync.SyncScheduler
+import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
@@ -72,6 +72,13 @@ fun testPlatformModule(): Module = module {
     single { get<AppDatabase>().tagGroupDao() }
     single { get<AppDatabase>().projectInheritedTagGroupDao() }
     single { get<AppDatabase>().syncOutboxDao() }
+    // Added with phases 2.4 and 2.5 and missed here, so the desktop flow tests
+    // could not build a graph. `TestPlatformModuleParityTest` is what says so —
+    // and it only says so once the graph is actually built by the tests that
+    // resolve these, which is why a mirror can drift for a long time unnoticed.
+    single { get<AppDatabase>().syncStateDao() }
+    single { get<AppDatabase>().syncShadowDao() }
+    single { get<AppDatabase>().syncDeadLetterDao() }
     single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }
@@ -127,8 +134,15 @@ fun testPlatformModule(): Module = module {
     // NoopCalendarSyncRepository / NoopCalendarProvider are JVM-ready production
     // classes, so they are reused rather than re-faked.
     single<ReminderScheduler> { InertReminderScheduler() }
-    single<SyncScheduler> { InertSyncScheduler() }
+    // `SyncScheduler` was removed in phase 2.6 along with the alarm-based
+    // driver; `SyncWorkScheduler` is the surviving seam and already has its
+    // no-op above. The old binding stayed here and did not compile — this
+    // file is only built by `:desktopApp:test`, which is step 10 of the gate.
     single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+    // Never fires. The desktop production binding starts a daemon coroutine loop,
+    // and a test that started one would keep a thread alive for the rest of the run
+    // and make the suite's timing depend on how many tests ran before it.
+    single<SyncPeriodicTrigger> { InertSyncPeriodicTrigger() }
     single<CalendarSyncRepository> { NoopCalendarSyncRepositoryImpl() }
     single<CalendarProviderPort> { NoopCalendarProvider() }
     single<CalendarSyncWorkScheduler> { NoopCalendarSyncWorkScheduler() }
@@ -162,4 +176,17 @@ private val dataStoreCounter = AtomicInteger()
 private fun testDataStore(name: String): DataStore<Preferences> {
     val file = tempRoot().resolve("$name-${dataStoreCounter.incrementAndGet()}.preferences_pb")
     return PreferenceDataStoreFactory.create { file }
+}
+
+/**
+ * A periodic trigger that never fires.
+ *
+ * The desktop production binding starts a daemon coroutine loop; a test that
+ * started one would keep a thread alive for the rest of the run and make the
+ * suite's timing depend on how many tests ran before it.
+ */
+class InertSyncPeriodicTrigger : SyncPeriodicTrigger {
+    override fun start(interval: kotlin.time.Duration) = Unit
+
+    override fun stop() = Unit
 }

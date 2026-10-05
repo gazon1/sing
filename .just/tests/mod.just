@@ -137,7 +137,11 @@ gate:
     ./gradlew :shared:detekt :desktopApp:detekt
 
     banner "3/4 coverage ratchet"
-    just coverage-ratchet
+    # `cr`, not `coverage-ratchet`: this recipe lives in the `tests` module, so
+    # its unqualified name does not resolve from here. The gate got as far as this
+    # step only after the recipes were split into modules, and the call site was
+    # not updated with them — every earlier run stopped at step 10.
+    just cr
 
     if [[ "${SKIP_MAESTRO:-0}" == "1" ]]; then
         banner "4/4 agenda flows — SKIPPED (SKIP_MAESTRO=1)"
@@ -293,7 +297,13 @@ coverage-ratchet *args="":
     # ledger #11), and a full instrumented run was measured on 2026-10-04 at 9m27s
     # with no OOM. It stays off by default so ./check.sh does not pay those minutes
     # on every run.
-    ./gradlew :shared:jvmTest :shared:koverXmlReport \
+    # `koverXmlReport` unqualified, not `:shared:koverXmlReport`. Coverage is
+    # configured once at settings level (see settings.gradle.kts), so the report
+    # tasks are registered on the ROOT project and aggregate every subproject.
+    # A per-project task would report only that project's own test tasks — the
+    # gap the settings-level block exists to close — and no longer exists at
+    # all, so the qualified name failed to resolve.
+    ./gradlew :shared:jvmTest koverXmlReport \
         -Pkover.jvmTest=true \
         --console=plain
     python3 scripts/coverage-ratchet.py {{args}}

@@ -85,26 +85,43 @@ class SyncOutbox(
 
 `SyncOperation`: `CREATE`, `UPDATE`, `DELETE`.
 
-## ConflictResolver
+## Conflict resolution: per-field LWW against a shadow
 
-Located: `core/sync/ConflictResolver.kt`.
+There is no `ConflictResolver` class, and adding one is the mistake this section
+exists to prevent. Resolution happens in **two halves that cannot both live in a
+client**: what to *send* is decided locally, and what to *keep* is decided by the
+server.
 
-CRDT-inspired merge strategy: **Last-Writer-Wins (LWW) with HLC tiebreaker**.
+**Locally — `core/sync/SyncPatchBuilder.kt`.** A patch is a field-level *diff*
+against the last state the server is known to hold, not a snapshot:
 
 ```kotlin
-class ConflictResolver {
-    fun resolve(local: SyncableEntity<*>, remote: SyncableEntity<*>): SyncableEntity<*> {
-        return when {
-            remote.hlc > local.hlc -> remote   // remote is newer
-            local.hlc > remote.hlc -> local    // local is newer
-            remote.serverVersion > local.serverVersion -> remote  // tiebreak by version
-            else -> local
-        }
-    }
+class SyncPatchBuilder(shadowDao: SyncShadowDao, hlcFactory: HlcFactory, idGenerator: IdGenerator) {
+    suspend fun build(entity: SyncableEntity, scope: SyncScope, nowMillis: Long): DeltaPatch
 }
 ```
 
-**For collection properties** (e.g., task tags): set union rather than LWW.
+The base is `sync_shadow` (`core/sync/SyncShadow.kt`), which holds **two** states:
+`confirmed_json` (what the server has) and `in_flight_json` (what a queued patch
+will bring it to), plus the `in_flight_patch_id` that says which patch owns the
+marker. Diffing against the in-flight state is what stops a queued patch's fields
+from being re-sent; the marker is what stops a stale response from promoting a
+superseded patch's state.
+
+**On the server — `sync_apply_ops`.** One `UPDATE` per table, comparing the
+incoming HLC against the stored one *per field*. There is no row-level decision to
+make on the client, which is why a client cannot get it wrong: it sends operations
+and the server merges them in a single statement where reading a field's clock and
+writing its value come from the same row version.
+
+**A patch with no clock is refused before it is sent.** Omitting the key is not
+neutral — the server reads an absent `hlc` as a legacy snapshot client, expands
+the absent `doc` into zero operations and refuses it as `field_not_writable`.
+
+**For collection properties** (e.g., task tags): the server's allowlist decides
+which fields are writable at all; `field_not_writable` is reported back and
+**not** written to the ledger, so the client does not advance its shadow past a
+value the server never took.
 
 ## SyncEngine orchestration
 
@@ -116,7 +133,6 @@ Polls the outbox every 60s, pushes to Supabase, pulls remote changes, resolves c
 class SyncEngine(
     private val outbox: SyncOutbox,
     private val api: SyncApiClient,
-    private val conflictResolver: ConflictResolver,
     private val hlc: HlcFactory,
     private val settings: SettingsRepository,
 ) {
@@ -212,11 +228,16 @@ class TwoDeviceHarness {
 |---|---|
 | `core/sync/Hlc.kt` | HLC timestamp, tick, compare |
 | `core/sync/HlcFactory.kt` | Factory creating HLC timestamps per device |
-| `core/sync/ConflictResolver.kt` | LWW + HLC tiebreaker |
+| `core/sync/SyncPatchBuilder.kt` | Field-level diff against the shadow; stamps the HLC |
+| `core/sync/SyncShadow.kt` | Confirmed + in-flight state, keyed by (owner, profile, type, id) |
 | `core/sync/SyncOutbox.kt` | Room-backed outbox queue |
-| `core/sync/SyncEngine.kt` | Orchestration: push → pull → merge |
-| `core/sync/SyncApi.kt` | Supabase REST interface |
+| `core/sync/SyncEngine.kt` | Orchestration: push → pull; per-(owner, profile) state |
+| `core/sync/SeedPlanner.kt` | One-time upload of data that existed before sign-in |
+| `core/sync/SyncApi.kt` | Transport interface — no method takes an owner id |
+| `core/sync/SyncRpc.kt` | One-method port the transport is built over |
+| `core/sync/SyncWire.kt` | Wire names and the refusals a malformed response gets |
 | `core/database/Entities.kt` | TaskEntity, NoteEntity, ProjectEntity, TagEntity (with sync columns) |
 | `shared/src/jvmTest/.../core/sync/HlcTest.kt` | HLC unit tests |
-| `shared/src/jvmTest/.../core/sync/ConflictResolverTest.kt` | Conflict resolution tests |
+| `shared/src/jvmTest/.../core/sync/BuildPatchDiffTest.kt` | One-field edit yields one operation; a stale response cannot promote a superseded patch |
+| `shared/src/jvmTest/.../core/sync/SyncApiClientTest.kt` | Wire parsing, 64-bit log positions, RPC failure as an AppError |
 | `shared/src/jvmTest/.../core/sync/SyncProtocolTest.kt` | End-to-end sync protocol tests |

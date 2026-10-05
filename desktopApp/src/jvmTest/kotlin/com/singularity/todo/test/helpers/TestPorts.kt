@@ -9,7 +9,6 @@ import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.core.sync.SyncScheduler
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.pomodoro.PomodoroState
@@ -156,13 +155,6 @@ class InertReminderScheduler : ReminderScheduler {
     override suspend fun cancel(id: ReminderId, userId: UserId) = Unit
 
     override suspend fun cancelByTask(taskId: TaskId, userId: UserId) = Unit
-}
-
-/** No-op [SyncScheduler]; the JVM real one starts a daemon coroutine loop. */
-class InertSyncScheduler : SyncScheduler {
-    override fun schedule(interval: Duration) = Unit
-
-    override fun cancel() = Unit
 }
 
 /** Empty focus-task list; the flow suite seeds tasks through the database instead. */

@@ -51,6 +51,8 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import com.singularity.todo.core.coroutines.createBackgroundScope
 
 /**
  * JVM/desktop platform bindings — Room 3 (same stack as Android, no extra native deps).
@@ -157,6 +159,14 @@ actual fun platformModule(): Module = module {
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
     single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
+
+    // Present on Android and missing here, which is why the desktop graph could
+    // not be built: `DelayLoopSyncPeriodicTrigger` below resolves a CoroutineScope
+    // through a bare `get()`, so neither the Koin compiler's diagnostic nor the
+    // DAO scan in PlatformModuleMirrorTest could see the dependency — a type that
+    // is never named in a `get<X>()` is invisible to both. The binding itself is
+    // a background scope owned by the graph, identical to the Android one.
+    single<CoroutineScope> { createBackgroundScope() }
     single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
     factory<PomodoroTimer> {
         JvmPomodoroTimer(

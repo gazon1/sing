@@ -2,6 +2,8 @@ package com.singularity.todo.feature.auth
 
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.auth.SupabaseClientProvider
+import com.singularity.todo.core.auth.SupabaseConfig
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -19,6 +21,16 @@ sealed interface AuthIntent : MviIntent {
     data object SignInAnonymously : AuthIntent
     data object SignOut : AuthIntent
     data object ResetState : AuthIntent
+
+    /**
+     * Stores the Supabase project to talk to.
+     *
+     * Carries the URL and the **anon** key. The anon key ships inside every copy
+     * of the app and is meant to be readable; the service-role key is not, and
+     * asking for it here would be asking the user for a secret that has no place
+     * on a device.
+     */
+    data class SaveServerConfig(val url: String, val anonKey: String) : AuthIntent
 }
 
 /**
@@ -32,6 +44,14 @@ sealed interface AuthIntent : MviIntent {
  */
 class AuthViewModel(
     private val authRepository: AuthRepository,
+    private val clients: SupabaseClientProvider,
+    /**
+     * Runs once after a successful sign-in, to upload whatever the device already
+     * held. A lambda rather than a dependency on the planner so this feature does
+     * not reach into sync, and so a test can observe the call without standing up
+     * six repositories.
+     */
+    private val onFirstSignIn: suspend () -> Unit = {},
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
 ) : MviViewModel<AuthUiState, AuthIntent, AuthUiEvent>(
@@ -41,6 +61,17 @@ class AuthViewModel(
     ) {
     val session: StateFlow<Session> = authRepository.currentSession
 
+    init {
+        // The screen opens on "no server" rather than on the credential form when
+        // nothing is configured, because a sign-in with no project cannot work and
+        // its failure looks like a rejected password.
+        vmScope.launch {
+            if (clients.client() == null) {
+                updateState { AuthUiState.SignedOutWithNoServer }
+            }
+        }
+    }
+
     override fun onIntent(intent: AuthIntent) {
         when (intent) {
             is AuthIntent.SignIn -> signIn(intent.email, intent.password)
@@ -48,6 +79,7 @@ class AuthViewModel(
             AuthIntent.SignInAnonymously -> signInAnonymously()
             AuthIntent.SignOut -> signOut()
             AuthIntent.ResetState -> updateState { AuthUiState.Idle }
+            is AuthIntent.SaveServerConfig -> saveServerConfig(intent)
         }
     }
 
@@ -56,6 +88,7 @@ class AuthViewModel(
             updateState { AuthUiState.Loading }
             authRepository.signIn(email, password).fold(
                 onSuccess = {
+                    runCatching { onFirstSignIn() }
                     updateState { AuthUiState.Success }
                     emit(AuthUiEvent.NavigateToHome)
                 },
@@ -72,6 +105,7 @@ class AuthViewModel(
             updateState { AuthUiState.Loading }
             authRepository.signUp(email, password).fold(
                 onSuccess = {
+                    runCatching { onFirstSignIn() }
                     updateState { AuthUiState.Success }
                     emit(AuthUiEvent.NavigateToHome)
                 },
@@ -96,6 +130,28 @@ class AuthViewModel(
                     emit(AuthUiEvent.Error(it.message ?: "Failed"))
                 },
             )
+        }
+    }
+
+    /**
+     * Stores the project and shows the credential form.
+     *
+     * A blank half is refused rather than stored, and the screen says which: a
+     * stored URL with no key is indistinguishable from "not configured" until the
+     * first request fails, and that failure arrives as a network error pointing at
+     * the wrong thing entirely.
+     */
+    private fun saveServerConfig(intent: AuthIntent.SaveServerConfig) {
+        vmScope.launch {
+            val url = intent.url.trim()
+            val key = intent.anonKey.trim()
+            if (url.isEmpty() || key.isEmpty()) {
+                emit(AuthUiEvent.Error("Both the project URL and the anon key are required"))
+                return@launch
+            }
+            runCatching { clients.configure(SupabaseConfig(url = url, anonKey = key)) }
+                .onSuccess { updateState { AuthUiState.Idle } }
+                .onFailure { emit(AuthUiEvent.Error(it.message ?: "Could not save the server settings")) }
         }
     }
 

@@ -23,9 +23,9 @@ import kotlin.test.fail
  *
  * - `core/files/FileChecksum.kt` — `java.security.MessageDigest`, on the attachment
  *   upload path and the backup integrity path. **Fixed** (okio).
- * - `core/sync/ConflictResolver.kt` — the same, on the sync push path. **Fixed**
- *   (deleted with the row checksum, whose removal is the point: the checksum chose
- *   a whole-row conflict winner, and per-field LWW replaces it).
+ * - a sync-push-path class that no longer exists (`ConflictResolver`) — a JVM-only
+ *   SHA-256, removed with the row checksum. That removal is the point: the checksum
+ *   chose a whole-row conflict winner, and per-field LWW replaces it.
  * - `core/ids/IdGenerator.kt` — `java.util.concurrent.atomic.AtomicInteger`.
  * - `core/ui/DraftMviViewModel.kt` — `java.util.concurrent.ConcurrentHashMap`.
  * - `core/attachments/AttachmentId.kt` — `java.util.UUID`.

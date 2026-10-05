@@ -42,6 +42,18 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 
     val navigator = LocalAppNavigator.current
 
+    // With no project configured there is nothing to sign in to, and the
+    // credential form's failure would arrive as a network error pointing at the
+    // password. The configuration comes first so the user is never asked to retype
+    // a correct password because the server was never named.
+    if (state is AuthUiState.SignedOutWithNoServer) {
+        ServerConfigForm(
+            errorMessage = errorMessage,
+            onSave = { url, key -> viewModel.onIntent(AuthIntent.SaveServerConfig(url, key)) },
+        )
+        return
+    }
+
     CollectEvents(viewModel.events) { event ->
         when (event) {
             is AuthUiEvent.NavigateToHome -> navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
@@ -149,6 +161,81 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             ) {
                 Text("Continue Offline")
             }
+        }
+    }
+}
+
+/**
+ * The project URL and anon key, entered once.
+ *
+ * The anon key is a **publishable** identifier — it ships inside every copy of the
+ * app and is meant to be readable. The label says so, because a field named "key"
+ * next to a password field invites the user to paste the service-role key, and
+ * that key does not belong on a device.
+ */
+@Composable
+private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> Unit) {
+    var url by remember { mutableStateOf("") }
+    var anonKey by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(text = "Connect your server", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Paste the project URL and the anon key from your Supabase project settings. " +
+                "The anon key is publishable, not a secret.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedTextField(
+            value = url,
+            onValueChange = { url = it },
+            label = { Text("Project URL") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_SERVER_URL_INPUT),
+            singleLine = true,
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = anonKey,
+            onValueChange = { anonKey = it },
+            label = { Text("Anon key (publishable)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_SERVER_KEY_INPUT),
+            singleLine = true,
+        )
+
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = { onSave(url, anonKey) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_SAVE_SERVER_BUTTON),
+        ) {
+            Text("Save")
         }
     }
 }

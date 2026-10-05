@@ -29,6 +29,9 @@ object TestTags {
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
     const val AUTH_LOADING = "auth_loading"
+    const val AUTH_SERVER_URL_INPUT = "auth_server_url_input"
+    const val AUTH_SERVER_KEY_INPUT = "auth_server_key_input"
+    const val AUTH_SAVE_SERVER_BUTTON = "auth_save_server_button"
 
     // ─── Navigation ──────────────────────────────────────────────────────────
     const val NAV_MENU_BUTTON = "nav_menu_button"

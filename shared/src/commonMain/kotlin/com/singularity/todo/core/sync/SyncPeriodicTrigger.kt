@@ -18,8 +18,17 @@ import kotlin.time.Duration
  * This seam exists because "which platform am I on" must not be answered by a type
  * test on an injected dependency. See [SyncRunner.startScheduledSync] for the bug
  * that produced it.
+ *
+ * ## Why it is public
+ *
+ * It was `internal`, which made it unbindable from `desktopApp`'s own test module —
+ * and that graph then could not be built, so the desktop flow tests failed with a
+ * `NoDefinitionFoundException` for a type nobody outside `:shared` is allowed to
+ * name. A platform seam has to be nameable by every module that has to provide a
+ * platform, including a test one. Its siblings `SyncWorkScheduler` and
+ * `ReminderScheduler` are public for the same reason.
  */
-internal interface SyncPeriodicTrigger {
+interface SyncPeriodicTrigger {
     fun start(interval: Duration)
     fun stop()
 }

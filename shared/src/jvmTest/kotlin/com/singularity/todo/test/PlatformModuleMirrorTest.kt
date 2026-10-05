@@ -27,8 +27,35 @@ class PlatformModuleMirrorTest {
 
     private val daoBindings = Regex("""get<AppDatabase>\(\)\.(\w+)\(\)""")
 
+    /**
+     * Every explicitly-typed Koin binding: `single<Foo>`, `factory<Foo> {`,
+     * `viewModel<Foo>`, and so on.
+     *
+     * DAOs alone were not enough, and the gap was found the hard way. The desktop
+     * module resolved `scope = get()` for a `CoroutineScope` that only the *Android*
+     * module bound — so the desktop graph could not be built, and the DAO scan could
+     * not see it because the type is not a DAO. Typed bindings are what makes the
+     * difference visible; an untyped `single { … }` is inferred and stays invisible
+     * here, which is the accepted limit of a source-level gate.
+     */
+    private val typedBindings = Regex(
+        """\b(?:single|factory|viewModel|viewModelOf|factoryOf|singleOf)<\s*([\w.]+)""",
+    )
+
     private fun bindingsIn(file: File): Set<String> =
         daoBindings.findAll(file.readText()).map { it.groupValues[1] }.toSet()
+
+    private fun typedBindingsIn(file: File): Set<String> =
+        typedBindings.findAll(file.readText()).map { it.groupValues[1] }.toSet()
+
+    private fun androidModuleFile(): File {
+        val root = System.getProperty("jvmMain.root")
+            ?: error("jvmMain.root is not set — see the jvmTest task config")
+        val sharedSrc = File(root).parentFile.parentFile
+        val file = File(File(sharedSrc, "androidMain/kotlin/com/singularity/todo/core/di"), "PlatformModule.android.kt")
+        assertTrue(file.exists(), "android platform module not found at $file")
+        return file
+    }
 
     private fun sourceFile(name: String): File {
         val root = System.getProperty("jvmMain.root")
@@ -75,6 +102,25 @@ class PlatformModuleMirrorTest {
             "KoinGraphValidationTest mirrors the platform module by hand; these DAOs are " +
                 "bound on desktop and absent from the mirror, so the graph test resolves a " +
                 "graph the app cannot build",
+        )
+    }
+
+    @Test
+    fun `every type the desktop module binds is also bound on Android`() {
+        val desktop = typedBindingsIn(sourceFile("PlatformModule.jvm.kt"))
+        val android = typedBindingsIn(androidModuleFile())
+
+        // The direction that matters: a type the desktop module binds and Android
+        // does not is a graph that only works on one platform. `CoroutineScope` was
+        // exactly that — bound on Android, resolved by `get()` on the desktop, and
+        // invisible to the DAO scan above because it is not a DAO.
+        assertEquals(
+            emptySet(),
+            desktop - android,
+            "these types are bound by PlatformModule.jvm.kt but not by PlatformModule.android.kt, " +
+                "so the desktop graph cannot be built. One direction only: a type bound on " +
+                "Android and not on desktop is usually an Android-only feature with a " +
+                "no-op desktop implementation, which is legitimate",
         )
     }
 }

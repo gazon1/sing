@@ -43,6 +43,10 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.PatchRetryPolicy
 import com.singularity.todo.core.sync.RoomSyncStateRepository
+import kotlinx.coroutines.flow.first
+
+import com.singularity.todo.core.sync.SyncScope
+import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.RemoteConfigRepository
@@ -126,7 +130,12 @@ fun coreModule(): org.koin.core.module.Module = module {
     single<SecureStorage> { SecureStorageAdapter(get()) }
     single { SupabaseClientProvider(resolver = get(), store = get<SecureStorage>()) }
 
-    single<AuthGateway> { SupabaseAuthGateway(auth = get(), log = Logger.withTag("AuthGateway")) }
+    single<AuthGateway> {
+        SupabaseAuthGateway(
+            clients = get<SupabaseClientProvider>(),
+            log = Logger.withTag("AuthGateway"),
+        )
+    }
 
     single<AuthRepository> {
         SupabaseAuthRepository(
@@ -386,7 +395,23 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { AuthViewModel(authRepository = get(), crashReporter = get()) }
+    viewModel {
+        AuthViewModel(
+            authRepository = get(),
+            clients = get<SupabaseClientProvider>(),
+            // The seed is a one-shot upload of whatever the device held before the
+            // sign-in. It is a lambda rather than a dependency so the auth feature
+            // does not reach into sync.
+            onFirstSignIn = {
+                // Named `activeScope` because `scope` is the Koin receiver in this
+                // DSL, and shadowing it makes every `get` below resolve against a
+                // SyncScope.
+                val activeScope: SyncScope? = get<SyncScopeProvider>().current.first()
+                if (activeScope != null) get<SeedPlanner>().plan(activeScope)
+            },
+            crashReporter = get(),
+        )
+    }
 
     // Settings snapshot exporter / importer (registered as single — stateless, no per-injection state)
     single { SettingsExporter(getAll<SettingsContributor<*, *>>().toSet()) }
