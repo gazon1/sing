@@ -167,3 +167,43 @@ signal.
 - **Given** a test fails that is not in the flaky baseline
 - **When** the analysis runs
 - **Then** it exits non-zero and names the test
+
+### Requirement: REQ-13 A claimed scenario that ran without reporting is a failure
+
+A result matrix SHALL distinguish a target that **was never run** from a claimed
+scenario that **ran and produced no result**, and SHALL fail only the second.
+
+The decision this encodes: *a claim is a claim when the spec lists the target and the
+invocation was given result directories for it.* A scenario whose target is not
+claimed is a coverage gap to render, not an error. A target this invocation was never
+asked to cover is a fact, not a failure — a desktop-only local run must not fail over
+Android, or a partial run becomes unexpressible.
+
+**Rationale:** The per-target rule catches a suite that ran and produced nothing, but
+it is blind to the shape a tag filter actually produces: a target that produced 200
+testcases passes it, even when the one testcase carrying a scenario id was filtered
+out. The build is green, the coverage cell renders as not-run, and nothing ever
+fails — the same quiet-green class as REQ-1, one level down.
+
+A **reported** result is what counts, not a passing one. A scenario that failed or was
+skipped has given a real answer about the code and SHALL NOT be reported as missing;
+a quarantined test and a class that silently vanished warrant different responses, and
+collapsing them would hide the second.
+
+#### Scenario: The scenario's class is filtered out of a run that otherwise passed
+
+- **Given** a spec claims `desktop` and a run for `desktop` produced results
+- **And** the test carrying that scenario's id is absent from the results
+- **Then** normalisation exits non-zero and names the scenario and target
+
+#### Scenario: The scenario ran and failed
+
+- **Given** the test carrying that scenario's id is present and failed
+- **When** normalisation runs
+- **Then** it succeeds, and the matrix renders the failure
+
+#### Scenario: The target was never part of this invocation
+
+- **Given** a spec claims both `android` and `desktop`
+- **And** results were supplied for `desktop` only
+- **Then** normalisation succeeds, and the `android` cell renders as not-run

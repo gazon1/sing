@@ -1473,18 +1473,28 @@ It is also the only androidApp source set the module does not scan.
 **Tracked as:** #99
 **OpenSpec change:** `openspec/changes/androidapp-debug-lint-policy/`
 
-**Status:** OPEN — a decision, not a mechanical fix. Linting it produces 16 findings, and
-every one is in `DebugSeedActivity.kt`:
+**Status: CLOSED.** 2026-10-05, by `openspec/changes/androidapp-debug-lint-policy` and
+ADR `2026-10-05-debug-source-set-is-linted.md`. `src/debug` is now scanned; 9 findings
+were auto-corrected and 6 are baselined with a reason each. **The recorded split below was
+wrong** — measurement found 15 findings, not 16, and 6 to baseline rather than 4 — which is
+why the change's first task was to measure before changing anything. The policy was not:
+lint it, rather than exempt the source set, because "not linted" and "linted with
+everything suppressed" are the same hiding place with a different badge.
+
+The original entry:
+
+> **Status:** OPEN — a decision, not a mechanical fix. Linting it produces 16 findings, and
+> every one is in `DebugSeedActivity.kt`:
 - `NoRunBlocking` (1) and `NoDirectClockSystem` (4) — a one-shot debug seeder blocks a
   background thread and stamps seed timestamps; both are the point of the tool
 - `TooGenericExceptionCaught` (1) — a seeding tool that must not crash the app
 - `BlankLineBetweenWhenConditions` (5), `ClassSignature` (2), and 3 more formatting
   findings, which are auto-correctable
 
-**Not done deliberately.** Half of these would need a suppression, because the rules are
-correct for production and wrong for a debug seeder. Whether debug-only tooling should be
-held to production rules — or exempted by source set, or held with a narrower rule set — is
-a call for whoever owns the debug tooling, and it generalises to every future
+**Now resolved.** Half of these needed a suppression, because the rules are correct for
+production and wrong for a debug seeder — and each suppression says so in terms of the tool
+rather than of debug code, so a seventh finding has to be a decision instead of joining the
+pile. The decision generalises to every future
 `src/debug` file.
 
 **Try next:** decide the policy first, then wire it. The cheapest policy is to lint it
@@ -2845,3 +2855,38 @@ in this change and missed here.
 Whether an archived change can be reopened, or whether the fix belongs in a new change, is a
 question about the archive's policy — it does not belong in an archived file, and it is why
 this is filed rather than patched into the archive.
+
+---
+
+## an-arch-test-lives-in-the-module-whose-conventions-it-does-not-own
+
+**Status: OPEN**
+
+**Tracked as:** [#186](https://github.com/gazon1/singularity-clone-kmp/issues/186)
+
+**Found in:** 2026-10-05, closing #153 — the duplicated-test-helpers issue whose
+premise turned out to be false, so the real defect had to be looked for.
+
+**Situation.** `ViewModelTestCoverageTest` lives in `:shared` and reads
+`:desktopApp`'s test sources through `System.getProperty("desktopAppJvmTest.root")`,
+passed from `shared/build.gradle.kts`. Unlike the test that was moved out in
+`08f6cd1a`, this one is *legitimate*: it matches a production ViewModel against
+every test class that mentions it, so it genuinely aggregates across modules and a
+relative path is not available to it.
+
+**What is left.** The property is a string path between modules that neither
+Gradle nor the compiler knows about. A rename breaks it at runtime with
+`desktopAppJvmTest.root is not set`, and the comment naming the one remaining
+reader is the only thing keeping that honest. `check-test-task-inputs.py` covers
+the *staleness* half of the hazard (the tree is a declared task input, so a
+desktopApp edit invalidates `:shared:jvmTest`) — it does not cover the *naming*
+half.
+
+**Already ruled out.** `testFixtures` is not the answer, for the same reason it was
+not the answer in #153: this is a file scan, not a shared declaration. Making the
+property a Gradle-projected value would be the alternative, and it is real work
+for one remaining reader.
+
+**Try next:** only if a second cross-module scan appears — which #154's tag
+unification would likely produce. Then a small shared scan-root provider in
+`jvmTestFixtures` pays for itself. With one caller it is ceremony.

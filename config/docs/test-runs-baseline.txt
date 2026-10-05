@@ -9,7 +9,9 @@
 #
 # A DROP means a test class stopped being selected — an untagged class, a
 # JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do
-# not regenerate. A RISE just means tests were added.
+# not regenerate. A RISE just means tests were added — but see the warning
+# --update-baseline prints on a rise, because a rise measured with
+# `-Ptest.tags=fast,slow` is not a floor at all.
 #
 # max-skipped is a CEILING, not a floor, and it is 0. A skipped test is a
 # silent green: JUnit counts it in tests= exactly like a passing one, so a
@@ -17,34 +19,68 @@
 # other symptom. Do not raise it to make this gate pass — re-enable the test.
 #
 # Regenerate with: python3 scripts/check-test-runs.py --update-baseline
+# (only the GENERATED block below is rewritten; every note above it survives)
+
+# ---------------------------------------------------------------------------
+# Notes. These are hand-written and are deliberately outside the generated block.
+# ---------------------------------------------------------------------------
 #
-# The three lines below were re-measured on 2026-10-05 by running each task with
-# no -Ptest.tags, which is the floor-producing configuration. The android host
-# line is deliberately NOT from the same measurement: it needs a device/emulator
-# that was not available, and a line written from a run that did not happen is
+# **The android host line is not from the same measurement as the others.** It
+# needs a device or emulator, so on a host without one it is carried over
+# unchanged rather than rewritten. A line written from a run that did not happen is
 # worse than a stale one.
 #
-# shared:jvmTest rose 178 → 200 classes. That is a correction, not test growth.
-# The old number was recorded while the tag gate's predicate matched only
-# `@Test`, so `@ParameterizedTest` classes were invisible to it and CI's
-# `-Ptest.tags=fast,slow` silently skipped them. The count floor cannot detect
-# that kind of error on its own — it only notices that fewer tests ran than the
-# last time, and the last time was already short. See the by-results section of
-# scripts/check-test-runs.py, which now compares declared fast classes against
-# the classes that actually produced a JUnit report.
-desktopApp:test 10 33 0
-mcp-server:test 1 7 0
-shared:jvmTest 200 1616 0
-# 998, not 1003. The 1003 was recorded by `--update-baseline` at 57074f01 and was
-# never a measurement of a real run: `shared/src/commonTest` contains exactly 998
-# `@Test` declarations, and a fresh run discovers exactly 998 — on this host and on
-# CI. A floor higher than the number of tests in the sources is unreachable by
-# construction, and it failed the kover job on the first run after it was written.
+# **998, not 1003.** The 1003 was recorded by `--update-baseline` at 57074f01 and
+# was never a measurement of a real run: `shared/src/commonTest` contained exactly
+# 998 `@Test` declarations, and a fresh run discovered exactly 998 — on this host
+# and on CI. A floor higher than the number of tests in the sources is unreachable
+# by construction, and it failed the kover job on the first run after it was
+# written. That source set was not edited between the two commits and its build
+# config did not change either, so no test was lost; the likeliest mechanism was a
+# results directory left over from an earlier run, read as if it were the current
+# one. Re-measure before regenerating anything here.
 #
-# That source set was not edited between the two commits (the diff of
-# shared/src/commonTest from 57074f01 to the merge is empty) and its build config
-# did not change either, so no test was lost. The likeliest mechanism is the one
-# this file's own freshness section describes: a results directory left over from
-# an earlier run, read by --update-baseline as if it were this one. Re-measure
-# before regenerating anything here.
-shared:testAndroidHostTest 117 998 0
+# **178 -> 200 was a correction, not test growth.** The old number was recorded
+# while the tag gate's predicate matched only `@Test`, so `@ParameterizedTest`
+# classes were invisible to it and CI's `-Ptest.tags=fast,slow` silently skipped
+# them. A count floor cannot detect that on its own — it only notices fewer tests
+# than last time, and last time was already short. See the by-results section of
+# scripts/check-test-runs.py, which compares declared fast classes against the
+# classes that actually produced a JUnit report.
+#
+# **200 -> 222 classes was real growth**, and the way it was caught is the argument
+# for the by-results check. The sync and auth work landed 27 new `@Tag("fast")`
+# classes, and the count floor was satisfied the whole time — 200 classes, 1616
+# tests, unchanged — while 27 declared classes produced no report at all. Only the
+# by-results half saw it, because it asks the direct question ("did this specific
+# declared class run") instead of comparing against a number.
+#
+# **The class column is gone** (2026-10-05). It became redundant once the
+# by-results check existed: that check already fails when a declared class produced
+# no report, which is what the class count was for, and it fails by name rather than
+# by subtraction. Every other way a class count moves — a class deleted, a class
+# emptied, two classes merged — moves the test count too, so the test count fires
+# wherever the class column would have, and the class column never fired alone.
+# Keeping both meant raising a floor whenever a test was added, which is friction
+# that trains people to regenerate it without reading it.
+#
+# **`--update-baseline` now refuses a drop.** The header above says a drop means
+# "investigate; do not regenerate", and the tool did not enforce its own rule:
+# a filtered `--tests <one class>` run leaves one class of XML on disk, and the
+# tool read that as a measurement and wrote a floor of **1 test** for a source set
+# that runs 1788. It was found by being bitten, and it is the same incident as the
+# 1003 above, reached the same way. `--allow-drop` is the override, and a deliberate
+# deletion is exactly when it is the right one.
+#
+# **This block used to be un-bounded, and regenerating destroyed these notes.**
+# `--update-baseline` rewrote the whole file from a header literal held in the
+# script, and the literal did not contain the notes added afterwards. The 998
+# investigation above — the most valuable thing in this file — was silently deleted
+# by a routine regeneration. The markers exist because that happened, and the same
+# convention is already used by `Maestro/TAGS.md`.
+#
+# GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
+desktopApp:test 33 0
+mcp-server:test 7 0
+shared:jvmTest 1788 0
+# GENERATED:END

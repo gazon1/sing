@@ -1,0 +1,61 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues>
+    <!--
+      `src/debug` was added to detekt's source list on 2026-10-05 (issue #99,
+      openspec/changes/androidapp-debug-lint-policy). Linting it surfaced 15
+      findings, all in DebugSeedActivity.kt: 9 were real formatting defects and
+      were auto-corrected, and the 4 below are the tool doing its job.
+
+      They live in ManuallySuppressedIssues rather than CurrentIssues on purpose.
+      A CurrentIssues entry is regenerated from a run and quietly absorbs whatever
+      the next run finds, so a genuinely new defect in this file would join these
+      four and become indistinguishable from them. These are written by hand, which
+      means a fifth has to be a decision.
+
+      Each reason is about what this tool *is*, not about debug code in general. A
+      justification written as "this is debug code" would be the blanket exemption
+      wearing a suppression's syntax, and it would be copy-pasted into production
+      where it is not true.
+    -->
+
+    <!--
+      A seeder is invoked from a deep link and must finish before the app it seeds
+      draws anything. There is no composition to inject a scope into and no caller
+      to hand a dispatcher to: the activity is the whole lifecycle. Making this
+      async would mean the process could be backgrounded, or the deep link followed
+      again, with the database half-written. So it blocks, on purpose, for a seeder
+      the developer is watching.
+    -->
+    <ID>NoRunBlocking:DebugSeedActivity.kt:DebugSeedActivity$runBlocking { seed(params) }</ID>
+
+    <!--
+      Seed rows are stamped with the developer's real wall clock, and a scenario
+      asserting on "today" has to see the same "today" the app computes. There is no
+      Clock in the graph a deep link can reach, and injecting a fake here would make
+      seeded data disagree with the running app rather than agree with it. This is
+      the one place reading the system clock is the correct behaviour, which is why
+      it is baselined individually instead of exempted by source set.
+    -->
+    <ID>NoDirectClockSystem:DebugSeedActivity.kt:DebugSeedActivity$Clock.System</ID>
+
+    <!--
+      `resolveDate` resolves a seed's "today" anchor, so it reads the same clock for
+      the same reason as the stamping above. One entry covers all four call sites:
+      detekt keys the signature on the expression, not the line.
+    -->
+    <ID>NoDirectClockSystem:DebugSeedActivity.kt:resolveDate$Clock.System</ID>
+
+    <!--
+      A seeding tool that throws takes the developer's app down with it, and the
+      exception the repository layer throws is not this module's to enumerate — the
+      same reason SupabaseSyncApiClient's transport catch is baselined in
+      baseline-shared.xml. The failure is logged with its cause and the activity
+      still finishes, so a partial seed shows up in logcat instead of as a crash
+      dialog over an empty database.
+    -->
+    <ID>TooGenericExceptionCaught:DebugSeedActivity.kt:DebugSeedActivity$e: Throwable</ID>
+  </ManuallySuppressedIssues>
+  <CurrentIssues>
+  </CurrentIssues>
+</SmellBaseline>

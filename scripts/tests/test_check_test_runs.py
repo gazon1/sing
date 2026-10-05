@@ -85,17 +85,37 @@ class TestCount(unittest.TestCase):
 
 
 class TestBaselineParsing(unittest.TestCase):
-    def test_three_column_line_defaults_skipped_ceiling_to_zero(self):
+    """The baseline is two data columns: <tests> <max-skipped>.
+
+    The class count was dropped once the by-results check made it redundant, and
+    the legacy 4-column form is still read so an older file degrades to a
+    parsed-but-shifted value rather than to a crash mid-run.
+    """
+
+    def test_two_column_line_defaults_skipped_ceiling_to_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = pathlib.Path(tmp) / "b.txt"
-            p.write_text("# comment\nshared:jvmTest 190 1519\n", encoding="utf-8")
-            self.assertEqual(ctr.load_baseline(p), {"shared:jvmTest": (190, 1519, 0)})
+            p.write_text("# comment\nshared:jvmTest 1519\n", encoding="utf-8")
+            self.assertEqual(ctr.load_baseline(p), {"shared:jvmTest": (1519, 0)})
 
-    def test_four_column_line_keeps_its_ceiling(self):
+    def test_three_column_form_keeps_its_ceiling(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = pathlib.Path(tmp) / "b.txt"
+            p.write_text("shared:jvmTest 1519 2\n", encoding="utf-8")
+            self.assertEqual(ctr.load_baseline(p), {"shared:jvmTest": (1519, 2)})
+
+    def test_legacy_four_column_line_is_read_as_tests_and_ceiling(self):
+        """A pre-2-column file must not crash, and must not silently keep a
+        class count as if it were a test count."""
         with tempfile.TemporaryDirectory() as tmp:
             p = pathlib.Path(tmp) / "b.txt"
             p.write_text("shared:jvmTest 190 1519 0\n", encoding="utf-8")
-            self.assertEqual(ctr.load_baseline(p), {"shared:jvmTest": (190, 1519, 0)})
+            self.assertEqual(
+                ctr.load_baseline(p),
+                {"shared:jvmTest": (1519, 0)},
+                "the legacy <classes> <tests> <max-skipped> line must resolve to the "
+                "test count, not to the class count",
+            )
 
     def test_missing_file_is_empty_not_an_error(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -543,8 +563,8 @@ class UpdateBaselineTest(unittest.TestCase):
 
     def _write_baseline(self) -> None:
         ctr.BASELINE.write_text(
-            "shared:jvmTest 5 50 0\n"
-            "shared:testAndroidHostTest 117 998 0\n",
+            "shared:jvmTest 50 0\n"
+            "shared:testAndroidHostTest 998 0\n",
             encoding="utf-8",
         )
 
@@ -554,8 +574,8 @@ class UpdateBaselineTest(unittest.TestCase):
         write_suite(d, "C0", tests=60)
         self.assertEqual(ctr.main(), 0)
         text = ctr.BASELINE.read_text(encoding="utf-8")
-        self.assertIn("shared:testAndroidHostTest 117 998 0", text)
-        self.assertIn("shared:jvmTest 1 60 0", text)
+        self.assertIn("shared:testAndroidHostTest 998 0", text)
+        self.assertIn("shared:jvmTest 60 0", text)
 
     def test_a_rise_is_reported_to_stderr(self):
         """A rise measured from `-Ptest.tags=fast,slow` is not a floor.
@@ -572,6 +592,101 @@ class UpdateBaselineTest(unittest.TestCase):
             self.assertEqual(ctr.main(), 0)
         self.assertIn("ROSE", stderr.getvalue())
         self.assertIn("shared:jvmTest", stderr.getvalue())
+
+    def test_hand_written_notes_survive_a_regeneration(self):
+        """The regression that produced the markers.
+
+        `--update-baseline` used to rewrite the whole file from a header literal
+        held in the script. The notes added to the file afterwards were not in that
+        literal, so a routine regeneration deleted them — measured: it destroyed the
+        record of the 1003/998 incident, which was the most valuable thing in the
+        file. The generated block is now bounded by markers and the prose outside is
+        preserved.
+        """
+        ctr.BASELINE.write_text(
+            "# Executed test counts.\n"
+            "# A hand-written note about the 1003/998 incident.\n"
+            f"{ctr.GENERATED_BEGIN}\n"
+            "shared:jvmTest 50 0\n"
+            f"{ctr.GENERATED_END}\n",
+            encoding="utf-8",
+        )
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        text = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertIn("1003/998 incident", text)
+        self.assertIn("shared:jvmTest 60 0", text)
+
+    def test_regenerating_an_already_correct_file_changes_nothing(self):
+        """A committed file that reflows on every run trains people to ignore its diff."""
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        first = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertEqual(ctr.main(), 0)
+        self.assertEqual(
+            ctr.BASELINE.read_text(encoding="utf-8"),
+            first,
+            "a second --update-baseline rewrote the file; regeneration must be a no-op "
+            "on an already-correct file",
+        )
+
+    def test_a_legacy_file_without_markers_loses_nothing(self):
+        """The state this shipped in: no markers, whole file is prose."""
+        ctr.BASELINE.write_text(
+            "# legacy header\n"
+            "# a note from before the markers existed\n"
+            "shared:jvmTest 50 0\n"
+            "shared:testAndroidHostTest 998 0\n",
+            encoding="utf-8",
+        )
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        text = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertIn("a note from before the markers existed", text)
+        self.assertIn("shared:testAndroidHostTest 998 0", text)
+        self.assertIn(ctr.GENERATED_BEGIN, text)
+        self.assertIn(ctr.GENERATED_END, text)
+
+    def test_a_drop_is_refused_rather_than_written(self):
+        """The tool must not record a floor that no legitimate run produces.
+
+        Found by being bitten: a filtered `--tests <one class>` run leaves one
+        class of XML on disk and `--update-baseline` wrote a floor of 1 test for
+        a source set that runs 1785, with no warning. The baseline file's own
+        header says a drop means "investigate; do not regenerate" — and the tool
+        regenerated one silently.
+        """
+        ctr.BASELINE.write_text("shared:jvmTest 1785 0\n", encoding="utf-8")
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=1)
+        self.assertEqual(ctr.main(), 1)
+        self.assertIn(
+            "shared:jvmTest 1785 0",
+            ctr.BASELINE.read_text(encoding="utf-8"),
+            "the floor was rewritten downwards despite the drop",
+        )
+
+    def test_allow_drop_permits_a_deliberate_drop(self):
+        ctr.BASELINE.write_text("shared:jvmTest 1785 0\n", encoding="utf-8")
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=1)
+        saved = sys.argv
+        sys.argv = ["check-test-runs.py", "--update-baseline", "--allow-drop"]
+        try:
+            self.assertEqual(ctr.main(), 0)
+        finally:
+            sys.argv = saved
+        self.assertIn("shared:jvmTest 1 0", ctr.BASELINE.read_text(encoding="utf-8"))
+
+    def test_a_rise_is_still_written_without_the_flag(self):
+        ctr.BASELINE.write_text("shared:jvmTest 50 0\n", encoding="utf-8")
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        self.assertIn("shared:jvmTest 60 0", ctr.BASELINE.read_text(encoding="utf-8"))
 
     def test_a_drop_is_not_reported_as_a_rise(self):
         self._write_baseline()

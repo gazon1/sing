@@ -1,0 +1,39 @@
+# Scenario specification for TASK-CHECK-01.
+#
+# Un-automated on purpose: this row proves the matrix renders `○` for a claimed
+# target with no carrier, which is the one thing the layer exists to surface. A
+# hole that is recorded is information; the same hole left implicit is invisible
+# until a test fails.
+#
+# The hole here is mechanical rather than a matter of effort, and the reason is
+# worth more than the row: the checklist editor is a `ModalBottomSheet`
+# (`ChecklistEditorSheet`, hosted by `TaskEditorSheetsHost.kt:140`), and on
+# desktop a sheet resolves to a `Dialog` — a separate window, not an overlay in
+# the main one. Measured on 2026-10-05 (#152): the main semantics tree is
+# byte-identical before and after the sheet opens, and the cross-root search
+# finds nothing, so no JVM test can address anything inside it.
+#
+# So this hole has exactly two honest closures: a Maestro flow, or a change of
+# surface. Anything else is a test written to fail.
+
+id: TASK-CHECK-01
+title: Add a checklist item to a task
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task exists and its detail view is open on desktop, where the checklist
+  editor is reachable from the task editor.
+steps:
+  - Open the checklist editor for the task.
+  - Add an item and give it text.
+  - Complete the item, close the editor and reopen it.
+expected: >-
+  The item persists with its text and its completed state, so the list survives
+  closing and reopening the editor on the same task.
+
+# Claimed on `desktop` only, and the row is therefore also the second proof of
+# `—`: the checklist is a real behaviour on both platforms, and only one is
+# claimed. The Android cell reads "not claimed" rather than "no coverage" —
+# the difference between a decision and a gap.

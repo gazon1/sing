@@ -160,6 +160,52 @@ Canonical tags (add new ones to `Maestro/config.yaml` comment block):
 
 ---
 
+## Choosing a Tier: Sheets Are Maestro-Only
+
+**A `ModalBottomSheet` cannot be asserted from a desktop JVM Compose test.** Pick the
+tier from this table *before* writing selectors.
+
+| Surface | Desktop `jvmTest` | Maestro (Android) |
+|---|---|---|
+| Regular composable | yes | yes |
+| `AlertDialog` | **yes** | yes |
+| `ModalBottomSheet` | **no** | yes |
+| `DropdownMenu` | no | yes |
+
+Measured, not assumed (`#152`). On desktop, `ModalBottomSheet` resolves to
+`ModalBottomSheetDialog`, whose skiko actual is a `Dialog` — a **separate window**,
+not an overlay inside the main one. A JVM test's `onRoot()` sees only the main
+window, so the sheet's semantics nodes are not merely merged away, they are in
+another root entirely:
+
+- `onAllNodesWithTag(…).fetchSemanticsNodes(false)` — the cross-root search — also
+  returns nothing;
+- the main tree is **byte-identical** before and after the click, 98 nodes both
+  times, same tags and same texts. Nothing is added and nothing changes;
+- the click itself is fine. The pin row in the same editor flips
+  `Not pinned` → `Pinned` under the identical test, so this is not a
+  click-does-not-land problem.
+
+`AlertDialog` is the contrast that makes this a sheet rule rather than a dialog
+rule: it goes through `BasicAlertDialog`, which has no `Dialog` wrapper on skiko and
+renders in the main tree. `SavedAgendaEditFlowTest` asserts
+`TestTags.Dialog.CONFIRM` from inside one, and that test passes.
+
+**What this means in practice.** If a behaviour lives inside a sheet, the JVM tier
+cannot cover it, and the honest coverage-matrix cell is a Maestro flow — not a
+`○` hole and not a test that fails for an hour before anyone learns why. The
+recurrence picker is the worked example: `TestTags.RECURRENCE_OPTION_*` exist, the
+desktop test can reach the *row* that opens the sheet but nothing inside it, and
+`TASK-REC-01` is therefore carried on Android only
+(`Maestro/flows/tasks/17-create-daily-recurring.yaml`).
+
+**Do not** add `testTag`s to sheet content expecting a JVM test to use them. Either
+the behaviour is verified by a Maestro flow, or the surface has to change — a
+`Dialog`-based replacement would render in the main tree, at the cost of the sheet
+gesture and the bottom-anchored layout that the platform gives for free.
+
+---
+
 ## Shell Setup
 
 Every flow targeting the emulator should start with one of:

@@ -135,6 +135,47 @@ SUITE_RE = re.compile(r'tests="(\d+)"')
 #: its outer class rather than colliding with it.
 TARGET_SUFFIX_RE = re.compile(r"\[[^\]]+\]$")
 
+#: `--update-baseline` rewrites only what is between these two lines, so the
+#: hand-written notes in the file survive a regeneration. Same convention as
+#: `Maestro/TAGS.md`.
+GENERATED_BEGIN = "# GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit"
+GENERATED_END = "# GENERATED:END"
+
+
+def prose_outside_block(text: str) -> list[str]:
+    """The lines of a baseline file that `--update-baseline` must not touch.
+
+    Everything before GENERATED_BEGIN and after GENERATED_END. On a file with no
+    markers yet — the state this shipped in — the whole file counts as prose and is
+    returned untouched, so the first run after the markers are introduced cannot lose
+    anything either. The caller appends a fresh generated block below it.
+
+    Interior blank lines are kept and only the leading and trailing ones are dropped,
+    so regenerating an already-correct file is a no-op down to the byte. A tool that
+    reorders or reflows a committed file on every run trains people to distrust its
+    diff, which is the thing that makes a real change get missed.
+    """
+    lines = text.split("\n")
+    try:
+        start = next(i for i, line in enumerate(lines) if line.startswith(GENERATED_BEGIN[:16]))
+    except StopIteration:
+        return _trim_blank_edges(lines)
+    try:
+        end = next(i for i, line in enumerate(lines) if line.startswith(GENERATED_END))
+    except StopIteration:
+        end = len(lines)
+    return _trim_blank_edges(lines[:start]) + _trim_blank_edges(lines[end + 1:])
+
+
+def _trim_blank_edges(lines: list[str]) -> list[str]:
+    start = 0
+    while start < len(lines) and not lines[start].strip():
+        start += 1
+    end = len(lines)
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return lines[start:end]
+
 #: source set label -> source roots whose *fast* classes it must have executed.
 #:
 #: Only the Gradle module roots are listed. `TEST_ROOTS` in `infra/kiwi/sync.py`
@@ -304,7 +345,20 @@ def count(detail_dir: pathlib.Path, since: float | None = None, max_age: float |
 
 
 def load_baseline(path: pathlib.Path):
-    """label -> (classes, tests, max_skipped). A 3-column line means max-skipped 0."""
+    """label -> (tests, max_skipped).
+
+    Two data columns, and the class count is not one of them. It was, until the
+    by-results check made it redundant: that check already fails when any declared
+    class produced no report, which is the same defect the class floor was there
+    to catch, and it catches it by name rather than by subtraction. A class count
+    moved with the test count in every remaining case — delete a class, empty a
+    class, merge two into one — so `tests` fires wherever `classes` would have, and
+    `classes` never fires on its own.
+
+    A 3-column line is still read, and its first number is treated as the test
+    count, so an older file degrades to a wrong-but-parsed value rather than to a
+    crash mid-run.
+    """
     entries = {}
     if not path.exists():
         return entries
@@ -313,9 +367,15 @@ def load_baseline(path: pathlib.Path):
         if not line or line.startswith("#"):
             continue
         parts = line.split()
-        if len(parts) >= 3:
-            max_skipped = int(parts[3]) if len(parts) >= 4 else 0
-            entries[parts[0]] = (int(parts[1]), int(parts[2]), max_skipped)
+        if len(parts) >= 4:
+            # Legacy form: <source-set> <classes> <tests> <max-skipped>. The class
+            # column is not read, because it is no longer a floor; the last two
+            # numbers are the ones that still mean something.
+            entries[parts[0]] = (int(parts[2]), int(parts[3]))
+        elif len(parts) == 3:
+            entries[parts[0]] = (int(parts[1]), int(parts[2]))
+        elif len(parts) == 2:
+            entries[parts[0]] = (int(parts[1]), 0)
     return entries
 
 
@@ -340,6 +400,13 @@ def main() -> int:
              "task may be UP-TO-DATE and therefore not rewrite its results",
     )
     parser.add_argument("--update-baseline", action="store_true", help="rewrite the baseline")
+    parser.add_argument(
+        "--allow-drop",
+        action="store_true",
+        help="permit --update-baseline to record a LOWER count than the current "
+             "floor. Off by default: a drop means tests stopped being selected, "
+             "which is a defect to investigate, not a floor to regenerate.",
+    )
     parser.add_argument(
         "--require",
         default="",
@@ -368,9 +435,28 @@ def main() -> int:
             observed[label] = found
 
     if args.update_baseline:
-        lines = [
-            "# Executed test counts, used as a floor by scripts/check-test-runs.py.",
-            "# Format: <source-set> <classes> <tests> <max-skipped>",
+        # Only the block between the markers is generated. Everything outside it is
+        # hand-written and is preserved verbatim.
+        #
+        # This is not a precaution. The first version of this function rewrote the
+        # whole file from a header literal, and the header literal did not contain
+        # the notes that had been added to the file afterwards — so regenerating
+        # the floor silently deleted the record of the 1003/998 incident, which
+        # was the most valuable thing in the file. A generated region inside a
+        # hand-maintained file is the only structure that can hold both.
+        #
+        # The same convention already exists in this repository:
+        # `Maestro/TAGS.md` bounds its generated tables with GENERATED:BEND/END
+        # markers and a test verifies them.
+        header = [
+            "# Format: <source-set> <tests> <max-skipped>",
+            "#",
+            "# No class column. It became redundant once the by-results check existed: that",
+            "# check already fails when a declared class produced no report, which is what",
+            "# the class floor was for, and it fails by name rather than by subtraction.",
+            "# Every other way a class count moves — a class deleted, a class emptied, two",
+            "# classes merged — moves the test count too, so this column fires wherever the",
+            "# class column would have, and the class column never fired on its own.",
             "#",
             "# Record the SMALLEST count any legitimate run produces. The default local",
             "# run (no -Ptest.tags) executes only @Tag(\"fast\") classes, so it is the",
@@ -394,18 +480,74 @@ def main() -> int:
             "# --update-baseline section of this file for why deleting it is a defect.",
             "#",
             "# Regenerate with: python3 scripts/check-test-runs.py --update-baseline",
+            "# (only the GENERATED block below is rewritten; the notes above it are not)",
         ]
         previous = load_baseline(BASELINE)
+
+        # A drop is a defect until shown otherwise, and the baseline file says so in
+        # its own header: "A DROP means a test class stopped being selected ...
+        # investigate; do not regenerate." The tool did not enforce its own rule.
+        #
+        # Found by being bitten, on 2026-10-05: a filtered `./gradlew :shared:jvmTest
+        # --tests <one class>` leaves one class of XML on disk, and `--update-baseline`
+        # read it as a measurement and wrote a floor of **1 test** for a source set that
+        # runs 1785. Nothing warned. This is the same incident as the 1003 that the
+        # header documents, reached the same way — a results directory read as if it
+        # were a full run — and it means the tool will happily record a number no
+        # legitimate run produces.
+        #
+        # So a drop is refused by default and `--allow-drop` is the way to say you
+        # meant it. Refusing costs one flag; not refusing costs a floor that can no
+        # longer fail, because it is already at 1.
+        drops = [
+            (label, previous[label][0], observed[label][1])
+            for label in sorted(observed)
+            if label in previous and observed[label][1] < previous[label][0]
+        ]
+        if drops and not args.allow_drop:
+            print(
+                "refusing to rewrite the floor: these counts DROPPED, and a drop "
+                "means tests stopped being selected rather than that the floor is "
+                "wrong:",
+                file=sys.stderr,
+            )
+            for label, before, after in drops:
+                print(
+                    f"  {label}: {before} -> {after} tests "
+                    f"(-{before - after})",
+                    file=sys.stderr,
+                )
+            print(
+                "\nMost often this is a filtered or partial run: `--tests <pattern>` "
+                "leaves only the matching\nsuites in the results directory, and "
+                "`--update-baseline` reads that as a full run.\nRe-run the whole "
+                "source set, or pass --allow-drop if you\nreally did delete tests.",
+                file=sys.stderr,
+            )
+            return 1
+
+        block = [GENERATED_BEGIN]
         for label in sorted(observed):
-            classes, tests, skipped = observed[label]
-            lines.append(f"{label} {classes} {tests} {skipped}")
+            _, tests, skipped = observed[label]
+            block.append(f"{label} {tests} {skipped}")
         for label in sorted(previous):
             if label in observed:
                 continue
-            classes, tests, max_skipped = previous[label]
-            lines.append(f"{label} {classes} {tests} {max_skipped}")
+            tests, max_skipped = previous[label]
+            block.append(f"{label} {tests} {max_skipped}")
+        block.append(GENERATED_END)
+
+        if BASELINE.exists():
+            # The existing file already carries its own header. The `header` literal
+            # above is only for creating a file from scratch — appending it here is
+            # how a second, contradictory copy of the same instructions ends up in
+            # the file, which is worse than the duplication it was meant to avoid.
+            existing = BASELINE.read_text(encoding="utf-8")
+            content = prose_outside_block(existing) + block
+        else:
+            content = header + ["#"] + block
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        BASELINE.write_text("\n".join(content) + "\n", encoding="utf-8")
         print(f"baseline written: {BASELINE.relative_to(ROOT)} ({len(observed)} measured)")
         for label in sorted(observed):
             classes, tests, skipped = observed[label]
@@ -418,13 +560,7 @@ def main() -> int:
         rises = [
             (label, previous[label], observed[label])
             for label in sorted(observed)
-            if label in previous
-            # Either dimension rising counts. A tuple comparison was wrong here:
-            # `(1, 60) > (5, 50)` is False because the class count fell, so a run
-            # that added tests while merging two classes reported no rise and the
-            # warning stayed silent. Each dimension has its own direction.
-            and (observed[label][0] > previous[label][0]
-                 or observed[label][1] > previous[label][1])
+            if label in previous and observed[label][1] > previous[label][0]
         ]
         if rises:
             # A rise is only trustworthy as a floor when it came from the
@@ -442,7 +578,7 @@ def main() -> int:
             )
             for label, before, after in rises:
                 print(
-                    f"  {label}: {before[0]}/{before[1]} -> {after[0]}/{after[1]}",
+                    f"  {label}: {before[0]} -> {after[1]} tests",
                     file=sys.stderr,
                 )
         return 0
@@ -453,7 +589,7 @@ def main() -> int:
         return 1
 
     regressions = []
-    for label, (base_classes, base_tests, max_skipped) in sorted(baseline.items()):
+    for label, (base_tests, max_skipped) in sorted(baseline.items()):
         actual = observed.get(label)
         if actual is None:
             # A source set that produced no results at all is only a failure where this
@@ -471,11 +607,11 @@ def main() -> int:
                     )
             continue
         classes, tests, skipped = actual
-        if classes < base_classes or tests < base_tests:
+        if tests < base_tests:
             regressions.append(
-                f"{label}: {classes} classes / {tests} tests, "
-                f"baseline {base_classes} / {base_tests} "
-                f"(-{base_classes - classes} classes, -{base_tests - tests} tests)"
+                f"{label}: {tests} tests in {classes} classes, "
+                f"baseline {base_tests} tests (-{base_tests - tests}). "
+                f"A drop means tests stopped running: investigate, do not regenerate."
             )
         if skipped > max_skipped:
             regressions.append(

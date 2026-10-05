@@ -497,6 +497,7 @@ class CoverageAndResults(unittest.TestCase):
         matrix = build_results(build_coverage({"TASK-REC-01": _spec()}, []), [], "deadbee")
         self.assertIn("deadbee", render_result_matrix(matrix))
 
+
     def test_every_scenario_appears_exactly_once_in_the_table(self):
         # Exactly once per table: a duplicate row means a scenario was counted
         # twice, which would inflate the coverage ratio.
@@ -509,6 +510,60 @@ class CoverageAndResults(unittest.TestCase):
 
     def test_targets_iterate_in_a_fixed_order(self):
         self.assertEqual([t.value for t in ALL_TARGETS], ["android", "desktop"])
+
+class ResultMatrixScopeLine(unittest.TestCase):
+    """A `⌛` column must not read as "not automated" (#150 option 3).
+
+    The Android flows run in a different workflow from the one that builds the
+    matrix, so their column is legitimately empty. Left unexplained, an empty
+    column looks exactly like a coverage hole, and a reader who believes that
+    will not look for the flows that do exist.
+    """
+
+    def _render(self, with_android: bool) -> str:
+        link = _link()
+        flow = Link(
+            scenario=link.scenario,
+            target=Target.ANDROID,
+            level=link.level,
+            carrier=Carrier.MAESTRO,
+            source=REPO_ROOT / "Maestro/flows/tasks/17-create-daily-recurring.yaml",
+            key=None,
+        )
+        links = [link] + ([flow] if with_android else [])
+        results = [(link, "passed", "")]
+        if with_android:
+            results.append((flow, "passed", ""))
+        return render_result_matrix(
+            build_results(build_coverage({"TASK-REC-01": _spec()}, links), results, "abc1234")
+        )
+
+    def test_missing_android_is_explained_not_just_empty(self):
+        rendered = self._render(with_android=False)
+        self.assertIn("android did not report", rendered)
+        self.assertIn("not \"not automated\"", rendered)
+        # The line must name the workflow, or the reader still has nowhere to go.
+        self.assertIn("maestro-smoke.yml", rendered)
+
+    def test_a_full_run_does_not_claim_a_caveat(self):
+        # The caveat is about the CI wiring, not about Android as a target. With
+        # both columns filled it would be noise, and noise in a generated header
+        # is how a real note stops being read.
+        rendered = self._render(with_android=True)
+        self.assertIn("Every target reported", rendered)
+        self.assertNotIn("maestro-smoke.yml", rendered)
+
+    def test_reported_targets_are_named(self):
+        self.assertIn("**Reported here:** desktop", self._render(with_android=False))
+        self.assertIn("**Reported here:** android, desktop", self._render(with_android=True))
+
+    def test_a_run_with_nothing_at_all_says_so(self):
+        matrix = build_results(build_coverage({"TASK-REC-01": _spec()}, []), [], "abc1234")
+        rendered = render_result_matrix(matrix)
+        self.assertIn("No target reported a result", rendered)
+        # Otherwise a fully-empty matrix reads as a table full of not-run cells
+        # that someone forgot to fill, rather than a run that never happened.
+        self.assertNotIn("**Reported here:**", rendered)
 
 
 class LinkInvariants(unittest.TestCase):
@@ -917,6 +972,122 @@ class SpecReportsEveryProblem(unittest.TestCase):
             self.assertIn(expected, message, expected)
 
 
+class ClaimedScenarioWithoutResult(unittest.TestCase):
+    """"Ran the target, and this scenario still has no result" is a bug.
+
+    The per-target zero-testcase rule above cannot see this: a target that
+    produced 200 testcases passes it even when the single testcase carrying a
+    scenario id was filtered out. That is the shape a tag filter produces, and
+    the build is green.
+    """
+
+    def _desktop_run(self, cases: str):
+        d = pathlib.Path(tempfile.mkdtemp())
+        _junit(d, cases)
+        return d
+
+    def test_scenario_filtered_out_of_a_run_that_produced_others_fails(self):
+        # The exact blind spot: a healthy-looking suite where the scenario's own
+        # class is missing. Without the per-scenario rule this is a green build
+        # and a permanently not-run cell.
+        d = self._desktop_run(
+            '<testcase classname="com.example.Other" name="unrelated()"/>'
+            '<testcase classname="com.example.More" name="also_unrelated()"/>'
+        )
+        with self.assertRaises(NoResultsError) as ctx:
+            normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertIn("TASK-REC-01/desktop", str(ctx.exception))
+
+    def test_the_scenarios_own_result_is_enough(self):
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        report = normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertEqual(report.kept, 1)
+
+    def test_a_failing_scenario_counts_as_reported(self):
+        # The rule is about *presence*, not outcome. A red scenario has a
+        # perfectly good result and must not be reported as missing.
+        d = self._desktop_run(
+            '<testcase classname="com.example.Foo" name="does_a_thing()"><failure msg="boom"/></testcase>'
+        )
+        report = normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertEqual(report.kept, 1)
+        self.assertEqual(report.results[0].outcome, Outcome.FAILED)
+
+    def test_a_skipped_scenario_counts_as_reported(self):
+        # Also presence: a skipped run is a real answer about the code. Treating
+        # it as missing would make a quarantined test indistinguishable from a
+        # class that silently vanished, and the two warrant different actions.
+        d = self._desktop_run(
+            '<testcase classname="com.example.Foo" name="does_a_thing()"><skipped/></testcase>'
+        )
+        report = normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertEqual(report.results[0].outcome, Outcome.SKIPPED)
+
+    def test_target_never_run_is_not_enforced(self):
+        # Same scope rule as the per-target rule: a desktop-only local run must
+        # not fail over the Android half it was never asked to cover.
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        report = normalise(
+            {"TASK-REC-01": _spec()},
+            [_link()],
+            {Target.DESKTOP: [d], Target.ANDROID: []},
+            "abc",
+        )
+        self.assertEqual(report.kept, 1)
+
+    def test_an_unclaimed_target_with_a_carrier_is_a_hole_not_a_failure(self):
+        # The link exists but the spec does not claim that target: the matrix
+        # renders it as not-claimed, and failing would make a deliberately
+        # narrow scenario impossible to declare.
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        report = normalise(
+            {"TASK-REC-01": _spec(targets=(Target.ANDROID,))},
+            [_link(Target.DESKTOP)],
+            {Target.DESKTOP: [d]},
+            "abc",
+        )
+        self.assertEqual(report.kept, 1)
+
+    def test_a_deprecated_scenario_is_not_an_obligation(self):
+        d = self._desktop_run('<testcase classname="com.example.Other" name="unrelated()"/>')
+        report = normalise(
+            {"TASK-REC-01": _spec(status=SpecStatus.DEPRECATED)},
+            [_link()],
+            {Target.DESKTOP: [d]},
+            "abc",
+        )
+        self.assertEqual(report.kept, 0)
+
+    def test_one_missing_scenario_names_only_itself(self):
+        # Two scenarios on one target, one of them filtered out. The message
+        # must name the missing one only, or the fix is guesswork. The second
+        # scenario needs its own carrier: two scenarios on one file is rejected
+        # earlier by the duplicate-key guard, which is its own rule.
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        second = _link(scenario="TASK-REC-02")
+        second = Link(
+            scenario=second.scenario,
+            target=second.target,
+            level=second.level,
+            carrier=second.carrier,
+            source=REPO_ROOT / "shared/src/jvmTest/kotlin/Bar.kt",
+            key=TestKey("com.example.Bar", "does_another_thing"),
+        )
+        with self.assertRaises(NoResultsError) as ctx:
+            normalise(
+                {
+                    "TASK-REC-01": _spec(),
+                    "TASK-REC-02": _spec("TASK-REC-02"),
+                },
+                [_link(), second],
+                {Target.DESKTOP: [d]},
+                "abc",
+            )
+        message = str(ctx.exception)
+        self.assertIn("TASK-REC-02/desktop", message)
+        self.assertNotIn("TASK-REC-01/desktop", message)
+
+
 class ZeroTestcaseRuleScope(unittest.TestCase):
     """"ran and produced nothing" is a bug; "was never run" is not."""
 
@@ -992,3 +1163,235 @@ class FlowAttributeBaseAgnostic(unittest.TestCase):
         report = self._run("flows/tasks/99-nope.yaml")
         self.assertEqual(report.kept, 0)
         self.assertEqual(report.unmapped, 1)
+
+
+class PartialRunScope(unittest.TestCase):
+    """A tag-filtered local run must not be reported as a missing result.
+
+    Every scenario carrier is `@Tag("slow")` and the default local run excludes
+    `slow` (see `desktopApp/build.gradle.kts`), so the documented fast cycle
+    produces exactly the shape the per-scenario rule exists to catch — while
+    having done nothing wrong. The distinction is not derivable from the XML, so
+    the caller states it, and these tests pin both the behaviour and the two
+    wirings that decide who states it.
+    """
+
+    def _other_scenario(self) -> Link:
+        """A second link with its own carrier, so the target reports something.
+
+        Needed to isolate the per-scenario rule: with one scenario the
+        zero-testcase rule fires first, and a test that passes for the wrong
+        reason is worse than no test.
+        """
+        return Link(
+            scenario="TASK-REC-02",
+            target=Target.DESKTOP,
+            level=Level.E2E,
+            carrier=Carrier.KOTLIN,
+            source=REPO_ROOT / "shared/src/jvmTest/kotlin/Bar.kt",
+            key=TestKey("com.example.Bar", "does_another_thing"),
+        )
+
+    def _run_reporting_only_one(self, partial: bool):
+        d = pathlib.Path(tempfile.mkdtemp())
+        _junit(d, '<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        return normalise(
+            {"TASK-REC-01": _spec(), "TASK-REC-02": _spec("TASK-REC-02")},
+            [_link(), self._other_scenario()],
+            {Target.DESKTOP: [d]},
+            "abc",
+            partial=partial,
+        )
+
+    def test_complete_run_reports_the_missing_scenario(self):
+        # The rule's own case: one scenario reported, the other silent, on a
+        # complete run. Without partial it must fail.
+        with self.assertRaises(NoResultsError) as ctx:
+            self._run_reporting_only_one(partial=False)
+        self.assertIn("TASK-REC-02/desktop", str(ctx.exception))
+
+    def test_partial_run_does_not(self):
+        report = self._run_reporting_only_one(partial=True)
+        self.assertEqual(report.kept, 1)
+
+    def test_partial_flag_also_silences_the_zero_testcase_rule(self):
+        # Inverted from the first version of this test, which asserted the
+        # opposite on the assumption that the per-target rule was immune to tag
+        # filtering. A real run disproved it: the target executes, writes ten
+        # unrelated XMLs, and no *scenario* testcase appears — so the per-target
+        # rule fires on exactly the subset `--partial` was asked to accept. Both
+        # rules are absence-based, and on a partial run absence carries no
+        # information.
+        d = pathlib.Path(tempfile.mkdtemp())
+        report = normalise(
+            {"TASK-REC-01": _spec()},
+            [_link()],
+            {Target.DESKTOP: [d]},
+            "abc",
+            partial=True,
+        )
+        self.assertEqual(report.kept, 0)
+
+    def test_a_complete_run_with_no_results_at_all_still_fails(self):
+        # The guard on the guard: `--partial` must not become a way to switch
+        # the gate off, only a way to declare that a run is a subset.
+        d = pathlib.Path(tempfile.mkdtemp())
+        with self.assertRaises(NoResultsError):
+            normalise(
+                {"TASK-REC-01": _spec()},
+                [_link()],
+                {Target.DESKTOP: [d]},
+                "abc",
+                partial=False,
+            )
+
+    def _workflow_and_recipe(self):
+        ci = REPO_ROOT / ".github/workflows/ci.yml"
+        recipe = REPO_ROOT / ".just/kiwi/mod.just"
+        return ci.read_text(encoding="utf-8"), recipe.read_text(encoding="utf-8")
+
+    def test_ci_does_not_pass_partial(self):
+        # CI runs `-Ptest.tags=fast,slow`, so the rule is accurate there and
+        # passing the flag on purpose would be a real loss of coverage.
+        ci, _ = self._workflow_and_recipe()
+        self.assertNotIn("--partial", ci)
+
+    def test_local_recipe_does_pass_partial(self):
+        # The counterpart: a developer on the fast cycle must not be told their
+        # build is broken because they skipped slow tests on purpose.
+        _, recipe = self._workflow_and_recipe()
+        self.assertIn("results --partial", recipe)
+
+    def test_the_two_wirings_stay_distinguishable(self):
+        # If both stopped carrying the flag the drift would be invisible: CI
+        # would keep enforcing by accident while local runs started failing.
+        ci, recipe = self._workflow_and_recipe()
+        self.assertNotEqual("--partial" in ci, "--partial" in recipe)
+
+
+class DeprecatedScenarioIsNotAHole(unittest.TestCase):
+    """A retired scenario is a third state, and neither old glyph was right.
+
+    Found with a five-line probe while answering what to do next, not by a
+    failing test: the system has one spec and it is `confirmed`, so the branch
+    was never rendered. #156 asks for a deprecated scenario among its batch,
+    which would have made this visible in the committed matrix — as a gap the
+    system exists to close.
+    """
+
+    def _deprecated(self):
+        return _spec("TASK-OLD-01", status=SpecStatus.DEPRECATED, id_prefix="TASK-OLD")
+
+    def test_it_renders_as_its_own_glyph(self):
+        coverage = build_coverage({"TASK-OLD-01": self._deprecated()}, [])
+        row = render_coverage_matrix(coverage)
+        self.assertIn("| ⊘ | ⊘ |", row)
+        # `○` is the hole glyph. Asserting its absence is the point: the row
+        # must not read as an automation gap.
+        self.assertNotIn("| ○ | ○ |", row)
+
+    def test_it_is_not_counted_as_a_hole(self):
+        coverage = build_coverage({"TASK-OLD-01": self._deprecated()}, [])
+        self.assertEqual(coverage.holes(), [])
+
+    def test_it_is_excluded_from_the_automated_ratio(self):
+        # A retired scenario is not an obligation, so it is not a denominator.
+        # Including it produced "0/2 claimed cells automated · 0 holes", which
+        # reads as a contradiction the reader has to resolve by guessing.
+        coverage = build_coverage({"TASK-OLD-01": self._deprecated()}, [])
+        row = render_coverage_matrix(coverage)
+        self.assertIn("0/0 claimed cells automated", row)
+
+    def test_the_legend_explains_the_glyph(self):
+        # A glyph the legend does not define is a glyph nobody can act on.
+        row = render_coverage_matrix(build_coverage({"TASK-OLD-01": self._deprecated()}, []))
+        self.assertIn("deprecated", row)
+
+    def test_a_live_scenario_beside_it_is_still_a_hole(self):
+        # The point of the fix is not to mute the report. A real hole next to a
+        # retired scenario must still be reported, or the fix hides gaps.
+        coverage = build_coverage(
+            {"TASK-OLD-01": self._deprecated(), "TASK-REC-01": _spec()},
+            [],
+        )
+        self.assertEqual(
+            coverage.holes(),
+            [("TASK-REC-01", Target.ANDROID), ("TASK-REC-01", Target.DESKTOP)],
+        )
+        self.assertIn("2 holes", render_coverage_matrix(coverage))
+
+    def test_an_automated_scenario_is_unaffected(self):
+        coverage = build_coverage({"TASK-REC-01": _spec()}, [_link()])
+        self.assertIn("| ● |", render_coverage_matrix(coverage))
+
+
+class AbsenceRulesAreDisjoint(unittest.TestCase):
+    """Which of the two absence rules fires, and why both are needed (#186).
+
+    Measured on 2026-10-05 with the repository's own carrier key rather than
+    reasoned about, after reading the code twice gave two wrong answers about
+    whether one rule subsumes the other. It does not: they are disjoint, and the
+    per-scenario rule is the only one that can see a *partially* silent target.
+    """
+
+    def _link_for(self, key_class: str, scenario: str) -> Link:
+        return Link(
+            scenario=scenario,
+            target=Target.DESKTOP,
+            level=Level.E2E,
+            carrier=Carrier.KOTLIN,
+            source=REPO_ROOT / f"shared/src/jvmTest/kotlin/{key_class}.kt",
+            key=TestKey(f"com.example.{key_class}", "does_a_thing"),
+        )
+
+    def _run(self, links, reporting):
+        d = pathlib.Path(tempfile.mkdtemp())
+        cases = "".join(
+            f'<testcase classname="com.example.{name}" name="does_a_thing()"/>'
+            for name in reporting
+        )
+        _junit(d, cases)
+        try:
+            normalise(
+                {"TASK-A-01": _spec("TASK-A-01", id_prefix="TASK-A"),
+                 "TASK-B-01": _spec("TASK-B-01", id_prefix="TASK-B")},
+                links,
+                {Target.DESKTOP: [d]},
+                "abc",
+            )
+            return None
+        except NoResultsError as e:
+            return str(e)
+
+    def test_one_silent_carrier_on_a_quiet_target_fires_the_target_rule(self):
+        # Nothing on the target reported at all. The per-target rule owns this.
+        message = self._run([self._link_for("A", "TASK-A-01")], reporting=[])
+        self.assertIn("ни одного тесткейса", message)
+
+    def test_one_silent_carrier_on_a_busy_target_fires_the_scenario_rule(self):
+        # The case the target rule cannot see: the target reported, so its
+        # per-target count is non-zero, and only the per-scenario rule notices
+        # that one specific scenario is missing. This is #149's whole point.
+        links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
+        message = self._run(links, reporting=["A"])
+        self.assertIn("TASK-B-01/desktop", message)
+        self.assertNotIn("ни одного тесткейса", message)
+
+    def test_both_silent_fires_the_target_rule_not_the_scenario_rule(self):
+        # Proves the rules do not overlap: when nothing reports, the per-target
+        # rule fires and the per-scenario one is silent. Had they been merged
+        # into one function, the target case would have reported every scenario
+        # as missing, and a single absent class would have produced a list of
+        # unrelated failures.
+        links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
+        message = self._run(links, reporting=[])
+        self.assertIn("ни одного тесткейса", message)
+        # The target rule names *every* claimed pair, so the ids being present
+        # proves nothing — the two rules are told apart by their wording. An
+        # earlier version of this test asserted on the ids and failed, having
+        # assumed the target rule would name only the one scenario.
+        self.assertNotIn("не дал результата на этом коммите", message)
+
+    def test_a_fully_reported_target_is_silent(self):
+        links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
+        self.assertIsNone(self._run(links, reporting=["A", "B"]))

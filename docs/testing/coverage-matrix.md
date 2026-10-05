@@ -12,8 +12,9 @@ tags in code. It changes only when code or specs change.
 | — | target not claimed for this scenario |
 | ○ | claimed, but no automated test exists — **a hole** |
 | ● | automated |
+| ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**16 scenarios · 2/32 claimed cells automated · 30 holes**
+**19 scenarios · 2/34 claimed cells automated · 32 holes**
 
 ## feature.auth
 
@@ -26,6 +27,12 @@ tags in code. It changes only when code or specs change.
 | `AUTH-SIGNIN-01` | Sign in to an existing account | ○ | ○ |
 | `AUTH-SIGNUP-01` | Create an account | ○ | ○ |
 | `AUTH-SIGNUP-02` | A sign-up whose address still needs confirmation is not a completed sign-up | ○ | ○ |
+
+## feature.calendar
+
+| Scenario | Title | android | desktop |
+|---|---|---|---|
+| `CAL-FILT-01` | Filter the calendar by project, tag, priority or status | ⊘ | ⊘ |
 
 ## feature.sync
 
@@ -44,7 +51,9 @@ tags in code. It changes only when code or specs change.
 
 | Scenario | Title | android | desktop |
 |---|---|---|---|
+| `TASK-CHECK-01` | Add a checklist item to a task | — | ○ |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● |
+| `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | — |
 
 ## Holes
 
@@ -80,3 +89,5 @@ Claimed but not automated:
 - `SYNC-SIGNOUT-01` / desktop
 - `SYNC-STATUS-01` / android
 - `SYNC-STATUS-01` / desktop
+- `TASK-CHECK-01` / desktop
+- `TASK-TIME-01` / android

@@ -139,6 +139,81 @@ class StatusForTest(unittest.TestCase):
         self.assertEqual(kiwi_client.status_for("quarantined"), "IDLE")
 
 
+class RollupClassStatusTest(unittest.TestCase):
+    """Сведение тестов одного класса к одному Kiwi-статусу.
+
+    Проверяет ровно то, что раньше было неуловимо: ``sync.sync_results`` пишет
+    эти статусы в Kiwi для всех 259 кейсов планов ``Automated/*``, и при этом
+    ни один тест их не касался — ветка сводки жила инлайном в цикле, а
+    ``sync_results`` требует поднятой стенды. Изменение статуса там было бы
+    неотличимо от успеха.
+    """
+
+    @staticmethod
+    def _r(status: str, name: str = "t", message: str = "") -> sync.TestResult:
+        return sync.TestResult(
+            classname="com.example.ATest", name=name, status=status, message=message
+        )
+
+    def test_all_passed(self):
+        status, comment = sync.rollup_class_status(
+            [self._r("passed", "a"), self._r("passed", "b")]
+        )
+        self.assertEqual(status, "PASSED")
+        self.assertEqual(comment, "2 тестов пройдено")
+
+    def test_all_skipped_is_idle(self):
+        status, comment = sync.rollup_class_status(
+            [self._r("skipped", "a"), self._r("skipped", "b")]
+        )
+        self.assertEqual(status, "IDLE")
+        self.assertEqual(comment, "все 2 тестов пропущены")
+
+    def test_mixed_skip_still_passes(self):
+        # Пропуск — не провал: класс, где часть тестов пропущена, а остальные
+        # прошли, это PASSED с пометкой, а не IDLE.
+        status, comment = sync.rollup_class_status(
+            [self._r("passed", "a"), self._r("skipped", "b")]
+        )
+        self.assertEqual(status, "PASSED")
+        self.assertEqual(comment, "1/2 пропущено")
+
+    def test_failed_beats_skipped(self):
+        # Порядок проверок значим: если бы skipped проверялся первым, класс с
+        # одним упавшим и одним пропущенным тестом записался бы как IDLE, и
+        # зелёный прогон скрыл бы падение.
+        status, comment = sync.rollup_class_status(
+            [self._r("failed", "boom", "assertion"), self._r("skipped", "b")]
+        )
+        self.assertEqual(status, "FAILED")
+        self.assertIn("1/2 упало", comment)
+        self.assertIn("boom: assertion", comment)
+
+    def test_error_also_counts_as_failed(self):
+        # `error` в JUnit — это неупавший-но-сломавшийся тест; здесь он
+        # приравнен к failed намеренно (иначе он тихо уехал бы в PASSED).
+        status, _ = sync.rollup_class_status(
+            [self._r("passed", "a"), self._r("error", "b", "NoSuchMethod")]
+        )
+        self.assertEqual(status, "FAILED")
+
+    def test_comment_is_capped(self):
+        # Комментарий уходит в Kiwi, у которого есть лимит на длину; длинные
+        # имена тестов не должны приводить к отказу записи execution.
+        results = [self._r("failed", "x" * 400, "y" * 400) for _ in range(5)]
+        _, comment = sync.rollup_class_status(results)
+        self.assertLessEqual(len(comment), 2000)
+
+    def test_only_first_five_failures_are_named(self):
+        # Пять имён — предел, заданный самой сводкой, а не клиентом Kiwi.
+        results = [self._r("failed", f"t{i}", "m") for i in range(9)]
+        _, comment = sync.rollup_class_status(results)
+        self.assertIn("9/9 упало", comment)
+        self.assertIn("t0", comment)
+        self.assertIn("t4", comment)
+        self.assertNotIn("t5", comment)
+
+
 class FeatureOfTest(unittest.TestCase):
     """Пакет → Kiwi-компонент."""
 
@@ -259,6 +334,97 @@ class RunnableTestClassTest(unittest.TestCase):
         self.assertFalse(
             sync.has_runnable_test("class RunVmTest { fun run() {} }")
         )
+
+
+class StringAwareClassBodyTest(unittest.TestCase):
+    """A literal brace must not be able to end a class body early.
+
+    The Kotlin side of this same question is watched by
+    `ClassBodyScannerAgreementTest` in `:shared`. This is the Python side, and it
+    needed the fix rather than a watcher: the naive counter reported *no test
+    member* for a class that has one, and a class with no test member is reported
+    untagged and therefore never selected by `-Ptest.tags`. That is the D1 shape
+    the whole fixture table exists to prevent, arriving through a different door.
+    """
+
+    def test_unbalanced_brace_in_a_literal_above_a_test(self):
+        # The dangerous direction, stated as a verdict: a class with a test reads
+        # as having none, so it looks untagged and looks unrun.
+        source = (
+            "class FooTest {\n"
+            '    private val probe = "}"\n'
+            "    @Test\n"
+            "    fun a() {}\n"
+            "}\n"
+        )
+        self.assertTrue(
+            sync.has_runnable_test(source),
+            "an unbalanced brace inside a string literal truncated the class body, "
+            "so a class with a @Test was read as having none",
+        )
+
+    def test_unbalanced_brace_after_the_test_is_harmless(self):
+        source = (
+            "class FooTest {\n"
+            "    @Test\n"
+            "    fun a() {}\n"
+            '    private val tail = "{"\n'
+            "}\n"
+        )
+        self.assertTrue(sync.has_runnable_test(source))
+
+    def test_a_literal_containing_a_brace_pair_does_not_shift_depth(self):
+        source = (
+            "class FooTest {\n"
+            '    private val json = "{\"k\": 1}"\n'
+            "    @Test\n"
+            "    fun a() {}\n"
+            "}\n"
+        )
+        self.assertTrue(sync.has_runnable_test(source))
+
+    def test_string_templates_are_still_counted_as_code(self):
+        """A `${...}` template is code, not literal text.
+
+        Blanking the literal must not blank the template inside it: `a ${b} c`
+        has real braces that legitimately open and close a scope, and ignoring
+        them would push the body end somewhere else entirely.
+        """
+        source = (
+            "class FooTest {\n"
+            '    private val id = "task-${n}"\n'
+            "    @Test\n"
+            "    fun a() {}\n"
+            "}\n"
+        )
+        self.assertTrue(sync.has_runnable_test(source))
+
+    def test_stripping_preserves_length_so_offsets_do_not_drift(self):
+        line = '    private val probe = "}"  // a comment with { and }'
+        self.assertEqual(len(sync._strip_literals_and_comments(line)), len(line))
+
+    def test_a_line_comment_ending_the_line_is_removed(self):
+        self.assertNotIn(
+            "{",
+            sync._strip_literals_and_comments('val a = 1 // this { is prose'),
+        )
+
+    def test_escaped_quote_does_not_end_the_literal(self):
+        """A backslash-quote inside a literal must not close it.
+
+        Without escape handling the scanner reads this as two literals with the
+        text between them treated as code, so whatever braces sit there start
+        counting. The observable proof is that the whole literal is blanked as
+        one unit — `hi` is gone — rather than only the part before the escape.
+        """
+        line = '    val s = "he said \\"hi\\""'
+        stripped = sync._strip_literals_and_comments(line)
+        self.assertEqual(len(stripped), len(line))
+        self.assertNotIn("hi", stripped)
+        self.assertNotIn("he said", stripped)
+        # The code before the literal survives, which is what makes this an
+        # assertion about the literal rather than about blanking the line.
+        self.assertIn("val s =", stripped)
 
 
 class ReadTagTest(unittest.TestCase):

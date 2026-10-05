@@ -355,7 +355,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "commonMain.root",
         layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
     )
-    // Absolute path to desktopApp jvmTest sources for DesktopTestHarnessEnforcementTest.
+    // Absolute path to desktopApp jvmTest sources for ViewModelTestCoverageTest, which
+    // aggregates test roots across modules and so cannot be written relatively.
+    //
+    // `DesktopTestHarnessEnforcementTest` used to read this too, and no longer does:
+    // it enforces :desktopApp's own conventions, so it moved to
+    // `desktopApp/src/jvmTest` where the path is relative and the property was
+    // unnecessary. The property stays for the remaining reader — see #153.
     systemProperty(
         "desktopAppJvmTest.root",
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
@@ -377,6 +383,19 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     inputs.dir(layout.projectDirectory.dir("../mcp-server/src/test"))
         .withPropertyName("mcpServerTestSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // The build files themselves, for `DetektSourceSetsAreAllScannedTest`, which reads
+    // each module's `detekt.source` list. Found by being bitten: that test watches for
+    // a source set being left out of the list, and editing the list did not re-run the
+    // test — `:shared:jvmTest` was UP-TO-DATE and reported a verdict about a file it
+    // had not re-read. A gate that cannot be invalidated by the change it watches is
+    // worse than no gate, because its silence looks like a pass.
+    inputs.files(
+        rootProject.file("shared/build.gradle.kts"),
+        rootProject.file("androidApp/build.gradle.kts"),
+        rootProject.file("desktopApp/build.gradle.kts"),
+        rootProject.file("mcp-server/build.gradle.kts"),
+    ).withPropertyName("moduleBuildFiles")
+     .withPathSensitivity(PathSensitivity.RELATIVE)
     // MaestroFlowTagsTest walks up from commonMain.root to the worktree root and reads
     // Maestro/. That tree is not a compile input of :shared at all, so the gate went
     // UP-TO-DATE on every flow edit and re-reported the previous run's verdict.

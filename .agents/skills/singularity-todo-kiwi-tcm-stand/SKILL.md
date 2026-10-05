@@ -171,6 +171,15 @@ just kiwi-seed-check             # fail on drift between Kiwi and the specs
 just kiwi-publish                # results.json → Kiwi run history
 ```
 
+**`trace-results` is for a run you just made, and a fast-only run is a subset.**
+It exits 2 when a claimed scenario has no result, which is correct for CI
+(`-Ptest.tags=fast,slow`) and wrong for the default local cycle: that one
+excludes `@Tag("slow")`, and every scenario carrier is `slow`. The recipe passes
+`--partial` for you, so use the recipe rather than calling `traceability results`
+directly. If you call the module yourself after `./gradlew :desktopApp:test` with
+no `-Ptest.tags`, add `--partial` or you will read a deliberate subset as a
+broken build.
+
 One direction only: **Git → Kiwi**. Editing a scenario case in the UI is overwritten
 by the next seed, so every seeded case carries `extra_link` back to its spec and
 `seed --check` exists.

@@ -154,10 +154,15 @@ trace-coverage-check:
 trace-results maestro="":
     #!/bin/bash
     set -euo pipefail
+    # --partial because the documented local cycle runs @Tag("fast") only
+    # (./gradlew :desktopApp:test with no -Ptest.tags excludes "slow"), and
+    # every scenario carrier is slow. Without the flag the per-scenario rule
+    # reads the absent slow tests as a defect on every local run. CI does not
+    # pass it: it runs -Ptest.tags=fast,slow, and there the rule is the point.
     if [ -n "{{maestro}}" ]; then
-        PYTHONPATH=infra/kiwi python3 -m traceability results --maestro
+        PYTHONPATH=infra/kiwi python3 -m traceability results --maestro --partial
     else
-        PYTHONPATH=infra/kiwi python3 -m traceability results
+        PYTHONPATH=infra/kiwi python3 -m traceability results --partial
     fi
 
 [group('traceability')]
