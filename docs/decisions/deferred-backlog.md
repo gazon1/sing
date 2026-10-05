@@ -3059,7 +3059,7 @@ directories that are not clean.
 
 ---
 
-## Two things the conversion found that this entry did not
+### Two things the conversion found that this entry did not
 
 **1. Priority was three scales, not one.** `PriorityPalette` always documented
 two coexisting palettes, and the divergence between them is deliberate — the
@@ -3084,6 +3084,8 @@ resolve from the same scheme, so they are identical by construction.
 ## a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog
 
 **Status: OPEN**
+
+**Tracked as:** [#205](https://github.com/gazon1/singularity-clone-kmp/issues/205)
 
 **Found in:** 2026-10-05, while trying to close the gap that let MaterialKolor
 sit declared-but-unimported in the catalog and on the `commonMain` classpath
