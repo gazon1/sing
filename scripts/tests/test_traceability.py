@@ -637,10 +637,17 @@ class DisplayNameKeying(unittest.TestCase):
         links = [link for link in scan_all(specs, REPO_ROOT) if link.carrier is Carrier.KOTLIN]
         self.assertTrue(links, "expected a Kotlin scenario carrier in the repo")
         for link in links:
+            # The invariant is "the key is the display name, which begins with
+            # the scenario id" — not "the only scenario is TASK-REC-01". The
+            # second was true when this was written and broke on the next
+            # carrier, which is the signal that it was encoding an incidental
+            # fact as a rule.
             self.assertTrue(
-                link.key.method.startswith("TASK-REC-"),
-                f"key must be the display name, got {link.key.method!r}",
+                link.key.method.startswith(link.scenario + " "),
+                f"key must be the display name for {link.scenario}, "
+                f"got {link.key.method!r}",
             )
+            self.assertIn(" ", link.key.method, "a method name carries no space")
             self.assertIn("fun ", link.detail)
 
     def test_fallback_key_is_the_method_name(self):
