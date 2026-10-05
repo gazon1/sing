@@ -52,6 +52,16 @@ class TaskTimeSlot(
                     timeTrackingRepo.watchEntries(taskId)
                 }
                 .collect { entries ->
+                    // An error from a *write* is about that write, and the next
+                    // emission is not news: the entry list is unchanged because
+                    // the write never happened. Without this guard the refusal is
+                    // overwritten by `Idle` a frame later and the section goes
+                    // back to offering Start — which is the same silent failure
+                    // the Error state was added to end, just with an extra frame.
+                    //
+                    // Caught by `a_refused_start_becomes_an_error_state`, which
+                    // failed on the first run of the fix for exactly this reason.
+                    if (_state.value is TaskTimeSlotState.Error) return@collect
                     // Re-derived per emission, not read from the cache: `scopedUserId`
                     // is a StateFlow seeded at construction and corrected by an async
                     // collector, so sampling it here would keep querying under the
@@ -97,24 +107,42 @@ class TaskTimeSlot(
     private fun start() {
         val current = _state.value
         if (current is TaskTimeSlotState.Running) return
+        // Clear the previous refusal so a retry is not blocked by it, and so the
+        // next successful emission (or the next failure) decides the state.
+        if (current is TaskTimeSlotState.Error) _state.value = TaskTimeSlotState.Idle
         scope.launch {
             timeTrackingRepo.startEntry(
                 taskId = taskId,
                 userId = currentUser.scopedUserId.value,
                 kind = TimeEntryKind.Work,
                 source = TimeEntrySource.Timer,
-            ).onFailure { /* UI updates from the flow */ }
+            ).onFailure { error ->
+                // Not "the UI updates from the flow": when the *write* fails there
+                // is nothing for the flow to update from, and the chip would sit
+                // on Start forever with no log and no event. Three identical
+                // comments in one file is the smell that produced this — one
+                // wrong sentence, copied three times.
+                _state.value = TaskTimeSlotState.Error(
+                    error.message ?: "Не удалось запустить таймер",
+                )
+            }
         }
     }
 
     private fun stop() {
+        if (_state.value is TaskTimeSlotState.Error) _state.value = TaskTimeSlotState.Idle
         scope.launch {
             timeTrackingRepo.stopEntry(currentUser.scopedUserId.value)
-                .onFailure { /* UI updates from the flow */ }
+                .onFailure { error ->
+                    _state.value = TaskTimeSlotState.Error(
+                        error.message ?: "Не удалось остановить таймер",
+                    )
+                }
         }
     }
 
     private fun createManual(intent: TaskTimeSlotIntent.CreateManual) {
+        if (_state.value is TaskTimeSlotState.Error) _state.value = TaskTimeSlotState.Idle
         scope.launch {
             timeTrackingRepo.createManualEntry(
                 taskId = taskId,
@@ -123,7 +151,11 @@ class TaskTimeSlot(
                 endedAt = intent.endedAtMs,
                 kind = intent.kind,
                 note = intent.note,
-            ).onFailure { /* UI updates from the flow */ }
+            ).onFailure { error ->
+                _state.value = TaskTimeSlotState.Error(
+                    error.message ?: "Не удалось сохранить запись времени",
+                )
+            }
         }
     }
 
