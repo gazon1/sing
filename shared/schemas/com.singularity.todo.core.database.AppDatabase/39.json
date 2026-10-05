@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 39,
-    "identityHash": "b51b0e5bfe9490180be0309c2d987351",
+    "version": 38,
+    "identityHash": "4d9d92130effbb1d75729818e9a65f6c",
     "entities": [
       {
         "tableName": "tasks",
@@ -2496,7 +2496,7 @@
       },
       {
         "tableName": "google_event_shadow",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `event_id` TEXT NOT NULL, `task_id` TEXT, `calendar_id` TEXT NOT NULL, `etag` TEXT, `base_json` TEXT NOT NULL, `remote_updated_at` INTEGER, `cancelled_at` INTEGER, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`, `event_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `event_id` TEXT NOT NULL, `task_id` TEXT, `calendar_id` TEXT NOT NULL, `etag` TEXT, `base_json` TEXT NOT NULL, `remote_updated_at` INTEGER, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`, `event_id`))",
         "fields": [
           {
             "fieldPath": "userId",
@@ -2535,11 +2535,6 @@
           {
             "fieldPath": "remoteUpdatedAt",
             "columnName": "remote_updated_at",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "cancelledAt",
-            "columnName": "cancelled_at",
             "affinity": "INTEGER"
           },
           {
@@ -2654,7 +2649,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b51b0e5bfe9490180be0309c2d987351')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4d9d92130effbb1d75729818e9a65f6c')"
     ]
   }
 }
