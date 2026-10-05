@@ -142,7 +142,8 @@ internal class SyncBootstrapper(
                     // those repositories, not of this dispatch, and nothing here checks
                     // it: a new synced type whose `delete` is a genuine hard delete would
                     // silently remove the row — trash and all — on every other device,
-                    // and nothing would say so. See #196.
+                    // and nothing would say so. `SyncedEntityDeleteIsSoftTest` reads
+                    // this dispatch table and checks each repository it names. See #195.
                     //
                     // A `RESTORED` event does not come here. It is handled above, in the
                     // same branch as `CREATED` and `UPDATED`, and applied as an ordinary
