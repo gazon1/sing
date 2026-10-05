@@ -149,19 +149,27 @@ fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     testTag: String = TestTags.Settings.DARK_THEME_SWITCH,
 ) {
     SettingsRow(
         title = title,
         subtitle = subtitle,
         modifier = modifier.testTag(testTag),
-        onClick = { onCheckedChange(!checked) },
+        // A disabled row drops its click handler entirely rather than ignoring the
+        // callback, so the control is genuinely inert instead of merely refusing to act.
+        onClick = if (enabled) {
+            { onCheckedChange(!checked) }
+        } else {
+            null
+        },
         trailing = {
             Switch(
                 checked = checked,
                 // Click handling lives on the row itself; leaving this non-null
                 // would fire onCheckedChange twice when tapping the switch directly.
                 onCheckedChange = null,
+                enabled = enabled,
             )
         },
     )
