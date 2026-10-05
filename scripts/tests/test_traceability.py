@@ -43,7 +43,12 @@ from traceability.keys import (  # noqa: E402
     normalise_classname,
     normalise_test_name,
 )
-from traceability.links import Carrier, Link, _scenario_from_prefix_token  # noqa: E402
+from traceability.links import (  # noqa: E402
+    Carrier,
+    Link,
+    _scenario_from_prefix_token,
+    scan_all,
+)
 from traceability.normalize import normalise  # noqa: E402
 from traceability.render import render_coverage_matrix, render_result_matrix  # noqa: E402
 from traceability.spec import (  # noqa: E402
@@ -1549,3 +1554,123 @@ class PerScenarioRuleIsExercisable(unittest.TestCase):
             )
         self.assertNotIn(f"{reporting.scenario}/{target.value}", message)
         self.assertNotIn("ни одного тесткейса", message)
+
+
+class UnreachableCellsTest(unittest.TestCase):
+    """The fifth glyph, and the two mistakes it was added to stop being confusable.
+
+    A hole was ambiguous, and both readings were acted on in one session.
+    `TASK-TIME-01` was narrowed to `targets: [android]` because a reachability
+    probe found no time-tracking node on desktop — wrong, the feature was in
+    `commonMain` and the desktop screen had silently stopped rendering it.
+    `SYNC-OFFLINE-01` claims both targets and needs a second device and a
+    flapping network — true, and unsupplyable by any single-device harness.
+
+    Both drew as `○`. So each mistake looked like the other's remedy, and the
+    only record of the intent was a comment above a `targets:` list, which no
+    tooling read.
+    """
+
+    def _corpus(self):
+        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        return specs, build_coverage(specs, scan_all(specs, REPO_ROOT))
+
+    def test_an_unreachable_cell_is_still_a_hole(self):
+        # The whole point of keeping it in the count: otherwise the cheap move is
+        # to reclassify every unsupplied claim as unreachable, and the ratchet
+        # stops measuring anything while the matrix looks more informative.
+        specs, coverage = self._corpus()
+        unreachable = set(coverage.unreachable_holes())
+        self.assertTrue(unreachable, "fixture assumption: the corpus has unreachable cells")
+        for cell in unreachable:
+            self.assertIn(cell, coverage.holes())
+
+    def test_unreachable_is_a_subset_of_claimed(self):
+        specs, coverage = self._corpus()
+        for scenario, target in coverage.unreachable_holes():
+            self.assertTrue(
+                target in specs[scenario].targets,
+                f"{scenario}/{target.value} is unreachable but not claimed",
+            )
+
+    def test_the_glyph_differs_from_a_plain_hole(self):
+        specs, coverage = self._corpus()
+        scenario, target = coverage.unreachable_holes()[0]
+        unreachable = coverage.glyph(scenario, target)
+        plain = next(
+            coverage.glyph(s, t)
+            for s, t in coverage.holes()
+            if t not in specs[s].unreachable
+        )
+        self.assertNotEqual(unreachable, plain)
+        self.assertEqual(unreachable, "◇")
+        self.assertEqual(plain, "○")
+
+    def test_the_field_is_read_from_the_spec_and_never_inferred(self):
+        # A probe that fails must not be able to set this flag. Inferring
+        # reachability from an observed miss is precisely how TASK-TIME-01 got
+        # narrowed: the probe measured one screen and the conclusion was written
+        # as a statement about the platform.
+        specs, _ = self._corpus()
+        marked = {s for s, spec in specs.items() if spec.unreachable}
+        self.assertTrue(marked)
+        for name in marked:
+            self.assertTrue(
+                (specs[name].unreachable),
+                f"{name} marked unreachable with an empty tuple",
+            )
+
+    def test_a_target_outside_targets_is_rejected(self):
+        # The invariant that stops the flag being used as a disguised narrowing:
+        # a target nobody claimed owes nothing and cannot be unreachable.
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / "SYN-STATUS-01.yaml"
+            path.write_text(
+                "id: SYN-STATUS-01\n"
+                "title: x\npriority: P1\nstatus: confirmed\n"
+                "targets: [android]\n"
+                "unreachable: [android, desktop]\n"
+                "preconditions: x\nsteps: [x]\nexpected: x\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValidationError) as ctx:
+                load_specs(pathlib.Path(d))
+            self.assertIn("не входит в targets", str(ctx.exception))
+
+
+class CarrierRefusesUnreachableTest(unittest.TestCase):
+    """The generator must not write a probe that cannot pass."""
+
+    def test_the_cli_refuses_an_unreachable_target_by_name(self):
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", "SYNC-OFFLINE-01",
+             "--target", "desktop", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            check=False,
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("недостижимый", result.stdout)
+        self.assertNotIn("dry run, не записан", result.stdout)
+
+    def test_a_reachable_neighbour_of_an_unreachable_row_still_generates(self):
+        # The classification is per target, not per scenario: SYNC-STATUS-01
+        # stays fully probe-able while its two-device neighbours do not.
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", "SYNC-STATUS-01", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("dry run", result.stdout)

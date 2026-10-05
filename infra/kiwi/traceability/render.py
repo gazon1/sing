@@ -58,6 +58,7 @@ def _legend_coverage() -> list[str]:
         "|---|---|",
         "| — | target not claimed for this scenario |",
         "| ○ | claimed, but no automated test exists — **a hole** |",
+        "| ◇ | claimed, no test, and **no automated carrier can reach that tier** |",
         "| ● | automated |",
         "| ⊘ | scenario is deprecated — retired deliberately, not an obligation |",
     ]

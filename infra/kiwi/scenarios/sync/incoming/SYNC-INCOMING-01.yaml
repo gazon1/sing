@@ -13,6 +13,15 @@ title: Receive a change on the field being typed into
 priority: P1
 status: confirmed
 targets: [android, desktop]
+
+# Claimed on both tiers and reachable on neither. The hole is real and
+# counted; what this records is *what kind* of supply it needs, so the
+# next agent does not read `○` as "write a Compose test" and burn a
+# probe on a scenario no single-device harness can express.
+# Device A types a title, device B edits and deletes the same task, and the
+# check is the merge that follows. The scenario is *defined* by a conflict
+# between two devices; a single-device run would assert a different thing.
+unreachable: [android, desktop]
 preconditions: Two devices signed into the same account.
 steps:
   - On device A open a task and start typing a title without saving.

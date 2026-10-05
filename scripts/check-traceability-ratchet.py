@@ -118,7 +118,14 @@ def _metrics(coverage) -> tuple[dict[str, int], list[str]]:
         and any(cell.claimed for cell in row.values())
         and not any(cell.claimed and cell.automated for cell in row.values())
     ]
-    return {"holes": len(coverage.holes()), "dark_scenarios": len(dark)}, dark
+    return (
+        {
+            "holes": len(coverage.holes()),
+            "dark_scenarios": len(dark),
+            "unreachable_cells": len(coverage.unreachable_holes()),
+        },
+        dark,
+    )
 
 
 METRICS: tuple[Metric, ...] = (
@@ -130,6 +137,11 @@ METRICS: tuple[Metric, ...] = (
     Metric(
         key="dark_scenarios",
         label="declared scenarios with a claim and no automation on any target",
+        worse_when="higher",
+    ),
+    Metric(
+        key="unreachable_cells",
+        label="claimed cells whose spec declares the tier unable to reach them",
         worse_when="higher",
     ),
 )
@@ -170,7 +182,8 @@ def main() -> int:
 
     specs = load_specs(SCENARIOS_DIR)
     links = scan_all(specs, ROOT)
-    measured, dark_ids = _metrics(build_coverage(specs, links))
+    coverage = build_coverage(specs, links)
+    measured, dark_ids = _metrics(coverage)
 
     floors = {f["metric"]: f for f in config.get("floors", [])}
     missing = [m.key for m in METRICS if m.key not in floors]
@@ -196,10 +209,14 @@ def main() -> int:
             )
 
     if not grew:
-        total = measured["holes"]
+        # Built from METRICS rather than written out: the third metric was
+        # added to the tuple and to this gate's comparisons, and the success
+        # line went on naming only the first two. A green run that does not
+        # print a number cannot be read, and the line that quietly stopped
+        # counting is how a metric becomes decorative.
+        measured_parts = ", ".join(f"{measured[metric.key]} {metric.key}" for metric in METRICS)
         print(
-            f"check-traceability-ratchet: OK — {total} hole(s), "
-            f"{measured['dark_scenarios']} dark scenario(s), "
+            f"check-traceability-ratchet: OK — {measured_parts}, "
             f"{len(links)} carrier(s) across {len(specs)} spec(s)"
         )
         return 0
@@ -216,7 +233,9 @@ def main() -> int:
     print("normal — a matrix with none of them is a matrix nobody believes — but a")
     print("count that only ever goes up is a queue nobody drains:")
     for scenario in dark_ids:
-        print(f"  ○ {scenario}")
+        for target, cell in sorted(coverage.cells[scenario].items()):
+            if cell.claimed:
+                print(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
     print("")
     print("Either attach a carrier (the cheapest path is a reachability probe")
     print("first — see .agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md), or")
