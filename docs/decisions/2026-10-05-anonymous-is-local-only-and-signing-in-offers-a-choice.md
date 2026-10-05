@@ -2,6 +2,7 @@
 title: Without an account the app is local-only, and signing in offers to keep what was made
 date: 2026-10-05
 status: accepted
+title: Without an account the app is local-only, and signing in offers to keep what was made
 ---
 
 # Without an account the app is local-only, and signing in offers to keep what was made

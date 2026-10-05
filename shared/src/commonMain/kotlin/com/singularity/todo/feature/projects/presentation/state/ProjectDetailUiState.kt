@@ -21,6 +21,12 @@ sealed interface ProjectDetailUiState {
         val ui: ProjectDetailUi,
         /** Whether completed tasks are filtered out of [ProjectDetailUi.tasks]. */
         val hideCompleted: Boolean,
+        /**
+         * Whether tasks blocked by unfinished dependencies are filtered out of
+         * [ProjectDetailUi.tasks]. Defaults to off, so a task the user could
+         * previously see is never dropped without them asking.
+         */
+        val hideBlocked: Boolean = false,
         /** Parent-picker options; excludes this project, deleted and non-root projects. */
         val parentOptions: List<ParentOption>,
         /** Active tasks outside this project, for the "add existing task" picker. */

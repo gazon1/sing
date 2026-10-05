@@ -12,7 +12,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -200,11 +200,18 @@ sealed interface AppDestination : AppNavKey {
     /**
      * Nested Calendar graph. Contains its own NavBackStack[CalendarRoute].
      * Used for deep-links and direct navigation.
+     *
+     * `start` defaults to *this* month, which is the one place in navigation where
+     * "today" really is the answer rather than a dependency: the route names a
+     * month, and opening a calendar without naming one means the current one. It is a
+     * default rather than a required argument so the key round-trips through
+     * serialisation in `NavKeyRegistrationTest` and friends, and it is spelled
+     * `systemToday` so that a reader can see it is host-dependent by name.
      */
     @Serializable
     data class CalendarGraph(
         val start: CalendarStartRoute = CalendarStartRoute.Month(
-            todayInSystemZone().toString(),
+            systemToday().toString(),
         ),
     ) : AppDestination {
         override val title = "Calendar"

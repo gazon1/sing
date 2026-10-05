@@ -1,4 +1,5 @@
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -521,6 +522,56 @@ room3 {
 }
 
 // ---------------------------------------------------------------------------
+// resolvedArtifacts — the mapping Gradle has and the catalog does not (#205)
+// ---------------------------------------------------------------------------
+// A Gradle coordinate does not determine an import package:
+// `org.jetbrains.compose.material3:material3` is imported as
+// `androidx.compose.material3`. So "is this dependency used?" cannot be answered
+// from libs.versions.toml — it needs the resolved files each configuration
+// actually contributes, next to the coordinate they came from. This task prints
+// exactly that, as `sourceSet<TAB>group:artifact<TAB>file`, and
+// `scripts/check-dependency-usage.py` reads it.
+//
+// Prints rather than asserts: the comparison needs the package roots inside each
+// jar, which is not a Gradle concern, and the gate is where a finding becomes a
+// failure.
+tasks.register("printResolvedArtifacts") {
+    group = "verification"
+    description = "Prints every resolved artifact per source set with its coordinate."
+
+    // The configuration cache rejects a captured Project. A `doLast` closure that
+    // touches `configurations` captures one implicitly, and the failure is
+    // deferred: the task prints its output and *then* the build fails on store,
+    // so the first run looked fine and every run after it failed with
+    // "cannot serialize DefaultProject".
+    //
+    // The supported escape is to declare the Gradle model as an @Internal input
+    // and read it inside the action. Nothing here is a real input — the point of
+    // the task is to report resolution state, which by definition is not known
+    // until execution — so declaring it uncacheable is the honest description.
+    notCompatibleWithConfigurationCache("Reads dependency resolution state, which is only known at execution time.")
+
+    val sourceSets = listOf("commonMain", "androidMain", "jvmMain")
+    doLast {
+        sourceSets.forEach { name ->
+            // The `${sourceSet}Implementation` configuration is declared
+            // canBeResolved=false by the KMP plugin, so the resolved view comes
+            // from the `…ResolvableDependenciesMetadata` sibling. Resolving the
+            // metadata variant is also the right granularity for a *usage*
+            // question: it is what the compiler sees for that source set, before
+            // platform narrowing.
+            val configuration = configurations.findByName("${name}ResolvableDependenciesMetadata")
+                ?: error("no resolvable configuration for $name")
+            configuration.incoming.artifactView { lenient(true) }.artifacts.forEach { artifact ->
+                val id = artifact.id.componentIdentifier
+                val coordinate = if (id is ModuleComponentIdentifier) "${id.group}:${id.module}" else id.displayName
+                println("$name\t$coordinate\t${artifact.file.absolutePath}")
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // detekt — static analysis + ktlint (via detekt-formatting plugin)
 // ---------------------------------------------------------------------------
 detekt {
@@ -551,4 +602,3 @@ dependencies {
 // and the report is produced once for the whole build. A per-project report
 // would measure only this project's own test tasks — which is exactly the gap
 // that made every Compose flow test in desktopApp invisible to the number.
-

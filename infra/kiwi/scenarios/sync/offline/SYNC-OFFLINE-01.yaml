@@ -13,6 +13,16 @@ title: Work with no network and watch the queue drain
 priority: P1
 status: confirmed
 targets: [android, desktop]
+
+# Claimed on both tiers and reachable on neither. The hole is real and
+# counted; what this records is *what kind* of supply it needs, so the
+# next agent does not read `○` as "write a Compose test" and burn a
+# probe on a scenario no single-device harness can express.
+# Needs the network switched off and restored repeatedly, and the check
+# is about a *second* device not duplicating tasks. Neither a JVM Compose
+# test nor a single-device Maestro run can observe a second device, so the
+# supply here is a device farm or a manual run — not a test to write.
+unreachable: [android, desktop]
 preconditions: A signed-in device with a non-empty account.
 steps:
   - Turn the network off and create three tasks, change two, and delete one.

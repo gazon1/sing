@@ -28,7 +28,41 @@ names its test.
 - [ ] `shared/` Treat declining the choice as a completed sign-in, not a failure.
       **Test:** the session is signed in and only the account-less data is gone.
 
+## REQ-UA-019 — queued work is sent only by the account that made it
+
+The sending half of ownership, and the part #209 found. REQ-UA-018 covers the *answer*:
+a response is applied only by the account that asked. It cannot cover the request,
+because by the time the response arrives the bytes are gone and discarding the response
+does not call them back.
+
+- [x] `shared/` Add `owner_id` to `sync_outbox` and `sync_dead_letter`, required and with
+      no Kotlin default, so no construction site can leave it unset.
+      **Test:** the entities do not compile without an owner.
+- [x] `shared/` Migration 37→38 adds the column and clears both tables, rather than
+      attributing rows that predate it — guessing would file one account's unsent work
+      under another, and silently.
+      **Test:** `Migration32To33Test` asserts the fixture's rows are gone. That test used
+      to promise the opposite, so the reversal is asserted rather than quietly dropped.
+- [x] `shared/` Scope `getPending` and `deleteByEntity` by owner, and write the owner from
+      the scope the patch was built under — not a scope read again at insert time, which
+      a profile switch in between would move.
+      **Test:** `SyncEngineOutboxOwnershipTest`. Verified by mutation: neutering the
+      filter fails 2 of 5, and they are the two about another account's queue.
+- [x] `shared/` A patch shelved in the dead letter keeps the owner it was queued under.
+      **Test:** the same class, reached through a retriable refusal with attempts
+      exhausted — a terminal refusal is a different branch and never reaches the shelf.
+- [x] `shared/` `planPush` reads the scope first, because it is what says whose queue this
+      push is, and makes no request at all when this owner has nothing queued.
+
 ## REQ-UA-016, REQ-UA-017 — signing out and switching are different operations
+
+**The queue half is unblocked by REQ-UA-019.** What remains is the owner-scoped erase,
+which needs the same scoping across every table that can hold the departing account's
+rows — and that part has its own trap: `task_tags` and `task_dependencies` carry no
+`user_id` and declare no foreign keys, so removing `tasks` first would orphan them. The
+idiom already exists in `removeTagRefForUser`, which scopes through
+`EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)`; the erase needs
+that shape, run before the parents go.
 
 - [ ] `shared/` Keep sign-out as it is today: credentials cleared, local data retained, no
       network required. **Test:** the existing sign-out-with-the-server-unreachable test
@@ -49,15 +83,27 @@ names its test.
 
 ## REQ-UA-018 — queued work belongs to the account that made it
 
-- [ ] `shared/` Re-check the session before applying a push response; if it is not the
-      session the request was made under, discard the response and leave the rows queued.
-      **Test:** the session is switched while a push is suspended; the rows are still
-      queued and the shadows are untouched.
-- [ ] `shared/` Settle a response only under the captured scope, never a re-read one.
+Matched by **account**, not by session — ADR
+`2026-10-05-a-push-response-is-matched-by-account-not-by-session`. A token refresh replaces the
+session wholesale and is the server's own doing; comparing sessions would discard nearly every push
+response and leave the outbox permanently undrained, silently.
+
+- [x] `shared/` Re-check the account before applying a push response; if it is not the
+      account the request was made under, discard the response and leave the rows queued.
+      **Test:** `SyncEnginePushIdentityTest` — the session is switched while a push is
+      suspended; the rows are still queued and the shadows are untouched. Also the
+      negative case, that a *token refresh* on the same account is still applied.
+- [x] `shared/` Report the discard as its own outcome, so it cannot be read as a delivery
+      or as a server refusal. `PushSummary.discarded`.
+      **Test:** a discarded response reports `discarded = 1` and `succeeded = 0`.
+- [x] `shared/` Settle a response only under the captured scope, never a re-read one.
       **Test:** the profile changes mid-flight and the shadow is settled under the
       original profile.
-- [ ] `shared/` Pin the existing no-network sign-out behaviour with a test, so the
+- [x] `shared/` Pin the existing no-network sign-out behaviour with a test, so the
       distinction from a switch is regression-protected on both sides.
+- [x] `shared/` Give `FakeSyncApiClient` a suspend hook that fires while the request is in
+      flight. Without it the state above is unreachable from a test, and a delay proves
+      nothing about whether the code re-read anything.
 
 ## REQ-OS-019 — the clock is merged, and a wrong one stops the write
 

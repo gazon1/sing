@@ -3,7 +3,7 @@ package com.singularity.todo.feature.nav
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph
 import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
@@ -38,9 +38,17 @@ import org.koin.compose.koinInject
  *
  * This bypasses the koin `navigation {}` DSL classpath conflict where the multiplatform
  * metadata JAR (`koin-compose-navigation3`) shadows the platform-specific implementation.
+ *
+ * @param today the date a calendar route with no explicit anchor opens at. Required
+ *   (#91) for the same reason as the desktop provider: a date computed outside the
+ *   Koin graph is a date a test cannot reach. Not a composable, so the caller
+ *   resolves the clock and passes the result.
  */
 @Composable
-fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
+fun createAppEntryProvider(
+    nav: NavCallbacks,
+    today: kotlinx.datetime.LocalDate = systemToday(),
+): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
     // ─── Top-level tabs ────────────────────────────────────────────────
 
     // Inbox, Today, Upcoming are handled by the catch-all AgendaGraph entry below.
@@ -66,9 +74,7 @@ fun createAppEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
     entry<AppDestination.Calendar> {
         CalendarNavGraph(
-            start = CalendarRoute.Month(
-                todayInSystemZone().toString(),
-            ),
+            start = CalendarRoute.Month(today.toString()),
             onExitGraph = nav.graphExit,
         )
     }

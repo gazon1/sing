@@ -31,7 +31,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
+import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
+import androidx.compose.material3.MaterialTheme
 
 /** State that opens a context menu at a given screen offset. */
 data class ContextMenuOpenState(val offset: DpOffset)
@@ -102,7 +104,7 @@ private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
         MenuNode.Divider -> {
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                color = TaskListColors.Divider,
+                color = dividerColor(),
             )
         }
 
@@ -120,9 +122,9 @@ private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
 @Composable
 private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
     val textColor = if (node.enabled) {
-        if (node.danger) TaskListColors.Danger else TaskListColors.TextPrimary
+        if (node.danger) TaskSemanticColors.Danger else MaterialTheme.colorScheme.onSurface
     } else {
-        TaskListColors.TextSecondary.copy(alpha = 0.5f)
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     }
 
     Box(
@@ -140,7 +142,7 @@ private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
             if (node.checked) {
                 Text(
                     text = "✓",
-                    color = TaskListColors.Accent,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(end = 8.dp),
                 )
             }
@@ -155,7 +157,7 @@ private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
             if (node.shortcut != null) {
                 Text(
                     text = node.shortcut,
-                    color = TaskListColors.TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 16.dp),
                 )
             }
@@ -179,7 +181,11 @@ private fun SubMenuRow(
     // Track this row's bounds in window coordinates for submenu positioning.
     var rowBounds by remember { mutableStateOf(Rect.Zero) }
 
-    val textColor = if (node.enabled) TaskListColors.TextPrimary else TaskListColors.TextSecondary
+    val textColor = if (node.enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Box(
         modifier = Modifier
@@ -203,7 +209,7 @@ private fun SubMenuRow(
             )
             Text(
                 text = "▶",
-                color = TaskListColors.TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

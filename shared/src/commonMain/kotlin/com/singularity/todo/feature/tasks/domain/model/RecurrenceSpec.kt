@@ -37,6 +37,19 @@ sealed class RecurrenceSpec {
     abstract val base: RecurrenceBase
 
     /**
+     * When this series stops, or `null` for an unbounded series — which is every
+     * rule written before this field existed, and the default for a new one.
+     *
+     * A constructor property on each variant rather than a mutable field on this
+     * base: `data class` `equals`, `hashCode`, `copy` and `toString` are generated
+     * from constructor properties only. A `var` here would be invisible to all
+     * four, so `copy()` would silently drop the end date and two rules differing
+     * only by end date would compare equal — in a value that Room stores and the
+     * sync diff compares.
+     */
+    abstract val termination: RecurrenceTermination?
+
+    /**
      * The base used to compute the next occurrence.
      */
     @Serializable
@@ -59,8 +72,12 @@ sealed class RecurrenceSpec {
      * @param unit   The time unit. Must be a date-based unit (DAY, WEEK, MONTH, YEAR).
      */
     @Serializable
-    data class Interval(override val base: RecurrenceBase, val amount: Int, val unit: DateTimeUnit.DateBased) :
-        RecurrenceSpec()
+    data class Interval(
+        override val base: RecurrenceBase,
+        val amount: Int,
+        val unit: DateTimeUnit.DateBased,
+        override val termination: RecurrenceTermination? = null,
+    ) : RecurrenceSpec()
 
     /**
      * Weekly recurrence on specific weekdays.
@@ -70,7 +87,11 @@ sealed class RecurrenceSpec {
      *                  At least one must be provided.
      */
     @Serializable
-    data class Weekly(override val base: RecurrenceBase, val weekdays: Set<Int>) : RecurrenceSpec() {
+    data class Weekly(
+        override val base: RecurrenceBase,
+        val weekdays: Set<Int>,
+        override val termination: RecurrenceTermination? = null,
+    ) : RecurrenceSpec() {
         init {
             require(weekdays.isNotEmpty()) { "weekdays must not be empty" }
             require(weekdays.all { it in 1..7 }) { "weekday must be in 1..7 (ISO-8601)" }
@@ -85,7 +106,11 @@ sealed class RecurrenceSpec {
      *                   the last day of that month is used.
      */
     @Serializable
-    data class Monthly(override val base: RecurrenceBase, val dayOfMonth: Int) : RecurrenceSpec() {
+    data class Monthly(
+        override val base: RecurrenceBase,
+        val dayOfMonth: Int,
+        override val termination: RecurrenceTermination? = null,
+    ) : RecurrenceSpec() {
         init {
             require(dayOfMonth in 1..31) { "dayOfMonth must be in 1..31" }
         }
@@ -99,7 +124,12 @@ sealed class RecurrenceSpec {
      * @param day  Day of month (1..31).
      */
     @Serializable
-    data class Yearly(override val base: RecurrenceBase, val month: Int, val day: Int) : RecurrenceSpec() {
+    data class Yearly(
+        override val base: RecurrenceBase,
+        val month: Int,
+        val day: Int,
+        override val termination: RecurrenceTermination? = null,
+    ) : RecurrenceSpec() {
         init {
             require(month in 1..12) { "month must be in 1..12" }
             require(day in 1..31) { "day must be in 1..31" }
@@ -110,4 +140,51 @@ sealed class RecurrenceSpec {
         /** Maximum number of catch-up copies created when completing a CATCH_UP task. */
         const val MAX_MISSED = 10
     }
+}
+
+/**
+ * When a recurring series stops.
+ *
+ * Currently only an end date. "After N occurrences" is deliberately absent: it
+ * needs a counter that increases monotonically across devices, and the sync layer
+ * merges whole rows last-writer-wins with no per-field policy — so two devices
+ * would disagree about the count. That needs protocol work before it can be a
+ * field. See ADR `2026-10-05-recurrence-end-date-in-spec-blob`.
+ *
+ * @param endDate Last date on which the series may still produce an occurrence.
+ *        The boundary is **inclusive** — "repeat until Dec 31" means Dec 31 is
+ *        shown. `null` inside a non-null termination means unbounded, which the
+ *        picker represents by omitting the termination entirely.
+ */
+@Serializable
+data class RecurrenceTermination(val endDate: kotlinx.datetime.LocalDate? = null)
+
+/**
+ * True when [nextDue] falls past this series' end date, so it must not recur.
+ *
+ * The single place the boundary is read, so no branch of the completion use case
+ * re-implements it. An occurrence landing exactly on [RecurrenceTermination.endDate]
+ * is still allowed — only one past it stops the series.
+ */
+fun RecurrenceSpec.isExhaustedBy(nextDue: kotlinx.datetime.LocalDate): Boolean {
+    val end = termination?.endDate ?: return false
+    return nextDue > end
+}
+
+/**
+ * This rule with [termination] attached.
+ *
+ * `copy()` is generated per variant, not on the sealed base, so there is no way
+ * to set a termination without knowing which variant you hold — until now. This
+ * dispatches once so callers that receive a `RecurrenceSpec` from elsewhere (the
+ * recurrence parser, an importer) can bound a rule they never constructed.
+ *
+ * Passing `null` returns an equivalent unbounded rule, so callers can clear a
+ * bound without a second code path.
+ */
+fun RecurrenceSpec.withTermination(termination: RecurrenceTermination?): RecurrenceSpec = when (this) {
+    is RecurrenceSpec.Interval -> copy(termination = termination)
+    is RecurrenceSpec.Weekly -> copy(termination = termination)
+    is RecurrenceSpec.Monthly -> copy(termination = termination)
+    is RecurrenceSpec.Yearly -> copy(termination = termination)
 }

@@ -142,6 +142,30 @@ class ProjectDetailViewModelTest {
         (state.value as? ProjectDetailUiState.Content)?.hideCompleted
             ?: error("expected Content, got ${state.value}")
 
+    private fun ProjectDetailViewModel.hideBlocked(): Boolean =
+        (state.value as? ProjectDetailUiState.Content)?.hideBlocked
+            ?: error("expected Content, got ${state.value}")
+
+    private fun ProjectDetailViewModel.visibleTitles(): List<String> =
+        (state.value as? ProjectDetailUiState.Content)?.ui?.tasks?.map { it.title }
+            ?: error("expected Content, got ${state.value}")
+
+    /** Seeds a task in p1, optionally depending on another task. */
+    private fun seedTask(
+        title: String,
+        dependsOn: Set<TaskId> = emptySet(),
+        completed: Boolean = false,
+    ): Task = Task(
+        id = TaskId("task-$title"),
+        title = title,
+        projectId = ProjectId("p1"),
+        userId = testUserId,
+        dependsOn = dependsOn,
+        completedAt = if (completed) TEST_NOW else null,
+        createdAt = TEST_NOW,
+        updatedAt = TEST_NOW,
+    )
+
     @Test
     fun `ToggleHideCompleted flips hideCompleted state`() = runTest {
         seedProject()
@@ -342,5 +366,149 @@ class ProjectDetailViewModelTest {
         runCurrent()
 
         assertTrue(fakeProjectReminders.all().isEmpty(), "no due date means no reminder is stored")
+    }
+
+    // ─── Hide blocked ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `blocked tasks are visible by default`() = runTest {
+        seedProject()
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertFalse(vm.hideBlocked(), "hiding blocked tasks must be opt-in, never silent")
+        assertEquals(listOf("prereq", "waiting"), vm.visibleTitles().sorted())
+    }
+
+    @Test
+    fun `ToggleHideBlocked removes only the blocked task`() = runTest {
+        seedProject()
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertTrue(vm.hideBlocked())
+        assertEquals(listOf("prereq"), vm.visibleTitles())
+    }
+
+    @Test
+    fun `toggling hide blocked off restores the task`() = runTest {
+        seedProject()
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertFalse(vm.hideBlocked())
+        assertEquals(2, vm.visibleTitles().size)
+    }
+
+    @Test
+    fun `hiding blocked does not mutate stored tasks`() = runTest {
+        seedProject()
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertEquals(2, fakeTaskRepo.tasks.value.size, "filtering is presentation-only")
+        assertNotNull(fakeTaskRepo.get(TaskId("task-waiting")))
+    }
+
+    @Test
+    fun `hide blocked and hide completed compose`() = runTest {
+        seedProject()
+        fakeTaskRepo.seed(
+            seedTask("prereq"),
+            seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))),
+            seedTask("done", completed = true),
+        )
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideCompleted)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertEquals(listOf("prereq"), vm.visibleTitles())
+    }
+
+    @Test
+    fun `hiding completed tasks does not change which tasks count as blocked`() = runTest {
+        // Blocking is a property of a task in the world: a dependency that is
+        // hidden by one filter still blocks whatever it blocks. If `blockedIds`
+        // were computed from the already-filtered list, hiding a task could
+        // retroactively unblock its dependents.
+        seedProject()
+        fakeTaskRepo.seed(
+            seedTask("blocker"),
+            seedTask("waiting", dependsOn = setOf(TaskId("task-blocker"))),
+            seedTask("done", completed = true),
+        )
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideCompleted)
+        advanceUntilIdle()
+        runCurrent()
+        // "done" is gone; "waiting" is still blocked by the still-present "blocker".
+        assertEquals(listOf("blocker", "waiting"), vm.visibleTitles().sorted())
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+        assertEquals(
+            listOf("blocker"),
+            vm.visibleTitles(),
+            "hiding completed work must not free a blocked task",
+        )
+    }
+
+    @Test
+    fun `a completed dependency does not block`() = runTest {
+        // The domain rule itself, pinned so the filter above is read correctly:
+        // only an *unfinished* dependency blocks.
+        seedProject()
+        fakeTaskRepo.seed(
+            seedTask("done-dep", completed = true),
+            seedTask("waiting", dependsOn = setOf(TaskId("task-done-dep"))),
+        )
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(ProjectDetailIntent.Domain.ToggleHideBlocked)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertEquals(
+            listOf("done-dep", "waiting"),
+            vm.visibleTitles().sorted(),
+            "a completed dependency is not blocked work, and it stays visible — " +
+                "hiding completed tasks is a separate filter",
+        )
     }
 }

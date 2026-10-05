@@ -13,8 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.PriorityPalette
-import com.singularity.todo.feature.tasks.presentation.components.priorityMeta
+import com.singularity.todo.feature.tasks.presentation.theme.PriorityPalette
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 
@@ -39,8 +39,11 @@ fun PriorityIndicator(priority: TaskPriority, modifier: Modifier = Modifier) {
     )
 }
 
-/** Единый источник правды для цвета приоритета во всём экране. */
-fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.TaskListColors).color
+/**
+ * The list's priority tint, shared by the row, the checkbox and the star so a
+ * task's priority reads the same wherever it appears on the screen.
+ */
+fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.TaskList).color
 
 private fun priorityContentDescription(priority: TaskPriority): String = when (priority) {
     TaskPriority.High -> "Высокий приоритет"

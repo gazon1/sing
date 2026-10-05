@@ -3,7 +3,8 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.platform.HostEnvironmentPort
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.platform.todayAt
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.io.path.Path
@@ -13,6 +14,7 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.time.Clock
 
 /** Directory name, relative to whichever root [AdrStorage] settles on. */
 private const val DECISIONS_DIR_NAME = "docs/decisions"
@@ -35,7 +37,11 @@ private const val DECISIONS_DIR_NAME = "docs/decisions"
  * away from a null dereference. It is a class now, and [HostEnvironmentPort] says
  * what it needs without naming a platform.
  */
-class AdrStorage(private val host: HostEnvironmentPort) {
+class AdrStorage(
+    private val host: HostEnvironmentPort,
+    private val clock: Clock,
+    private val timeZone: TimeZoneProvider,
+) {
 
     /**
      * The absolute path to the decisions directory: the project root when
@@ -129,7 +135,11 @@ class AdrStorage(private val host: HostEnvironmentPort) {
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
         val dirPath = Path(decisionsDir)
         dirPath.createDirectories()
-        val date = todayInSystemZone().toString()
+        // The date in a new ADR's frontmatter is the day it was written, in the
+        // writer's own zone — a property of the moment, not of the tool. It is now
+        // read from an injected clock and zone so a test can assert the stamp
+        // instead of accepting whatever day it happens to run on (#91).
+        val date = todayAt(clock, timeZone.current()).toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
         val frontmatter = "---\ntitle: \"$title\"\ndate: $date\ntags: $tagsStr\n---\n\n"
         val path = Path(filePath(slug))

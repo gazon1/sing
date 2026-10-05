@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.ai.tools
 
+import com.singularity.todo.test.fakes.TEST_TZ
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -33,7 +35,11 @@ class AdrStorageResolutionTest {
         override fun homeDirectory(): String = "$root/home"
     }
 
-    private fun absentStorage() = AdrStorage(AbsentHost("/singularity-adr-resolution-test-absent"))
+    private fun absentStorage() = AdrStorage(
+        host = AbsentHost("/singularity-adr-resolution-test-absent"),
+        clock = FakeClock(),
+        timeZone = TEST_TZ,
+    )
 
     @Test
     fun `with no checkout present the per-user copy is used`() {

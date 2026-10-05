@@ -1,9 +1,10 @@
 package com.singularity.todo.feature.flows.desktop
 
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -37,9 +38,8 @@ import kotlin.time.Instant
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class NavigationFlowTest {
-
     @Test
-    fun drawer_exposes_every_destination() = runDesktopAppTest(checkA11y = true) {
+    fun drawer_exposes_every_destination() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         openDrawer()
 
         DesktopShell.TABS.forEach { label ->
@@ -51,7 +51,7 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun pomodoro_and_calendar_render_their_own_screens() = runDesktopAppTest(checkA11y = true) {
+    fun pomodoro_and_calendar_render_their_own_screens() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         // The phase label is tagged, so this proves the Pomodoro VM produced state
         // rather than merely that the drawer entry was clicked.
         tapTab("Pomodoro")
@@ -64,7 +64,7 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun inbox_is_reachable_from_the_default_today_tab() = runDesktopAppTest(checkA11y = true) {
+    fun inbox_is_reachable_from_the_default_today_tab() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         // Both agendas are empty on a fresh database and the title text is
         // ambiguous, so the drawer's own Selected semantics is what proves the
         // tab actually switched.
@@ -76,7 +76,7 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun plans_detail_survives_tab_roundtrip() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun plans_detail_survives_tab_roundtrip() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         val epoch = Instant.fromEpochMilliseconds(0)
         koin.get<ProjectsRepository>().upsert(
             Project(
@@ -110,7 +110,10 @@ class NavigationFlowTest {
      * the Plans stack — the project staying underneath for Back.
      */
     @Test
-    fun project_detail_task_opens_from_plans_instead_of_falling_back() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun project_detail_task_opens_from_plans_instead_of_falling_back() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
         val epoch = Instant.fromEpochMilliseconds(0)
         val project = koin.get<ProjectsRepository>().upsert(
             Project(
@@ -122,7 +125,7 @@ class NavigationFlowTest {
                 userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
             ),
         )
-        tasks(koin).given(due = todayInSystemZone(), title = "Ship the policy", projectId = project.id)
+        tasks(koin).given(due = today, title = "Ship the policy", projectId = project.id)
 
         tapTab("Plans")
         awaitTag(TestTags.projectCard("Roadmap")).performClick()
@@ -136,5 +139,12 @@ class NavigationFlowTest {
         // Back returns to the project — the origin stayed underneath (REQ-NAV-001).
         clickContentDescription("Back")
         awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

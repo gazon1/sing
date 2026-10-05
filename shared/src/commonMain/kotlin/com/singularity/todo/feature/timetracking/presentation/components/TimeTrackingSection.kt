@@ -31,7 +31,6 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.formatMonthDayTime
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 
@@ -55,7 +54,7 @@ fun TimeTrackingSection(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = TaskColors.Surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(
             modifier = Modifier
@@ -71,7 +70,7 @@ fun TimeTrackingSection(
                 Icon(
                     imageVector = Icons.Filled.Timer,
                     contentDescription = null,
-                    tint = TaskColors.AccentBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(8.dp))
@@ -95,6 +94,24 @@ fun TimeTrackingSection(
                                     modifier = Modifier.size(16.dp),
                                 )
                             },
+                        )
+                    }
+
+                    is TaskTimeSlotState.Error -> {
+                        // The refusal is *shown*, not swallowed. Without this the
+                        // state exists, the write reports it, and the chip still
+                        // reads Start — so the user clicks and the only evidence
+                        // is a log nobody reads. Rendering it also makes the
+                        // failure assertable, which is what unblocks a desktop
+                        // carrier for `TASK-TIME-01`: under the anonymous harness
+                        // `startEntry` cannot succeed, and "it was refused
+                        // because there is no signed-in user" is a true and
+                        // useful thing to assert.
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag(TestTags.TimeTracking.ERROR),
                         )
                     }
 
@@ -126,7 +143,7 @@ fun TimeTrackingSection(
                         text = formatElapsed(state.elapsedMs),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TaskColors.AccentBlue,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -138,7 +155,7 @@ fun TimeTrackingSection(
                         Text(
                             text = "Total: ${formatDuration(state.totalWorkMs)}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TaskColors.TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         state.entries.take(3).forEach { entry ->
@@ -148,7 +165,7 @@ fun TimeTrackingSection(
                             Text(
                                 text = "+${state.entries.size - 3} more",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TaskColors.TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -158,7 +175,7 @@ fun TimeTrackingSection(
                     Text(
                         text = "No time tracked yet",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TaskColors.TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -166,11 +183,18 @@ fun TimeTrackingSection(
                     // Already showing the timer above
                 }
 
+                // The refusal is already rendered where the chip was, above. A
+                // second copy here would print the same sentence twice on one
+                // screen, so the branch exists to be exhaustive and says so.
+                is TaskTimeSlotState.Error -> {
+                    // Shown above, in place of the chip.
+                }
+
                 TaskTimeSlotState.Loading -> {
                     Text(
                         text = "Loading...",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TaskColors.TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -186,14 +210,14 @@ fun TimeTrackingSection(
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = null,
-                    tint = TaskColors.AccentBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = "Add manual entry",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TaskColors.AccentBlue,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -215,7 +239,7 @@ private fun TimeEntryRow(entry: TimeEntry, modifier: Modifier = Modifier) {
         Text(
             text = startStr,
             style = MaterialTheme.typography.bodySmall,
-            color = TaskColors.TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = durationStr,

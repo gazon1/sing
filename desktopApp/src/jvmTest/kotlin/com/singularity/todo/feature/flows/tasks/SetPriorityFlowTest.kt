@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.flows.tasks
 
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -16,6 +17,7 @@ import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/01-set-priority.yaml`.
@@ -33,7 +35,6 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class SetPriorityFlowTest {
-
     /** Opens a seeded task's editor, which is where the attribute rows live. */
     private fun androidx.compose.ui.test.DesktopComposeUiTest.openEditor(title: String) {
         awaitTag(TestTags.taskItem(title)).performClick()
@@ -41,16 +42,16 @@ class SetPriorityFlowTest {
     }
 
     @Test
-    fun the_priority_row_is_addressable_by_tag() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).given(due = todayInSystemZone())
+    fun the_priority_row_is_addressable_by_tag() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+        tasks(koin).given(due = today)
         openEditor("Buy milk")
 
         assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
     }
 
     @Test
-    fun choosing_high_updates_the_row_label() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).given(due = todayInSystemZone())
+    fun choosing_high_updates_the_row_label() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+        tasks(koin).given(due = today)
         openEditor("Buy milk")
 
         assertTextDisplayed("No priority")
@@ -63,8 +64,8 @@ class SetPriorityFlowTest {
     }
 
     @Test
-    fun every_priority_option_is_addressable() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).given(due = todayInSystemZone())
+    fun every_priority_option_is_addressable() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+        tasks(koin).given(due = today)
         openEditor("Buy milk")
         clickTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
 
@@ -84,5 +85,12 @@ class SetPriorityFlowTest {
         ).forEach { tag ->
             assertTagExists(tag)
         }
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

@@ -25,9 +25,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import com.singularity.todo.feature.tasks.presentation.theme.elevatedSurfaceColor
 
 /**
  * Заглушка для пустого списка.
@@ -62,19 +64,19 @@ fun EmptyState(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(TaskListColors.SurfaceElevated),
+                    .background(elevatedSurfaceColor()),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = TaskListColors.TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(32.dp),
                 )
             }
             Text(
                 text = title,
-                color = TaskListColors.TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 18.sp,
                 lineHeight = 24.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -82,7 +84,7 @@ fun EmptyState(
             )
             Text(
                 text = description,
-                color = TaskListColors.TextTertiary,
+                color = mutedTextColor(),
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 textAlign = TextAlign.Center,
@@ -101,21 +103,21 @@ fun EmptyStateCompact(text: String, modifier: Modifier = Modifier, icon: ImageVe
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = TaskListColors.TextTertiary,
+            tint = mutedTextColor(),
             modifier = Modifier.size(TaskListSizes.PriorityStar),
         )
         Text(
             text = text,
-            color = TaskListColors.TextTertiary,
+            color = mutedTextColor(),
             fontSize = 14.sp,
         )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
+@Preview(showBackground = true)
 @Composable
 private fun EmptyStatePreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         EmptyState(
             title = "Задач пока нет",
             description = "Добавьте первую задачу, нажав на синюю кнопку снизу",

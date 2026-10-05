@@ -13,6 +13,21 @@ package com.singularity.todo.core.ui
  * and every one of them routes its input through [slug] so that a user-entered
  * title ("Buy milk", "Café run", "Profile & sync") can never produce a tag that
  * a UI-automation selector cannot address.
+ *
+ * ## Adding a tag: regenerate the catalog
+ *
+ * `TestTagsCatalogJvmTest` fails when `Maestro/TAGS.md` disagrees with this
+ * object, so a new constant is not usable until the catalog is rewritten:
+ *
+ * ```
+ * ./gradlew :shared:jvmTest -PupdateGoldens=true --tests "*TestTagsCatalogJvmTest*"
+ * ```
+ *
+ * then re-run without `-PupdateGoldens` — that second run must pass on a clean
+ * checkout, which is what proves the file was actually written rather than the
+ * test being skipped. Budget a couple of minutes; the cost is easy to forget and
+ * the failure message points at the generated section rather than at the step
+ * that fixes it.
  */
 // The one flat namespace for every automation tag is the point of this object: a
 // tag must be findable from a Compose call site, a unit test, and a Maestro flow
@@ -131,6 +146,11 @@ object TestTags {
     const val RECURRENCE_OPTION_DAY_OF_MONTH = "recurrence_option_day_of_month"
     const val RECURRENCE_OPTION_YEARLY_ON_DATE = "recurrence_option_yearly_on_date"
     const val RECURRENCE_OPTION_NONE = "recurrence_option_none"
+
+    // ── Recurrence end date ───────────────────────────────────────────────────
+    const val RECURRENCE_ENDS_NEVER = "recurrence_ends_never"
+    const val RECURRENCE_ENDS_ON_DATE = "recurrence_ends_on_date"
+    const val RECURRENCE_END_DATE_VALUE = "recurrence_end_date_value"
 
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
@@ -304,6 +324,17 @@ object TestTags {
     object TimeTracking {
         const val START = "time_tracking_start"
         const val STOP = "time_tracking_stop"
+
+        /**
+         * The refusal text, rendered in place of the chip when a write failed.
+         *
+         * Tagged because "the click was refused and said so" is the only thing a
+         * desktop carrier can assert for `TASK-TIME-01` under the anonymous
+         * harness session — `startEntry` cannot succeed there, and until the
+         * failure was a state the test could see, a click that did nothing and a
+         * click that was never wired were the same observation.
+         */
+        const val ERROR = "time_tracking_error"
     }
 
     // ─── Long-press context menu sheet ─────────────────────────────────────

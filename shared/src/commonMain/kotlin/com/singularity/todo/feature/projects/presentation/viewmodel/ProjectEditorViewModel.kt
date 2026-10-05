@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.feature.projects.domain.ProjectsDomain
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -87,7 +88,7 @@ class ProjectEditorViewModel(
 
     private fun save() {
         val current = state.value
-        val validationError = validateName(current.name)
+        val validationError = ProjectsDomain.validateName(current.name)?.message
         if (validationError != null) {
             updateState { it.copy(errorMessage = validationError) }
             return
@@ -128,11 +129,5 @@ class ProjectEditorViewModel(
                 }.onSuccess { emit(ProjectEditorUiEvent.NavigateBack) }
             }
         }
-    }
-
-    private fun validateName(name: String): String? = when {
-        name.isBlank() -> "Name cannot be blank"
-        name.length > 50 -> "Name too long (max 50 characters)"
-        else -> null
     }
 }

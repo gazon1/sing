@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.search.data
 
 import com.singularity.todo.core.database.SavedSearchDao
@@ -14,13 +12,46 @@ import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
 
+/**
+ * Removed 2026-10-05: the file-level suppression of the direct-system-clock rule
+ * that opened this file, and the `clock` constructor parameter beside it.
+ *
+ * The parameter was declared and never read — `clock` appeared once in the file,
+ * on its own declaration line, and its default was the only reason the rule had
+ * anything to report here. It was almost certainly copied from
+ * `SavedAgendaViewsRepositoryImpl`, which does read its clock.
+ *
+ * Answered 2026-10-05 (#192): a saved search *does* depend on the moment it is
+ * run, and it always has — but the clock belongs one layer up. `due:<n days>`
+ * is turned into a date range by `DefaultSearchQueryResolver`, which takes
+ * `Clock` and `TimeZoneProvider` as required parameters and recomputes the range
+ * from `todayAt(clock, zone)` on every `resolve`, so a search saved on Tuesday
+ * and opened on Friday asks about Friday. This repository stores the query
+ * string and maps rows; it computes no date at all, so a `Clock` here would be
+ * a parameter that exists only to look deliberate.
+ *
+ * So the answer is: recompute from now, and the recomputation already has its
+ * clock. Re-adding the parameter would recreate the dead line under a better
+ * justification, which is the same defect with a comment attached.
+ *
+ * The suppression carried no reason, so it switched the rule off for a whole
+ * file over the one line that had been written in the codebase's own injectable
+ * idiom. `scripts/check-suppression-intent.py` is what makes that shape
+ * impossible to add back silently.
+ *
+ * The prose here deliberately avoids spelling the rule id or the system-clock
+ * expression. This comment has to *name* what was removed, and the rule matches
+ * inside KDoc as readily as in code — a note explaining a removal re-registers
+ * it, which is a gate that punishes writing things down. Recorded as a known
+ * false positive on the rule rather than worked around here; see
+ * `TestKDocIsNotASuppression` in `scripts/tests/test_check_suppression_intent.py`
+ * for the same shape on the gate's side.
+ */
 class SavedSearchRepositoryImpl(
     private val savedSearchDao: SavedSearchDao,
     private val currentUser: ProfileAwareCurrentUser,
-    private val clock: Clock = Clock.System,
 ) : SavedSearchRepository {
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────

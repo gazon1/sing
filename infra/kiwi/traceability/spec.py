@@ -59,6 +59,7 @@ _ALLOWED_FIELDS = frozenset(
         "priority",
         "status",
         "targets",
+        "unreachable",
         "area",
     }
 )
@@ -125,6 +126,11 @@ class ScenarioSpec:
     steps: tuple[str, ...]
     expected: str
     path: Path | None = None
+    #: Claimed targets that **no automated carrier can reach** on this tier —
+    #: a second device, a network fault injector, a device farm, or a human.
+    #: Must be a subset of `targets`; a target that is not claimed cannot be
+    #: unreachable, and an unreachable one is still an obligation.
+    unreachable: tuple[Target, ...] = ()
 
     @property
     def is_claimed(self) -> bool:
@@ -244,6 +250,43 @@ def parse_spec(data: dict[str, Any], path: Path, scenarios_dir: Path) -> Scenari
             problems.append("targets содержит повтор")
         targets = tuple(dict.fromkeys(parsed))
 
+    # `unreachable` classifies claimed targets the way no carrier can reach. It
+    # exists because a hole was ambiguous and both readings were acted on:
+    # TASK-TIME-01 was narrowed to android because a probe failed (wrong — the
+    # feature was in commonMain and the screen had stopped rendering it), while
+    # SYNC-OFFLINE-01 claims both targets and needs a second device and a
+    # flapping network (unverifiable on either). The matrix drew both as `○`, so
+    # the two errors were indistinguishable and each looked like the other's fix.
+    #
+    # A subset invariant, and it is the whole point: a target that is not claimed
+    # has no obligation and therefore nothing to be unreachable *for*, and
+    # declaring one would be the narrow-claim error wearing a new hat.
+    raw_unreachable = data.get("unreachable") or []
+    unreachable: tuple[Target, ...] = ()
+    if not isinstance(raw_unreachable, list):
+        problems.append("unreachable должен быть списком target'ов")
+    else:
+        parsed_unreachable: list[Target] = []
+        for item in raw_unreachable:
+            try:
+                parsed_unreachable.append(Target(item))
+            except ValueError:
+                problems.append(
+                    f"unreachable: target '{item}' недопустим: "
+                    f"{', '.join(t.value for t in Target)}"
+                )
+        if len(set(parsed_unreachable)) != len(parsed_unreachable):
+            problems.append("unreachable содержит повтор")
+        unreachable = tuple(dict.fromkeys(parsed_unreachable))
+        for item in unreachable:
+            if item not in targets:
+                problems.append(
+                    f"unreachable: '{item.value}' не входит в targets "
+                    f"({', '.join(t.value for t in targets) or '—'}). "
+                    f"Незаявленный target не является недостижимым — "
+                    f"он не заявлен."
+                )
+
     # `title` is validated here rather than in the return statement below, so a
     # missing title is reported *together* with the other problems. Validating
     # it late made it the one field that escaped the accumulate-and-raise
@@ -290,6 +333,7 @@ def parse_spec(data: dict[str, Any], path: Path, scenarios_dir: Path) -> Scenari
         priority=priority,
         status=status,
         targets=targets,
+        unreachable=unreachable,
         preconditions=str(data.get("preconditions") or "").strip(),
         steps=steps,
         expected=str(data.get("expected") or "").strip(),

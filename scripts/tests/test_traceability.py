@@ -27,9 +27,12 @@ if str(_KIWI_DIR) not in sys.path:
 from traceability import ValidationError  # noqa: E402
 from traceability.coverage import (  # noqa: E402
     ALL_TARGETS,
+    CellState,
+    CoverageCell,
     Outcome,
     build_coverage,
     build_results,
+    classify,
 )
 from traceability.junit_xml import parse_junit  # noqa: E402
 from traceability.kiwi_publish import OUTCOME_TO_KIWI, build_runs, run_publish  # noqa: E402
@@ -43,7 +46,12 @@ from traceability.keys import (  # noqa: E402
     normalise_classname,
     normalise_test_name,
 )
-from traceability.links import Carrier, Link, _scenario_from_prefix_token  # noqa: E402
+from traceability.links import (  # noqa: E402
+    Carrier,
+    Link,
+    _scenario_from_prefix_token,
+    scan_all,
+)
 from traceability.normalize import normalise  # noqa: E402
 from traceability.render import render_coverage_matrix, render_result_matrix  # noqa: E402
 from traceability.spec import (  # noqa: E402
@@ -1549,3 +1557,201 @@ class PerScenarioRuleIsExercisable(unittest.TestCase):
             )
         self.assertNotIn(f"{reporting.scenario}/{target.value}", message)
         self.assertNotIn("ни одного тесткейса", message)
+
+
+class UnreachableCellsTest(unittest.TestCase):
+    """The fifth glyph, and the two mistakes it was added to stop being confusable.
+
+    A hole was ambiguous, and both readings were acted on in one session.
+    `TASK-TIME-01` was narrowed to `targets: [android]` because a reachability
+    probe found no time-tracking node on desktop — wrong, the feature was in
+    `commonMain` and the desktop screen had silently stopped rendering it.
+    `SYNC-OFFLINE-01` claims both targets and needs a second device and a
+    flapping network — true, and unsupplyable by any single-device harness.
+
+    Both drew as `○`. So each mistake looked like the other's remedy, and the
+    only record of the intent was a comment above a `targets:` list, which no
+    tooling read.
+    """
+
+    def _corpus(self):
+        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        return specs, build_coverage(specs, scan_all(specs, REPO_ROOT))
+
+    def test_an_unreachable_cell_is_still_a_hole(self):
+        # The whole point of keeping it in the count: otherwise the cheap move is
+        # to reclassify every unsupplied claim as unreachable, and the ratchet
+        # stops measuring anything while the matrix looks more informative.
+        specs, coverage = self._corpus()
+        unreachable = set(coverage.unreachable_holes())
+        self.assertTrue(unreachable, "fixture assumption: the corpus has unreachable cells")
+        for cell in unreachable:
+            self.assertIn(cell, coverage.holes())
+
+    def test_unreachable_is_a_subset_of_claimed(self):
+        specs, coverage = self._corpus()
+        for scenario, target in coverage.unreachable_holes():
+            self.assertTrue(
+                target in specs[scenario].targets,
+                f"{scenario}/{target.value} is unreachable but not claimed",
+            )
+
+    def test_the_glyph_differs_from_a_plain_hole(self):
+        specs, coverage = self._corpus()
+        scenario, target = coverage.unreachable_holes()[0]
+        unreachable = coverage.glyph(scenario, target)
+        plain = next(
+            coverage.glyph(s, t)
+            for s, t in coverage.holes()
+            if t not in specs[s].unreachable
+        )
+        self.assertNotEqual(unreachable, plain)
+        self.assertEqual(unreachable, "◇")
+        self.assertEqual(plain, "○")
+
+    def test_the_field_is_read_from_the_spec_and_never_inferred(self):
+        # A probe that fails must not be able to set this flag. Inferring
+        # reachability from an observed miss is precisely how TASK-TIME-01 got
+        # narrowed: the probe measured one screen and the conclusion was written
+        # as a statement about the platform.
+        specs, _ = self._corpus()
+        marked = {s for s, spec in specs.items() if spec.unreachable}
+        self.assertTrue(marked)
+        for name in marked:
+            self.assertTrue(
+                (specs[name].unreachable),
+                f"{name} marked unreachable with an empty tuple",
+            )
+
+    def test_a_target_outside_targets_is_rejected(self):
+        # The invariant that stops the flag being used as a disguised narrowing:
+        # a target nobody claimed owes nothing and cannot be unreachable.
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / "SYN-STATUS-01.yaml"
+            path.write_text(
+                "id: SYN-STATUS-01\n"
+                "title: x\npriority: P1\nstatus: confirmed\n"
+                "targets: [android]\n"
+                "unreachable: [android, desktop]\n"
+                "preconditions: x\nsteps: [x]\nexpected: x\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValidationError) as ctx:
+                load_specs(pathlib.Path(d))
+            self.assertIn("не входит в targets", str(ctx.exception))
+
+
+class CarrierRefusesUnreachableTest(unittest.TestCase):
+    """The generator must not write a probe that cannot pass."""
+
+    def test_the_cli_refuses_an_unreachable_target_by_name(self):
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", "SYNC-OFFLINE-01",
+             "--target", "desktop", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            check=False,
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("недостижимый", result.stdout)
+        self.assertNotIn("dry run, не записан", result.stdout)
+
+    def test_a_reachable_neighbour_of_an_unreachable_row_still_generates(self):
+        # The classification is per target, not per scenario: SYNC-STATUS-01
+        # stays fully probe-able while its two-device neighbours do not.
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", "SYNC-STATUS-01", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("dry run", result.stdout)
+
+
+class CellStatePrecedence(unittest.TestCase):
+    """The five states, and the one function that decides between them.
+
+    `CoverageCell` used to carry four independent booleans. That let a caller
+    build a cell nothing could render — `claimed=False, automated=True` most
+    plainly — and the glyph cascade quietly fell through and printed the
+    unclaimed dash, so an impossible cell was indistinguishable from an ordinary
+    one. These tests pin the replacement: one value, a fixed precedence, and no
+    way to say something the matrix has no column for.
+    """
+
+    def test_there_are_exactly_five_states(self):
+        # A sixth state is a change of model, not an addition, and the glyph
+        # table has to grow with it.
+        self.assertEqual(len(list(CellState)), 5)
+
+    def test_every_state_has_its_own_glyph(self):
+        glyphs = [state.glyph for state in CellState]
+        self.assertEqual(len(set(glyphs)), len(glyphs), glyphs)
+
+    def test_a_retired_scenario_outranks_a_carrier(self):
+        # The case the booleans could not express without contradiction: a
+        # scenario retired *after* it was automated. Rendering it `●` would keep
+        # it in the matrix forever, looking supplied.
+        self.assertIs(
+            classify(claimed=True, automated=True, deprecated=True, reachable=True),
+            CellState.RETIRED,
+        )
+
+    def test_reachability_only_distinguishes_two_kinds_of_hole(self):
+        self.assertIs(
+            classify(claimed=True, automated=False, deprecated=False, reachable=True),
+            CellState.HOLE,
+        )
+        self.assertIs(
+            classify(claimed=True, automated=False, deprecated=False, reachable=False),
+            CellState.UNREACHABLE,
+        )
+
+    def test_an_unclaimed_target_is_never_a_hole(self):
+        self.assertIs(
+            classify(claimed=False, automated=False, deprecated=False, reachable=True),
+            CellState.UNCLAIMED,
+        )
+
+    def test_the_unsatisfiable_input_folds_to_something_renderable(self):
+        # `claimed and not automated` is the state the old shape could not
+        # refuse. It now reads as unclaimed, which is the only claim about the
+        # target that is actually true.
+        self.assertIs(
+            classify(claimed=False, automated=True, deprecated=False, reachable=True),
+            CellState.UNCLAIMED,
+        )
+
+    def test_hole_predicates_cover_exactly_the_unsupplied_claims(self):
+        holes = {state for state in CellState if state.is_hole}
+        self.assertEqual(holes, {CellState.HOLE, CellState.UNREACHABLE})
+        unreachable = {state for state in CellState if not state.was_claimed}
+        self.assertEqual(unreachable, {CellState.UNCLAIMED})
+
+    def test_the_cell_no_longer_accepts_the_old_booleans(self):
+        # The point of the refactor, stated as a test: the four facts are
+        # consumed once, by `classify`. A caller that still has them cannot hand
+        # them over, so the impossible combinations cannot be constructed at all
+        # rather than being constructed and quietly rendered wrong.
+        with self.assertRaises(TypeError):
+            CoverageCell(claimed=True, automated=False)  # type: ignore[call-arg]
+
+    def test_a_retired_scenario_is_recorded_but_not_owed(self):
+        # `was_claimed` keeps the row, `is_obligation` drops it from the
+        # denominator. render.py depends on that split to avoid the
+        # "0/2 claimed cells automated · 0 holes" contradiction.
+        self.assertTrue(CellState.RETIRED.was_claimed)
+        self.assertFalse(CellState.RETIRED.is_obligation)
+        self.assertFalse(CellState.UNCLAIMED.was_claimed)
+        self.assertTrue(CellState.AUTOMATED.is_obligation)

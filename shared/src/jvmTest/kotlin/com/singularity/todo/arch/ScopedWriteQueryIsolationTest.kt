@@ -268,8 +268,13 @@ class ScopedWriteQueryIsolationTest {
             // Exactly the 80-character normalised prefix the gate compares against.
             "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, next_attemp" to
                 "retry bookkeeping on a transport row keyed by a UUID",
-            "DELETE FROM sync_outbox WHERE entity_id = :entityId" to
-                "entity_id is a UUID, so it cannot collide across profiles",
+            // `DELETE FROM sync_outbox WHERE entity_id = :entityId` used to sit here,
+            // allowlisted on the grounds that a UUID cannot collide across profiles. It
+            // is gone rather than re-allowlisted: the query now scopes by `owner_id`,
+            // which this gate already recognises as a scoping column, so it is a scoped
+            // write and needs no exemption. Keeping the entry would have been a stale
+            // allowlist entry, which is exactly what `every_allowlist_entry_is_still_present`
+            // exists to catch — and it caught it. #209.
             "DELETE FROM sync_outbox" to
                 "full outbox drain after a successful push — deliberately cross-profile",
             "DELETE FROM sync_dead_letter WHERE patch_id = :id" to

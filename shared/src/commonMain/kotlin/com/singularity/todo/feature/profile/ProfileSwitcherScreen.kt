@@ -47,23 +47,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.viewmodel.koinViewModel
-
-private val PROFILE_COLORS = listOf(
-    Color(0xFF2196F3), // blue
-    Color(0xFF4CAF50), // green
-    Color(0xFFF44336), // red
-    Color(0xFFFF9800), // orange
-    Color(0xFF9C27B0), // purple
-    Color(0xFF00BCD4), // cyan
-    Color(0xFFE91E63), // pink
-    Color(0xFF607D8B), // grey
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -231,7 +221,7 @@ private fun ProfileCard(profile: Profile, isActive: Boolean, onSelect: () -> Uni
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(PROFILE_COLORS.getOrElse(profile.colorIdx) { PROFILE_COLORS[0] }),
+                    .background(ProfileIdentityColors.at(profile.colorIdx)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -310,7 +300,7 @@ private fun CreateProfileDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PROFILE_COLORS.forEachIndexed { idx, color ->
+                    ProfileIdentityColors.ordered.forEachIndexed { idx, color ->
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
@@ -357,6 +347,9 @@ private fun CreateProfileDialog(
 @Composable
 private fun ProfileSwitcherScreenPreview() = PreviewThemed {
     val fakeProfileRepo = PreviewProfileRepository
-    val vm = ProfileSwitcherViewModel(profileRepository = fakeProfileRepo)
+    val vm = ProfileSwitcherViewModel(
+        profileRepository = fakeProfileRepo,
+        clock = com.singularity.todo.test.fakes.FakeClock(),
+    )
     ProfileSwitcherContent(viewModel = vm)
 }

@@ -9,8 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Многострочное поле описания. Реальный текстовый ввод вместо статичного
@@ -22,11 +23,11 @@ fun TaskDescriptionField(description: String, onDescriptionChange: (String) -> U
         value = description,
         onValueChange = onDescriptionChange,
         textStyle = LocalTextStyle.current.copy(
-            color = TaskColors.TextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
             lineHeight = 22.sp,
         ),
-        cursorBrush = SolidColor(TaskColors.AccentBlue),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = TaskSpacing.sm),
@@ -34,7 +35,7 @@ fun TaskDescriptionField(description: String, onDescriptionChange: (String) -> U
             if (description.isEmpty()) {
                 Text(
                     text = "Введите описание задачи...",
-                    color = TaskColors.TextPlaceholder,
+                    color = placeholderTextColor(),
                     fontSize = 16.sp,
                     lineHeight = 22.sp,
                 )

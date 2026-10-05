@@ -339,6 +339,18 @@ jobs:
         # is the check for that.
         run: ./gradlew :androidApp:assembleDebug -PwithPro=true --no-daemon --configuration-cache
 
+      - name: pro unit tests
+        # `proObservabilityModule()` re-binds `CrashReportingPort` from the free
+        # `FileCrashReportingPort` to the vendor-backed one, and that rebinding is the
+        # entire reason this module exists. It is invisible to `KoinGraphValidationTest`
+        # in `:shared`, which validates the free graph and cannot see a project that only
+        # exists under `-PwithPro=true`. If the override stopped taking effect, every
+        # configuration would still resolve the same interface, every test would still pass,
+        # and crash reports would quietly go to the local log file instead of the vendor.
+        #
+        # No Tracer token is needed: these assert the wiring, not the vendor SDK's behaviour.
+        run: ./gradlew :pro:testDebugUnitTest -PwithPro=true --no-daemon --configuration-cache
+
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
@@ -358,6 +370,19 @@ jobs:
       - name: Audit-script regression tests
         run: python3 -m unittest discover -s scripts/tests
 
+      # 14 dependencies were declared, resolved onto a classpath and imported by
+      # nothing — and material-kolor sat that way for a release, while the nine
+      # accent choices all rendered the same blue because the palette it should
+      # have been generating was two hard-coded schemes. `find-unwired-surfaces.py`
+      # cannot see this: it counts symbols, and an unused dependency has no symbol
+      # until something imports it.
+      #
+      # The gate maps each *declared* coordinate to the package roots its artifact
+      # actually contributes, which the version catalog cannot answer — #205
+      # measured that a prefix heuristic reports 45 unused and every one is used.
+      - name: Declared dependencies are used
+        run: python3 scripts/check-dependency-usage.py
+
       # Proves the gates exist AND can fail. Part A catches a Gradle check task
       # with a config block that no gate invokes (:androidApp:detekt was one).
       # Part B runs each registered script gate against a sabotaged input and
@@ -371,6 +396,16 @@ jobs:
       # held 247 of 428 baseline entries and two of them contradicted AGENTS.md.
       - name: Lint rules are declared decisions
         run: python3 scripts/check-rule-intent.py
+
+      # The other half of that question, and the one that was missing here.
+      # check-rule-intent asks whether a rule was *declared*; a rule can be
+      # declared, configured, and provably able to fire, and still be switched
+      # off for a whole file by one @file:Suppress line that no gate could see.
+      # 12 production files did exactly that, hiding 38 direct Clock.System
+      # reads, and the gate that catches it ran in check.sh only — so a file that
+      # needed no comment locally could arrive on main unremarked.
+      - name: Every file-level suppression says what it hides
+        run: python3 scripts/check-suppression-intent.py
 
       # docs/SKILLS-CATALOG.md is generated from skill frontmatter and was
       # committed stale on a clean tree with nothing noticing. The catalog is what

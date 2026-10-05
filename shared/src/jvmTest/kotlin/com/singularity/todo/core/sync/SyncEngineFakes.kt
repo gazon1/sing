@@ -23,10 +23,22 @@ class FakeSyncOutboxDao : SyncOutboxDao {
 
     override fun watchPending(): Flow<List<SyncOutboxEntity>> = MutableStateFlow(snapshot())
 
-    /** Honours [SyncOutboxDao.getPending]'s backoff filter, or a test asserts on a
-     *  fake that has no backoff to begin with. */
-    override suspend fun getPending(now: Long): List<SyncOutboxEntity> =
-        snapshot().filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+    /**
+     * Honours both of [SyncOutboxDao.getPending]'s filters, or a test asserts on a fake
+     * that has neither.
+     *
+     * The owner filter is the one this fake exists to be honest about. An earlier
+     * version implemented only the backoff filter, and so would have kept passing a
+     * test that put two accounts' work in one table — which is the whole thing
+     * REQ-UA-019 says must not happen.
+     */
+    override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+        snapshot()
+            .filter { it.ownerId == ownerId }
+            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+
+    override suspend fun countPendingFor(ownerId: String): Int =
+        rows.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
         rows.removeAll { it.patchId == entity.patchId }
@@ -50,8 +62,8 @@ class FakeSyncOutboxDao : SyncOutboxDao {
 
     override suspend fun attemptsOf(id: String): Int? = rows.firstOrNull { it.patchId == id }?.attempts
 
-    override suspend fun deleteByEntity(entityId: String) {
-        rows.removeAll { it.entityId == entityId }
+    override suspend fun deleteByEntity(ownerId: String, entityId: String) {
+        rows.removeAll { it.ownerId == ownerId && it.entityId == entityId }
     }
 
     override suspend fun clearAll() {
@@ -90,6 +102,30 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
 
     fun signIn(userId: UserId = UserId.generate()) {
         sessions.value = Session.SignedIn(userId, "test@x.com", "access", "refresh")
+    }
+
+    /**
+     * Any session at all, including signing out and the account-less one.
+     *
+     * Not three named transitions, because a name per case is a name to keep in step
+     * with the sealed hierarchy — and `signOut` is already taken by [AuthRepository],
+     * where it means "ask the provider too", which is the opposite of what these tests
+     * want. One setter, and the test says which session it means.
+     */
+    fun set(session: Session) {
+        sessions.value = session
+    }
+
+    /**
+     * The same account with a new access and refresh token.
+     *
+     * A token refresh replaces [Session] wholesale while leaving the account alone,
+     * and a push response that arrived across one must still be applied. A test that
+     * could not express this would be satisfied by a re-check comparing whole
+     * sessions — which is the wrong rule, and one that discards nearly every push.
+     */
+    fun refreshToken(userId: UserId = UserId.generate()) {
+        sessions.value = Session.SignedIn(userId, "test@x.com", "access-2", "refresh-2")
     }
 }
 

@@ -50,7 +50,25 @@ expected: >-
 # to narrow to, so this row is an ordinary carrier backlog item and nothing more
 # interesting than that.
 #
-# The start/stop chips carry no `testTag` yet. They had been added for a desktop
-# carrier that the probe ruled out and were removed again; the ruling-out was
-# wrong, so the tags are the price of the wrong conclusion and go back with the
-# carrier. `just trace-carrier TASK-TIME-01` writes the probe that finds them.
+# The start/stop chips carry `testTag`s again. This comment used to say they had
+# none and that `just trace-carrier TASK-TIME-01` would find them — they were
+# removed with the desktop carrier the probe wrongly ruled out, and putting them
+# back is the price of the wrong conclusion coming back. `TestTags.TimeTracking`
+# now holds `START`, `STOP` and `ERROR`, and all three are applied in
+# `TimeTrackingSection`, so the tags are no longer what this row is waiting for.
+#
+# What it is waiting for is a session. The desktop harness runs as `Anonymous`,
+# and `startEntry` cannot succeed there — which was invisible until #196 turned
+# the swallowed failure into `TaskTimeSlotState.Error`, because a chip that
+# changed to a refusal looks exactly like a chip that changed for no reason.
+# `ERROR` is tagged, so a desktop carrier can now assert the *refusal* rather
+# than the swap; asserting the swap needs a signed-in session, which is a
+# harness capability and not a test.
+#
+# CORRECTED 2026-10-05 by measurement (#212): the paragraph above names the wrong
+# blocker. A desktop carrier was written and run, and the session is not it.
+# `TestPlatformModule` binds `FakeAuthRepository()` → `Session.Anonymous`, and
+# its own comment says AuthGuard treats that as signed in and gives the write
+# path a user to scope to. After clicking Start, *neither* `STOP` *nor* `ERROR`
+# appears — so the write is not being refused; the click is doing nothing at all.
+# Both cells stay holes. This row now waits on #212, not on a session.

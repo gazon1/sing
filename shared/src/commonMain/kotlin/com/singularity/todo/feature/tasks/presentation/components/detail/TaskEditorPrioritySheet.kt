@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.components.priorityMeta
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 
 /**
  * Priority selection sheet with colored flag icons and radio buttons.

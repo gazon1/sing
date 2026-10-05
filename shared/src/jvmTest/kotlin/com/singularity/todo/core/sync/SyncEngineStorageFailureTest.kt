@@ -57,7 +57,8 @@ class SyncEngineStorageFailureTest {
     /** The outbox with [getPending] refusing, which is what a closed database does. */
     private class UnreadableOutbox(private val delegate: FakeSyncOutboxDao, private val failure: Throwable) :
         SyncOutboxDao by delegate {
-        override suspend fun getPending(now: Long): List<SyncOutboxEntity> = throw failure
+        override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+            throw failure
     }
 
     /**
@@ -71,8 +72,12 @@ class SyncEngineStorageFailureTest {
      */
     private class SwitchableOutbox(private val delegate: FakeSyncOutboxDao) : SyncOutboxDao by delegate {
         var readable: Boolean = true
-        override suspend fun getPending(now: Long): List<SyncOutboxEntity> =
-            if (readable) delegate.getPending(now) else throw IllegalStateException("database is closed")
+        override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+            if (readable) {
+                delegate.getPending(now, ownerId)
+            } else {
+                throw IllegalStateException("database is closed")
+            }
     }
 
     private fun engine(
@@ -106,6 +111,7 @@ class SyncEngineStorageFailureTest {
         insert(
             SyncOutboxEntity(
                 patchId = "patch-storage-1",
+                ownerId = "owner-storage",
                 entityId = "task-1",
                 entityType = "task",
                 payload = json.encodeToString(

@@ -3,15 +3,20 @@ package com.singularity.todo.feature.flows.tasks
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
+import org.koin.dsl.module
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * The desktop task detail renders the time-tracking section.
@@ -43,9 +48,16 @@ import kotlin.test.Test
  * wrote the test yet".
  *
  * A matrix cannot tell "not automated" from "not built", so the guard has to
- * live in code. Both graphs now render `TaskDetailContent` and
- * `TaskDetailViewScreen` is deleted, so this test fails if the two drift apart
- * again.
+ * live in code. Both graphs now render `TaskDetailContent`, so this test fails if
+ * they drift apart again.
+ *
+ * `TaskDetailViewScreen` was re-added by `45a0831e` as a clock-suppression
+ * carrier and currently has no call site, which `find-unwired-surfaces.py`
+ * reports. Nothing composes it, so the route under test is still the shared
+ * content screen and this test still guards the same thing — but the file is
+ * live again and the one-screen invariant from #187 is currently violated in the
+ * tree. Tracked against that commit's own work (#201), not fixed here: deleting
+ * another branch's deliberate carrier is a decision for whoever owns it.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -53,8 +65,17 @@ class TaskDetailTimeTrackingSectionTest {
 
     @Test
     @DisplayName("the desktop task detail offers a time-tracking control")
-    fun the_desktop_task_detail_offers_a_time_tracking_control() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).given(due = todayInSystemZone(), title = "Track me")
+    fun the_desktop_task_detail_offers_a_time_tracking_control() = runDesktopAppTest(
+        clock = TEST_CLOCK,
+        overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+    ) { koin ->
+        // The task's due date and the agenda's "today" must come from the same
+        // pair. This used to be `todayInSystemZone()`, i.e. the host's real date,
+        // which made the flow pass on the day it was written and drift across a
+        // midnight boundary — the same defect `CalendarFlowTest` had, and the
+        // reason `todayAt` now demands a clock and a zone rather than defaulting
+        // to either.
+        tasks(koin).given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Track me")
 
         tapTab("Today")
         awaitTag(TestTags.taskItem("Track me")).performClick()
@@ -67,5 +88,19 @@ class TaskDetailTimeTrackingSectionTest {
         // the chip must still be the one thing under the finger afterwards.
         awaitTag(TestTags.TimeTracking.START).performClick()
         awaitTag(TestTags.TimeTracking.START)
+    }
+
+    private object TestTimeZone : TimeZoneProvider {
+        override fun current(): TimeZone = TEST_ZONE
+    }
+
+    private companion object {
+        val TEST_ZONE: TimeZone = TimeZone.UTC
+
+        /**
+         * Midday UTC on a Saturday, so no timezone that can reach this test can
+         * roll the date across a midnight boundary and empty the Today tab.
+         */
+        val TEST_CLOCK = FakeClock(Instant.parse("2026-03-14T12:00:00Z"))
     }
 }

@@ -1,34 +1,17 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * Design tokens for the Task Creation screen.
+ * Design tokens for the Task Creation screen — spacing only.
  *
- * Держим палитру и spacing в одном месте, чтобы не плодить магические
- * значения по компонентам и не ловить рассинхрон между экранами.
+ * The colour half used to live here as `TaskColors`: twelve fixed values in a
+ * dark palette that could not respond to the theme, so a user in the app's
+ * default light mode saw a dark task editor. Colours now come from the active
+ * theme — plain roles from `MaterialTheme.colorScheme`, derived values from
+ * [TaskDerivedColors], and the ones that must *not* follow the theme from
+ * [TaskSemanticColors].
  */
-object TaskColors {
-    val Background = Color(0xFF0F1115)
-    val Surface = Color(0xFF161A22)
-    val Outline = Color(0xFF262C38)
-
-    val TextPrimary = Color(0xFFE2E4E9)
-    val TextSecondary = Color(0xFF8B94A6)
-    val TextPlaceholder = Color(0xFF5A6376)
-
-    val AccentBlue = Color(0xFF4A90E2)
-    val AccentBlueContainer = Color(0xFF1B2B44) // фон для активных чипов ("Сегодня")
-
-    // Семантика приоритета — раньше весь текст был одного серого цвета,
-    // из-за чего "приоритет" не читался как приоритет
-    val PriorityLow = Color(0xFF6FCF97)
-    val PriorityMedium = Color(0xFFF2C94C)
-    val PriorityHigh = Color(0xFFEB5757)
-    val PriorityUrgent = Color(0xFFFF6B6B)
-}
-
 object TaskSpacing {
     val sm = 8.dp
     val md = 12.dp

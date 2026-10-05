@@ -49,35 +49,136 @@ class Outcome(StrEnum):
     NOT_RUN = "not-run"
 
 
+class CellState(StrEnum):
+    """The five things a (scenario, target) cell can be.
+
+    These were four independent booleans, which is a shape that lets a caller
+    say something the matrix has no rendering for: `automated and not claimed`
+    is unsatisfiable, and `not claimed and not automated and deprecated` was
+    reachable and meant "never claimed, but retired" — a row nobody had ever
+    declared. Nothing rejected it. The glyph then fell through its own cascade
+    and printed `—`, so the impossible cell was indistinguishable from an
+    ordinary unclaimed one.
+
+    One value with a fixed precedence makes the invalid combinations
+    unrepresentable rather than merely discouraged, and puts the precedence
+    where it can be read: `classify` below.
+    """
+
+    #: The scenario never named this target. Not an obligation.
+    UNCLAIMED = "unclaimed"
+    #: The scenario was retired. Not an obligation, but a decision — it must not
+    #: read as "nobody ever thought about this platform".
+    RETIRED = "retired"
+    #: Claimed and supplied by a carrier.
+    AUTOMATED = "automated"
+    #: Claimed, unsupplied, and reachable by an automated carrier if one existed.
+    HOLE = "hole"
+    #: Claimed, unsupplied, and *not reachable by any automated carrier on this
+    #: tier* — a second device, a network fault injector, a device farm, a human.
+    #:
+    #: A fifth state rather than a flavour of `HOLE` because a hole was
+    #: ambiguous and both readings got acted on. `TASK-TIME-01` was narrowed to
+    #: android because a reachability probe failed; the feature was in
+    #: `commonMain` and the desktop screen had silently stopped rendering it.
+    #: `SYNC-OFFLINE-01` claims both targets and needs a second device and a
+    #: flapping network. Both drew as `○`, so each mistake looked like the other
+    #: one's remedy.
+    #:
+    #: It is still a hole and still counted as one — otherwise the cheap move is
+    #: to reclassify every unsupplied claim as unreachable. What changes is that
+    #: the supply is *named*: writing a Compose test is not what this cell needs,
+    #: and the report says so.
+    UNREACHABLE = "unreachable"
+
+    @property
+    def glyph(self) -> str:
+        return _GLYPHS[self]
+
+    @property
+    def was_claimed(self) -> bool:
+        """Did the scenario ever name this target, whether or not it still does.
+
+        Named apart from [is_obligation] on purpose. The two answer different
+        questions and only one of them is the usual one:
+
+        - [is_obligation] — is this still owed? Every caller asking "should this
+          be automated / does it count in the denominator" wants this.
+        - [was_claimed] — did the target ever appear, so the row has something to
+          show? Only the result matrix wants this, and only because a retired
+          scenario keeps the targets it *had*: retiring a scenario removes the
+          obligation, not the record of what it used to cover.
+
+        When both were called `is_claimed`, a caller reaching for "is this owed"
+        could land on either and neither name would have said which question it
+        answered. One name per question is the whole fix; the old name answered
+        both, which is how a caller would pick the wrong one silently.
+        """
+        return self is not CellState.UNCLAIMED
+
+    @property
+    def is_obligation(self) -> bool:
+        """Claimed, and still owed. A retired scenario is owed nothing."""
+        return self in (CellState.AUTOMATED, CellState.HOLE, CellState.UNREACHABLE)
+
+    @property
+    def is_automated(self) -> bool:
+        return self is CellState.AUTOMATED
+
+    @property
+    def is_hole(self) -> bool:
+        return self in (CellState.HOLE, CellState.UNREACHABLE)
+
+
+_GLYPHS: dict[CellState, str] = {
+    CellState.UNCLAIMED: "—",
+    CellState.RETIRED: "⊘",
+    CellState.AUTOMATED: "●",
+    CellState.HOLE: "○",
+    CellState.UNREACHABLE: "◇",
+}
+
+
+def classify(*, claimed: bool, automated: bool, deprecated: bool, reachable: bool) -> CellState:
+    """Fold the four facts a cell is built from into one state.
+
+    The precedence is the whole point of this function, so it is written once and
+    tested rather than re-derived at each call site:
+
+    1. Retirement outranks everything. A retired scenario that still had a
+       carrier keeps showing the carrier's reach on the platforms it used, but it
+       is reported as retired — otherwise a scenario retired *after* being
+       automated would keep drawing `●` forever and never leave the matrix.
+    2. An unclaimed target is never automated and never a hole; the claim is the
+       whole question.
+    3. Reachable-versus-not only distinguishes two kinds of hole. A claim that is
+       unsupplied and reachable is still an obligation; the question is whether
+       an automated carrier could discharge it.
+    """
+    if deprecated:
+        return CellState.RETIRED
+    if not claimed:
+        return CellState.UNCLAIMED
+    if automated:
+        return CellState.AUTOMATED
+    return CellState.HOLE if reachable else CellState.UNREACHABLE
+
+
 @dataclass(frozen=True, slots=True)
 class CoverageCell:
     """Coverage of one (scenario, target) pair.
 
-    ``claimed`` is False for an unclaimed target, which is different from
-    "claimed and nothing exists": the first is not an obligation, the second is
-    a hole.
-
-    A *deprecated* scenario is a third thing, and it is not a hole. It was
-    deliberately retired, so it is not an obligation either — but rendering it
-    as `—` (never claimed) hid a decision, and rendering it as `○` was worse:
-    the system reported a deliberate retirement as the one gap it exists to
-    surface, and listed it under "holes" for someone to go and fill. Both glyphs
-    are wrong, so the status is carried on the cell rather than inferred from
-    the two booleans.
+    Carries one state rather than a set of facts, because every question asked
+    of a cell — is this owed, is this a gap, what does it draw as — is a property
+    of the cell as a whole. The facts it is built from are consumed once, by
+    `classify`.
     """
 
-    claimed: bool
-    automated: bool
-    #: The scenario is retired. Applies to the whole row, not to one target.
-    deprecated: bool = False
+    state: CellState
 
     @property
     def glyph(self) -> str:
-        if self.deprecated:
-            return "⊘"
-        if not self.claimed:
-            return "—"
-        return "●" if self.automated else "○"
+        return self.state.glyph
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,12 +193,26 @@ class Coverage:
         return self.cells[scenario][target].glyph
 
     def holes(self) -> list[tuple[str, Target]]:
-        """Claimed-but-not-automated pairs — the actionable output."""
+        """Claimed-but-not-automated pairs — the actionable output.
+
+        Unreachable cells are included on purpose. They are unsupplied claims and
+        the ratchet must see them; what `unreachable_holes` adds is the
+        classification, not a smaller total.
+        """
         return [
             (scenario, target)
             for scenario, row in sorted(self.cells.items())
             for target, cell in row.items()
-            if cell.claimed and not cell.automated and not cell.deprecated
+            if cell.state.is_hole
+        ]
+
+    def unreachable_holes(self) -> list[tuple[str, Target]]:
+        """The subset of `holes` no automated carrier can reach on that tier."""
+        return [
+            (scenario, target)
+            for scenario, row in sorted(self.cells.items())
+            for target, cell in row.items()
+            if cell.state is CellState.UNREACHABLE
         ]
 
 
@@ -115,10 +230,17 @@ def build_coverage(specs: dict[str, ScenarioSpec], links: list[Link]) -> Coverag
             target: CoverageCell(
                 # A deprecated scenario keeps the targets it *had*, so the row
                 # still shows which platforms it used to cover. It is the
-                # `deprecated` flag that stops it being read as an obligation.
-                claimed=target in spec.targets,
-                automated=(scenario_id, target) in automated,
-                deprecated=not spec.is_claimed,
+                # `RETIRED` state that stops it being read as an obligation.
+                state=classify(
+                    claimed=target in spec.targets,
+                    automated=(scenario_id, target) in automated,
+                    deprecated=not spec.is_claimed,
+                    # Read from the spec, never inferred from a failed probe: the
+                    # probe measures the code in front of it, and a node missing
+                    # from one screen is a hole in the code until proven
+                    # otherwise.
+                    reachable=target not in spec.unreachable,
+                )
             )
             for target in ALL_TARGETS
         }
@@ -184,7 +306,10 @@ def build_results(
     for scenario_id, row in coverage.cells.items():
         cells[scenario_id] = {}
         for target, cell in row.items():
-            if not cell.claimed:
+            if not cell.state.was_claimed:
+                # `was_claimed`, not `is_obligation`: a retired scenario still
+                # produced a row here, showing the targets it used to cover as
+                # not-run. Dropping it would have changed the result matrix.
                 continue
             cells[scenario_id][target] = ResultCell(Outcome.NOT_RUN)
     for link, outcome, detail in results:

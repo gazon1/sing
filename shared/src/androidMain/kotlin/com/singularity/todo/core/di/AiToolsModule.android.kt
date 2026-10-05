@@ -61,10 +61,7 @@ import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
 import com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase
-import com.singularity.todo.feature.genui.GenuiEngine
-import com.singularity.todo.feature.genui.parser.A2uiParser
-import com.singularity.todo.feature.genui.surface.SurfaceController
-import com.singularity.todo.feature.genui.transport.GenuiTransport
+import com.singularity.todo.feature.genui.transport.BaseGenuiTransport
 import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
@@ -121,25 +118,17 @@ actual fun aiToolsModule(): Module = module {
             agent = get(),
             idGen = get(),
             crashReporter = get(),
+            genui = get(),
         )
     }
     viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
-    viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get()) }
+    viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get(), clock = get()) }
 
     // ─── GenUI ───
 
-    single { SurfaceController() }
-    single { A2uiParser() }
-
-    factory<GenuiTransport> { KoogGenuiTransport(get()) }
-
-    factory {
-        GenuiEngine(
-            transport = get(),
-            parser = get(),
-            controller = get(),
-        )
-    }
+    // The bindings themselves live in one shared module; what stays here is the part that is
+    // genuinely platform-specific, which is the transport the shared module decorates.
+    single<BaseGenuiTransport> { KoogGenuiTransport(get()) }
 
     // ─── AI Use Cases ───
 
@@ -193,7 +182,7 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::CreateTagTool)
     factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     // Stateless and shared: it resolves its decisions directory once, at construction.
-    single { AdrStorage(get()) }
+    single { AdrStorage(get(), get(), get()) }
     factory { ListAdrsTool(get()) }
     factory { ReadAdrTool(get()) }
     factory { WriteAdrTool(get()) }

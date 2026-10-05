@@ -65,6 +65,17 @@ python3 scripts/check-unwired-backlog-refs.py || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [4b/21] declared dependencies are used ===${NC}"
+# material-kolor sat in the catalog and on the classpath for a release, imported
+# by nobody — and `find-unwired-surfaces.py` cannot see that, because it counts
+# symbols and an unused dependency has none until something imports it. The gate
+# reads resolved artifacts rather than the catalog, because a coordinate does not
+# determine an import package: `…compose.material3:material3` is `androidx.…`.
+python3 scripts/check-dependency-usage.py || {
+    echo -e "${RED}a declared dependency is imported by nothing${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [5/21] detekt baseline ratchet ===${NC}"
 
 echo -e "${YELLOW}=== [6/21] backlog entries are classifiable and within budget ===${NC}"
@@ -87,23 +98,23 @@ python3 scripts/check-baseline-ratchet.py || {
     exit 1
 }
 
-echo -e "${YELLOW}=== [7/21] gates are wired and can fail ===${NC}"
-# Part A: every configured Gradle check task is named by a gate — catches the
-# :androidApp:detekt instance, which had a full config block and no invoker.
-# Part B: every registered script gate is run against a sabotaged input and must
-# exit non-zero — catches the `--warn-only` class, where a check prints a
-# violation and still passes.
-python3 scripts/check-gate-wiring.py || {
-    echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
-    exit 1
-}
-
 echo -e "${YELLOW}=== [8/21] lint rules are declared decisions ===${NC}"
 # A rule absent from detekt.yml runs on detekt's built-in default, which means
 # nobody chose it. 18 such rules produced 247 of 428 baseline entries, and two
 # contradicted AGENTS.md. Now declared, and the next one has to be declared too.
 python3 scripts/check-rule-intent.py || {
     echo -e "${RED}rule intent check FAILED — a lint rule is running on defaults${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [8b2/21] every file-level suppression says what it hides ===${NC}"
+# check-rule-intent asks whether a rule was *declared*. This asks the other half:
+# a rule can be declared, configured, and provably able to fire, and still be
+# switched off for a whole file by one line no gate could see. 12 production
+# files carried @file:Suppress("NoDirectClockSystem") with no reason, covering 38
+# clock reads — while the baseline held exactly one suppression for that rule.
+python3 scripts/check-suppression-intent.py || {
+    echo -e "${RED}suppression intent check FAILED — a lint rule is switched off silently${NC}"
     exit 1
 }
 
@@ -194,15 +205,36 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
 echo -e "${YELLOW}=== [12/21] executed test counts ===${NC}"
-# "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
-# class can stop being selected with no error and the task still goes green — which is
-# how CI once ran 16 of 218 classes. Run this after the test steps, never before.
 python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
     --max-age 21600 || {
     echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
     exit 1
 }
 echo -e "${GREEN}test run floors met${NC}"
+
+echo -e "${YELLOW}=== [12b/21] gates are wired and can fail ===${NC}"
+# Part A: every configured Gradle check task is named by a gate — catches the
+# :androidApp:detekt instance, which had a full config block and no invoker.
+# Part B: every registered script gate is run against a sabotaged input and must
+# exit non-zero — catches the `--warn-only` class, where a check prints a
+# violation and still passes.
+#
+# This runs after the test steps, not with the other static checks, because the
+# `test-runs` control sabotages config/docs/test-runs-baseline.txt and asks
+# whether the gate notices. The gate reads JUnit XML that only exists once
+# :shared:jvmTest and :desktopApp:test have run. Run this one earlier and on a
+# fresh clone it fails with "gate 'test-runs' already fails on a clean tree" —
+# a true statement that reads as a false alarm, because the check asks its
+# question two steps before the thing that answers it exists (#206).
+#
+# A gate that proves another gate works inherits that gate's preconditions and
+# runs them at its own time. Ordering them wrongly is the bug; skipping the
+# control when the XML is absent would teach the reader that "no results" is
+# acceptable, which is the reading this project is removing.
+python3 scripts/check-gate-wiring.py || {
+    echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
+    exit 1
+}
 
 echo -e "${YELLOW}=== [13/21] gate script self-tests ===${NC}"
 # check-test-runs.py is the only thing that catches a partial skip, and

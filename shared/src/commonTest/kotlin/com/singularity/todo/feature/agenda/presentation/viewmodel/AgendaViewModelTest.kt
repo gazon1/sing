@@ -2,6 +2,8 @@
 
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.TEST_TZ
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
@@ -56,6 +58,17 @@ import kotlin.test.assertNotNull
 @Tag("fast")
 class AgendaViewModelTest {
 
+    /**
+     * A fixed instant for the ViewModels built by [createVm].
+     *
+     * It used to be `Clock.System`, so anything the agenda resolved against
+     * "today" was a function of the day the suite ran. The companion
+     * date-sensitivity test below pins its own date explicitly, because it is
+     * asserting about a specific one; this is only here so the rest of the file
+     * is not reading the wall clock.
+     */
+    private val now: Instant = Instant.parse("2026-09-16T09:00:00Z")
+
     private val fakeRepo = FakeTaskRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeReminderScheduler = object : ReminderScheduler {
@@ -78,7 +91,8 @@ class AgendaViewModelTest {
     private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
         deps = AgendaDeps(
             taskRepo = fakeRepo,
-            clock = Clock.System,
+            clock = FakeClock(now),
+            timeZone = TEST_TZ,
             logger = Logger,
             draftStore = FakeDraftStore(),
             reminderScheduler = fakeReminderScheduler,
@@ -174,13 +188,13 @@ class AgendaViewModelTest {
             val vm = AgendaViewModel(
                 deps = AgendaDeps(
                     taskRepo = fakeRepo,
-                    // Noon UTC on purpose: `todayAt` resolves in the system zone,
-                    // and UTC-12…UTC+14 around noon still lands on the same date.
-                    // Pinning midnight here would make this test fail in half the
-                    // world's time zones — the exact class of date flake this epic exists to kill.
-                    clock = object : Clock {
-                        override fun now(): kotlin.time.Instant = Instant.parse("2031-07-09T12:00:00Z")
-                    },
+                    // Noon UTC with an explicit zone. The zone used to be the
+                    // host's, which is why this had to be noon: midnight would land
+                    // on a different date in half the world. With `timeZone` pinned to
+                    // UTC the instant can be anything, and the "noon so the date cannot
+                    // move" reasoning goes with it (#91).
+                    clock = FakeClock(Instant.parse("2031-07-09T00:30:00Z")),
+                    timeZone = TEST_TZ,
                     logger = Logger,
                     draftStore = draftStore,
                     reminderScheduler = fakeReminderScheduler,

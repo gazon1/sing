@@ -1,6 +1,5 @@
 package com.singularity.todo.shell
 
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 
@@ -26,8 +25,18 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  * When navigating from the **Today** tab, the task creation screen is pre-filled with
  * `dueDate = Today` so the user can change it without having to set it from scratch.
  * When navigating from **Inbox**, no due date is pre-filled.
+ *
+ * @param today the date to pre-fill, supplied by the caller. Required rather than
+ *   read here (#91): the shell knows the date it is rendering, and a resolver that
+ *   read the wall clock would give a prefill that differs from the Today tab the
+ *   user just tapped. `FabActionResolverTest` asserts against a named date for the
+ *   first time as a result.
  */
-internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination) -> Unit): FabAction? =
+internal fun fabActionForNav3(
+    current: AppDestination,
+    today: kotlinx.datetime.LocalDate,
+    navigate: (AppDestination) -> Unit,
+): FabAction? =
     when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
@@ -35,7 +44,6 @@ internal fun fabActionForNav3(current: AppDestination, navigate: (AppDestination
                 AgendaStartRoute.Today -> FabAction(
                     label = "Add task",
                     onClick = {
-                        val today = todayInSystemZone()
                         navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
                     },
                 )

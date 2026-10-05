@@ -5,9 +5,12 @@ import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.isExhaustedBy
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Handles completion of a recurring task, rolling forward to the next occurrence.
@@ -46,28 +49,14 @@ open class CompleteRecurringTaskUseCase(
         val today = now.toLocalDateTime(zone).date
 
         return when (spec.base) {
-            RecurrenceSpec.RecurrenceBase.FROM_DUE -> {
+            RecurrenceSpec.RecurrenceBase.FROM_DUE ->
                 // Anchor: task's due date (or today if no due date)
-                val anchor = task.dueDate ?: today
-                val nextDue = calculator.nextOccurrence(spec, anchor)
-                val updated = task.copy(
-                    completedAt = now,
-                    dueDate = nextDue,
-                    updatedAt = now,
-                )
-                repo.update(updated).map { updated }
-            }
+                rollForward(task, spec, calculator.nextOccurrence(spec, task.dueDate ?: today), now, completeIt = true)
 
             RecurrenceSpec.RecurrenceBase.FROM_COMPLETION -> {
                 // Anchor: completion timestamp
                 val completedDate = task.completedAt?.toLocalDateTime(zone)?.date ?: today
-                val nextDue = calculator.nextOccurrence(spec, completedDate)
-                val updated = task.copy(
-                    completedAt = null, // un-complete the task, move to next due date
-                    dueDate = nextDue,
-                    updatedAt = now,
-                )
-                repo.update(updated).map { updated }
+                rollForward(task, spec, calculator.nextOccurrence(spec, completedDate), now, completeIt = false)
             }
 
             RecurrenceSpec.RecurrenceBase.CATCH_UP -> {
@@ -75,15 +64,9 @@ open class CompleteRecurringTaskUseCase(
                 val missed = calculator.missedCount(spec, anchor, today)
                     .coerceIn(0, RecurrenceSpec.MAX_MISSED)
 
+                // No missed occurrences — just roll forward normally
                 if (missed == 0) {
-                    // No missed occurrences — just roll forward normally
-                    val nextDue = calculator.nextOccurrence(spec, anchor)
-                    val updated = task.copy(
-                        completedAt = now,
-                        dueDate = nextDue,
-                        updatedAt = now,
-                    )
-                    return repo.update(updated).map { updated }
+                    return rollForward(task, spec, calculator.nextOccurrence(spec, anchor), now, completeIt = true)
                 }
 
                 // Generate N-1 historical copies for the missed occurrences (oldest first),
@@ -91,7 +74,6 @@ open class CompleteRecurringTaskUseCase(
                 // We cap at MAX_MISSED so we generate at most MAX_MISSED - 1 new copies
                 // (the rolling task itself accounts for one slot).
                 val copiesToGenerate = (missed - 1).coerceAtLeast(0)
-                val createdTasks = mutableListOf<Task>()
                 var currentAnchor = anchor
 
                 repeat(copiesToGenerate) {
@@ -104,23 +86,55 @@ open class CompleteRecurringTaskUseCase(
                     )
                     val created = repo.create(historicalTask)
                     if (created.isFailure) return created
-                    createdTasks.add(created.getOrThrow())
                     currentAnchor = nextOccurrence
                 }
 
-                // Roll the current task forward to the next occurrence after the last missed one
-                val nextDue = calculator.nextOccurrence(spec, currentAnchor)
-                val updated = task.copy(
-                    completedAt = now,
-                    dueDate = nextDue,
-                    updatedAt = now,
-                )
-                val finalResult = repo.update(updated)
-                if (finalResult.isFailure) return finalResult
-
-                // Return the rolled-forward task (not the historical copies)
-                Result.success(finalResult.getOrThrow())
+                // Roll the current task forward to the next occurrence after the last missed one.
+                // The guard sits here, after the historical copies — those already
+                // happened and are correct; only the roll-forward is suppressed.
+                return rollForward(task, spec, calculator.nextOccurrence(spec, currentAnchor), now, completeIt = true)
             }
         }
+    }
+
+    /**
+     * Ends a series whose next occurrence falls past its end date.
+     *
+     * Soft-deletes rather than inventing an archive call: `Task.isTrashed` is
+     * `archivedAt != null`, and the app's own "Archive" action in
+     * `TaskLifecycleSlot` is a `softDelete`. Reusing it means a finished series is
+     * restorable from the trash exactly like a hand-archived task.
+     *
+     * A failure here returns the failure rather than swallowing it: in the
+     * catch-up path the historical copies already exist, so a silent success
+     * would leave a retry to duplicate them.
+     */
+    private suspend fun terminate(task: Task): Result<Task> = repo.softDelete(task.id).map { task }
+
+    /**
+     * Moves [task] to its next occurrence on [nextDue], or ends the series when
+     * that occurrence falls past its end date.
+     *
+     * The one place the termination check lives, so no [RecurrenceSpec.RecurrenceBase]
+     * branch re-implements it. A `CATCH_UP` caller runs this *after* its historical
+     * copies are written — those already happened and stay.
+     *
+     * @param completeIt `true` stamps this occurrence complete and rolls the due
+     *        date; `false` un-completes the task and moves it forward (FROM_COMPLETION).
+     */
+    private suspend fun rollForward(
+        task: Task,
+        spec: RecurrenceSpec,
+        nextDue: LocalDate,
+        now: Instant,
+        completeIt: Boolean,
+    ): Result<Task> {
+        if (spec.isExhaustedBy(nextDue)) return terminate(task)
+        val updated = task.copy(
+            completedAt = if (completeIt) now else null,
+            dueDate = nextDue,
+            updatedAt = now,
+        )
+        return repo.update(updated).map { updated }
     }
 }

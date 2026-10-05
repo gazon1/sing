@@ -3,6 +3,7 @@ package com.singularity.todo.core.database
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -84,7 +85,7 @@ class Migration32To33Test {
     }
 
     private fun seed(connection: SQLiteConnection) {
-        // An outbox row as it existed at v32: no next_attempt_at column at all.
+        // An outbox row as it existed at v32: no next_attempt_at and no owner_id.
         connection.execSQL(
             "INSERT INTO sync_outbox (patch_id,entity_id,entity_type,payload,created_at,attempts) " +
                 "VALUES ('p1','e1','task','{}',100,0)",
@@ -93,6 +94,46 @@ class Migration32To33Test {
             "INSERT INTO sync_outbox (patch_id,entity_id,entity_type,payload,created_at,attempts) " +
                 "VALUES ('p2','e2','task','{}',200,3)",
         )
+    }
+
+    /**
+     * The same two rows, written through the current DAO once the upgrade has run.
+     *
+     * Both tests below are about v33's `next_attempt_at` semantics, not about what
+     * happens to rows written before the upgrade. They used to seed at v32 and read
+     * them back after, which asserted both of those things at once — and the second
+     * half stopped being true when Migration37To38 began clearing the queue, since a
+     * pre-upgrade row cannot be attributed to an account and is deliberately dropped
+     * rather than guessed at (#209). Seeding afterwards keeps the tests testing their
+     * own subject.
+     */
+    private suspend fun seedAfterUpgrade(db: AppDatabase, ownerId: String) {
+        db.syncOutboxDao().insert(
+            SyncOutboxEntity(
+                patchId = "new-p1",
+                ownerId = ownerId,
+                entityId = "e1",
+                entityType = "task",
+                payload = "{}",
+                createdAt = 100L,
+            ),
+        )
+        db.syncOutboxDao().insert(
+            SyncOutboxEntity(
+                patchId = "new-p2",
+                ownerId = ownerId,
+                entityId = "e2",
+                entityType = "task",
+                payload = "{}",
+                createdAt = 200L,
+                attempts = 3,
+            ),
+        )
+    }
+
+    private companion object {
+        /** The account these rows belong to. Reads the scoping as deliberate. */
+        const val OWNER = "owner-migration-test"
     }
 
     private fun rawStrings(connection: SQLiteConnection, sql: String, column: Int = 0): List<String> {
@@ -107,29 +148,47 @@ class Migration32To33Test {
     }
 
     @Test
-    fun `v32 database upgrades to v33 keeping outbox rows pushable`() = runTest {
+    fun `v32 database upgrades to v33 with an outbox that can be pushed from`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
             applyV32Fixture(connection)
             seed(connection)
         }
 
-        // First DAO access runs the 32→33 migration and validates against 33.json.
+        // First DAO access runs the whole chain from the fixture version.
         val db = AppDatabaseFactory.build(createSqlDriver(), dbPath)
         try {
-            val pending = db.syncOutboxDao().getPending(now = Long.MAX_VALUE)
+            seedAfterUpgrade(db, OWNER)
+
+            val pending = db.syncOutboxDao().getPending(now = Long.MAX_VALUE, ownerId = OWNER)
             assertEquals(
-                listOf("p1", "p2"),
+                listOf("new-p1", "new-p2"),
                 pending.map { it.patchId },
-                "every pre-upgrade patch must still be eligible for a push",
+                "a freshly queued patch must be eligible for a push",
             )
             assertNull(
                 pending.first().nextAttemptAt,
-                "a row that predates v33 must not be deferred by the upgrade",
+                "a row with no backoff must not come back deferred",
             )
-            // The attempt count survives — that is what the backoff decision reads.
-            assertEquals(3, db.syncOutboxDao().attemptsOf("p2"))
+            // The attempt count is what the backoff decision reads, so it has to persist.
+            assertEquals(3, db.syncOutboxDao().attemptsOf("new-p2"))
         } finally {
             db.close()
+        }
+
+        // The rows the fixture wrote are gone, and that is the decision rather than an
+        // accident: v37→v38 gave the queue an owner and clears rows that cannot be
+        // attributed to one, because guessing would file one account's unsent work under
+        // another. Asserted here so the loss is visible in the test that used to promise
+        // the opposite, and so nobody "fixes" the migration by attributing them.
+        createSqlDriver().open(dbPath).use { connection ->
+            assertEquals(
+                emptyList(),
+                rawStrings(
+                    connection,
+                    "SELECT patch_id FROM sync_outbox WHERE patch_id IN ('p1','p2')",
+                ),
+                "pre-upgrade queue rows must be cleared, not attributed to a guess",
+            )
         }
 
         createSqlDriver().open(dbPath).use { connection ->
@@ -167,17 +226,18 @@ class Migration32To33Test {
 
         val db = AppDatabaseFactory.build(createSqlDriver(), dbPath)
         try {
+            seedAfterUpgrade(db, OWNER)
             val future = System.currentTimeMillis() + 60_000
-            db.syncOutboxDao().markFailed(id = "p1", error = "server busy", nextAttemptAt = future)
+            db.syncOutboxDao().markFailed(id = "new-p1", error = "server busy", nextAttemptAt = future)
 
             val now = System.currentTimeMillis()
             assertTrue(
-                db.syncOutboxDao().getPending(now).none { it.patchId == "p1" },
+                db.syncOutboxDao().getPending(now, OWNER).none { it.patchId == "new-p1" },
                 "a deferred patch must not be returned as pending",
             )
             assertEquals(
-                listOf("p1", "p2"),
-                db.syncOutboxDao().getPending(future + 1).map { it.patchId },
+                listOf("new-p1", "new-p2"),
+                db.syncOutboxDao().getPending(future + 1, OWNER).map { it.patchId },
                 "the patch returns once the window has passed",
             )
         } finally {

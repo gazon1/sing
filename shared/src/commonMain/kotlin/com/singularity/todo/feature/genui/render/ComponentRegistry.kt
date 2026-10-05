@@ -11,11 +11,11 @@ private val logger = Logger.withTag("ComponentRegistry")
  * A registry mapping [UiNode] `kind` strings to their Compose render functions.
  *
  * Renderers are registered via [register] and looked up during rendering.
- * Use [GenuiRenderer] in your UI to dispatch to the registry.
+ * Use [GenuiSurface] in your UI to dispatch to the registry.
  *
  * Example:
  * ```
- * val registry = ComponentRegistry().also { Material3Catalog.install(it) }
+ * val registry = ComponentRegistry().also { Material3Catalog.installAll(it) }
  * ```
  */
 class ComponentRegistry {
@@ -32,7 +32,6 @@ class ComponentRegistry {
 
     /**
      * Renders [node] using the registered builder for its kind.
-     * Silently skips unknown kinds (forward compat — server may emit new node types).
      *
      * [modifier] is forwarded to every registered builder so the caller can
      * position the rendered subtree without each builder having to thread it
@@ -45,9 +44,13 @@ class ComponentRegistry {
         if (builder != null) {
             builder(node, ctx, modifier)
         } else {
-            // Silent skip — forward compat: unknown node kinds are skipped.
-            // The parser already skips unknown top-level operations (A2uiParser.parseLine).
-            logger.w { "Unknown node kind '$kind' — skipping render" }
+            // A node with no builder is a defect on this side, not a forward-compatible message
+            // arriving from a newer model: the validator rejects a kind the catalog does not
+            // declare, so nothing undeclared can reach here. It happens when a renderer is added
+            // without its registration, or a component is registered without its schema — the two
+            // directions `SingularityCatalogTest` checks, and the reason the branch warns rather
+            // than quietly drawing nothing.
+            logger.w { "No renderer registered for '$kind' — it draws nothing" }
         }
     }
 
@@ -82,10 +85,17 @@ val UiNode.kind: String
 
         is UiNode.Tabs -> "tabs"
 
+        // Held by Tabs as {title, child}; the panel is drawn by the tabs renderer, which never
+        // hands one to `render` on its own.
         is UiNode.Tab -> "tab"
 
-        // nested inside Tabs; not registered separately
         is UiNode.Icon -> "icon"
 
         is UiNode.Modal -> "modal"
+
+        is UiNode.TaskCard -> "task_card"
+
+        is UiNode.DueDate -> "due_date"
+
+        is UiNode.ProjectChip -> "project_chip"
     }
