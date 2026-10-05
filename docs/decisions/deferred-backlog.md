@@ -2845,3 +2845,38 @@ in this change and missed here.
 Whether an archived change can be reopened, or whether the fix belongs in a new change, is a
 question about the archive's policy — it does not belong in an archived file, and it is why
 this is filed rather than patched into the archive.
+
+---
+
+## an-arch-test-lives-in-the-module-whose-conventions-it-does-not-own
+
+**Status: OPEN**
+
+**Tracked as:** [#186](https://github.com/gazon1/singularity-clone-kmp/issues/186)
+
+**Found in:** 2026-10-05, closing #153 — the duplicated-test-helpers issue whose
+premise turned out to be false, so the real defect had to be looked for.
+
+**Situation.** `ViewModelTestCoverageTest` lives in `:shared` and reads
+`:desktopApp`'s test sources through `System.getProperty("desktopAppJvmTest.root")`,
+passed from `shared/build.gradle.kts`. Unlike the test that was moved out in
+`08f6cd1a`, this one is *legitimate*: it matches a production ViewModel against
+every test class that mentions it, so it genuinely aggregates across modules and a
+relative path is not available to it.
+
+**What is left.** The property is a string path between modules that neither
+Gradle nor the compiler knows about. A rename breaks it at runtime with
+`desktopAppJvmTest.root is not set`, and the comment naming the one remaining
+reader is the only thing keeping that honest. `check-test-task-inputs.py` covers
+the *staleness* half of the hazard (the tree is a declared task input, so a
+desktopApp edit invalidates `:shared:jvmTest`) — it does not cover the *naming*
+half.
+
+**Already ruled out.** `testFixtures` is not the answer, for the same reason it was
+not the answer in #153: this is a file scan, not a shared declaration. Making the
+property a Gradle-projected value would be the alternative, and it is real work
+for one remaining reader.
+
+**Try next:** only if a second cross-module scan appears — which #154's tag
+unification would likely produce. Then a small shared scan-root provider in
+`jvmTestFixtures` pays for itself. With one caller it is ceremony.
