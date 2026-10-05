@@ -53,6 +53,19 @@ class ArchitectureTest {
         /** File name including extension, for rules that key on the file rather than the package. */
         private fun KoFileDeclaration.fileName(): String = path.replace('\\', '/').substringAfterLast('/')
 
+        /**
+         * Source-set-relative path, forward slashes, with the `kotlin/` source root
+         * dropped: `com/singularity/todo/feature/notes/Ids.kt`.
+         *
+         * This is what allowlists key on, so an entry names one file rather than
+         * every file that happens to share a base name.
+         */
+        private fun relativePath(file: KoFileDeclaration): String {
+            val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+            val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
+            return under.substringAfter("/kotlin/").ifEmpty { under }
+        }
+
         private fun KoFileDeclaration.importFqns(): List<String> = imports.map { it.name }
 
         /** Strips KDoc and line comments so prose about DAOs is not read as a call. */
@@ -141,17 +154,23 @@ class ArchitectureTest {
          *   had: fixed values that cannot follow the theme. Note these three live
          *   directly under `feature/<x>/`, NOT under a `presentation` segment.
          * - `TextRenderer.kt` — genui atom defaults.
-         * - `Ids.kt` — **not** a UI palette. `NoteColor` is a domain value class
-         *   holding the user's note-highlight colour; it is data, not theming, and
-         *   it is the one entry that should stay listed permanently.
+         * - `feature/notes/Ids.kt` — **not** a UI palette. `NoteColor` is a domain
+         *   value class holding the user's note-highlight colour; it is data, not
+         *   theming, and it is the one entry that should stay listed permanently.
+         *
+         * Matched by path suffix, not by bare file name. Four files in this
+         * repository are called `Ids.kt`, so a bare-name entry silently allowed
+         * all four — and a literal added to a sibling feature's `Ids.kt` would
+         * have passed the gate while going unnoticed. That is the failure mode
+         * this rule exists to prevent, reproduced inside the rule itself.
          */
         private val COLOUR_LITERAL_ALLOWLIST = setOf(
-            "NotesListScreen.kt",
-            "ProfileSwitcherScreen.kt",
-            "StatisticsScreen.kt",
-            "SettingsScreen.kt",
-            "TextRenderer.kt",
-            "Ids.kt",
+            "com/singularity/todo/feature/notes/presentation/screen/NotesListScreen.kt",
+            "com/singularity/todo/feature/profile/ProfileSwitcherScreen.kt",
+            "com/singularity/todo/feature/settings/SettingsScreen.kt",
+            "com/singularity/todo/feature/statistics/StatisticsScreen.kt",
+            "com/singularity/todo/feature/genui/render/material3/atoms/TextRenderer.kt",
+            "com/singularity/todo/feature/notes/Ids.kt",
         )
 
         /**
@@ -308,7 +327,7 @@ class ArchitectureTest {
         // scoped to a `presentation` segment would pass while 22 real literals sat
         // outside it — a green gate over an unchanged problem.
         val offenders = scope.files
-            .filterNot { it.fileName() in COLOUR_LITERAL_ALLOWLIST }
+            .filterNot { file -> relativePath(file) in COLOUR_LITERAL_ALLOWLIST }
             .filter { it.packageName().startsWith("$PKG.feature") }
             .filterNot { "/theme/" in it.path.replace('\\', '/') }
             .filter { file -> "Color(0x" in file.codeOnly() }
