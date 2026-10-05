@@ -299,8 +299,9 @@ test's benefit.
 ### Which target can assert what — measure, do not assume
 
 - **desktop** (`desktopApp/jvmTest`): anything reachable by `testTag` in the main
-  semantics tree. `AlertDialog` content is reachable, because it renders into the
-  main tree through `BasicAlertDialog` without a `Dialog` wrapper.
+  semantics tree. `AlertDialog` content is reachable — on skiko an alert renders
+  into the main tree rather than into its own window, which is the opposite of a
+  sheet and the reason the sheet is a special case at all.
 - **android** (`androidApp/src/androidTest` or Maestro): anything else, and the
   only tier that can drive a sheet.
 
