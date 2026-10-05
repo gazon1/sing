@@ -355,7 +355,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "commonMain.root",
         layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
     )
-    // Absolute path to desktopApp jvmTest sources for DesktopTestHarnessEnforcementTest.
+    // Absolute path to desktopApp jvmTest sources for ViewModelTestCoverageTest, which
+    // aggregates test roots across modules and so cannot be written relatively.
+    //
+    // `DesktopTestHarnessEnforcementTest` used to read this too, and no longer does:
+    // it enforces :desktopApp's own conventions, so it moved to
+    // `desktopApp/src/jvmTest` where the path is relative and the property was
+    // unnecessary. The property stays for the remaining reader — see #153.
     systemProperty(
         "desktopAppJvmTest.root",
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,

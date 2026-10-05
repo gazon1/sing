@@ -1,4 +1,4 @@
-package com.singularity.todo.arch
+package com.singularity.todo.flows
 
 import org.junit.jupiter.api.Tag
 import java.io.File
@@ -48,17 +48,20 @@ import kotlin.test.fail
 class DesktopTestHarnessEnforcementTest {
 
     /**
-     * The desktop app module's jvmTest root.
+     * This module's own jvmTest sources.
      *
-     * Passed as `desktopAppJvmTest.root` system property from shared/build.gradle.kts.
-     * Using a system property (rather than computing from `commonMain.root`) avoids
-     * fragile relative-path logic across different worktree layouts.
+     * Was `System.getProperty("desktopAppJvmTest.root")`, passed from
+     * `shared/build.gradle.kts`, back when this test lived in `:shared`. The
+     * property existed because the test was in one module enforcing another's
+     * conventions, and a path across module boundaries cannot be written
+     * relatively. Moved here, that problem is gone and so is the property: the
+     * relative form is the same one `HarnessConventionTest` already uses, and it
+     * works because the test JVM's working directory is the module directory.
+     *
+     * Scans the whole `jvmTest` tree, not just `flows/`, because a bypassing test
+     * is not required to live in this package.
      */
-    private val desktopAppJvmTestRoot: File
-        get() = File(
-            System.getProperty("desktopAppJvmTest.root")
-                ?: error("desktopAppJvmTest.root is not set — see shared/build.gradle.kts"),
-        )
+    private val desktopAppJvmTestRoot: File = File("src/jvmTest/kotlin")
 
     /**
      * Files that currently call `runDesktopComposeUiTest` directly.
@@ -100,6 +103,13 @@ class DesktopTestHarnessEnforcementTest {
             .filter { it.isFile && it.extension == "kt" }
             // The harness itself is allowed.
             .filter { it.name != "DesktopAppHarness.kt" }
+            // This file, too, and not because it is allowed to bypass — because it
+            // NAMES the entry point it forbids. Its KDoc has to, to explain the
+            // rule, and so does the `contains` call below. Found by planting a
+            // violating file: without this the gate reports itself, which is the
+            // most disorienting possible failure for a rule about bypassing the
+            // harness.
+            .filter { it.name != "DesktopTestHarnessEnforcementTest.kt" }
             // IsolatedComposeTest is the documented lighter harness for pure Compose tests.
             .filter { it.name != "IsolatedComposeTest.kt" }
             // Check for direct calls to the deprecated and v2 entry points.
