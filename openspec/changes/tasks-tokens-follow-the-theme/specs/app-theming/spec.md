@@ -15,10 +15,11 @@ divider colour from the app's active theme, in the light case and the dark case
 alike. Neither surface SHALL carry a palette of fixed values that the theme cannot
 reach.
 
-The requirement is about the *task* surfaces specifically because they are the ones
-that must be true for a user to believe the rest of what they see. A user who
-selects a light theme and lands on a dark task list has not been given a preference;
-they have been given a contradiction, and it is the first screen they open.
+The requirement is about the *task* surfaces specifically because they are the
+ones that must be true for a user to believe the rest of what they see. A user who
+selects a light theme and lands on a dark task list has not been given a
+preference; they have been given a contradiction, and it is the first screen they
+open.
 
 #### Scenario: A light-themed user sees a light task list
 
@@ -103,3 +104,32 @@ which accent was chosen.
 - The user chooses any accent, in either mode
 - A completed task and an open task are both shown
 - The two are told apart by their own colours
+
+### Requirement: REQ-THEME-007
+
+A priority SHALL have exactly one resolver: the screen asking for a priority colour
+SHALL name the screen it is on, rather than carrying its own values. Two places
+SHALL NOT each answer "what colour is a low-priority task" with different answers
+under the same function name.
+
+The requirement is about identity rather than value. Two of this project's three
+priority scales differ deliberately — a detail form and a list have different
+visual rhythms. The third was an accident: a component grew its own block while
+the other two went through a named palette, and a second function of the same name
+in a sibling package shadowed the canonical one. Nothing flagged it, because
+differing values are exactly what a reader expects from a palette.
+
+#### Scenario: A screen asks for the list's priority colours
+
+- The task list asks what colour a priority is
+- The answer is the list palette, chosen by naming the screen
+
+#### Scenario: The editor asks for the detail palette
+
+- The task detail screen asks what colour a priority is
+- The answer is the detail palette, and not the list's
+
+#### Scenario: No two functions of the same name answer differently
+
+- A reader looks for the function that answers "what colour is a priority"
+- There is one, and any screen-specific variation is a named argument to it
