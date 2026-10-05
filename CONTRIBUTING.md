@@ -4,11 +4,15 @@ Thanks for looking at this. The project is pre-1.0 and small, so there is room
 to shape it — but the conventions below are load-bearing, and a pull request that
 ignores them will fail CI rather than be discussed.
 
+Participation is governed by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). For a
+conduct concern, use the private security advisory rather than a public issue —
+see that file for why.
+
 ## The short version
 
 ```bash
-git clone https://github.com/gazon1/singularity-clone-kmp.git
-cd singularity-clone-kmp
+git clone https://github.com/gazon1/sing.git
+cd sing
 ./gradlew :shared:jvmTest        # the fast loop
 ./check.sh                       # the full gate — run this before opening a PR
 ```
