@@ -1,16 +1,15 @@
-@file:Suppress("NoDirectClockSystem")
-// Forwards a `now` to `TimeEntryEditorSheet`, which takes it as a required parameter.
-// The read here is *choosing* the value, not inventing one — the sheet is the thing
-// that was fixed. Threading the choice from the one place that resolves the clock
-// is four signature changes across three screens, ending in a call no desktop
-// Compose test on this host can execute (#201). Recorded in ADR
-// `2026-10-05-today-is-two-required-parameters`; `check-suppression-intent.py`
-// requires this reason to exist, which is the enforcement this needs.
+// `now` is a required parameter, passed on to `TimeEntryEditorSheet` and to the
+// nested `TaskEditorContent`. It used to be read here as `Clock.System.now()`
+// behind a file-level suppression, whose recorded reason was that threading it is
+// four signature changes across three screens "ending in a call no desktop Compose
+// test on this host can execute (#201)". The four signatures are made; the reason
+// described a difficulty rather than a blocker, and a suppression justified by work
+// not yet done tends to outlive the work.
 
 package com.singularity.todo.feature.tasks.presentation.screen
 
 import androidx.compose.foundation.layout.Arrangement
-import kotlin.time.Clock
+import kotlin.time.Instant
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -68,7 +67,11 @@ import com.singularity.todo.feature.timetracking.presentation.components.TimeTra
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
-fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = Modifier) {
+fun TaskDetailContent(
+    coordinator: TaskDetailCoordinator,
+    modifier: Modifier = Modifier,
+    now: Instant,
+) {
     val state by coordinator.state.collectAsStateWithLifecycle()
     val navigator = LocalTasksNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -289,6 +292,7 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                         },
                         onBack = { navigator.back() },
                         onAiClick = { showAiSheet = true },
+                        now = now,
                     )
 
                     if (showAiSheet) {
@@ -305,8 +309,7 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                     if (showTimeEntrySheet) {
                         TimeEntryEditorSheet(
                             taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
-                            // See `TaskDetailViewScreen` — the same reason (#91).
-                            now = Clock.System.now(),
+                            now = now,
                             onSave = { startedAtMs, endedAtMs, kind, note ->
                                 coordinator.onIntent(
                                     TaskDetailIntent.Domain.CreateManual(
