@@ -2163,11 +2163,13 @@ class FakeSavedAgendaViewsRepository(
 
 /**
  * No-op [FileRevealer] for tests.
+ *
+ * Reports `true`, like [FakeFileSharePort]: a fake that returned `false` would
+ * put every settings test that opens the folder onto the failure branch, and the
+ * point of this class is to stand in for a file manager that opened.
  */
 class FakeFileRevealer : FileRevealer {
-    override suspend fun revealAttachmentsFolder(folderPath: String) {
-        // no-op in tests
-    }
+    override suspend fun revealAttachmentsFolder(folderPath: String): Boolean = true
 
     override fun attachmentsBasePath(): String = "/fake/attachments"
 }

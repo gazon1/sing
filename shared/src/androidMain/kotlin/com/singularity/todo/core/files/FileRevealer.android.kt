@@ -3,6 +3,7 @@ package com.singularity.todo.core.files
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Android implementation of [FileRevealer].
@@ -10,7 +11,7 @@ import android.net.Uri
  * in the system file manager.
  */
 class AndroidFileRevealer(private val context: Context) : FileRevealer {
-    override suspend fun revealAttachmentsFolder(folderPath: String) {
+    override suspend fun revealAttachmentsFolder(folderPath: String): Boolean {
         val folder = java.io.File(folderPath)
         if (!folder.exists()) folder.mkdirs()
 
@@ -23,7 +24,10 @@ class AndroidFileRevealer(private val context: Context) : FileRevealer {
         }
         // This requires an Activity context — must be called from a Composable context.
         @Suppress("BatteryLife")
-        context.startActivity(intent)
+        // Reported rather than thrown, for the same reason as the JVM side: a
+        // device with no document-picker activity (a stripped build, a kiosk
+        // profile) would otherwise take the Settings screen down with it.
+        runCatchingCancellable { context.startActivity(intent) }.isSuccess
     }
 
     override fun attachmentsBasePath(): String = context.filesDir.absolutePath + "/attachments"
