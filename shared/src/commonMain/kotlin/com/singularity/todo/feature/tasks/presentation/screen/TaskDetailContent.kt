@@ -1,6 +1,16 @@
+@file:Suppress("NoDirectClockSystem")
+// Forwards a `now` to `TimeEntryEditorSheet`, which takes it as a required parameter.
+// The read here is *choosing* the value, not inventing one — the sheet is the thing
+// that was fixed. Threading the choice from the one place that resolves the clock
+// is four signature changes across three screens, ending in a call no desktop
+// Compose test on this host can execute (#201). Recorded in ADR
+// `2026-10-05-today-is-two-required-parameters`; `check-suppression-intent.py`
+// requires this reason to exist, which is the enforcement this needs.
+
 package com.singularity.todo.feature.tasks.presentation.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import kotlin.time.Clock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -295,6 +305,8 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                     if (showTimeEntrySheet) {
                         TimeEntryEditorSheet(
                             taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
+                            // See `TaskDetailViewScreen` — the same reason (#91).
+                            now = Clock.System.now(),
                             onSave = { startedAtMs, endedAtMs, kind, note ->
                                 coordinator.onIntent(
                                     TaskDetailIntent.Domain.CreateManual(

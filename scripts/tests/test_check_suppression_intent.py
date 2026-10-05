@@ -241,21 +241,24 @@ class TestCurrentRepositoryState(unittest.TestCase):
     def test_every_current_suppression_is_justified(self):
         """The gate is green, and the count is pinned so a change is visible.
 
-        Eight files as of 2026-10-05, down from twelve: the four LIVE DEFECT
+        Nine files as of 2026-10-05, down from twelve: the four LIVE DEFECT
         entries were fixed (the #91 work) and `FakeRepositories.kt` moved its
-        exemption into the rule's allow-list. Seven are
+        exemption into the rule's allow-list. Eight are
         `@file:Suppress("NoDirectClockSystem")` and one
         `@file:Suppress("NoRealDelayInTest")`. Every one carries a reason — five as
-        a comment on the file, two through `JUSTIFIED_FILE_SUPPRESSIONS`, and the
-        two task screens that forward a `now` into `TimeEntryEditorSheet` inline.
+        a comment on the file, two through `JUSTIFIED_FILE_SUPPRESSIONS`, and three
+        task screens that forward a `now` into `TimeEntryEditorSheet` inline.
 
         The count is a measurement, not a target: it moves when a file is fixed and
         when a deferral is recorded, and both are supposed to show up in review.
-        The test moved 12 -> 6 -> 8 within one session, and each move had a cause
-        worth seeing.
+        It went 12 -> 6 -> 9 within one session. The 6 -> 9 move is the interesting
+        one: threading a clock through a sheet made its *callers* read one, and the
+        rule reported all three. A gate that only counts defects would have shown
+        the same number; this one shows the reason each was added, which is the
+        difference between a registry and a queue.
         """
         findings = csi.scan_file_suppressions()
-        self.assertEqual(len(findings), 8, f"expected 8, got {len(findings)}")
+        self.assertEqual(len(findings), 9, f"expected 9, got {len(findings)}")
         self.assertEqual(
             {rule for _, rule, _, _ in findings},
             {"NoDirectClockSystem", "NoRealDelayInTest"},

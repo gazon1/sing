@@ -278,10 +278,18 @@ returns 15 sites, down from 38 measured at the start of the suppression triage.
 Of those 15: **9 are `@Preview` fixtures** (hard-coded sample data, not
 behaviour), **1 is `FileLogWriter`**, **1 is `systemToday()` itself**, and
 **3 are the reach-around in the task-detail path** —
-`TaskDetailViewScreen.kt:257` and `TaskEditorContent.kt:374` (both mine: I made
-`TimeEntryEditorSheet` take a required `now` and then had the screen supply it
-from `Clock.System`, which moves the read rather than removing it) and
-`TaskEditorSheetsHost.kt:129`, which predates this work.
+`TaskDetailViewScreen.kt`, `TaskDetailContent.kt` and `TaskEditorContent.kt`. Two
+are mine: I made `TimeEntryEditorSheet` take a required `now` and then had the
+screens supply it from `Clock.System`, which moves the read rather than removing
+it. The third was found by the rule *after* the rebase onto a main that had
+refactored the task surfaces, and is the same shape.
+
+They carry a justified `@file:Suppress` with the reason inline, and
+`check-suppression-intent.py` requires that reason to exist. The pinned count in
+that gate's test went 6 -> 9 for this: **fixing the sheet made its callers read a
+clock**, which is worth knowing on its own. A registry that only counted defects
+would have reported the same number; this one reports the reason each entry was
+added.
 
 The fix shape is the shell fix again: resolve `Clock` and `TimeZoneProvider`
 once in `App.kt` and thread one `now` down `PlatformShell` → task-detail screen →

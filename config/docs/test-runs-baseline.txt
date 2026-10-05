@@ -63,12 +63,15 @@
 # by-results half saw it, because it asks the direct question ("did this specific
 # declared class run") instead of comparing against a number.
 #
-# **1788 -> 1825 -> 1836 tests was real growth.** 1825 was `ChecklistOrderingTest`,
-# added with the fix for the ordering defect it proves. 1836 is three date
-# assertions in `SearchQueryResolverTest`, added with #91: the first tests in the
-# repository that can *state* a resolved date, which they could not while the
-# resolver read the system clock. Both re-measured on the default run (no
-# `-Ptest.tags`), which is the run a floor is supposed to describe.
+# **1788 -> 1825 -> 1836 -> 1880 tests was real growth**, in three named pieces.
+# 1825 was `ChecklistOrderingTest`, added with the fix for the ordering defect it
+# proves. 1836 is three date assertions in `SearchQueryResolverTest`, added with
+# #91: the first tests in the repository that can *state* a resolved date, which
+# they could not while the resolver read the system clock. 1880 is the 44 tests
+# the task theme refactor landed on `origin/main` while this work was in flight.
+# All measured on the default run (no `-Ptest.tags`), which is the run a floor is
+# supposed to describe — CI's `-Ptest.tags=fast,slow` is a different selection, not
+# a superset, so a number from it would not be a floor at all.
 #
 # **The class column is gone** (2026-10-05). It became redundant once the
 # by-results check existed: that check already fails when a declared class produced
@@ -97,5 +100,5 @@
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 33 0
 mcp-server:test 7 0
-shared:jvmTest 1836 0
+shared:jvmTest 1880 0
 # GENERATED:END
