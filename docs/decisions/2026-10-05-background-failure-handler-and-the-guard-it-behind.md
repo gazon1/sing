@@ -149,3 +149,115 @@ wired with no new call site at all (`AiUsageViewModel`, `AuthViewModel`, `Calend
 - `2026-10-04-apptracer-integration.md` — the integration these two gaps sit inside
 - `2026-10-04-observability-followups.md` — items 4 and 6 there (silent `runCatching`, the
   deliberate global in `LogBootstrap`) are the same class of finding
+
+---
+
+# Amendment (2026-10-05, later the same day)
+
+The *Idea* section above proposed removing the unmanaged scopes so the compiler would find each
+one, and called that a multi-week refactor across "31 ViewModels". **It shipped, and the shape
+is not the one this record guessed at.**
+
+## What changed
+
+`BackgroundFailureHandler` (an `object` with a swappable target), `installBackgroundCrashReporting`,
+and the `expect`/`actual` pair are gone. `createBackgroundScope` is now an ordinary
+`fun` with a **required** `CoroutineExceptionHandler` argument — not an `expect fun`, because
+both actuals were byte-identical once the global left, and an `expect` with no platform
+difference is a lie about where the platform boundary is.
+
+The reason the factory could not take a dependency, as this record states above, was that it ran
+inside Koin graph construction with no handle. That is still true — and it is still solvable
+without a global, because **the caller of the factory is the thing that has the dependency.** The
+Koin module has the `CrashReportingPort`; the ViewModel has the `CrashReportingPort`; the app
+entry point has the Koin graph. `createBackgroundScope(crashReportingFailureHandler(get()))` is
+one line at each of those sites.
+
+## The migration did not make `scope` required on the ViewModels
+
+The obvious reading of the plan was "make `scope` a required constructor parameter on all 28
+ViewModels, so the compiler finds every site". That is wrong, and for a reason worth recording:
+
+`MviViewModel.init` calls `addCloseable(scope)`, so a scope injected from Koin as a `single`
+would be **cancelled by the first ViewModel cleared**, taking every other ViewModel's
+collectors with it. The binding would have to be a `factory`, which is correct but expensive:
+~30 signature changes, every `viewModelOf(::Vm)` converted to `viewModel { }` — giving up the
+constructor-arity checking the project deliberately uses — and every test construction site
+updated, for no reduction in risk.
+
+After `NoUnreportedFailurePath` landed, every ViewModel that can fail already holds a
+`CrashReportingPort` **as a required constructor parameter**. So the default scope is composed
+from it:
+
+```kotlin
+scope: AutoCloseableCoroutineScope = reportingScope(crashReporter)
+```
+
+The default is not a tolerated defect any more; it is the right answer, derived from a
+dependency the component is already required to hold. The compiler no longer needs to find these
+sites, because the rule does, and a rule can be given a positive test.
+
+The four components that hold **no** reporter — `CurrentUser`, `ProfileAwareCurrentUser`,
+`ProfileRepositoryImpl`, `AndroidPomodoroTaskListProvider` — have nothing to derive from, so
+their handlers are named at their Koin bindings. That is the case the compiler argument was
+actually for.
+
+## The test-safety consequences evaporated
+
+This record listed two accepted consequences of the global: `forkEvery = 1` made it safe across
+classes, and `@Execution(SAME_THREAD)` made it safe across methods within one. Both are gone,
+because a handler is a value — a test builds its own and nothing running beside it can capture
+its failures. `ForkEveryIsolationTest` keeps asserting `forkEvery = 1` for Koin's graph, which
+is still process-wide state, and its KDoc now says so. The `@Execution` pin is gone with the
+convention it was protecting.
+
+## The guard's remaining half
+
+`CrashReportingWiringTest` keeps the two *corpus* checks and lost the three text predicates,
+which are now the `NoUnreportedFailurePath` PSI rule. The split is deliberate: the rule asks
+"does this ViewModel report?", the corpus checks ask "is there still something for it to report
+into?" A rule over individual ViewModels passes happily when every one of them routes into a
+base class that silently does nothing. That is not a per-file property, so it is not a
+per-file gate.
+
+The scope-factory check was rewritten in the same pass, and **its first version could not
+fail**: it asserted the parameter was *a* `CoroutineExceptionHandler`, which passed just as
+happily against `= loggingBackgroundFailureHandler()` — a default, which is the exact
+process-wide policy this migration removed. It now asserts the *absence* of a default value,
+and that was proven by reintroducing one. This is the third time in this repository's recent
+history that a shape check passed for the wrong reason; the pattern is consistent enough to be
+worth naming as its own failure mode.
+
+## Amended 2026-10-05 — the guard needed a third rule, and the audit needed correcting
+
+Two more rules landed against this invariant over the following day, and the reason is worth
+recording because it is a limit on what the first two can do, not a new idea.
+
+`NoUnwiredReporterInBinding` was written because the class-level rule passed for two production
+bindings that shipped a no-op reporter. It asks whether the *binding* passes a reporter. It still
+cannot ask whether the scope on the adjacent line points at the **same** reporter — and comparing
+two `get()` calls for identity is a type-resolution question, which a detekt rule does not have.
+
+`NoDivergentScopeAndReporter` therefore does not compare. It removes the possibility: the scope is
+derived from the reporter in the constructor's default, so there is no second argument to
+correlate. What is left to check is whether that is still true, which is two findings — the
+constructor's default, and a binding that passes both arguments anyway.
+
+**The second finding is not redundant, and that is the point.** `SettingsViewModel` had a correct
+constructor and a binding that replaced the derived scope with a graph-supplied one. A
+constructor-only check passes it forever. The rule reported it on its first run against the real
+tree.
+
+**The audit was wrong by a factor of two.** The site count recorded when this was filed said two
+and was four. The two extra ones — `SearchViewModel` (a derived *secondary* constructor that left
+the *primary* one requiring a scope) and `SettingsViewModel` above — are both shapes that look
+correct when you read the binding, which is what the audit had done. This is the same failure mode
+as the two above it: a check that covers the case you happened to look at is indistinguishable from
+one that covers the case you did not. The count is left in the change's tasks file rather than
+rewritten, because "do not add `SearchViewModel` to the consistent list" is the instruction the
+next person needs.
+
+## Links
+
+- `2026-10-05-positive-tests-for-every-detekt-rule.md` — why the guard is a rule and not a regex
+- `2026-10-05-no-direct-dispatchers-rule-was-a-no-op.md` — the same failure mode, recorded once already

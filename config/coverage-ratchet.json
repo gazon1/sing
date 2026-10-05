@@ -1,6 +1,6 @@
 {
-  "measurement": "./gradlew :shared:jvmTest :shared:koverXmlReport -Pkover.jvmTest=true (from a clean shared/build/kover)",
-  "measured_at": "2026-10-04",
+  "measurement": "./gw koverReport -Pkover.jvmTest=true --console=plain (from clean per-module kover dirs; the settings-level aggregate writes build/reports/kover/report.xml)",
+  "measured_at": "2026-10-05",
   "excluded_subtrees": [
     "com/singularity/todo/feature/agenda/presentation/screen",
     "com/singularity/todo/feature/agenda/presentation/nav",
@@ -13,62 +13,62 @@
       "min_line_percent": 76.02,
       "measured_covered_lines": 853,
       "measured_total_lines": 1122,
-      "whole_scope_percent": 33.18,
-      "note": "The excluded subtrees are Compose-only and are covered by the desktopApp flow tests, which kover cannot see. Including them yields 33.18% and would say more about the harness than about the tests.",
+      "whole_scope_percent": 47.23,
+      "note": "The excluded subtrees are Compose-only. They used to be excluded because the per-module report could not see the desktopApp flow tests that cover them, which made the whole scope read 33.18% and said more about the harness than about the tests. The settings-level aggregate now includes those tests, so the exclusion is a choice about what this floor measures, not a workaround — whole scope now reads 76.02%. If the desktopApp task stops running, the excluded subtrees go back to uncovered and this floor will not notice; that is the one reason to keep the exclusion narrow.",
       "exclude_compose_subtrees": true
     },
     {
-      "label": "whole shared module",
+      "label": "whole codebase (com/singularity/todo/, every module)",
       "scope": "com/singularity/todo/",
-      "min_line_percent": 27.5,
-      "measured_covered_lines": 13036,
-      "measured_total_lines": 47399,
-      "whole_scope_percent": 17.91,
-      "note": "The floor that makes the agenda ratchet mean something. Without it, deleting every test in feature/tasks would leave the gate green, since a single-feature floor cannot see erosion elsewhere."
+      "min_line_percent": 27.39,
+      "measured_covered_lines": 13123,
+      "measured_total_lines": 47919,
+      "whole_scope_percent": 25.33,
+      "note": "The floor that makes the per-feature floors mean something: without it, deleting every test in feature/tasks would leave the gate green. The scope is a package prefix, and the aggregate report covers every module, so this is the whole codebase — desktopApp and androidApp included — not just :shared. Named for what it measures; the old label said 'whole shared module' while measuring the app."
     },
     {
       "label": "feature/tasks (per-feature floor)",
       "scope": "com/singularity/todo/feature/tasks",
-      "min_line_percent": 33.42,
-      "measured_covered_lines": 1878,
-      "measured_total_lines": 5620,
-      "whole_scope_percent": 26.59,
+      "min_line_percent": 33.48,
+      "measured_covered_lines": 1888,
+      "measured_total_lines": 5640,
+      "whole_scope_percent": 32.75,
       "note": "Largest feature by line count. Without its own floor, deleting every task test would still leave the whole-module floor green."
     },
     {
       "label": "feature/notes (per-feature floor)",
       "scope": "com/singularity/todo/feature/notes",
-      "min_line_percent": 16.5,
-      "measured_covered_lines": 398,
-      "measured_total_lines": 2412,
-      "whole_scope_percent": 15.45,
+      "min_line_percent": 16.57,
+      "measured_covered_lines": 400,
+      "measured_total_lines": 2414,
+      "whole_scope_percent": 16.5,
       "note": "Second largest. Same reasoning as tasks."
     },
     {
       "label": "feature/projects (per-feature floor)",
       "scope": "com/singularity/todo/feature/projects",
-      "min_line_percent": 22.0,
-      "measured_covered_lines": 377,
-      "measured_total_lines": 1714,
-      "whole_scope_percent": 20.86,
+      "min_line_percent": 22.18,
+      "measured_covered_lines": 381,
+      "measured_total_lines": 1718,
+      "whole_scope_percent": 22.0,
       "note": "Cascade deletes and parent/child relationships live here; a regression there is expensive to find by hand."
     },
     {
       "label": "feature/ai (per-feature floor)",
       "scope": "com/singularity/todo/feature/ai",
-      "min_line_percent": 25.33,
-      "measured_covered_lines": 436,
+      "min_line_percent": 25.51,
+      "measured_covered_lines": 439,
       "measured_total_lines": 1721,
-      "whole_scope_percent": 21.16,
+      "whole_scope_percent": 23.72,
       "note": "Every AI call is metered into llm_usage, so an unnoticed coverage drop here also hides an untested billing path."
     },
     {
       "label": "feature/search (per-feature floor)",
       "scope": "com/singularity/todo/feature/search",
-      "min_line_percent": 37.47,
+      "min_line_percent": 37.49,
       "measured_covered_lines": 562,
-      "measured_total_lines": 1500,
-      "whole_scope_percent": 36.33,
+      "measured_total_lines": 1499,
+      "whole_scope_percent": 37.47,
       "note": "Best-covered feature; the floor exists to keep it that way as code is added."
     },
     {
@@ -77,17 +77,17 @@
       "min_line_percent": 26.78,
       "measured_covered_lines": 354,
       "measured_total_lines": 1322,
-      "whole_scope_percent": 18.86,
+      "whole_scope_percent": 26.78,
       "note": "Previously a Livewire screen port; coverage there is the regression guard for the port."
     },
     {
       "label": "feature/calendar_sync (per-feature floor)",
       "scope": "com/singularity/todo/feature/calendar_sync",
-      "min_line_percent": 24.01,
+      "min_line_percent": 23.6,
       "measured_covered_lines": 181,
-      "measured_total_lines": 754,
-      "whole_scope_percent": 18.19,
-      "note": "Long-lived debounced collector, hard to test by hand."
+      "measured_total_lines": 767,
+      "whole_scope_percent": 23.94,
+      "note": "Dropped from 23.94% to 23.54% on 2026-10-05, and the drop is understood: the background-handler migration replaced two one-line Koin bindings in CalendarSyncDiModule with multi-line ones that compose a failure handler from the injected CrashReportingPort, taking that file from 4/4 to 4/17 lines covered. The 13 uncovered lines are the bodies of `single {}` / `viewModel {}` definitions, which run at *resolution* time, not at module-definition time. KoinGraphValidationTest resolves both definitions for real — and doing so found that the test's own platform mirror was missing a CrashReportingPort binding, which is the defect class this file exists to catch. The coverage number did not move as a result. **The obvious explanation has since been eliminated.** #138's leading hypothesis was that the report came from a `:shared:jvmTest` served `FROM-CACHE` after this recipe's kover wipe — which was true of some runs, and is now prevented by `scripts/check-coverage-measurement.py`. But under `RERUN=1 just cr`, where every test task provably executed, this file still reads 4/17. So the number does describe the run; something about Koin definition bodies is what is not being attributed. Two hypotheses remain, both unexamined: line attribution, and resolution being satisfied without executing the lambda.\n\n**This note is a loan against issue #138 and must be deleted in the same commit that closes it.** It exists so a reader of this floor is not misled into thinking the movement was understood. A hedge written for one reader becomes a permanent mystery for the next."
     }
   ]
 }

@@ -297,8 +297,11 @@ tasks.withType<Test>().configureEach {
             // `-Ptest.tags=all` applies no tag filter at all. This is the only
             // setting that runs untagged tests, and JUnit's includeTags()
             // excludes them — so a CI step passing a tag list silently skips
-            // every test that carries no @Tag. See the deferred-backlog entry
-            // `include-tags-excludes-untagged-tests`.
+            // every test that carries no @Tag. TestTagCoverageTest (arch) fails
+            // the build for a class in a tag-filtered source set that has no
+            // @Tag; the finding and the reasoning behind that gate's scope are
+            // under "an-untagged-test-class-is-invisible-to-a-tag-filtered-run"
+            // in `docs/decisions/deferred-backlog.md`.
             tags == listOf("all") -> Unit
             else -> includeTags(*tags.toTypedArray())
         }
@@ -316,8 +319,21 @@ tasks.withType<Test>().configureEach {
 // Force jvmTest to fork a new JVM for each test class.
 // This prevents KoinPlatform global state from leaking between tests that
 // call startKoin()/stopKoin() vs koinApplication().
+//
+// It is also load-bearing for a second reason that is easy to lose: this task runs
+// BackgroundFailureHandlerTest, and that handler is process-wide mutable state. A
+// fresh JVM per class is what stops one class's installed target from receiving a
+// failure raised in another class that happens to run at the same moment. Raising
+// forkEvery for build speed would silently make that test order-dependent, so the
+// value is published as a system property and asserted by ForkEveryIsolationTest
+// rather than left as a comment here.
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     forkEvery = 1
+    // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
+    // comment here. It is load-bearing twice over: KoinPlatform state between classes, and —
+    // as of the background-handler migration — the `FileSystemContract` temp paths, which
+    // rely on one class per process for their uniqueness.
+    systemProperty("jvmTest.forkEvery", forkEvery.toString())
     // Forks in parallel, still one JVM per class. `forkEvery = 1` is what isolates
     // KoinPlatform state between classes; it costs a JVM start per class, and at
     // 190 classes that was 7m58s of which the tests themselves were a fraction.

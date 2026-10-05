@@ -2,6 +2,7 @@ package com.singularity.todo.feature.sync.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toAppError
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.sync.SyncScope
@@ -69,15 +70,18 @@ data class SyncState(
  * than `true`: a frame that claims auto-sync is on before anything has said so is a
  * frame that shows the user the wrong switch.
  *
- * @param scope CoroutineScope — injected by Koin (view model scope), NOT viewModelScope.
- *              See [singularity-todo-coroutine-scopes] skill.
+ * @param scope CoroutineScope — one built from [crashReporter] unless a test supplies its own.
+ *              See [singularity-todo-coroutine-scopes] skill. It is **not** injected from the
+ *              graph: a scope supplied here alongside [crashReporter] is chosen independently,
+ *              so nothing would guarantee the two report to the same place. That is what
+ *              `NoDivergentScopeAndReporter` reports.
  */
 class SyncViewModel(
     private val repository: SyncRepository,
     private val stateRepository: SyncStateRepository,
     scopeProvider: SyncScopeProvider,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope,
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
         initialState = SyncState(status = repository.status.value),
         crashReporter = crashReporter,

@@ -1,0 +1,123 @@
+# =============================================================================
+# Kiwi TCMS — локальный стенд для систематизации тест-кейсов
+# =============================================================================
+# Kiwi — Django-приложение (TCMS). Оно НЕ хранит код и НЕ запускает тесты.
+# Оно хранит «что мы собираемся проверить»: product → plan → test case, и
+# результаты прогонов (TestRun). Задача стенда — дать одну картину:
+# что покрыто, что нет, что падает.
+#
+# Запуск:  ./infra/kiwi/up.sh          (или: docker compose -f ... up -d)
+# Стенд:   http://127.0.0.1:8000  (логин kiwi / kiwi)
+# Стоп:    ./infra/kiwi/down.sh
+# Снос с данными: ./infra/kiwi/down.sh --purge
+#
+# Kiwi 16.x официально поддерживает PostgreSQL; MySQL/MariaDB тоже работают,
+# но PG проще поднимать без systemd-зависимостей. Драйвер psycopg2 уже есть
+# в образе (пакет libpq в слое dnf).
+#
+# KIWI_DB_ENGINE передаётся явно: дефолт в образе — mysql, и без этой
+# переменной Compose поднимет Kiwi против Postgres и упадёт на миграциях.
+# =============================================================================
+
+name: singularity-kiwi
+
+services:
+    db:
+        image: kiwitcms/postgres:17
+        container_name: singularity-kiwi-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${KIWI_DB_NAME:-kiwi}
+            POSTGRES_USER: ${KIWI_DB_USER:-kiwi}
+            POSTGRES_PASSWORD: ${KIWI_DB_PASSWORD:-kiwi}
+        volumes:
+            - kiwi-db:/var/lib/postgresql/data
+            # ОБЯЗАТЕЛЬНО. Образ kiwitcms/postgres несёт единственный
+            # init-скрипт 00_enable_ssl.sh, который начинается с
+            # `set -eu` и сразу падает на `[ -z "$POSTGRES_SSL_CERT" ]`
+            # (unbound variable). Скрипт запускается только при первой
+            # инициализации кластера, то есть ровно на пустом volume — и
+            # entrypoint завершается с кодом 1, контейнер умирает, и
+            # `docker compose up` падает с «dependency failed to start».
+            #
+            # Поведение это воспроизводится на чистом стенде и на
+            # минимальном compose из трёх строк, то есть дело не в Kiwi.
+            #
+            # SSL для САМОГО Postgres здесь не нужен: трафик Kiwi→Postgres
+            # идёт по внутренней docker-сети, наружу публикуется только
+            # Kiwi на 8443. Поэтому скрипт отключается монтированием
+            # пустого каталога поверх /docker-entrypoint-initdb.d —
+            # это штатный способ отключить init-скрипты postgres-образа.
+            # Альтернатива (передать сертификаты в POSTGRES_SSL_CERT/KEY)
+            # усложнила бы стенд ради шифрования внутри доверенной сети.
+            - ./postgres-initdb.d:/docker-entrypoint-initdb.d:ro
+        healthcheck:
+            # Kiwi стартует раньше, чем Postgres успевает принять соединения;
+            # без healthcheck миграции падают при первом же `up` на пустой машине.
+            #
+            # Бюджет ожидания подобран по факту, а не по умолчанию: на ПУСТОМ
+            # volume kiwitcms/postgres выполняет initdb (bootstrap, создание
+            # кластера, старт) плюс свои init-скрипты, и первый успешный
+            # pg_isready приходит через ~2 минуты. Стандартные 10s start_period
+            # + 20 ретраев по 5s (=100s) не дожидаются, и `docker compose up`
+            # падает с «dependency failed to start: container … is unhealthy» —
+            # при том, что через минуту Postgres здоров. С запасом до 5 минут
+            # холодный старт проходит, а прогретый старт не меняется.
+            test: ["CMD-SHELL", "pg_isready -U ${KIWI_DB_USER:-kiwi} -d ${KIWI_DB_NAME:-kiwi}"]
+            interval: 5s
+            timeout: 5s
+            retries: 40
+            start_period: 120s
+
+    kiwi:
+        image: kiwitcms/kiwi:latest
+        container_name: singularity-kiwi-web
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        ports:
+            # 8080 внутри образа — это server-блок nginx, который делает
+            # `return 301 https://$host$request_uri;` и НЕ отдаёт приложение.
+            # Публикуем 8443 (тот самый block, где живёт uwsgi) наружу.
+            - "${KIWI_HTTPS_PORT:-8443}:8443"
+        environment:
+            KIWI_DB_ENGINE: django.db.backends.postgresql
+            KIWI_DB_HOST: db
+            KIWI_DB_PORT: 5432
+            KIWI_DB_NAME: ${KIWI_DB_NAME:-kiwi}
+            KIWI_DB_USER: ${KIWI_DB_USER:-kiwi}
+            KIWI_DB_PASSWORD: ${KIWI_DB_PASSWORD:-kiwi}
+            # Локальный стенд: открытая регистрация нужна, чтобы завести
+            # второго пользователя для разграничения ролей без вмешательства
+            # в Django shell. В любой внешней среде это выключается.
+            KIWI_REGISTRATION_ENABLED: ${KIWI_REGISTRATION_ENABLED:-True}
+            KIWI_TIME_ZONE: ${KIWI_TIME_ZONE:-Europe/Moscow}
+        volumes:
+            - kiwi-uploads:/Kiwi/uploads
+            # Отключает SECURE_SSL_REDIRECT, который в образе включён всегда
+            # (settings/common.py: «runserver» not in sys.argv) и на http-стенде
+            # превращает /xml-rpc/ в 301. Подробности — в local_settings.py.
+            - ./local_settings.py:/venv/lib/python3.12/site-packages/tcms_settings_dir/local_settings.py:ro
+            # Собственный самоподписанный сертификат. Встроенный в образ
+            # выдан хосту сборки (CN=buildkitsandbox, без IP в SAN), поэтому
+            # ни браузер, ни urllib его не примет на 127.0.0.1.
+            # Генерируется scripts: ./infra/kiwi/gen-tls.sh
+            - ./tls/localhost.crt:/Kiwi/ssl/localhost.crt:ro
+            - ./tls/localhost.key:/Kiwi/ssl/localhost.key:ro
+            # Секреты Kiwi НЕ монтируются в /run/secrets: tcms.utils.secrets
+            # (get_secret) умеет только одно — взять значение из переменной
+            # окружения, и если оно начинается с '/', прочитать файл по этому
+            # пути. Каталог /run/secrets целиком он не перебирает, поэтому
+            # монтирование туда файла молча ничего не делало.
+            #
+            # Рабочая схема (для внешнего стенда, не для локального): положить
+            # секрет в ./secrets.env и передать путь через переменную, например
+            #   KIWI_SECRET_KEY=./secrets.env docker compose up -d
+            # На локальном стенде это не нужно: Kiwi работает с дефолтным
+            # ключом Django из образа.
+            - ${KIWI_SECRETS_FILE:-./secrets.env}:/run/secrets/kiwi.env:ro
+
+volumes:
+    kiwi-db:
+    kiwi-uploads:

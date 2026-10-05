@@ -58,6 +58,7 @@ sealed class RecurrenceSpec {
      * @param amount The multiplier for [unit] (e.g. 2 means "every 2 [unit]").
      * @param unit   The time unit. Must be a date-based unit (DAY, WEEK, MONTH, YEAR).
      */
+    @Serializable
     data class Interval(override val base: RecurrenceBase, val amount: Int, val unit: DateTimeUnit.DateBased) :
         RecurrenceSpec()
 
@@ -68,6 +69,7 @@ sealed class RecurrenceSpec {
      * @param weekdays ISO-8601 weekday numbers: 1=Monday … 7=Sunday.
      *                  At least one must be provided.
      */
+    @Serializable
     data class Weekly(override val base: RecurrenceBase, val weekdays: Set<Int>) : RecurrenceSpec() {
         init {
             require(weekdays.isNotEmpty()) { "weekdays must not be empty" }
@@ -82,6 +84,7 @@ sealed class RecurrenceSpec {
      * @param dayOfMonth Day of month (1..31). If the month has fewer days,
      *                   the last day of that month is used.
      */
+    @Serializable
     data class Monthly(override val base: RecurrenceBase, val dayOfMonth: Int) : RecurrenceSpec() {
         init {
             require(dayOfMonth in 1..31) { "dayOfMonth must be in 1..31" }
@@ -95,6 +98,7 @@ sealed class RecurrenceSpec {
      * @param month Month of year (1..12).
      * @param day  Day of month (1..31).
      */
+    @Serializable
     data class Yearly(override val base: RecurrenceBase, val month: Int, val day: Int) : RecurrenceSpec() {
         init {
             require(month in 1..12) { "month must be in 1..12" }

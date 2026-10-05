@@ -3,7 +3,7 @@
 package com.singularity.todo.core.observability
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.BackgroundFailureHandler
+import com.singularity.todo.core.coroutines.backgroundFailureHandler
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
@@ -21,10 +21,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD
 import java.io.IOException
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -230,19 +227,21 @@ class AppErrorCompatibilityTest {
 }
 
 /**
- * The scope factory is the bottom of the error funnel, so the composition of the scope it
- * hands out is the load-bearing invariant here: without a [CoroutineExceptionHandler] a
- * throwing `launch` escalates to the platform's uncaught-exception handler and, on Android,
- * kills the process. That escalation is invisible in a test run, so it is asserted on the
- * context instead.
+ * The scope factory is the bottom of the error funnel, so what a scope is composed *with* is
+ * the load-bearing invariant here: without a [CoroutineExceptionHandler] a throwing `launch`
+ * escalates to the platform's uncaught-exception handler and, on Android, kills the process.
+ * That escalation is invisible in a test run, so it is asserted on the context instead.
  *
- * Methods run sequentially ([SAME_THREAD]) because [BackgroundFailureHandler] is process-wide
- * state and these tests install into it. Class-level concurrency is safe for a different
- * reason: `shared`'s test task sets `forkEvery = 1`, so no other class can be running in this
- * JVM to receive a failure this class's target captures.
+ * ## This class no longer needs to be isolated, and that is the point
+ *
+ * It used to install into a process-wide `BackgroundFailureHandler` and therefore required
+ * `@Execution(SAME_THREAD)`, plus `forkEvery = 1` so no other class could receive a failure
+ * its installed target captured. Two preconditions for one test's correctness, neither
+ * visible at the call site. The handler is a value now, so a test builds its own and cannot
+ * be perturbed by anything running beside it. `ForkEveryIsolationTest` keeps asserting the
+ * `forkEvery` setting for its own sake, but nothing about the failure handler depends on it.
  */
 @Tag("fast")
-@Execution(SAME_THREAD)
 class BackgroundFailureHandlerTest {
 
     private companion object {
@@ -250,17 +249,13 @@ class BackgroundFailureHandlerTest {
         const val TIMEOUT_MS = 5_000L
     }
 
-    @AfterTest
-    fun restoreDefaultTarget() {
-        BackgroundFailureHandler.install(null)
-    }
-
     @Test
-    fun `every background scope carries the failure handler`() {
-        val scope = createBackgroundScope()
+    fun `a scope built from a handler carries that handler`() {
+        val handler = backgroundFailureHandler { }
+        val scope = createBackgroundScope(handler)
 
         assertSame(
-            BackgroundFailureHandler,
+            handler,
             scope.coroutineContext[CoroutineExceptionHandler],
             "A scope without a handler escalates a failed launch to the platform's " +
                 "uncaught-exception handler, which kills an Android process",
@@ -270,10 +265,7 @@ class BackgroundFailureHandlerTest {
     @Test
     fun `a failed launch is reported and the scope survives it`() = runTest {
         val seen = CompletableDeferred<Throwable>()
-        // Created BEFORE install on purpose: the target is read per failure, so a scope that
-        // predates the install must still report to it.
-        val scope = createBackgroundScope()
-        BackgroundFailureHandler.install { seen.complete(it) }
+        val scope = createBackgroundScope(backgroundFailureHandler { seen.complete(it) })
 
         // Real threads, so the waits below are real too. Inside withContext(Dispatchers.Default)
         // the test scheduler is out of the way, which means withTimeout is a genuine hang guard
@@ -289,35 +281,50 @@ class BackgroundFailureHandlerTest {
     }
 
     @Test
+    fun `two handlers are independent, so one failure cannot be captured by the other`() {
+        // The property the global could not have. Two components disagreeing about failures is
+        // the supported case; with a single process-wide target, a failure raised in one could
+        // be reported to the other's handler depending purely on ordering.
+        val mine = mutableListOf<Throwable>()
+        val theirs = mutableListOf<Throwable>()
+
+        val myScope = createBackgroundScope(backgroundFailureHandler { mine += it })
+        val theirScope = createBackgroundScope(backgroundFailureHandler { theirs += it })
+        val boom = IllegalStateException("mine")
+
+        myScope.coroutineContext[CoroutineExceptionHandler]!!
+            .handleException(EmptyCoroutineContext, boom)
+
+        assertEquals(1, mine.size, "The failure reached its own handler")
+        assertTrue(theirs.isEmpty(), "and nobody else's: ${theirs.map { it.message }}")
+    }
+
+    @Test
     fun `cancellation is never reported`() {
         val recorded = mutableListOf<Throwable>()
-        BackgroundFailureHandler.install { recorded += it }
+        val handler = backgroundFailureHandler { recorded += it }
 
-        BackgroundFailureHandler.handleException(EmptyCoroutineContext, CancellationException("scope closed"))
+        handler.handleException(EmptyCoroutineContext, CancellationException("scope closed"))
 
         assertTrue(recorded.isEmpty(), "A cancelled coroutine is not a defect: $recorded")
     }
 
     @Test
-    fun `an uninstalled target drops the failure instead of rethrowing`() {
-        BackgroundFailureHandler.install(null)
-
+    fun `a handled failure is dropped rather than rethrown`() {
         // No assertion beyond "this returns": the handler runs on a coroutine that is already
         // failing, so escaping here would escalate a background defect into process death.
-        BackgroundFailureHandler.handleException(EmptyCoroutineContext, IllegalStateException("boom"))
+        backgroundFailureHandler { }
+            .handleException(EmptyCoroutineContext, IllegalStateException("boom"))
     }
 
     @Test
-    fun `install is reported through the crash port under one machine-shaped key`() {
+    fun `a failure is reported through the crash port under one machine-shaped key`() {
         val port = RecordingCrashReporter()
-        installBackgroundCrashReporting(port)
+        val handler = crashReportingFailureHandler(port)
         val boom = IllegalStateException("john@example.com bought milk")
 
-        BackgroundFailureHandler.handleException(EmptyCoroutineContext, boom)
+        handler.handleException(EmptyCoroutineContext, boom)
 
-        // `any`/`all` rather than exact counts: this target is process-wide for the duration
-        // of the test, and a stray background failure elsewhere would be a false negative,
-        // not a real defect.
         assertTrue(port.reports.any { it.first === boom }, "The original throwable, not a copy")
         assertTrue(
             port.reports.all { it.second == BACKGROUND_COROUTINE_FAILURE_ISSUE_KEY },
@@ -327,5 +334,20 @@ class BackgroundFailureHandlerTest {
             port.reports.none { it.second.contains("@") },
             "The key leaves the device and must not embed user content",
         )
+    }
+
+    @Test
+    fun `a viewmodel scope reports to that viewmodel's own reporter`() {
+        // The migration's whole point, asserted: a ViewModel's unhandled background failure
+        // goes to the port it was constructed with, with nothing installed anywhere.
+        val port = RecordingCrashReporter()
+        val scope = reportingScope(port)
+        val boom = IllegalStateException("collector died")
+
+        scope.coroutineContext[CoroutineExceptionHandler]!!.handleException(EmptyCoroutineContext, boom)
+
+        assertEquals(1, port.reports.size)
+        assertSame(boom, port.reports.single().first)
+        assertEquals(BACKGROUND_COROUTINE_FAILURE_ISSUE_KEY, port.reports.single().second)
     }
 }

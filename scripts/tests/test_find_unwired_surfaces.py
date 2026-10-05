@@ -207,3 +207,82 @@ class TestDetectorTable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStartupUnwiredDetector(unittest.TestCase):
+    """The startup-entry-point check, in both directions.
+
+    This one was written, declared working, and did not fire: a function's own
+    declaration put its name into the corpus, so subtracting the name also deleted
+    every call site. A gate that cannot fail is worse than no gate, so each case here
+    asserts that the detector *reports*, not merely that it is registered.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, paths_to_content):
+        code = {}
+        for name, content in paths_to_content.items():
+            p = self.tmp / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+            code[p] = fus.strip_comments(content)
+        pre = fus._precompute_startup(code)
+        return fus._check_startup_unwired(code, "\n".join(code.values()), pre)
+
+    def test_a_called_startup_function_is_not_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/A.kt": "fun installThing() = Unit\n",
+            "androidApp/src/main/B.kt": "fun app() { installThing() }\n",
+        })
+        self.assertEqual([], findings)
+
+    def test_an_uncalled_startup_function_is_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/A.kt": "fun installThing() = Unit\n",
+        })
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn("installThing", findings[0][1])
+
+    def test_the_declaration_alone_never_counts_as_a_call(self):
+        # The exact defect: a name in the corpus from its own declaration.
+        findings = self._run({
+            "shared/src/commonMain/A.kt": "fun installThing() = Unit\n",
+            "shared/src/commonMain/B.kt": "// installThing is documented here\n",
+        })
+        self.assertEqual(1, len(findings), findings)
+
+    def test_an_import_alone_never_counts_as_a_call(self):
+        # A half-reverted wiring: the import survives, the call does not.
+        findings = self._run({
+            "shared/src/commonMain/A.kt": "fun installThing() = Unit\n",
+            "androidApp/src/main/B.kt": "import com.x.installThing\n",
+        })
+        self.assertEqual(1, len(findings), findings)
+
+    def test_a_test_only_call_is_reported(self):
+        # Wired by its own test and nothing else — the `debugInfo` shape.
+        findings = self._run({
+            "shared/src/commonMain/A.kt": "fun installThing() = Unit\n",
+            "shared/src/commonTest/ATest.kt": "fun t() { installThing() }\n",
+        })
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn("only from tests", findings[0][1])
+
+    def test_a_composable_is_not_a_startup_entry_point(self):
+        findings = self._run({
+            "shared/src/commonMain/A.kt": (
+                "@Composable\nfun StartDateRow() = Unit\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_declared_startup_point_with_no_call_is_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/A.kt": "fun flushLogs() = Unit\n",
+        })
+        self.assertEqual(1, len(findings), findings)

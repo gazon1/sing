@@ -87,6 +87,13 @@ Thumbs.db
 # KSP generated
 **/ksp/
 
+# Local Kiwi TCMS stand (infra/kiwi)
+# TLS-ключ и самоподписанный сертификат — per-machine runtime state, как и
+# volumes Postgres: коммитить их нельзя (секрет в репозитории), а генерируются
+# они одной командой ./infra/kiwi/gen-tls.sh, которую вызывает up.sh.
+infra/kiwi/tls/
+infra/kiwi/secrets.env
+
 # Build reports
 
 # Gradle outputs

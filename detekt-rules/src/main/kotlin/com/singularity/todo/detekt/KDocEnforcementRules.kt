@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 
+/** Requires class-level KDoc on every ViewModel, describing what the state means rather than restating the name. */
 internal class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
@@ -52,6 +53,7 @@ internal class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null
     }
 }
 
+/** Requires class-level KDoc on every repository interface, so the contract is written down where it is depended on. */
 internal class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)

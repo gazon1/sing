@@ -10,6 +10,7 @@ import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsImporter
@@ -53,7 +54,7 @@ class BackupViewModel(
     private val settingsImporter: SettingsImporter,
     private val fileSourceFactory: FileSourceFactory,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<BackupUiState, BackupIntent, BackupUiEvent>(
         initialState = BackupUiState(),
         crashReporter = crashReporter,

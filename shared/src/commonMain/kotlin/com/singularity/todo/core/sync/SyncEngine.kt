@@ -203,11 +203,15 @@ internal class SyncEngine(
      * Runs one push + pull cycle.
      */
     internal suspend fun syncOnce(): SyncOutcome {
-        val active = phases.localStorage("read the active sync scope") { scopeProvider.current.first() }
+        val active = phases.localStorage("sync.scope.read", "read the active sync scope") {
+            scopeProvider.current.first()
+        }
             .getOrElse { return phases.cycleFailed(it.toAppError()) }
             ?: return SyncOutcome.Skipped("No active sync scope (signed out, or no profile)")
 
-        val cursor = phases.localStorage("read the download cursor") { stateRepository.get(active).lastLsn }
+        val cursor = phases.localStorage("sync.cursor.read", "read the download cursor") {
+            stateRepository.get(active).lastLsn
+        }
             .getOrElse { return phases.cycleFailed(it.toAppError()) }
 
         val push = push()
@@ -247,7 +251,9 @@ internal class SyncEngine(
         // Read before the request, and inside a guard: this used to be the one line
         // between setting the status and entering the try, so a database that could not
         // be read left the engine advertising a push that was never attempted.
-        val pending = phases.localStorage("read the pending changes") { outboxDao.getPending(now) }
+        val pending = phases.localStorage("sync.outbox.read", "read the pending changes") {
+            outboxDao.getPending(now)
+        }
             .getOrElse { return Result.failure(it.toAppError()) }
         if (pending.isEmpty()) return Result.success(null)
 
@@ -259,7 +265,9 @@ internal class SyncEngine(
         // value for the profile on the wire and for settling the shadow. Reading
         // it again afterwards would let a profile switch in between put this
         // cycle's patches under one profile and their shadow under another.
-        val active = phases.localStorage("read the active sync scope") { scopeProvider.current.first() }
+        val active = phases.localStorage("sync.scope.read", "read the active sync scope") {
+            scopeProvider.current.first()
+        }
             .getOrElse { return Result.failure(it.toAppError()) }
 
         return Result.success(

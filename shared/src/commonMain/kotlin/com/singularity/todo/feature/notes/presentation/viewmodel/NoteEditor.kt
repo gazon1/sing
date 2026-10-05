@@ -8,6 +8,9 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.feature.notes.EditorState.Editing
@@ -76,11 +79,16 @@ internal class NoteEditor(
     private val applyProposal: ApplyProposalItemUseCase,
     private val log: Logger,
     private val currentUser: ProfileAwareCurrentUser,
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    // Derived from crashReporter rather than a bare factory call: the autosave lambda below
+    // launches on this scope, and a launch whose body throws with no handler escalates to the
+    // platform's uncaught-exception handler — on Android, process death.
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
     // Constructor PARAMETER (not body property) so the autosave lambda can capture it.
     // The default is evaluated before the supercall; the lambda body is NOT executed then.
     autosaveCtx: AutosaveContext = AutosaveContext(repo, currentUser, log, scope),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
+        crashReporter = crashReporter,
         initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
         // The lambda body is stored (not executed) during default parameter evaluation.
         // It captures autosaveCtx from the constructor parameter scope — no 'this' access.
@@ -241,7 +249,7 @@ internal class NoteEditor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Either.Left(AppError.Persistence(e.toMessage()))
+        Either.Left(AppError.Persistence(e.toMessage(), code = "notes.editor.persist_failed"))
     }
 
     override fun onAutosaveError(e: Throwable) {

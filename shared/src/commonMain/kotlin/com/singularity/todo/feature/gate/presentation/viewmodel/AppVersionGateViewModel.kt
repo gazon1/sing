@@ -6,6 +6,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.version.AppVersion
@@ -44,7 +45,7 @@ class AppVersionGateViewModel(
     private val appVersion: AppVersion,
     private val playStoreUrl: String,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
         initialState = AppVersionGateState.Checking,
         crashReporter = crashReporter,
@@ -60,26 +61,60 @@ class AppVersionGateViewModel(
      * the default snapshot, so a broken config server cannot leave every user stuck behind a
      * version gate they cannot pass. A hard failure here is the worst possible place to be
      * strict.
+     *
+     * The bypass is also breadcrumbed, because failing open is otherwise invisible: the end
+     * state is `Allowed(defaults)`, which is byte-for-byte what a healthy read produces. A
+     * config outage would read as a healthy dashboard for as long as it lasted. The report
+     * says the read failed; only the breadcrumb says the gate was let through anyway.
+     *
+     * The breadcrumb goes through `onBeforeReport`, not `onError`, and the distinction is the
+     * whole point. The backend attaches the breadcrumb buffer to a report as it stands when the
+     * report is made, so a record written from `onError` is attached to the *next* event — and
+     * during a config outage there is no next event, which is exactly the silence the record
+     * exists to prevent.
      */
     private fun check() {
-        catchTo("Failed to read remote config", { evaluate(RemoteConfigSnapshot.defaults()) }) {
+        catchTo(
+            errorLabel = "Failed to read remote config",
+            onError = { onReadFailed() },
+            onBeforeReport = { recordBypass() },
+        ) {
             runCatchingResult { evaluate(remoteConfigPort.snapshot()) }
         }
+    }
+
+    /**
+     * Admits on the default snapshot, then does exactly that.
+     *
+     * The breadcrumb is already recorded by the time this runs: [check] passes it to
+     * `onBeforeReport`, so the record rides on the report rather than trailing it. This
+     * function is only the *decision* to continue, which is the part that has no ordering
+     * requirement.
+     */
+    private fun onReadFailed() {
+        evaluate(RemoteConfigSnapshot.defaults())
+    }
+
+    /** The bypass itself. Kept separate so every failure path records it identically. */
+    private fun recordBypass() {
+        crashReporter.addBreadcrumb("Version gate bypassed — remote config unreadable, admitted on defaults")
     }
 
     override fun onIntent(intent: AppVersionGateIntent) {
         when (intent) {
             is AppVersionGateIntent.CheckAgain -> {
                 setState(AppVersionGateState.Checking)
-                catchTo("Failed to refresh remote config", { evaluate(RemoteConfigSnapshot.defaults()) }) {
-                    runCatchingResult {
-                        val snapshot = remoteConfigPort.refresh()
-                            // A returned failure is not a throw, so catchTo never sees it.
-                            // It still has to reach the reporter.
-                            .onFailure { crashReporter.report(it, REFRESH_FAILED) }
-                            .getOrElse { RemoteConfigSnapshot.defaults() }
-                        evaluate(snapshot)
-                    }
+                // A *returned* failure is not a throw, so it never reaches the funnel's error
+                // arm on its own. `mapCatching` turns it into one, which is what puts it on
+                // the same path as a thrown read — same grouping key, same ordering, one
+                // place where a bypass can be recorded. It was previously reported and
+                // breadcrumbmed by hand, which is exactly how the two drifted apart.
+                catchTo(
+                    errorLabel = REFRESH_FAILED,
+                    onError = { onReadFailed() },
+                    onBeforeReport = { recordBypass() },
+                ) {
+                    remoteConfigPort.refresh().mapCatching { evaluate(it) }
                 }
             }
         }

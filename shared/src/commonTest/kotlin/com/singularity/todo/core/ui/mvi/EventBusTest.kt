@@ -4,6 +4,7 @@ package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.EventBus
 import com.singularity.todo.core.ui.MviEvent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -44,5 +45,105 @@ class EventBusTest {
     fun `EventBus tryEmit returns true when buffer has capacity`() = runTest {
         val bus = EventBus<TestEvent>(capacity = 1)
         assertTrue(bus.tryEmit(TestEvent.Signal))
+    }
+}
+
+/**
+ * The closed-bus case is a lifecycle race: work on the ViewModel scope can still be in
+ * flight when `MviViewModel.onCleared()` closes the bus. Before this was absorbed, the
+ * resulting `ClosedSendChannelException` escalated to an uncaught exception and then, once
+ * the background failure handler existed, to a non-fatal report per occurrence.
+ */
+@Tag("fast")
+class EventBusAfterCloseTest {
+
+    @Test
+    fun `emitting after close is discarded rather than thrown`() = runTest {
+        val bus = EventBus<TestEvent>()
+        bus.close()
+
+        bus.emit(TestEvent.Signal) // must not throw
+
+        assertEquals(1, bus.droppedAfterClose, "The discard is counted, not just swallowed")
+    }
+
+    @Test
+    fun `emitting after close does not disturb work that called it`() = runTest {
+        val bus = EventBus<TestEvent>()
+        val reached = mutableListOf<String>()
+        bus.close()
+
+        val job = launch {
+            bus.emit(TestEvent.Signal)
+            reached += "after emit"
+        }
+        job.join()
+
+        assertEquals(listOf("after emit"), reached, "The emitting coroutine ran to completion")
+    }
+
+    @Test
+    fun `a live bus is unaffected and drops nothing`() = runTest {
+        val bus = EventBus<TestEvent>()
+        val received = mutableListOf<TestEvent>()
+        val collector = launch { bus.flow.collect { received += it } }
+
+        bus.emit(TestEvent.Text("hello"))
+        advanceUntilIdle()
+        collector.cancel()
+
+        assertEquals<List<TestEvent>>(listOf(TestEvent.Text("hello")), received)
+        assertEquals(0, bus.droppedAfterClose, "Nothing was discarded while the bus was live")
+    }
+
+    @Test
+    fun `a full buffer still applies backpressure rather than dropping`() = runTest {
+        // The fix absorbs the *closed* case only. A full buffer must keep suspending, or
+        // one-shot events would be silently lost under load — the opposite trade.
+        val bus = EventBus<TestEvent>(capacity = 1)
+        var sent = 0
+        val sender = launch {
+            repeat(3) {
+                bus.emit(TestEvent.Signal)
+                sent++
+            }
+        }
+
+        advanceUntilIdle()
+
+        assertTrue(sent < 3, "The third send should still be suspended, sent=$sent of 3")
+        assertEquals(0, bus.droppedAfterClose, "Backpressure is not a discard")
+        sender.cancel()
+    }
+
+    @Test
+    fun `cancelling the emitter propagates instead of being counted as a drop`() = runTest {
+        // The totality fix has a boundary. Absorbing ClosedSendChannelException must not
+        // also absorb the *emitter's own* CancellationException: a coroutine that has been
+        // cancelled and keeps running is a structured-concurrency bug, and it would hide
+        // behind a counter that says "1 dropped" — a number that reads like a lifecycle
+        // race when it is actually a cancellation that failed to propagate.
+        val bus = EventBus<TestEvent>()
+        val emitted = mutableListOf<String>()
+        var propagated: CancellationException? = null
+
+        val job = launch {
+            bus.emit(TestEvent.Signal)
+            emitted += "completed" // must NOT run: the coroutine was cancelled
+        }
+        job.cancel()
+        job.join()
+
+        assertEquals(
+            emptyList(),
+            emitted,
+            "A cancelled emitter must not run past the cancellation boundary",
+        )
+        assertEquals(
+            0,
+            bus.droppedAfterClose,
+            "Cancellation is not a closed-bus discard and must not be counted as one",
+        )
+        assertTrue(job.isCancelled, "The job stayed cancelled, propagated=$propagated")
     }
 }

@@ -109,6 +109,26 @@ object TestTags {
     const val PRIORITY_OPTION_NONE = "priority_option_none"
     const val PRIORITY_OPTION_URGENT = "priority_option_urgent"
 
+    /**
+     * Frequency options in the recurrence picker — one per option the sheet
+     * renders.
+     *
+     * The recurrence sheet's options are `selectable` rows showing a bare
+     * label ("Daily", "Weekly", …) and, unlike the priority sheet, carried no
+     * tag at all. That left any test of scenario `TASK-REC-01` selecting on
+     * translated copy, which breaks in every locale but the one it was written
+     * in — the same reason the priority options are keyed on the enum. Tags are
+     * added together with the test that consumes them, never as ballast.
+     */
+    const val RECURRENCE_OPTION_DAILY = "recurrence_option_daily"
+    const val RECURRENCE_OPTION_WEEKLY = "recurrence_option_weekly"
+    const val RECURRENCE_OPTION_MONTHLY = "recurrence_option_monthly"
+    const val RECURRENCE_OPTION_YEARLY = "recurrence_option_yearly"
+    const val RECURRENCE_OPTION_SPECIFIC_WEEKDAYS = "recurrence_option_specific_weekdays"
+    const val RECURRENCE_OPTION_DAY_OF_MONTH = "recurrence_option_day_of_month"
+    const val RECURRENCE_OPTION_YEARLY_ON_DATE = "recurrence_option_yearly_on_date"
+    const val RECURRENCE_OPTION_NONE = "recurrence_option_none"
+
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"

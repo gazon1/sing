@@ -5,7 +5,7 @@ import java.awt.Color as AwtColor
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.getOrNull
 import java.awt.BasicStroke
@@ -37,13 +37,42 @@ fun DesktopComposeUiTest.captureAnnotated(
     nodesFile: java.io.File,
 ): Int {
     // Get the root semantics node (unmerged tree for accurate bounds).
-    val rootNode = onRoot(useUnmergedTree = true).fetchSemanticsNode()
+    //
+    // `onRoot()` *asserts* there is exactly one root, so it throws as soon as
+    // anything composes a second semantics root — which is precisely what
+    // `ModalBottomSheet` and other overlays do on desktop. That made this
+    // function throw while capturing a failure, and the resulting exception
+    // replaced the real one: a test failing on a selector inside a sheet
+    // reported "expected exactly 1 node but found 2 nodes that satisfy
+    // (isRoot)" instead of the missing tag. Diagnostics must never mask the
+    // failure they exist to explain, so take the first root when several exist
+    // and record the ambiguity in the text output rather than throwing.
+    val roots = onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes()
+    val ambiguous = roots.size > 1
+    if (roots.isEmpty()) {
+        writeNodesFile(nodesFile, emptyList(), highlightTag)
+        return 0
+    }
+    val rootNode = roots.first()
 
-    val tagged = collectTaggedNodes(rootNode)
+    val tagged = collectTaggedNodes(rootNode).toMutableList()
+    if (ambiguous) {
+        // The remaining roots are the overlay that caused the ambiguity; without
+        // them the tree dump hides the very nodes a sheet-scoped failure is
+        // about. Append them as a flat, tagged-only list.
+        for (extra in roots.drop(1)) {
+            tagged += collectTaggedNodes(extra)
+        }
+    }
     val annotated = tagged.size
 
     // Always write the text fallback.
-    writeNodesFile(nodesFile, tagged, highlightTag)
+    writeNodesFile(
+        nodesFile,
+        tagged,
+        if (ambiguous) "$highlightTag [NOTE: ${roots.size} semantics roots; overlay roots appended]".trim()
+        else highlightTag,
+    )
 
     // Draw the annotated image.
     runCatching {
@@ -84,8 +113,11 @@ fun DesktopComposeUiTest.captureAnnotated(
  */
 @OptIn(ExperimentalTestApi::class)
 internal fun DesktopComposeUiTest.collectTaggedNodes(): List<Pair<SemanticsNode, String>> {
-    val rootNode = onRoot(useUnmergedTree = true).fetchSemanticsNode()
-    return collectTaggedNodes(rootNode)
+    // Same multi-root tolerance as captureAnnotated: overlays create additional
+    // semantics roots, and a single-root assumption here throws instead of
+    // reporting what is on screen.
+    val roots = onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes()
+    return roots.flatMap { collectTaggedNodes(it) }
 }
 
 private fun collectTaggedNodes(root: SemanticsNode): List<Pair<SemanticsNode, String>> {

@@ -16,6 +16,7 @@ mod android  '.just/android'
 mod desktop  '.just/desktop'
 mod tests    '.just/tests'
 mod scripts  '.just/scripts'
+mod kiwi     '.just/kiwi'
 
 set shell := ["bash", "-uc"]
 set unstable
@@ -63,6 +64,9 @@ alias gate   := tests::gate
 # ----- Lint shortcuts -----
 alias lint       := tests::lint
 alias detekt-fix := tests::detekt-fix
+# The name is the point: `honesty` reads as "is this gate lying to me?" at the moment
+# someone is about to believe a green one. Slow on purpose — see the recipe.
+alias honesty    := tests::gate-honesty
 
 # ----- Docs shortcuts -----
 alias docs-audit  := tests::docs-audit
@@ -81,6 +85,34 @@ alias cr       := tests::coverage-ratchet
 # ----- DB shortcuts -----
 alias db-a   := android::db-schema
 alias db-d   := desktop::db-schema
+
+# ----- Kiwi TCMS shortcuts -----
+# start/stop — фоновый режим: контейнеры живут между вызовами just.
+alias kiwi-start   := kiwi::start
+alias kiwi-stop    := kiwi::stop
+alias kiwi-wait    := kiwi::wait
+alias kiwi-status  := kiwi::status
+alias kiwi-logs    := kiwi::logs
+alias kiwi-up      := kiwi::up
+alias kiwi-down    := kiwi::stop
+alias kiwi-restart := kiwi::restart
+alias kiwi-purge   := kiwi::purge
+alias ksync        := kiwi::sync-plan
+alias kresults     := kiwi::sync-results
+alias kgaps        := kiwi::gaps
+alias kprune       := kiwi::prune
+alias kfloor       := kiwi::floor
+
+# ----- Spec-first traceability (scenarios → coverage/result matrices) -----
+# Coverage is committed and CI-checked; results are a per-commit CI artifact.
+# The long forms (`just kiwi::trace-coverage-check`) stay available; the check
+# variant is deliberately not aliased, so "did you check or just regenerate?"
+# is visible in the command rather than in the diff.
+alias trace-validate := kiwi::trace-validate
+alias trace-coverage := kiwi::trace-coverage
+alias trace-results  := kiwi::trace-results
+alias kiwi-seed      := kiwi::kiwi-seed
+alias kiwi-publish   := kiwi::kiwi-publish
 
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench

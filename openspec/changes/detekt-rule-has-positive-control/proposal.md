@@ -1,6 +1,6 @@
 # detekt-rule-has-positive-control
 
-Issue: #135 · Backlog entry: `detekt-rules-test-was-never-run-by-any-gate`
+Issues: #135, #139 · Backlog entry: `detekt-rules-test-was-never-run-by-any-gate`
 
 ## What
 

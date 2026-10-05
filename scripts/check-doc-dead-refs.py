@@ -31,7 +31,11 @@ SKILLS_DIR = ROOT / ".agents" / "skills"
 DECISIONS_DIR = ROOT / "docs" / "decisions"
 SRC_DIRS = ["shared/src", "shared", "androidApp", "desktopApp", "mcp-server",
             "detekt-rules", "scripts", "docs", "config", "evals", ".agents", "gradle",
-            "Maestro", "openspec"]
+            "Maestro", "openspec",
+            # infra/ (локальные стенды, в т.ч. Kiwi TCMS). Без него любая
+            # ссылка на infra/kiwi/... из скилла или ADR считалась бы мёртвой
+            # — и либо базилась бы, либо вводила автора в заблуждение.
+            "infra"]
 
 # Top-level files that exist but are not under SRC_DIRS.
 TOP_LEVEL_FILES = [
@@ -124,6 +128,21 @@ RUNTIME_ARTIFACTS = {
 PATH_RE = re.compile(
     r"`([A-Za-z0-9_][A-Za-z0-9_./@-]*\.(?:kt|py|sh|md|yml|yaml|kts|json|toml|sql))`"
 )
+# A backticked dated ADR slug, cited without its `.md`: `2026-10-05-some-finding`.
+#
+# Only dated slugs, never bare kebab tokens. A bare token is not decidable:
+# `singularity-todo-cross-feature-navigation` and `koin-compose-navigation3` are
+# a skill and a Gradle artifact, both living in the same backticked-kebab form as
+# a backlog heading, and a pattern that flagged those would report dozens of live
+# references dead. A leading date is what makes an ADR slug distinguishable, and
+# a false positive here would train the reader to ignore the gate.
+#
+# Worth checking because the references are invisible otherwise: build scripts
+# were not scanned at all, and `shared/build.gradle.kts` cited a backlog entry
+# under a name that exists nowhere in the repo.
+ADR_SLUG_RE = re.compile(
+    r"`(\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*)`"
+)
 # Historical ADRs are allowed to reference files that no longer exist.
 HISTORY_MARKERS = (
     "superseded in part",
@@ -174,6 +193,15 @@ def build_index() -> tuple[set[str], dict[str, list[pathlib.Path]]]:
             continue
         rel_paths.add(name)
         by_name.setdefault(name.split("/")[-1], []).append(ROOT / name)
+
+    # Dated ADR slugs are cited without their `.md`, so the bare slug has to be
+    # resolvable. Without this the check below would flag every such citation in
+    # the repo, including the correct ones.
+    for md in sorted(DECISIONS_DIR.glob("*.md")):
+        if md.name == "DIGEST.md":
+            continue
+        rel_paths.add(md.stem)
+        by_name.setdefault(md.stem, []).append(md)
     return rel_paths, by_name
 
 
@@ -219,17 +247,28 @@ def resolve(ref: str, rel_paths: set[str], by_name: dict[str, list[pathlib.Path]
 
 def scan(path: pathlib.Path, rel_paths, by_name) -> list[tuple[int, str, str]]:
     text = path.read_text(encoding="utf-8", errors="replace")
+    return scan_text(str(path), text, rel_paths, by_name)
+
+
+def scan_text(name: str, text: str, rel_paths, by_name) -> list[tuple[int, str, str]]:
+    """Dangling references in `text`, as (line, ref, verdict).
+
+    Takes the text rather than reading the file so that the rules are testable
+    without planting a broken file in the repo — the same reason the regexes
+    live in named constants.
+    """
     out = []
-    for m in PATH_RE.finditer(text):
-        ref = m.group(1)
-        verdict = resolve(ref, rel_paths, by_name)
-        if verdict == "ok":
-            continue
-        if verdict == "drift" and is_historical(text, m.start()):
-            continue
-        line = text.count("\n", 0, m.start()) + 1
-        historical = is_historical(text, m.start())
-        out.append((line, ref, "historical" if historical else verdict))
+    for pattern in (PATH_RE, ADR_SLUG_RE):
+        for m in pattern.finditer(text):
+            ref = m.group(1)
+            verdict = resolve(ref, rel_paths, by_name)
+            if verdict == "ok":
+                continue
+            if verdict == "drift" and is_historical(text, m.start()):
+                continue
+            line = text.count("\n", 0, m.start()) + 1
+            historical = is_historical(text, m.start())
+            out.append((line, ref, "historical" if historical else verdict))
     return out
 
 
@@ -265,6 +304,9 @@ def main() -> int:
     ]
     targets += sorted(SKILLS_DIR.glob("*/SKILL.md"))
     targets += sorted((ROOT / "shared/src").rglob("*.kt"))
+    # Build scripts cite ADRs too, and a dangling one there is the worst case:
+    # the comment outlives the rename, and nothing else in the tree would notice.
+    targets += [ROOT / name for name in GLOB_BUILD if (ROOT / name).is_file()]
     if args.include_adr:
         targets += [p for p in sorted(DECISIONS_DIR.glob("*.md")) if p.name != "DIGEST.md"]
 
@@ -394,12 +436,16 @@ _SYMBOL_RE = re.compile(r"`([^`]+)`")
 # companion was invisible. The class name itself is not what documentation
 # quotes, so leading indentation is tolerated deliberately rather than by
 # accident.
+# `[ \t]*(\w+)` — не `[ \t]+`, потому что обобщённый класс пишется без
+# пробела: `abstract class FileSystemContract<F : FileSystem>(...)`. С `+`
+# такое объявление не матчилось, и гейт объявлял висячей ссылку на реально
+# существующий класс FileSystemContract.
 _TOP_LEVEL_KT = re.compile(
     r"^[ \t]*(?:@\w+(?:\([^)]*\))?[ \t]*)*"                # annotations
     r"(?:public|internal|private|protected|abstract|final|open|sealed|data|value|"
     r"inner|enum|annotation|expect|actual|companion|inline|infix|operator|suspend|"
     r"const|lateinit|external|tailrec)*[ \t]*"
-    r"(?:object|class|interface|fun|val|var|typealias)[ \t]+(\w+)",
+    r"(?:object|class|interface|fun|val|var|typealias)[ \t]*(\w+)",
     re.M,
 )
 # Symbols owned by a library or the Kotlin/JDK standard, not by this repository.
@@ -421,6 +467,11 @@ _EXTERNAL_SYMBOLS = frozenset({
     "KtCallExpression", "KtNameReferenceExpression", "KtDotQualifiedExpression",
     "KtAnnotationEntry", "KtValueArgument", "KtTypeReference",
     "CompilationUnit", "Rule", "Config", "Finding", "SourceCode",
+    # Compose Material3 overlay types. Documented in the Kiwi/scenario skill
+    # because a ModalBottomSheet is a separate semantics root on desktop and
+    # therefore invisible to a JVM Compose test — the fact is only actionable if
+    # the reader can look the type up.
+    "ModalBottomSheet", "AlertDialog", "Dialog", "Popup",
 })
 # Types that are framework-allocated and never have production call sites.
 _FRAMEWORK_ALLOCATED = frozenset({
@@ -482,6 +533,11 @@ def _build_kt_symbol_index() -> dict[str, str]:
     # directories away. Module-level SCREAMING_SNAKE_CASE names are the Python
     # equivalent of a top-level declaration.
     _PY_CONST = re.compile(r"^([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=", re.M)
+    # Классы и функции верхнего уровня. Методы (с ведущим отступом) и вложенные
+    # определения не ловятся: regex требует def/class в начале строки.
+    _PY_DEF = re.compile(
+        r"^(?:class|def)\s+([A-Za-z_][A-Za-z0-9_]*)", re.M
+    )
 
     for base in prod_roots:
         if not base.exists():
@@ -505,13 +561,30 @@ def _build_kt_symbol_index() -> dict[str, str]:
     if detekt_yml.exists():
         for name in _DETEKT_RULE_KEY.findall(detekt_yml.read_text(encoding="utf-8")):
             index.setdefault(name, "config/detekt/detekt.yml")
-    for base in (ROOT / "scripts", ROOT / ".agents", ROOT / "mcp-server"):
+    # Python: не только константы уровня модуля, но и классы/функции верхнего
+    # уровня. `singularity-todo-kiwi-tcm-stand` документирует `KiwiError`,
+    # `SessionTransport` и подобные имена из infra/kiwi/ — это объявления в
+    # реальном коде, и гейт, видящий только SCREAMING_SNAKE_CASE, объявлял их
+    # висячими, вынуждая либо базилизовать живой символ, либо убрать точное
+    # имя из документации. Оба варианта хуже, чем научить гейт видеть Python.
+    #
+    # infra/ проиндексирован потому же, что и detekt-rules выше: его скрипты —
+    # исполняемый код этого репозитория, а не вспомогательные файлы.
+    for base in (
+        ROOT / "scripts",
+        ROOT / ".agents",
+        ROOT / "mcp-server",
+        ROOT / "infra",
+    ):
         if not base.exists():
             continue
         for path in base.rglob("*.py"):
             text = path.read_text(encoding="utf-8", errors="replace")
+            rel = path.relative_to(ROOT).as_posix()
             for m in _PY_CONST.finditer(text):
-                index.setdefault(m.group(1), path.relative_to(ROOT).as_posix())
+                index.setdefault(m.group(1), rel)
+            for m in _PY_DEF.finditer(text):
+                index.setdefault(m.group(1), rel)
     return index
 
 

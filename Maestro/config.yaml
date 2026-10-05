@@ -7,6 +7,12 @@
 # Selector source of truth: shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt
 #
 # Canonical tags (used in flow `tags:` headers):
+#   scenario:<ID>  — traceability linkage to a spec in infra/kiwi/scenarios/
+#                    (e.g. scenario:TASK-REC-01). The only value-carrying tag;
+#                    the others below are bare words. Matched by exact string
+#                    comparison, so filtering needs no code change. This is the
+#                    documented exception to the "lowercase with hyphens" rule
+#                    in CONVENTIONS.md — keep the two files in step.
 #   smoke        — minimal regression suite, run on every PR
 #   regression   — guards a specific fixed bug
 #   known-bug    — tracks a confirmed bug; failure is expected

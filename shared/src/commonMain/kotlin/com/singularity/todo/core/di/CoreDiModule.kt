@@ -25,13 +25,14 @@ import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
 import com.singularity.todo.core.config.RemoteConfigPort
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.observability.crashReportingFailureHandler
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
@@ -91,8 +92,11 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Background scope для долгоживущих компонентов (репозитории, движки синхронизации).
     // factory, а не single — каждый потребитель получает свой экземпляр,
     // который закрывается вместе с владельцем.
+    // The failure handler is composed from the injected CrashReportingPort, not read from a
+    // process-wide target: a long-lived component's background failures go wherever this
+    // graph's reporter sends them, and that is visible in this file.
     factory {
-        AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)
+        reportingScope(get())
     }
 
     // ─── Settings ────────────────────────────────────────────────────────
@@ -146,7 +150,7 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    single { CurrentUser(get(), createBackgroundScope()) }
+    single { CurrentUser(get(), createBackgroundScope(crashReportingFailureHandler(get()))) }
 
     // ─── Repositories ───────────────────────────────────────────────────
 
@@ -307,15 +311,18 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
-    // Named, not positional: the crash reporter and the scope are both defaults in the
-    // constructor, so a positional call silently reorders them the moment either one moves.
+    // Named, not positional: every parameter below is a different type, and a positional
+    // call silently reorders them the moment one moves.
+    //
+    // No `scope =` here on purpose. The ViewModel derives its own from crashReporter, so the
+    // two failure paths cannot end up at different destinations. Passing both independently
+    // is what NoDivergentScopeAndReporter reports.
     viewModel {
         SyncViewModel(
             repository = get(),
             stateRepository = get(),
             scopeProvider = get(),
             crashReporter = get(),
-            scope = AutoCloseableCoroutineScope(),
         )
     }
 
@@ -378,7 +385,9 @@ fun coreModule(): org.koin.core.module.Module = module {
     // registered individually in its own feature module and injected here via getOrNull.
     viewModel {
         SettingsViewModel(
-            scope = get(),
+            // No `scope =` here on purpose — see SyncViewModel above. The ViewModel derives
+            // its own from crashReporter; this used to override that with a graph-supplied
+            // one, which is the divergence NoDivergentScopeAndReporter exists to catch.
             appearanceContributor = getOrNull<AppearanceContributor>(),
             notificationsContributor = getOrNull<NotificationsContributor>(),
             workScheduleContributor = getOrNull<WorkScheduleContributor>(),

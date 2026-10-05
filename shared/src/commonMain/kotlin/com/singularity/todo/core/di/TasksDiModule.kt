@@ -166,6 +166,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 context = TaskContextDeps(clock = get()),
             ),
             taskId = taskId,
+            crashReporter = get(),
         )
     }
 

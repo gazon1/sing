@@ -14,6 +14,7 @@ import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 
@@ -59,7 +60,10 @@ sealed interface CalendarSyncIntent : MviIntent {
  * - [scheduler] — WorkManager scheduler (used for cancel only)
  * - [appQueries] — queries installed calendar apps for the picker
  * - [orchestrator] — debounced sync orchestrator (hands off to scheduler)
- * - [scope] — [AutoCloseableCoroutineScope] for launching concurrent operations
+ * - [scope] — [AutoCloseableCoroutineScope] for launching concurrent operations. Derived from
+ *   [crashReporter] unless a test supplies its own: a scope supplied here alongside
+ *   [crashReporter] is chosen independently, so nothing would guarantee that a handled failure
+ *   and an escaped background failure reach the same place.
  */
 class CalendarSyncViewModel(
     private val syncRepo: CalendarSyncRepository,
@@ -68,7 +72,7 @@ class CalendarSyncViewModel(
     private val appQueries: CalendarAppQueries,
     private val orchestrator: CalendarSyncOrchestrator,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope,
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
         initialState = CalendarSyncUiState(),
         crashReporter = crashReporter,

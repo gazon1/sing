@@ -49,7 +49,7 @@ class TestTagCoverageTest {
             ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
     ).parentFile.parentFile.parentFile.parentFile
 
-    /** Source sets that hold JUnit test classes. */
+    /** Source sets whose Gradle task translates `-Ptest.tags` into a JUnit tag filter. */
     private val testSourceDirs = listOf(
         "shared/src/commonTest",
         "shared/src/jvmTest",
@@ -111,7 +111,7 @@ class TestTagCoverageTest {
             if (annotationBlock.any { tagAnnotation.containsMatchIn(it) }) return@forEachIndexed
 
             val body = classBody(lines, index)
-            if (body.any { it.trimStart().startsWith("@Test") }) {
+            if (body.any { TEST_MEMBER.containsMatchIn(it) }) {
                 offenders += "$relative:${index + 1} ${header.groupValues[1]}"
             }
         }
@@ -169,6 +169,27 @@ class TestTagCoverageTest {
         )
 
         private val ANNOTATION = Regex("@\\w+.*")
+
+        /**
+         * Every JUnit annotation that makes a member an actual test, not just `@Test`.
+         *
+         * Matching `@Test` alone left a real hole: `RecurrenceRuleMapperTest` and
+         * `RruleGeneratorTest` declare `@ParameterizedTest` members, so this gate
+         * never saw a test in them and reported both as clean while CI — which runs
+         * `-Ptest.tags=fast,slow` — silently skipped both classes. The check was
+         * "this class has no tests" wearing the costume of "this class has no tag",
+         * which is worse than not having the check: it was answering about
+         * something else while appearing to answer about this.
+         *
+         * The set is the JUnit 5 test annotations, plus the `kotlin.test` spelling
+         * this project also uses. `@TestFactory` and `@TestTemplate` are included
+         * because they produce test runs exactly as `@Test` does. A trailing `\b`
+         * is required: without it `@Test` matches the `@TestFactory` prefix, and
+         * conversely a bare `@Test` match would also catch `@TestFoo`.
+         */
+        private val TEST_MEMBER = Regex(
+            """^\s*@(?:kotlin\.test\.)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b""",
+        )
 
         /**
          * Both the imported `@Tag("…")` and the fully-qualified

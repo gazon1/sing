@@ -602,6 +602,154 @@ def _check_orphan_binding(
     return findings
 
 
+# ── Detector 8 — startup entry point with no call site ────────────────────────
+#
+# Item 5 of docs/decisions/2026-10-04-observability-followups.md records why this
+# exists: the audit never inspected top-level functions, so `core.log.debugInfo` sat
+# with zero call sites for its whole life and nothing said so. Broadening the audit to
+# *every* top-level function would be a poor trade — pure helpers are called from
+# everywhere and the signal-to-noise would be terrible.
+#
+# The pattern worth checking is narrower: a function whose whole job is to be called
+# once at startup. Those are the ones where "nobody calls it" is a silent, permanent
+# failure, because the feature it installs keeps looking configured.
+
+
+# `fun` at column 0 — top level. `private`/`internal` included: a private top-level
+# function with no caller is a compile warning, not a startup entry point, so the
+# name check below is what separates the two.
+_TOP_LEVEL_FUN = re.compile(r"^(?:private\s+|internal\s+)?fun\s+(\w+)\s*[(<]", re.M)
+
+# Names that read as "wire this up once" rather than "compute something". A function
+# matching this and not listed in DECLARED_STARTUP is reported, so a new one cannot
+# slip in by being added and never called.
+_STARTUP_NAME = re.compile(r"^(install|init|start|register|bootstrap|setup)\w*$", re.I)
+
+# Audited as genuine startup entry points, each with the reason it is one.
+DECLARED_STARTUP: dict[str, str] = {
+    "installBackgroundCrashReporting": (
+        "installs the background failure handler from SingularityApp.onCreate; the "
+        "reporting it configures works exactly as well when nothing calls it"
+    ),
+    "flushLogs": (
+        "drains the Kermit file writer from the uncaught-exception handler; the flush "
+        "it performs is invisible until the crash it was added for"
+    ),
+    "initLogging": (
+        "installs the Kermit writers; called per platform before startKoin"
+    ),
+    "createBackgroundScope": (
+        "a factory, not a startup step — declared so the name check does not report it"
+    ),
+}
+
+
+def _is_test_source(path: pathlib.Path) -> bool:
+    """A file under a test source set, or named like a test."""
+    parts = set(path.parts)
+    if parts & {"commonTest", "jvmTest", "androidTest", "androidHostTest", "test", "jvmMain", "androidMain"}:
+        # jvmMain/androidMain are production source sets whose *paths* contain a segment
+        # the word "test" might otherwise match on; they are handled below by name only.
+        return bool(parts & {"commonTest", "jvmTest", "androidTest", "androidHostTest", "test"})
+    return path.name.endswith("Test.kt")
+
+
+def _precompute_startup(
+    code: dict[pathlib.Path, str],
+) -> tuple[set[str], dict[str, pathlib.Path], str, str]:
+    """Declared names, first declaration site, production call corpus, test call corpus.
+
+    Production and test call sites are counted separately, and that separation is the
+    point of the check rather than a detail of it. A startup step wired *only* by a test
+    looks identical to a wired one to any name-based scan — the function has a call site,
+    the test passes, and the feature is not installed in the running app. That is the
+    `debugInfo` shape, and the test that now calls `installBackgroundCrashReporting`
+    reproduces it exactly.
+
+    Declaration lines and imports are removed from both corpora: an import is not a call,
+    and a declaration is not a call of itself.
+    """
+    found: dict[str, pathlib.Path] = {}
+    production: list[str] = []
+    tests: list[str] = []
+    for path, text in code.items():
+        target = tests if _is_test_source(path) else production
+        kept: list[str] = []
+        for line in text.splitlines():
+            if line.startswith("import "):
+                continue
+            if _TOP_LEVEL_FUN.match(line):
+                # Look back through what was kept for @Composable / @Preview. A Composable
+                # is not a startup step: `StartDateRow` starts with "start" and would
+                # otherwise be reported, which is how a heuristic turns into noise.
+                annotations = [ln.strip() for ln in kept[-3:]]
+                if any(a.startswith("@Composable") or a.startswith("@Preview") for a in annotations):
+                    continue
+                # Declared here, so it is not a call of itself.
+                name = _TOP_LEVEL_FUN.match(line).group(1)
+                if name not in found:
+                    found[name] = path
+                # Drop the signature, keep whatever follows it. A one-line function body
+                # can contain the very call being looked for — `fun boot() = installX()` —
+                # and discarding the whole line would hide a real call site.
+                depth = 0
+                seen_open = False
+                for index, char in enumerate(line):
+                    if char == "(":
+                        depth += 1
+                        seen_open = True
+                    elif char == ")":
+                        depth -= 1
+                        if seen_open and depth == 0:
+                            trailing = line[index + 1 :].strip()
+                            if trailing.startswith("=") or trailing.startswith("{"):
+                                kept.append(trailing)
+                            break
+                continue
+            kept.append(line)
+        target.append("\n".join(kept))
+    return set(DECLARED_STARTUP), found, "\n".join(production), "\n".join(tests)
+
+
+def _check_startup_unwired(
+    code: dict[pathlib.Path, str],
+    corpus: str,
+    pre: tuple[set[str], dict[str, pathlib.Path], str, str],
+) -> list[tuple[str, str]]:
+    findings: list[tuple[str, str]] = []
+    declared, found, production_corpus, test_corpus = pre
+    # Comments were stripped when the code map was built, so what is left is real code.
+    production_refs = set(re.findall(r"\b(\w+)\b", production_corpus))
+    test_refs = set(re.findall(r"\b(\w+)\b", test_corpus))
+    for name, path in sorted(found.items()):
+        if _is_test_source(path):
+            continue
+        in_production = name in production_refs
+        only_in_tests = name in test_refs and not in_production
+        if name in declared:
+            if not in_production:
+                why = "only from tests" if only_in_tests else "nowhere"
+                findings.append(
+                    (
+                        "startup-unwired",
+                        f"{rel(path)}: declared startup entry point `{name}` is called {why} "
+                        f"({DECLARED_STARTUP[name]})",
+                    )
+                )
+            continue
+        if not in_production and _STARTUP_NAME.match(name):
+            where = "only from tests" if only_in_tests else "nowhere"
+            findings.append(
+                (
+                    "startup-unwired",
+                    f"{rel(path)}: top-level `{name}` reads as a startup entry point and is "
+                    f"called {where}. Call it from production, or declare it in "
+                    f"DECLARED_STARTUP with the reason it is intentionally uncalled.",
+                )
+            )
+    return findings
+
+
 # ── Detector table ──────────────────────────────────────────────────────────
 
 
@@ -632,6 +780,11 @@ DETECTORS: list[Detector] = [
         kind="dead-symbol",
         check=_check_dead_symbol,
         precompute=_precompute_dead_symbol,
+    ),
+    Detector(
+        kind="startup-unwired",
+        check=_check_startup_unwired,
+        precompute=_precompute_startup,
     ),
 ]
 

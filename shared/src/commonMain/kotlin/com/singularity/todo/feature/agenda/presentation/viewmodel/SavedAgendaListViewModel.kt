@@ -5,6 +5,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -64,7 +65,7 @@ sealed interface SavedAgendaListEvent : MviEvent {
 class SavedAgendaListViewModel(
     private val deps: SavedAgendaListDeps,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SavedAgendaListState, SavedAgendaListIntent, SavedAgendaListEvent>(
         initialState = SavedAgendaListState.Loading,
         crashReporter = crashReporter,

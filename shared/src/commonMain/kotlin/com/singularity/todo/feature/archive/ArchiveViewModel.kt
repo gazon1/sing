@@ -3,6 +3,7 @@ package com.singularity.todo.feature.archive
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
@@ -40,7 +41,7 @@ class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
     taskRepo: TaskRepository,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ArchiveUiState, ArchiveIntent, ArchiveUiEvent>(
         initialState = ArchiveUiState.Loading,
         crashReporter = crashReporter,

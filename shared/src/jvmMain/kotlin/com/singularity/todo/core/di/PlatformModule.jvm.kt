@@ -24,6 +24,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.notifications.JvmNotificationPort
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -170,14 +171,14 @@ actual fun platformModule(): Module = module {
     // DAO scan in PlatformModuleMirrorTest could see the dependency — a type that
     // is never named in a `get<X>()` is invisible to both. The binding itself is
     // a background scope owned by the graph, identical to the Android one.
-    single<CoroutineScope> { createBackgroundScope() }
+    single<CoroutineScope> { createBackgroundScope(crashReportingFailureHandler(get())) }
     single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
     factory<PomodoroTimer> {
         JvmPomodoroTimer(
             get(),
             get(),
             get(),
-            com.singularity.todo.core.coroutines.createBackgroundScope(),
+            com.singularity.todo.core.coroutines.createBackgroundScope(crashReportingFailureHandler(get())),
             get(),
             get(),
         )

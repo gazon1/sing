@@ -119,20 +119,7 @@ some ids vanished).
 
 ## core-auth-oauth-is-entirely-unwired
 
-**Status (re-verified 2026-10-04):** CLOSED. Deleted 2026-10-04 as part of the
-Supabase auth + sync work. The question this entry asked — "decide whether Supabase
-OAuth is still planned" — has been answered: **no**, the product ships email and
-password on Android and Desktop, and the server side is a Postgres schema with no
-OAuth dependency to speak of. The whole `core/auth/oauth/` package is gone, including
-the two platform `actual`s for secure random bytes and the three test classes.
-
-The decision itself is recorded in
-`2026-10-04-supabase-auth-email-password-only.md`. Note that
-`2026-09-30-dead-code-deleted-and-oauth-kept.md` deliberately kept this package on the
-grounds that deleting it is a product decision a dead-code sweep should not make —
-that reasoning was right, and this entry is the decision it was waiting for.
-
-The two baseline exemptions for `PKCE` and `OAuthTokenRefresh` were removed with it.
+**Status: OPEN**
 
 **Tracked as:** #38
 
@@ -147,7 +134,10 @@ deleted in MR-4; the rest was left alone.
 **Already ruled out:** not reachable through reflection, DI or a route — it is
 plain Kotlin with no registration anywhere.
 
-**Try next:** done. Decided 2026-10-04: email + password only.
+**Try next:** decide whether Supabase OAuth is still planned. If yes, the file
+is a reasonable starting skeleton. If no, delete the remaining 90 lines. A
+dead-code sweep should not make the product decision either way, which is why
+MR-4 stopped at the two symbols it was asked to remove.
 
 ---
 
@@ -779,6 +769,21 @@ malformed value. It did not error — it produced a confusing downstream failure
 **Do this first:** use positional arguments (`just gm agenda`), and check the
 recipe's `[doc()]` text shows positional usage. If named arguments are wanted
 later, verify with a probe recipe first rather than assuming.
+
+**Reproduced 2026-10-05, in a recipe written to prevent exactly this.** `coverage-ratchet` gained an
+environment flag and its own documentation said `just cr RERUN=1`. That form does not assign here:
+the flag was silently absent, `just cr` ran, exited 0, and measured less than asked — the expensive
+kind again, and on the one gate whose entire subject is whether a measurement measured anything.
+
+The recipe now rejects a `NAME=value` argument outright (`exit 64`) with a message naming the
+environment form. The general fix is still unbuilt: **this is a `just` behaviour, not a repository
+one, so every recipe that documents a flag is exposed to it.** A guard that lives in one recipe
+protects one recipe. A guard in the shared test module, or a convention that recipes read flags from
+the environment with an explicit `case` on `{{args}}`, would protect all of them.
+
+**Try next.** Grep the recipes for `=` in `[doc()]` strings and in comments — any that tell a reader
+to type `just <recipe> NAME=value` is documenting a form that does not work here. That is a
+mechanical sweep and a mechanical fix.
 
 ---
 
@@ -2001,13 +2006,60 @@ the five `--auto-correct` wanted to rewrite.
 
 ---
 
+## a-kiwi-case-named-after-a-file-hides-the-class-inside-it
+
+**Found in:** 2026-10-05, while fixing the tag gate above.
+
+**Status: OPEN**
+
+**Tracked as:** #147
+
+**Symptom.** `sync.py` derives a Kiwi case id from the *file path*:
+`NoopSubscriptionProviderTest.kt` becomes the case `NoopSubscriptionProviderTest`, but the
+class the file declares is `PurchaseStateTest`. Three files are affected:
+
+| File | Class(es) actually declared |
+|---|---|
+| `core/billing/NoopSubscriptionProviderTest.kt` | `PurchaseStateTest` |
+| `core/sync/TaskToJsonProbeTest.kt` | `TaskSyncSerializationTest` |
+| `core/observability/CrashReportingTest.kt` | 7 test classes |
+
+JUnit reports results by class name, so these cases can never be matched to a run: the
+binding is by FQN, and the FQN Kiwi recorded does not exist as a class. They sit in
+"never run" forever, indistinguishable from a real gap.
+
+**Partial fix applied 2026-10-05.** The file is no longer dropped entirely — the previous
+filter looked for a test member *under the class named like the file*, found none, and
+excluded the file, losing a genuine test. The scan now accepts a file when **any**
+concrete test class is declared in it (260 cases instead of 259), and reads the tag from
+the class that matches. The consequence is a visible `junit_tag=untagged` on a case whose
+name does not match any class — an honest signal rather than a silent miss.
+
+**Try next.** Make the case id follow the *class*, not the file. That is the correct
+direction, and it is deliberately not done in the same change: `source_path` is the
+idempotency key for `sync.py --plan`, so re-keying orphans the 259 cases already in a
+local stand and needs a migration. Options, cheapest first:
+
+1. Re-key to `source_path#ClassName` and let `gaps.py` report the old cases as orphans
+   (that report already exists and deliberately does not delete).
+2. Keep the file-based id, and add a `declared_class` property so a case records which
+   class it stands for — no migration, and the mismatch becomes queryable.
+
+Option 2 is the smaller change and loses nothing today; option 1 is the destination.
+A third possibility — renaming the three files to match their classes — was rejected: it
+touches unrelated source to make a database field line up, and Kotlin does not require
+the two to agree.
+
+
 ## an-untagged-test-class-is-invisible-to-a-tag-filtered-run
 
 **Found in:** 2026-10-04, on the first CI run of the verifiability branch — the
 run that finally executes `testAndroidHostTest`, which the old
 `-Ptest.tags=fast,slow` filter had meant never ran at all.
 
-**Status: OPEN**
+**Status: RESOLVED (2026-10-05).** The open question below — should an untagged class
+fail a gate? — is answered yes, by `TestTagCoverageTest`, and that gate's own
+`@Test`-only blind spot was found and closed in the same change. See "Try next" below.
 
 **Tracked as:** #74 (fixed in the same branch); the open question below is the
 gate, not the test.
@@ -2043,6 +2095,29 @@ A class with no tag is not a test that is deliberately deferred; it is a test th
 is *unrunnable* in a tag-filtered build, and the difference is invisible from the
 source. If tag filtering is going away, the question is moot. If it stays for the
 slow suite, an untagged class is a hole with no marker.
+
+**Answered 2026-10-05 — yes, and the gate that does it had its own hole.**
+`TestTagCoverageTest` (shared/src/jvmTest) fails any test class in a tag-filtered
+source set that carries no `@Tag`. But it detected test members by matching `@Test`
+alone, so a class whose tests are `@ParameterizedTest` registered as *having no
+tests* and was reported clean. Two such classes were, at that moment, invisible to
+CI for the second time — the gate about untagged classes was blind to the same
+condition it was written for:
+
+- `RecurrenceRuleMapperTest`
+- `RruleGeneratorTest`
+
+Both are now `@Tag("fast")`, and the gate matches every JUnit test annotation
+(`@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`,
+plus the `kotlin.test` spelling) instead of one. The check verifies what it claims:
+a class with a test member and no tag fails, whichever annotation carries the test.
+
+Scope note, checked rather than assumed: `detekt-rules` (18 untagged classes) and
+`androidApp` (4) are **not** in the gate's source-set list, and do not need to be —
+neither module's test task applies a tag filter, so an untagged class there still
+runs. Adding them would have been the loud wrong fix. The list now names the
+criterion it encodes: source sets *whose Gradle task translates `-Ptest.tags` into
+a JUnit filter*.
 
 Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
 `kover-report` job was **red on `main`** for this reason. A job that is red for a
@@ -2113,6 +2188,424 @@ into a one-line fix instead of an afternoon.
 
 ---
 
+## a-stale-detekt-classpath-makes-the-gate-green-with-no-custom-rules-running
+
+**Found in:** 2026-10-05, three times in one session, while adding the two rules that became
+`NoUnreportedFailurePathRule` and `AppErrorCodeRule`.
+
+**Status: OPEN**
+
+**Tracked as:** #136
+**OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
+
+**Symptom.** `:shared:detekt` reported success while no custom rule was running. Once as a hard
+failure — `ServiceConfigurationError: Provider …NoUnreportedFailurePathProvider not found`, for a
+provider that `unzip -p` showed in the jar's services file, that `javap` resolved, and that a
+standalone `ServiceLoader` probe over that exact jar loaded alongside all eighteen others. Twice as
+a **false pass**, the second time after `./gw :shared:detektBaseline` had left a baseline with
+zero custom-rule entries and `:shared:detekt` then reported a clean tree.
+
+**Ruled out.** Not the config: `config/detekt/detekt.yml` had the blocks. Not the services file:
+it listed the provider. Not the jar: verified three ways. Not the configuration cache:
+`--no-configuration-cache` did not help.
+
+**Workaround, and it is not a fix.** `./gw --stop`. Every time.
+
+**Why it is here and not just in the issue.** The lesson generalises past detekt, and this
+repository now has several instances of it: `2026-09-26-pr-0-3-retro.md` records a baseline
+regenerating "without all rules registered", #58 records the same task being cached, and this
+records the rules not being loaded at all. Three records of the same class from three directions.
+The general form — *a measurement that cannot be distinguished from its own failure* — is what the
+proposed guard targets: plant a violation, assert it is reported, run that before trusting a green.
+
+**Try next.** Reproduce deliberately: `./gw --stop`, add one rule, re-run without `--stop`. Then
+find where the plugin classpath is cached. `--no-configuration-cache` already fails, which points
+at the daemon's classloader or a Gradle transform keyed on a stale hash — dev.detekt 2.0.0-alpha.3
+builds its plugin classloader in the worker.
+
+---
+
+## detektbaseline-drops-every-custom-rule-entry
+
+**Found in:** 2026-10-05, immediately after the entry count of
+`config/detekt/baseline-shared.xml` fell from 357 to 338 without anyone deleting an entry.
+
+**Status: OPEN**
+
+**Tracked as:** #137
+**OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
+
+**Symptom.** `./gw :shared:detektBaseline` runs **without the custom rule set**. Regenerating
+silently removes every custom-rule entry; the surviving file contains built-in rules only. The
+`git diff` shows only removals, and nothing else reports it.
+
+**Why it is separate from #58.** That entry is about entries that never leave — the baseline as a
+high-water mark. This one is about entries that leave — the baseline as a lossy record. They share
+a file and an incantation, so whichever lands first must consider the other or it will reintroduce
+it.
+
+**The part that actually matters.** The lost entries are recoverable by hand. The dangerous part is
+that **regenerating the baseline is a way to turn the custom rules off and have the gate agree with
+you.** Someone clearing debt, or absorbing a new rule's findings, silently converts `just lint` from
+"the project's rules ran" to "only the built-in rules ran".
+
+**Ruled out.** Not a path problem: `:shared:detekt` in the *same daemon* still caught a planted
+`runCatching` violation, so the two tasks are demonstrably not sharing a plugin classpath. Not a
+stale daemon: reproduced after `./gw --stop`.
+
+**Try next.** `shared/build.gradle.kts` sets `baseline = …` inside the `detekt { }` extension and
+declares `detektPlugins(project(":detekt-rules"))` in a separate `dependencies { }`. Confirm
+whether the `detektBaseline` task family picks up the `detektPlugins` dependency at all, by
+bisecting that file.
+
+**Until then.** Never run `detektBaseline` without `git diff` on the baseline immediately after,
+and treat a *shrinking* custom-rule section as a red flag rather than progress. `just cr` does not
+run `detektBaseline`, so the gate itself is safe; this bites a human at a keyboard.
+
+---
+
+## a-koin-definition-body-stays-uncovered-after-being-resolved
+
+**Found in:** 2026-10-05, when the coverage ratchet charged this work a 0.40pp drop in
+`feature/calendar_sync` and the obvious fix did not fix it.
+
+**Status: OPEN**
+
+**Tracked as:** #138
+**OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
+
+**Symptom.** `CalendarSyncDiModuleKt` reads 4/18 lines covered. The four covered lines are the
+`module { }` block; the fourteen uncovered ones are the bodies of the `single { … }` and
+`viewModel { … }` definitions. `KoinGraphValidationTest` now resolves both definitions for real,
+the test passes, and the number does not move.
+
+**Three hypotheses, in order of how cheap they are to rule out.** (a) `jvmTest` was served
+`FROM-CACHE` or `UP-TO-DATE` after `just cr`'s kover wipe, so the class contributed no fresh
+coverage data — which would make the number a property of the measurement rather than of the code.
+(b) Line attribution: the lambda's lines may not reach the file-level LINE counter. (c) The
+resolution is satisfied without executing the body.
+
+**Why it is here.** A coverage number that does not describe execution is worse than no number,
+because somebody will make a decision on it. In this case the decision was whether a floor drop was
+acceptable, and the floor was adopted to the measured value with a `note` in
+`config/coverage-ratchet.json` recording that the movement is unexplained. **That note should not
+outlive the explanation** — whoever closes this should delete the note in the same commit.
+
+**Related, and older.** #59 records the Gradle test cache silently skipping the whole suite, one
+level up and with worse consequences. `gradle-test-cache-silently-skips-the-suite` in this file is
+the same finding from the previous session.
+
+**Try next.** Rule out (a) first, with `--rerun-tasks` on the single class, because it invalidates
+the other two. If it is genuinely 4/18 after a forced re-run, plant a side effect inside the
+`single { }` body and assert it happened when the definition is resolved.
+
+---
+
+## a-viewmodel-scope-and-its-reporter-can-be-different-ports
+
+**Status: CLOSED** (2026-10-05) — fixed, and the count above was wrong twice. See the correction.
+
+**Tracked as:** [#143](https://github.com/gazon1/singularity-clone-kmp/issues/143) ·
+`openspec/changes/scope-reporter-agreement/`
+
+**Found in:** 2026-10-05, the sweep that followed the crash-reporting migration — asking what
+structural gap the migration left, rather than what it fixed.
+
+**Symptom.** `MviViewModel`'s default scope is derived from the ViewModel's own reporting port,
+so the common case cannot diverge. The default is bypassed when a component supplies a scope
+explicitly, and then the port `catchTo` reports to and the port the scope's failure handler
+reports to are two independent arguments that nothing correlates.
+
+**The count was wrong, and the rule found the difference.** The first count said two sites. It was
+four, and the two extra ones were found by the rule written to close this, not by reading:
+
+- `SearchViewModel` — classified here as "consistent by construction" because its *secondary*
+  constructor derives the scope from the reporter. The secondary is what Koin resolves, so the
+  binding is fine. The **primary** still required a scope, so any caller reaching it directly
+  chose one independently of the reporter. A reviewer reading only the binding — which is what I
+  did — sees nothing wrong.
+- `SettingsViewModel` — constructor correct, and its **binding** replaced the derivation with a
+  graph-supplied `scope = get()`. Correct class, divergent wiring, invisible to a constructor-only
+  check.
+
+Both are the shape a class looks safe in. The general lesson is the one #135 already records about
+matching less than intended: a check that covers the case you happened to look at is
+indistinguishable from one that covers the case you did not.
+
+**Fix.** Option (a) from the issue — the scope default moved onto the primary constructor in both
+ViewModels, and the three bindings stopped passing one. One destination by construction, nothing to
+correlate. The `factory { reportingScope(get()) }` in `CoreDiModule` stays: `SyncRunner` and
+`SyncRepositoryImpl` hold no reporter and legitimately take a scope from the graph.
+
+**The rule that keeps it.** `NoDivergentScopeAndReporter`, third rule in
+`no-unreported-failure-path`, two findings — the constructor's scope default, and a binding passing
+both arguments. The second is not redundant: it is what caught `SettingsViewModel`, whose
+constructor was already correct. Proven on the real tree by planting the old `scope = get()` into
+the settings binding and confirming `:shared:detekt` went red, then green again on revert.
+
+**Try next.** Nothing. Recorded because the *count* is the reusable part, and because the next
+person auditing this class of gap will be tempted to stop at the binding.
+
+---
+
+## version-gate-breadcrumb-has-no-test
+
+**Status: CLOSED** (2026-10-05) — the missing test found a real defect on its first run.
+
+**Tracked as:** [#144](https://github.com/gazon1/singularity-clone-kmp/issues/144) ·
+`openspec/changes/failure-visibility/` (REQ-3)
+
+**Found in:** 2026-10-05, re-reading `openspec/changes/failure-visibility/tasks.md` against the tree
+while deciding whether that change could be archived.
+
+**Symptom.** `a068b432` added the fail-open breadcrumb to `AppVersionGateViewModel` — when a
+remote-config read throws, the gate admits the user on defaults and leaves a record saying it did.
+The code shipped. The test did not, and `tasks.md:12` says so in its own words: *"a breadcrumb
+asserted only by reading the code is not a breadcrumb."*
+
+**Why it matters.** The report and the breadcrumb are two separate calls emitted from one `catchTo`
+block. A regression that drops the report reinstates #126; one that drops the breadcrumb makes the
+gate fail open invisibly, which is the original defect wearing the fix's clothes; one that swaps the
+keys leaves both halves present but no longer greppable together.
+
+**Already ruled out.** Not a missing harness — `AppVersionGateViewModelTest` had 7 cases and already
+drove the failure path. This was an addition to a suite that existed.
+
+**What the test found.** A recording port exposes the ordered log, not just the two lists, and that
+is the whole point: the backend attaches the breadcrumb buffer to a report **as it stands when the
+report is made**. The shipped code wrote the bypass from the funnel's error handler, which runs
+*after* the report — so the record rode on the next event, and during a config outage there is no
+next event. The gate failing open was exactly as invisible as it had been before the record was
+added; the record was merely attached to the wrong event.
+
+Two tests failed on the first run, one per route. The returned-failure route (`refresh()`) had the
+same defect and had been hand-rolled around it, because a returned failure never reaches the
+funnel's error arm — the ViewModel reported and breadcrumbmed it itself.
+
+**Fix.** An explicit pre-report step in the funnel, defaulted to empty so every other call site keeps
+"an error handler's breadcrumb cannot jump ahead of its report". The returned-failure route now goes
+through the same funnel, so the two cannot drift apart again. 5 new cases, 12 total.
+
+**Try next.** Nothing. Kept for the reusable half: a fake that records *one ordered log* rather than
+two lists, because a reversed pair and a correct pair produce identical two lists.
+
+---
+
+## the-generated-rule-inventory-enforces-nothing
+
+**Status: CLOSED** (2026-10-05) — `--check` now fails on a rule with no positive control.
+
+**Tracked as:** [#145](https://github.com/gazon1/singularity-clone-kmp/issues/145) ·
+`openspec/changes/detekt-tooling-honesty/`
+
+**Found in:** 2026-10-05, running `python3 scripts/gen-detekt-rule-table.py --check` to confirm the
+inventory still matched the source. It reported `OK — 25 rules, table matches source`.
+
+**Symptom.** That `OK` proved the table had not drifted. It said nothing about the `Test` column, and
+it passed just as happily when a rule had no positive control and the cell was empty. The column was
+added so an untested rule is *visible* in the file a rule author opens. Visible is not enforced.
+
+**Already ruled out.** Not a gap in the inventory — it is generated, so it cannot go stale, and it
+makes the "which rule lacks a test" question answerable without a grep. #135's correction about
+matching is what the enforcement had to honour: a dedicated-filename-only check reports five untested
+rules and should report zero, because `RuleFiresSmokeTest` covers them. So both shapes count as
+tested, and the column says which one it found.
+
+**Fix.** `--check` now fails and names the rules. Proven by deleting the new rule's dedicated test
+class and confirming red — which took two runs, because the first failed on *staleness* instead: the
+table had to be regenerated before the empty `Test` cell was visible to the check. Worth recording,
+because a sabotage test that fails for the adjacent reason looks like a passing one.
+
+`just cr` now also refuses to compare floors against a run in which the test tasks did not execute.
+
+---
+
+## the-ratchet-wipes-the-evidence-it-measures
+
+**Status: CLOSED** (2026-10-05) — the ratchet now refuses to report a floor from a run that
+executed nothing. The underlying anomaly is #138's and stays open.
+
+**Tracked as:** [#146](https://github.com/gazon1/singularity-clone-kmp/issues/146) ·
+`openspec/changes/detekt-tooling-honesty/`
+
+**Found in:** 2026-10-05, while reasoning about #138's leading hypothesis — that `jvmTest` came back
+`FROM-CACHE` after `just cr`'s kover wipe.
+
+**Symptom.** `coverage-ratchet` wipes every module's `kover` directory and then runs `koverReport`.
+Wiping stale `.bin` is right. But it does not invalidate the *test task*, and `:shared:jvmTest` can
+be served `UP-TO-DATE` — re-executing nothing, contributing no fresh `.bin`, and producing a thinner
+report than the truth. **A measurement gate that deletes the evidence it is about to measure can be
+right for the wrong reason.**
+
+**Why it is not just #138.** #138 asks why one file shows 4/18 and names the cache hypothesis as the
+cheapest to rule out. This is the finding that the ratchet can *manufacture* the condition it is
+investigating, and it applies to all nine floors. The live part: the `feature/calendar_sync` floor
+was adopted to the measured 23.54% with a note saying it is a loan against #138 — if the measurement
+came from a cache-served run, the floor was adopted from a number the code never produced.
+
+**Already ruled out.** Not a claim that any current floor is wrong. The nine floors all *rose* when
+re-baselined, which is the right direction; the point is that a cache-served floor would have looked
+identical in the same run.
+
+**Fix.** `scripts/check-coverage-measurement.py`, wired between the Gradle run and the ratchet
+comparison. The recipe captures the build log and reads it back: if a test task in that log was
+`UP-TO-DATE`, `FROM-CACHE` or `NO-SOURCE`, or if **no test task appears at all**, the ratchet refuses
+to compare floors. 25 self-tests, no Gradle.
+
+**The first version was wrong in both directions, and the run on the real tree is what showed it.**
+`.*[Tt]est$` matches AGP's resource-processing tasks — `convertXmlValueResourcesForJvmTest`,
+`generateResourceAccessorsForAndroidHostTest`, `javaPreCompileDebugUnitTest` and five more — none of
+which runs a test. On the first real `just cr` it reported **19 findings, one of them real**. The
+match is now anchored (`test`, `jvmTest`, `test<Variant>UnitTest`).
+
+The same run showed `NO-SOURCE` was also wrong as a *failure*. `:androidApp:testDebugUnitTest
+NO-SOURCE` is a module with no unit tests, and failing the whole ratchet over it blocks everyone
+forever over a fact the coverage report already states honestly as 0%. It is a warning now. The
+distinction that survives: a **cached** task was in the graph, should have contributed, and did
+not — that is #146; a task with **no sources** never had anything to contribute.
+
+This is the repository's own lesson applied to my own work, and it is worth stating plainly: a gate
+that fires on correct code is the same failure as one that fires on nothing, wearing the opposite
+mask. The fixture tests all passed while the gate was unusable in practice — the log I had
+imagined was tidier than the log Gradle prints. **The gate was proven on a real run, not on the
+examples I wrote for it.**
+
+**It took three passes against real logs, and each pass found a different wrong answer:**
+
+1. `.*[Tt]est$` matched AGP's resource tasks — 19 findings, 1 real.
+2. `NO-SOURCE` as a failure blocked on `:androidApp:testDebugUnitTest`, a module with no unit tests.
+   And `UP-TO-DATE` on a *sibling* task in the same module is the same fact spelled differently:
+   `:androidApp:test` is `UP-TO-DATE` for the same reason `testDebugUnitTest` is `NO-SOURCE`. The
+   gate judged a module that has no tests as though it had tests that failed to run.
+3. The "module has no tests" exemption needed a second condition, or it becomes a standing pass for
+   any module with a `NO-SOURCE` sibling. The condition is that no task in the module may be
+   `FROM-CACHE`: a cached task *proves* the module has tests, because it ran once and produced
+   outputs worth restoring. `UP-TO-DATE` alone is ambiguous and reads as benign only next to a
+   `NO-SOURCE` sibling.
+
+The final rule is scoped per module rather than per task for that reason. 29 self-tests, and the
+two that matter most are the real logs: a `RERUN=1` run passes, and a cached run fails.
+
+The override is also honest about what it did: `--allow-cached` prints *passed with warnings*, not
+*the test tasks executed*. The first version printed the latter, which is false and is the same lie
+one level up.
+
+**Issue #86 then reproduced itself, one line away.** The recipe documents `just cr RERUN=1` — and
+that form does not assign in this environment; the token arrives as a positional argument, the flag
+is silently absent, and the run still succeeds while measuring less. Which is precisely the failure
+this change exists to prevent, delivered by the very syntax used to prevent it. The recipe now
+rejects any `NAME=value` argument with a message naming the environment form, and both are written
+`RERUN=1 just cr`. It is worth noting how cheap this was to miss: the run *looked* fine.
+
+The recipe also learned that a literal double-brace pair inside a comment is a `just` parse error,
+because `just` interpolates it. That is a two-minute trap with an error message that points at the
+comment rather than the rule.
+
+**Deliberately not chosen:** making the wipe invalidate the test task. Forcing `--rerun-tasks` on
+every ratchet run would cost a full recompile, and a gate that is slow enough to be skipped is a gate
+that gets skipped. Refusing to report is the cheaper half of the same honesty.
+
+**Try next.** #138, with `just cr RERUN=1`. The gate now makes the cache case loud; whether it was
+the cause is still #138's to answer, and the `feature/calendar_sync` note must be deleted or
+re-adopted in the same commit, as that note already requires.
+
+---
+
+## scenario-result-missing-for-a-claiming-commit-is-not-a-failure
+
+**Status:** OPEN
+
+**Tracked as:** #149
+**OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
+
+**Found in:** the scenario traceability layer
+(`2026-10-05-scenario-test-cases-in-kiwi.md`), while wiring its result matrix into
+CI. Not a regression — a requirement that was never written down.
+
+**Why it is deceptive:** everything about this looks finished. The layer has a
+result matrix, four outcomes, a green gate and a committed coverage matrix. The
+matrix even renders the outcome that matters — a claimed target with no result at
+this commit — and *nothing acts on it*. A reader scanning the table cannot tell
+whether a cell means "verified" or "nobody looked".
+
+This is the same failure class as `-Ptest.tags=fast,slow` selecting 16 of 218 test
+classes for months, and as the three faces already pinned in
+`openspec/specs/test-execution-integrity`. It is the fifth.
+
+**Already ruled out:** a floor in `config/docs/kiwi-gaps-baseline.txt` is the
+wrong instrument. Polarity differs — for a class, *never run* is the failure; for
+a scenario, *never run* is normal (it may be new, or its target may be a different
+CI job) and *missing from a commit that claims it* is the failure.
+
+**Try first:** pin what "this build claims the target" means before writing the
+check, because the two requirements are unimplementable until that is decided.
+Emitting "attempted, not merely present" per target is the enabling change; the
+current signal cannot tell "ran and produced nothing" from "was never run".
+
+## maestro-results-are-produced-and-discarded-in-ci
+
+**Status:** OPEN
+
+**Tracked as:** #150, #151
+**OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
+
+**Found in:** the same layer, while asking why the Android column of the result
+matrix is permanently empty.
+
+**Why it is deceptive:** the Android flows *do* run in CI, and they *do* produce
+the JUnit XML the normaliser reads — `scripts/run-maestro.sh` now passes
+`--format=JUNIT --output=build/maestro-results`. The output is then discarded:
+the only artifact that job uploads is Maestro's own debug report, and only
+`if: failure()`. Twenty of 59 flows carry the `smoke` tag, so the scenario flow is
+among them.
+
+So the Android column of the result matrix is not a coverage hole. It is a hole
+in the plumbing, and it is indistinguishable from the former when you look at the
+table.
+
+**Already ruled out:** simply uploading the directory with `if: always()`. The
+flows run in a *different workflow* from the job that builds the matrix, so making
+the data available does not put it in the matrix, and cross-workflow artifact
+handoff is its own problem. The honest minimum is for the matrix header to state
+which targets this build covered.
+
+**Try first:** run one scenario flow on a host with a working emulator and check
+whether the result reaches the matrix at all. That single run settles the join
+(`file` attribute, its base, whether the sheet's confirm is reachable) and every
+remaining question here is downstream of the answer. Note that no flow has yet
+produced a result in this environment, so the Android tier is unverified end to
+end — the reporter emitting a `file` field is confirmed in the Maestro 2.10.0 jar,
+but the join is inference until a real run exercises it.
+
+## untested-has-two-answers-per-class-and-per-scenario
+
+**Status:** OPEN
+
+**Tracked as:** #157
+
+**Found in:** the same layer, while writing its README and skill and noticing
+that the new matrix answers the question the old one already answered.
+
+**Root cause:** `gaps.py` measures *never-run per test class* over the
+`Automated/*` plans; the scenario matrix measures *claimed targets per user
+scenario* over the `Scenarios` plan. Both are correct about different things, and
+both are presented as authoritative. A reader arriving cold has no rule for which
+to trust, and the two will drift in vocabulary — "hole" means a claimed target
+with no automation in one layer and something closer to "never run" in the other.
+
+**Already ruled out:** merging them. The polarity is opposite, so a single
+instrument cannot express both: for a class, *never run* is the failure; for a
+scenario, *never run* is normal and *missing from a claiming commit* is the
+failure. The per-class floor stays correct for what it measures.
+
+**Try first:** write the decision down before adding more scenarios. Growing the
+layer without settling this is how two authoritative-looking answers to one
+question get created. The decision owed: does the scenario layer eventually
+replace the legacy per-class reporting, with Kover keeping code coverage and
+`Automated/*` retired?
+
+---
+
 ## sync-auth-repository-is-still-a-stub
 
 **Status:** RESOLVED (2026-10-04). Phase 8 replaced the stub; `AuthRepositoryTest` (20)
@@ -2136,3 +2629,32 @@ The general form: a DI container makes a whole category of stub invisible to
 reachability checks, because a stub is bound and called and simply returns. Catching
 those needs a different signal — a test asserting the *effect* — not a better
 reachability rule.
+
+## an-archived-gate-repair-left-the-step-it-was-fixing-broken
+
+**Status: OPEN**
+
+**Tracked as:** [#174](https://github.com/gazon1/singularity-clone-kmp/issues/174)
+
+**Found in:** 2026-10-05, merging 11 upstream commits and running the gate afterwards.
+
+**Symptom.** `local-gate-repair` was archived on 2026-10-05 as complete. It was about
+`just gate` being unable to complete: `coverage-ratchet` invoked a task that did not exist, so
+the gate died at **step 3/4** before reaching the flows. That call was fixed and the gate now
+reaches step 4 — and step 4 dies with `justfile does not contain recipe 'gate-maestro'`.
+
+**Why it is the same class as #58 and #137.** A change archived as done is a claim that the
+defect it names is gone. Here the claim and the gate disagree, and the only reason to notice is
+to run the gate. The archived `tasks.md` lists the `just cr` fix and the two-module detekt list;
+it never mentions the fourth step, so the gap was not introduced by the archive — the archive
+simply inherited it. **The step after the one that was fixed was never in the list.**
+
+**Already ruled out.** Not a resolution gap: the recipe `gate-maestro` exists, in this module,
+and `just --list` shows it. The `gate` recipe calls it by bare name, and a bare name does not
+resolve across a module boundary in `just` — the same property that made `just cr` fail, fixed
+in this change and missed here.
+
+**Try next.** One line, and then the change that was already archived has actually landed.
+Whether an archived change can be reopened, or whether the fix belongs in a new change, is a
+question about the archive's policy — it does not belong in an archived file, and it is why
+this is filed rather than patched into the archive.

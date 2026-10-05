@@ -3,6 +3,7 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
@@ -50,10 +51,14 @@ fun domainModule(): List<Module> = buildList {
     // profileModule() wrapped its bindings in module {} which created a child scope.
     add(
         module {
-            single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope()) }
-            single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
+            single<ProfileRepository> {
+                ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope(crashReportingFailureHandler(get())))
+            }
+            single {
+                ProfileAwareCurrentUser(get(), get(), createBackgroundScope(crashReportingFailureHandler(get())))
+            }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-            viewModel { AccountSettingsViewModel(profileRepository = get()) }
+            viewModel { AccountSettingsViewModel(profileRepository = get(), crashReporter = get()) }
 
             // The sync scope is the one place that needs both the session and the
             // profile, which is why it is bound here and not in coreModule(): sync

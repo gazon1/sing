@@ -1,6 +1,7 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
@@ -79,7 +80,8 @@ fun notesModule(): org.koin.core.module.Module = module {
             applyProposal = get<ApplyProposalItemUseCase>(),
             log = get<Logger>(),
             currentUser = get<ProfileAwareCurrentUser>(),
-            // scope omitted — default AutoCloseableCoroutineScope() applies
+            // scope omitted — the default derives its failure policy from crashReporter
+            crashReporter = get<CrashReportingPort>(),
         )
     }
 

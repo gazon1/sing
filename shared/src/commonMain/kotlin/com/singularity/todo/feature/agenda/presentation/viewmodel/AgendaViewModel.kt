@@ -3,6 +3,7 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
@@ -47,7 +48,7 @@ class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AgendaUiState, AgendaIntent, AgendaUiEvent>(
         initialState = AgendaUiState.Loading,
         crashReporter = crashReporter,

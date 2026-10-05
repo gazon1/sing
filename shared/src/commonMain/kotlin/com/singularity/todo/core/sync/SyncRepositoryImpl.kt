@@ -31,12 +31,18 @@ internal class SyncRepositoryImpl(
 
     override suspend fun testConnection(): ConnectionTestResult {
         authRepository.currentSession.value as? Session.SignedIn
-            ?: return ConnectionTestResult.Failure(AppError.Validation("Not signed in"))
+            ?: return ConnectionTestResult.Failure(
+                AppError.Validation("Not signed in", code = "sync.connection.not_signed_in"),
+            )
         // No user id: the transport authenticates as whoever the session is, and a
         // client-supplied id here would be an argument the client could set wrongly.
         return api.testConnection().fold(
             onSuccess = { ConnectionTestResult.Success },
-            onFailure = { ConnectionTestResult.Failure(it as? AppError ?: AppError.Unknown(it.toMessage())) },
+            onFailure = {
+                ConnectionTestResult.Failure(
+                    it as? AppError ?: AppError.Unknown(it.toMessage(), code = "sync.connection.failed"),
+                )
+            },
         )
     }
 

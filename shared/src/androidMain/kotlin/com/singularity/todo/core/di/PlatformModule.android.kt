@@ -26,6 +26,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.NotificationPort
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.AndroidHostEnvironment
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.haptics.AndroidHaptic
@@ -236,10 +237,15 @@ actual fun platformModule(): Module = module {
     // type made every koinInject<PomodoroTaskListProvider>() fail with
     // NoDefinitionFoundException, which crashed the Pomodoro tab on Android while
     // Desktop worked. The JVM module binds the interface — mirror that.
-    single<PomodoroTaskListProvider> { AndroidPomodoroTaskListProvider(get(), createBackgroundScope()) }
+    single<PomodoroTaskListProvider> {
+        AndroidPomodoroTaskListProvider(get(), createBackgroundScope(crashReportingFailureHandler(get())))
+    }
     // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
     // point gets its own instance with the CoroutineScope from coreModule.
-    single<CoroutineScope> { createBackgroundScope() }
+    // A shared process-lifetime scope, so its failure policy is named here rather than
+    // inherited. PomodoroTimer gets this exact instance — a factory binding here would hand
+    // each timer a different scope and silently break the sharing this line exists for.
+    single<CoroutineScope> { createBackgroundScope(crashReportingFailureHandler(get())) }
     factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), get(), get(), get()) }
 
     // ─── Calendar Sync ────────────────────────────────────────────────

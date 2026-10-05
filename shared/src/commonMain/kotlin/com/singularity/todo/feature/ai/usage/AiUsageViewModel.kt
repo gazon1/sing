@@ -7,6 +7,7 @@ import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.ToolUsage
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
@@ -40,7 +41,7 @@ class AiUsageViewModel(
     private val usageRecorder: RoomUsageRecorder,
     profileRepository: ProfileRepository,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AiUsageUiState, AiUsageIntent, Nothing>(
         initialState = AiUsageUiState(),
         crashReporter = crashReporter,

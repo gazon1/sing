@@ -5,20 +5,34 @@
 # context before any skill is chosen, so a 90-entry meta-skill would spend that budget
 # re-listing what discovery already does. A plain file is referenced by pointer instead.
 #
-# Usage: ./scripts/regen-skills-catalog.sh
+# Why --check exists: the catalog was committed stale on a clean tree and nothing
+# noticed, because "do not edit by hand" only discourages the wrong edit — it does
+# not catch the edit nobody made. That is the same lesson as
+# gen-detekt-rule-table.py, whose inventory drifted twice before it grew a check.
+# The catalog is what an agent reads to choose a skill, so a stale line count or a
+# stale description sends it to the wrong file.
+#
+# Usage: ./scripts/regen-skills-catalog.sh            # rewrite
+#        ./scripts/regen-skills-catalog.sh --check    # fail if stale (CI)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$ROOT/.agents/skills"
 OUT="$ROOT/docs/SKILLS-CATALOG.md"
 
-python3 - "$SKILLS_DIR" "$OUT" <<'PY'
+CHECK=0
+if [[ "${1:-}" == "--check" ]]; then
+    CHECK=1
+fi
+
+python3 - "$SKILLS_DIR" "$OUT" "$CHECK" <<'PY'
 import pathlib
 import re
 import sys
 from datetime import date
 
 skills_dir, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+check = sys.argv[3] == "1"
 
 def parse(skill_md: pathlib.Path):
     text = skill_md.read_text(encoding="utf-8", errors="replace")
@@ -84,6 +98,18 @@ state *which tasks need the skill*, not summarise its contents.
 {section("Generic / meta skills", GENERIC)}
 {section("Retired", RETIRED)}
 """
+
+if check:
+    current = out.read_text(encoding="utf-8") if out.exists() else ""
+    if current != doc:
+        print(
+            "regen-skills-catalog: docs/SKILLS-CATALOG.md is stale — "
+            "run: ./scripts/regen-skills-catalog.sh",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    print(f"regen-skills-catalog: OK — {len(entries)} skills, catalog current")
+    sys.exit(0)
 
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(doc, encoding="utf-8")

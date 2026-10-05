@@ -115,7 +115,14 @@ actual fun aiToolsModule(): Module = module {
 
     singleOf(::RoomUsageRecorder)
 
-    viewModel { ChatViewModel(Logger.withTag("ChatViewModel"), get(), get(), get()) }
+    viewModel {
+        ChatViewModel(
+            log = Logger.withTag("ChatViewModel"),
+            agent = get(),
+            idGen = get(),
+            crashReporter = get(),
+        )
+    }
     viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
     viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get()) }
 

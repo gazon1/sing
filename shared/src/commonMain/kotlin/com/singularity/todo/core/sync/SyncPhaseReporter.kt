@@ -48,14 +48,24 @@ internal class SyncPhaseReporter(
      * re-open an already-closed object"; "Could not read the pending changes" says what
      * to do next. The driver's text is kept as the [AppError.cause], so nothing is lost
      * from the crash report.
+     *
+     * @param code a stable, machine-shaped identifier a crash reporter groups on. It is
+     *   a separate argument rather than being derived from [what] because [what] is
+     *   prose that may be reworded, and a code that changes when a message does cannot
+     *   group anything. Two Storage failures from the same call site are one dashboard
+     *   group; two different call sites are two.
      */
     @Suppress("TooGenericExceptionCaught") // a DAO may throw anything, and nothing may escape a phase
-    suspend fun <T> localStorage(what: String, block: suspend () -> T): Result<T> = try {
+    suspend fun <T> localStorage(
+        code: String,
+        what: String,
+        block: suspend () -> T,
+    ): Result<T> = try {
         Result.success(block())
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
-        Result.failure(AppError.Persistence("Could not $what", cause = e))
+        Result.failure(AppError.Persistence("Could not $what", code = code, cause = e))
     }
 
     /**

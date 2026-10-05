@@ -1,0 +1,78 @@
+# Scenario TASK-REC-01 — create a daily recurring task.
+#
+# Canonical spec: infra/kiwi/scenarios/tasks/recurrence/TASK-REC-01.yaml
+#
+# The `scenario:TASK-REC-01` tag below is the linkage. It is matched by exact
+# string comparison in scripts/run-maestro.sh, so `just gm scenario:TASK-REC-01`
+# filters to exactly this flow with no new mechanism. The id is the first token
+# after the `scenario:` namespace prefix, for the same reason it is the first
+# token in a Kotlin `@DisplayName`: a reader — human or scanner — can tell an id
+# from prose. The scanner rejects the tag if the id has no spec file.
+#
+# Why Android carries this half of the scenario: the recurrence picker is a
+# `ModalBottomSheet`, and Compose Multiplatform renders sheets into a separate
+# semantics root on desktop, so no JVM Compose test can reach a selector inside
+# it. Maestro drives the real UI, so the selection step is verifiable here. The
+# desktop Compose test covers the composer's entry point instead.
+appId: com.singularity.todo
+name: tasks-create-daily-recurring
+tags:
+  - scenario:TASK-REC-01
+  - smoke
+  - tasks
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# ── Open the composer ─────────────────────────────────────────────────
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── Give the task a title ─────────────────────────────────────────────
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Water the plants"
+- hideKeyboard
+
+# ── Open the recurrence picker ────────────────────────────────────────
+- tapOn:
+    id: task_editor_recurrence_row
+- extendedWaitUntil:
+    visible:
+      id: recurrence_option_daily
+    timeout: 5000
+
+# ── Choose Daily and commit it ────────────────────────────────────────
+#
+# Unlike the priority sheet, the recurrence sheet does NOT dismiss on
+# selection: the host header's Done button applies the rule. Tapping Daily
+# alone would leave the sheet open and the task unchanged, which is the whole
+# reason this flow asserts the row label afterwards rather than the sheet.
+- tapOn:
+    id: recurrence_option_daily
+- tapOn:
+    text: Done
+- extendedWaitUntil:
+    notVisible:
+      id: recurrence_option_daily
+    timeout: 5000
+
+# ── The row now reports the rule ──────────────────────────────────────
+- assertVisible:
+    id: task_editor_recurrence_row
+- assertVisible: "Repeats"
+
+# ── Save ──────────────────────────────────────────────────────────────
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+
+# ── The task is created and the composer is closed ────────────────────
+- extendedWaitUntil:
+    visible:
+      id: task_item_water_the_plants
+    timeout: 8000
+- assertVisible: "Water the plants"

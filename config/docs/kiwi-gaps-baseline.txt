@@ -1,0 +1,19 @@
+# Never-run test cases per Kiwi plan, used as a ceiling by
+# scripts/check-kiwi-gaps.py. Format: <plan> <max-never-run>.
+#
+# Record the HIGHEST count any legitimate state produces, exactly as
+# test-runs-baseline.txt records the smallest executed count: a floor
+# regenerated on every failure is not a gate.
+#
+# A RISE in never-run cases is a tooling fault until shown otherwise —
+# stale build/test-results, or a test task that was UP-TO-DATE and did
+# not rewrite its XML. Investigate before lowering the number.
+#
+# A plan with no line here is skipped, not failed: it has no floor
+# because it has no legitimate run to record one from.
+
+Automated — android instrumented 4
+Automated — desktop (Compose UI) 1
+Automated — detekt-rules 18
+Automated — mcp-server 1
+Automated — shared (commonTest+jvmTest) 5

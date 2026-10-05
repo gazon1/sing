@@ -1,4 +1,5 @@
 ---
+title: 'The skill-symbol gate had a blind spot, and it failed silently'
 date: 2026-10-04
 status: accepted
 deciders: engineering

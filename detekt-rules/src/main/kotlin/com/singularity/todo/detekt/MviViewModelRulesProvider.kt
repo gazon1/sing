@@ -18,7 +18,8 @@ import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenExpression
 
-private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
+/** Bans a ViewModel managing its own `MutableStateFlow` instead of the base's single state source. */
+internal class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         for (declaration in root.declarations) {
@@ -60,7 +61,8 @@ private class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
     }
 }
 
-private class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
+/** Bans an intent handler named anything but `onIntent`, so the MVI entry point has one name. */
+internal class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         for (declaration in root.declarations) {
@@ -125,7 +127,8 @@ private class IntentMethodNameRule(config: Config) : Rule(config, "", null) {
     }
 }
 
-private class VmScopePositionRule(config: Config) : Rule(config, "", null) {
+/** Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. */
+internal class VmScopePositionRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         for (declaration in root.declarations) {
@@ -156,7 +159,8 @@ private class VmScopePositionRule(config: Config) : Rule(config, "", null) {
     }
 }
 
-private class VmCloseableRule(config: Config) : Rule(config, "", null) {
+/** Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. */
+internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         for (declaration in root.declarations) {
@@ -239,7 +243,8 @@ private class VmCloseableRule(config: Config) : Rule(config, "", null) {
  * reliably possible, and a broader heuristic would flag the legitimate side-flows
  * that VMs use as `combine` inputs.
  */
-private class ShadowedStateRule(config: Config) : Rule(config, "", null) {
+
+internal class ShadowedStateRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         for (declaration in root.declarations) {

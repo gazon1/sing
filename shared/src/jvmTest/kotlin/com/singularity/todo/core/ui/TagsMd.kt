@@ -260,6 +260,10 @@ object TagsMd {
         "TASKS_" to "Tasks",
         "TASK_" to "Tasks",
         "PRIORITY_" to "Tasks",
+        // Recurrence options live in the task editor's recurrence picker, so
+        // they belong with the other task-editor rows. Anchored like every other
+        // entry: an unanchored match would also swallow unrelated names.
+        "RECURRENCE_" to "Tasks",
         "AGENDA_" to "Agenda",
         "SAVED_" to "Agenda",
         "POMODORO_" to "Pomodoro",

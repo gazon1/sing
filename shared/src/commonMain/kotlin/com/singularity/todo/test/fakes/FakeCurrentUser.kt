@@ -1,5 +1,6 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.coroutines.createBackgroundScope
@@ -22,5 +23,5 @@ import kotlinx.coroutines.CoroutineScope
  */
 fun FakeCurrentUser(
     authRepository: AuthRepository = FakeAuthRepository(),
-    scope: CoroutineScope = createBackgroundScope(),
+    scope: CoroutineScope = createBackgroundScope(loggingBackgroundFailureHandler()),
 ): CurrentUser = CurrentUser(authRepository, scope)

@@ -1,0 +1,22 @@
+schema: spec-driven
+
+# Detekt tooling honesty is process, not product behaviour: this change alters what a
+# build task does when it is asked to regenerate a baseline, and changes no capability a
+# user or a client can observe. A spec delta here would describe "the lint gate runs the
+# project's rules" — which is a restatement of what the gate is for, and restatements are
+# what the ADRs in this repository keep getting wrong.
+#
+# What makes these findings worth an issue each is precisely that they are *not*
+# specification-level: a task that silently does less than it says is a defect in the
+# tool, and the spec has no vocabulary for "the tool lied".
+#
+# The reasoning is in the proposal. The measurements are in issues #136, #137, #138, #145 and
+# #146; do not re-derive them from the ADRs, the ADRs record conclusions and these record how
+# they were reached.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive. If this change ever
+# starts describing a verification requirement rather than build-tool behaviour, delete
+# skip_specs and write the delta. That is the test, and #145 is why it is worth stating: the
+# inventory made a real gap visible and failed on nothing, which is the same shape as a change
+# that describes a requirement and checks none of it.
+skip_specs: true

@@ -169,6 +169,20 @@ fi
 # (~0.4/pass), so a pass can contain two losses; the default covers that.
 MAX_RETRIES="${MAESTRO_MAX_RETRIES:-2}"
 
+# JUnit XML for the scenario traceability pipeline.
+#
+# Without this the Android column of the result matrix can never be filled: the
+# normaliser reads Maestro JUnit, and nothing in the repository produced any.
+# `traceability/__main__.py` expects the aggregate directory to be
+# build/maestro-results, and one flow per invocation means one file per flow —
+# which is what the normaliser wants, because it joins a flow on its `file`
+# attribute.
+#
+# Maestro writes into --output as a directory, one <testsuite> per flow, so the
+# path must exist before the run or a first-run failure is indistinguishable
+# from a reporter problem.
+MAESTRO_JUNIT_DIR="${MAESTRO_JUNIT_DIR:-$REPO_ROOT/build/maestro-results}"
+
 PASSED=(); FAILED=()
 
 device_alive() {
@@ -229,7 +243,13 @@ run_one_flow() {
     log="$(mktemp)"
     while (( attempt <= MAX_RETRIES )); do
         set +e
-        (cd "$REPO_ROOT" && maestro test "$flow") >"$log" 2>&1
+        # --format=JUNIT --output is what makes a flow's result joinable to a
+        # scenario. It is additive: the exit status and the log are unchanged,
+        # so the pass/fail and device-recovery logic below is untouched.
+        mkdir -p "$MAESTRO_JUNIT_DIR"
+        (cd "$REPO_ROOT" && maestro test "$flow" \
+            --format=JUNIT \
+            --output="$MAESTRO_JUNIT_DIR") >"$log" 2>&1
         local status=$?
         set -e
         cat "$log"

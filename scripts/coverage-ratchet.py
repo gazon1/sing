@@ -7,11 +7,11 @@ sees what caused it.
 
 ## Why this exists instead of a kover verify bound
 
-`:shared:koverXmlReport` can only aggregate test tasks whose classes kover
-instruments, and instrumentation for `:shared:jvmTest` is **off by default** —
-with it off, the report is generated but every counter under the agenda package
-is 0, and a bound pinned to that ratchets on nothing. The measurement run
-therefore passes `-Pkover.jvmTest=true`.
+A kover report can only aggregate test tasks whose classes kover instruments, and
+instrumentation for `:shared:jvmTest` is **off by default** — with it off, the
+report is generated but every counter under the agenda package is 0, and a bound
+pinned to that ratchets on nothing. The measurement run therefore passes
+`-Pkover.jvmTest=true`.
 
 That flag is a *speed* choice, not a safety one. The OOM that originally
 justified disabling instrumentation was misattributed: it reproduces with kover
@@ -24,9 +24,19 @@ completes in 9m27s without OOM. Keeping it off by default only means
 
 Kover merges binary reports incrementally, so a report produced after other runs
 can carry coverage from tests outside the current filter. The floors are only
-meaningful against a clean state, which is why the just recipe removes
-`shared/build/kover` before measuring. Do not point this script at a report
-produced some other way.
+meaningful against a clean state, which is why the just recipe clears the kover
+directories before measuring. Do not point this script at a report produced some
+other way.
+
+## Scopes are measured against the aggregate
+
+The report is settings-level, so a scope like `com/singularity/todo/` also
+covers the desktop and application modules' classes, not only `shared`. The floors
+were adopted from a per-module report and were re-measured when the path changed;
+`config/coverage-ratchet.json` records the command they came from in
+`measurement`, and the day in `measured_at`. Read that field before trusting a
+floor's absolute value — what the ratchet protects is a *drop*, and a floor
+adopted under a different command is a different number.
 
 ## Multiple floors
 
@@ -44,11 +54,9 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-# The settings-level report, at the root of the build. Coverage is configured
-# once in settings.gradle.kts rather than per project, so the report tasks are
-# registered on the root project and aggregate every subproject's test tasks.
-# A `shared/build/...` path belonged to the per-project configuration that was
-# replaced, and silently found nothing.
+# The settings-level Kover aggregate writes to the root, and that is the only report
+# this script can use: `:shared:koverXmlReport` does not exist, so the per-module path
+# this defaulted to could never be produced. Same file check-coverage.py reads in CI.
 DEFAULT_REPORT = "build/reports/kover/report.xml"
 DEFAULT_BASELINE = "config/coverage-ratchet.json"
 # Compose-only subtrees of the agenda feature: exercised by the desktopApp flow

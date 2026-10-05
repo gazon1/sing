@@ -29,7 +29,8 @@ object ContentStateMapper {
     fun notes(state: NotesUiState): ContentState<List<com.singularity.todo.feature.notes.Note>> = when (state) {
         is NotesUiState.Loading -> ContentState.Loading
 
-        is NotesUiState.Error -> ContentState.Error(AppError.Unknown(state.message))
+        is NotesUiState.Error ->
+            ContentState.Error(AppError.Unknown(state.message, code = "notes.render.failed"))
 
         is NotesUiState.Content -> {
             if (state.list.isEmpty) {
@@ -42,8 +43,12 @@ object ContentStateMapper {
 
     fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> = when (state) {
         is TagsUiState.Loading -> ContentState.Loading
+
         is TagsUiState.Empty -> ContentState.Empty
-        is TagsUiState.Error -> ContentState.Error(AppError.Unknown(state.message))
+
+        is TagsUiState.Error ->
+            ContentState.Error(AppError.Unknown(state.message, code = "tags.render.failed"))
+
         is TagsUiState.Content -> ContentState.Ready(state.tags)
     }
 
@@ -51,8 +56,12 @@ object ContentStateMapper {
         state: TagGroupsUiState,
     ): ContentState<List<com.singularity.todo.feature.tags.domain.model.TagGroup>> = when (state) {
         is TagGroupsUiState.Loading -> ContentState.Loading
+
         is TagGroupsUiState.Empty -> ContentState.Empty
-        is TagGroupsUiState.Error -> ContentState.Error(AppError.Unknown(state.message))
+
+        is TagGroupsUiState.Error ->
+            ContentState.Error(AppError.Unknown(state.message, code = "tags.groups.render_failed"))
+
         is TagGroupsUiState.Content -> ContentState.Ready(state.groups)
     }
 }

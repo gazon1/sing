@@ -133,14 +133,18 @@ gate:
     # build and a real check on a cold one. It is here because "I ran check.sh"
     # is not the same claim as "I ran detekt" when the two ever drift apart.
     banner "2/4 detekt"
-    ./scripts/check-detekt-registrations.sh
-    ./gradlew :shared:detekt :desktopApp:detekt
+    # `lint`, not a second copy of the task list. The inline version named two of the four
+    # modules, so :androidApp and :detekt-rules were never analysed by this gate — and it
+    # re-ran check-detekt-registrations.sh, which `lint` already runs. One authority.
+    just lint
 
     banner "3/4 coverage ratchet"
-    # `cr`, not `coverage-ratchet`: this recipe lives in the `tests` module, so
-    # its unqualified name does not resolve from here. The gate got as far as this
-    # step only after the recipes were split into modules, and the call site was
-    # not updated with them — every earlier run stopped at step 10.
+    # `cr`, which is an alias, exactly like the `lint` above. A bare recipe name does
+    # not resolve across a module boundary in `just`: this recipe lives in `tests`, so
+    # `just coverage-ratchet` looks the name up in the root justfile, does not find it,
+    # and fails. The step-4 call below had the identical defect, found by this gate
+    # reaching it at all — the third occurrence of one mistake in one recipe, which is
+    # the argument for the fix being the alias rather than the qualified name.
     just cr
 
     if [[ "${SKIP_MAESTRO:-0}" == "1" ]]; then
@@ -150,11 +154,10 @@ gate:
     fi
 
     banner "4/4 agenda flows on device"
-    # `tests::gate-maestro`, for the same reason as `just cr` above: this recipe lives
-    # in the `tests` module, so its unqualified name does not resolve from here. That
-    # fix was applied to the ratchet call site and missed this one, so the gate died at
-    # step 4 with "justfile does not contain recipe `gate-maestro`" after three green
-    # steps — the worst place for it to break, because the work before it is real.
+    # `tests::gate-maestro`, for the same reason as any other recipe in this module:
+    # an unqualified name does not resolve from `gate`. `just gate` completed three
+    # green steps and then died here with "justfile does not contain recipe
+    # `gate-maestro`", which reads like a Maestro problem and is a name-resolution one.
     just tests::gate-maestro agenda
 
     banner "all gates green"
@@ -183,6 +186,24 @@ detekt:
     ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt
 
 [group('lint')]
+[doc('Prove the lint gate is measuring: plant a violation, assert it is reported')]
+[working-directory(justfile_directory())]
+gate-honesty *args="":
+    #!/bin/bash
+    set -euo pipefail
+    # SLOW (~1 min per probe) and deliberately not in `check.sh` or `gate`. The person who
+    # needs this is the one about to regenerate a detekt baseline, or about to believe a green
+    # `just lint`, and they need it *then*.
+    #
+    # It exists because three defects in one session shared a shape: a measurement that could
+    # not be distinguished from its own failure. A stale rule classpath made detekt green with
+    # no custom rules running (#136); `detektBaseline` deleted every custom-rule entry and the
+    # next run reported a clean tree because nothing ran (#137); a coverage number that may not
+    # describe any execution (#138). Plant a violation, assert it is reported, and only then is
+    # a green result evidence rather than an absence of evidence.
+    python3 scripts/check-gate-honesty.py {{args}}
+
+[group('lint')]
 [doc('Auto-fix detekt style rules + ktlint formatting violations')]
 [working-directory(justfile_directory())]
 detekt-fix:
@@ -202,6 +223,7 @@ detekt-baseline:
 [group('lint')]
 [doc('Alias for detekt (lint = detekt in this project)')]
 lint: detekt
+
 
 # ---------------------------------------------------------------------------
 # Documentation audit
@@ -292,30 +314,83 @@ coverage-html:
 coverage-ratchet *args="":
     #!/bin/bash
     set -euo pipefail
+    # RERUN=1 forces the instrumented test task to execute rather than being served from
+    # cache. ALLOW_CACHED=1 downgrades that to a warning — for deliberate re-measurement
+    # only. Neither is a default: the point of this recipe is that a floor means something.
+    #
+    # Both are ENVIRONMENT variables, and they have to be set as `RERUN=1 just cr`, not
+    # `just cr RERUN=1`. In this environment the latter does not assign — the whole token
+    # arrives as a positional argument (issue #86), so the flag is silently absent and the
+    # run is quiet about why it did not do what was asked. That failure is expensive precisely
+    # because the run still succeeds; it just measures less. Caught here.
+    # Note for the next editor: inside a recipe body, just interpolates anything in double
+    # braces, so a literal brace pair in a comment is a parse error. The shell's own
+    # `$RERUN` forms are written with a single brace and are safe under `set -u` even unset.
+    case "{{args}}" in
+        *=*)
+            echo "coverage-ratchet: got '{{args}}' as an argument." >&2
+            echo "  NAME=value does not assign in this environment (issue #86) — the whole token" >&2
+            echo "  arrives as a positional argument, so the flag was silently ignored and the" >&2
+            echo "  run measured less than you asked for. Set it in the environment instead:" >&2
+            echo "    RERUN=1 just cr" >&2
+            echo "    ALLOW_CACHED=1 just cr" >&2
+            exit 64
+            ;;
+    esac
     # Kover merges binary reports incrementally, so a report produced after other
     # runs carries coverage from tests outside the current filter. The floors are
     # only reproducible from a clean state, hence the wipe.
-    rm -rf shared/build/kover shared/build/reports/kover
+    #
+    # Every module's directory, not just :shared: the settings-level aggregate merges
+    # the per-module binary reports, so leaving one behind measures a mix of this run
+    # and a previous one. The find keeps this a rule rather than a list that has to be
+    # extended every time a module is added.
+    find . -maxdepth 4 -type d -name kover -not -path './.git/*' -prune -exec rm -rf {} +
+    # The wipe above removes the binary reports, but it does NOT invalidate the *test task*.
+    # Gradle decides jvmTest's outcome from its own inputs, so a task served UP-TO-DATE or
+    # FROM-CACHE re-executes nothing and contributes no fresh .bin — and the report that
+    # follows is then thinner than the truth, with no way to tell from the number alone.
+    #
+    # That is not hypothetical: it is the leading hypothesis for #138, where a Koin definition
+    # body sits at 4/18 lines after a test that genuinely resolves it. And it applies to every
+    # floor, not just that one file.
+    #
+    # So the run is captured and checked rather than trusted. The ratchet refuses to compare
+    # floors against a report it cannot show was produced by executing tests. Being slow is
+    # the lesser problem here; being confidently wrong is the one this repository keeps paying
+    # for.
+    #
+    # Override with RERUN=0 when you are deliberately re-measuring without re-executing (a
+    # known-stale report, a bisect) — the gate then says so instead of implying a measurement.
+    log=$(mktemp)
+    trap 'rm -f "$log"' EXIT
+    # `:shared:koverXmlReport` does not exist — Kover is configured at settings level, so
+    # only the root project registers the report tasks, and this recipe died on the
+    # missing-task error before running anything. `koverReport` is the entry point that is
+    # correct by construction: it puts the test tasks in the graph itself and then merges.
+    # Same call ci.yml makes; its comment there warns off the two wrong invocations, which is
+    # where the old one came from.
+    #
+    # "In the graph" is not "executed" — that correction is the whole point of the capture
+    # below, and it is why the comment that used to sit here ("so the report cannot be produced
+    # from a stale binary set") was wrong.
     # `-Pkover.jvmTest=true` instruments jvmTest, which is off by default. That
     # flag is a speed choice, not a safety one: the OOM that originally justified
     # disabling instrumentation was misattributed (2026-09-27-write-layer-soundness.md
     # ledger #11), and a full instrumented run was measured on 2026-10-04 at 9m27s
     # with no OOM. It stays off by default so ./check.sh does not pay those minutes
     # on every run.
-    # `koverXmlReport` unqualified, not `:shared:koverXmlReport`. Coverage is
-    # configured once at settings level (see settings.gradle.kts), so the report
-    # tasks are registered on the ROOT project and aggregate every subproject.
-    # A per-project task would report only that project's own test tasks — the
-    # gap the settings-level block exists to close — and no longer exists at
-    # all, so the qualified name failed to resolve.
-    # `:desktopApp:test` as well as `:shared:jvmTest`. The report is aggregated
-    # across every module's test JVM, so a run that instruments only the shared
-    # module measures only the shared module — and reads as a coverage *drop*
-    # against a floor that was recorded from the full suite. The desktop flow
-    # tests are where a large part of the shared UI is covered.
-    ./gradlew :shared:jvmTest :desktopApp:test koverXmlReport \
+    ./gw koverReport \
         -Pkover.jvmTest=true \
-        --console=plain
+        ${RERUN:+--rerun-tasks} \
+        --console=plain 2>&1 | tee "$log"
+    # `set -o pipefail` above means a Gradle failure still fails the recipe — but only because
+    # pipefail is on. Without it a failing build would be swallowed by `tee` and the ratchet
+    # would happily compare floors against a report that was never finished being written.
+    #
+    # Then the log is read back. A floor is only meaningful if the tests ran, and the wipe at
+    # the top of this recipe cannot guarantee that.
+    python3 scripts/check-coverage-measurement.py "$log" ${ALLOW_CACHED:+--allow-cached}
     python3 scripts/coverage-ratchet.py {{args}}
 
 # ---------------------------------------------------------------------------

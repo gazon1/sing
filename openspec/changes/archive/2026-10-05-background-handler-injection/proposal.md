@@ -1,6 +1,6 @@
 # background-handler-injection
 
-Issues: #125, #128, #129 · Follows: `apptracer-integration`, `failure-visibility`
+Issues: #125, #126, #127, #128, #129, #140 · Follows: `apptracer-integration`, `failure-visibility`
 Spec delta: `crash-reporting` (REQ-5, REQ-6)
 
 ## What

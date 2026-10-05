@@ -30,8 +30,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
@@ -164,6 +166,7 @@ fun RecurrencePickerSheet(
             // ── Clear recurrence ─────────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth()
+                    .testTag(TestTags.RECURRENCE_OPTION_NONE)
                     .selectable(
                         selected = currentSpec == null,
                         onClick = { onApply(null) },
@@ -213,6 +216,7 @@ fun RecurrencePickerSheet(
                 SpecType.entries.forEach { type ->
                     Row(
                         modifier = Modifier.fillMaxWidth()
+                            .testTag(type.testTag())
                             .selectable(
                                 selected = selectedType == type,
                                 onClick = { selectedType = type },
@@ -436,6 +440,25 @@ private enum class SpecType(val label: String) {
     WEEKLY("Specific weekdays"),
     MONTHLY("Day of month"),
     YEARLY("Yearly on date"),
+}
+
+/**
+ * The stable test tag for a frequency option.
+ *
+ * Keyed on the enum constant, never on [label]: the labels are translated
+ * user-facing copy, so a tag built from them would only resolve in the locale
+ * it was written in. Mirrors `TaskPriority.testTag()` in the priority sheet —
+ * the two are the only places `TestTags.PRIORITY_OPTION_*` /
+ * `TestTags.RECURRENCE_OPTION_*` and the user-visible copy meet.
+ */
+private fun SpecType.testTag(): String = when (this) {
+    SpecType.INTERVAL_DAY -> TestTags.RECURRENCE_OPTION_DAILY
+    SpecType.INTERVAL_WEEK -> TestTags.RECURRENCE_OPTION_WEEKLY
+    SpecType.INTERVAL_MONTH -> TestTags.RECURRENCE_OPTION_MONTHLY
+    SpecType.INTERVAL_YEAR -> TestTags.RECURRENCE_OPTION_YEARLY
+    SpecType.WEEKLY -> TestTags.RECURRENCE_OPTION_SPECIFIC_WEEKDAYS
+    SpecType.MONTHLY -> TestTags.RECURRENCE_OPTION_DAY_OF_MONTH
+    SpecType.YEARLY -> TestTags.RECURRENCE_OPTION_YEARLY_ON_DATE
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

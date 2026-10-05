@@ -15,7 +15,7 @@ import kotlin.coroutines.CoroutineContext
  * ```kotlin
  * class MyViewModel(
  *     private val deps: MyDeps,
- *     private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+ *     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
  * ) : ViewModel() {
  *     init {
  *         addCloseable(scope)
@@ -44,13 +44,5 @@ class AutoCloseableCoroutineScope(override val coroutineContext: CoroutineContex
 
     override fun close() {
         cancel()
-    }
-
-    companion object {
-        /**
-         * Creates an [AutoCloseableCoroutineScope] backed by [createBackgroundScope].
-         */
-        operator fun invoke(): AutoCloseableCoroutineScope =
-            AutoCloseableCoroutineScope(createBackgroundScope().coroutineContext)
     }
 }
