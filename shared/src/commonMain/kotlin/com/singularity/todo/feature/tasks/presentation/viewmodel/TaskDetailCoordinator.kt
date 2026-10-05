@@ -14,6 +14,7 @@ import com.singularity.todo.feature.tasks.presentation.state.FirstRun
 import com.singularity.todo.feature.tasks.presentation.state.FirstRunResolver
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
@@ -367,11 +368,20 @@ class TaskDetailCoordinator(
 
             is TaskDetailIntent.Domain.RunAiAction -> ai.onIntent(intent)
 
-            is TaskDetailIntent.Domain.Start,
-            is TaskDetailIntent.Domain.Stop,
-            is TaskDetailIntent.Domain.CreateManual,
-            is TaskDetailIntent.Domain.Tick,
-            -> timeSlot.onIntent(intent)
+            is TaskDetailIntent.Domain.Start -> timeSlot.onIntent(TaskTimeSlotIntent.Start)
+
+            is TaskDetailIntent.Domain.Stop -> timeSlot.onIntent(TaskTimeSlotIntent.Stop)
+
+            is TaskDetailIntent.Domain.CreateManual -> timeSlot.onIntent(
+                TaskTimeSlotIntent.CreateManual(
+                    startedAtMs = intent.startedAtMs,
+                    endedAtMs = intent.endedAtMs,
+                    kind = intent.kind,
+                    note = intent.note,
+                ),
+            )
+
+            is TaskDetailIntent.Domain.Tick -> timeSlot.onIntent(TaskTimeSlotIntent.Tick(intent.elapsedMs))
 
             is TaskDetailIntent.Domain.ConfirmProposalItem -> {
                 val apply = deps.collaboration.applyProposal ?: return
