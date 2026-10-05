@@ -74,4 +74,14 @@ interface SyncDeadLetterDao {
 
     @Query("DELETE FROM sync_dead_letter")
     suspend fun clearAll()
+
+    /**
+     * Drops an account's shelved patches, and only that account's.
+     *
+     * REQ-UA-017's erase. Without the owner filter this would take the incoming
+     * account's shelved work with it — the shelf can hold rows from several accounts,
+     * since REQ-UA-006 keeps work across a sign-out.
+     */
+    @Query("DELETE FROM sync_dead_letter WHERE owner_id = :ownerId")
+    suspend fun deleteForOwner(ownerId: String): Int
 }

@@ -87,6 +87,16 @@ interface SyncOutboxDao {
     @Query("SELECT COUNT(*) FROM sync_outbox WHERE owner_id = :ownerId")
     suspend fun countPendingFor(ownerId: String): Int
 
+    /**
+     * Drops an account's whole queue, and only that account's.
+     *
+     * Part of REQ-UA-017's erase. Scoped by owner rather than by patch id because the
+     * caller has no list of patch ids — the point is to remove what the owner queued,
+     * and the owner is the only thing known about all of it.
+     */
+    @Query("DELETE FROM sync_outbox WHERE owner_id = :ownerId")
+    suspend fun deleteForOwner(ownerId: String): Int
+
     /** Insert a new patch */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: SyncOutboxEntity)

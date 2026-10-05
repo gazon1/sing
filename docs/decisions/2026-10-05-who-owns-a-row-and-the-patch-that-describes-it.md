@@ -1,7 +1,7 @@
 ---
 title: Who owns "the row and the patch that describes it, or neither"
 date: 2026-10-05
-status: open
+status: accepted
 ---
 
 # Who owns "the row and the patch that describes it, or neither"
@@ -51,8 +51,8 @@ decided.
 
 ## Decision
 
-**Undecided — and that is the finding.** Option 2 is the shape I would choose, and the
-reasons are worth recording so the choice is made rather than drifted into.
+**Option 2 — a unit-of-work port.** `unitOfWork.write { dao.insert(…); enqueue(…) }`,
+where the unit of work holds the database and performs both writes. Accepted 2026-10-06.
 
 **Option 2, over option 1:** the transaction has to be correct in six places, and the six
 places are six repositories that will each be edited by a different person for an
@@ -60,6 +60,14 @@ unrelated reason. A per-repository transaction is correct only as long as nobody
 write to the middle of one. A single unit of work is correct once, and the six call sites
 become a shape that cannot be got wrong — there is nowhere to put a second write that is
 outside it.
+
+**The count is worse than this ADR first recorded.** When this was written, "six
+repositories" came from reading the repository implementations. Counting the actual
+`enqueue` call sites gives **19** — tasks (3), notes (3), projects (3), tags (3), tag
+groups (4), and the archive path (3, a `forEach` over released tags). That is the number
+of places a per-repository transaction would have to be correct, and it is what decided
+the matter: nineteen chances to diverge, spread over six files, each of which will next be
+edited for an unrelated reason.
 
 **Option 3 is the one to be careful about.** It is genuinely better — no second port, no
 possibility of the pair diverging — and it is a Room-specific mechanism, so the JVM and
@@ -69,6 +77,13 @@ does, and `SyncOutbox` carries patch payloads built by the diff, not by the row.
 cannot build a patch. What it *can* do is record "entity X changed" and leave the patch
 construction where it is, which is a different design from the one the current code has
 and deserves its own consideration rather than a mention here.
+
+**The read path constrains this more than the write path does.** PL-13 — a page of fifty
+events applied row by row with nothing around it — is the same question asked of the other
+end of the protocol. Choosing a write-path answer that the read path cannot reuse would
+leave the project owning two answers to "what is a batch of related writes", which is
+worse than having one imperfect one. The unit of work is therefore required to be usable
+over the engine's own batch, and that is the constraint most likely to affect the shape.
 
 ## What the decision costs either way
 
@@ -97,6 +112,8 @@ and deserves its own consideration rather than a mention here.
 
 ## Links
 
+- `2026-10-06-a-profile-is-owned-and-an-erase-resolves-its-ids-first` — the owner-scoped
+  erase, whose ordering this same missing transaction seam currently limits.
 - Issue #178 for the version half of the same file's lifecycle, which this does not
   block.
 - Test plan §6.1 OB-04 and OB-05, §6.6 PL-13.

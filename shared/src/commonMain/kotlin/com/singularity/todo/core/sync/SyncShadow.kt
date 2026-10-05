@@ -135,6 +135,21 @@ interface SyncShadowDao {
     @Query("DELETE FROM sync_shadow WHERE owner_id = :ownerId AND profile_id = :profileId")
     suspend fun clearScope(ownerId: String, profileId: String)
 
+    /**
+     * Drops an account's shadow rows across **every** profile it owns.
+     *
+     * REQ-UA-017's erase, and the reason it is not [clearScope]: the shadow is keyed by
+     * `(owner_id, profile_id)`, and a switch must take every profile the owner has, not
+     * the one that happens to be active.
+     *
+     * The owner here is the account id, which is what `SyncScope.ownerId` carries — not a
+     * composed `"profile/owner"` id. Leaving a shadow behind would make the next sync for
+     * that owner believe the server had already confirmed a document the device no
+     * longer holds.
+     */
+    @Query("DELETE FROM sync_shadow WHERE owner_id = :ownerId")
+    suspend fun deleteForOwner(ownerId: String): Int
+
     @Query("DELETE FROM sync_shadow")
     suspend fun clearAll()
 }

@@ -73,6 +73,7 @@ object AppDatabaseFactory {
                 // Clears the queue tables, so it cannot be an AutoMigrationSpec — that
                 // can only describe a schema change. See Migration37To38.
                 Migration37To38(),
+                Migration38To39(),
             )
             .build()
     }
