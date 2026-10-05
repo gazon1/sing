@@ -107,6 +107,17 @@ python3 scripts/check-rule-intent.py || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [8b2/21] every file-level suppression says what it hides ===${NC}"
+# check-rule-intent asks whether a rule was *declared*. This asks the other half:
+# a rule can be declared, configured, and provably able to fire, and still be
+# switched off for a whole file by one line no gate could see. 12 production
+# files carried @file:Suppress("NoDirectClockSystem") with no reason, covering 38
+# clock reads — while the baseline held exactly one suppression for that rule.
+python3 scripts/check-suppression-intent.py || {
+    echo -e "${RED}suppression intent check FAILED — a lint rule is switched off silently${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [8b/21] the rule inventory in the skill is not stale ===${NC}"
 # The rule table in the rule-authoring skill is generated from source. It was hand-written
 # before that, and drifted twice — a deleted rule still listed, a missing rule still listed —

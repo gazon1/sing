@@ -1,4 +1,14 @@
 @file:Suppress("NoRealDelayInTest")
+// A pomodoro ticker's `delay(1000)` is the timer. The rule bans real delays in
+// *test* code, where they make a suite take wall-clock time; here the delay is the
+// product's own cadence, and removing it would remove the countdown.
+//
+// Everything the delay feeds is already injectable: the class takes a `Clock`
+// (line 29) and computes `remaining` from `clock.now()`, so a test with virtual
+// time drives the state machine to completion without waiting a second per tick.
+// That is the distinction the rule is drawing, and this file is on the right side
+// of it -- a real delay in a class whose time source is injected, rather than a
+// real delay standing in for time the test should control.
 
 package com.singularity.todo.feature.pomodoro
 

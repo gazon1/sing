@@ -1,4 +1,7 @@
 @file:Suppress("NoDirectClockSystem")
+// Preview fixtures only: the timestamps are sample data for `@Preview`, not
+// behaviour. The rule is right about production code and has nothing to say
+// about a hard-coded `Instant` in a composable nobody ships.
 
 package com.singularity.todo.feature.notes.presentation.screen
 

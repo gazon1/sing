@@ -78,7 +78,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 
-    single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get(), get()) }
+    // Two arguments, not three. The third was a `clock` parameter that
+    // `SavedSearchRepositoryImpl` declared and never read (#192); `get()` was
+    // resolving a `Clock` and handing it to a field nothing read, so removing it
+    // changed no behaviour and made the Koin graph match the constructor.
+    single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get()) }
 
     // ─── Time tracking ──────────────────────────────────────────────────
     single<com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository> {

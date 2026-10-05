@@ -1,4 +1,20 @@
-@file:Suppress("NoDirectClockSystem")
+// Test doubles for the whole repository, in one file so a test can import what it
+// needs without knowing which module a fake was written in.
+//
+// Removed 2026-10-05: the file-level suppression of the direct-system-clock rule
+// that used to open this file, replaced by a `/test/fakes/` entry in the rule's
+// `isAllowedPath`. The ~20 clock reads below stamp entity timestamps, and a
+// file-level suppression silenced every *future* call in a 1000-line file rather
+// than the ones that exist -- while being invisible to review, because the
+// exemption lived in the source instead of in the rule.
+//
+// **Those clock reads are still a determinism problem and this move does not fix
+// it.** A fake that stamps entities with the wall clock makes every assertion
+// about ordering, recency or staleness non-deterministic -- the same class of
+// defect as the production code this rule protects. Threading a clock into the
+// fakes is #91's second half and is not attempted here. The rule's allow-list is
+// a statement about *where fakes live*, not an endorsement of reading the system
+// clock from one.
 
 package com.singularity.todo.test.fakes
 
