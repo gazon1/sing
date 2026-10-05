@@ -1,5 +1,5 @@
 @Suppress("UnstableApiUsage")
-rootProject.name = "Singularity_cllone_kmp"
+rootProject.name = "singularity-todo"
 
 pluginManagement {
     repositories {

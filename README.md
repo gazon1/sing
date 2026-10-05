@@ -8,7 +8,7 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
   <a href="https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html"><img src="https://shieldcn.dev/badge/Kotlin-Multiplatform.svg?variant=branded&theme=violet&logo=kotlin" alt="Kotlin Multiplatform" /></a>
   <img src="https://shieldcn.dev/badge/Android-JVM%20Desktop.svg?variant=secondary&logo=android" alt="Android and JVM Desktop" />
   <img src="https://shieldcn.dev/badge/Compose%20Multiplatform.svg?variant=secondary&logo=jetbrainscompose" alt="Compose Multiplatform" />
-  <img src="https://shieldcn.dev/badge/MCP%20Server-32%20tools.svg?variant=secondary" alt="MCP server, 32 tools" />
+  <img src="https://shieldcn.dev/badge/MCP%20Server-37%20tools.svg?variant=secondary" alt="MCP server, 37 tools" />
 </p>
 
 <p align="center">
@@ -26,10 +26,10 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 | **Projects** | Folder-like grouping, color + icon, task counts |
 | **Tags** | Global tags, per-profile isolation |
 | **Agenda** | Calendar view, daily/weekly schedule |
-| **AI Assistant** | 32 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
+| **AI Assistant** | 37 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
 | **Sync** | Supabase backend, HLC conflict resolution, offline-first |
 | **Backup** | JSON export/import, per-profile |
-| **MCP Server** | AI agent control via stdio (32 read/write/list tools) |
+| **MCP Server** | AI agent control via stdio (37 read/write/list tools) |
 | **Multi-profile** | Isolated data per profile (Personal, AI Agent, etc.) |
 
 ---
@@ -166,9 +166,9 @@ See `ARCHITECTURE.md` for the full design doc (package maps, expect/actual table
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Behaviour expected of participants |
 | `AGENTS.md` | Agent cheatsheet: project structure, DI patterns, test strategy, CLI |
 | `ARCHITECTURE.md` | Full design doc (520+ lines) |
-| `docs/decisions/DIGEST.md` | Auto-generated index of 270+ ADRs |
+| `docs/decisions/DIGEST.md` | Auto-generated index of 490+ ADRs |
 | `docs/doc-maintenance.md` | Documentation policy and ADR template |
-| `docs/SKILLS-CATALOG.md` | Auto-generated index of 90+ agent skills |
+| `docs/SKILLS-CATALOG.md` | Auto-generated index of 115 agent skills |
 | `docs/decisions/*.md` | Individual architecture decision records |
 
 Run `just docs-audit` to check doc freshness, normalize ADRs, and regenerate DIGEST.
@@ -180,7 +180,7 @@ Run `just docs-audit` to check doc freshness, normalize ADRs, and regenerate DIG
 | Concern | Solution |
 |---|---|
 | DI | Koin 4.x pure DSL (NOT annotations) |
-| Database | Room with auto-migrations (schema v37, `SCHEMA_VERSION` in `AppDatabase.kt`) |
+| Database | Room with auto-migrations (schema v38, `SCHEMA_VERSION` in `AppDatabase.kt`) |
 | Async | Kotlin Coroutines + Flow |
 | Logging | Kermit (multiplatform) |
 | Date/Time | kotlinx-datetime |
