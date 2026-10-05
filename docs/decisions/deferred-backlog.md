@@ -2890,3 +2890,125 @@ for one remaining reader.
 **Try next:** only if a second cross-module scan appears — which #154's tag
 unification would likely produce. Then a small shared scan-root provider in
 `jvmTestFixtures` pays for itself. With one caller it is ceremony.
+
+---
+
+## dark-calendar-palette-is-hand-authored-against-a-generated-scheme
+
+**Status: OPEN**
+
+**Tracked as:** [#197](https://github.com/gazon1/singularity-clone-kmp/issues/197)
+
+**OpenSpec change:** `openspec/changes/calendar-palette-follows-the-theme/`
+(capability `app-theming`, REQ-THEME-001/002/003)
+
+**Found in:** 2026-10-05, while replacing `SingularityTheme`'s hand-written
+palettes with MaterialKolor seed generation (ADR
+`2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`).
+
+**Situation.** `CalendarPalette` has sixteen fields, and
+`darkCalendarPalette` fills all sixteen with hex literals — `0xFF0B1220`
+background, `0xFF101A2C` surface, `0xFF1C2740` grid lines, `0xFFE7ECF5` text.
+It was tuned against a *previous* dark theme (`0xFF121212` / `0xFF1E1E1E`),
+and the light twin already derives from `MaterialTheme.colorScheme`. The two
+halves of the same data class now have different provenance, and neither is
+checked against the seed-generated scheme the app actually ships.
+
+Three of the sixteen fields — `taskSelected`, `todayBadge`, `nowIndicator`,
+`accent` — are set to `accent.color`, the **raw seed**, in both palettes. The
+seed is a vivid user-picked hue; it is not a role colour. With
+`SingularityAccents.Yellow` (`0xFFFFEB3B`) those are near-illegible as a
+surface on the light background. MaterialKolor makes the fix free
+(`scheme.primary` is tone-adjusted and contrast-checked against `onPrimary`),
+but it changes the calendar's look, so it is a design call rather than a bug
+fix and was not made unilaterally.
+
+**Why it was not fixed here.** The dark palette encodes a deliberate aesthetic
+("tuned for the deep navy/blue-grey aesthetic of the reference screenshots").
+Re-deriving it is a visual-design decision with no single correct answer, and
+this change was scoped to making the seed actually drive the theme. Bundling a
+redesign into a bug fix is how a review loses the ability to see the bug fix.
+
+**Checks already performed.** Confirmed all sixteen fields are literals in the
+dark branch and scheme-derived in the light branch; confirmed the seed-derived
+slots are identical expressions in both branches; confirmed no test asserts any
+`CalendarPalette` value, so there is no behavioural guard to update.
+
+**Try next:** re-derive `darkCalendarPalette` from `MaterialTheme.colorScheme`
+exactly as `lightCalendarPalette` already is, then replace the three raw-seed
+slots with `scheme.primary` / `onPrimary`. Do it as its own change with
+before/after screenshots on all nine accents, and check the yellow and orange
+accents first — they are the ones that fail contrast. Consider collapsing
+`CalendarPalette` itself: if both branches end up derived from the scheme, the
+sixteen-field data class may be redundant with `ColorScheme` and the screen
+could read scheme roles directly.
+
+---
+
+## tasks-feature-pins-its-own-dark-palette-and-ignores-the-theme-entirely
+
+**Status: OPEN**
+
+**Tracked as:** [#198](https://github.com/gazon1/singularity-clone-kmp/issues/198)
+
+**OpenSpec change:** `openspec/changes/tasks-tokens-follows-the-theme/`
+(capability `app-theming`, REQ-THEME-004/005/006)
+
+**Found in:** 2026-10-05, immediately after the MaterialKolor seed-palette
+change (ADR `2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`),
+while auditing what else hardcodes colour now that the app *has* a generated
+palette to read from.
+
+**Situation.** The Tasks feature — the core of the app — has two token objects
+that are **dark-only by construction**, with no light branch anywhere:
+
+| Object | File | Literals | Anchor |
+|---|---|---|---|
+| `TaskColors` | `feature/tasks/presentation/theme/TaskTheme.kt` | 12 | `Background = 0xFF0F1115`, `TextPrimary = 0xFFE2E4E9` |
+| `TaskListColors` | `feature/tasks/presentation/theme/TaskListTokens.kt` | 15 | `Background = 0xFF0B0E14`, `Surface = 0xFF161A22` |
+
+Both are `object`s of `val`s, not functions of a `ColorScheme`, so they cannot
+respond to anything at runtime. They are consumed by **11 production files**:
+the task list, the whole detail/editor surface (`TaskEditorContent`,
+`TaskTitleRow`, `TaskEditorDueDateRow`, `TaskEditorEstimateRow`,
+`TaskEditorPriorityRow`, `TaskDescriptionField`, `TaskAttributeCard`,
+`LinkedBacklinksCard`, `LogbookSection`), `PriorityMeta`, and
+`TimeTrackingSection` in the timetracking feature.
+
+Consequences, all pre-existing:
+
+1. **A light-theme user gets a dark task screen.** `darkTheme` defaults to
+   `false`, so this is the shipped default, on the app's primary screen.
+2. **The accent picker does nothing here.** `AccentBlue = 0xFF4A90E2` is a
+   literal, so choosing Pink leaves the task editor blue. This is the same
+   defect class the seed-palette change just fixed for the app at large.
+3. The KDoc on `TaskListTokens.kt` claims it gives "один источник правды при
+   смене темы" — one source of truth *when the theme changes*. It is the
+   opposite: a single hardcoded truth that cannot change with the theme.
+
+**Why it was not fixed here.** Thirteen token files' worth of colour, across
+the most-used surface in the app, is a redesign with nine accents × two modes
+to review by eye — and there is no screenshot baseline in this repository to
+catch a mistake. Attempting it inside a change that was scoped to the theme
+root would also have made that change unreviewable. This needs visual review
+per accent, which is a human-in-the-loop task.
+
+**Checks already performed.** Counted every `Color(0x…)` literal under
+`feature/*/presentation` (47 total, in 5 files: the two token objects, the
+14-literal `CalendarPalette`, `PriorityChip`'s four priority hues, and two in
+`NotesListScreen`). Confirmed neither token object is a function or reads
+`MaterialTheme`/`LocalAccentColor`/`LocalIsDarkTheme`. Enumerated all 11
+consumers. Confirmed there is no light-mode counterpart object.
+
+**Try next:** convert both objects into functions of `MaterialTheme.colorScheme`
+returning a small token data class, resolved inside a `CompositionLocalProvider`
+at the screen root — the same shape `CalendarPalette` already uses. Keep the
+four priority hues as literals: priority is a *semantic* scale, not a theme
+role, and `PriorityChip`'s green/amber/red/pink is correct as data. Then verify
+by eye across all nine accents in both modes, starting with the light theme on
+the task list, because that is the largest visible delta in the app.
+
+A Konsist rule — no `Color(0x…)` literal outside a `*/theme/*` token file, and
+none in a `feature/*/presentation` file at all — would stop this regrowing. It
+will fail loudly on the current tree, so land it *after* the conversion, not
+before.
