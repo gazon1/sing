@@ -119,6 +119,16 @@ class ArchitectureTest {
         private val LAYER_ALLOWLIST = setOf("feature/tasks/domain/usecase/CreateTaskFromDraft.kt")
 
         /**
+         * The single file allowed to resolve the *system* dark flag.
+         *
+         * `SingularityTheme.kt` owns it: the flag appears there once as the default
+         * value of its `darkTheme` parameter (correct — it is the fallback for previews
+         * that pass nothing) and once as the value published through `LocalIsDarkTheme`.
+         * Every other consumer must read the local.
+         */
+        private val DARK_THEME_READER_ALLOWLIST = setOf("SingularityTheme.kt")
+
+        /**
          * Files allowed to reach the filesystem from commonMain.
          *
          * `AdrTools` is the MCP `write_adr` tool: its whole job is to write a markdown
@@ -256,6 +266,30 @@ class ArchitectureTest {
             imp.startsWith("$PKG.feature.") && imp.contains(".presentation.")
         }
         assertNoOffenders(offenders, "data layer must not reference presentation types") { it.path }
+    }
+
+    @Test
+    fun `only the theme itself reads isSystemInDarkTheme`() {
+        // The app's dark mode is a user setting (SettingsBundle.Appearance.darkTheme,
+        // default false), not a system read-through, and there is no "follow system"
+        // tri-state. A subtree that re-derives it from the OS silently desynchronises
+        // from the palette actually in effect — this shipped: the calendar screen
+        // painted its hand-authored navy dark palette onto a light app whenever the
+        // system was dark and the user had left the default setting alone.
+        //
+        // Theme-aware code reads LocalIsDarkTheme, provided by SingularityTheme from
+        // the same value it used to build the color scheme. See ADR
+        // 2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag.
+        val offenders = scope.files
+            .filterNot { it.fileName() in DARK_THEME_READER_ALLOWLIST }
+            .filter { file ->
+                // codeOnly() so a KDoc mention of the name does not count as a call.
+                "isSystemInDarkTheme(" in file.codeOnly()
+            }
+        assertNoOffenders(
+            offenders,
+            "only SingularityTheme may resolve the system dark flag; consumers read LocalIsDarkTheme",
+        ) { it.path }
     }
 
     @Test

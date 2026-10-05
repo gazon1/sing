@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.calendar.presentation.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.singularity.todo.core.ui.theme.LocalAccentColor
+import com.singularity.todo.core.ui.theme.LocalIsDarkTheme
 import com.singularity.todo.core.ui.theme.SingularityAccents
 
 /**
@@ -44,9 +44,12 @@ val LocalCalendarPalette = compositionLocalOf<CalendarPalette> {
 fun ProvideCalendarPalette(content: @Composable () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val accent = LocalAccentColor.current
-    val isDark = isSystemInDarkTheme()
+    // Resolved from the active theme, NOT from isSystemInDarkTheme(): the app's dark mode is a
+    // user setting that can disagree with the system, and a system-derived branch would paint
+    // the navy dark palette on top of a light app.
+    val isDark = LocalIsDarkTheme.current
     val palette: CalendarPalette = if (isDark) {
-        darkCalendarPalette(scheme, accent)
+        darkCalendarPalette(accent)
     } else {
         lightCalendarPalette(scheme, accent)
     }
@@ -54,10 +57,7 @@ fun ProvideCalendarPalette(content: @Composable () -> Unit) {
 }
 
 /** Dark palette — tuned for the deep navy/blue-grey aesthetic of the reference screenshots. */
-private fun darkCalendarPalette(
-    scheme: androidx.compose.material3.ColorScheme,
-    accent: SingularityAccents,
-): CalendarPalette {
+private fun darkCalendarPalette(accent: SingularityAccents): CalendarPalette {
     val accentColor = accent.color
     return CalendarPalette(
         background = Color(0xFF0B1220),
