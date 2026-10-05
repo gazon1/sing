@@ -268,6 +268,61 @@ class PartFTest(unittest.TestCase):
             next(g for g in gw.FIXTURE_GATES if g.name == 'flaky-tests').needs_clean_run
         )
 
+    def test_a_sabotage_that_cannot_apply_fails_loudly(self):
+        """A control whose premise no longer holds must not pass as a control.
+
+        The `test-runs` sabotage once named the floor's literal value, so raising
+        the floor turned it into a no-op: `str.replace` matched nothing, the gate
+        received an unmodified file, and the entry still read as a working
+        control. Every sabotage that rewrites a value must therefore assert that
+        it actually changed something, and this pins that they do.
+        """
+        import re as _re
+
+        gate = next(g for g in gw.SABOTAGE_ONLY_GATES if g.name == 'test-runs')
+        original = (gw.ROOT / gate.sabotage_path).read_text(encoding='utf-8')
+        # Move the floor to a value the original literal could not have matched.
+        moved = _re.sub(r'^(shared:jvmTest )\d+( \d+)$', r'\g<1>4242\g<2>',
+                        original, count=1, flags=_re.M)
+        self.assertNotEqual(original, moved, 'fixture did not move the floor')
+
+        target = gw.ROOT / gate.sabotage_path
+        try:
+            target.write_text(moved, encoding='utf-8')
+            ns = {'p': target}
+            exec(gate.sabotage, ns)
+            sabotaged = target.read_text(encoding='utf-8')
+        finally:
+            target.write_text(original, encoding='utf-8')
+
+        self.assertNotEqual(
+            moved, sabotaged,
+            'the sabotage must apply at any floor value, not only the one it was written against',
+        )
+        self.assertIn('99999', sabotaged)
+
+    def test_a_sabotage_runs_against_the_repository_as_it_is(self):
+        """Each sabotage must actually apply to today's file.
+
+        The defect this pins was found because the clean-tree guard fired, and
+        the message pointed at the gate rather than at the control. Asserting the
+        substitution lands makes the failure legible on its own.
+        """
+        for gate in gw.SABOTAGE_ONLY_GATES:
+            target = gw.ROOT / gate.sabotage_path
+            if gate.target_is_dir:
+                continue
+            before = target.read_text(encoding='utf-8')
+            try:
+                exec(gate.sabotage, {'p': target})
+                after = target.read_text(encoding='utf-8')
+            finally:
+                target.write_text(before, encoding='utf-8')
+            self.assertNotEqual(
+                before, after,
+                f"{gate.name}: sabotage is a no-op against {gate.sabotage_path} as it stands",
+            )
+
     def test_the_two_control_kinds_do_not_cover_the_same_gate(self):
         """A gate in both lists would be sabotaged twice, and one entry's
         failure would be reported under the other's name."""

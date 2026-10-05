@@ -354,7 +354,21 @@ SABOTAGE_ONLY_GATES = [
         name="test-runs",
         cmd=[sys.executable, "scripts/check-test-runs.py", "--require", "shared:jvmTest,desktopApp:test"],
         sabotage_path="config/docs/test-runs-baseline.txt",
-        sabotage="p.write_text(p.read_text().replace('shared:jvmTest 1788 0', 'shared:jvmTest 99999 0'))",
+        # Rewrite the floor by regex, never by naming its current value. The first
+        # version replaced the literal `shared:jvmTest 1788 0`, and the control
+        # became a no-op the moment the floor moved to 1825 — `replace` found
+        # nothing, the gate was handed an unmodified file, and the only reason it
+        # was caught is that the clean-tree guard fired on a *stale* run instead.
+        # A control that quietly stops sabotaging is worse than no control: it is
+        # reported as a passing control. The `assert` makes the no-op loud.
+        #
+        sabotage=(
+            "import re\n"
+            "_t = p.read_text()\n"
+            "_t2, _n = re.subn(r'^(shared:jvmTest )\\d+( \\d+)$', r'\\g<1>99999\\g<2>', _t, count=1, flags=re.M)\n"
+            "assert _n == 1, 'floor line not found — the control would be a no-op'\n"
+            "p.write_text(_t2)\n"
+        ),
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
     ),
     ScriptGate(

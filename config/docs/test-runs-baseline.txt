@@ -60,6 +60,10 @@
 # by-results half saw it, because it asks the direct question ("did this specific
 # declared class run") instead of comparing against a number.
 #
+# **1788 -> 1825 tests was real growth**: `ChecklistOrderingTest`, added with the
+# fix for the ordering defect it proves. Re-measured on the default run (no
+# `-Ptest.tags`), which is the run a floor is supposed to describe.
+#
 # **The class column is gone** (2026-10-05). It became redundant once the
 # by-results check existed: that check already fails when a declared class produced
 # no report, which is what the class count was for, and it fails by name rather than
@@ -87,5 +91,5 @@
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 33 0
 mcp-server:test 7 0
-shared:jvmTest 1788 0
+shared:jvmTest 1825 0
 # GENERATED:END
