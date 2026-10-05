@@ -339,6 +339,18 @@ jobs:
         # is the check for that.
         run: ./gradlew :androidApp:assembleDebug -PwithPro=true --no-daemon --configuration-cache
 
+      - name: pro unit tests
+        # `proObservabilityModule()` re-binds `CrashReportingPort` from the free
+        # `FileCrashReportingPort` to the vendor-backed one, and that rebinding is the
+        # entire reason this module exists. It is invisible to `KoinGraphValidationTest`
+        # in `:shared`, which validates the free graph and cannot see a project that only
+        # exists under `-PwithPro=true`. If the override stopped taking effect, every
+        # configuration would still resolve the same interface, every test would still pass,
+        # and crash reports would quietly go to the local log file instead of the vendor.
+        #
+        # No Tracer token is needed: these assert the wiring, not the vendor SDK's behaviour.
+        run: ./gradlew :pro:testDebugUnitTest -PwithPro=true --no-daemon --configuration-cache
+
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression

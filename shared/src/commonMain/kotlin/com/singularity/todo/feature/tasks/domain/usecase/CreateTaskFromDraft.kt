@@ -4,7 +4,7 @@ import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.toMessage
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
@@ -44,28 +44,26 @@ import kotlin.time.Clock
 class CreateTaskFromDraftUseCase(
     private val repo: TaskRepository,
     private val clock: Clock,
+    private val timeZone: com.singularity.todo.core.platform.TimeZoneProvider,
     private val currentUser: ProfileAwareCurrentUser,
     private val checklistRepository: ChecklistRepository,
     private val attachmentRepository: AttachmentRepository,
 ) {
     suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
-        val dueDate: LocalDate? = when (val option = draft.dueDate) {
-            is DueDateOption.Custom -> option.date
-
-            DueDateOption.Today -> todayInSystemZone()
-
-            DueDateOption.Tomorrow -> {
-                val today = todayInSystemZone()
-                today.plus(1, DateTimeUnit.DAY)
-            }
-
-            DueDateOption.None -> null
-        }
+        // `today` once, then used by both resolutions below. The class already
+        // took a `Clock` and still called the global `todayInSystemZone()` in four
+        // places, so a test could inject a clock and get the host's date anyway --
+        // the injection was decorative for exactly the values that matter (#91).
+        //
+        // The zone is required, not defaulted: "Today" has to mean the user's
+        // today, and a default here would be the host's, which is what made this
+        // non-deterministic between machines even with a fixed clock.
+        val today: LocalDate = todayAt(clock, timeZone.current())
 
         fun resolveDate(option: DueDateOption): LocalDate? = when (option) {
             is DueDateOption.Custom -> option.date
-            DueDateOption.Today -> todayInSystemZone()
-            DueDateOption.Tomorrow -> todayInSystemZone().plus(1, DateTimeUnit.DAY)
+            DueDateOption.Today -> today
+            DueDateOption.Tomorrow -> today.plus(1, DateTimeUnit.DAY)
             DueDateOption.None -> null
         }
 
@@ -77,7 +75,7 @@ class CreateTaskFromDraftUseCase(
             projectId = draft.projectId?.let { ProjectId.fromString(it) },
             parentTaskId = null,
             tagIds = draft.tagIds.map { TagId.fromString(it) },
-            dueDate = dueDate,
+            dueDate = resolveDate(draft.dueDate),
             dueTime = draft.dueTime,
             startDate = resolveDate(draft.startDate),
             startTime = draft.startTime,

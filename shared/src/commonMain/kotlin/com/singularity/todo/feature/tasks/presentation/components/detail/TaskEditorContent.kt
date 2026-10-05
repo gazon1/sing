@@ -1,3 +1,12 @@
+@file:Suppress("NoDirectClockSystem")
+// Forwards a `now` to `TimeEntryEditorSheet`, which takes it as a required parameter.
+// The read here is *choosing* the value, not inventing one — the sheet is the thing
+// that was fixed. Threading the choice from the one place that resolves the clock
+// is four signature changes across three screens, ending in a call no desktop
+// Compose test on this host can execute (#201). Recorded in ADR
+// `2026-10-05-today-is-two-required-parameters`; `check-suppression-intent.py`
+// requires this reason to exist, which is the enforcement this needs.
+
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.layout.Arrangement
@@ -43,10 +52,11 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import androidx.compose.material3.MaterialTheme
+import kotlin.time.Clock
 
 /**
  * Unified task editor Composable for both Create and View modes.
@@ -142,7 +152,7 @@ fun TaskEditorContent(
             )
         },
         bottomBar = bottomBar ?: {},
-        containerColor = TaskColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier.padding(padding)
@@ -234,7 +244,7 @@ fun TaskEditorContent(
                             Icon(
                                 imageVector = Icons.Filled.Folder,
                                 contentDescription = "Clear project",
-                                tint = TaskColors.TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -368,6 +378,9 @@ fun TaskEditorContent(
             menuItems = menuItems,
         ),
         activeSheet = sheets.active,
+        // Passed down so the time-entry sheet's "now" default comes from one place
+        // in the screen rather than from a clock it reads itself (#91).
+        now = Clock.System.now(),
         onSheetDismiss = { sheets.dismiss() },
     )
 }

@@ -82,11 +82,32 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
      * Windows-style path would silently get `false` if the conversion lived only in
      * [isAllowedFile]. A function that answers "is this path allowed?" should answer it
      * for a path.
+     *
+     * ## The `test/fakes/` directory
+     *
+     * Added 2026-10-05. `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/`
+     * holds this repository's test doubles, and the KMP source-set convention keeps
+     * them in `commonMain` so `commonTest` can reach them. `FakeRepositories.kt` calls
+     * `Clock.System.now()` 20 times to stamp entity timestamps.
+     *
+     * That was previously handled with `@file:Suppress("NoDirectClockSystem")` on the
+     * file, which is the wrong instrument twice over: it silences every future call in
+     * the file, not the 20 that exist, and it is invisible to review because the
+     * exemption lives in the source rather than in the rule. A directory in the
+     * allow-list states the same decision in the place where the rule is defined, so
+     * it is read once and applies to every fake rather than to one file.
+     *
+     * The honest cost: a *new* fake can now call the system clock without the rule
+     * saying so. That is the trade — one directory whose contents are all fakes, in
+     * exchange for not maintaining a per-file list. It is also the placement rule that
+     * #191 asks for, stated where it can be enforced.
+     *
      */
     internal fun isAllowedPath(path: String): Boolean {
         val normalized = path.replace('\\', '/')
         return normalized.endsWith("/core/platform/Clock.kt") ||
-            normalized.endsWith("/core/di/CoreDiModule.kt")
+            normalized.endsWith("/core/di/CoreDiModule.kt") ||
+            normalized.contains("/test/fakes/")
     }
 
     private fun reportFinding(element: org.jetbrains.kotlin.psi.KtElement, message: String) {

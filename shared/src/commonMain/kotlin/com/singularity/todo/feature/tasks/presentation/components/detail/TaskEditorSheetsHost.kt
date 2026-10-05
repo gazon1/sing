@@ -21,6 +21,10 @@ import kotlinx.datetime.toLocalDateTime
  * @param callbacks Passed to sheets that need to write back changes
  * @param activeSheet The currently open sheet, or null if none
  * @param onSheetDismiss Called when a sheet is dismissed
+ *
+ * @param now the moment the sheets are rendered in. Required (#91): the time-entry
+ *   sheet prefills its end field with "now", and reading that inside the sheet made
+ *   the default a property of the host's wall clock that no test could set.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,6 +32,7 @@ fun TaskEditorSheetsHost(
     model: TaskEditorModel,
     callbacks: TaskEditorCallbacks,
     activeSheet: TaskEditorSheet?,
+    now: kotlin.time.Instant,
     onSheetDismiss: () -> Unit,
 ) {
     when (activeSheet) {
@@ -190,6 +195,9 @@ fun TaskEditorSheetsHost(
         // ── Time Entry ───────────────────────────────────────────────────────
         is TaskEditorSheet.TimeEntry -> TimeEntryEditorSheet(
             taskStartedAtMs = model.taskStartedAtMs,
+            // The end of a new entry is "now". Passed in rather than read inside,
+            // so a host that supplies a fixed clock produces a fixed default (#91).
+            now = now,
             onSave = { startedAtMs, endedAtMs, kind, note ->
                 callbacks.onTimeEntrySave?.invoke(startedAtMs, endedAtMs, kind, note)
                 onSheetDismiss()

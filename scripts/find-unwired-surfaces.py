@@ -452,10 +452,27 @@ def _check_dead_symbol(
             # prod_count <= 1: the declaration itself (1) counts as a reference
             if prod_count <= 1 and test_count > 0:
                 backlog_ref = baseline.get(name, "no backlog entry")
+                # Placement, added 2026-10-05 (#191). A class nothing in production
+                # calls, that only tests call, is a test double — and this repository
+                # keeps those in `test/fakes/`, which holds 13 of them. The convention
+                # is real, was nowhere written down as a rule, and was enforced by
+                # nothing, which is how a fourteenth ended up in `core/sync/`.
+                #
+                # Named in the message rather than policed separately: the dead-symbol
+                # check already computed exactly the fact the rule needs ("referenced
+                # only by tests"), and a second script would recompute it. The check
+                # for a backlog entry stays the gate; this is the sentence that tells
+                # whoever writes the entry what the decision is about.
+                placement = ""
+                if "/test/fakes/" not in str(path):
+                    placement = (
+                        f" — a test double belongs in test/fakes/, which is where the "
+                        f"other 13 live; if it cannot move, say why in the entry"
+                    )
                 findings.append((
                     "dead-symbol",
                     f"{rel(path)}: {name} has {test_count} test reference(s) but "
-                    f"{prod_count} production reference(s) — {backlog_ref}",
+                    f"{prod_count} production reference(s) — {backlog_ref}{placement}",
                 ))
     return findings
 

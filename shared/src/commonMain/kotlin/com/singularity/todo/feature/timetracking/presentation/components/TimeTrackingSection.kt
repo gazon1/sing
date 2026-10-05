@@ -31,7 +31,6 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.formatMonthDayTime
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 
@@ -55,7 +54,7 @@ fun TimeTrackingSection(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = TaskColors.Surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(
             modifier = Modifier
@@ -71,7 +70,7 @@ fun TimeTrackingSection(
                 Icon(
                     imageVector = Icons.Filled.Timer,
                     contentDescription = null,
-                    tint = TaskColors.AccentBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(8.dp))
@@ -126,7 +125,7 @@ fun TimeTrackingSection(
                         text = formatElapsed(state.elapsedMs),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TaskColors.AccentBlue,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -138,7 +137,7 @@ fun TimeTrackingSection(
                         Text(
                             text = "Total: ${formatDuration(state.totalWorkMs)}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TaskColors.TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         state.entries.take(3).forEach { entry ->
@@ -148,7 +147,7 @@ fun TimeTrackingSection(
                             Text(
                                 text = "+${state.entries.size - 3} more",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TaskColors.TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -158,7 +157,7 @@ fun TimeTrackingSection(
                     Text(
                         text = "No time tracked yet",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TaskColors.TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -170,7 +169,7 @@ fun TimeTrackingSection(
                     Text(
                         text = "Loading...",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TaskColors.TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -186,14 +185,14 @@ fun TimeTrackingSection(
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = null,
-                    tint = TaskColors.AccentBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = "Add manual entry",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TaskColors.AccentBlue,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -215,7 +214,7 @@ private fun TimeEntryRow(entry: TimeEntry, modifier: Modifier = Modifier) {
         Text(
             text = startStr,
             style = MaterialTheme.typography.bodySmall,
-            color = TaskColors.TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = durationStr,

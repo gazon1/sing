@@ -139,6 +139,39 @@ class NoDirectClockSystemWhitelistTest {
     }
 
     @Test
+    fun `the test fakes directory is allowed`() {
+        // Structural exemption, added with the `FakeRepositories.kt` cleanup: a
+        // directory whose files are all test doubles, in the rule rather than as a
+        // per-file `@file:Suppress`.
+        assertTrue(
+            NoDirectClockSystemRule(TestConfig()).isAllowedPath(
+                "/repo/shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt",
+            ),
+        )
+    }
+
+    @Test
+    fun `a production file outside the fakes directory is still reported`() {
+        // The point of a directory entry rather than a name match: `Fake` in a
+        // filename does not make a file a fake.
+        assertEquals(
+            false,
+            NoDirectClockSystemRule(TestConfig()).isAllowedPath(
+                "/repo/shared/src/commonMain/kotlin/com/singularity/todo/feature/FakeThing.kt",
+            ),
+        )
+    }
+
+    @Test
+    fun `the fakes directory exists in the tree`() {
+        val matches = repoFiles().filter { it.contains("/test/fakes/") }
+        assertTrue(
+            matches.isNotEmpty(),
+            "no file in the repo sits under /test/fakes/ — the allow-list entry is stale",
+        )
+    }
+
+    @Test
     fun `other files are not allowed`() {
         assertEquals(
             false,

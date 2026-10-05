@@ -357,6 +357,9 @@ private fun CreateProfileDialog(
 @Composable
 private fun ProfileSwitcherScreenPreview() = PreviewThemed {
     val fakeProfileRepo = PreviewProfileRepository
-    val vm = ProfileSwitcherViewModel(profileRepository = fakeProfileRepo)
+    val vm = ProfileSwitcherViewModel(
+        profileRepository = fakeProfileRepo,
+        clock = com.singularity.todo.test.fakes.FakeClock(),
+    )
     ProfileSwitcherContent(viewModel = vm)
 }

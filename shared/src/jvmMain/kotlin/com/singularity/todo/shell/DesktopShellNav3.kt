@@ -63,9 +63,19 @@ import kotlin.system.exitProcess
  * No FAB on Desktop.
  *
  * Window menu bar is added at the top using [ComposeTopMenuBar].
+ *
+ * @param today the date the shell navigates and prefills with, supplied by the caller
+ *   from the Koin graph (#91). Required: the calendar anchor and the FAB prefill are
+ *   decided here, and reading the host's wall clock here made a test's fixed `Clock`
+ *   reach every ViewModel and none of the shell.
  */
 @Composable
-fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
+fun DesktopShellNav3Root(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+    today: kotlinx.datetime.LocalDate,
+) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -82,7 +92,7 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
     val currentStack = state.requireBackStackFor(state.topLevelRoute)
     val canGoBack = currentStack.size > 1
 
-    val appEntryProvider = createJvmEntryProvider(navCallbacks)
+    val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
 
     // About dialog state
     var showAbout by remember { mutableStateOf(false) }
@@ -200,7 +210,9 @@ fun DesktopShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         content = {
             Scaffold(
                 floatingActionButton = {
-                    val action = fabActionForNav3(fabCurrent) { navigator.open(it) }
+                    // One `today` for the shell, as on Android (#91): the prefill and
+                    // the tab it was tapped from must not disagree across a midnight.
+                    val action = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
                     if (action != null) {
                         FloatingActionButton(onClick = action.onClick) {
                             Icon(Icons.Default.Add, contentDescription = action.label)

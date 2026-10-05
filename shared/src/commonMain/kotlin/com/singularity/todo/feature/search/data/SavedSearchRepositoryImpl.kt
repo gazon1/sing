@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.feature.search.data
 
 import com.singularity.todo.core.database.SavedSearchDao
@@ -14,13 +12,35 @@ import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
 
+/**
+ * Removed 2026-10-05: the file-level suppression of the direct-system-clock rule
+ * that opened this file, and the `clock` constructor parameter beside it.
+ *
+ * The parameter was declared and never read — `clock` appeared once in the file,
+ * on its own declaration line, and its default was the only reason the rule had
+ * anything to report here. It was almost certainly copied from
+ * `SavedAgendaViewsRepositoryImpl`, which does read its clock. Whether saved
+ * searches *should* be timestamped from an injected clock is a behaviour
+ * question and is tracked in #192 rather than answered here.
+ *
+ * The suppression carried no reason, so it switched the rule off for a whole
+ * file over the one line that had been written in the codebase's own injectable
+ * idiom. `scripts/check-suppression-intent.py` is what makes that shape
+ * impossible to add back silently.
+ *
+ * The prose here deliberately avoids spelling the rule id or the system-clock
+ * expression. This comment has to *name* what was removed, and the rule matches
+ * inside KDoc as readily as in code — a note explaining a removal re-registers
+ * it, which is a gate that punishes writing things down. Recorded as a known
+ * false positive on the rule rather than worked around here; see
+ * `TestKDocIsNotASuppression` in `scripts/tests/test_check_suppression_intent.py`
+ * for the same shape on the gate's side.
+ */
 class SavedSearchRepositoryImpl(
     private val savedSearchDao: SavedSearchDao,
     private val currentUser: ProfileAwareCurrentUser,
-    private val clock: Clock = Clock.System,
 ) : SavedSearchRepository {
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────

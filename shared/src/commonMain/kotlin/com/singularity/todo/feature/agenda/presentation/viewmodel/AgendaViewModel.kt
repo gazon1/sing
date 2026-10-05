@@ -78,7 +78,7 @@ class AgendaViewModel(
 
     init {
         scope.launch {
-            todayFlow().flatMapLatest { today ->
+            todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
                     .map { tasks ->
                         val sections = AgendaEvaluator.evaluate(tasks, definition, today)
@@ -205,8 +205,13 @@ class AgendaViewModel(
         // was written. The presets used to carry hardcoded LocalDates, which
         // meant tapping '+' in the Today section on any other day prefilled that
         // one date — a saved view is a template, not a snapshot of a day.
+        // `todayAt` requires the zone explicitly (#91). It used to default to the
+        // host's, which made a saved view resolve 'today' differently on two machines
+        // with the same fake clock — a template that is not reproducible.
         val resolvedDue = sectionPrefill.dueDate
-            ?: sectionPrefill.relativeDueDate?.toDateRange(todayAt(deps.clock))?.from
+            ?: sectionPrefill.relativeDueDate
+                ?.toDateRange(todayAt(deps.clock, deps.timeZone.current()))
+                ?.from
 
         // Build a TaskDraft from the section prefill
         val draft = TaskDraft(

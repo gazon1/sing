@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.search.query
 
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -8,6 +9,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
+import kotlin.time.Clock
 
 /**
  * Interface for resolving a parsed [Query] against the database.
@@ -47,9 +49,20 @@ data class ProjectLookupResult(val id: String, val userId: String, val name: Str
 /**
  * Default implementation that looks up names via [TagLookup]/[ProjectLookup]
  * and builds [TaskFilter] variants for the task repository.
+ *
+ * @param clock and [timeZone] are required, with no default. A `due:` condition is
+ *   resolved against *today*, so a resolver that read the system clock would make
+ *   every date search a function of the day the suite happened to run — which is
+ *   what made `SEARCH-01` (#170 slice 7) unwritable rather than merely untested.
+ *   A default here would be a default nobody overrides, because the one caller
+ *   that can (`TasksDiModule`) is not the one that suffers.
  */
-class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val projectLookup: ProjectLookup) :
-    SearchQueryResolver {
+class DefaultSearchQueryResolver(
+    private val tagLookup: TagLookup,
+    private val projectLookup: ProjectLookup,
+    private val clock: Clock,
+    private val timeZone: TimeZoneProvider,
+) : SearchQueryResolver {
 
     override suspend fun resolve(query: Query, userId: String): ResolvedSearchQuery {
         val condition = query.condition ?: return ResolvedSearchQuery(
@@ -220,7 +233,7 @@ class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val p
 
     private fun handleDue(c: Condition.Due, ctx: ResolveContext) {
         if (!c.interval.isNone) {
-            val today = todayInSystemZone()
+            val today = todayAt(clock, timeZone.current())
             val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
             val range = computeDateRange(c.relation, targetDate)
             if (range != null) {
@@ -228,11 +241,11 @@ class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val p
             }
         }
         if (!c.interval.isNone && c.relation == Relation.EQ) {
-            val today = todayInSystemZone()
+            val today = todayAt(clock, timeZone.current())
             val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
             ctx.addPostFilter { task -> task.dueDate == targetDate }
         } else if (!c.interval.isNone) {
-            val today = todayInSystemZone()
+            val today = todayAt(clock, timeZone.current())
             val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
             ctx.addPostFilter { task ->
                 val due = task.dueDate ?: return@addPostFilter false
@@ -250,7 +263,7 @@ class DefaultSearchQueryResolver(private val tagLookup: TagLookup, private val p
 
     private fun handleScheduled(c: Condition.Scheduled, ctx: ResolveContext) {
         if (!c.interval.isNone) {
-            val today = todayInSystemZone()
+            val today = todayAt(clock, timeZone.current())
             val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
             ctx.addPostFilter { task ->
                 val due = task.dueDate ?: return@addPostFilter false

@@ -26,8 +26,8 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Shows notes and tasks that link TO this task via `task://<id>` URL scheme.
@@ -71,7 +71,7 @@ private fun BacklinkSection(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = TaskColors.Surface,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -86,14 +86,14 @@ private fun BacklinkSection(
             Icon(
                 imageVector = Icons.Filled.Link,
                 contentDescription = null,
-                tint = TaskColors.TextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(TaskSpacing.iconSize),
             )
             Spacer(Modifier.width(TaskSpacing.lg))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
-                    color = TaskColors.TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                 )
@@ -107,13 +107,13 @@ private fun BacklinkSection(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.TextSnippet,
                             contentDescription = null,
-                            tint = TaskColors.AccentBlue,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(14.dp),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = title,
-                            color = TaskColors.TextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

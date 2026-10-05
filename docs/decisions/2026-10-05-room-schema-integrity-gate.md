@@ -117,14 +117,69 @@ tests.
 - A future `4 → 5` migration requires revisiting `SUPPORTED_FROM_VERSION`, and the gate
   will say so rather than letting the declaration quietly become false.
 - Not covered: whether a migration *produces* the schema its successor claims. That
-  stays with `Migration31To32Test`, `Migration35To36Test` and their siblings. The
-  cheapest migration test not yet written is `36 → 37`, since that is the newest
-  migration and the one this defect nearly shipped without.
+  stays with the migration tests, and the newest of them was missing until
+  `Migration36To37Test` was written on 2026-10-05 — see below.
+
+## Amendment, 2026-10-05: the half the gate cannot see
+
+`Migration36To37Test` now exists, and writing it was worth doing for a reason
+beyond coverage: it is where the division of labour between the two kinds of check
+becomes concrete.
+
+The gate asserts that a migration is *declared*. The test asserts that it
+*produces* the schema its successor claims. Neither is sufficient, and the seam
+between them is where the interesting failure lives — a migration that runs
+happily and leaves the wrong default in place is invisible to both. Room's DDL
+check proves the column exists; nothing proves its default is `0`, and `0` is
+the entire content of this migration. The client parsed the server's version on
+every push and dropped it, so a pre-upgrade row genuinely knows nothing, and any
+other default would put every subsequent patch's base back to "the server has
+never seen this row".
+
+The positive control was run by hand, not just written: changing
+`defaultValue = "0"` to `"1"` in `SyncShadow.kt` fails
+`a row that predates the upgrade reads as version zero` and only that one. A test
+that passes on a broken migration is the failure mode this project keeps paying
+for, so the control is part of the work rather than a claim about it.
+
+**The same shape applies to `pro/`, and it is why `ProObservabilityModuleTest`
+exists.** `KoinGraphValidationTest` validates the free DI graph; it cannot see a
+project that only exists behind `-PwithPro=true`. So the one binding `pro/` exists
+to provide — re-binding `CrashReportingPort` from `FileCrashReportingPort` to the
+vendor-backed implementation — was checked by nothing. If the override stopped
+taking effect, both configurations would still resolve the same interface, every
+test would still pass, and crash reports would go to the local log file while the
+vendor dashboard stayed empty. Nothing throws. Its control was also run: emptying
+`proObservabilityModule()` fails three of the six cases, and passes the other
+three — which is the correct division, since the cases that do not concern
+rebinding should not notice it.
+
+Note the cost both additions carry: `:pro` gains a `testImplementation` set and a
+`useJUnitPlatform()` block, and CI gains a pro step. A `pro/` test that nobody
+runs is worse than no test, because it appears in the coverage picture.
+
+**And the arch gate caught the omission that followed.** Adding
+`pro/src/test/kotlin` created a new source set, and `pro/build.gradle.kts` sets
+`detekt.source` to a literal list — so the new directory was not scanned, and
+detekt said nothing about that, because detekt reports findings and not
+absences. `DetektSourceSetsAreAllScannedTest` failed with "pro: src/test/kotlin
+exists and detekt is not told to scan it", and the fix was to name it.
+
+That test earned its keep a second time in the same session it was written for
+`pro`: it is the reason the only test in the pro catalogue is a linted test
+rather than a silently unscanned one. The general shape — *a new source set is a
+new obligation, and the gate that says so is the one that reads the filesystem
+rather than a list* — is the same one `check-room-schema-integrity.py` exists for
+three directories over.
 
 ## Links
 
 - `scripts/check-room-schema-integrity.py` — the gate
 - `scripts/tests/test_check_room_schema_integrity.py` — 31 tests
+- `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/Migration36To37Test.kt`
+  — the migration test the gate cannot replace
+- `pro/src/test/kotlin/com/singularity/todo/pro/observability/ProObservabilityModuleTest.kt`
+  — the rebinding the free graph cannot see
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt` —
   the annotation, and the file the sabotage rewrites
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt`

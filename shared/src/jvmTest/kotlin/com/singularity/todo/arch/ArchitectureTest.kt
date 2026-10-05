@@ -129,6 +129,32 @@ class ArchitectureTest {
         private val DARK_THEME_READER_ALLOWLIST = setOf("SingularityTheme.kt")
 
         /**
+         * Feature files still carrying fixed colours, each with the reason it is
+         * not a theme file yet. Every entry is a tracked follow-up — an allowlist
+         * entry without an issue is how an allowlist becomes permanent.
+         *
+         * - `NotesListScreen.kt` — swipe backgrounds: archive amber, archive-done
+         *   green, delete red. These are *semantic* (what the swipe will do), not
+         *   decoration, so they must not follow the accent even after conversion.
+         * - `ProfileSwitcherScreen.kt`, `StatisticsScreen.kt`,
+         *   `SettingsScreen.kt` — 20 literals of the same defect the Tasks feature
+         *   had: fixed values that cannot follow the theme. Note these three live
+         *   directly under `feature/<x>/`, NOT under a `presentation` segment.
+         * - `TextRenderer.kt` — genui atom defaults.
+         * - `Ids.kt` — **not** a UI palette. `NoteColor` is a domain value class
+         *   holding the user's note-highlight colour; it is data, not theming, and
+         *   it is the one entry that should stay listed permanently.
+         */
+        private val COLOUR_LITERAL_ALLOWLIST = setOf(
+            "NotesListScreen.kt",
+            "ProfileSwitcherScreen.kt",
+            "StatisticsScreen.kt",
+            "SettingsScreen.kt",
+            "TextRenderer.kt",
+            "Ids.kt",
+        )
+
+        /**
          * Files allowed to reach the filesystem from commonMain.
          *
          * `AdrTools` is the MCP `write_adr` tool: its whole job is to write a markdown
@@ -266,6 +292,30 @@ class ArchitectureTest {
             imp.startsWith("$PKG.feature.") && imp.contains(".presentation.")
         }
         assertNoOffenders(offenders, "data layer must not reference presentation types") { it.path }
+    }
+
+    @Test
+    fun `colour literals live in theme files, not in feature code`() {
+        // A fixed colour in a composable is a value that cannot follow the theme.
+        // The failure it produces is invisible in review and certain in the app:
+        // the Tasks feature carried 27 of them in two `object`s, so a user in the
+        // default light mode saw a dark task screen and the accent picker did
+        // nothing there. See ADR
+        // 2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag.
+        //
+        // Scope is the WHOLE feature tree, not `feature/*/presentation`. Several
+        // screens keep their composables directly under `feature/<x>/`, so a rule
+        // scoped to a `presentation` segment would pass while 22 real literals sat
+        // outside it — a green gate over an unchanged problem.
+        val offenders = scope.files
+            .filterNot { it.fileName() in COLOUR_LITERAL_ALLOWLIST }
+            .filter { it.packageName().startsWith("$PKG.feature") }
+            .filterNot { "/theme/" in it.path.replace('\\', '/') }
+            .filter { file -> "Color(0x" in file.codeOnly() }
+        assertNoOffenders(
+            offenders,
+            "a feature composable must read the active theme; fixed colours belong in a theme file",
+        ) { it.path }
     }
 
     @Test

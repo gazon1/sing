@@ -1,5 +1,6 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
@@ -13,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 // ─── Task fixtures ─────────────────────────────────────────────────────────────
 
@@ -112,3 +114,23 @@ fun testNote(
     deletedAt = deletedAt,
     archivedAt = archivedAt,
 ).apply { overrides() }
+
+// ─── Time zone ───────────────────────────────────────────────────────────────
+
+/**
+ * A fixed [TimeZoneProvider] for tests, UTC.
+ *
+ * Lives here rather than in a test file because the clock is now injected in two
+ * places that both need a matching zone, and a zone a test declares separately
+ * from its clock is a second thing to keep in sync. With `FakeClock` and
+ * `TEST_TZ` together, "now" is one fact stated once: `FakeClock(Instant.parse(…))`
+ * plus `TEST_TZ` is a complete, unambiguous position in time.
+ *
+ * Use UTC rather than a plausible local zone on purpose: a test that means
+ * "midnight rolls over" wants the boundary to be unambiguous, and a test that
+ * means a specific offset should say so at the call site instead of inheriting
+ * one.
+ */
+val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
+    override fun current(): TimeZone = TimeZone.UTC
+}

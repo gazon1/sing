@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.flows.tasks
 
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitTag
@@ -15,6 +16,7 @@ import kotlinx.datetime.plus
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 /**
  * Each agenda tab must evaluate **its own** definition, not the one its ViewModel
@@ -45,9 +47,11 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 @Tag("fast")
 class AgendaTabDefinitionFlowTest {
-
     @Test
-    fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
         tasks(koin).givenUndated("Call the dentist")
 
         tapTab("Inbox")
@@ -59,9 +63,10 @@ class AgendaTabDefinitionFlowTest {
 
     @Test
     fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() = runDesktopAppTest(
+        clock = CLOCK,
         checkA11y = true,
     ) { koin ->
-        val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
+        val tomorrow = today.plus(1, DateTimeUnit.DAY)
         tasks(koin).given(due = tomorrow, title = "Send the invoice")
 
         tapTab("Inbox")
@@ -76,8 +81,11 @@ class AgendaTabDefinitionFlowTest {
      * section name.
      */
     @Test
-    fun upcoming_does_not_render_the_inbox_no_date_section() = runDesktopAppTest(checkA11y = true) { koin ->
-        val tomorrow = todayInSystemZone().plus(1, DateTimeUnit.DAY)
+    fun upcoming_does_not_render_the_inbox_no_date_section() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
+        val tomorrow = today.plus(1, DateTimeUnit.DAY)
         tasks(koin)
             .givenUndated("Call the dentist")
             .given(due = tomorrow, title = "Send the invoice")
@@ -94,5 +102,12 @@ class AgendaTabDefinitionFlowTest {
             countNodes(TestTags.agendaSection("No Date")),
             "Upcoming must not render an Inbox 'No Date' section",
         )
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

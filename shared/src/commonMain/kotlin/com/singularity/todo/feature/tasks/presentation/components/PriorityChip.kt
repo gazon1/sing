@@ -10,20 +10,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.theme.PriorityPalette
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 
-/** Maps a task priority ordinal to its display color. Public for unit testing. */
-fun priorityColor(priority: TaskPriority): Color = when (priority) {
-    TaskPriority.Low -> Color(0xFF4CAF50)
-    TaskPriority.Medium -> Color(0xFFFF9800)
-    TaskPriority.High -> Color(0xFFF44336)
-    TaskPriority.Urgent -> Color(0xFFE91E63)
-    TaskPriority.None -> Color.Unspecified
-}
+/**
+ * The chip's own priority tint.
+ *
+ * Named `priorityChipColor` rather than `priorityColor` because a second
+ * `priorityColor` already exists in the `components.list` package, carries
+ * different values, and is the one the unit test covers. Two functions of the
+ * same name in sibling packages differing only in their palettes is a wrong-import
+ * waiting to happen — the compiler will not flag it and the reviewer will not
+ * notice.
+ */
+fun priorityChipColor(priority: TaskPriority): Color =
+    priorityMeta(priority, PriorityPalette.PriorityChip).color
 
 @Composable
 fun PriorityChip(priority: TaskPriority, modifier: Modifier = Modifier) {
     if (priority == TaskPriority.None) return
-    val color = priorityColor(priority)
+    val color = priorityChipColor(priority)
     Box(modifier = modifier.padding(start = 4.dp)) {
         Text(
             text = priority.name,

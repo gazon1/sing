@@ -21,6 +21,7 @@ import com.singularity.todo.feature.search.data.InternalLinkRepositoryImpl
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * Notes feature DI: repositories, ViewModels, ports.
@@ -80,6 +81,7 @@ fun notesModule(): org.koin.core.module.Module = module {
             applyProposal = get<ApplyProposalItemUseCase>(),
             log = get<Logger>(),
             currentUser = get<ProfileAwareCurrentUser>(),
+            clock = get<Clock>(),
             // scope omitted — the default derives its failure policy from crashReporter
             crashReporter = get<CrashReportingPort>(),
         )

@@ -1,12 +1,17 @@
 # tasks-tokens-follows-the-theme — tasks
 
-**Issue:** #198 · **Spec:** `app-theming` (REQ-THEME-004, REQ-THEME-005, REQ-THEME-006)
+**Issue:** #198 · **Spec:** `app-theming` (REQ-THEME-004, REQ-THEME-005, REQ-THEME-006, REQ-THEME-007)
 
 Read first: ADR `2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`; skills
 `singularity-todo-shared-ui-components` (how a screen-scoped palette is provided) and
 `singularity-todo-document-style-detail` (the editor surfaces this change rewrites).
 
 ---
+
+## DONE — status of each task below
+
+This change is **implemented but not archived**, and the one thing it cannot
+prove for itself is still outstanding. See "Not done" at the end.
 
 ## 1. Convert the task token collections
 
@@ -70,3 +75,36 @@ Read first: ADR `2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`; 
 - The calendar palette (#197).
 - Priority, overdue and completed-state colours.
 - Any snapshot or contrast tooling — there is no infrastructure to host it.
+
+
+---
+
+## Not done
+
+- **The visual review (task 4) has not happened.** Nine accents × two modes on
+  the task list and the editor, on surfaces that have only ever been dark. This
+  change is the largest visible delta in the app and no gate in this repository
+  can see it. Do not archive before a human has looked.
+- **The other four screens** carrying the same defect are not in this change —
+  #199. The colour gate allowlists them, and the allowlist is meant to shrink.
+- **The dependency-usage gate** is not part of this change and is not cheap; see
+  the deferred backlog entry `a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog`.
+
+## Deviations from the original plan, and why
+
+- **No `CompositionLocalProvider` and no token data class.** The plan called for
+  one. Every one of the 27 values turned out to be a role the theme already
+  provides, so a token class would have been a re-publication of
+  `MaterialTheme.colorScheme` in a narrower shape — with a missing-provider
+  failure mode attached. Composables now read the scheme directly, and the four
+  values that genuinely need arithmetic (a muted text tier, a placeholder, a
+  divider, a raised surface) live in one small file so the arithmetic happens
+  once. `CalendarPalette` keeps its data class because most of its sixteen fields
+  are *not* scheme roles; this one did not.
+- **The plan said 47 literals; the real number was larger in a different place.**
+  47 was correct for `feature/*/presentation`, but three offending screens live
+  outside that path segment. The gate is scoped to the whole `feature/` tree as a
+  result.
+- **The plan said 11 consumers; there are 17.** Five more surfaced once the
+  mechanical sweep ran, including a `jvmMain` context menu and a component in
+  another feature.

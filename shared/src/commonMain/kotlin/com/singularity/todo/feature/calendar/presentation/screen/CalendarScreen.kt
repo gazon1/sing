@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.nav.LocalCalendarNavigator
@@ -29,7 +28,6 @@ fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
         parametersOf(anchorDate.year, anchorDate.month, CalendarViewMode.MONTH)
     }
     val state by vm.state.collectAsStateWithLifecycle()
-    val today = todayInSystemZone()
 
     // Obtain navigator from the nav graph context
     val navigator = LocalCalendarNavigator.current
@@ -47,7 +45,6 @@ fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
         CalendarContent(
             state = state,
             onIntent = vm::onIntent,
-            today = today,
             modifier = modifier,
         )
     }

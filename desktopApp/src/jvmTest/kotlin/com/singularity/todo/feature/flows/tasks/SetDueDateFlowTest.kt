@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.flows.tasks
 
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -12,6 +13,7 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/02-set-due-date.yaml`, scoped to the
@@ -32,7 +34,6 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class SetDueDateFlowTest {
-
     /**
      * Covers the dated case only.
      *
@@ -44,8 +45,10 @@ class SetDueDateFlowTest {
      * would fail for a reason unrelated to the row.
      */
     @Test
-    fun a_dated_task_shows_its_date_instead_of_the_placeholder() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun a_dated_task_shows_its_date_instead_of_the_placeholder() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
         tasks(koin).given(due = today, title = "Buy milk")
 
         awaitTag(TestTags.taskItem("Buy milk")).performClick()
@@ -55,5 +58,12 @@ class SetDueDateFlowTest {
         // The row renders the ISO date, not the placeholder.
         assertTextDisplayed(today.toString())
         assertTextNotExists("Добавить дату")
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

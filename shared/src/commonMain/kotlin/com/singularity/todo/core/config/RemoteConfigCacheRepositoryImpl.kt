@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 package com.singularity.todo.core.config
 
 import co.touchlab.kermit.Logger
@@ -34,6 +32,11 @@ internal class RemoteConfigCacheRepositoryImpl(
     private val cacheDao: RemoteConfigCacheDao,
     private val syncApi: SyncApiClient,
     private val log: Logger = Logger.withTag("RemoteConfigPort"),
+    // When the config was fetched is a property of the fetch, and a test asserting
+    // it needs to be able to choose it. Read from the system clock it was not: the
+    // class had no clock at all, so `fetchedAtEpochMillis` was whatever the host's
+    // wall clock said and nothing could check it (#91).
+    private val clock: Clock,
 ) : RemoteConfigPort {
 
     private val _snapshot: MutableStateFlow<RemoteConfigSnapshot> =
@@ -67,7 +70,7 @@ internal class RemoteConfigCacheRepositoryImpl(
                 }
                 val entity = RemoteConfigCacheEntity(
                     snapshotJson = StableJson.encodeToString(RemoteConfigSnapshot.serializer(), validated),
-                    fetchedAtEpochMillis = Clock.System.now().toEpochMilliseconds(),
+                    fetchedAtEpochMillis = clock.now().toEpochMilliseconds(),
                 )
                 cacheDao.upsert(entity)
                 _snapshot.value = validated

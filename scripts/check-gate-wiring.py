@@ -464,6 +464,42 @@ SABOTAGE_ONLY_GATES = [
         target_is_dir=True,
     ),
     ScriptGate(
+        name="suppression-intent",
+        cmd=[sys.executable, "scripts/check-suppression-intent.py"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt",
+        # Strip the whole reason block from a file that has one under the
+        # annotation. That is the shape a thirteenth unjustified suppression
+        # arrives in, and it is a *comment* route specifically because six of the
+        # ten current exemptions are justified through the registry instead — a
+        # control that only exercised one of the two escapes would leave the
+        # other untested. The registry route is covered by the gate's own unit
+        # tests, which run it against an empty registry and require the verdict
+        # to change.
+        #
+        # The reason is removed *in full*, not line by line: the gate reads a
+        # four-line window, so dropping only the first comment line left the rest
+        # of the justification in place and the control passed a file that was
+        # still justified. The first version of this entry did exactly that and
+        # reported a working control over a sabotaged file.
+        sabotage=(
+            "_t = p.read_text()\n"
+            "_lines = _t.splitlines(keepends=True)\n"
+            "assert _lines[0].startswith('@file:Suppress'), 'unexpected file shape'\n"
+            "assert _lines[1].lstrip().startswith('//'), 'no reason line to strip'\n"
+            "_out, _dropped = [_lines[0]], 0\n"
+            "for _ln in _lines[1:]:\n"
+            "    if _ln.lstrip().startswith('//'):\n"
+            "        _dropped += 1\n"
+            "        continue\n"
+            "    if _dropped and not _ln.strip():\n"
+            "        continue\n"
+            "    _out.append(_ln)\n"
+            "assert _dropped >= 2, 'expected a multi-line reason, found ' + str(_dropped)\n"
+            "p.write_text(''.join(_out))\n"
+        ),
+        why="a file-level suppression with no recorded reason switches a rule off for every future call in that file",
+    ),
+    ScriptGate(
         name="test-task-inputs",
         cmd=[sys.executable, "scripts/check-test-task-inputs.py"],
         sabotage_path="shared/build.gradle.kts",

@@ -78,7 +78,11 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 
-    single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get(), get()) }
+    // Two arguments, not three. The third was a `clock` parameter that
+    // `SavedSearchRepositoryImpl` declared and never read (#192); `get()` was
+    // resolving a `Clock` and handing it to a field nothing read, so removing it
+    // changed no behaviour and made the Koin graph match the constructor.
+    single<SavedSearchRepository> { SavedSearchRepositoryImpl(get(), get()) }
 
     // ─── Time tracking ──────────────────────────────────────────────────
     single<com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository> {
@@ -92,7 +96,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get(), get()) }
-    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get()) }
+    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
     factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
@@ -110,7 +114,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     single<TagLookup> { DaoTagLookup(get()) }
     single<ProjectLookup> { DaoProjectLookup(get()) }
     single<SearchQueryResolver> {
-        DefaultSearchQueryResolver(get(), get())
+        DefaultSearchQueryResolver(get(), get(), get(), get())
     }
 
     // PomodoroTimer is registered in platform-specific modules:

@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
@@ -41,9 +41,9 @@ import kotlin.time.Instant
 /** Fixed instant: slot VMs resolve due dates against "today". */
 private val SLOT_NOW: Instant = Instant.parse("2026-01-15T12:00:00Z")
 
-internal val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
-    override fun current() = kotlinx.datetime.TimeZone.UTC
-}
+// `TEST_TZ` moved to `com.singularity.todo.test.fakes` (CommonFakes.kt) when the
+// clock became injectable in a second place; a zone declared per test file is a
+// second thing to keep in sync with the clock it belongs to.
 
 internal val TEST_USER = UserId("test-user")
 

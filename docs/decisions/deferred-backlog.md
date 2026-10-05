@@ -1922,8 +1922,6 @@ loosening a real constraint. Whichever is chosen, the other file has to change
 too — leaving the mismatch in place is what produced the confusion.
 
 
-
-
 ---
 
 ## direct-dispatchers-mostly-sit-in-platform-ports-where-they-are-correct
@@ -2122,8 +2120,6 @@ The same trap bit `:shared:detektBaseline` three separate ways; see
 `detektbaseline-caches-its-output-and-cannot-drain`.
 
 
-
-
 ---
 
 ## autocorrect-touches-files-outside-the-change
@@ -2162,9 +2158,6 @@ present on a clean `HEAD`, not introduced by B2). A cleanup commit should declar
 that rule rather than leave it on detekt's default.
 
 
-
-
-
 ---
 
 ## no-consecutive-blank-lines-was-never-declared
@@ -2196,9 +2189,6 @@ zero, then delete the baseline entry.
 
 Related: `autocorrect-touches-files-outside-the-change` — the same file is one of
 the five `--auto-correct` wanted to rewrite.
-
-
-
 
 
 ---
@@ -2320,10 +2310,6 @@ Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
 `kover-report` job was **red on `main`** for this reason. A job that is red for a
 reason nobody reads is the same failure as a gate that is green for a reason nobody
 checks.
-
-
-
-
 
 
 ---
@@ -2954,6 +2940,14 @@ could read scheme roles directly.
 **OpenSpec change:** `openspec/changes/tasks-tokens-follows-the-theme/`
 (capability `app-theming`, REQ-THEME-004/005/006)
 
+**Status update 2026-10-05: PARTIALLY CLOSED.** The two token objects are gone
+and all 27 literals now live in `theme/TaskSemanticColors.kt`; 19 consumer files
+read the active scheme. What remains is not this entry but two follow-ups found
+while doing it: #199 (the other four screens that carry the same defect, which
+this entry's "counted 47 literals" figure under-reported because it was scoped to
+`feature/*/presentation` and three of those files sit outside that segment), and
+the duplicate `priorityColor` noted below.
+
 **Found in:** 2026-10-05, immediately after the MaterialKolor seed-palette
 change (ADR `2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`),
 while auditing what else hardcodes colour now that the app *has* a generated
@@ -3008,10 +3002,13 @@ role, and `PriorityChip`'s green/amber/red/pink is correct as data. Then verify
 by eye across all nine accents in both modes, starting with the light theme on
 the task list, because that is the largest visible delta in the app.
 
-A Konsist rule — no `Color(0x…)` literal outside a `*/theme/*` token file, and
-none in a `feature/*/presentation` file at all — would stop this regrowing. It
-will fail loudly on the current tree, so land it *after* the conversion, not
-before.
+A Konsist rule now exists and is live in `ArchitectureTest`
+(`colour literals live in theme files, not in feature code`), validated with a
+negative control: a literal injected into a non-theme feature file makes it fail.
+Its scope is the **whole `feature/` tree**, not `feature/*/presentation` — three
+screens keep their composables directly under `feature/<x>/`, so the narrower
+scope would have passed while 22 literals sat outside it. The allowlist that
+keeps it green names six files; #199 tracks the four that still need converting.
 
 ---
 
@@ -3059,3 +3056,166 @@ The generalisable lesson: "clean up the repository" is not a safe instruction to
 hand to an agent, and neither is "there are 84 branches and 46 worktrees". Both
 numbers invite a bulk delete, and the interesting content is in the four
 directories that are not clean.
+
+---
+
+### Two things the conversion found that this entry did not
+
+**1. Priority was three scales, not one.** `PriorityPalette` always documented
+two coexisting palettes, and the divergence between them is deliberate — the
+editor is a form, the list is a list, and the reds are tuned differently on
+purpose. But `PriorityChip.kt` held a **third** set of four values
+(`4CAF50` / `FF9800` / `F44336` / `E91E63`) that was never registered in the enum
+and never documented, in a function also named `priorityColor` — shadowing the
+canonical one in a sibling package with different values. The compiler will not
+flag that and a reviewer will not notice; the unit test covers the list one only.
+The chip's values are now preserved exactly as a documented third palette, and
+its function is renamed `priorityChipColor`.
+
+**2. The two palettes were near-duplicates.** `TaskColors.Surface` and
+`TaskListColors.Surface` were both `0xFF161A22`; their backgrounds differed
+(`0xFF0F1115` vs `0xFF0B0E14`) and their text primaries differed
+(`0xFFE2E4E9` vs `0xFFF2F3F5`). Two hand-maintained copies of one palette, which
+is why they had drifted. There was no need to unify them by hand — both now
+resolve from the same scheme, so they are identical by construction.
+
+---
+
+## a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog
+
+**Status: OPEN**
+
+**Tracked as:** [#205](https://github.com/gazon1/singularity-clone-kmp/issues/205)
+
+**Found in:** 2026-10-05, while trying to close the gap that let MaterialKolor
+sit declared-but-unimported in the catalog and on the `commonMain` classpath
+while nothing referenced it.
+
+**Situation.** `scripts/find-unwired-surfaces.py` counts symbols. A declared
+dependency has no symbol to count until something imports it, so a library that
+is vendored, resolved onto the classpath and called by nobody passes every
+current gate. The obvious gate — "every `[libraries]` entry has at least one
+import" — was assumed cheap in planning and is not.
+
+**Why not.** A Gradle module coordinate does not determine the import package.
+Mapping `org.jetbrains.compose.material3:material3` to the package a source file
+imports is not a prefix operation; that one is `androidx.compose.material3`.
+Measured on this tree: a first two-segment heuristic over all 98 library entries
+reports **45 of 98 as unused**, and every one of those 45 is used. The heuristic
+is wrong in nearly half the catalog, and a gate with 46% false positives is worse
+than no gate — it trains everyone to ignore it.
+
+**Checks already performed.** Ran the heuristic across `shared/src`,
+`androidApp/src`, `desktopApp/src` and `mcp-server/src`; counted the false
+positives by hand for the whole result set. Confirmed the mapping is the problem,
+not the source sets (the failing entries are widely used: `koin-core`,
+`compose-material3`, `kotlinx-coroutines-core`, `coil-compose`).
+
+**Try next:** stop mapping coordinates to packages and read the packages out of
+the resolved artifacts instead. A Gradle task that prints, per source set, the
+resolved files with their originating coordinates gives a coordinate → artifact
+map; scanning each artifact's entries for its package roots yields the real
+mapping, including the KMP case where one coordinate contributes several
+artifacts. The gate then compares that map against the catalog and needs no
+guessing. Budget it as a small Gradle task plus a Konsist check, not a grep.
+
+**Do not** re-attempt the prefix heuristic and "just allowlist the false
+positives": a 45-entry allowlist of libraries that are definitely used is
+indistinguishable, to the next reader, from a 45-entry list of libraries that
+genuinely are not.
+
+---
+
+## billing-entitlement-is-a-port-without-a-caller
+
+**Found in:** 2026-10-05, while assessing what stands between the tree and the
+first paid feature.
+
+**Status: OPEN**
+
+**Tracked as:** #204
+
+**Symptom:** `core/billing` is five files — `SubscriptionProvider`,
+`SubscriptionInfo`, `PurchaseState`, `purchaseStateFor`, `NoopSubscriptionProvider` —
+registered in `CoreDiModule` and injected nowhere. `hasPro` gates nothing; there
+is no second `if (hasPro)` anywhere in the tree.
+
+**The defect inside it, which matters more than the missing caller.**
+`purchaseStateFor` reads the provider's flow by downcasting it:
+
+    (flow as? MutableStateFlow)?.value
+
+`NoopSubscriptionProvider` exposes a `MutableStateFlow`, so the cast succeeds and
+the tests pass. A real provider — Google Play Billing, RevenueCat — will expose a
+read-only `StateFlow` or a `SharedFlow`, and `asStateFlow()` returns a
+`ReadonlyStateFlow` that is **not** a `MutableStateFlow`. The cast then yields
+`null` for a paying user, and the derived state says "no subscription": a customer
+who has paid is denied. No exception, no log line, no crash.
+
+The existing test is named `hasPro true when subscription is present` and
+asserts the opposite, with a comment saying the positive case needs a real
+provider. That is an accurate description of why the case is unwritable today,
+but it leaves the defect invisible: a test named for the behaviour it does not
+check reads as coverage in any inventory.
+
+**A second defect in the same function, found while writing the first one up.**
+`hasAccount` is derived as `info != null` — that is, "the user has an *active
+paid subscription*". Its own KDoc says "the user has a linked account (even free
+tier)". A free-tier user with a signed-in account therefore reads as
+`hasAccount = false`. The two fields cannot both be right: with a single
+`SubscriptionProvider` source, `hasAccount` is not a function of entitlement at
+all, and deriving it from a paid subscription is what makes the triple look
+independently meaningful when it is not.
+
+This one is also inert today, for the same reason as the first, and it is worth
+naming separately because it will not be fixed by fixing the cast: the KDoc and
+the body disagree about what the field *means*, and that is a decision about the
+entitlement model rather than a type error.
+
+**Already ruled out:** not reachable today. Nothing injects the port, so the
+function is not called in production and the bug cannot yet deny anyone. It is
+recorded now because it becomes a *revenue* defect the moment the first paid
+feature is wired — which is the one moment nobody is re-reading this code.
+
+**Try next:** decide the paid feature first, then fix the read. The fix is
+mechanical — `subscription.first()` in a `suspend` function, or expose a
+`currentSubscription` property on the port — but choosing it means deciding
+whether entitlement is a *snapshot* (a suspend read) or *state* (a Flow the UI
+observes), and that choice belongs with the feature, not with a bug report. Write
+the missing positive-case test with a fake provider exposing a read-only
+`StateFlow` before shipping anything that charges money.
+
+---
+
+## gate-wiring-runs-before-the-tests-it-depends-on
+
+**Found in:** 2026-10-05, while re-running the full gate after adding tests to
+`:pro`.
+
+**Status: OPEN**
+
+**Tracked as:** #206
+
+**Symptom:** `check.sh` invokes `check-gate-wiring.py` at step 7 and
+`:shared:jvmTest` at step 9. Part B of the wiring check proves each registered
+gate *can fail*, and one of those gates — `check-test-runs.py` — reads the JUnit
+XML produced by those test tasks. On a tree where the XML is absent or stale (a
+fresh clone, or after any `--tests`-filtered run) the check reports
+
+    ERROR: gate 'test-runs' already fails on a clean tree (exit 1)
+
+and `check.sh` exits 1 before reaching the step that would have produced what it
+wants. Verified against a clean tree with this session's changes stashed, so it
+is not caused by the new tests.
+
+**Already ruled out:** not a false alarm. The gate is correct — it genuinely
+cannot demonstrate that `test-runs` fails, because on this tree `test-runs` fails
+for an unrelated reason.
+
+**Try next:** move the wiring check after the test tasks. Nothing before step 7
+depends on it, and it does not need to run early. The tempting alternative —
+having the wiring check skip the `test-runs` control when the XML is absent — is
+worse: it teaches the reader that "no results yet" is an acceptable state, which
+is the exact reading this project keeps eliminating. Not done here because it
+changes what the local gate's exit code means, and that deserves its own commit
+rather than arriving as a drive-by.
