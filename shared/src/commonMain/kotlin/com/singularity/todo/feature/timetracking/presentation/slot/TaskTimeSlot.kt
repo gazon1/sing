@@ -99,8 +99,29 @@ class TaskTimeSlot(
 
             is TaskTimeSlotIntent.Tick -> tick(intent.elapsedMs)
 
-            // Unknown variant —silently ignore to survive future intent additions
-            else -> { /* no-op */ }
+            // Not `else -> { /* no-op */ }`, which is what it used to be. That
+            // silence hid a real bug: `TaskDetailIntent.Domain.Start`
+            // implemented the `TaskTimeSlotIntent` *marker* without being
+            // `TaskTimeSlotIntent.Start`, so the coordinator handed the slot an
+            // object this `when` did not match, and the timer's Start button did
+            // nothing at all — no error, no log, no state change. Four intents
+            // crossed the boundary that way, because all four did.
+            //
+            // The coordinator now translates each of them explicitly, so an
+            // unrecognised intent means someone added one and forgot the
+            // mapping. That is a programming error, and the cheapest thing it can
+            // do is say so out loud instead of swallowing the click.
+            //
+            // Removing the `else` entirely would have the compiler enforce it,
+            // but `TaskTimeSlotIntent` and `TaskDetailIntent.Domain` still share
+            // a sealed root (`TaskDetailSlotIntent`), so exhaustiveness here would
+            // demand a branch for every intent in the *task* hierarchy too —
+            // which is the overlap this fix is removing, not something to settle
+            // in the same change.
+            else -> error(
+                "TaskTimeSlot received an intent it cannot handle: ${intent::class.simpleName}. " +
+                    "The coordinator must translate TaskDetailIntent.Domain.* into TaskTimeSlotIntent.*.",
+            )
         }
     }
 
