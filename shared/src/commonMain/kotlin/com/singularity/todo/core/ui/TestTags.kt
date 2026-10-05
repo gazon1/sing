@@ -304,6 +304,17 @@ object TestTags {
     object TimeTracking {
         const val START = "time_tracking_start"
         const val STOP = "time_tracking_stop"
+
+        /**
+         * The refusal text, rendered in place of the chip when a write failed.
+         *
+         * Tagged because "the click was refused and said so" is the only thing a
+         * desktop carrier can assert for `TASK-TIME-01` under the anonymous
+         * harness session — `startEntry` cannot succeed there, and until the
+         * failure was a state the test could see, a click that did nothing and a
+         * click that was never wired were the same observation.
+         */
+        const val ERROR = "time_tracking_error"
     }
 
     // ─── Long-press context menu sheet ─────────────────────────────────────

@@ -97,6 +97,24 @@ fun TimeTrackingSection(
                         )
                     }
 
+                    is TaskTimeSlotState.Error -> {
+                        // The refusal is *shown*, not swallowed. Without this the
+                        // state exists, the write reports it, and the chip still
+                        // reads Start — so the user clicks and the only evidence
+                        // is a log nobody reads. Rendering it also makes the
+                        // failure assertable, which is what unblocks a desktop
+                        // carrier for `TASK-TIME-01`: under the anonymous harness
+                        // `startEntry` cannot succeed, and "it was refused
+                        // because there is no signed-in user" is a true and
+                        // useful thing to assert.
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag(TestTags.TimeTracking.ERROR),
+                        )
+                    }
+
                     else -> {
                         FilterChip(
                             selected = false,
@@ -163,6 +181,13 @@ fun TimeTrackingSection(
 
                 is TaskTimeSlotState.Running -> {
                     // Already showing the timer above
+                }
+
+                // The refusal is already rendered where the chip was, above. A
+                // second copy here would print the same sentence twice on one
+                // screen, so the branch exists to be exhaustive and says so.
+                is TaskTimeSlotState.Error -> {
+                    // Shown above, in place of the chip.
                 }
 
                 TaskTimeSlotState.Loading -> {
