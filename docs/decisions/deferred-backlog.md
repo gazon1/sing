@@ -133,6 +133,111 @@ unreachable tag, `TAGS=smoke` selects 19.
 
 ---
 
+## thirteen-scenario-slices-queued-not-yet-written
+
+**Status: OPEN**
+
+**Tracked as:** [#170](https://github.com/gazon1/singularity-clone-kmp/issues/170)
+
+**Found in:** the plan `Ремонт измеримости и сценарии покрытия` (срезы 2-14), and
+then re-confirmed by code on 2026-10-05 once the traceability machinery landed.
+
+**Situation:** the scenario layer exists and holds exactly one scenario,
+`TASK-REC-01`, delivered as the pilot. The other thirteen are written nowhere — not
+here, not in an issue, not in an OpenSpec change. The matrix says
+"1 scenarios · 2/2 claimed cells automated · 0 holes", which is true and says almost
+nothing: one scenario is not a matrix.
+
+**Measured 2026-10-05, per area, so the queue is facts rather than suspicion:**
+
+| Area | Test files | Production files | Reachable in UI |
+|---|---|---|---|
+| `feature/checklist` | **0** | 6 | yes — `ChecklistEditorSheet` via `TaskEditorSheetsHost.kt:140` |
+| `feature/timetracking` | **0** | 11 | yes — `TimeTrackingSection` at `TaskDetailViewScreen.kt:218` |
+| `feature/statistics` | 1 | 3 | yes, no tag on the chart |
+
+The first two are why slices 2-4 come first rather than being an arbitrary order: they
+are areas with **zero tests in any layer** that a user can reach. Filling the matrix
+from the areas that already have tests would produce a full matrix that mostly means
+"what was already covered is now also a scenario" — the same illusion the class-count
+floor was created to remove.
+
+**Deliberately not slices.** Cloud sync has no host screen (ADR
+`2026-09-29-sync-config-screen-has-no-host`), bulk task operations have no multi-select
+(#36), the 7 tables outside the backup payload are #77, and `Regexp`/`DateRange` agenda
+templates are JSON-only. Each is a gap with its own issue, not a scenario to write, and
+they are reported as `unreachable` with a link to an OPEN record — an audit that treats
+an honest gap as a failure gets its gaps filled with fiction.
+
+**Try next:** `TASK-SUB-01` first (it guards a bug that actually shipped), then
+`TASK-CHK-01` and `TASK-TT-01`. Each slice is one PR carrying its spec, its test, and
+the seed or tag *it* needs — not a pre-paid batch of tags for every reachable control,
+because some will turn out unnecessary.
+
+---
+
+## debug-seed-cannot-build-a-related-graph
+
+**Status: OPEN**
+
+**Tracked as:** [#171](https://github.com/gazon1/singularity-clone-kmp/issues/171)
+
+**Found in:** the same plan, 0C.1, and re-confirmed on 2026-10-05 while checking
+which of the queued scenarios have a prerequisite rather than only a missing test.
+
+**Situation:** `DebugSeedActivity` dispatches on a single key and the first matching
+branch wins, so one invocation seeds **one object**. Three queued scenarios need a
+graph: a subtask attached to its parent, a task with time entries, a populated
+database to round-trip. Adding branches does not reach that — the branches cannot
+reference each other and nothing is atomic, so a failure halfway leaves a half-seeded
+database that the next assertion reads as real data.
+
+**Already ruled out:** seeding by writing a backup and restoring it. Seven tables sit
+outside the backup payload (#77), so that route silently omits them and the scenario
+tests a subset of the database while claiming to test all of it.
+
+**Try next:** a JSON payload describing the object graph, deserialised into a
+`sealed interface SeedItem` and applied through the existing use cases in one
+transaction. Through use cases, not DAOs: a scenario must not be able to construct a
+state the app itself could not produce, because that is the property that makes it
+worth having. The same model should serve the desktop Compose harness, with the shared
+part in the test support module. Do not build it speculatively — `TASK-SUB-01` is the
+first scenario that needs it, and its requirements are the honest ones.
+
+---
+
+## class-body-scanning-is-not-string-aware
+
+**Status: OPEN**
+
+**Tracked as:** [#173](https://github.com/gazon1/singularity-clone-kmp/issues/173)
+
+**Found in:** the gate audit in
+`2026-10-05-gate-audit-text-shape-vs-fact`, while asking what input passes the
+runnable-test predicate silently.
+
+**Situation, measured rather than suspected:** the class-body scanner counts braces
+line by line and is not string-aware, and **97 lines** in the current test tree carry
+an unbalanced literal brace inside a string. So the trap is set on 97 lines. Comparing
+the naive counter against a string-aware one across **all 269 real test classes**
+produced **zero** differing verdicts, so nothing has fallen into it — the braces that
+matter are balanced `${...}` templates, and the unbalanced ones sit after the last test
+member in their class.
+
+**Why it stays open rather than being fixed:** a real lexer for a defect with zero
+measured impact, in a source set (`commonTest`) that has no parser dependency today. A
+gate that needs a new build dependency is a gate that gets removed the first time that
+dependency is inconvenient.
+
+**Try next:** nothing, unless a test file puts a bare `}` in a literal *above* a test
+member in its class. It is already covered one layer up — the by-results check in
+`check-test-runs.py` reads the run rather than the source, so a class the predicate
+mis-scopes and a genuinely untagged class produce the same symptom and are caught
+either way. That is the argument for keeping the structural check above the text one,
+not an argument that this one is fine forever.
+
+---
+
 ## bulk-task-operations-have-no-ui
 
 **Status: OPEN**
