@@ -111,6 +111,11 @@ alias kfloor       := kiwi::floor
 alias trace-validate := kiwi::trace-validate
 alias trace-coverage := kiwi::trace-coverage
 alias trace-results  := kiwi::trace-results
+# Probe first, test second. Passing the scenario through as an argument rather
+# than reading it from a file keeps the id in the shell history: a carrier queue
+# walked id by id is then legible after the fact, and the generated probe's own
+# header repeats it anyway.
+alias trace-carrier  := kiwi::trace-carrier
 alias kiwi-seed      := kiwi::kiwi-seed
 alias kiwi-publish   := kiwi::kiwi-publish
 

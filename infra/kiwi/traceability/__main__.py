@@ -204,6 +204,88 @@ def cmd_publish(args) -> int:  # pragma: no cover - needs a stand
     return run_publish(Path(args.results), commit=args.commit, dry_run=args.dry_run)
 
 
+def cmd_carrier(args) -> int:
+    """Write the reachability probe for one scenario/target pair.
+
+    Never overwrites: an existing carrier means the work is done, and silently
+    replacing a real test with a generated probe would be the worst outcome this
+    command could have.
+    """
+    from traceability.carrier import CarrierError, plan_carrier, render_probe
+
+    specs, links = _load(args)
+    scenario = args.scenario.upper()
+    if scenario not in specs:
+        known = ", ".join(sorted(specs))
+        print(f"ERROR: сценарий '{scenario}' не найден. Известны: {known}")
+        return 1
+
+    spec = specs[scenario]
+    target = Target(args.target)
+
+    # Checked before the target check, because a deprecated scenario *keeps* the
+    # targets it used to have — that is how its row still shows which platforms
+    # it covered — so the target check alone waves it through. Writing a probe
+    # for a retired scenario re-adds the obligation the deprecation removed, and
+    # the matrix would carry a `●` on a row whose glyph is `⊘`.
+    if not spec.is_claimed:
+        print(
+            f"ERROR: {scenario} выведен из эксплуатации (status: deprecated).\n"
+            f"Носитель для него не пишется: это вернуло бы снятое обязательство."
+        )
+        return 1
+
+    if target not in spec.targets:
+        claimed = ", ".join(t.value for t in spec.targets) or "—"
+        print(
+            f"ERROR: {scenario} не заявляет '{target.value}' (заявляет: {claimed}).\n"
+            f"Сначала решите, верно ли это — сужение спеки под платформу без "
+            f"измерения и есть то, что сделало TASK-TIME-01 неверным."
+        )
+        return 1
+
+    # The link set, not the filename, is what says a carrier exists. Checking
+    # for a file at the computed path found nothing for `TASK-REC-01` and wrote
+    # a second, competing carrier next to the real one — the generated name
+    # `TaskRec01ScenarioTest` and the hand-written `TaskRecurrenceScenarioTest`
+    # have nothing to do with each other, and a filename check cannot see that.
+    # A second carrier for one (scenario, target) is rejected by `validate`, so
+    # the generator would have produced a tree that does not validate.
+    existing = [link for link in links if link.scenario == scenario and link.target is target]
+    if existing:
+        for link in existing:
+            print(f"carrier: {scenario} / {target.value} уже несёт {link.source.name}")
+        print("Перезапись запрещена: ваш собственный тест и есть носитель.")
+        print("Удалите его осознанно, если хотите начать заново.")
+        return 1
+
+    try:
+        plan = plan_carrier(spec, target, REPO_ROOT)
+        text = render_probe(plan)
+    except CarrierError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+
+    if plan.exists:
+        print(f"carrier: {plan.path} уже существует — перезапись запрещена.")
+        print("Если это ваш собственный тест, он и есть носитель; удалите его")
+        print("осознанно, если хотите заново.")
+        return 1
+
+    if args.dry_run:
+        print(f"carrier: {plan.path} (dry run, не записан)\n")
+        print(text)
+        return 0
+
+    plan.path.parent.mkdir(parents=True, exist_ok=True)
+    plan.path.write_text(text, encoding="utf-8")
+    print(f"carrier: записан {plan.path}")
+    print(f"  @DisplayName(\"{plan.display_name}\") — id обязан быть первым токеном")
+    print(f"  Замените REPLACE_ME на testTag цели и пройдите навигацию как в тесте.")
+    print(f"  Затем: just trace-coverage && just trace-carrier-check")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m traceability",
@@ -230,6 +312,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="сравнить с закоммиченной копией и упасть при расхождении (CI)",
     )
     p_coverage.set_defaults(func=cmd_coverage)
+
+    p_carrier = sub.add_parser(
+        "carrier",
+        help="сгенерировать зонд достижимости для сценария (пишет файл, если его нет)",
+    )
+    common(p_carrier)
+    p_carrier.add_argument("scenario", help="id сценария, например TASK-REC-01")
+    p_carrier.add_argument(
+        "--target",
+        default="desktop",
+        choices=[t.value for t in Target],
+        help="тир носителя (по умолчанию desktop)",
+    )
+    p_carrier.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="показать путь и текст, ничего не записывая",
+    )
+    p_carrier.set_defaults(func=cmd_carrier)
 
     p_results = sub.add_parser("results", help="нормализовать JUnit/Maestro XML в results.json")
     common(p_results)
