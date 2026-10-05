@@ -39,12 +39,30 @@ Each task that changes behaviour names a test that verifies it.
 - [x] Record the audit that found the `flow_has_tag` silent exclusion, and the fact
       that the first deferral of that fix was reasoned wrongly.
       `docs/decisions/2026-10-05-gate-audit-text-shape-vs-fact.md`; #148 closed.
-- [ ] **Decide whether REQ-13 should also assert the reverse direction** — a report
-      whose class name is in the results but absent from the sources. The Kiwi
-      traceability work joins reports to carriers by display name, so a report that
-      joins nothing is already visible there, and duplicating it in this gate may be
-      the wrong layer. Not decided; it is the one open design question this change
-      leaves behind.
+- [x] **Decide whether REQ-13 should also assert the reverse direction** — a report
+      whose class name is in the results but absent from the sources.
+      **Decided: no, and the reason is measured rather than preferred.**
+      `infra/kiwi/traceability/normalize.py` already draws exactly this
+      distinction, and draws it with the opposite polarity from anything a
+      duplicate check here would assert. A testcase that resolves to no carrier
+      is **dropped**, not failed — `normalize.py:13` records why: the 259 legacy
+      tests are untracked on purpose, and failing on them would make the gate
+      unusable from the day it landed. A flow result matching no scenario is
+      counted in `unmapped`. Both are carried into the matrix header
+      (`render.py:173-174`), so a reader sees the number and is told what it
+      means.
+      So a report joining nothing is *visible* in the traceability layer and
+      *legitimate* in it. Asserting the same condition in `check-test-runs.py`
+      would have to either duplicate a number whose correct value is "many" — so
+      the check could never be a gate — or invent a ceiling, which is a floor
+      wearing the other hat. The two layers also answer different questions:
+      REQ-13 asks "did a declared class run", and this would ask "did an
+      undeclared class run", which is not a defect at all but a rename, a
+      re-tag, or a leftover results directory.
+      The one thing that *is* a defect in the reverse direction — a result
+      directory so stale it describes a run that never happened — is already
+      covered by `check-coverage-measurement.py` (`UP-TO-DATE` and `FROM-CACHE`
+      are failures there), which is the layer that can see it.
 - [ ] Once this change is archived, confirm the delta requirements are readable
       against the implementation by someone who did not write it — the structural
       validator proves the spec has the right shape, not that it matches the code.
