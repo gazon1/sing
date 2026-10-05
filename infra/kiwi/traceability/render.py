@@ -34,6 +34,7 @@ def _legend_coverage() -> list[str]:
         "| — | target not claimed for this scenario |",
         "| ○ | claimed, but no automated test exists — **a hole** |",
         "| ● | automated |",
+        "| ⊘ | scenario is deprecated — retired deliberately, not an obligation |",
     ]
 
 
@@ -110,8 +111,19 @@ def render_coverage_matrix(coverage: Coverage) -> str:
         "",
     ]
 
-    total_cells = sum(1 for row in coverage.cells.values() for c in row.values() if c.claimed)
-    automated_cells = sum(1 for row in coverage.cells.values() for c in row.values() if c.claimed and c.automated)
+    # Deprecated cells are excluded from the ratio, not just from the hole
+    # count. Leaving them in produced "0/2 claimed cells automated · 0 holes",
+    # which is a contradiction a reader has to resolve by guessing: the only way
+    # to read it is "half the obligations are unmet, and none of them is a
+    # hole". A retired scenario is not an obligation, so it is not a denominator.
+    live = [
+        c
+        for row in coverage.cells.values()
+        for c in row.values()
+        if c.claimed and not c.deprecated
+    ]
+    total_cells = len(live)
+    automated_cells = sum(1 for c in live if c.automated)
     holes = coverage.holes()
     lines += [
         f"**{len(coverage.cells)} scenarios · {automated_cells}/{total_cells} claimed cells automated "

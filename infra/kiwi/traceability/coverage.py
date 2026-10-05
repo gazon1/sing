@@ -53,16 +53,28 @@ class Outcome(StrEnum):
 class CoverageCell:
     """Coverage of one (scenario, target) pair.
 
-    ``automated`` is ``None`` when the target is not claimed, which is
-    different from "claimed and nothing exists": the first is not an obligation,
-    the second is a hole.
+    ``claimed`` is False for an unclaimed target, which is different from
+    "claimed and nothing exists": the first is not an obligation, the second is
+    a hole.
+
+    A *deprecated* scenario is a third thing, and it is not a hole. It was
+    deliberately retired, so it is not an obligation either — but rendering it
+    as `—` (never claimed) hid a decision, and rendering it as `○` was worse:
+    the system reported a deliberate retirement as the one gap it exists to
+    surface, and listed it under "holes" for someone to go and fill. Both glyphs
+    are wrong, so the status is carried on the cell rather than inferred from
+    the two booleans.
     """
 
     claimed: bool
     automated: bool
+    #: The scenario is retired. Applies to the whole row, not to one target.
+    deprecated: bool = False
 
     @property
     def glyph(self) -> str:
+        if self.deprecated:
+            return "⊘"
         if not self.claimed:
             return "—"
         return "●" if self.automated else "○"
@@ -85,7 +97,7 @@ class Coverage:
             (scenario, target)
             for scenario, row in sorted(self.cells.items())
             for target, cell in row.items()
-            if cell.claimed and not cell.automated
+            if cell.claimed and not cell.automated and not cell.deprecated
         ]
 
 
@@ -101,8 +113,12 @@ def build_coverage(specs: dict[str, ScenarioSpec], links: list[Link]) -> Coverag
     for scenario_id, spec in sorted(specs.items()):
         cells[scenario_id] = {
             target: CoverageCell(
+                # A deprecated scenario keeps the targets it *had*, so the row
+                # still shows which platforms it used to cover. It is the
+                # `deprecated` flag that stops it being read as an obligation.
                 claimed=target in spec.targets,
                 automated=(scenario_id, target) in automated,
+                deprecated=not spec.is_claimed,
             )
             for target in ALL_TARGETS
         }

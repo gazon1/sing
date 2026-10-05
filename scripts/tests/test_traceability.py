@@ -1267,3 +1267,59 @@ class PartialRunScope(unittest.TestCase):
         # would keep enforcing by accident while local runs started failing.
         ci, recipe = self._workflow_and_recipe()
         self.assertNotEqual("--partial" in ci, "--partial" in recipe)
+
+
+class DeprecatedScenarioIsNotAHole(unittest.TestCase):
+    """A retired scenario is a third state, and neither old glyph was right.
+
+    Found with a five-line probe while answering what to do next, not by a
+    failing test: the system has one spec and it is `confirmed`, so the branch
+    was never rendered. #156 asks for a deprecated scenario among its batch,
+    which would have made this visible in the committed matrix — as a gap the
+    system exists to close.
+    """
+
+    def _deprecated(self):
+        return _spec("TASK-OLD-01", status=SpecStatus.DEPRECATED, id_prefix="TASK-OLD")
+
+    def test_it_renders_as_its_own_glyph(self):
+        coverage = build_coverage({"TASK-OLD-01": self._deprecated()}, [])
+        row = render_coverage_matrix(coverage)
+        self.assertIn("| ⊘ | ⊘ |", row)
+        # `○` is the hole glyph. Asserting its absence is the point: the row
+        # must not read as an automation gap.
+        self.assertNotIn("| ○ | ○ |", row)
+
+    def test_it_is_not_counted_as_a_hole(self):
+        coverage = build_coverage({"TASK-OLD-01": self._deprecated()}, [])
+        self.assertEqual(coverage.holes(), [])
+
+    def test_it_is_excluded_from_the_automated_ratio(self):
+        # A retired scenario is not an obligation, so it is not a denominator.
+        # Including it produced "0/2 claimed cells automated · 0 holes", which
+        # reads as a contradiction the reader has to resolve by guessing.
+        coverage = build_coverage({"TASK-OLD-01": self._deprecated()}, [])
+        row = render_coverage_matrix(coverage)
+        self.assertIn("0/0 claimed cells automated", row)
+
+    def test_the_legend_explains_the_glyph(self):
+        # A glyph the legend does not define is a glyph nobody can act on.
+        row = render_coverage_matrix(build_coverage({"TASK-OLD-01": self._deprecated()}, []))
+        self.assertIn("deprecated", row)
+
+    def test_a_live_scenario_beside_it_is_still_a_hole(self):
+        # The point of the fix is not to mute the report. A real hole next to a
+        # retired scenario must still be reported, or the fix hides gaps.
+        coverage = build_coverage(
+            {"TASK-OLD-01": self._deprecated(), "TASK-REC-01": _spec()},
+            [],
+        )
+        self.assertEqual(
+            coverage.holes(),
+            [("TASK-REC-01", Target.ANDROID), ("TASK-REC-01", Target.DESKTOP)],
+        )
+        self.assertIn("2 holes", render_coverage_matrix(coverage))
+
+    def test_an_automated_scenario_is_unaffected(self):
+        coverage = build_coverage({"TASK-REC-01": _spec()}, [_link()])
+        self.assertIn("| ● |", render_coverage_matrix(coverage))

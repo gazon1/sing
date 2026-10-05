@@ -12,6 +12,7 @@ tags in code. It changes only when code or specs change.
 | — | target not claimed for this scenario |
 | ○ | claimed, but no automated test exists — **a hole** |
 | ● | automated |
+| ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
 **1 scenarios · 2/2 claimed cells automated · 0 holes**
 
