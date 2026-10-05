@@ -6,6 +6,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
@@ -41,6 +42,21 @@ sealed interface SyncOutcome {
      * operations had errors, the engine finished its cycle).
      */
     data class Success(val push: Result<PushSummary>, val pull: Result<PullSummary>) : SyncOutcome
+
+    /**
+     * The cycle never started, because a local read both phases depend on failed.
+     *
+     * This case exists because the alternative is a lie. [Success] has two slots, one
+     * per phase, and a failure before either phase ran has nowhere honest to go: put
+     * the same error in both and the caller learns that a push *and* a pull failed,
+     * which is twice the work and none of it happened. The coordinator's own
+     * "something threw" fallback had exactly this shape, and reported a failed pull
+     * for a pull that was never entered.
+     *
+     * @property error [AppError.Persistence] in practice — a scope read or a cursor
+     *   read — but the contract is "a local dependency failed", not a specific type.
+     */
+    data class Failed(val error: AppError) : SyncOutcome
 
     /**
      * No cycle ran, and none will: the request could not be handed to the
@@ -121,6 +137,13 @@ internal class SyncEngine(
     private val _lastPull = MutableStateFlow<Result<PullSummary>?>(null)
     val lastPull: StateFlow<Result<PullSummary>?> = _lastPull.asStateFlow()
 
+    /**
+     * How a phase ends. Held rather than inherited so that "a phase must not leave the
+     * status advertising work in progress" has exactly one implementation — see
+     * [SyncPhaseReporter].
+     */
+    private val phases = SyncPhaseReporter(log, crashReporter, _status, _lastPush, _lastPull)
+
     // Per-entity pull handlers (registered by TasksDiModule, NotesDiModule, etc.)
     private val _handlers = MutableStateFlow<Map<DocType, EntityApply>>(emptyMap())
     val handlers: Map<DocType, EntityApply> get() = _handlers.value
@@ -180,11 +203,77 @@ internal class SyncEngine(
      * Runs one push + pull cycle.
      */
     internal suspend fun syncOnce(): SyncOutcome {
-        val scope = scopeProvider.current.first()
+        val active = phases.localStorage("read the active sync scope") { scopeProvider.current.first() }
+            .getOrElse { return phases.cycleFailed(it.toAppError()) }
             ?: return SyncOutcome.Skipped("No active sync scope (signed out, or no profile)")
+
+        val cursor = phases.localStorage("read the download cursor") { stateRepository.get(active).lastLsn }
+            .getOrElse { return phases.cycleFailed(it.toAppError()) }
+
         val push = push()
-        val pull = pull(scope, sinceLsn = stateRepository.get(scope).lastLsn)
+        val pull = pull(active, sinceLsn = cursor)
         return SyncOutcome.Success(push, pull)
+    }
+
+    /**
+     * What one push is about to send: the outbox rows it covers, and the request.
+     *
+     * Both travel together because the response is answered per patch id, and looking a
+     * patch up in the outbox after the fact is how a row that was coalesced away between
+     * the read and the answer gets mistaken for one that is still queued.
+     */
+    private data class PushPlan(
+        val pending: List<SyncOutboxEntity>,
+        val patches: List<DeltaPatch>,
+        val request: BatchPushRequest,
+        /**
+         * The scope this cycle belongs to, captured with the request.
+         *
+         * It settles the shadow rows when the server answers, and re-reading the scope
+         * then would let a profile switch in between put this cycle's patches under one
+         * profile and their shadow under another.
+         */
+        val active: SyncScope?,
+    )
+
+    /**
+     * Assembles what to send, or reports why it could not be assembled.
+     *
+     * A `null` plan is the ordinary "nothing to push" case, kept distinct from a failure
+     * so that [push] can tell a quiet cycle from a broken one without a second read.
+     */
+    private suspend fun planPush(): Result<PushPlan?> {
+        val now = System.currentTimeMillis()
+        // Read before the request, and inside a guard: this used to be the one line
+        // between setting the status and entering the try, so a database that could not
+        // be read left the engine advertising a push that was never attempted.
+        val pending = phases.localStorage("read the pending changes") { outboxDao.getPending(now) }
+            .getOrElse { return Result.failure(it.toAppError()) }
+        if (pending.isEmpty()) return Result.success(null)
+
+        val patches = pending.map { entity ->
+            json.decodeFromString<DeltaPatch>(entity.payload)
+        }
+
+        // Read the scope once, before the request is built, and use that same
+        // value for the profile on the wire and for settling the shadow. Reading
+        // it again afterwards would let a profile switch in between put this
+        // cycle's patches under one profile and their shadow under another.
+        val active = phases.localStorage("read the active sync scope") { scopeProvider.current.first() }
+            .getOrElse { return Result.failure(it.toAppError()) }
+
+        return Result.success(
+            PushPlan(
+                pending = pending,
+                patches = patches,
+                request = BatchPushRequest(
+                    deviceId = idGenerator.next(),
+                    profileId = active?.profileId.orEmpty(),
+                    patches = patches,
+                ),
+                active = active,
+            ),
+        )
     }
 
     /**
@@ -197,31 +286,18 @@ internal class SyncEngine(
         }
 
         _status.value = SyncEngineStatus.Pushing
-        val now = System.currentTimeMillis()
-        val pending = outboxDao.getPending(now)
-        if (pending.isEmpty()) {
+
+        val plan = planPush().getOrElse { return phases.pushFailed(it.toAppError(), 0) }
+        if (plan == null) {
             _status.value = SyncEngineStatus.Idle
             return Result.success(PushSummary(0, 0, 0))
         }
-
-        val patches = pending.map { entity ->
-            json.decodeFromString<DeltaPatch>(entity.payload)
-        }
-
-        // Read the scope once, before the request is built, and use that same
-        // value for the profile on the wire and for settling the shadow. Reading
-        // it again afterwards would let a profile switch in between put this
-        // cycle's patches under one profile and their shadow under another.
-        val active = scopeProvider.current.first()
-
-        val request = BatchPushRequest(
-            deviceId = idGenerator.next(),
-            profileId = active?.profileId.orEmpty(),
-            patches = patches,
-        )
+        val pending = plan.pending
+        val patches = plan.patches
+        val active = plan.active
 
         return try {
-            val response = api.batchPush(request)
+            val response = api.batchPush(plan.request)
             var succeeded = 0
             var failed = 0
 
@@ -254,16 +330,16 @@ internal class SyncEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            val err: AppError = e as? AppError
-                ?: AppError.Unknown(
-                    e.message
-                        ?: "",
-                )
-            _lastPush.value = Result.failure(err)
-            log.e(e) { "Batch push failed [count=${pending.size}]" }
-            crashReporter.report(e, "sync.push_failed")
-            _status.value = SyncEngineStatus.Failure(err)
-            Result.failure(err)
+            // The transport names its own failures — `AppError.Network` for anything
+            // that went wrong on the wire, with the cause attached — and that is
+            // exactly the distinction this cycle needs: "the server did not take it"
+            // and "this device could not read its own outbox" are different problems
+            // with different fixes, and a user told the wrong one retries the wrong
+            // thing. Anything arriving here unnamed came from our code, and is
+            // reported as such *with* its cause: the previous flattening to
+            // `AppError.Unknown(e.message ?: "")` dropped the stack trace at the one
+            // point where it is the only thing that would have said what went wrong.
+            phases.pushFailed(e.toAppError(), pending.size)
         }
     }
 
@@ -433,16 +509,10 @@ internal class SyncEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            val err: AppError = e as? AppError
-                ?: AppError.Unknown(
-                    e.message
-                        ?: "",
-                )
-            _lastPull.value = Result.failure(err)
-            log.e(e) { "Pull failed [sinceLsn=$sinceLsn]" }
-            crashReporter.report(e, "sync.pull_failed")
-            _status.value = SyncEngineStatus.Failure(err)
-            Result.failure(err)
+            // Same reasoning as the push: the transport's own `AppError.Network` is
+            // kept, and an unnamed failure keeps its cause rather than its class name
+            // standing in for one.
+            phases.pullFailed(e.toAppError(), sinceLsn)
         }
     }
 

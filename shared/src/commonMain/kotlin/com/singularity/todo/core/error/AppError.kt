@@ -50,6 +50,40 @@ sealed class AppError(message: String, val code: String, cause: Throwable?) : Ru
 }
 
 /**
+ * The throwable this error was built from, or the error itself when it was built
+ * without one.
+ *
+ * For a crash report or a log line, this is what carries the stack trace. Handing over
+ * the [AppError] instead hands over a wrapper whose own stack ends where it was
+ * constructed — the sync engine's failure paths, for instance, all construct theirs in
+ * a catch block, so every one of them would otherwise report the same three frames.
+ */
+fun AppError.original(): Throwable = cause ?: this
+
+/**
+ * This throwable as an [AppError], keeping the original as the [AppError.cause].
+ *
+ * An [AppError] passes through untouched — it is already named, and re-wrapping it
+ * would discard the code a crash reporter groups on. Anything else becomes
+ * [AppError.Unknown] with the throwable attached, so the stack trace survives; the
+ * fallback when the message is empty is the class name, because `"unknown"` tells a
+ * reader nothing and an empty message reaches a user as a blank error banner.
+ *
+ * The three places that used to inline this each did it slightly differently, and the
+ * differences were the bug: the sync engine's two copies attached no cause at all, and
+ * the coordinator's passed a bare `""` for a missing message.
+ */
+fun Throwable.toAppError(): AppError = when (this) {
+    is AppError -> this
+
+    else -> AppError.Unknown(
+        message ?: this::class.simpleName.orEmpty(),
+        code = "error.unknown",
+        cause = this,
+    )
+}
+
+/**
  * Runs [block] and captures its result, mapping any [Throwable] into an [AppError].
  *
  * A non-`AppError` throwable becomes [AppError.Unknown] **with its [Throwable] kept as
@@ -57,15 +91,5 @@ sealed class AppError(message: String, val code: String, cause: Throwable?) : Ru
  * which is what makes a reported failure actionable.
  */
 inline fun <T> runCatchingResult(block: () -> T): Result<T> = runCatchingCancellable(block).recoverCatching { e ->
-    throw when (e) {
-        // Already named — pass it through untouched, cause included.
-        is AppError -> e
-
-        else -> AppError.Unknown(
-            e.message
-                ?: e::class.simpleName.orEmpty(),
-            code = "error.unknown",
-            cause = e,
-        )
-    }
+    throw e.toAppError()
 }

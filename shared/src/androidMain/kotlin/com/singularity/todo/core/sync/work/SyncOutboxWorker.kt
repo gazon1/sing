@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.original
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.sync.SyncOutcome
 import com.singularity.todo.core.sync.SyncRepository
@@ -61,6 +62,16 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
                 // Retrying is right for the former; for the latter a retry would
                 // spin, and the runAttemptCount cap stops it.
                 log.d { "Sync cycle skipped: ${outcome.reason}" }
+                retryOrFail()
+            }
+
+            is SyncOutcome.Failed -> {
+                // The cycle could not start — in practice a local read failed, so the
+                // patches are still queued and nothing has been lost. That is the same
+                // situation as the catch arm below: a transient condition with the
+                // work intact, and the attempt cap is what stops a permanently broken
+                // database from spinning.
+                log.e(outcome.error.original()) { "Sync cycle could not start: ${outcome.error.message}" }
                 retryOrFail()
             }
         }

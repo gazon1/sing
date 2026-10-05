@@ -2,7 +2,7 @@ package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.toAppError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -113,6 +113,12 @@ internal class SyncCoordinator(
      * A throw here would kill the consumer coroutine and every later request would
      * wait for a cycle that never arrives — a silent permanent stop of all sync,
      * which is what happens to the delay loop when a cycle throws.
+     *
+     * The outcome is [SyncOutcome.Failed], not a [SyncOutcome.Success] with the same
+     * error in both phases. The exception came from somewhere inside the cycle and
+     * this function cannot know where, so the only honest claim is that the cycle did
+     * not complete; claiming a push and a pull both failed asserted that work had run
+     * and failed when it may never have started.
      */
     @Suppress("TooGenericExceptionCaught") // a cycle may throw anything; the consumer must outlive it
     private suspend fun runCycleCatching(): SyncOutcome = try {
@@ -121,7 +127,6 @@ internal class SyncCoordinator(
         throw e
     } catch (e: Exception) {
         log.e(e) { "Sync cycle threw; continuing" }
-        val err = AppError.Unknown(e.message ?: "")
-        SyncOutcome.Success(push = Result.failure(err), pull = Result.failure(err))
+        SyncOutcome.Failed(e.toAppError())
     }
 }

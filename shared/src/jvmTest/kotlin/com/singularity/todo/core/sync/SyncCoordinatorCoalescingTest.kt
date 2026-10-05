@@ -3,6 +3,7 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.original
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -163,13 +164,40 @@ class SyncCoordinatorCoalescingTest {
         )
 
         val first = coordinator.request()
-        assertIs<SyncOutcome.Success>(first)
-        assertTrue(first.push.isFailure, "the failure should be reported, not swallowed")
+        // `Failed`, not `Success` with a failed push. A throw from inside the cycle does
+        // not say which phase reached it, so the old shape claimed a push *and* a pull
+        // failed — asserting work that may never have started. This test used to pin
+        // that claim; what it is actually about is that the coordinator survives.
+        val failed = assertIs<SyncOutcome.Failed>(first)
+        assertEquals("boom", failed.error.message)
 
         advanceUntilIdle()
         val second = coordinator.request()
         assertIs<SyncOutcome.Success>(second)
         assertEquals(2, started, "the second request never ran a cycle")
+    }
+
+    /**
+     * The failure the cycle threw keeps its stack trace.
+     *
+     * The coordinator's fallback used to build `AppError.Unknown(e.message ?: "")`,
+     * which dropped the cause — so every cycle failure reached the crash reporter as a
+     * wrapper whose own stack ended inside the catch block, and a thrown `error("boom")`
+     * arrived with the frames that would have said where it came from missing.
+     */
+    @Test
+    fun `a failure from the cycle keeps the throwable that caused it`() = runTest {
+        val thrown = IllegalStateException("database is closed")
+        val coordinator = SyncCoordinator(
+            runCycle = { throw thrown },
+            scope = scope(),
+        )
+
+        val outcome = coordinator.request()
+
+        val failed = assertIs<SyncOutcome.Failed>(outcome)
+        assertIs<IllegalStateException>(failed.error.cause)
+        assertEquals("database is closed", failed.error.original().message)
     }
 
     @Test
