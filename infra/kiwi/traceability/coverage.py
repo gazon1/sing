@@ -70,6 +70,22 @@ class CoverageCell:
     automated: bool
     #: The scenario is retired. Applies to the whole row, not to one target.
     deprecated: bool = False
+    #: Claimed, unsupplied, and *not reachable by any automated carrier on this
+    #: tier* — a second device, a network fault injector, a device farm, a human.
+    #:
+    #: This is a fifth state rather than a flavour of `○` because a hole was
+    #: ambiguous and both readings got acted on. `TASK-TIME-01` was narrowed to
+    #: android because a reachability probe failed; the feature was in
+    #: `commonMain` and the desktop screen had silently stopped rendering it.
+    #: `SYNC-OFFLINE-01` claims both targets and needs a second device and a
+    #: flapping network. Both drew as `○`, so each mistake looked like the other
+    #: one's remedy.
+    #:
+    #: It is still a hole and still counted as one — otherwise the cheap move is
+    #: to reclassify every unsupplied claim as unreachable. What changes is that
+    #: the supply is *named*: writing a Compose test is not what this cell needs,
+    #: and the report says so.
+    reachable: bool = True
 
     @property
     def glyph(self) -> str:
@@ -77,7 +93,9 @@ class CoverageCell:
             return "⊘"
         if not self.claimed:
             return "—"
-        return "●" if self.automated else "○"
+        if self.automated:
+            return "●"
+        return "○" if self.reachable else "◇"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,12 +110,27 @@ class Coverage:
         return self.cells[scenario][target].glyph
 
     def holes(self) -> list[tuple[str, Target]]:
-        """Claimed-but-not-automated pairs — the actionable output."""
+        """Claimed-but-not-automated pairs — the actionable output.
+
+        Unreachable cells are included on purpose. They are unsupplied claims and
+        the ratchet must see them; what `unreachable_holes` adds is the
+        classification, not a smaller total.
+        """
         return [
             (scenario, target)
             for scenario, row in sorted(self.cells.items())
             for target, cell in row.items()
             if cell.claimed and not cell.automated and not cell.deprecated
+        ]
+
+    def unreachable_holes(self) -> list[tuple[str, Target]]:
+        """The subset of `holes` no automated carrier can reach on that tier."""
+        return [
+            (scenario, target)
+            for scenario, row in sorted(self.cells.items())
+            for target, cell in row.items()
+            if cell.claimed and not cell.automated and not cell.deprecated
+            and not cell.reachable
         ]
 
 
@@ -119,6 +152,10 @@ def build_coverage(specs: dict[str, ScenarioSpec], links: list[Link]) -> Coverag
                 claimed=target in spec.targets,
                 automated=(scenario_id, target) in automated,
                 deprecated=not spec.is_claimed,
+                # Read from the spec, never inferred from a failed probe: the
+                # probe measures the code in front of it, and a node missing from
+                # one screen is a hole in the code until proven otherwise.
+                reachable=target not in spec.unreachable,
             )
             for target in ALL_TARGETS
         }

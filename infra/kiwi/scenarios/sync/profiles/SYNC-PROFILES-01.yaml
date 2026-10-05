@@ -13,6 +13,16 @@ title: Have a profile follow the account to another device
 priority: P2
 status: confirmed
 targets: [android, desktop]
+
+# Claimed on both tiers and reachable on neither. The hole is real and
+# counted; what this records is *what kind* of supply it needs, so the
+# next agent does not read `○` as "write a Compose test" and burn a
+# probe on a scenario no single-device harness can express.
+# Every step is stated across device A and device B, including the racing
+# case (switch profile on B *while a sync is running*). One harness cannot
+# observe two devices, so this cell is an obligation with no test-shaped
+# supply.
+unreachable: [android, desktop]
 preconditions: Two devices signed into the same account.
 steps:
   - Create a profile on device A.
