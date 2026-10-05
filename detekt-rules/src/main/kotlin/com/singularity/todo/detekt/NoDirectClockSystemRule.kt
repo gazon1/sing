@@ -106,8 +106,7 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
     internal fun isAllowedPath(path: String): Boolean {
         val normalized = path.replace('\\', '/')
         return normalized.endsWith("/core/platform/Clock.kt") ||
-            normalized.endsWith("/core/di/CoreDiModule.kt") ||
-            normalized.contains("/test/fakes/")
+            normalized.endsWith("/core/di/CoreDiModule.kt")
     }
 
     private fun reportFinding(element: org.jetbrains.kotlin.psi.KtElement, message: String) {
