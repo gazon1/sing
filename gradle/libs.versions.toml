@@ -62,7 +62,9 @@ markdown-renderer = "0.43.0"
 openai-client = "4.1.0"
 
 # Theme / MaterialKolor
-materialkolor = "4.1.1"
+# 5.0.1 is built against Compose Multiplatform 1.12.0 + material3 1.12.0-alpha03,
+# which matches this project exactly.
+materialkolor = "5.0.1"
 
 # Navigation 3 (KMP multiplatform)
 nav3 = "1.1.1"

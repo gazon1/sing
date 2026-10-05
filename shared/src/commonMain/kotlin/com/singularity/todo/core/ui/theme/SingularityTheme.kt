@@ -2,13 +2,12 @@ package com.singularity.todo.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import com.materialkolor.rememberDynamicColorScheme
 
 enum class SingularityAccents(val displayName: String, val color: Color) {
     Blue("Blue", Color(0xFF2196F3)),
@@ -33,22 +32,21 @@ enum class SingularityAccents(val displayName: String, val color: Color) {
 
 val LocalAccentColor = compositionLocalOf { SingularityAccents.Blue }
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF90CAF9),
-    secondary = Color(0xFFCE93D8),
-    tertiary = Color(0xFF80CBC4),
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
-)
+/**
+ * The *resolved* dark-mode flag of the active theme.
+ *
+ * Consumers must read this instead of calling [isSystemInDarkTheme]: the app's dark mode is a
+ * user setting ([com.singularity.todo.core.settings.SettingsBundle.Appearance.darkTheme], default
+ * `false`) and does not follow the system setting. Reading the system value directly silently
+ * desynchronises any theme-aware subtree from the palette actually in effect.
+ */
+val LocalIsDarkTheme = compositionLocalOf { false }
 
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF1976D2),
-    secondary = Color(0xFF7B1FA2),
-    tertiary = Color(0xFF00796B),
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-)
-
+/**
+ * The Material 3 palette is derived at runtime from [SingularityTheme]'s `accent` seed color
+ * (MaterialKolor / Google's `material-color-utilities`), so light and dark are a single call
+ * and adding an accent is a data change rather than a palette redesign.
+ */
 @Composable
 fun SingularityTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -56,13 +54,19 @@ fun SingularityTheme(
     fontSizeScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = rememberDynamicColorScheme(
+        seedColor = accent.color,
+        isDark = darkTheme,
+    )
 
     val typography = remember(fontSizeScale) {
         createTypography(fontSizeScale)
     }
 
-    CompositionLocalProvider(LocalAccentColor provides accent) {
+    CompositionLocalProvider(
+        LocalAccentColor provides accent,
+        LocalIsDarkTheme provides darkTheme,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
