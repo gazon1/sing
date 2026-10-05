@@ -9,7 +9,9 @@ gate, which is the same failure shape the gate exists to detect. These tests
 are the answer to that.
 """
 
+import contextlib
 import importlib.util
+import io
 import os
 import pathlib
 import sys
@@ -133,11 +135,14 @@ class TestFreshness(unittest.TestCase):
         inputs, they are simply old, and a strict check fails the second consecutive
         local run for it.
         """
-        saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, ctr.EXPECTED_CLASS_SOURCES, sys.argv)
         tmp = pathlib.Path(tempfile.mkdtemp())
         ctr.ROOT = tmp
         ctr.BASELINE = tmp / "baseline.txt"
         ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        # Out of scope: a temp ROOT has no repository scanner. These tests are
+        # about the freshness window, not the by-results comparison.
+        ctr.EXPECTED_CLASS_SOURCES = {}
         try:
             d = tmp / "results" / "jvmTest"
             write_suite(d, "A", tests=50)
@@ -155,7 +160,7 @@ class TestFreshness(unittest.TestCase):
             ]
             self.assertEqual(ctr.main(), 1)
         finally:
-            ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = saved
+            ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, ctr.EXPECTED_CLASS_SOURCES, sys.argv = saved
 
     def test_since_and_max_age_are_mutually_exclusive(self):
         saved = sys.argv
@@ -167,11 +172,14 @@ class TestFreshness(unittest.TestCase):
             sys.argv = saved
 
     def test_stale_results_fail_a_required_source_set(self):
-        saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, ctr.EXPECTED_CLASS_SOURCES, sys.argv)
         tmp = pathlib.Path(tempfile.mkdtemp())
         ctr.ROOT = tmp
         ctr.BASELINE = tmp / "baseline.txt"
         ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        # Out of scope: a temp ROOT has no repository scanner. These tests are
+        # about the freshness window, not the by-results comparison.
+        ctr.EXPECTED_CLASS_SOURCES = {}
         try:
             d = tmp / "results" / "jvmTest"
             write_suite(d, "A", tests=50)
@@ -185,24 +193,41 @@ class TestFreshness(unittest.TestCase):
             ]
             self.assertEqual(ctr.main(), 1)
         finally:
-            ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = saved
+            ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, ctr.EXPECTED_CLASS_SOURCES, sys.argv = saved
 
 
 class TestGate(unittest.TestCase):
     """End-to-end over a temp ROOT, exercising main()'s exit code."""
 
     def setUp(self):
-        self._saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        self._saved = (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            sys.argv,
+        )
         self.tmp = pathlib.Path(tempfile.mkdtemp())
         ctr.ROOT = self.tmp
         ctr.BASELINE = self.tmp / "baseline.txt"
         ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        # These tests are about the count floor and the freshness window, not the
+        # by-results half, and a temp ROOT has no repository scanner to read. The
+        # by-results check has its own class below; see ScannerFailureIsLoudTest
+        # for what happens when a scanner that *should* exist does not.
+        ctr.EXPECTED_CLASS_SOURCES = {}
         # main() parses sys.argv; under unittest that is the runner's own argv.
         sys.argv = ["check-test-runs.py"]
         self.addCleanup(self._restore)
 
     def _restore(self):
-        ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = self._saved
+        (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            sys.argv,
+        ) = self._saved
 
     def _baseline(self, text: str) -> None:
         ctr.BASELINE.write_text(text, encoding="utf-8")
@@ -254,6 +279,308 @@ class TestGate(unittest.TestCase):
     def test_absent_baseline_fails_loudly(self):
         self._results(5, 50)
         self.assertEqual(ctr.main(), 1)
+
+
+class MissingClassesTest(unittest.TestCase):
+    """The by-results half: a class in the sources that produced no report.
+
+    A count floor cannot see this. It compares a run against a number recorded
+    earlier, so a class added *after* the baseline was written can be skipped
+    entirely and the floor still holds — which is precisely how the two untagged
+    recurrence classes stayed invisible.
+    """
+
+    def test_class_present_in_both_is_not_missing(self):
+        self.assertEqual(ctr.missing_classes({"A"}, {"A"}), [])
+
+    def test_class_declared_but_not_executed_is_missing(self):
+        self.assertEqual(ctr.missing_classes({"A", "B"}, {"A"}), ["B"])
+
+    def test_extra_executed_classes_are_not_reported(self):
+        """A nested or dynamically-generated suite is not a source class."""
+        self.assertEqual(ctr.missing_classes({"A"}, {"A", "OuterTest$NestedTest"}), [])
+
+    def test_missing_is_sorted_for_stable_output(self):
+        self.assertEqual(ctr.missing_classes({"C", "A", "B"}, set()), ["A", "B", "C"])
+
+
+class SuiteNameNormalisationTest(unittest.TestCase):
+    """Gradle writes two different suite-name shapes; both must reduce alike.
+
+    A check that always fails is a check nobody runs, so the normalisation is
+    pinned rather than assumed.
+    """
+
+    def _names(self, suite_names: list[str]) -> set[str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            for i, name in enumerate(suite_names):
+                (d / f"TEST-{i}.xml").write_text(
+                    f'<testsuite name="{name}" tests="1" skipped="0"></testsuite>',
+                    encoding="utf-8",
+                )
+            return ctr.executed_classes(d)
+
+    def test_simple_name_with_target_suffix(self):
+        """What `shared` writes."""
+        self.assertEqual(self._names(["RruleGeneratorTest[jvm]"]), {"RruleGeneratorTest"})
+
+    def test_fully_qualified_name(self):
+        """What `desktopApp` and `mcp-server` write."""
+        self.assertEqual(
+            self._names(["com.singularity.todo.core.ui.menu.MenuBarTest"]),
+            {"MenuBarTest"},
+        )
+
+    def test_both_shapes_reduce_to_the_same_class(self):
+        """The real requirement: a source name matches either report shape."""
+        self.assertEqual(
+            self._names(
+                [
+                    "MenuBarTest[jvm]",
+                    "com.singularity.todo.core.ui.menu.MenuBarTest",
+                ]
+            ),
+            {"MenuBarTest"},
+        )
+
+    def test_nested_suite_stays_distinct_from_its_outer_class(self):
+        self.assertEqual(
+            self._names(["com.x.OuterTest$NestedTest"]),
+            {"OuterTest$NestedTest"},
+        )
+
+    def test_empty_and_malformed_reports_are_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "TEST-broken.xml").write_text("<not xml", encoding="utf-8")
+            (d / "TEST-ok.xml").write_text(
+                '<testsuite name="OkTest" tests="1"></testsuite>', encoding="utf-8"
+            )
+            self.assertEqual(ctr.executed_classes(d), {"OkTest"})
+            self.assertEqual(ctr.executed_classes(d / "nope"), set())
+
+
+class ExpectedFastClassesTest(unittest.TestCase):
+    """The source half, against the real repository.
+
+    This is the assertion that keeps the sentinel from decaying into a no-op: it
+    depends on `infra/kiwi/sync.py` loading, and a scanner that fails to import
+    must be a failure rather than a check that quietly stops running.
+    """
+
+    def test_scanner_loads_for_the_real_repo(self):
+        self.assertIsNotNone(
+            ctr._load_sync(),  # noqa: SLF001
+            "infra/kiwi/sync.py did not load",
+        )
+
+    def test_shared_jvmtest_declares_a_non_trivial_set_of_fast_classes(self):
+        found = ctr.expected_fast_classes("shared:jvmTest")
+        self.assertIsNotNone(found)
+        self.assertGreater(
+            len(found),
+            100,
+            f"only {len(found or ())} fast classes found in shared — the scanner is "
+            "probably not reading the source tree, which would make the check vacuous",
+        )
+
+    def test_the_two_annotated_recurrence_classes_are_in_the_expected_set(self):
+        """The classes this whole mechanism was built for."""
+        found = ctr.expected_fast_classes("shared:jvmTest")
+        self.assertIn("RecurrenceRuleMapperTest", found)
+        self.assertIn("RruleGeneratorTest", found)
+
+    def test_unknown_source_set_yields_none_not_an_empty_set(self):
+        """"Out of scope" and "there is nothing to check" must not look alike."""
+        self.assertIsNone(ctr.expected_fast_classes("no:such-source-set"))
+
+
+class ScannerFailureIsLoudTest(unittest.TestCase):
+    """A scanner that will not import must fail the gate, not disable it.
+
+    Measured, not hypothetical: appending a failing import to `infra/kiwi/sync.py`
+    made the gate print "Test run floors met" and exit 0 while the by-results
+    check was not running at all. The gate was reporting a verdict on a check it
+    had stopped performing — the same failure it exists to catch, one level down.
+    """
+
+    def setUp(self):
+        self._saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        ctr.ROOT = self.tmp
+        ctr.BASELINE = self.tmp / "baseline.txt"
+        ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        sys.argv = ["check-test-runs.py"]
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = self._saved
+
+    def test_missing_scanner_raises_rather_than_returning_none(self):
+        with self.assertRaises(ctr.ScannerUnavailable):
+            ctr.expected_fast_classes("shared:jvmTest")
+
+    def test_unimportable_scanner_fails_the_gate(self):
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "KeptTest", tests=50)
+        ctr.BASELINE.write_text("shared:jvmTest 1 50 0\n", encoding="utf-8")
+        # Counts sit exactly on their floor, so only the by-results half can fail.
+        self.assertEqual(ctr.main(), 1)
+
+
+class ByResultsEndToEndTest(unittest.TestCase):
+    """main() must fail when a declared class produced no report.
+
+    The unit tests above pin the comparison; this one pins the wiring, because a
+    check whose result is computed and then never used looks exactly like a
+    working check from the outside.
+    """
+
+    def setUp(self):
+        self._saved = (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            ctr.expected_fast_classes,
+            sys.argv,
+        )
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        ctr.ROOT = self.tmp
+        ctr.BASELINE = self.tmp / "baseline.txt"
+        ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        ctr.EXPECTED_CLASS_SOURCES = {"shared:jvmTest": ("src",)}
+        sys.argv = ["check-test-runs.py"]
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            ctr.expected_fast_classes,
+            sys.argv,
+        ) = self._saved
+
+    def _stub_expected(self, *names: str) -> None:
+        ctr.expected_fast_classes = lambda _label: set(names)  # noqa: ARG005
+
+    def test_counts_meeting_the_floor_still_fail_on_a_missing_class(self):
+        """The whole reason this check exists.
+
+        The counts are exactly at their floor, so every legacy assertion in this
+        file is satisfied. Only the by-results comparison can fail here.
+        """
+        d = self.tmp / "results" / "jvmTest"
+        d.mkdir(parents=True)
+        write_suite(d, "KeptTest", tests=50)
+        self._stub_expected("KeptTest", "VanishedTest")
+        ctr.BASELINE.write_text("shared:jvmTest 1 50 0\n", encoding="utf-8")
+        self.assertEqual(ctr.main(), 1)
+
+    def test_every_declared_class_executed_passes(self):
+        d = self.tmp / "results" / "jvmTest"
+        d.mkdir(parents=True)
+        write_suite(d, "KeptTest", tests=50)
+        self._stub_expected("KeptTest")
+        ctr.BASELINE.write_text("shared:jvmTest 1 50 0\n", encoding="utf-8")
+        self.assertEqual(ctr.main(), 0)
+
+    def test_fully_qualified_report_name_satisfies_a_source_class_name(self):
+        """Regression: the first version compared simple names to FQNs and
+        reported every desktopApp and mcp-server class as missing."""
+        d = self.tmp / "results" / "jvmTest"
+        d.mkdir(parents=True)
+        (d / "TEST-x.xml").write_text(
+            '<testsuite name="com.singularity.todo.mcp.schema.KoogJsonSchemaBuilderTest"'
+            ' tests="7" skipped="0"></testsuite>',
+            encoding="utf-8",
+        )
+        self._stub_expected("KoogJsonSchemaBuilderTest")
+        ctr.BASELINE.write_text("shared:jvmTest 1 7 0\n", encoding="utf-8")
+        self.assertEqual(ctr.main(), 0)
+
+
+class UpdateBaselineTest(unittest.TestCase):
+    """`--update-baseline` must not destroy floors it did not measure.
+
+    Measured before this was fixed: running it on a machine with no device
+    deleted `shared:testAndroidHostTest 117 998 0` outright, because the writer
+    emitted only the source sets it happened to observe. That is the same
+    failure this file's own header documents — a baseline number that was never
+    a measurement of a real run, which then failed a CI job on first use.
+    """
+
+    def setUp(self):
+        self._saved = (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            sys.argv,
+        )
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        ctr.ROOT = self.tmp
+        ctr.BASELINE = self.tmp / "baseline.txt"
+        ctr.SOURCE_SETS = {
+            "shared:jvmTest": "results/jvmTest",
+            "shared:testAndroidHostTest": "results/host",
+        }
+        ctr.EXPECTED_CLASS_SOURCES = {}
+        sys.argv = ["check-test-runs.py", "--update-baseline"]
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            sys.argv,
+        ) = self._saved
+
+    def _write_baseline(self) -> None:
+        ctr.BASELINE.write_text(
+            "shared:jvmTest 5 50 0\n"
+            "shared:testAndroidHostTest 117 998 0\n",
+            encoding="utf-8",
+        )
+
+    def test_a_source_set_that_did_not_run_keeps_its_floor(self):
+        self._write_baseline()
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        text = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertIn("shared:testAndroidHostTest 117 998 0", text)
+        self.assertIn("shared:jvmTest 1 60 0", text)
+
+    def test_a_rise_is_reported_to_stderr(self):
+        """A rise measured from `-Ptest.tags=fast,slow` is not a floor.
+
+        The warning is the whole point: writing a wider run's numbers into a
+        floor makes every plain local run look like a regression, which is how
+        1003 once got recorded for a source set containing 998 tests.
+        """
+        self._write_baseline()
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(ctr.main(), 0)
+        self.assertIn("ROSE", stderr.getvalue())
+        self.assertIn("shared:jvmTest", stderr.getvalue())
+
+    def test_a_drop_is_not_reported_as_a_rise(self):
+        self._write_baseline()
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=10)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            ctr.main()
+        self.assertNotIn("ROSE", stderr.getvalue())
 
 
 if __name__ == "__main__":

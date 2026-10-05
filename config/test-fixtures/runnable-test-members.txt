@@ -1,0 +1,229 @@
+# The one definition of "a member that makes a class runnable", as fixtures.
+#
+# Format, one record per block:
+#
+#   === <id> | <expected: runnable | not-runnable>
+#   <Kotlin source, verbatim, until the next === line or EOF>
+#
+# `expected` is the verdict BOTH implementations must give:
+#   - sync.py            (infra/kiwi/sync.py — has_runnable_test)
+#   - TestTagCoverageTest (shared/src/jvmTest — the @Tag coverage gate)
+#
+# They are two implementations of one concept, and they diverged once already:
+# the Kotlin gate matched only `startsWith("@Test")` while sync.py matched the
+# full JUnit set, so RecurrenceRuleMapperTest / RruleGeneratorTest were
+# reported clean by the gate that exists to report them. A table is what makes
+# the next divergence a failing test instead of a review comment.
+#
+# Why this is a data file and not duplicated constants in each test: a test that
+# asserts Kotlin == Python cannot be written in one language. The fixtures are
+# the contract, and both suites read the same bytes.
+#
+# `not-runnable` records are the positive controls. A predicate that matched
+# everything would pass every `runnable` record and is caught only here.
+#
+# Keep the id stable: the two suites report the id, not a line number, so
+# renaming a fixture does not silently repoint a failure.
+#
+# Two conventions the records below follow on purpose, so the table measures the
+# ANNOTATION predicate and not a neighbouring rule:
+#
+#   * every class name ends in `Test`. `sync.py` drops a class whose name does
+#     not (it keys Kiwi cases by class name, see `_test_classes_in`); the Kotlin
+#     gate has no such rule. Without the suffix, a `runnable` record would be
+#     answering "is the name acceptable" on one side and "is there a test" on
+#     the other. That rule is exercised where it lives, in test_kiwi_sync.py.
+#   * the question is "does this class body contain a member JUnit executes".
+#     Whether the *file* is runnable — abstract bases, helpers — is a second
+#     question with its own fixtures in test_kiwi_sync.py.
+
+
+=== plain_kotlin_test | runnable
+import kotlin.test.Test
+
+class PlainKotlinTest {
+    @Test
+    fun works() = Unit
+}
+
+
+=== junit5_test_imported | runnable
+import org.junit.jupiter.api.Test
+
+class Junit5ImportedTest {
+    @Test
+    fun works() = Unit
+}
+
+
+=== kotlin_test_fully_qualified | runnable
+class KotlinFullyQualifiedTest {
+    @kotlin.test.Test
+    fun works() = Unit
+}
+
+
+=== junit5_test_fully_qualified | runnable
+class Junit5FullyQualifiedTest {
+    @org.junit.jupiter.api.Test
+    fun works() = Unit
+}
+
+
+=== parameterized_test | runnable
+import org.junit.jupiter.params.ParameterizedTest
+
+class ParameterizedCaseTest {
+    @ParameterizedTest
+    fun cases(value: Int) = Unit
+}
+
+
+=== repeated_test | runnable
+import org.junit.jupiter.api.RepeatedTest
+
+class RepeatedCaseTest {
+    @RepeatedTest(3)
+    fun times() = Unit
+}
+
+
+=== test_factory | runnable
+import org.junit.jupiter.api.TestFactory
+
+class FactoryCaseTest {
+    @TestFactory
+    fun dynamic() = Unit
+}
+
+
+=== test_template | runnable
+import org.junit.jupiter.api.TestTemplate
+
+class TemplateCaseTest {
+    @TestTemplate
+    fun invocations() = Unit
+}
+
+
+=== trailing_comment_after_annotation | runnable
+class CommentedAnnotationTest {
+    @Test // the regression this fixture pins: a comment on the annotation line
+    fun works() = Unit
+}
+
+
+=== annotation_on_its_own_line | runnable
+class SpacedAnnotationTest {
+    @Test
+
+    fun works() = Unit
+}
+
+
+=== test_among_other_members | runnable
+class MixedMembersTest {
+    private val helper = 1
+
+    @Test
+    fun real() {
+        check(helper == 1)
+    }
+}
+
+
+=== test_deeper_in_a_long_class | runnable
+class LongBodyTest {
+    private val a = 1
+    private val b = 2
+    private val c = 3
+    private val d = 4
+
+    fun helper() = a + b + c + d
+
+    @Test
+    fun far_from_the_header() = Unit
+}
+
+
+=== object_declaration_with_test | runnable
+object ObjectTest {
+    @Test
+    fun works() = Unit
+}
+
+
+=== private_test_class | runnable
+class PrivateVisibilityTest {
+    @Test
+    fun works() = Unit
+}
+
+
+=== no_test_members | not-runnable
+class RunVmTest {
+    fun testVm() = Unit
+}
+
+
+=== helper_only | not-runnable
+class FakeRepositories {
+    fun make() = Unit
+}
+
+
+=== empty_class | not-runnable
+class EmptyTest
+class EmptyTestBody {
+}
+
+
+=== test_annotation_is_not_at_line_start | not-runnable
+class AnnotationInExpression {
+    val call = listOf(1).map { @Suppress("UNUSED") it }
+}
+
+
+=== lookalike_annotation | not-runnable
+class LookalikeTest {
+    @TestFoo
+    fun works() = Unit
+
+    @Tester
+    fun alsoWorks() = Unit
+}
+
+
+=== tag_only | not-runnable
+import org.junit.jupiter.api.Tag
+
+@Tag("fast")
+class TagOnlyHolder {
+    val value = 1
+}
+
+
+=== comment_mentioning_test | not-runnable
+// This class would hold a @Test if it had one.
+// @Test is mentioned in prose here, not applied to a member.
+class ProseMentionHolder {
+    fun works() = Unit
+}
+
+
+=== parameterized_annotation_without_junit | not-runnable
+class BritishSpellingTest {
+    @ParameterisedTest
+    fun works() = Unit
+}
+
+
+=== abstract_base_with_concrete_subclass | runnable
+abstract class ContractTest {
+    protected abstract fun make(): Any
+}
+
+class RoomContractTest : ContractTest() {
+    @Test
+    fun real() = Unit
+}

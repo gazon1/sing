@@ -224,9 +224,17 @@ def _read_tag(source: str, class_name: str | None = None) -> str:
 # JUnit-аннотации, порождающие прогон. @ParameterizedTest обязателен:
 # RecurrenceRuleMapperTest и RruleGeneratorTest — настоящие сюиты без
 # @Test в файле, и фильтр только по @Test выкинул бы их.
+#
+# Необязательный префикс `org.junit.jupiter.api.` — тоже обязателен. Полная
+# форма нужна файлам, где короткое имя `Test` уже занято (`kotlin.test.Test`
+# импортирован рядом, а второй `Test` нельзя), и RruleGeneratorTest.kt:49
+# именно так и написан. Без этого префикса в регулярке класс, у которого
+# ЕДИНСТВЕННЫЙ тест — такой полной формой, читался как «тестов нет»:
+# прогон есть, а обе реализации предиката (эта и TestTagCoverageTest) о нём
+# не знали. Общий набор фикстур: config/test-fixtures/runnable-test-members.txt.
 _TEST_MEMBER = re.compile(
-    r"^\s*@(?:kotlin\.test\.)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory"
-    r"|TestTemplate)\b"
+    r"^\s*@(?:(?:kotlin\.test|org\.junit\.jupiter\.api)\.)?"
+    r"(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b"
 )
 
 
