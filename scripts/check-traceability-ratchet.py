@@ -39,10 +39,20 @@ run).
 
 What this gate does NOT catch, stated rather than implied
 ---------------------------------------------------------
-Deleting a scenario spec lowers both metrics. That is the intended reading —
-removing an obligation is not a regression in the coverage of what remains — but
-it does mean a commit that deletes specs and adds a carrier passes here while
-losing coverage. The spec set is the reviewable artefact, and
+Two things, and the first is the deliberate way to accept growth: raising a
+floor in the JSON. That edit is legal and is how a commit that knowingly opens
+holes is recorded, so nothing here fails on it — the defence is that it is a
+one-line diff in review next to the specs that caused it, and the ADR asks for
+the reason in the commit message. It is *not* diffed against `HEAD` the way
+`check-baseline-ratchet.py` diffs the baseline file, because that check has no
+floor to raise: growth there is the file itself growing. Anyone who finds a way
+to raise a floor without it showing in a diff has found a real hole, and the
+cheapest detector is a reviewer, not another mechanism.
+
+The second is deleting a scenario spec, which lowers both metrics. That is the
+intended reading — removing an obligation is not a regression in the coverage of
+what remains — but it does mean a commit that deletes specs and adds a carrier
+passes here while losing coverage. The spec set is the reviewable artefact, and
 `traceability validate` still fails if a spec claims a target with two carriers
 or is linked twice, so deletion is visible in the diff and bounded by the
 validation rules. What is deliberately not added is a floor on the number of
