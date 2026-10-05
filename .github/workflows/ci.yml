@@ -296,7 +296,7 @@ jobs:
       - name: Detekt baseline ratchet
         run: python3 scripts/check-baseline-ratchet.py
 
-      - name: Run detekt
+      - name: Run detekt (free configuration)
         # blocking as of 2026-10-04: enforceMode is already on in both modules and
         # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
         # reports violations nobody has to fix.
@@ -307,6 +307,28 @@ jobs:
         # :detekt-rules:detekt is the fourth module: the custom rules are source too,
         # and a rule that is never linted is a rule whose own style rots unnoticed.
         run: ./gradlew :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --no-daemon --configuration-cache
+
+      - name: Run detekt (pro configuration)
+        # `:pro` exists only under `-PwithPro=true`, so the step above cannot see it and
+        # `check.sh` cannot invoke it either — the free configuration has no such project.
+        # Without this step, `pro/build.gradle.kts` declares a detekt block, a baseline and
+        # `ignoreFailures = false` that nothing ever runs, which is exactly the
+        # "configured but unreachable" defect the free step's own comment describes.
+        # `check-gate-wiring.py` Part A is what enforces its presence.
+        #
+        # No Tracer token is supplied, so the vendor SDK stays disabled and this needs no
+        # secret. It verifies that the FSL code compiles and lints — not that the vendor
+        # crash-reporting path runs, which stays unverified until a build has a token.
+        run: ./gradlew :pro:detekt -PwithPro=true --no-daemon --configuration-cache
+
+      - name: Assemble Android debug (pro configuration)
+        # Proves the second configuration builds end to end, and that the app's
+        # `src/pro/kotlin` source set compiles with `:pro` on the classpath. The
+        # `appClass` manifest placeholder resolves to `ProSingularityApp` here and to
+        # `SingularityApp` in the free build above, and neither build is asserted to
+        # contain the other's classes — `check-pro-licence-boundary.py --verify-apk`
+        # is the check for that.
+        run: ./gradlew :androidApp:assembleDebug -PwithPro=true --no-daemon --configuration-cache
 
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet

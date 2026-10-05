@@ -1,6 +1,7 @@
 ---
+title: Who owns "the row and the patch that describes it, or neither"
 date: 2026-10-05
-status: proposed
+status: open
 ---
 
 # Who owns "the row and the patch that describes it, or neither"
