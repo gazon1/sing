@@ -1,5 +1,6 @@
 import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -99,6 +100,48 @@ val gitShaProvider: Provider<String> = providers.exec {
     commandLine("git", "rev-parse", "--short=12", "HEAD")
 }.standardOutput.asText.map { it.trim() }.orElse("unknown")
 
+// ---------------------------------------------------------------------------
+// Google OAuth client id
+//
+// An OAuth client id is per-install-and-per-CI, and it identifies *this* app to Google
+// rather than protecting anything secret. It is still not committed: a default one in the
+// tree would be a value that silently works for whoever cloned it and fails for everyone
+// else, which is the worst of both — a build that looks configured and cannot authorise.
+//
+// So the id is read from `local.properties` (gitignored, per-checkout) and defaults to the
+// empty string. The empty default is a supported build, not a degraded one:
+// `buildTimeGoogleClientId()` treats blank as "no id baked in" and the app asks the user
+// to paste one, so a contributor without credentials gets a working app and a clear
+// prompt rather than a build failure at configuration time.
+//
+// The file is read defensively because it is genuinely optional in this repo: worktrees
+// and CI do not have one, and a missing file must not fail a build that has no use for
+// its contents.
+// ---------------------------------------------------------------------------
+val googleClientId: String = run {
+    val localProperties = rootProject.file("local.properties")
+    if (!localProperties.isFile) {
+        ""
+    } else {
+        val properties = Properties()
+        localProperties.inputStream().use(properties::load)
+        // `getProperty(key, default)` rather than a null check afterwards: an absent key
+        // and a key explicitly set to an empty value both mean "not configured", and only
+        // one of them arrives as null.
+        properties.getProperty("google.client.id", "").trim()
+    }
+}
+
+// Escaped for embedding in a generated Java string literal.
+//
+// A client id is `NNNNNNNNNN-abcdefghijklmnop.apps.googleusercontent.com`, which contains
+// no character needing this — but the value comes from a file a developer edits, and an
+// unescaped backslash or quote there would produce a `BuildConfig.java` that does not
+// compile, with an error pointing at generated code rather than at the file that caused it.
+// Cheap to be right about, and it keeps the failure impossible instead of unlikely.
+val googleClientIdLiteral: String =
+    "\"" + googleClientId.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 android {
     namespace = "com.singularity.todo"
     compileSdk = libs.versions.sdk.compile.get().toInt()
@@ -121,6 +164,11 @@ android {
 
         // Instrumentation test runner
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Consumed reflectively by shared's `buildTimeGoogleClientId()` — shared compiles
+        // before this module's BuildConfig exists, so it cannot import the field.
+        // `GOOGLE_CLIENT_ID` is the field name that lookup asks for.
+        buildConfigField("String", "GOOGLE_CLIENT_ID", googleClientIdLiteral)
     }
     packaging {
         resources {

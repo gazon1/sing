@@ -15,6 +15,8 @@ import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.version.appVersion
 import org.koin.core.module.Module
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
+import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINUTES
+import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import com.singularity.todo.update.AppUpdateGate
@@ -28,6 +30,7 @@ import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
+import kotlin.time.Duration.Companion.minutes
 
 private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
 
@@ -140,6 +143,14 @@ open class SingularityApp : Application() {
         // Start the calendar sync orchestrator — launches the debounced collector coroutine.
         // Safe to call multiple times; subsequent calls are no-ops after the first.
         getKoin().get<CalendarSyncOrchestrator>().start()
+        // Arm Google Calendar sync: periodic WorkManager work running GoogleSyncWorker.
+        // Started here for the same reason the orchestrator above is — a background driver
+        // that nothing calls is a feature that never runs. `start` is idempotent (unique
+        // work, KEEP), so there is no "have I started" flag to own, and the worker
+        // re-reads `isConfigured` on every run, so an account connected after launch is
+        // picked up without a restart.
+        getKoin().get<GoogleSyncPeriodicTrigger>()
+            .start(GOOGLE_SYNC_INTERVAL_MINUTES.minutes)
         // Seed the default 'Personal' profile on first launch (idempotent). The
         // profile switcher and the saved-view copy-to-profile picker list
         // ProfileRepository rows; without a seeded row both start empty on a

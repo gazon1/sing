@@ -12,11 +12,14 @@ import com.singularity.todo.feature.profile.ProfileBootstrapper
 import okio.Path
 import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINUTES
+import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import java.io.File
+import kotlin.time.Duration.Companion.minutes
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
@@ -53,6 +56,15 @@ fun main() = singleWindowApplication(
     createBackgroundScope(loggingBackgroundFailureHandler()).launch {
         ProfileBootstrapper(GlobalContext.get().get()).run()
     }
+
+    // Google Calendar sync runs on the desktop too — it is network plus Room, with no
+    // platform API in it — and this is where the desktop entry point arms it. Unlike the
+    // app's own sync, which is started by SyncRunner when the user's auto-sync setting is
+    // on, there is no setting behind this one yet, so nothing else would ever arm it.
+    // `start` is idempotent and the loop re-reads `isConfigured` each cycle, so a user who
+    // connects an account later gets background sync without restarting the app.
+    GlobalContext.get().get<GoogleSyncPeriodicTrigger>()
+        .start(GOOGLE_SYNC_INTERVAL_MINUTES.minutes)
 
     // SingularityTheme (inside App()) already wraps MaterialTheme.
     // Surface is the root visual container for the window content.

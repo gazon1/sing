@@ -42,7 +42,10 @@ import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.work.DelayLoopGoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
@@ -96,6 +99,12 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().savedSearchDao() }
+    // The three Google-sync DAOs. Bound on desktop for the same reason they are bound on
+    // Android: the engine resolves them by type, so a desktop graph without them throws
+    // NoDefinitionFoundException on the first pass instead of skipping one.
+    single { get<AppDatabase>().calendarSyncStateDao() }
+    single { get<AppDatabase>().googleEventShadowDao() }
+    single { get<AppDatabase>().calendarImportEventDao() }
     single { get<AppDatabase>().timeEntryDao() }
     single { get<AppDatabase>().proposalDao() }
     single { get<AppDatabase>().proposalItemDao() }
@@ -126,6 +135,14 @@ actual fun platformModule(): Module = module {
 
     // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
     single<DataStore<Preferences>> { userSettingsDs }
+
+    // Separate file for the calendar-sync settings, mirroring the Android binding.
+    // Google's chosen calendar lives here, and without it the desktop trigger's first
+    // cycle cannot resolve GoogleSyncCoordinator — a missing DataStore that surfaces as
+    // "background sync silently does nothing" rather than as a startup crash.
+    single(qualifier = named("calendar_sync")) {
+        cachedJvmDataStore(File(userHome, ".singularity-todo/calendar_sync.preferences_pb"))
+    }
 
     // ─── Platform Ports ────────────────────────────────────────────────
 
@@ -220,6 +237,19 @@ actual fun platformModule(): Module = module {
 
     single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
         JvmCalendarAppQueries()
+    }
+
+    // Google sync on the desktop: the same delay loop the app's own sync uses, because
+    // Google sync is network plus Room and needs no platform API. The system calendar sync
+    // above is a no-op here for the opposite reason — it is a ContentResolver projection.
+    //
+    // The coordinator is resolved per cycle rather than captured, so a profile switch is
+    // picked up by the next pass instead of being frozen at startup.
+    single<GoogleSyncPeriodicTrigger> {
+        DelayLoopGoogleSyncPeriodicTrigger(
+            coordinatorProvider = { get<GoogleSyncCoordinator>() },
+            scope = get(),
+        )
     }
 }
 

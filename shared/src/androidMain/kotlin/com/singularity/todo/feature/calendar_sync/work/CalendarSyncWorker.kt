@@ -94,7 +94,6 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             var deleted = 0
             var errors = 0
             val failedDeletes = mutableSetOf<Long>() // eventIds whose Delete failed
-
             for (plan in plans) {
                 when (plan) {
                     is SyncPlan.NoOp -> { /* nothing */ }
@@ -150,11 +149,26 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             taskMapDao.deleteLegacyRows()
 
             syncRepo.setLastSyncedAt(System.currentTimeMillis())
+
+            // Names the deletes rather than only counting them: a delete that failed
+            // leaves a stale event in the user's calendar with no task behind it, and
+            // "3 operation(s) failed" says neither which nor how many are orphaned.
+            val orphanedIds: List<Long> = failedDeletes.toList().sorted()
+            val failureReason: String? = when {
+                errors == 0 -> null
+
+                orphanedIds.isEmpty() -> "$errors operation(s) failed"
+
+                else ->
+                    "$errors operation(s) failed, ${orphanedIds.size} " +
+                        "event(s) could not be removed: " + orphanedIds.joinToString(", ")
+            }
+
             syncRepo.setStatus(
-                if (errors == 0) {
+                if (failureReason == null) {
                     CalendarSyncStatus.Idle(System.currentTimeMillis())
                 } else {
-                    CalendarSyncStatus.Failed("$errors operation(s) failed", FailureType.Transient)
+                    CalendarSyncStatus.Failed(reason = failureReason, type = FailureType.Transient)
                 },
             )
 
@@ -176,8 +190,6 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             } else {
                 Result.retry()
             }
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: Exception) {
             syncRepo.setStatus(CalendarSyncStatus.Failed(e.message ?: "Unknown error", FailureType.Unknown))
             Result.retry()

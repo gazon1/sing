@@ -90,6 +90,12 @@ fun testPlatformModule(): Module = module {
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().savedSearchDao() }
     single { get<AppDatabase>().calendarSyncTaskMapDao() }
+    // Google-sync DAOs. FakeAppDatabase already implements all three; without the bindings
+    // the production parity test reports them as missing, and the real graph would throw
+    // NoDefinitionFoundException the moment a Google pass resolved its engine.
+    single { get<AppDatabase>().calendarSyncStateDao() }
+    single { get<AppDatabase>().googleEventShadowDao() }
+    single { get<AppDatabase>().calendarImportEventDao() }
     single { get<AppDatabase>().timeEntryDao() }
     single { get<AppDatabase>().proposalDao() }
     single { get<AppDatabase>().proposalItemDao() }
@@ -101,6 +107,9 @@ fun testPlatformModule(): Module = module {
     single(qualifier = named("state")) { testDataStore("state") }
     single(qualifier = named("settings")) { testDataStore("settings_legacy") }
     single<DataStore<Preferences>> { testDataStore("user_settings_primary") }
+    // Google sync runs on desktop, and the coordinator resolves its settings from here.
+    // Without it, a graph that resolves the coordinator throws instead of skipping a pass.
+    single(qualifier = named("calendar_sync")) { testDataStore("calendar_sync") }
 
     // ─── Ports that would otherwise touch the OS ────────────────────────────
     // coreModule() binds the real SupabaseAuthRepository, whose session never

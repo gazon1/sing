@@ -40,7 +40,11 @@ import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositor
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncEngine
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.work.DelayLoopGoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
@@ -51,6 +55,7 @@ import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.junit.jupiter.api.Test
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.junit.jupiter.api.Tag
@@ -120,6 +125,12 @@ class KoinGraphValidationTest {
         single { get<AppDatabase>().profileDao() }
         single { get<AppDatabase>().agendaViewDao() }
         single { get<AppDatabase>().calendarSyncTaskMapDao() }
+        // The three Google-sync DAOs, added to the mirror with the desktop platform module's
+        // bindings. PlatformModuleMirrorTest checks this direction: a DAO bound on desktop and
+        // absent here means the graph test resolves a graph the app cannot build.
+        single { get<AppDatabase>().calendarSyncStateDao() }
+        single { get<AppDatabase>().googleEventShadowDao() }
+        single { get<AppDatabase>().calendarImportEventDao() }
         single { get<AppDatabase>().savedSearchDao() }
         single { get<AppDatabase>().timeEntryDao() }
         single { get<AppDatabase>().proposalDao() }
@@ -134,6 +145,16 @@ class KoinGraphValidationTest {
                 File(userHome, ".singularity-todo/user_settings.preferences_pb")
             }
         single<DataStore<Preferences>> { userSettingsDs }
+
+        // Mirrors the named `calendar_sync` DataStore in PlatformModule.jvm.kt. Google sync
+        // runs on desktop, so the coordinator's settings dependency has to resolve here too
+        // — and the mirror test is what notices when a platform module gains a binding the
+        // mirror lacks.
+        single<DataStore<Preferences>>(qualifier = named("calendar_sync")) {
+            androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
+                File(userHome, ".singularity-todo/calendar_sync.preferences_pb")
+            }
+        }
 
         // ─── Platform Ports ────────────────────────────────────────────
         single<SecureStoragePort> { JvmSecureStorage() }
@@ -164,6 +185,16 @@ class KoinGraphValidationTest {
         single<CalendarProviderPort> { NoopCalendarProvider() }
         single<CalendarSyncWorkScheduler> { NoopCalendarSyncWorkScheduler() }
         single<CalendarAppQueries> { JvmCalendarAppQueries() }
+
+        // Mirrors PlatformModule.jvm.kt. Google sync is supported on desktop, so this is a
+        // real binding and not a no-op — a mirror that quietly omitted it would leave the
+        // desktop graph untested exactly where it is now needed.
+        single<GoogleSyncPeriodicTrigger> {
+            DelayLoopGoogleSyncPeriodicTrigger(
+                coordinatorProvider = { get<GoogleSyncCoordinator>() },
+                scope = CoroutineScope(Dispatchers.Unconfined),
+            )
+        }
     }
 
     @Test
@@ -204,6 +235,16 @@ class KoinGraphValidationTest {
             // exists to find: a graph that is incomplete in a way nothing else notices.
             assertNotNull(app.koin.get<CalendarSyncOrchestrator>())
             assertNotNull(app.koin.get<CalendarSyncViewModel>())
+            // The Google pass is a factory chain (coordinator → engine → applier → DAOs),
+            // and a definition that never resolves is a definition that was never checked.
+            // Resolving both is the point: the trigger is what the desktop entry point
+            // starts, and the coordinator is what each of its cycles calls.
+            assertNotNull(app.koin.get<GoogleSyncPeriodicTrigger>())
+            assertNotNull(app.koin.get<GoogleSyncCoordinator>())
+            // The coordinator takes its engine as a lambda, so resolving the coordinator
+            // alone never touches the pass. Resolving the engine too is what actually
+            // proves the three Google DAOs, the applier and the event source are all bound.
+            assertNotNull(app.koin.get<GoogleSyncEngine>())
         } finally {
             app.close()
         }

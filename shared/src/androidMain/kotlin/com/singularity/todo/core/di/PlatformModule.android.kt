@@ -43,8 +43,11 @@ import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepositoryImpl
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.work.AndroidGoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
@@ -116,6 +119,9 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().agendaViewDao() }
     single { get<AppDatabase>().calendarSyncTaskMapDao() }
+    single { get<AppDatabase>().calendarSyncStateDao() }
+    single { get<AppDatabase>().googleEventShadowDao() }
+    single { get<AppDatabase>().calendarImportEventDao() }
     single { get<AppDatabase>().savedSearchDao() }
     single { get<AppDatabase>().timeEntryDao() }
     single { get<AppDatabase>().proposalDao() }
@@ -277,6 +283,15 @@ actual fun platformModule(): Module = module {
     // WorkManager scheduler for calendar sync
     single<CalendarSyncWorkScheduler> {
         AndroidCalendarSyncWorkScheduler(get())
+    }
+
+    // Google sync runs on desktop as well as here — it is network plus Room, with no
+    // platform API in it — so both platform modules bind this, and the mirror test is what
+    // keeps them from drifting apart. The coordinator is resolved per call rather than
+    // captured: it is bound per profile, and a captured instance would sync whichever
+    // profile was active when this trigger was built.
+    single<GoogleSyncPeriodicTrigger> {
+        AndroidGoogleSyncPeriodicTrigger(get(), coordinatorProvider = { get<GoogleSyncCoordinator>() })
     }
 
     // ─── Haptics ─────────────────────────────────────────────────────────
