@@ -1,0 +1,44 @@
+Singularity Todo
+Copyright 2026 The Singularity Todo Authors
+
+This product includes software developed by the Singularity Todo Authors.
+
+================================================================================
+Third-party attributions
+================================================================================
+
+Tasks.org (Tasks)
+-----------------
+The billing and entitlement abstractions under `core/billing` use field names
+chosen to match Tasks.org. No Tasks.org source code is included, and no
+copyrightable expression from it has been copied. The naming is recorded as
+`SPEC-COMPATIBLE` in docs/legal/PROVENANCE.md and in
+config/legal/provenance-registry.tsv, and the reasoning is in
+docs/decisions/2026-09-23-billing-abstractions.md.
+
+Orgzly
+------
+The task search and query language under `feature/search/query/` was derived
+from Orgzly's query grammar, which is GPL-3.0. The implementation in this
+repository is an independent rewrite against a written specification
+(docs/specs/search-query-grammar.md); no Orgzly source is included. Recorded
+as `REWRITTEN` in docs/legal/PROVENANCE.md and
+config/legal/provenance-registry.tsv, and the derivation is disclosed in the
+code itself.
+
+================================================================================
+Licence structure
+================================================================================
+
+The core is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The `pro/` directory is licensed separately under the Functional Source License,
+Version 1.1, ALv2 Future License (see LICENSE.pro). It is not compiled into a
+default build: `settings.gradle.kts` includes `:pro` only when the build is run
+with `-PwithPro=true`. A default build contains no `pro` code, which
+scripts/check-pro-licence-boundary.py verifies on source and --verify-apk on the
+built artifact.
+
+This NOTICE is not a substitute for the licence texts. LICENSE governs the
+Apache-2.0 code, LICENSE.pro governs `pro/`, and the two together describe every
+file in the repository.

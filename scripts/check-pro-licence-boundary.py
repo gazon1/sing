@@ -60,7 +60,9 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -89,6 +91,19 @@ PRO_PACKAGE = "com.singularity.todo.pro"
 # Maven groups whose licences forbid redistribution under Apache-2.0. Asserted rather
 # than derived — see the module docstring.
 DENIED_GROUPS = ("ru.ok.tracer",)
+
+# md5 of the canonical `LICENSE-2.0.txt` as published by the Apache Software
+# Foundation, fetched 2026-10-05. Compared by digest rather than by substring
+# because "Apache License" appears in a truncated file, an edited file, and a
+# file with the terms replaced by a summary — all of which a substring check
+# would report as a pass.
+APACHE_2_0_MD5 = "3b83ef96387f14655fc854ddc3c6bd57"
+
+# Upstreams whose derivation NOTICE must carry. PROVENANCE.md records these,
+# but PROVENANCE.md is internal documentation; NOTICE is what travels with a
+# distributed copy, and a downstream redistributor's obligation is discharged
+# by NOTICE alone.
+NOTICE_REQUIRED_ATTRIBUTIONS = ("Tasks.org", "Orgzly")
 
 # Build files that ship in the free build.
 APACHE_BUILD_FILES = (
@@ -229,9 +244,56 @@ def check_settings_gates_pro(root: Path) -> list[Violation]:
 
 def check_licence_files(root: Path) -> list[Violation]:
     out: list[Violation] = []
+
+    # The Apache-2.0 half. `LICENSE.pro` was checked and `LICENSE` was not, so
+    # the repository could reach a publication-ready state with the FSL terms
+    # committed and the Apache terms missing — which is the one combination that
+    # makes the split unenforceable: nothing in the tree states what governs the
+    # 1328 files that are not under `pro/`. The canonical text is checked by
+    # md5 rather than by a substring, because a truncated or edited licence file
+    # still contains "Apache License".
+    apache_licence = root / "LICENSE"
+    if not apache_licence.is_file():
+        out.append(
+            Violation(
+                "LICENSE is missing — nothing in the tree states the terms governing the "
+                "Apache-2.0 half, so the open-core split is asserted only in this script"
+            )
+        )
+    else:
+        digest = hashlib.md5(apache_licence.read_bytes()).hexdigest()
+        if digest != APACHE_2_0_MD5:
+            out.append(
+                Violation(
+                    f"LICENSE is not the canonical Apache-2.0 text (md5 {digest}, expected "
+                    f"{APACHE_2_0_MD5}). A modified licence file still contains the phrase "
+                    f"'Apache License', so a substring check would pass it"
+                )
+            )
+
+    notice = root / "NOTICE"
+    if not notice.is_file():
+        out.append(
+            Violation(
+                "NOTICE is missing — the Tasks.org and Orgzly attributions live nowhere else, "
+                "and they are what a downstream distributor is required to carry"
+            )
+        )
+    else:
+        notice_text = notice.read_text(encoding="utf-8")
+        for upstream in NOTICE_REQUIRED_ATTRIBUTIONS:
+            if upstream not in notice_text:
+                out.append(
+                    Violation(
+                        f"NOTICE does not attribute {upstream}. The derivation is recorded in "
+                        f"PROVENANCE.md, but PROVENANCE.md is internal documentation — NOTICE is "
+                        f"what travels with the code"
+                    )
+                )
+
     pro_licence = root / "LICENSE.pro"
     if not pro_licence.is_file():
-        return [Violation("LICENSE.pro is missing — the FSL catalogue has no terms")]
+        return out + [Violation("LICENSE.pro is missing — the FSL catalogue has no terms")]
     text = pro_licence.read_text(encoding="utf-8")
     if "Functional Source License, Version 1.1" not in text:
         out.append(Violation("LICENSE.pro does not declare FSL-1.1"))
@@ -355,6 +417,24 @@ _LICENCE_PRO = (
     "under the Apache License, Version 2.0 that is effective on the second anniversary\n"
 )
 
+# The fixture's LICENSE must satisfy the md5 rule, and a fixture cannot embed an
+# 11 KB licence body. So the clean case is asserted against a `LICENSE` copied
+# from the real repository when one exists, and the fixture writes a
+# deliberately-wrong one otherwise. Embedding the body was the alternative and it
+# would drift: the md5 is a claim about a file that lives in the repository, and
+# a second copy of the licence in a test string is a second thing to update when
+# the licence is ever re-fetched.
+_COMPLIANT_NOTICE = "Singularity Todo\n\nAttribution: Tasks.org\nAttribution: Orgzly\n"
+
+
+def _write_fixture_licence(root: Path) -> None:
+    """Give the fixture a LICENSE the md5 rule accepts, if one is reachable."""
+    real = ROOT / "LICENSE"
+    if real.is_file():
+        shutil.copyfile(real, root / "LICENSE")
+    else:
+        (root / "LICENSE").write_text("Apache License, Version 2.0\n", encoding="utf-8")
+
 
 def _make_compliant(root: Path) -> None:
     p = root / "shared/src/commonMain/kotlin/com/singularity/todo/Thing.kt"
@@ -372,6 +452,8 @@ def _make_compliant(root: Path) -> None:
     (root / "shared").mkdir(parents=True, exist_ok=True)
     (root / "shared/build.gradle.kts").write_text("dependencies { }\n", encoding="utf-8")
     (root / "LICENSE.pro").write_text(_LICENCE_PRO, encoding="utf-8")
+    (root / "NOTICE").write_text(_COMPLIANT_NOTICE, encoding="utf-8")
+    _write_fixture_licence(root)
 
 
 def self_test() -> int:
@@ -438,6 +520,31 @@ def self_test() -> int:
             "a missing LICENSE.pro",
             check_licence_files,
             lambda: (root / "LICENSE.pro").unlink(),
+        )
+        # The gap this project actually hit: `LICENSE.pro` was committed and
+        # `LICENSE` was not, and the gate passed. Nothing in the tree stated the
+        # terms for 1328 Apache-2.0 files.
+        expect_caught(
+            "a missing LICENSE",
+            check_licence_files,
+            lambda: (root / "LICENSE").unlink(),
+        )
+        expect_caught(
+            "a LICENSE that is not the canonical text",
+            check_licence_files,
+            lambda: (root / "LICENSE").write_text(
+                "Apache License, Version 2.0\n\nYou may do anything.\n", encoding="utf-8"
+            ),
+        )
+        expect_caught(
+            "a missing NOTICE",
+            check_licence_files,
+            lambda: (root / "NOTICE").unlink(),
+        )
+        expect_caught(
+            "a NOTICE that drops an upstream attribution",
+            check_licence_files,
+            lambda: (root / "NOTICE").write_text("Singularity Todo\n", encoding="utf-8"),
         )
         expect_caught(
             "an FSL tree that has gone empty",
