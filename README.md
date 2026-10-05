@@ -12,7 +12,7 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 </p>
 
 <p align="center">
-  <sub>CI: <a href="https://github.com/gazon1/singularity-clone-kmp/actions/workflows/ci.yml"><code>ci.yml</code></a> on <code>main</code></sub>
+  <sub>CI: <a href="https://github.com/gazon1/sing/actions/workflows/ci.yml"><code>ci.yml</code></a> on <code>main</code></sub>
 </p>
 
 ---
@@ -161,6 +161,9 @@ See `ARCHITECTURE.md` for the full design doc (package maps, expect/actual table
 
 | File | What |
 |---|---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute: build commands, conventions, gates |
+| [`SECURITY.md`](SECURITY.md) | Reporting a vulnerability privately, and the threat model |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Behaviour expected of participants |
 | `AGENTS.md` | Agent cheatsheet: project structure, DI patterns, test strategy, CLI |
 | `ARCHITECTURE.md` | Full design doc (520+ lines) |
 | `docs/decisions/DIGEST.md` | Auto-generated index of 270+ ADRs |
