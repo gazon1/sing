@@ -1,5 +1,10 @@
 # Executed test counts, used as a floor by scripts/check-test-runs.py.
-# Format: <source-set> <classes> <tests> <max-skipped>
+# Format: <source-set:task> <tests> <max-skipped>
+#
+# The source set is named the way Gradle names it, `module:task`, not as a path.
+# `<tests>` is the floor; `<max-skipped>` is a ceiling. There is no class
+# column — it was removed on 2026-10-05, and the note at the end of this file
+# says why.
 #
 # Record the SMALLEST count any legitimate run produces. The default local
 # run (no -Ptest.tags) executes only @Tag("fast") classes, so it is the

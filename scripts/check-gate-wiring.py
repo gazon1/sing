@@ -37,6 +37,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import re
 import shutil
@@ -142,8 +143,12 @@ class ScriptGate:
     name: str
     cmd: list[str]
     sabotage_path: str
-    sabotage: str  # python source evaluated with `p` bound to the target file
+    sabotage: str  # python source evaluated with `p` bound to the target
     why: str
+    # A directory target is restored by mtime, not by content: `check-openspec-stale`
+    # reads staleness from `stat().st_mtime`, so a content comparison would report
+    # a failed restore for a mutation that was correct.
+    target_is_dir: bool = False
 
 
 SCRIPT_GATES = [
@@ -217,6 +222,193 @@ SCRIPT_GATES = [
 ]
 
 
+# ── Part F: the registry is derived from registration ───────────────────────
+#
+# `SCRIPT_GATES` above is a hand-written list, and a hand-written list of what
+# has been verified is the same defect one level up from the ones this file
+# exists to catch. Measured 2026-10-05: 18 gate scripts are invoked by a gate,
+# 8 had a control, and the 10 without one were indistinguishable in the
+# registry from the 8 with one. The three that decide whether a test run counts
+# as evidence — `check-test-runs.py`, `check-coverage.py`, `check-flaky-tests.py`
+# — were among the ten.
+#
+# So the list is checked against the registration instead of trusted. A gate
+# named by `check.sh`, a workflow, or a `just` recipe must appear here or in
+# `GATE_EXEMPTIONS` with a reason, and adding a gate to a recipe is what makes
+# it show up — which is the whole point. Part A already derives Gradle tasks
+# from build files for the same reason.
+#
+# Two kinds of control, because "sabotage one file" does not cover every gate:
+#
+#   SABOTAGE — the gate reads a committed file, so mutating that file and
+#              re-running it is a complete control. `check-test-runs.py` against
+#              a raised floor, `check-rule-intent.py` against an undeclared
+#              rule in the baseline.
+#   FIXTURE  — the gate reads something that does not exist in the repository:
+#              a directory of JUnit XML, a captured Gradle log, a Kover report.
+#              Mutating a file proves nothing, because no file is the input. The
+#              control synthesises the input instead and asserts the gate
+#              rejects it. This is the form the run-evidencing gates need, and
+#              it is a real control rather than a weaker one — `check-flaky-tests`
+#              rejecting a test that passed yesterday and fails today is exactly
+#              the property it exists to catch.
+#
+# Every entry below was measured: each was run clean (exit 0) and then run
+# against its own control (non-zero). An entry that was not measured is not
+# here.
+
+@dataclass(frozen=True)
+class FixtureGate:
+    """A gate whose input is synthesised rather than mutated.
+
+    `setup` is python source with `root` bound to a temporary directory; it must
+    create whatever the gate reads and return nothing. `cmd` is then run with
+    `{tmp}` substituted, and must exit non-zero.
+
+    `needs_clean_run` records whether the gate can be run at all without its
+    input. Two of the three here cannot: `check-flaky-tests.py` requires
+    `--current` and `check-coverage-measurement.py` requires a `log`, so there
+    is no invocation that means "the clean repository" to them. The clean-run
+    guard is not weakened for them — it is *inapplicable*, and saying so
+    explicitly is the point. A guard that is silently skipped for an unstated
+    reason is the same defect one level up: a check that cannot run, reported
+    as a check that passed.
+    """
+
+    name: str
+    cmd: list[str]
+    setup: str
+    why: str
+    # True when the gate has a meaningful clean-tree invocation, i.e. the
+    # "already red would mask the sabotage" guard applies.
+    needs_clean_run: bool = True
+
+
+FIXTURE_GATES = [
+    FixtureGate(
+        name="flaky-tests",
+        cmd=[sys.executable, "scripts/check-flaky-tests.py", "--current", "{tmp}/cur", "--previous", "{tmp}/prev"],
+        setup=(
+            "import pathlib\n"
+            "S = ('<testsuite name=\"{n}\" tests=\"1\" failures=\"{f}\">'\n"
+            "     '<testcase classname=\"A\" name=\"{n}\">{b}</testcase></testsuite>')\n"
+            "for sub, state in (('cur', 'fail'), ('prev', 'pass')):\n"
+            "    d = root / sub\n"
+            "    d.mkdir(parents=True, exist_ok=True)\n"
+            "    body = '<failure message=\"boom\"/>' if state == 'fail' else ''\n"
+            "    (d / 'TEST-A.xml').write_text(S.format(n='one', f=1 if state == 'fail' else 0, b=body))\n"
+        ),
+        why="a test that passed yesterday and fails today must be reported until it is acknowledged",
+        needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="coverage",
+        cmd=[sys.executable, "scripts/check-coverage.py", "--report", "{tmp}/report.xml"],
+        setup=(
+            "root.joinpath('report.xml').write_text(\n"
+            "    '<?xml version=\"1.0\"?><report name=\"Kover\"><package name=\"p\">'\n"
+            "    '<class name=\"A\" sourcefilename=\"A.kt\"><method name=\"m\" covered=\"false\">'\n"
+            "    '<counter type=\"INSTRUCTION\" missed=\"10\" covered=\"0\"/></method>'\n"
+            "    '</class></package></report>')\n"
+        ),
+        why="a coverage report that measures nothing must not satisfy a floor that was recorded from a real run",
+        needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="coverage-measurement",
+        cmd=[sys.executable, "scripts/check-coverage-measurement.py", "{tmp}/build.log"],
+        setup=(
+            "root.joinpath('build.log').write_text(\n"
+            "    '> Task :shared:jvmTest UP-TO-DATE\\nBUILD SUCCESSFUL in 3s\\n')\n"
+        ),
+        why="a coverage report produced without the tests running describes no execution at all",
+        needs_clean_run=False,
+    ),
+]
+
+
+# Gates that are invoked but deliberately have no control in this file. Each one
+# names what its control is instead, because "no control" is only acceptable
+# when something else is doing the proving — and the reader has to be told what.
+GATE_EXEMPTIONS: dict[str, str] = {
+    "scripts/check-gate-wiring.py": (
+        "this file. Its controls are its own Parts, and its self-tests "
+        "(scripts/tests/test_check_gate_wiring.py) pin each part; a registry "
+        "that had to sabotage itself to prove itself would be circular."
+    ),
+    "scripts/check-gate-honesty.py": (
+        "this file's own premise, one level down: it plants a real detekt "
+        "violation and asserts the report names it, so it is a positive control "
+        "rather than a gate needing one. Its control is scripts/tests/"
+        "test_check_gate_honesty.py, including "
+        "`test_a_probe_that_does_not_fire_is_a_failure_not_a_pass`."
+    ),
+}
+
+
+# Gates whose control mutates a committed file. Kept beside FIXTURE_GATES so the
+# two kinds read as one registry; `check_can_fail` dispatches on which list an
+# entry came from.
+SABOTAGE_ONLY_GATES = [
+    ScriptGate(
+        name="test-runs",
+        cmd=[sys.executable, "scripts/check-test-runs.py", "--require", "shared:jvmTest,desktopApp:test"],
+        sabotage_path="config/docs/test-runs-baseline.txt",
+        sabotage="p.write_text(p.read_text().replace('shared:jvmTest 1788 0', 'shared:jvmTest 99999 0'))",
+        why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
+    ),
+    ScriptGate(
+        name="kiwi-gaps",
+        cmd=[sys.executable, "scripts/check-kiwi-gaps.py"],
+        sabotage_path="config/docs/kiwi-gaps-baseline.txt",
+        sabotage="p.write_text(p.read_text().replace('Automated — mcp-server 1', 'Automated — mcp-server 0'))",
+        why="a plan whose never-run cases rise above its floor means the plan is not being run",
+    ),
+    ScriptGate(
+        name="adr-references",
+        cmd=[sys.executable, "scripts/check-adr-references.py"],
+        sabotage_path="README.md",
+        sabotage="p.write_text(p.read_text() + '\\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\\n')",
+        why="a prose reference to a dated-ADR slug carries no path, so a moved or deleted ADR leaves a dangling claim nothing else sees",
+    ),
+    ScriptGate(
+        name="rule-intent",
+        cmd=[sys.executable, "scripts/check-rule-intent.py"],
+        sabotage_path="config/detekt/baseline-shared.xml",
+        sabotage="p.write_text(p.read_text().replace('</CurrentIssues>', '    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\\n  </CurrentIssues>', 1))",
+        why="a rule producing findings that nobody declared means it is running on detekt's defaults, unchosen",
+    ),
+    ScriptGate(
+        name="openspec-stale",
+        cmd=[sys.executable, "scripts/check-openspec-stale.py"],
+        sabotage_path="openspec/changes/detekt-rule-has-positive-control",
+        # A directory, not a file, and the mutation is its mtime: the gate reads
+        # staleness from `stat().st_mtime`, so no file content would move it.
+        sabotage="import os, time; old = time.time() - 30 * 86400; os.utime(p, (old, old))",
+        why="an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness",
+        target_is_dir=True,
+    ),
+    ScriptGate(
+        name="test-task-inputs",
+        cmd=[sys.executable, "scripts/check-test-task-inputs.py"],
+        sabotage_path="shared/build.gradle.kts",
+        # Remove the *covering input*, not the root property. The rule is
+        # one-directional — a root declared but uncovered — so deleting the
+        # property instead leaves nothing to check and the gate passes on a
+        # tree that has lost the property entirely. The first attempt at this
+        # control did exactly that and returned 0, which is the failure this
+        # file exists to catch, in its own registry.
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'    inputs.dir(layout.projectDirectory.dir(\"../Maestro\"))\\n'"
+            "        '        .withPropertyName(\"maestroFlows\")\\n'\n"
+            "        '        .withPathSensitivity(PathSensitivity.RELATIVE)\\n', '', 1))"
+        ),
+        why="a test task reading a tree outside its module reports a stale verdict when that tree is not an input",
+    ),
+]
+
+
 def run_gate(cmd: list[str]) -> int:
     proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
     return proc.returncode
@@ -224,9 +416,14 @@ def run_gate(cmd: list[str]) -> int:
 
 def check_can_fail() -> list[str]:
     errors: list[str] = []
-    for gate in SCRIPT_GATES:
+    # `SCRIPT_GATES + SABOTAGE_ONLY_GATES` is the sabotage registry;
+    # `FIXTURE_GATES` is the same property proved a different way. Both are
+    # checked here so the two kinds cannot drift apart in *when* they run.
+    for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES]:
         target = ROOT / gate.sabotage_path
-        if not target.is_file():
+        exists = target.is_dir() if gate.target_is_dir else target.is_file()
+        if not exists:
+            kind = "directory" if gate.target_is_dir else "file"
             errors.append(f"gate '{gate.name}': sabotage target {gate.sabotage_path} does not exist")
             continue
 
@@ -240,22 +437,32 @@ def check_can_fail() -> list[str]:
             )
             continue
 
-        original = target.read_text(encoding="utf-8")
-        try:
-            ns: dict[str, object] = {"p": target}
-            exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from SCRIPT_GATES
-            sabotaged_rc = run_gate(gate.cmd)
-        finally:
-            target.write_text(original, encoding="utf-8")
+        if gate.target_is_dir:
+            # Only the mtime is disturbed, so only the mtime has to come back.
+            original_mtime = target.stat().st_mtime
+            try:
+                ns: dict[str, object] = {"p": target}
+                exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
+                sabotaged_rc = run_gate(gate.cmd)
+            finally:
+                os.utime(target, (original_mtime, original_mtime))
+        else:
+            original = target.read_text(encoding="utf-8")
+            try:
+                ns = {"p": target}
+                exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
+                sabotaged_rc = run_gate(gate.cmd)
+            finally:
+                target.write_text(original, encoding="utf-8")
 
-        restored = target.read_text(encoding="utf-8")
-        if restored != original:
-            errors.append(
-                f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
-                f"Restoring from the recorded copy and failing."
-            )
-            target.write_text(original, encoding="utf-8")
-            continue
+            restored = target.read_text(encoding="utf-8")
+            if restored != original:
+                errors.append(
+                    f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
+                    f"Restoring from the recorded copy and failing."
+                )
+                target.write_text(original, encoding="utf-8")
+                continue
 
         if sabotaged_rc == 0:
             errors.append(
@@ -265,6 +472,51 @@ def check_can_fail() -> list[str]:
             )
         else:
             print(f"  ok  {gate.name}: fails on sabotage ({gate.sabotage_path})")
+
+    errors += check_fixture_gates()
+    return errors
+
+
+def check_fixture_gates() -> list[str]:
+    """Prove a gate that reads a synthesised input can fail on it.
+
+    The clean-tree run comes first for the same reason as the sabotage path: a
+    gate that is already red proves nothing, and a fixture that makes it red for
+    an unrelated reason is indistinguishable from one that caught the fixture.
+    """
+    errors: list[str] = []
+    for gate in FIXTURE_GATES:
+        if gate.needs_clean_run:
+            baseline_rc = run_gate(gate.cmd)
+            if baseline_rc != 0:
+                errors.append(
+                    f"gate '{gate.name}' already fails on a clean tree (exit {baseline_rc}). "
+                    f"Fix the underlying failure before trusting its fixture control."
+                )
+                continue
+        else:
+            # Stated rather than skipped, so that a reader of the output can see
+            # which controls had no clean-run guard and why.
+            print(f"  --  {gate.name}: no clean-run possible (input is required); "
+                  f"fixture control only")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            try:
+                exec(gate.setup, {"root": root})  # noqa: S102 — a fixed literal from FIXTURE_GATES
+            except Exception as exc:  # noqa: BLE001 — report, never crash the gate
+                errors.append(f"gate '{gate.name}': fixture setup raised {exc!r}")
+                continue
+            cmd = [part.replace("{tmp}", tmp) for part in gate.cmd]
+            sabotaged_rc = run_gate(cmd)
+
+        if sabotaged_rc == 0:
+            errors.append(
+                f"gate '{gate.name}' PASSED a deliberately sabotaged input "
+                f"(a synthesised {gate.why}). It cannot detect it, so it is not a gate."
+            )
+        else:
+            print(f"  ok  {gate.name}: fails on a synthesised input")
     return errors
 
 
@@ -568,6 +820,89 @@ def _repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parent.parent
 
 
+# ── Part F: the registry is checked against the registration ────────────────
+#
+# `registered_gate_scripts()` is the derivation. It reads the same places a gate
+# is actually invoked from — `check.sh`, the workflows, and the `just` recipes —
+# so a gate that nobody registered a control for is a finding rather than an
+# absence. A hand-written list of what has been verified is exactly the thing
+# this file exists to distrust.
+
+
+_JUST_FILES = "**/*.just"
+
+
+def registered_gate_scripts() -> dict[str, list[str]]:
+    """Gate script path -> the files that invoke it.
+
+    `just` recipes are included, not just `check.sh` and CI: four gates
+    (`check-adr-references`, `check-coverage-measurement`, `check-gate-honesty`,
+    `check-kiwi-gaps`) are reachable only through a recipe, and a registry that
+    looked only at `check.sh` would not see them at all.
+    """
+    surfaces = list(GATE_FILES) + sorted(ROOT.glob(f".just/{_JUST_FILES}"))
+    out: dict[str, list[str]] = {}
+    for surface in surfaces:
+        try:
+            text = surface.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        # `python3 scripts/x.py`, `./scripts/x.sh`, `python3 ./scripts/x.py`.
+        # The `./` is optional *and* the `python3 ` prefix is optional, but the
+        # two cannot be collapsed into one another: an earlier version wrote
+        # `(?:python3\s+)?\./?`, which requires a literal `.` and so matched
+        # only the `./scripts/*.sh` invocations — 3 of the 18 registered gates.
+        # A derivation that quietly sees a third of its input is worse than no
+        # derivation, because it reports a short list and calls it complete.
+        #
+        # The leading `[\s'"(=|]` is a word boundary, and it earns its place:
+        # without it, `Maestro/scripts/check-tags.sh` matched as
+        # `scripts/check-tags.sh`, a path that does not exist, and the registry
+        # then demanded a control for a gate it had invented.
+        for match in re.finditer(
+            r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?((?:scripts|infra/kiwi)/check-[\w.-]+\.(?:py|sh))",
+            text,
+            re.MULTILINE,
+        ):
+            out.setdefault(match.group(1), []).append(str(surface.relative_to(ROOT)))
+    return out
+
+
+def controlled_gate_scripts() -> set[str]:
+    """Every gate script that some control in this file covers.
+
+    Paths are normalised to `scripts/…`: the two shell gates are registered with
+    a `./` prefix (they are executed, not imported), and comparing that spelling
+    against the path the registration surfaces spell with no prefix reported two
+    controlled gates as uncontrolled.
+    """
+    controlled: set[str] = set()
+    for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES, *FIXTURE_GATES]:
+        for part in gate.cmd:
+            normalised = part[2:] if part.startswith("./") else part
+            if normalised.startswith("scripts/"):
+                controlled.add(normalised)
+    return controlled
+
+
+def check_registry_completeness() -> list[str]:
+    errors: list[str] = []
+    registered = registered_gate_scripts()
+    controlled = controlled_gate_scripts()
+
+    for script, sites in sorted(registered.items()):
+        if script in controlled or script in GATE_EXEMPTIONS:
+            continue
+        errors.append(
+            f"gate '{script}' is invoked by {', '.join(sorted(set(sites)))} but has no "
+            f"positive control. Add it to SCRIPT_GATES (if a committed file can be "
+            f"mutated to make it fail) or FIXTURE_GATES (if its input is synthesised), "
+            f"or to GATE_EXEMPTIONS with the reason it does not need one. A gate nobody "
+            f"has tried to break is a gate nobody knows can fail."
+        )
+    return errors
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--wiring", action="store_true", help="Part A only")
@@ -581,6 +916,9 @@ def main() -> int:
     ap.add_argument(
         "--parity", action="store_true", help="Part E only"
     )
+    ap.add_argument(
+        "--registry", action="store_true", help="Part F only"
+    )
     args = ap.parse_args()
     only = (
         args.wiring
@@ -588,12 +926,14 @@ def main() -> int:
         or args.gradle_can_fail
         or args.ci_steps_blocking
         or args.parity
+        or args.registry
     )
     run_a = args.wiring or not only
     run_b = args.can_fail or not only
     run_c = args.gradle_can_fail or not only
     run_d = args.ci_steps_blocking or not only
     run_e = args.parity or not only
+    run_f = args.registry or not only
 
     errors: list[str] = []
 
@@ -625,6 +965,21 @@ def main() -> int:
     if run_e:
         print("\nPart E — CI/local gate asymmetries are declared with a reason")
         errors += check_gate_parity()
+
+    if run_f:
+        print("\nPart F — every registered gate script has a positive control")
+        registered = registered_gate_scripts()
+        controlled = controlled_gate_scripts()
+        for script, sites in sorted(registered.items()):
+            state = (
+                "controlled" if script in controlled
+                else "exempt" if script in GATE_EXEMPTIONS
+                else "NO CONTROL"
+            )
+            print(f"  {state:11} {script}  <- {', '.join(sorted(set(sites)))}")
+        errors += check_registry_completeness()
+        if not check_registry_completeness():
+            print(f"  ok  {len(registered)} registered gate(s), all controlled or exempt")
 
     if errors:
         print("")

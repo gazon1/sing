@@ -135,5 +135,149 @@ class AdvisoryDeclarationTest(unittest.TestCase):
         self.assertFalse(gw._ADVISORY_MARKER.search('Enforce DIGEST size budget'))
 
 
+class PartFTest(unittest.TestCase):
+    """The registry of positive controls is derived, not trusted.
+
+    Part B proves each registered gate can fail. Part F asks the question that
+    makes Part B mean anything: whether the registry covers the gates that exist.
+    Without it the list is a hand-written claim about what has been verified,
+    which is the defect this file exists to catch, one level up.
+
+    The derivation is the part worth pinning, because a derivation that matches
+    a third of its input still produces a confident, short, complete-looking
+    list. Two versions of that happened while writing this: a `\./?` that
+    required a literal dot and saw 3 of 18 gates, and no word boundary, which
+    turned `Maestro/scripts/check-tags.sh` into a path that does not exist and
+    then demanded a control for it.
+    """
+
+    def test_the_repository_registers_the_gates_it_thinks_it_does(self):
+        """The derivation must see every gate surface, not just check.sh.
+
+        Four gates are reachable only through a `just` recipe; a derivation that
+        read only `check.sh` would report the registry complete while three of
+        the run-evidencing gates were invisible to it.
+        """
+        registered = gw.registered_gate_scripts()
+        self.assertIn('scripts/check-test-runs.py', registered)
+        self.assertIn('scripts/check-coverage.py', registered)
+        self.assertIn('scripts/check-flaky-tests.py', registered)
+        # just-recipe-only gates
+        self.assertIn('scripts/check-kiwi-gaps.py', registered)
+        self.assertIn('scripts/check-coverage-measurement.py', registered)
+
+    def test_a_python3_invocation_without_a_dot_slash_is_registered(self):
+        """`python3 scripts/x.py` is the commonest spelling in check.sh."""
+        registered = gw.registered_gate_scripts()
+        self.assertIn('scripts/check-backlog-status.py', registered)
+
+    def test_a_shell_gate_is_registered(self):
+        self.assertIn('scripts/check-detekt-registrations.sh',
+                      gw.registered_gate_scripts())
+
+    def test_a_path_prefix_is_not_truncated(self):
+        """`Maestro/scripts/check-tags.sh` is not `scripts/check-tags.sh`.
+
+        A match that drops the leading directory invents a gate, and Part F then
+        asks for a control for something that does not exist — a false finding
+        that trains the reader to ignore the gate.
+
+        Asserted as "every registered path is a real file" rather than as
+        "`check-tags.sh` is absent", because the absence held even with the
+        boundary removed: the invented path was `scripts/check-tags.sh`, which
+        does not exist, so the old assertion passed on the broken pattern. The
+        property is that no entry can be a fiction.
+        """
+        registered = gw.registered_gate_scripts()
+        for script in registered:
+            self.assertTrue(
+                (gw.ROOT / script).is_file(),
+                f"{script} is registered but does not exist — the pattern invented it",
+            )
+
+    def test_the_real_tags_gate_is_not_registered_under_a_truncated_path(self):
+        self.assertNotIn('scripts/check-tags.sh', gw.registered_gate_scripts())
+        # The genuine one lives under Maestro/ and is not a `scripts/` gate at all.
+        self.assertNotIn('Maestro/scripts/check-tags.sh', gw.registered_gate_scripts())
+
+    def test_every_registered_gate_is_controlled_or_exempt(self):
+        """The property Part F exists to assert, on the real repository."""
+        self.assertEqual(gw.check_registry_completeness(), [])
+
+    def test_an_uncontrolled_gate_is_reported_by_name(self):
+        """The negative control, without touching the repository.
+
+        A gate with no control must produce a finding naming it. A registry that
+        cannot report a gap is a registry nobody will trust to report a pass.
+
+        Every mutated global is restored in a `finally`: an earlier version reset
+        only `GATE_EXEMPTIONS`, so the three control lists stayed empty for every
+        test that ran afterwards and the suite reported failures that had nothing
+        to do with what was being tested.
+        """
+        saved = (gw.GATE_EXEMPTIONS, gw.SCRIPT_GATES, gw.SABOTAGE_ONLY_GATES, gw.FIXTURE_GATES)
+        try:
+            gw.GATE_EXEMPTIONS = {}
+            gw.SCRIPT_GATES = []
+            gw.SABOTAGE_ONLY_GATES = []
+            gw.FIXTURE_GATES = []
+            errors = gw.check_registry_completeness()
+        finally:
+            (gw.GATE_EXEMPTIONS, gw.SCRIPT_GATES,
+             gw.SABOTAGE_ONLY_GATES, gw.FIXTURE_GATES) = saved
+        self.assertTrue(errors, "an empty registry must report every gate as uncontrolled")
+        joined = ' '.join(errors)
+        self.assertIn('scripts/check-test-runs.py', joined)
+        self.assertIn('scripts/check-coverage.py', joined)
+        # And the registry must be whole again — the negative control has to be
+        # a measurement, not a permanent change to the thing being measured.
+        self.assertEqual(gw.check_registry_completeness(), [])
+
+    def test_an_exemption_must_name_a_reason(self):
+        """An exemption with an empty string is an exemption with no defence."""
+        for script, reason in gw.GATE_EXEMPTIONS.items():
+            self.assertTrue(reason.strip(), f"{script} is exempt with no reason")
+
+    def test_every_control_is_measured_against_a_real_target(self):
+        """Each sabotage entry must name a path that exists.
+
+        A control pointing at a file that is not there is skipped by `check_can_fail`
+        with an error, but only once that part runs; pinning it here means the
+        registry cannot accumulate entries that were never exercised.
+        """
+        for gate in [*gw.SCRIPT_GATES, *gw.SABOTAGE_ONLY_GATES]:
+            target = gw.ROOT / gate.sabotage_path
+            self.assertTrue(
+                target.is_dir() if gate.target_is_dir else target.is_file(),
+                f"{gate.name}: sabotage target {gate.sabotage_path} does not exist",
+            )
+
+    def test_a_fixture_gate_declares_whether_a_clean_run_is_possible(self):
+        """The weaker control must be declared, never inferred.
+
+        Three fixture gates take a required argument, so no invocation of them
+        means "the clean repository". That is a real limitation and it is
+        recorded per entry; a gate that quietly skipped the guard would be
+        reporting a check that cannot run as one that passed.
+        """
+        for gate in gw.FIXTURE_GATES:
+            self.assertIn(gate.needs_clean_run, (True, False))
+        names = {g.name for g in gw.FIXTURE_GATES}
+        self.assertIn('flaky-tests', names)
+        self.assertFalse(
+            next(g for g in gw.FIXTURE_GATES if g.name == 'flaky-tests').needs_clean_run
+        )
+
+    def test_the_two_control_kinds_do_not_cover_the_same_gate(self):
+        """A gate in both lists would be sabotaged twice, and one entry's
+        failure would be reported under the other's name."""
+        sabotage_scripts = set()
+        for gate in [*gw.SCRIPT_GATES, *gw.SABOTAGE_ONLY_GATES]:
+            sabotage_scripts.update(p for p in gate.cmd if p.endswith('.py') or p.endswith('.sh'))
+        for gate in gw.FIXTURE_GATES:
+            for part in gate.cmd:
+                self.assertNotIn(part, sabotage_scripts, f"{gate.name} is in both registries")
+
+
 if __name__ == '__main__':
     unittest.main()

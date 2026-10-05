@@ -26,12 +26,20 @@
 - [ ] Record the measured count of rules and positive controls beside the check,
       with the date and the command that produced it. A count that cannot be
       re-derived is a number that will be quoted long after it stops being true.
-- [ ] **Record the gate-side follow-up, and do not fold it into this change.**
+- [x] **Record the gate-side follow-up, and do not fold it into this change.**
       A gate's control is a sabotaged input that must fail; a rule's is a test
       that makes the rule fire. Same property, inverse artefact, different check.
-      The input already exists: the audit table in ADR
-      `2026-10-05-gate-audit-text-shape-vs-fact`, thirteen gates, with the silent
-      input found for each and whether a synthetic control exists. What is
-      missing is a gate that asks which registered gates have never been
-      sabotaged — the derivation-from-registration requirement this list states
-      for rules, applied to `check-gate-wiring.py`'s own registry.
+      The property is now enforced: `check-gate-wiring.py` Part F derives the
+      registry of positive controls from the places gates are actually invoked
+      (`check.sh`, the workflows, and the `just` recipes), so a gate with no
+      control is a finding rather than an absence. Measured 2026-10-05: 19
+      registered gates, 17 with a measured control and 2 exempt with a reason
+      each. See ADR `2026-10-05-positive-control-registry-is-derived`.
+      An earlier version of this task named "the audit table in ADR
+      `2026-10-05-gate-audit-text-shape-vs-fact`, thirteen gates" as an existing
+      input. **That table was never written** — the ADR records the method and
+      the four repairs it produced, and has never contained a single table row.
+      The reference was to work that did not exist, and anyone taking this task
+      would have spent the first hour looking for it. Part F replaced the need
+      for it: the registry is now derived and checked, so the table would have
+      been a snapshot of a list the gate maintains on its own.

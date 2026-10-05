@@ -82,6 +82,35 @@ def baseline_rules(baseline_text: str) -> Counter[str]:
     return Counter(_RULE_NAME.findall(baseline_text))
 
 
+def partition_reporting(
+    config_text: str, baseline_text: str
+) -> tuple[set[str], Counter, dict, dict]:
+    """(declared, reporting, undeclared, declared_and_reporting).
+
+    Split out of `main` so the tests can pin the partition without re-implementing
+    it. The first version of this had the two derived sets inline in `main`, and
+    the test that should have caught the normalisation bug passed on the broken
+    code — because the test contained its own copy of the comparison, which was
+    correct, and therefore never touched the copy in the script. A test of a
+    predicate must call the predicate.
+    """
+    declared = declared_rules(config_text)
+    reporting = baseline_rules(baseline_text)
+
+    undeclared = {
+        rule: n for rule, n in reporting.items() if _norm(rule) not in declared
+    }
+    # Both sides go through `_norm`. This compared the raw baseline name against
+    # the already-normalised set, so the count was structurally 0 and read as
+    # "no declared rule is reporting" — a number that looks like a measurement
+    # and can only ever say one thing. Same shape as the text-shape gates: the
+    # verdict below was computed correctly, and the line above it was decoration.
+    declared_and_reporting = {
+        rule: n for rule, n in reporting.items() if _norm(rule) in declared
+    }
+    return declared, reporting, undeclared, declared_and_reporting
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -99,15 +128,9 @@ def main() -> int:
         print(f"ERROR: {baseline_path} not found")
         return 1
 
-    declared = declared_rules(CONFIG.read_text(encoding="utf-8"))
-    reporting = baseline_rules(baseline_path.read_text(encoding="utf-8"))
-
-    undeclared = {
-        rule: n for rule, n in reporting.items() if _norm(rule) not in declared
-    }
-    declared_and_reporting = {
-        rule: n for rule, n in reporting.items() if rule in declared
-    }
+    declared, reporting, undeclared, declared_and_reporting = partition_reporting(
+        CONFIG.read_text(encoding="utf-8"), baseline_path.read_text(encoding="utf-8")
+    )
 
     print(f"declared in detekt.yml : {len(declared)}")
     print(f"reporting in baseline   : {len(reporting)} ({sum(reporting.values())} findings)")
