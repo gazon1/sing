@@ -13,6 +13,21 @@ package com.singularity.todo.core.ui
  * and every one of them routes its input through [slug] so that a user-entered
  * title ("Buy milk", "Café run", "Profile & sync") can never produce a tag that
  * a UI-automation selector cannot address.
+ *
+ * ## Adding a tag: regenerate the catalog
+ *
+ * `TestTagsCatalogJvmTest` fails when `Maestro/TAGS.md` disagrees with this
+ * object, so a new constant is not usable until the catalog is rewritten:
+ *
+ * ```
+ * ./gradlew :shared:jvmTest -PupdateGoldens=true --tests "*TestTagsCatalogJvmTest*"
+ * ```
+ *
+ * then re-run without `-PupdateGoldens` — that second run must pass on a clean
+ * checkout, which is what proves the file was actually written rather than the
+ * test being skipped. Budget a couple of minutes; the cost is easy to forget and
+ * the failure message points at the generated section rather than at the step
+ * that fixes it.
  */
 // The one flat namespace for every automation tag is the point of this object: a
 // tag must be findable from a Compose call site, a unit test, and a Maestro flow

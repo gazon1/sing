@@ -6,7 +6,10 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Weekly
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Yearly
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
+import com.singularity.todo.feature.tasks.domain.model.withTermination
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 
 /**
  * Parses Orgzly / Tasks.org compatible recurrence DSL strings into [RecurrenceSpec].
@@ -40,21 +43,79 @@ import kotlinx.datetime.DateTimeUnit
  * | `every Jan 1` | Yearly(FROM_DUE, 1, 1) |
  * | `every December 25` | Yearly(FROM_DUE, 12, 25) |
  *
+ * Any rule may carry an `until` clause, which bounds the series:
+ *
+ * | Input | Output |
+ * |-------|--------|
+ * | `+1w until 2026-12-31` | Interval(…, termination = 2026-12-31) |
+ * | `every monday until=20261231` | Weekly(…, termination = 2026-12-31) |
+ *
+ * Both the spelled-out (`until 2026-12-31`) and the RRULE-concatenated
+ * (`until=20261231`) forms are accepted, since the two dialects in the wild
+ * differ and this parser aims to read both. The clause is stripped **before**
+ * the rule grammar runs, so it composes with every rule above without each one
+ * having to know about it.
+ *
  * @throws IllegalArgumentException if the string does not match a known pattern.
  */
 object RecurrenceParser {
 
+    /** Matches the `until` clause, either form, and captures the date text. */
+    private val UNTIL_CLAUSE = Regex("\\s+until\\s*[=:]?\\s*(\\S+)", RegexOption.IGNORE_CASE)
+
     fun parse(input: String): RecurrenceSpec {
         val s = input.trim()
         require(s.isNotBlank()) { "Recurrence rule must not be blank" }
-        val tokens = tokenize(s.lowercase())
+
+        val untilMatch = UNTIL_CLAUSE.find(s)
+        val ruleText = if (untilMatch == null) s else s.removeRange(untilMatch.range).trim()
+        val termination = untilMatch?.let { m ->
+            val raw = m.groupValues[1]
+            RecurrenceTermination(
+                endDate = parseUntilDate(raw)
+                    ?: throw IllegalArgumentException("Unrecognised end date in recurrence rule: '$raw'"),
+            )
+        }
+
+        if (ruleText.isBlank()) {
+            throw IllegalArgumentException("Recurrence rule has an end date but no rule: '$s'")
+        }
+
+        val tokens = tokenize(ruleText.lowercase())
         if (tokens.isEmpty()) throw IllegalArgumentException("Unrecognised recurrence rule: '$s'")
 
-        return try {
+        val spec = try {
             parseRule(tokens, 0).first
         } catch (e: Exception) {
             if (e is IllegalArgumentException) throw e
             throw IllegalArgumentException("Unrecognised recurrence rule: '$s'", e)
+        }
+
+        // An unbounded rule keeps `termination = null` rather than an empty
+        // wrapper, so `+1w` produces exactly the JSON it always did.
+        return if (termination == null) spec else spec.withTermination(termination)
+    }
+
+    /**
+     * Parses the end date of an `until` clause.
+     *
+     * Accepts ISO extended (`2026-12-31`) and RRULE basic (`20261231`). Anything
+     * else is rejected rather than guessed at — a silently wrong end date stops a
+     * series early or late, and neither is visible until a task disappears.
+     */
+    private fun parseUntilDate(raw: String): LocalDate? {
+        val compact = raw.filter { it != '-' }
+        // A basic-form date is exactly 8 digits; an extended one is 8 digits + 2
+        // separators. Anything else cannot be a date we are willing to guess.
+        if (compact.length != 8 || !compact.all { it.isDigit() }) return null
+        if (raw.contains('-') && raw.length != 10) return null
+        val year = compact.take(4).toInt()
+        val month = compact.substring(4, 6).toInt()
+        val day = compact.substring(6, 8).toInt()
+        return try {
+            LocalDate(year, month, day)
+        } catch (_: IllegalArgumentException) {
+            null
         }
     }
 
