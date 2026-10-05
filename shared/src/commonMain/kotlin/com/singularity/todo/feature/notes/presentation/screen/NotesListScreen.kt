@@ -105,6 +105,11 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
         viewModel.events.collect { event ->
             when (event) {
                 is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
+                // Not the #212 shape, and deliberately so. This screen consumes a
+                // union of events it does not own, so ignoring the ones it has no
+                // reaction to is correct — unlike a dispatcher whose `else` was
+                // swallowing an intent addressed to it. Audited 2026-10-06 because
+                // the pattern search that found #212 pointed here too.
                 else -> Unit
             }
         }

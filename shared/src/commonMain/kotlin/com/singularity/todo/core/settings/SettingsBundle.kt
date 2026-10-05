@@ -108,6 +108,26 @@ sealed interface EphemeralState {
 /**
  * Sealed hierarchy of all settings intents.
  * Each subtype is handled by the corresponding [SettingsContributor].
+ *
+ * Audited 2026-10-06 against #212, which was exactly this shape and cost a dead
+ * button: `TaskDetailIntent.Domain.Start` and `TaskTimeSlotIntent.Start` were two
+ * declarations of one concept, the first implemented the second's *marker*
+ * interface without being one of its subtypes, and the receiving `when` matched
+ * on concrete subtypes — so it matched nothing and fell into a silent `else`.
+ *
+ * This hierarchy is not that shape, and the difference is structural rather than
+ * incidental: **every concept is declared once**. `Appearance`, `Ai`,
+ * `Notifications`, `WorkSchedule`, `Greeting` and `DefaultAgendaView` each own
+ * their intents outright and share only the `SettingsIntent` root, which is
+ * dispatched at the top level rather than forwarded across. A second declaration
+ * of an existing concept is the thing that has to be looked for when a button
+ * goes dead; there is none here.
+ *
+ * The residual risk is one step removed from that: `SettingsViewModel.dispatch`
+ * hands the intent to a contributor through an unchecked cast, and its safety
+ * rests on `onIntent`'s `when` pairing each contributor with its own section. That
+ * is a convention, not a check — the same shape of claim that #212's comment made,
+ * and the thing to verify first if a settings control is ever found inert.
  */
 sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
