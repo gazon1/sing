@@ -89,8 +89,40 @@ data class PatchResult(
     val serverState: JsonElement? = null,
     val error: String? = null,
 ) {
-    /** Whether this error can be retried. */
-    val isRetriable: Boolean get() = !ok && error != "shadow_mismatch" && error != "too_old"
+    /**
+     * Whether this result should be retried.
+     *
+     * ## The codes that must not be retried
+     *
+     * A retry re-sends the same patch to the same server, so it can only help when the
+     * *server* would give a different answer next time. Three conditions satisfy that
+     * and are terminal:
+     *
+     * - `shadow_mismatch` — the server holds a different state than the patch expected.
+     *   Waiting does not make the two converge; only a fresh diff does, which is what the
+     *   shadow does on the next local edit.
+     * - `too_old` — the patch's clock is behind one the server already has. The same
+     *   reason: a newer edit won, and re-sending the older one changes nothing.
+     * - `not_found` — the row the patch targets is not there. It does not appear by
+     *   waiting.
+     * - `too_large` — the patch exceeds a server limit. Its size does not shrink by
+     *   waiting, and the content is the user's, so retrying cannot succeed.
+     *
+     * ## Why an unknown code is still retried
+     *
+     * An unrecognised code is treated as transient, and that is a choice rather than an
+     * omission. Retrying a permanent error costs a retry budget and ends in the dead
+     * letter store, where a human can see it and the change is not lost. Dropping a
+     * transient error instead loses the user's edit with no trace at all. So the
+     * asymmetry is deliberate: the cost of being wrong is a delayed failure, not a
+     * silent loss.
+     *
+     * What that makes necessary is that a *known* permanent code is in the set above
+     * rather than merely absent from a denylist — and `SyncProtocolTest` asserts the
+     * classification of every code the server can return, so a new one is added
+     * deliberately instead of inheriting "retry forever".
+     */
+    val isRetriable: Boolean get() = !ok && error !in SyncProtocol.TERMINAL_ERRORS
 }
 
 /**
@@ -125,6 +157,55 @@ data class SyncEvent(
 object SyncProtocol {
     /** Current protocol version. Events with protocolVersion > CURRENT are dropped. */
     const val CURRENT_PROTOCOL_VERSION = 1
+
+    // ── The server's error vocabulary ────────────────────────────────────────
+    //
+    // Kept as named constants because three places need to agree on the spelling: the
+    // classifier below, the tests that pin it, and the SQL that produces it. A string
+    // literal repeated in each of those is how one of them drifts.
+
+    /** The server holds a different state than this patch expected. */
+    const val SHADOW_MISMATCH = "shadow_mismatch"
+
+    /** The patch's clock is behind one the server already has. */
+    const val TOO_OLD = "too_old"
+
+    /** The row the patch targets is not there. */
+    const val NOT_FOUND = "not_found"
+
+    /** The patch exceeds a server limit. */
+    const val TOO_LARGE = "too_large"
+
+    /** A field the server will not accept a value for. */
+    const val FIELD_NOT_WRITABLE = "field_not_writable"
+
+    /** The row exists but is not this owner's to change. */
+    const val ROW_UNAVAILABLE = "row_unavailable"
+
+    /**
+     * Codes a retry cannot fix.
+     *
+     * A retry re-sends the same patch to the same server, so it can only help when the
+     * server would answer differently next time. Each of these says the answer is a
+     * property of the request rather than of the moment: the state moved, the clock was
+     * behind, the row is not there, the payload is too big, or the server is refusing
+     * deliberately. None improves by waiting.
+     *
+     * An unrecognised code is **not** in here, and that is a choice. Retrying an error
+     * that turns out to be permanent costs a retry budget and ends in the dead letter
+     * store, where it is visible and the change is not lost. Dropping a transient one
+     * loses the user's edit with no trace. So the asymmetry is deliberate, and the
+     * obligation it creates is that a code which becomes permanently unfixable has to be
+     * added here deliberately — which `SyncProtocolTest` pins over the whole table.
+     */
+    val TERMINAL_ERRORS: Set<String> = setOf(
+        SHADOW_MISMATCH,
+        TOO_OLD,
+        NOT_FOUND,
+        TOO_LARGE,
+        FIELD_NOT_WRITABLE,
+        ROW_UNAVAILABLE,
+    )
 }
 
 /**

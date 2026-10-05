@@ -97,6 +97,23 @@ class SyncBootstrapperDispatchTest {
         return engine
     }
 
+    /**
+     * Every type the client can enqueue has a handler that can apply it.
+     *
+     * ## What this does not cover
+     *
+     * The **edit** path. A repository enqueues one changed entity through the same
+     * `enqueue` call, and nothing checks *that* type against the table — the call site
+     * names an entity, not a type, so it cannot be read without running the repository,
+     * and asserting on `enqueue` itself would forbid a capability rather than fix a call
+     * site. The seed is the one place that produces every type at once, which is why it
+     * is what is checked.
+     *
+     * So the invariant is real for the seed and unverified for edits. #177 is the
+     * argument for closing that by giving the seeded types a single owner; until then
+     * the honest statement is that a repository could start enqueuing a type with no
+     * handler and the suite would not notice.
+     */
     @Test
     fun `the pull dispatch table covers every type that is pushed`() = runTest {
         val engine = bootstrapped(this)

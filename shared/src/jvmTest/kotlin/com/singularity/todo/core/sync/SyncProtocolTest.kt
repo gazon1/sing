@@ -68,17 +68,84 @@ class SyncProtocolTest {
         )
     }
 
+    /**
+     * Every code the server can return, and whether a second attempt could differ.
+     *
+     * The wire strings are written out rather than referenced through constants, so
+     * this table reads as the server's vocabulary: if the classifier and the server
+     * disagree about a spelling, the disagreement is visible here rather than hidden
+     * behind a name that both sides share. The last test pins that the two agree about
+     * *which* of them are terminal.
+     *
+     * A table rather than a handful of examples, because the failure mode is a code
+     * nobody classified: it inherits "retry" and burns the whole budget with an hour of
+     * backoff between attempts before dead-lettering, over a patch the server was never
+     * going to accept.
+     */
     @Test
-    fun `PatchResult isRetriable returns true for retryable errors`() {
-        val retryable = PatchResult("p1", ok = false, error = "network_timeout")
-        val nonRetryableMismatch = PatchResult("p2", ok = false, error = "shadow_mismatch")
-        val nonRetryableOld = PatchResult("p3", ok = false, error = "too_old")
-        val success = PatchResult("p4", ok = true)
+    fun `every error code the server can return is classified`() {
+        val terminal = listOf(
+            // The answer is a property of the request, not of the moment.
+            "shadow_mismatch",
+            "too_old",
+            "not_found",
+            "too_large",
+            "field_not_writable",
+            "row_unavailable",
+        )
+        val transientOrUnknown = listOf(
+            "network_timeout",
+            "server_error",
+            "rate_limited",
+            // Unseen by this build, and deliberately assumed transient: a wrong guess
+            // costs a retry budget and ends in the dead letter store, where the change
+            // is still there and someone can see it. Dropping it would lose the edit.
+            "a code this build has never seen",
+        )
 
-        assertTrue(retryable.isRetriable)
-        assertFalse(nonRetryableMismatch.isRetriable)
-        assertFalse(nonRetryableOld.isRetriable)
-        assertFalse(success.isRetriable)
+        terminal.forEach { code ->
+            assertFalse(
+                PatchResult("p1", ok = false, error = code).isRetriable,
+                "'$code' cannot improve by waiting, so retrying only burns the budget",
+            )
+        }
+        (transientOrUnknown).forEach { code ->
+            assertTrue(
+                PatchResult("p1", ok = false, error = code).isRetriable,
+                "'$code' may be transient, and assuming otherwise would lose the change",
+            )
+        }
+    }
+
+    @Test
+    fun `a successful result is not retriable`() {
+        // It is not a failure at all, so the flag must be false: the engine branches on
+        // it before it branches on `ok`, and a "retryable success" would re-send a patch
+        // the server already has.
+        assertFalse(PatchResult("p1", ok = true).isRetriable)
+    }
+
+    @Test
+    fun `the terminal set is exactly the codes the table calls terminal`() {
+        // The guard against the two drifting apart: the table above is documentation and
+        // could happily list a code the classifier still retries, or omit one it already
+        // gives up on. Either would be a bug the table alone cannot see.
+        val tableTerminal = listOf(
+            "shadow_mismatch",
+            "too_old",
+            "not_found",
+            "too_large",
+            "field_not_writable",
+            "row_unavailable",
+        )
+
+        assertEquals(
+            tableTerminal.toSet(),
+            SyncProtocol.TERMINAL_ERRORS,
+            "the classifier and the documented vocabulary disagree about which codes " +
+                "are terminal; a permanent code missing from the set is retried for " +
+                "hours, and a transient one added to it is dropped",
+        )
     }
 
     @Test
