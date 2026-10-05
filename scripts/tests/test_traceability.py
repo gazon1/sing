@@ -1323,3 +1323,75 @@ class DeprecatedScenarioIsNotAHole(unittest.TestCase):
     def test_an_automated_scenario_is_unaffected(self):
         coverage = build_coverage({"TASK-REC-01": _spec()}, [_link()])
         self.assertIn("| ● |", render_coverage_matrix(coverage))
+
+
+class AbsenceRulesAreDisjoint(unittest.TestCase):
+    """Which of the two absence rules fires, and why both are needed (#186).
+
+    Measured on 2026-10-05 with the repository's own carrier key rather than
+    reasoned about, after reading the code twice gave two wrong answers about
+    whether one rule subsumes the other. It does not: they are disjoint, and the
+    per-scenario rule is the only one that can see a *partially* silent target.
+    """
+
+    def _link_for(self, key_class: str, scenario: str) -> Link:
+        return Link(
+            scenario=scenario,
+            target=Target.DESKTOP,
+            level=Level.E2E,
+            carrier=Carrier.KOTLIN,
+            source=REPO_ROOT / f"shared/src/jvmTest/kotlin/{key_class}.kt",
+            key=TestKey(f"com.example.{key_class}", "does_a_thing"),
+        )
+
+    def _run(self, links, reporting):
+        d = pathlib.Path(tempfile.mkdtemp())
+        cases = "".join(
+            f'<testcase classname="com.example.{name}" name="does_a_thing()"/>'
+            for name in reporting
+        )
+        _junit(d, cases)
+        try:
+            normalise(
+                {"TASK-A-01": _spec("TASK-A-01", id_prefix="TASK-A"),
+                 "TASK-B-01": _spec("TASK-B-01", id_prefix="TASK-B")},
+                links,
+                {Target.DESKTOP: [d]},
+                "abc",
+            )
+            return None
+        except NoResultsError as e:
+            return str(e)
+
+    def test_one_silent_carrier_on_a_quiet_target_fires_the_target_rule(self):
+        # Nothing on the target reported at all. The per-target rule owns this.
+        message = self._run([self._link_for("A", "TASK-A-01")], reporting=[])
+        self.assertIn("ни одного тесткейса", message)
+
+    def test_one_silent_carrier_on_a_busy_target_fires_the_scenario_rule(self):
+        # The case the target rule cannot see: the target reported, so its
+        # per-target count is non-zero, and only the per-scenario rule notices
+        # that one specific scenario is missing. This is #149's whole point.
+        links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
+        message = self._run(links, reporting=["A"])
+        self.assertIn("TASK-B-01/desktop", message)
+        self.assertNotIn("ни одного тесткейса", message)
+
+    def test_both_silent_fires_the_target_rule_not_the_scenario_rule(self):
+        # Proves the rules do not overlap: when nothing reports, the per-target
+        # rule fires and the per-scenario one is silent. Had they been merged
+        # into one function, the target case would have reported every scenario
+        # as missing, and a single absent class would have produced a list of
+        # unrelated failures.
+        links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
+        message = self._run(links, reporting=[])
+        self.assertIn("ни одного тесткейса", message)
+        # The target rule names *every* claimed pair, so the ids being present
+        # proves nothing — the two rules are told apart by their wording. An
+        # earlier version of this test asserted on the ids and failed, having
+        # assumed the target rule would name only the one scenario.
+        self.assertNotIn("не дал результата на этом коммите", message)
+
+    def test_a_fully_reported_target_is_silent(self):
+        links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
+        self.assertIsNone(self._run(links, reporting=["A", "B"]))

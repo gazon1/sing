@@ -1,0 +1,46 @@
+# Scenario specification for TASK-TIME-01.
+#
+# Claims `android` only, and that is not a shortcut — it is the measurement.
+#
+# The time-tracking UI is hosted by `TaskDetailViewScreen`, and that screen is
+# wired in `TasksNavGraph.android.kt:59,68`. The JVM graph
+# (`TasksNavGraph.jvm.kt:58,67`) routes the same `TasksRoute.Detail` to a
+# *different* screen, `TaskDetailScreen`, which has no time-tracking section.
+# Probed on 2026-10-05: opening a task on desktop composes 5 tagged nodes — the
+# editor's title, priority, due row, AI button and overflow menu — and neither
+# the start nor the stop chip of `TimeTrackingSection` is among them, on any
+# semantics root.
+#
+# So the desktop cell below is `—` (not claimed) because the behaviour does not
+# exist on that target, not because nobody got round to testing it. That is the
+# distinction a per-target claim exists to make, and it is the reason this row
+# is worth having even un-automated: it records that the two platforms ship
+# different detail screens.
+
+id: TASK-TIME-01
+title: Start a timer on a task from its detail view
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists, the app is signed in, and the task's detail view is open on
+  Android, where the time-tracking section is part of the detail screen.
+steps:
+  - Open a task and scroll to the time-tracking section.
+  - Start the timer.
+  - Stop it again.
+expected: >-
+  The chip swaps between "Start" and "Stop" in place, and the elapsed total for
+  that task grows while the timer runs.
+
+# Un-automated on purpose, and that is the row's second job: it renders `○` on
+# Android, a hole. The hole is real and the supply is real — writing the flow is
+# one tagged Maestro file — but it cannot be closed or measured on this host,
+# because no device has ever attached here. See #151; the flow is what that
+# issue's runbook is for.
+#
+# The start/stop chips carry no `testTag` today. They were added for a desktop
+# carrier that measurement then ruled out, and removed again: a pre-paid batch
+# of tags for a control nothing can reach is exactly the debt the deferred
+# backlog warns against.

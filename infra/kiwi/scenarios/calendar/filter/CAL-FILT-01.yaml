@@ -1,0 +1,39 @@
+# Scenario specification for CAL-FILT-01.
+#
+# Deprecated on purpose, and the spec is kept rather than deleted because the
+# `deprecated` status is a *statement*: the affordances shipped, users could see
+# them, and they were withdrawn. Deleting the file would leave the question
+# "why did the calendar filter icons disappear?" with no answer in the scenario
+# layer, and the coverage matrix cannot render a decision it was never told about.
+
+id: CAL-FILT-01
+title: Filter the calendar by project, tag, priority or status
+area: feature.calendar
+priority: P2
+status: deprecated
+targets: [android, desktop]
+preconditions: >-
+  The calendar screen, before 2026-09-30. Nine affordances were visible: a "More"
+  icon in the calendar top bar, a "Filter" icon, five filter rows in the
+  mini-calendar panel, and two "+N more" rows in the month and time grids.
+steps:
+  - Open the calendar and look for a way to narrow what is shown.
+  - Tap the "Filter" affordance, or a filter row, or "+N more".
+expected: >-
+  Nothing happens, and nothing ever did: there is no `CalendarFilterPanel` in the
+  tree, no filter state on `CalendarViewModel`, and nothing in the task query a
+  filter could narrow. Every one of the nine affordances was a dead
+  `onClick = {}`.
+
+# Why this is deprecated rather than merely uncovered — see
+# `docs/decisions/2026-09-30-dead-affordances-removed.md`. The decision removed
+# the affordances rather than building the feature, because the plan's
+# "PR-2.15 — wire the filter icons" assumed `CalendarIntent` had filter variants
+# and it did not: the enum held ViewModeChanged, GoToday, GoNext, GoPrevious,
+# DayClicked, ToggleMiniCalendar, TaskClicked, DismissMiniCalendar,
+# MonthPageChanged and EmptyCellLongPressed, and no more.
+#
+# It stays a scenario rather than becoming a backlog entry because the hazard
+# was user-visible, not internal: nine controls promised a capability the
+# product never had. That is a product decision with a history, which is what
+# this layer records.

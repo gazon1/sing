@@ -37,6 +37,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import pathlib
 import re
 import shutil
 import subprocess
@@ -426,6 +427,145 @@ def check_ci_steps_blocking() -> list[str]:
     ]
 
 
+# ── Part E: CI/local gate parity ─────────────────────────────────────────────
+
+#: Where each `check-*.py` gate is *expected* to run, and why when it is not
+#: both. Keyed by the gate path; "both" gates need no entry.
+#:
+#: The reason this exists (2026-10-05): the `--partial` incident in
+#: `traceability results`. Both wirings existed, both were present, and Part B
+#: proved both could fail — and they still meant different things, because one
+#: read a fact only the other knew (whether the run was tag-filtered). Parts A
+#: and B cannot see that class of defect: a gate wired everywhere and able to
+#: fail is still wrong if its verdict depends on a fact the two environments
+#: hold differently.
+#:
+#: An asymmetry is not a defect. A **silent** one is: the next reader cannot
+#: tell a deliberate difference from a typo, and defaults to assuming the two
+#: are equivalent. So every asymmetry is declared here with its reason, and an
+#: undeclared one fails the check.
+GATE_PARITY: dict[str, tuple[str, str]] = {
+    "scripts/check-flaky-tests.py": (
+        "ci",
+        "needs two runs of JUnit XML to compare; a single local run has no "
+        "previous run to diff against, so it is not runnable locally at all",
+    ),
+    "scripts/check-openspec-stale.py": (
+        "ci",
+        "advisory by construction (`|| true` in ci.yml): a stale change is "
+        "reported, not blocked, so it is not part of the local pass either",
+    ),
+    "scripts/check-backlog-status.py": (
+        "local",
+        "the backlog budget and the 'every OPEN entry is tracked' rule are a "
+        "housekeeping invariant over a file that changes with every commit; CI "
+        "does not enforce it, so an untracked OPEN entry can reach main",
+    ),
+}
+
+#: Argument-level asymmetries on gates that run in both places. Keyed by
+#: (gate, leading argument), value is where it is expected.
+#:
+#: `--since` and `--skill-symbols` change *what* is measured rather than
+#: *whether* a gate runs, so a name-only comparison would call them both and
+#: miss the difference that matters.
+GATE_ARG_PARITY: dict[tuple[str, str], str] = {
+    ("scripts/check-coverage.py", "--since"): (
+        "ci"
+    ),
+    ("scripts/check-doc-dead-refs.py", "--skill-symbols"): (
+        "ci"
+    ),
+    ("scripts/check-test-runs.py", "--require shared:testAndroidHostTest"): "ci",
+    ("scripts/check-test-runs.py", "--require mcp-server:test"): "ci",
+}
+
+_ADVISORY_NOTE = {
+    ("scripts/check-coverage.py", "--since"): (
+        "CI measures the delta since the run started; the bare call measures "
+        "the absolute floor. Same gate, different question."
+    ),
+    ("scripts/check-doc-dead-refs.py", "--skill-symbols"): (
+        "a second variant covering SKILL.md symbol references, which the bare "
+        "call does not check"
+    ),
+    ("scripts/check-test-runs.py", "--require shared:testAndroidHostTest"): (
+        "the Android host source set is built only in its own CI job"
+    ),
+    ("scripts/check-test-runs.py", "--require mcp-server:test"): (
+        "the mcp-server test task is not part of the local script at all, so "
+        "its floor is enforced in CI only — worth knowing before adding tests "
+        "there"
+    ),
+}
+
+
+def _gate_invocations(text: str) -> dict[str, list[str]]:
+    """Every `check-*.py` invocation in a file, keyed by gate, with its args.
+
+    Line continuations are joined first: `ci.yml` wraps its long invocations,
+    and a regex over raw lines would read `--require shared:jvmTest,\n  desktopApp:test`
+    as two different calls.
+    """
+    joined = re.sub(r"\\\n\s*", " ", text)
+    out: dict[str, list[str]] = {}
+    # `[^\n|]*` rather than a character class alternation with `\n`: the latter
+    # is greedy across lines and swallowed every invocation between this one and
+    # the next `|`, which reported five gates as CI-only when they run in both.
+    for match in re.finditer(r"python3 (scripts/check-[\w-]+\.py)([^\n|]*)", joined):
+        name = match.group(1)
+        args = " ".join(match.group(2).split()).rstrip("\\").strip()
+        out.setdefault(name, []).append(args)
+    return out
+
+
+def _leading_arg(args: str) -> str:
+    """The first argument token pair, which is what the parity table keys on."""
+    parts = args.split()
+    if not parts:
+        return ""
+    if parts[0].startswith("--require"):
+        return "--require " + parts[1] if len(parts) > 1 else "--require"
+    return parts[0]
+
+
+def check_gate_parity() -> list[str]:
+    root = _repo_root()
+    ci = _gate_invocations((root / ".github/workflows/ci.yml").read_text())
+    local = _gate_invocations((root / "check.sh").read_text())
+    errors: list[str] = []
+
+    for gate in sorted(set(ci) | set(local)):
+        expected = GATE_PARITY.get(gate)
+        want = expected[0] if expected else "both"
+        in_ci, in_local = gate in ci, gate in local
+        actual = "both" if in_ci and in_local else ("ci" if in_ci else "local")
+        if actual != want:
+            errors.append(
+                f"{gate}: runs in {actual}, declared {want}"
+                + (f" — {expected[1]}" if expected else " — no reason declared")
+            )
+
+    for key, want in sorted(GATE_ARG_PARITY.items()):
+        gate, arg = key
+        ci_args = [a for a in ci.get(gate, []) if _leading_arg(a) == arg]
+        local_args = [a for a in local.get(gate, []) if _leading_arg(a) == arg]
+        if want == "ci" and local_args:
+            errors.append(
+                f"{gate} {arg}: also invoked locally, declared ci-only — "
+                f"{_ADVISORY_NOTE.get(key, '')}"
+            )
+        if want == "local" and ci_args:
+            errors.append(
+                f"{gate} {arg}: also invoked in CI, declared local-only — "
+                f"{_ADVISORY_NOTE.get(key, '')}"
+            )
+
+    return errors
+
+
+def _repo_root() -> pathlib.Path:
+    return pathlib.Path(__file__).resolve().parent.parent
 
 
 def main() -> int:
@@ -438,17 +578,22 @@ def main() -> int:
     ap.add_argument(
         "--ci-steps-blocking", action="store_true", help="Part D only"
     )
+    ap.add_argument(
+        "--parity", action="store_true", help="Part E only"
+    )
     args = ap.parse_args()
     only = (
         args.wiring
         or args.can_fail
         or args.gradle_can_fail
         or args.ci_steps_blocking
+        or args.parity
     )
     run_a = args.wiring or not only
     run_b = args.can_fail or not only
     run_c = args.gradle_can_fail or not only
     run_d = args.ci_steps_blocking or not only
+    run_e = args.parity or not only
 
     errors: list[str] = []
 
@@ -476,6 +621,10 @@ def main() -> int:
             label = "declared  " if declared else "UNDECLARED"
             print(f"  {label} {wf}: {step}  ({mech})")
         errors += check_ci_steps_blocking()
+
+    if run_e:
+        print("\nPart E — CI/local gate asymmetries are declared with a reason")
+        errors += check_gate_parity()
 
     if errors:
         print("")

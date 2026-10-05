@@ -14,12 +14,25 @@ tags in code. It changes only when code or specs change.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**1 scenarios · 2/2 claimed cells automated · 0 holes**
+**4 scenarios · 2/4 claimed cells automated · 2 holes**
+
+## feature.calendar
+
+| Scenario | Title | android | desktop |
+|---|---|---|---|
+| `CAL-FILT-01` | Filter the calendar by project, tag, priority or status | ⊘ | ⊘ |
 
 ## feature.tasks
 
 | Scenario | Title | android | desktop |
 |---|---|---|---|
+| `TASK-CHECK-01` | Add a checklist item to a task | — | ○ |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● |
+| `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | — |
 
-No holes: every claimed target has automation.
+## Holes
+
+Claimed but not automated:
+
+- `TASK-CHECK-01` / desktop
+- `TASK-TIME-01` / android
