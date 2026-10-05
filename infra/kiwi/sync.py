@@ -508,6 +508,41 @@ def sync_plan(
     return existing
 
 
+def rollup_class_status(results: list[TestResult]) -> tuple[str, str]:
+    """Свести тесты одного класса к паре (Kiwi-статус, комментарий).
+
+    Вынесено из ``sync_results`` без изменения поведения. Раньше сводка жила
+    инлайном в ветке цикла, и её нельзя было ни вызвать, ни проверить: писать
+    тест на ``sync_results`` требовало бы поднятой Kiwi, а он не поднимается в
+    юнит-тестах. Теперь обе таблицы — эта (класс → один статус) и
+    ``kiwi_client.status_for`` (один результат → статус) — лежат рядом и
+    сравнимы, и их расхождение можно разрешить осознанно, а не унаследовать.
+
+    Два правила, которые легко спутать, поэтому зафиксированы явно:
+
+    - упавший тест важнее пропущенного (``failed`` проверяется первым): класс,
+      где один тест упал и два пропущены, — это ``FAILED``, а не ``PASSED``;
+    - ``skipped → IDLE`` только когда пропущены **все**, иначе класс прошёл
+      частично и это ``PASSED`` с комментарием о пропущенных. Это расходится с
+      ``skipped → WAIVED`` в новом паблишере сценариев намеренно (ADR
+      2026-10-05-scenario-test-cases-in-kiwi): там пропуск сценария означает
+      «человек отказался от проверки», здесь — «Gradle не запустил этот тест».
+    """
+    failed = [r for r in results if r.status in ("failed", "error")]
+    skipped = [r for r in results if r.status == "skipped"]
+    if failed:
+        comment = (
+            f"{len(failed)}/{len(results)} упало. "
+            + "\n".join(f"{r.name}: {r.message}" for r in failed[:5])
+        )[:2000]
+        return "FAILED", comment
+    if skipped and len(skipped) == len(results):
+        return "IDLE", f"все {len(skipped)} тестов пропущены"
+    if skipped:
+        return "PASSED", f"{len(skipped)}/{len(results)} пропущено"
+    return "PASSED", f"{len(results)} тестов пройдено"
+
+
 def sync_results(
     client: KiwiClient,
     case_ids: dict[str, int],
@@ -626,23 +661,9 @@ def sync_results(
         sortkey = 10
         for path, results in in_plan.items():
             case_id = case_ids[path]
-            failed = [r for r in results if r.status in ("failed", "error")]
-            skipped = [r for r in results if r.status == "skipped"]
-            if failed:
-                status = "FAILED"
-                comment = (
-                    f"{len(failed)}/{len(results)} упало. "
-                    + "\n".join(f"{r.name}: {r.message}" for r in failed[:5])
-                )[:2000]
-            elif skipped and len(skipped) == len(results):
-                status = "IDLE"
-                comment = f"все {len(skipped)} тестов пропущены"
-            elif skipped:
-                status = "PASSED"
-                comment = f"{len(skipped)}/{len(results)} пропущено"
-            else:
-                status = "PASSED"
-                comment = f"{len(results)} тестов пройдено"
+            # Свёртка вынесена в rollup_class_status: здесь остаётся только
+            # запись, чтобы правка правил статуса не требовала Kiwi-стенда.
+            status, comment = rollup_class_status(results)
             client.add_execution(
                 run["id"], case_id, status, comment, sortkey=sortkey
             )

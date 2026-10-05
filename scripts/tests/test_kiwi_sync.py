@@ -139,6 +139,81 @@ class StatusForTest(unittest.TestCase):
         self.assertEqual(kiwi_client.status_for("quarantined"), "IDLE")
 
 
+class RollupClassStatusTest(unittest.TestCase):
+    """Сведение тестов одного класса к одному Kiwi-статусу.
+
+    Проверяет ровно то, что раньше было неуловимо: ``sync.sync_results`` пишет
+    эти статусы в Kiwi для всех 259 кейсов планов ``Automated/*``, и при этом
+    ни один тест их не касался — ветка сводки жила инлайном в цикле, а
+    ``sync_results`` требует поднятой стенды. Изменение статуса там было бы
+    неотличимо от успеха.
+    """
+
+    @staticmethod
+    def _r(status: str, name: str = "t", message: str = "") -> sync.TestResult:
+        return sync.TestResult(
+            classname="com.example.ATest", name=name, status=status, message=message
+        )
+
+    def test_all_passed(self):
+        status, comment = sync.rollup_class_status(
+            [self._r("passed", "a"), self._r("passed", "b")]
+        )
+        self.assertEqual(status, "PASSED")
+        self.assertEqual(comment, "2 тестов пройдено")
+
+    def test_all_skipped_is_idle(self):
+        status, comment = sync.rollup_class_status(
+            [self._r("skipped", "a"), self._r("skipped", "b")]
+        )
+        self.assertEqual(status, "IDLE")
+        self.assertEqual(comment, "все 2 тестов пропущены")
+
+    def test_mixed_skip_still_passes(self):
+        # Пропуск — не провал: класс, где часть тестов пропущена, а остальные
+        # прошли, это PASSED с пометкой, а не IDLE.
+        status, comment = sync.rollup_class_status(
+            [self._r("passed", "a"), self._r("skipped", "b")]
+        )
+        self.assertEqual(status, "PASSED")
+        self.assertEqual(comment, "1/2 пропущено")
+
+    def test_failed_beats_skipped(self):
+        # Порядок проверок значим: если бы skipped проверялся первым, класс с
+        # одним упавшим и одним пропущенным тестом записался бы как IDLE, и
+        # зелёный прогон скрыл бы падение.
+        status, comment = sync.rollup_class_status(
+            [self._r("failed", "boom", "assertion"), self._r("skipped", "b")]
+        )
+        self.assertEqual(status, "FAILED")
+        self.assertIn("1/2 упало", comment)
+        self.assertIn("boom: assertion", comment)
+
+    def test_error_also_counts_as_failed(self):
+        # `error` в JUnit — это неупавший-но-сломавшийся тест; здесь он
+        # приравнен к failed намеренно (иначе он тихо уехал бы в PASSED).
+        status, _ = sync.rollup_class_status(
+            [self._r("passed", "a"), self._r("error", "b", "NoSuchMethod")]
+        )
+        self.assertEqual(status, "FAILED")
+
+    def test_comment_is_capped(self):
+        # Комментарий уходит в Kiwi, у которого есть лимит на длину; длинные
+        # имена тестов не должны приводить к отказу записи execution.
+        results = [self._r("failed", "x" * 400, "y" * 400) for _ in range(5)]
+        _, comment = sync.rollup_class_status(results)
+        self.assertLessEqual(len(comment), 2000)
+
+    def test_only_first_five_failures_are_named(self):
+        # Пять имён — предел, заданный самой сводкой, а не клиентом Kiwi.
+        results = [self._r("failed", f"t{i}", "m") for i in range(9)]
+        _, comment = sync.rollup_class_status(results)
+        self.assertIn("9/9 упало", comment)
+        self.assertIn("t0", comment)
+        self.assertIn("t4", comment)
+        self.assertNotIn("t5", comment)
+
+
 class FeatureOfTest(unittest.TestCase):
     """Пакет → Kiwi-компонент."""
 

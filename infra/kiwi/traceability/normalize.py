@@ -185,6 +185,13 @@ def normalise(
     report = NormaliseReport()
     seen: dict[tuple[str, Target], NormalisedResult] = {}
     errors: list[str] = []
+    #: Targets this invocation actually attempted, as opposed to targets it was
+    #: never asked about. Derived from the directories it was handed, so a
+    #: desktop-only local run does not claim to have covered Android.
+    ran_targets: set[Target] = {t for t, dirs in result_dirs.items() if dirs}
+    #: (scenario, target.value) slots that produced a result, for the
+    #: per-scenario completeness rule below.
+    reported: set[tuple[str, str]] = set()
 
     for target, directories in sorted(result_dirs.items(), key=lambda kv: kv[0].value):
         raw = parse_junit(directories)
@@ -235,6 +242,7 @@ def normalise(
             report.results.append(result)
             report.kept += 1
             produced += 1
+            reported.add((link.scenario, target.value))
         report.per_target[target.value] = produced
 
     if errors:
@@ -262,6 +270,43 @@ def normalise(
         raise NoResultsError(
             "заявленная цель не дала ни одного тесткейса (задача Gradle отработала вхолостую "
             f"и отчиталась зелёной): {', '.join(sorted(set(empty)))}"
+        )
+
+    # The rule above is per *target*, and that is its blind spot. A target that
+    # produced 200 testcases passes it even when the one testcase carrying a
+    # scenario id never ran — which is exactly what a tag filter does: the class
+    # is skipped rather than executed, the suite is green, and the scenario
+    # renders as not-run forever. Nothing is broken and nothing fails.
+    #
+    # So the same distinction is applied one level down, per *scenario*: a
+    # target that actually ran, and a scenario that claims that target and has a
+    # carrier for it, must have produced a result. The unclaimed and never-run
+    # cases stay out of it for the same reason they stay out of the rule above —
+    # a local desktop-only run must not fail over Android, and a hole is a hole,
+    # not an error.
+    missing: list[str] = []
+    for link in links:
+        if link.target not in ran_targets:
+            continue
+        spec = specs.get(link.scenario)
+        if spec is None or not spec.is_claimed:
+            continue
+        # `is_claimed` answers "is this scenario still an obligation" (a
+        # deprecated one is not). This rule is about a different question:
+        # whether *this target* is claimed. A link for an unclaimed target is
+        # the hole case, not a missing result — the coverage matrix already
+        # renders it as not-claimed, and failing here would make an
+        # intentionally-narrow scenario unaddable.
+        if link.target not in spec.targets:
+            continue
+        slot = (link.scenario, link.target.value)
+        if slot not in reported:
+            missing.append(f"{link.scenario}/{link.target.value}")
+    if missing:
+        raise NoResultsError(
+            "сценарий заявлен и запускался, но не дал результата на этом коммите "
+            f"(отфильтрован тегом или класс не попал в прогон): "
+            f"{', '.join(sorted(set(missing)))}"
         )
     return report
 

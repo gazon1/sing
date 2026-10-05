@@ -917,6 +917,122 @@ class SpecReportsEveryProblem(unittest.TestCase):
             self.assertIn(expected, message, expected)
 
 
+class ClaimedScenarioWithoutResult(unittest.TestCase):
+    """"Ran the target, and this scenario still has no result" is a bug.
+
+    The per-target zero-testcase rule above cannot see this: a target that
+    produced 200 testcases passes it even when the single testcase carrying a
+    scenario id was filtered out. That is the shape a tag filter produces, and
+    the build is green.
+    """
+
+    def _desktop_run(self, cases: str):
+        d = pathlib.Path(tempfile.mkdtemp())
+        _junit(d, cases)
+        return d
+
+    def test_scenario_filtered_out_of_a_run_that_produced_others_fails(self):
+        # The exact blind spot: a healthy-looking suite where the scenario's own
+        # class is missing. Without the per-scenario rule this is a green build
+        # and a permanently not-run cell.
+        d = self._desktop_run(
+            '<testcase classname="com.example.Other" name="unrelated()"/>'
+            '<testcase classname="com.example.More" name="also_unrelated()"/>'
+        )
+        with self.assertRaises(NoResultsError) as ctx:
+            normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertIn("TASK-REC-01/desktop", str(ctx.exception))
+
+    def test_the_scenarios_own_result_is_enough(self):
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        report = normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertEqual(report.kept, 1)
+
+    def test_a_failing_scenario_counts_as_reported(self):
+        # The rule is about *presence*, not outcome. A red scenario has a
+        # perfectly good result and must not be reported as missing.
+        d = self._desktop_run(
+            '<testcase classname="com.example.Foo" name="does_a_thing()"><failure msg="boom"/></testcase>'
+        )
+        report = normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertEqual(report.kept, 1)
+        self.assertEqual(report.results[0].outcome, Outcome.FAILED)
+
+    def test_a_skipped_scenario_counts_as_reported(self):
+        # Also presence: a skipped run is a real answer about the code. Treating
+        # it as missing would make a quarantined test indistinguishable from a
+        # class that silently vanished, and the two warrant different actions.
+        d = self._desktop_run(
+            '<testcase classname="com.example.Foo" name="does_a_thing()"><skipped/></testcase>'
+        )
+        report = normalise({"TASK-REC-01": _spec()}, [_link()], {Target.DESKTOP: [d]}, "abc")
+        self.assertEqual(report.results[0].outcome, Outcome.SKIPPED)
+
+    def test_target_never_run_is_not_enforced(self):
+        # Same scope rule as the per-target rule: a desktop-only local run must
+        # not fail over the Android half it was never asked to cover.
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        report = normalise(
+            {"TASK-REC-01": _spec()},
+            [_link()],
+            {Target.DESKTOP: [d], Target.ANDROID: []},
+            "abc",
+        )
+        self.assertEqual(report.kept, 1)
+
+    def test_an_unclaimed_target_with_a_carrier_is_a_hole_not_a_failure(self):
+        # The link exists but the spec does not claim that target: the matrix
+        # renders it as not-claimed, and failing would make a deliberately
+        # narrow scenario impossible to declare.
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        report = normalise(
+            {"TASK-REC-01": _spec(targets=(Target.ANDROID,))},
+            [_link(Target.DESKTOP)],
+            {Target.DESKTOP: [d]},
+            "abc",
+        )
+        self.assertEqual(report.kept, 1)
+
+    def test_a_deprecated_scenario_is_not_an_obligation(self):
+        d = self._desktop_run('<testcase classname="com.example.Other" name="unrelated()"/>')
+        report = normalise(
+            {"TASK-REC-01": _spec(status=SpecStatus.DEPRECATED)},
+            [_link()],
+            {Target.DESKTOP: [d]},
+            "abc",
+        )
+        self.assertEqual(report.kept, 0)
+
+    def test_one_missing_scenario_names_only_itself(self):
+        # Two scenarios on one target, one of them filtered out. The message
+        # must name the missing one only, or the fix is guesswork. The second
+        # scenario needs its own carrier: two scenarios on one file is rejected
+        # earlier by the duplicate-key guard, which is its own rule.
+        d = self._desktop_run('<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        second = _link(scenario="TASK-REC-02")
+        second = Link(
+            scenario=second.scenario,
+            target=second.target,
+            level=second.level,
+            carrier=second.carrier,
+            source=REPO_ROOT / "shared/src/jvmTest/kotlin/Bar.kt",
+            key=TestKey("com.example.Bar", "does_another_thing"),
+        )
+        with self.assertRaises(NoResultsError) as ctx:
+            normalise(
+                {
+                    "TASK-REC-01": _spec(),
+                    "TASK-REC-02": _spec("TASK-REC-02"),
+                },
+                [_link(), second],
+                {Target.DESKTOP: [d]},
+                "abc",
+            )
+        message = str(ctx.exception)
+        self.assertIn("TASK-REC-02/desktop", message)
+        self.assertNotIn("TASK-REC-01/desktop", message)
+
+
 class ZeroTestcaseRuleScope(unittest.TestCase):
     """"ran and produced nothing" is a bug; "was never run" is not."""
 

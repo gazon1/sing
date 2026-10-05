@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 
 /** Generous upper bound; real transitions settle in well under a second. */
 internal const val TIMEOUT_MS = 5_000L
@@ -325,4 +326,38 @@ fun explainMissingTag(availableTags: List<String>, wantedTag: String): String {
         availableTags.take(20).forEach { appendLine("  $it") }
         if (availableTags.size > 20) appendLine("  ... and ${availableTags.size - 20} more")
     }
+}
+
+/**
+ * A stable signature of the main window's semantics tree.
+ *
+ * Used by `SheetReachabilityTest` to assert that opening a `ModalBottomSheet`
+ * changes *nothing* here. The comparison is by total node count rather than by
+ * tag set, because a `Popup`-based sheet would still add nodes without adding a
+ * tag — and that is exactly the case where the tier rule in
+ * `Maestro/CONVENTIONS.md` would need to be revisited.
+ *
+ * Exists as a helper rather than inline in the test because `HarnessConventionTest`
+ * requires raw selector calls to live here, and because a second caller would
+ * otherwise re-derive the same `useUnmergedTree = true` choice.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.mainTreeSize(): Int = step("mainTreeSize") {
+    onRoot(useUnmergedTree = true).printToString(maxDepth = 60).split("Node #").size - 1
+}
+
+/**
+ * How many nodes carry [tag] **across every semantics root**, not just the main
+ * window.
+ *
+ * This is the search that a `ModalBottomSheet` on desktop is invisible to, and
+ * the reason the tier rule exists: on skiko the sheet resolves to a `Dialog`,
+ * which is a separate window, so `atLeastOneRootRequired = false` finds nothing
+ * either. Returning the count rather than asserting lets a test state the fact
+ * and attach its own message — the failure needs to point at the convention, not
+ * at a missing node.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.countNodesWithTagInAnyRoot(tag: String): Int = step("countInAnyRoot", tag) {
+    onAllNodesWithTag(tag).fetchSemanticsNodes(false).size
 }
