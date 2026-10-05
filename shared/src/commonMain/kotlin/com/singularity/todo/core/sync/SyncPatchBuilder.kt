@@ -51,7 +51,11 @@ internal class SyncPatchBuilder(
             patchId = idGenerator.next(),
             entityId = entity.syncId,
             entityType = entity.docType,
-            baseVersion = entity.syncServerVersion,
+            // From the shadow, not from the entity. The entity's own copy is written
+            // by the local repositories, which have no idea what the server said, so it
+            // stayed 0 forever and every patch claimed the server had never seen the
+            // row. The shadow is where the engine records what the server confirmed.
+            baseVersion = shadow?.serverVersion ?: 0,
             isDelete = false,
             ops = ops,
             // The clock the server orders by. Taken from the factory rather than from
@@ -78,6 +82,11 @@ internal class SyncPatchBuilder(
                 confirmedJson = shadow?.confirmedJson ?: EMPTY_STATE,
                 inFlightJson = encoded,
                 inFlightPatchId = patch.patchId,
+                // Carried, not reset. This is a whole-row replace, so a new row built
+                // here would default the version to 0 and the *next* patch would claim
+                // the server had never seen the row — reintroducing, one step later,
+                // exactly the defect the column exists to fix.
+                serverVersion = shadow?.serverVersion ?: 0,
             ),
         )
         return patch

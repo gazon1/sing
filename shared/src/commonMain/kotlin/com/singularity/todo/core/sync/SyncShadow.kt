@@ -44,6 +44,18 @@ data class SyncShadowEntity(
     @ColumnInfo("in_flight_json") val inFlightJson: String? = null,
     /** The patch that produced [inFlightJson]; the guard on promoting it. */
     @ColumnInfo("in_flight_patch_id") val inFlightPatchId: String? = null,
+    /**
+     * The row version the server reported for this entity, 0 when it has never
+     * confirmed one.
+     *
+     * It lives here and not on the six entity tables because this is the sync layer's
+     * own record of what the server holds — [confirmedJson] is already that, and a
+     * version without the state it belongs to would be half a fact. Writing it to the
+     * feature tables instead would mean the sync engine reaching into six repositories
+     * to acknowledge a push, which is the direction the layering runs away from.
+     */
+    @ColumnInfo(name = "server_version", defaultValue = "0")
+    val serverVersion: Long = 0,
 )
 
 /**
@@ -74,7 +86,8 @@ interface SyncShadowDao {
      * and the promotion must not happen.
      */
     @Query(
-        "UPDATE sync_shadow SET confirmed_json = :json, in_flight_json = NULL, in_flight_patch_id = NULL " +
+        "UPDATE sync_shadow SET confirmed_json = :json, in_flight_json = NULL, " +
+            "in_flight_patch_id = NULL, server_version = COALESCE(:serverVersion, server_version) " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId AND entity_type = :entityType " +
             "AND entity_id = :entityId AND in_flight_patch_id = :patchId",
     )
@@ -85,6 +98,17 @@ interface SyncShadowDao {
         entityId: String,
         patchId: String,
         json: String,
+        /**
+         * The version the server reported, or null to leave the stored one alone.
+         *
+         * Null rather than 0 because a response may legitimately carry no version,
+         * and a default of 0 would silently reset a version the client already had —
+         * which puts the next patch's base back to "the server has never seen this row",
+         * and that is the condition `not_found` answers. The query uses
+         * `COALESCE` for it, because binding a null into the column would store a null
+         * rather than skip the assignment.
+         */
+        serverVersion: Long? = null,
     ): Int
 
     /**

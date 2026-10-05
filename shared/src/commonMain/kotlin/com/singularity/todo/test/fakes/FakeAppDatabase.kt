@@ -1042,8 +1042,17 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         entityId: String,
         patchId: String,
         json: String,
+        serverVersion: Long?,
     ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
-        row.copy(confirmedJson = json, inFlightJson = null, inFlightPatchId = null)
+        // The COALESCE in the real query, reproduced: a response with no version must
+        // not reset one the client already had, or the next patch claims the server has
+        // never seen the row.
+        row.copy(
+            confirmedJson = json,
+            inFlightJson = null,
+            inFlightPatchId = null,
+            serverVersion = serverVersion ?: row.serverVersion,
+        )
     }
 
     override suspend fun release(

@@ -12,6 +12,9 @@ import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import kotlinx.coroutines.test.TestScope
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -150,6 +153,87 @@ class SyncEnginePushTest {
         engine.push()
         assertEquals(2, api.pushCalls.size, "an elapsed backoff must allow a retry")
     }
+
+    // ── #178: the version the server reported is the base the next patch claims ──
+
+    @Test
+    fun `the version the server reported becomes the base of the next patch`() = runTest {
+        // The defect this pins: the client parsed `newVersion` out of every response
+        // and then dropped it, so every patch it ever sent claimed the server had never
+        // seen the row — including the tenth edit to a row the server had been applying
+        // for days. Reading the entity's own `syncServerVersion` could not have caught
+        // it either: that field is written by the local repositories, which have no way
+        // to know what the server said.
+        val api = FakeSyncApiClient()
+        val (engine, outbox, _) = engine(api, this)
+
+        assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
+        val firstPatchId = outbox.rows.single().patchId
+        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(firstPatchId, ok = true, newVersion = 7))))
+        assertTrue(engine.push().isSuccess)
+
+        // Second edit, after the server has answered.
+        assertTrue(engine.enqueue(entity("title" to "second", id = "e-1")).isSuccess)
+        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("unused", ok = true))))
+        assertTrue(engine.push().isSuccess)
+
+        assertEquals(7L, api.pushCalls.last().patches.single().baseVersion)
+    }
+
+    @Test
+    fun `a response with no version does not reset one the client already had`() = runTest {
+        // `COALESCE` on the confirm query, and the reason it is there: binding a null
+        // would store a null, and the next patch would claim a base the server has
+        // moved past — which it answers with a refusal.
+        val api = FakeSyncApiClient()
+        val shadow = FakeSyncShadowDao()
+        val (engine, outbox, _) = engine(api, this, shadow = shadow)
+
+        assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
+        val firstPatchId = outbox.rows.single().patchId
+        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(firstPatchId, ok = true, newVersion = 7))))
+        assertTrue(engine.push().isSuccess)
+
+        assertTrue(engine.enqueue(entity("title" to "second", id = "e-1")).isSuccess)
+        val secondPatchId = outbox.rows.single().patchId
+        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(secondPatchId, ok = true, newVersion = null))))
+        assertTrue(engine.push().isSuccess)
+
+        assertTrue(engine.enqueue(entity("title" to "third", id = "e-1")).isSuccess)
+        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("unused", ok = true))))
+        assertTrue(engine.push().isSuccess)
+
+        assertEquals(
+            7L,
+            api.pushCalls.last().patches.single().baseVersion,
+            "a response with no version must leave the stored one alone",
+        )
+    }
+
+    @Test
+    fun `a first patch still claims the server has never seen the row`() = runTest {
+        val api = FakeSyncApiClient()
+        val (engine, _, _) = engine(api, this)
+
+        assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
+        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("p", ok = true))))
+        assertTrue(engine.push().isSuccess)
+
+        assertEquals(0L, api.pushCalls.last().patches.single().baseVersion)
+    }
+
+    /** A [SyncableEntity] with the JSON the test controls field by field. */
+    private class TestEntity(private val fields: JsonObject, override val syncId: String) : SyncableEntity {
+        override val docType: DocType = DocType.Task
+        override val syncServerVersion: Long = 0
+        override val syncHlc: Hlc? = null
+        override fun toJson(): JsonObject = fields
+    }
+
+    private fun entity(vararg pairs: Pair<String, String>, id: String): TestEntity = TestEntity(
+        fields = buildJsonObject { for ((k, v) in pairs) put(k, JsonPrimitive(v)) },
+        syncId = id,
+    )
 
     // ── PU-05: the attempt counter is state, not a local variable ──────────────
     //

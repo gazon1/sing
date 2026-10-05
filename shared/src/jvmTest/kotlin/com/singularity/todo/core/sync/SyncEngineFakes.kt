@@ -229,8 +229,16 @@ class FakeSyncShadowDao : SyncShadowDao {
         entityId: String,
         patchId: String,
         json: String,
+        serverVersion: Long?,
     ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
-        it.copy(confirmedJson = json, inFlightJson = null, inFlightPatchId = null)
+        // The COALESCE of the real query, reproduced: a response carrying no version
+        // must leave the stored one alone rather than reset it to 0.
+        it.copy(
+            confirmedJson = json,
+            inFlightJson = null,
+            inFlightPatchId = null,
+            serverVersion = serverVersion ?: it.serverVersion,
+        )
     }
 
     override suspend fun release(

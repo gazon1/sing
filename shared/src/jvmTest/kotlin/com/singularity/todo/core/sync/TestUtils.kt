@@ -130,10 +130,21 @@ class FakeSyncApiClient(
     /** When set, both [batchPush] and [getEventsSince] throw it. */
     var failWith: Throwable? = null
 
+    /**
+     * Answers for successive pushes, drained before [pushResponse].
+     *
+     * The constructor takes one response for every call, which is enough for a test
+     * about a single cycle and useless for anything that spans two: "the server
+     * reported version 7, so does the next patch carry 7" needs the second push to see
+     * what the first one caused. Scripting a sequence per call is the difference
+     * between testing a state machine and testing one of its states.
+     */
+    val pushResponses = ArrayDeque<BatchPushResponse>()
+
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
         pushCalls.add(request)
         failWith?.let { throw it }
-        return pushResponse
+        return if (pushResponses.isNotEmpty()) pushResponses.removeFirst() else pushResponse
     }
 
     override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {

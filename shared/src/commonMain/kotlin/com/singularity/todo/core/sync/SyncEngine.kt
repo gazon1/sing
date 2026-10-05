@@ -353,7 +353,18 @@ internal class SyncEngine(
                 val patch = patches.firstOrNull { it.patchId == result.patchId }
                 if (result.ok) {
                     outboxDao.delete(result.patchId)
-                    if (active != null && patch != null) settleShadow(patch, applied = true, scope = active)
+                    if (active != null && patch != null) {
+                        // The version the server just reported, recorded on the same
+                        // guarded statement that promotes the state — so a superseded
+                        // patch's response cannot write a version for a state that was
+                        // never its own to settle.
+                        settleShadow(
+                            patch,
+                            applied = true,
+                            scope = active,
+                            serverVersion = result.newVersion,
+                        )
+                    }
                     succeeded++
                 } else {
                     failed++
@@ -621,7 +632,12 @@ internal class SyncEngine(
      * against a state the server does not have, which is silent divergence rather
      * than a visible failure.
      */
-    private suspend fun settleShadow(patch: DeltaPatch, applied: Boolean, scope: SyncScope) {
+    private suspend fun settleShadow(
+        patch: DeltaPatch,
+        applied: Boolean,
+        scope: SyncScope,
+        serverVersion: Long? = null,
+    ) {
         val typeKey = patch.entityType.key
         if (applied) {
             shadowDao.confirm(
@@ -632,6 +648,7 @@ internal class SyncEngine(
                 patchId = patch.patchId,
                 json = shadowDao.get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
                     ?.inFlightJson ?: return,
+                serverVersion = serverVersion,
             )
         } else {
             shadowDao.release(
