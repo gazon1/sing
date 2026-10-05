@@ -481,6 +481,42 @@ jobs:
             bash Maestro/scripts/wait-for-boot.sh
             ./gradlew :androidApp:installDebug --no-daemon
             TAGS=smoke MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
+            # The scenario-tagged flows, in the same emulator session. They were
+            # not run at all before 2026-10-05: this job passed `TAGS=smoke`,
+            # and `TASK-REC-01` is the only flow carrying a `scenario:` tag, so
+            # the one flow whose result the result matrix could consume never
+            # executed in CI. The tags are read from the flows rather than
+            # written out here, because a hard-coded list is a list that goes
+            # stale the moment a second scenario flow lands and reads as
+            # complete.
+            SCENARIO_TAGS=$(grep -rhoE 'scenario:[A-Z0-9-]+' Maestro/flows | sort -u | paste -sd, -)
+            if [ -n "$SCENARIO_TAGS" ]; then
+              echo "Running scenario flows: $SCENARIO_TAGS"
+              TAGS="$SCENARIO_TAGS" MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
+            else
+              echo "No scenario-tagged flows found — the result matrix will have no android rows"
+            fi
+
+      # Uploaded unconditionally, and uploaded from `build/maestro-results/`
+      # rather than only `~/.maestro/tests/`. Two reasons, both measured:
+      #
+      #   * The XML is the only thing `traceability results` can join to a
+      #     scenario. It was written to disk and then thrown away with the
+      #     runner, so the android half of the result matrix could never be
+      #     produced from CI — the matrix has said `not-run` for android on
+      #     every commit since the layer was added.
+      #   * `if: failure()` uploads only the half you cannot use. A result set
+      #     that exists solely when something broke cannot answer "which
+      #     scenario passed on abc1234", which is the question the matrix is
+      #     for.
+      - name: Upload Maestro JUnit results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-junit-${{ github.job }}-${{ github.run_id }}
+          path: build/maestro-results/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Maestro failure artifacts
         if: failure()

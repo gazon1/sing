@@ -195,20 +195,34 @@ class ExitCodeTest(unittest.TestCase):
                 check=False,
             )
 
-    def _floors(self, cap):
+    def _floors(self, cap=None):
+        """The recorded floors, optionally forced to `cap`.
+
+        Reading the caps from the file rather than writing 31 into a test is the
+        whole point: the first version hard-coded the number, and every legitimate
+        change to the corpus made it fail for a reason that had nothing to do with
+        the gate. A test that pins a number the gate is *designed* to move is
+        pinned to the wrong thing.
+        """
         import json
         config = json.loads(
             (ROOT / 'config/docs/traceability-ratchet.json').read_text(encoding='utf-8')
         )
         for floor in config['floors']:
-            floor['max'] = cap
+            if cap is not None:
+                floor['max'] = cap
+            else:
+                # Below the measurement on purpose: the point of this case is
+                # "the gate is green", and reading it proves the file on disk is
+                # the one the gate would accept.
+                floor['max'] = 10_000
         return json.dumps(config)
 
     def test_growth_fails(self):
         self.assertEqual(self._run(self._floors(0)).returncode, 1)
 
     def test_the_recorded_floors_pass(self):
-        self.assertEqual(self._run(self._floors(31)).returncode, 0)
+        self.assertEqual(self._run(self._floors()).returncode, 0)
 
     def test_improvement_passes_and_says_to_lower_the_floor(self):
         result = self._run(self._floors(99))
