@@ -33,9 +33,19 @@ So this gate also asks the question directly: for every `@Tag("fast")` class the
 sources declare, is there a JUnit suite by that name in the XML? That is a fact
 about the run rather than a comparison, which is why it survives a JUnit
 annotation form no text predicate knows about. `fast` is the right scope and not
-a convenience: `shared/build.gradle.kts` maps an absent `-Ptest.tags` to
-`excludeTags("slow")`, so a plain local run executes exactly the `fast` classes
-and CI's `-Ptest.tags=fast,slow` is a superset of them.
+a convenience. CI always passes an explicit tag list, so the question that
+matters there is "did a declared `fast` class run", and
+`TestTagCoverageTest` separately holds the untagged population at zero — which
+is what makes `fast` the whole of what CI should have run. Checking `slow` as
+well would fail every local run, because `shared/build.gradle.kts:290-296` maps
+an absent `-Ptest.tags` to `excludeTags("slow")` and a `slow` class is excluded
+by that default by design.
+
+Note that the local default and CI's selection are *different*, not nested: the
+default also runs untagged classes, and CI's `includeTags` does not. That
+distinction was previously written down here as the opposite ("the default runs
+exactly the fast classes, and CI is a superset") and it was wrong; the
+correction is in ADR `2026-10-05-gate-audit-text-shape-vs-fact`.
 
 The class list is produced by `infra/kiwi/sync.py` — the same scanner that
 backs the Kiwi stand — because "is this class runnable" had already been
@@ -183,10 +193,12 @@ def _trim_blank_edges(lines: list[str]) -> list[str]:
 #: gate's source sets — see `androidApp` and `detekt-rules` in SOURCE_SETS.
 #:
 #: The choice of *fast* is what makes this check true for both callers without a
-#: second mode. `shared/build.gradle.kts` translates an absent `-Ptest.tags` to
-#: `excludeTags("slow")`, so a plain local run executes every `fast` class, and
-#: CI's `-Ptest.tags=fast,slow` is a superset. Checking `slow` as well would
-#: fail every local run and mean nothing in CI.
+#: second mode. CI always passes an explicit tag list, so "did a declared `fast`
+#: class run" is the question there, and `TestTagCoverageTest` holds the untagged
+#: population at zero. A `local` run additionally covers untagged classes, which
+#: is why it is a superset of `fast` rather than equal to it; requiring `slow`
+#: would fail every local run, since the absent-`-Ptest.tags` default is
+#: `excludeTags("slow")`.
 EXPECTED_CLASS_SOURCES = {
     "shared:jvmTest": (
         "shared/src/commonTest/kotlin",
@@ -459,8 +471,12 @@ def main() -> int:
             "# class column would have, and the class column never fired on its own.",
             "#",
             "# Record the SMALLEST count any legitimate run produces. The default local",
-            "# run (no -Ptest.tags) executes only @Tag(\"fast\") classes, so it is the",
-            "# floor; CI's `-Ptest.tags=fast,slow` is a superset and can only be higher.",
+            "# run (no -Ptest.tags) excludes @Tag(\"slow\") and therefore runs every",
+            "# @Tag(\"fast\") class PLUS any untagged one — which is why it, and not CI,",
+            "# is the run to record. CI's `-Ptest.tags=fast,slow` selects tagged classes",
+            "# only, so it is *not* a superset of the local run: it is a different",
+            "# selection, narrower whenever a class is untagged. TestTagCoverageTest",
+            "# is what keeps that population at zero.",
             "# Recording the CI numbers here instead would make every plain local run",
             "# look like a regression.",
             "#",

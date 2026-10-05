@@ -391,6 +391,24 @@ def main(argv: list[str] | None = None) -> int:
 
     rep = build_report(client, args.product)
 
+    # Say out loud what this report is, before printing it. It answers "which
+    # test *classes* have never run" over the 259 `Automated/*` cases — a
+    # narrower question than the one a reader arriving at "what do we verify?"
+    # is asking, and one whose unit is a file rather than a behaviour. The
+    # scenario layer (`docs/testing/coverage-matrix.md`) is the answer to that
+    # question, and this one is on its way out; see
+    # `2026-10-05-scenario-layer-replaces-per-class-reporting.md`.
+    #
+    # Printed rather than documented because the documentation was already
+    # there and did not prevent the misreading: the report looked authoritative
+    # and nobody had to open the ADR to find out it was the wrong layer.
+    if not (args.json or args.markdown):
+        print(
+            "!! LEGACY: this report is per test CLASS over the Automated/* plans.\n"
+            "   'What do we verify?' is answered by docs/testing/coverage-matrix.md\n"
+            "   (per user scenario, per platform). This report is being retired.\n"
+        )
+
     if args.json:
         print(
             json.dumps(

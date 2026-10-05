@@ -66,10 +66,28 @@ text to a fact about an artifact — or give the text check a test of its own.**
   predicate would be the drift this repository has already paid for twice.
 
 `fast` is the scope for the by-results check, and it is a correctness argument
-rather than convenience: `shared/build.gradle.kts` maps an absent `-Ptest.tags`
-to `excludeTags("slow")`, so a plain local run executes exactly the `fast`
-classes and CI's `-Ptest.tags=fast,slow` is a superset. Checking `slow` too
-would fail every local run and mean nothing in CI.
+rather than convenience. **Corrected 2026-10-05:** this paragraph previously said
+the absent-`-Ptest.tags` default "executes exactly the `fast` classes". It does
+not. `shared/build.gradle.kts:290-296` maps an absent property to
+`excludeTags("slow")`, which runs the `fast` classes **and every untagged class
+in the same source set**. CI's `-Ptest.tags=fast,slow` is therefore not a
+superset of the local run — it is a *different* selection, and it is strictly
+narrower in one direction: it excludes untagged classes, which
+`TestTagCoverageTest` is what keeps at zero. Measured 2026-10-05: **0** test
+classes without a tag across `commonTest` and `jvmTest`, counting the
+fully-qualified `@org.junit.jupiter.api.Tag("fast")` form as well as `@Tag`.
+
+The argument for scoping the check to `fast` survives the correction, and for a
+sharper reason than the one originally given. CI always passes an explicit tag
+list, so the question that matters there is "did a declared `fast` class run" —
+and `TestTagCoverageTest` separately guarantees the untagged population is
+empty, which is what makes the `fast` set the whole of what CI should have run.
+Checking `slow` as well would fail every local run, because the default excludes
+it by design.
+
+The correction is recorded because the wrong version is more flattering: it
+claimed a local run and a CI run select the same things, which would have made
+every future reasoning about the two configurations unsound.
 
 ## Rationale
 

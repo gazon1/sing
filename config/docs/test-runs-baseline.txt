@@ -7,8 +7,11 @@
 # says why.
 #
 # Record the SMALLEST count any legitimate run produces. The default local
-# run (no -Ptest.tags) executes only @Tag("fast") classes, so it is the
-# floor; CI's `-Ptest.tags=fast,slow` is a superset and can only be higher.
+# run (no -Ptest.tags) excludes @Tag("slow"), so it runs every @Tag("fast")
+# class PLUS any untagged one — which is why it, and not CI, is the run to
+# record. CI's `-Ptest.tags=fast,slow` selects tagged classes only, so it is not
+# a superset of the local run: it is a different selection, narrower whenever a
+# class is untagged. TestTagCoverageTest is what keeps that population at zero.
 # Recording the CI numbers here instead would make every plain local run
 # look like a regression.
 #

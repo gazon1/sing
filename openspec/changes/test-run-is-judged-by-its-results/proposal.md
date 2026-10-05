@@ -51,10 +51,13 @@ failed a CI job on first use. A floor that can be silently deleted is not a floo
 
 - It does not change what the app does. No requirement here touches product behaviour.
 - It does not require a test class to be `@Tag("fast")`; the check is scoped to `fast`
-  because `shared/build.gradle.kts` maps an absent `-Ptest.tags` to
-  `excludeTags("slow")`, so a plain local run executes exactly the `fast` classes and
-  a fuller run is a superset. Extending it to `slow` would fail every local run and
-  mean nothing in CI.
+  because CI always passes an explicit tag list, so that is the question that matters
+  there, and `TestTagCoverageTest` holds the untagged population at zero. Extending
+  it to `slow` would fail every local run, since `shared/build.gradle.kts` maps an
+  absent `-Ptest.tags` to `excludeTags("slow")`. (An earlier version of this line
+  said the default runs "exactly the fast classes" and that a tagged run is a
+  superset; both were wrong — the default also runs untagged classes — and the
+  correction is in ADR `2026-10-05-gate-audit-text-shape-vs-fact`.)
 - It does not replace REQ-1. The floor and the by-results check measure different
   things: the floor catches a *narrowed filter* over classes it already knows about,
   the by-results check catches a class the floor has never heard of.

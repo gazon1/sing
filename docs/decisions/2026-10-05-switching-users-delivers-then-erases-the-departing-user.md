@@ -109,4 +109,4 @@ work, and it is a smaller price than the alternative.
 
 - Issue #181, and the audit rows SO-04, SO-05, OB-05, PU-14, UX-I.2, UX-C.5.
 - Test plan §12 Q2 and Q4.
-- `2026-10-04-sync-state-model.md` — the owner-scoped rows a wipe has to cover.
+- `2026-09-23-sync-state-model.md` — the owner-scoped rows a wipe has to cover.
