@@ -191,12 +191,29 @@ invisible and with one they become irreversible data loss on the user's own data
 
 ## Phase 9–10 — Identity and seeding
 
-- [ ] 9.1 `shared/` — identity mapper splitting the composite local id into owner and
+- [x] 9.1 `shared/` — identity mapper splitting the composite local id into owner and
       profile at the network boundary; an unparseable value is an error, not a
-      default. Verified by: `SyncIdentityMapperTest`
-- [ ] 10.1 `shared/` — seed planner: upload existing local data once, through the
-      ordinary push path. Verified by: `SeedPlannerTest` — exactly once, and a
-      partial run resumes without duplicates (REQ-OS-013)
+      default. `SyncIdentity` is a value class that validates both halves on
+      construction, so a half-built identity cannot be represented; the mapper
+      refuses rather than defaulting the profile to `"default"`, which would
+      attribute a row to an account and profile the user has never had and read it
+      back to a place where no such row exists.
+      Verified by: `SyncIdentityMapperTest` (7) — including a uuid owner and a ULID
+      profile, and a value with an embedded separator
+- [x] 10.1 `shared/` — seed planner: upload existing local data once, through the
+      ordinary push path. There is no second upload path: seeding is
+      `SyncEngine.enqueue` called once per entity, so retry, backoff, dead-lettering
+      and shadow settling are the code that already runs all day. A second path
+      would be the one never exercised until a user with a year of data signs in.
+      `sync_state.seed_completed` (Room 35 → 36) is written **only when every
+      document was queued** — marking a partial run complete strands whatever was
+      not queued, and that was a real bug, found by the test written for the
+      opposite property. The column defaults to `false`, because a column added as
+      `true` would read as "already uploaded" for every row that exists at upgrade
+      time and would silently skip exactly the data the requirement is about.
+      Verified by: `SeedPlannerTest` (6) — the second sign-in uploads nothing, a
+      second *profile* and a second *account* still seed, an interrupted run resumes
+      and leaves one outbox row per entity; `Migration35To36Test` (3) (REQ-OS-013)
 
 ## Phase 11 — Sign-in surface
 

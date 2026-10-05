@@ -158,6 +158,11 @@ class FakeSyncStateRepository : SyncStateRepository {
     override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) =
         update(scope) { it.copy(enabledTriggers = triggers) }
 
+    override suspend fun isSeedCompleted(scope: SyncScope): Boolean = get(scope).seedCompleted
+
+    override suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean) =
+        update(scope) { it.copy(seedCompleted = completed) }
+
     override suspend fun clearAll() {
         states.value = emptyMap()
     }

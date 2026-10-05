@@ -59,6 +59,16 @@ data class SyncStateEntity(
     @ColumnInfo("scheduled_interval_minutes") val scheduledIntervalMinutes: Int = DEFAULT_INTERVAL_MINUTES,
     /** Comma-separated [SyncTrigger] names; empty means "all". */
     @ColumnInfo("enabled_triggers") val enabledTriggers: String = "",
+    /**
+     * Whether this scope's pre-existing local data has already been queued for
+     * upload (REQ-OS-013).
+     *
+     * Per scope, not per device: the requirement is that a *second sign-in on the
+     * same account* uploads nothing further, and a flag keyed by anything local
+     * would answer a different question. Set only after the enqueue completes, so
+     * an interrupted seed resumes rather than being declared done.
+     */
+    @ColumnInfo("seed_completed", defaultValue = "0") val seedCompleted: Boolean = false,
 ) {
     val triggers: Set<SyncTrigger>
         get() = SyncTrigger.parseCsv(enabledTriggers)
@@ -118,6 +128,12 @@ interface SyncStateDao {
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
     suspend fun setEnabledTriggers(ownerId: String, profileId: String, triggers: String)
+
+    @Query(
+        "UPDATE sync_state SET seed_completed = :completed " +
+            "WHERE owner_id = :ownerId AND profile_id = :profileId",
+    )
+    suspend fun setSeedCompleted(ownerId: String, profileId: String, completed: Boolean)
 
     @Query("DELETE FROM sync_state")
     suspend fun clearAll()

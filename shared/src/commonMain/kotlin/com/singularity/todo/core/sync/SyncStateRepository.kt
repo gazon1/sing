@@ -21,6 +21,8 @@ interface SyncStateRepository {
     suspend fun setAutoSyncEnabled(scope: SyncScope, enabled: Boolean)
     suspend fun setScheduledInterval(scope: SyncScope, interval: Duration)
     suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>)
+    suspend fun isSeedCompleted(scope: SyncScope): Boolean
+    suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean)
     suspend fun clearAll()
 }
 
@@ -32,6 +34,7 @@ data class SyncState(
     val autoSyncEnabled: Boolean = true,
     val scheduledInterval: Duration = SyncStateEntity.DEFAULT_INTERVAL_MINUTES.minutes,
     val enabledTriggers: Set<SyncTrigger> = SyncTrigger.entries.toSet(),
+    val seedCompleted: Boolean = false,
 ) {
     companion object {
         fun from(entity: SyncStateEntity): SyncState = SyncState(
@@ -41,6 +44,7 @@ data class SyncState(
             autoSyncEnabled = entity.autoSyncEnabled,
             scheduledInterval = entity.scheduledIntervalMinutes.minutes,
             enabledTriggers = entity.triggers,
+            seedCompleted = entity.seedCompleted,
         )
     }
 }
@@ -99,6 +103,13 @@ internal class RoomSyncStateRepository(
     override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) {
         ensureRow(scope)
         dao.setEnabledTriggers(scope.ownerId, scope.profileId, SyncTrigger.toCsv(triggers))
+    }
+
+    override suspend fun isSeedCompleted(scope: SyncScope): Boolean = get(scope).seedCompleted
+
+    override suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean) {
+        ensureRow(scope)
+        dao.setSeedCompleted(scope.ownerId, scope.profileId, completed)
     }
 
     override suspend fun clearAll() = dao.clearAll()

@@ -979,6 +979,9 @@ private class FakeSyncStateDao(private val store: MutableStateFlow<Map<SyncScope
     override suspend fun setEnabledTriggers(ownerId: String, profileId: String, triggers: String) =
         mutate(ownerId, profileId) { it.copy(enabledTriggers = triggers) }
 
+    override suspend fun setSeedCompleted(ownerId: String, profileId: String, completed: Boolean) =
+        mutate(ownerId, profileId) { it.copy(seedCompleted = completed) }
+
     override suspend fun clearAll() {
         store.value = emptyMap()
     }

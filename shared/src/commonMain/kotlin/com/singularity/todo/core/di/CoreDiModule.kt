@@ -49,6 +49,7 @@ import com.singularity.todo.core.sync.RemoteConfigRepository
 import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
 import com.singularity.todo.core.sync.PostgrestSyncRpc
+import com.singularity.todo.core.sync.SeedPlanner
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncRpc
 import com.singularity.todo.core.sync.SyncBootstrapper
@@ -270,6 +271,22 @@ fun coreModule(): org.koin.core.module.Module = module {
     single {
         SyncBootstrapper(
             engine = get(),
+            taskRepo = get(),
+            noteRepo = get(),
+            projectRepo = get(),
+            tagRepo = get(),
+            tagGroupRepo = get(),
+            timeTrackingRepo = get(),
+        )
+    }
+
+    // SeedPlanner: the one-time upload of data that existed before sign-in. It
+    // shares the bootstrapper's reach into the feature repositories for the same
+    // reason — a bootstrapper is the one place that knows every entity type.
+    single {
+        SeedPlanner(
+            stateRepository = get(),
+            enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
             taskRepo = get(),
             noteRepo = get(),
             projectRepo = get(),
