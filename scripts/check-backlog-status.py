@@ -95,7 +95,31 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 # 72 entries a doubling would be 144, which fails loudly. A cap raised to absorb
 # a 2-entry overshoot would not be a ratchet; this one is, because the ratio to
 # the live count is what it always was.
-DEFAULT_MAX_ENTRIES = 80
+#
+# Raised to 90 on 2026-10-05, for the reason the two paragraphs above prescribe:
+# the file reached 81 with three genuine findings added and the gate failed,
+# which is the gate working. Moving the cap is the prescribed response; the
+# failure mode named above is deleting a real finding to get back under the
+# line, and all three of these would have been the kind that disappears
+# silently.
+#
+#   - `billing-entitlement-is-a-port-without-a-caller` — a latent defect that
+#     is harmless today only because nothing injects the port, and which denies
+#     a paying customer the moment a paid feature is wired. Deleting it because
+#     it is inert is exactly the reasoning that would leave it there forever.
+#   - `gate-wiring-runs-before-the-tests-it-depends-on` — an ordering defect in
+#     the local gate itself, which makes `check.sh` fail on a fresh clone. It
+#     reads as an environment quirk and would be the first thing dismissed.
+#   - `four-worktrees-hold-uncommitted-work` — four directories holding work
+#     that exists nowhere else, one of them a rebase stopped mid-sequence. The
+#     note that made it obvious ("a bulk delete would destroy it") is the entire
+#     reason the entry is worth 30 lines.
+#
+# 90 preserves the property that matters. At 81 entries a doubling is 162,
+# which fails loudly against 90; a cap raised to absorb an overshoot would not
+# be a ratchet at all, and 90 is still roughly 10% headroom, so the next
+# finding or three is the one that asks the question again.
+DEFAULT_MAX_ENTRIES = 90
 
 
 def parse_entries(text: str) -> list[dict[str, object]]:
