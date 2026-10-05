@@ -157,10 +157,10 @@ def render_coverage_matrix(coverage: Coverage) -> str:
         c
         for row in coverage.cells.values()
         for c in row.values()
-        if c.claimed and not c.deprecated
+        if c.state.is_obligation
     ]
     total_cells = len(live)
-    automated_cells = sum(1 for c in live if c.automated)
+    automated_cells = sum(1 for c in live if c.state.is_automated)
     holes = coverage.holes()
     lines += [
         f"**{len(coverage.cells)} scenarios · {automated_cells}/{total_cells} claimed cells automated "

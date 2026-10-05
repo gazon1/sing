@@ -251,14 +251,23 @@ class TestCurrentRepositoryState(unittest.TestCase):
 
         The count is a measurement, not a target: it moves when a file is fixed and
         when a deferral is recorded, and both are supposed to show up in review.
-        It went 12 -> 6 -> 9 within one session. The 6 -> 9 move is the interesting
-        one: threading a clock through a sheet made its *callers* read one, and the
-        rule reported all three. A gate that only counts defects would have shown
-        the same number; this one shows the reason each was added, which is the
-        difference between a registry and a queue.
+        It went 12 -> 6 -> 9 within one session, then back to 6. The 6 -> 9 move is
+        the interesting one: threading a clock through a sheet made its *callers*
+        read one, and the rule reported all three. A gate that only counts defects
+        would have shown the same number; this one shows the reason each was added,
+        which is the difference between a registry and a queue.
+
+        The 9 -> 6 move is the one this pin exists to catch in the other direction.
+        The three task screens carried a file-level suppression whose recorded
+        reason was "threading `now` is four signature changes across three screens,
+        ending in a call no desktop Compose test can execute (#201)". That is work
+        not yet done stated as a justification, which is how a deferral turns into
+        a permanent exemption. The signatures are made and `now` is a required
+        parameter from the nav entry down, so the three screens no longer suppress
+        anything.
         """
         findings = csi.scan_file_suppressions()
-        self.assertEqual(len(findings), 9, f"expected 9, got {len(findings)}")
+        self.assertEqual(len(findings), 6, f"expected 6, got {len(findings)}")
         self.assertEqual(
             {rule for _, rule, _, _ in findings},
             {"NoDirectClockSystem", "NoRealDelayInTest"},

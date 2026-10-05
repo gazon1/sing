@@ -30,6 +30,9 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.datetime.LocalDate
+import kotlin.time.Clock
+import kotlin.time.Instant
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -45,6 +48,13 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = null) {
     val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, sectionPrefillKey) }
+    // The injected clock, not the system one. This screen hands `now` down to the
+    // editor and stamps draft attachments with it, so a test that pins a clock in
+    // Koin controls both. `koinInject` rather than a parameter: this is a nav
+    // entry, and a parameter would have to be threaded from the graph for the
+    // sake of a value the graph already provides.
+    val clock: Clock = koinInject()
+    val now: Instant = clock.now()
     val navigator = LocalTasksNavigator.current
 
     val state by vm.state.collectAsStateWithLifecycle()
@@ -103,8 +113,8 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             type = com.singularity.todo.core.attachments.AttachmentType.Url,
             url = draft.url,
             title = draft.title ?: "",
-            createdAt = kotlin.time.Clock.System.now(),
-            updatedAt = kotlin.time.Clock.System.now(),
+            createdAt = now,
+            updatedAt = now,
         )
     }
 
@@ -194,5 +204,6 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             menuItems = emptyList(),
         ),
         isCompleted = false,
+        now = now,
     )
 }

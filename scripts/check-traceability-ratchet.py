@@ -115,8 +115,8 @@ def _metrics(coverage) -> tuple[dict[str, int], list[str]]:
         scenario
         for scenario, row in sorted(coverage.cells.items())
         if coverage.specs[scenario].is_claimed
-        and any(cell.claimed for cell in row.values())
-        and not any(cell.claimed and cell.automated for cell in row.values())
+        and any(cell.state.is_claimed for cell in row.values())
+        and not any(cell.state.is_automated for cell in row.values())
     ]
     return (
         {
@@ -234,7 +234,7 @@ def main() -> int:
     print("count that only ever goes up is a queue nobody drains:")
     for scenario in dark_ids:
         for target, cell in sorted(coverage.cells[scenario].items()):
-            if cell.claimed:
+            if cell.state.is_claimed:
                 print(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
     print("")
     print("Either attach a carrier (the cheapest path is a reachability probe")

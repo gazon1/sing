@@ -117,7 +117,7 @@ class SpecSplitTest(unittest.TestCase):
                 id_prefix=name.rsplit('-', 1)[0],
                 priority='P1',
                 status=(SpecStatus.DEPRECATED if name in deprecated else SpecStatus.CONFIRMED),
-                targets=tuple(t for t, c in row.items() if c.claimed),
+                targets=tuple(t for t, c in row.items() if c.state.is_claimed),
                 preconditions='',
                 steps=(),
                 expected='',
@@ -127,10 +127,12 @@ class SpecSplitTest(unittest.TestCase):
         return Coverage(cells=cells, specs=specs)
 
     def _row(self, claimed, automated):
-        from traceability.coverage import CoverageCell
+        from traceability.coverage import CoverageCell, classify
         from traceability.spec import Target
         return {
-            target: CoverageCell(claimed=t, automated=a)
+            target: CoverageCell(
+                state=classify(claimed=t, automated=a, deprecated=False, reachable=True)
+            )
             for target, t, a in zip((Target.ANDROID, Target.DESKTOP), claimed, automated)
         }
 
@@ -268,7 +270,7 @@ class ReportingTest(unittest.TestCase):
         result = _run_gate(_floors(0))
         self.assertEqual(result.returncode, 1)
         for scenario, target in unreachable:
-            if not any(cell.claimed for cell in coverage.cells[scenario].values()):
+            if not any(cell.state.is_claimed for cell in coverage.cells[scenario].values()):
                 continue
             self.assertIn(
                 f"◇ {scenario} [{target}]",
