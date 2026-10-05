@@ -1,10 +1,26 @@
-package com.singularity.todo.core.observability
+// SPDX-License-Identifier: FSL-1.1-ALv2
+//
+// This file is part of the source-available `pro` catalogue, NOT the Apache-2.0
+// core. It is the only place in the repository that may import a proprietary SDK.
+// The full terms are in LICENSE.pro at the repository root.
+//
+// Boundary enforced by `scripts/check-pro-licence-boundary.py`.
+
+package com.singularity.todo.pro.observability
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
 import ru.ok.tracer.crash.report.TracerCrashReport
 
 /**
- * Android [CrashReportingPort] backed by AppTracer.
+ * Android [CrashReportingPort] backed by AppTracer (`ru.ok.tracer`).
+ *
+ * This class is the reason the `pro` catalogue exists. `ru.ok.tracer` is a
+ * proprietary, service-bound SDK — its POM declares "Tracer's License Agreement",
+ * it is © VK, and it is not OSI-approved. It used to live in
+ * `shared/src/androidMain/…/observability/AndroidCrashReportingPort.kt`, inside
+ * the code that is about to be published under Apache-2.0. Moving it here is what
+ * makes the core's licence honest.
  *
  * ## Why every call is wrapped in `runCatching`
  *
@@ -23,10 +39,10 @@ import ru.ok.tracer.crash.report.TracerCrashReport
  * untouched original rather than a sanitized copy.
  *
  * No initialization happens here: the SDK configures itself from the
- * `HasTracerConfiguration` implemented by `androidApp`'s `Application`, and the
+ * `HasTracerConfiguration` implemented by `ProSingularityApp`, and the
  * `ru.ok.tracer` Gradle plugin injects the tokens.
  */
-internal class AndroidCrashReportingPort(private val log: Logger) : CrashReportingPort {
+class TracerCrashReportingPort(private val log: Logger) : CrashReportingPort {
 
     override fun report(error: Throwable, issueKey: String) {
         runCatching {

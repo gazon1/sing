@@ -1,4 +1,5 @@
 ---
+title: Switching users delivers what the departing user had queued, then erases their local data
 date: 2026-10-05
 status: accepted
 ---
@@ -109,4 +110,8 @@ work, and it is a smaller price than the alternative.
 
 - Issue #181, and the audit rows SO-04, SO-05, OB-05, PU-14, UX-I.2, UX-C.5.
 - Test plan §12 Q2 and Q4.
-- `2026-09-23-sync-state-model.md` — the owner-scoped rows a wipe has to cover.
+- `2026-10-04-sync-state-keyed-by-owner-and-profile.md` — the owner-scoped rows a wipe has to cover.
+  (`2026-09-23-sync-state-model` also exists and is a valid ADR, but it documents the sync
+  API shape — public API, `Result<T>`, the repository facade — not owner-scoping. Both
+  sides of a merge independently repaired this same dangling reference; this is the
+  semantically correct target, so it is the one kept.)

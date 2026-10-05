@@ -1,4 +1,5 @@
 ---
+title: A hybrid clock is merged, and a clock that disagrees by more than five minutes stops the write
 date: 2026-10-05
 status: accepted
 ---

@@ -252,6 +252,21 @@ docs-audit:
     echo "=== Dangling ADR references (slugs that no longer resolve) ==="
     python3 scripts/check-adr-references.py || status=1
     echo ""
+    echo "=== pro/ licence boundary (no FSL or vendor code in the Apache-2.0 core) ==="
+    # Source rules plus the rule's own control. The APK mode is deliberately NOT here:
+    # it needs a build to have happened, and a build inside docs-audit is a check nobody
+    # runs. CI runs it after assembleDebug, in both configurations.
+    python3 scripts/check-pro-licence-boundary.py || status=1
+    python3 scripts/check-pro-licence-boundary.py --self-test || status=1
+    echo ""
+    echo "=== Provenance registry (GPL/LGPL upstream named in production code) ==="
+    # Two commands, and the second is the one that matters most. The first checks the
+    # repository; the second plants a marked file in a temp dir and asserts the rule
+    # catches it. A marker regex that quietly stops matching leaves the first green
+    # and verifying nothing, which is the failure this repo has paid for twice.
+    python3 scripts/check-provenance.py || status=1
+    python3 scripts/check-provenance.py --self-test || status=1
+    echo ""
     echo "=== ADR status policy (vocabulary, supersede chains, stale open) ==="
     python3 scripts/check_adr_status.py || status=1
     echo ""

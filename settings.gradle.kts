@@ -103,3 +103,24 @@ include(":desktopApp")
 include(":shared")
 include(":mcp-server")
 include(":detekt-rules")
+
+// The source-available `pro` catalogue (FSL-1.1-ALv2, see LICENSE.pro).
+//
+// Conditional on purpose, and this is the single most important line in the file for the
+// open-core model. The project's rule is that **the public repository builds and passes
+// every gate without `pro/`** — and an unconditional include would make the free
+// configuration unbuildable, which would make the claim true only on paper. It also
+// means a fresh clone resolves no proprietary artefact, so the Apache-2.0 build needs no
+// credentials and no private repository.
+//
+// The price is that the code in `pro/` compiles only when this include is active, so CI
+// has to run both configurations. `scripts/check-pro-licence-boundary.py` is what keeps
+// that honest: it proves the free configuration really is free, which is otherwise a
+// claim nothing would notice being false.
+val withPro: Boolean = providers.gradleProperty("withPro")
+    .orElse("false")
+    .map { it.toBoolean() }
+    .get()
+if (withPro) {
+    include(":pro")
+}

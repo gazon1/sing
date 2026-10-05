@@ -1,71 +1,82 @@
 package com.singularity.todo.feature.search.query
 
+// Provenance: REWRITTEN from Orgzly (GPL-3.0) — reimplemented from
+//   docs/specs/search-query-grammar.md per option A1. The ported implementation is gone.
+//
+//   NOT a clean room: the author read the Orgzly source. A1 removes verbatim
+//   correspondence; it does not terminate a derivation. See the honesty clause in the
+//   spec and docs/legal/PROVENANCE.md
+
+
 /**
- * A relative time interval expressed as a signed number of days.
+ * A relative time interval, as a signed whole number of days — implementation of §5 of
+ * [docs/specs/search-query-grammar.md][spec].
  *
- * Positive values represent future intervals (e.g. `+3d`), negative values
- * represent past intervals (e.g. `-1w`). Zero represents "today".
+ * [spec]: ../../../../../../../docs/specs/search-query-grammar.md
  *
- * Parsed from user input such as `3d`, `-1w`, `today`, `tomorrow`, etc.
+ * ## Provenance
  *
- * @property days The signed day count. Positive = future, negative = past, 0 = today.
+ * The previous implementation was ported from Orgzly (GPL-3.0). This one was written from
+ * the specification above with the behavioural suite as the contract — option **A1** in
+ * `docs/legal/PROVENANCE.md`. It is not a clean room; see the honesty clause in the
+ * specification.
+ *
+ * @property days Signed day count: positive is the future, negative the past, zero today.
  */
 @JvmInline
 value class QueryInterval internal constructor(private val _days: Int) {
 
-    companion object {
-        /** Sentinel representing "no date constraint" — matches all dates. */
-        val NONE = QueryInterval(INT_MIN)
-        val NOW = QueryInterval(0)
+    val days: Int get() = _days
 
-        // Named aliases — all resolve to a concrete 0-day offset
+    /** `true` when this is the [NONE] sentinel — "no date constraint". */
+    val isNone: Boolean get() = this == NONE
+
+    companion object {
+        /** Unconstrained. Distinct from [NOW] — see D3. */
+        val NONE = QueryInterval(Int.MIN_VALUE)
+        val NOW = QueryInterval(0)
         val TODAY = NOW
         val TOMORROW = QueryInterval(1)
         val YESTERDAY = QueryInterval(-1)
 
-        private const val INT_MIN = Int.MIN_VALUE
-
         /**
-         * Parse a relative interval string.
+         * Parses an interval, or returns `null` if [raw] matches no known form.
          *
-         * Supported forms:
-         * - Numeric with unit suffix: `3d`, `-5d`, `1w`, `-2w`, `1m`, `3m`, `1y`, `-1y`
-         * - Named aliases: `today` / `tod`, `tomorrow` / `tom`, `yesterday`, `now`
-         * - `none` / `no` → [NONE] (sentinel: no date filter)
-         *
-         * @return The parsed interval, or `null` if the string does not match any known form.
+         * `null` is not an error: the caller falls back to free text (D4), so `due:soon`
+         * searches for the literal text `due:soon` rather than failing.
          */
-        fun parse(s: String): QueryInterval? {
-            val input = s.trim().lowercase()
+        fun parse(raw: String): QueryInterval? {
+            val input = raw.trim().lowercase()
             return when (input) {
                 "now", "today", "tod" -> NOW
                 "tomorrow", "tom" -> TOMORROW
                 "yesterday" -> YESTERDAY
                 "none", "no" -> NONE
-                else -> parseNumeric(input)
+                else -> fromSignedNumber(input)
             }
         }
 
-        private fun parseNumeric(s: String): QueryInterval? {
-            val m = NUMERIC_REGEX.matchEntire(s) ?: return null
-            val value = m.groupValues[1].toIntOrNull() ?: return null
-            val unit = m.groupValues[2]
-            val days = when (unit) {
-                "d" -> value
-                "w" -> value * 7
-                "m" -> value * 30
-                "y" -> value * 365
-                else -> return null
+        /**
+         * `<signed number><unit>` — D1/D2.
+         *
+         * Unit lengths are fixed: a month is 30 days and a year is 365, deliberately.
+         * Calendar-aware arithmetic was rejected because it would make the parsed value
+         * depend on the date of parsing, so `due:1m` would mean different things in
+         * different months and a saved search would not be reproducible.
+         */
+        private fun fromSignedNumber(input: String): QueryInterval? {
+            val match = SIGNED_NUMBER_UNIT.matchEntire(input) ?: return null
+            val magnitude = match.groupValues[1].toIntOrNull() ?: return null
+            val days = when (match.groupValues[2]) {
+                "d" -> magnitude
+                "w" -> magnitude * 7
+                "m" -> magnitude * 30
+                "y" -> magnitude * 365
+                else -> return null // unreachable: the regex admits only d/w/m/y
             }
             return QueryInterval(days)
         }
 
-        private val NUMERIC_REGEX = Regex("""^([+-]?\d+)([dwmy])$""")
+        private val SIGNED_NUMBER_UNIT = Regex("""^([+-]?\d+)([dwmy])$""")
     }
-
-    /** Returns the signed day count. */
-    val days: Int get() = _days
-
-    /** Returns `true` if this is the [NONE] sentinel (no date constraint). */
-    val isNone: Boolean get() = this == NONE
 }

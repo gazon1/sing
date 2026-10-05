@@ -1,4 +1,5 @@
 ---
+title: Patches carry field operations and a logical clock, not a snapshot and a checksum
 date: 2026-10-04
 status: accepted
 ---

@@ -1,5 +1,9 @@
 package com.singularity.todo.feature.search.query
 
+// Provenance: REWRITTEN from Orgzly (GPL-3.0) — this type was part of a ported sealed
+//   hierarchy; reimplemented as this project's own domain model against
+//   docs/specs/search-query-grammar.md per option A1. See docs/legal/PROVENANCE.md
+
 /**
  * Query execution options.
  *

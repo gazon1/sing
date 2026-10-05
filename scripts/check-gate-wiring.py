@@ -219,7 +219,33 @@ SCRIPT_GATES = [
         sabotage="_t = p.read_text(); _lines = _t.splitlines(keepends=True); del _lines[1]; p.write_text(''.join(_lines))",
         why="a skill without a description is undiscoverable, so the check must reject it",
     ),
+    ScriptGate(
+        name="provenance",
+        cmd=[sys.executable, "scripts/check-provenance.py"],
+        # The registry, not a source file. Sabotaging a source file would prove the
+        # wrong direction: every PORTED file already carries a marker, so removing
+        # one would test nothing. Removing a *row* is the honest control — it
+        # leaves a file naming an upstream with no registry entry, which is the
+        # exact state the gate was written to reject.
+        sabotage_path="config/legal/provenance-registry.tsv",
+        sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'QueryTokenizer' not in l) + '\\n')",
+        why="a GPL upstream named in production code with no registry row is a licence claim nobody is tracking",
+    ),
+    ScriptGate(
+        name="pro-licence-boundary",
+        cmd=[sys.executable, "scripts/check-pro-licence-boundary.py"],
+        # The vendor dependency, reintroduced into a free build file. That is the exact
+        # regression this gate exists to catch: `ru.ok.tracer` was a direct `implementation`
+        # dependency of `:shared` and `:androidApp` until 2026-10-05, so it is a change
+        # that has already happened once and can happen again by copy-paste.
+        sabotage_path="shared/build.gradle.kts",
+        sabotage="p.write_text(p.read_text() + '\\ndependencies { implementation(\"ru.ok.tracer:tracer-crash-report:1.4.0\") }\\n')",
+        why="proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour",
+    ),
 ]
+# The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
+# keys on the script path, not the full command, so this one registration covers both
+# the repository check and the self-test that proves the rule still fires.
 
 
 # ── Part F: the registry is derived from registration ───────────────────────

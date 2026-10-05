@@ -1,5 +1,9 @@
 package com.singularity.todo.core.billing
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — the hasPro / hasAccount / hasSubscription
+//   triple and the purchaseStateFor factory are that project's shape.
+//   Full registry: docs/legal/PROVENANCE.md
+
 /**
  * Derived entitlement state for the current user.
  *

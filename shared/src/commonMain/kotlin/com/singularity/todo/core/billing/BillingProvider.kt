@@ -1,5 +1,8 @@
 package com.singularity.todo.core.billing
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — abstraction only, no expression copied.
+//   Full registry: docs/legal/PROVENANCE.md
+
 /**
  * Identifies the billing provider that granted a subscription.
  *

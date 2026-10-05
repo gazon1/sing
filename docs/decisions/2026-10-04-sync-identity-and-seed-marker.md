@@ -1,6 +1,8 @@
 ---
+title: A composite identity that cannot be half-built, and a seed marker written last
 date: 2026-10-04
 status: accepted
+deciders: [sync client]
 deciders: [sync client]
 ---
 
