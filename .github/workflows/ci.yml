@@ -436,6 +436,25 @@ jobs:
         run: python3 scripts/check-doc-dead-refs.py
         # blocking: new dead file/symbol references in docs, skills and KDoc
 
+      # Publication hygiene. A snapshot is irreversible once pushed to a public
+      # remote, so this runs on every PR rather than at release time: a personal
+      # path or email that reaches main is a finding nobody can retract later.
+      # The self-test is the second half and the one that matters — it proves the
+      # rules still fire, which is the failure mode a regex gate always has.
+      - name: Check publication hygiene
+        run: |
+          python3 scripts/check-publication-hygiene.py
+          python3 scripts/check-publication-hygiene.py --self-test
+        # blocking: a machine-specific path, the internal clone name, or a
+        # personal email address in a file that would be published
+
+      - name: Check README claims
+        run: |
+          python3 scripts/check-readme-claims.py
+          python3 scripts/check-readme-claims.py --self-test
+        # blocking: a README number that no longer matches the tree, or the JVM
+        # and Android tool lists having diverged
+
       # A test task that reads a tree outside its own module must declare it as an input.
       # Without that declaration the task goes UP-TO-DATE on an edit to that tree and an
       # architecture gate re-reports its previous verdict — green, about a file it never

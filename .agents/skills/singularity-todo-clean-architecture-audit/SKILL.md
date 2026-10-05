@@ -194,7 +194,7 @@ val state by viewModel.state.collectAsStateWithLifecycle()
 
 ```bash
 # Run all checks for a feature
-cd /home/max/AndroidStudioProjects/singularity_cllone_kmp
+cd /absolute/path/to/your/clone   # or just stay in the repo root
 FEATURE="tasks"
 ./gradlew :shared:detekt --no-configuration-cache --no-daemon 2>&1 | tail -5
 grep -rn "feature\.$FEATURE\.data\." "shared/src/commonMain/kotlin/com/singularity/todo/feature/$FEATURE/presentation/" && echo "❌ data imported in presentation" || echo "✅"

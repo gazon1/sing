@@ -5,17 +5,22 @@ description: Run a refactor in an isolated git worktree so the main checkout sta
 
 > **When to use:** Any refactoring that touches many files, changes architecture, or requires a long-running series of PRs. Keeps main checkout clean and allows parallel work.
 
+> **`$MAIN_CHECKOUT`** below means the absolute path of your main clone. Set it once
+> before running any snippet: `export MAIN_CHECKOUT="$(git rev-parse --show-toplevel)"`
+> — run from the main checkout. It is a shell variable, so `cd $MAIN_CHECKOUT` and
+> `cp $MAIN_CHECKOUT/...` both expand; a literal placeholder would not.
+
 ## Why Worktrees
 
 Git worktrees let you work on multiple branches **simultaneously** in separate working directories, without `git stash` or uncommitted changes cluttering your main checkout.
 
-**Key benefit:** Main checkout (`~/AndroidStudioProjects/singularity_cllone_kmp`) stays clean and compilable at all times. Parallel feature work can continue there while you refactor in a worktree.
+**Key benefit:** Main checkout (`$MAIN_CHECKOUT`) stays clean and compilable at all times. Parallel feature work can continue there while you refactor in a worktree.
 
 ## Quick Reference
 
 ```bash
 # Create a new worktree for Epic N
-cd ~/AndroidStudioProjects/singularity_cllone_kmp
+cd $MAIN_CHECKOUT
 git worktree add -b refactor/techdebt-epic2 ~/work/singularity-todo-techdebt-epic2 main
 
 # Verify isolation
@@ -27,7 +32,7 @@ cd ~/work/singularity-todo-techdebt-epic2
 git push -u origin refactor/techdebt-epic2
 
 # Cleanup after merge
-cd ~/AndroidStudioProjects/singularity_cllone_kmp
+cd $MAIN_CHECKOUT
 git worktree remove ~/work/singularity-todo-techdebt-epic2
 git branch -d refactor/techdebt-epic2
 ```
@@ -59,7 +64,7 @@ Open the worktree directory as a separate project in Android Studio: `File → O
 Each epic gets its own branch and worktree:
 
 ```
-main (~/AndroidStudioProjects/singularity_cllone_kmp)
+main ($MAIN_CHECKOUT)
 ├── refactor/techdebt-epic1 (~/work/singularity-todo-techdebt) ✅ merged
 ├── refactor/techdebt-epic2 (~/work/singularity-todo-techdebt-epic2) ← current
 └── refactor/techdebt-epic3 (~/work/singularity-todo-techdebt-epic3) ← future
@@ -105,7 +110,7 @@ Pre-commit in worktrees is intentionally lightweight (compile-only). Full test r
 Worktrees share the parent's `.git` but have their own `gradle/wrapper/`. If `gradle-wrapper.jar` is missing in a new worktree:
 
 ```bash
-cp ~/AndroidStudioProjects/singularity_cllone_kmp/gradle/wrapper/gradle-wrapper.jar \
+cp $MAIN_CHECKOUT/gradle/wrapper/gradle-wrapper.jar \
    ~/work/singularity-todo-techdebt-epic2/gradle/wrapper/
 ```
 
@@ -120,13 +125,13 @@ SDK location not found. Define location with sdk.dir in the local.properties fil
 Copy from the main project:
 
 ```bash
-cp ~/AndroidStudioProjects/singularity_cllone_kmp/local.properties \
+cp $MAIN_CHECKOUT/local.properties \
    ~/work/singularity-todo-techdebt-epic2/local.properties
 ```
 
 Or create it manually:
 ```properties
-sdk.dir=/home/max/Android/Sdk
+sdk.dir=/path/to/Android/Sdk   # or omit — Android Studio writes it from ANDROID_HOME
 ```
 
 ## When NOT to use worktrees
