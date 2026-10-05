@@ -573,6 +573,63 @@ class UpdateBaselineTest(unittest.TestCase):
         self.assertIn("ROSE", stderr.getvalue())
         self.assertIn("shared:jvmTest", stderr.getvalue())
 
+    def test_hand_written_notes_survive_a_regeneration(self):
+        """The regression that produced the markers.
+
+        `--update-baseline` used to rewrite the whole file from a header literal
+        held in the script. The notes added to the file afterwards were not in that
+        literal, so a routine regeneration deleted them — measured: it destroyed the
+        record of the 1003/998 incident, which was the most valuable thing in the
+        file. The generated block is now bounded by markers and the prose outside is
+        preserved.
+        """
+        ctr.BASELINE.write_text(
+            "# Executed test counts.\n"
+            "# A hand-written note about the 1003/998 incident.\n"
+            f"{ctr.GENERATED_BEGIN}\n"
+            "shared:jvmTest 5 50 0\n"
+            f"{ctr.GENERATED_END}\n",
+            encoding="utf-8",
+        )
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        text = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertIn("1003/998 incident", text)
+        self.assertIn("shared:jvmTest 1 60 0", text)
+
+    def test_regenerating_an_already_correct_file_changes_nothing(self):
+        """A committed file that reflows on every run trains people to ignore its diff."""
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        first = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertEqual(ctr.main(), 0)
+        self.assertEqual(
+            ctr.BASELINE.read_text(encoding="utf-8"),
+            first,
+            "a second --update-baseline rewrote the file; regeneration must be a no-op "
+            "on an already-correct file",
+        )
+
+    def test_a_legacy_file_without_markers_loses_nothing(self):
+        """The state this shipped in: no markers, whole file is prose."""
+        ctr.BASELINE.write_text(
+            "# legacy header\n"
+            "# a note from before the markers existed\n"
+            "shared:jvmTest 5 50 0\n"
+            "shared:testAndroidHostTest 117 998 0\n",
+            encoding="utf-8",
+        )
+        d = self.tmp / "results" / "jvmTest"
+        write_suite(d, "C0", tests=60)
+        self.assertEqual(ctr.main(), 0)
+        text = ctr.BASELINE.read_text(encoding="utf-8")
+        self.assertIn("a note from before the markers existed", text)
+        self.assertIn("shared:testAndroidHostTest 117 998 0", text)
+        self.assertIn(ctr.GENERATED_BEGIN, text)
+        self.assertIn(ctr.GENERATED_END, text)
+
     def test_a_drop_is_not_reported_as_a_rise(self):
         self._write_baseline()
         d = self.tmp / "results" / "jvmTest"

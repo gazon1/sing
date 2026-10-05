@@ -135,6 +135,47 @@ SUITE_RE = re.compile(r'tests="(\d+)"')
 #: its outer class rather than colliding with it.
 TARGET_SUFFIX_RE = re.compile(r"\[[^\]]+\]$")
 
+#: `--update-baseline` rewrites only what is between these two lines, so the
+#: hand-written notes in the file survive a regeneration. Same convention as
+#: `Maestro/TAGS.md`.
+GENERATED_BEGIN = "# GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit"
+GENERATED_END = "# GENERATED:END"
+
+
+def prose_outside_block(text: str) -> list[str]:
+    """The lines of a baseline file that `--update-baseline` must not touch.
+
+    Everything before GENERATED_BEGIN and after GENERATED_END. On a file with no
+    markers yet — the state this shipped in — the whole file counts as prose and is
+    returned untouched, so the first run after the markers are introduced cannot lose
+    anything either. The caller appends a fresh generated block below it.
+
+    Interior blank lines are kept and only the leading and trailing ones are dropped,
+    so regenerating an already-correct file is a no-op down to the byte. A tool that
+    reorders or reflows a committed file on every run trains people to distrust its
+    diff, which is the thing that makes a real change get missed.
+    """
+    lines = text.split("\n")
+    try:
+        start = next(i for i, line in enumerate(lines) if line.startswith(GENERATED_BEGIN[:16]))
+    except StopIteration:
+        return _trim_blank_edges(lines)
+    try:
+        end = next(i for i, line in enumerate(lines) if line.startswith(GENERATED_END))
+    except StopIteration:
+        end = len(lines)
+    return _trim_blank_edges(lines[:start]) + _trim_blank_edges(lines[end + 1:])
+
+
+def _trim_blank_edges(lines: list[str]) -> list[str]:
+    start = 0
+    while start < len(lines) and not lines[start].strip():
+        start += 1
+    end = len(lines)
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return lines[start:end]
+
 #: source set label -> source roots whose *fast* classes it must have executed.
 #:
 #: Only the Gradle module roots are listed. `TEST_ROOTS` in `infra/kiwi/sync.py`
@@ -368,8 +409,20 @@ def main() -> int:
             observed[label] = found
 
     if args.update_baseline:
-        lines = [
-            "# Executed test counts, used as a floor by scripts/check-test-runs.py.",
+        # Only the block between the markers is generated. Everything outside it is
+        # hand-written and is preserved verbatim.
+        #
+        # This is not a precaution. The first version of this function rewrote the
+        # whole file from a header literal, and the header literal did not contain
+        # the notes that had been added to the file afterwards — so regenerating
+        # the floor silently deleted the record of the 1003/998 incident, which
+        # was the most valuable thing in the file. A generated region inside a
+        # hand-maintained file is the only structure that can hold both.
+        #
+        # The same convention already exists in this repository:
+        # `Maestro/TAGS.md` bounds its generated tables with GENERATED:BEND/END
+        # markers and a test verifies them.
+        header = [
             "# Format: <source-set> <classes> <tests> <max-skipped>",
             "#",
             "# Record the SMALLEST count any legitimate run produces. The default local",
@@ -394,18 +447,31 @@ def main() -> int:
             "# --update-baseline section of this file for why deleting it is a defect.",
             "#",
             "# Regenerate with: python3 scripts/check-test-runs.py --update-baseline",
+            "# (only the GENERATED block below is rewritten; the notes above it are not)",
         ]
         previous = load_baseline(BASELINE)
+        block = [GENERATED_BEGIN]
         for label in sorted(observed):
             classes, tests, skipped = observed[label]
-            lines.append(f"{label} {classes} {tests} {skipped}")
+            block.append(f"{label} {classes} {tests} {skipped}")
         for label in sorted(previous):
             if label in observed:
                 continue
             classes, tests, max_skipped = previous[label]
-            lines.append(f"{label} {classes} {tests} {max_skipped}")
+            block.append(f"{label} {classes} {tests} {max_skipped}")
+        block.append(GENERATED_END)
+
+        if BASELINE.exists():
+            # The existing file already carries its own header. The `header` literal
+            # above is only for creating a file from scratch — appending it here is
+            # how a second, contradictory copy of the same instructions ends up in
+            # the file, which is worse than the duplication it was meant to avoid.
+            existing = BASELINE.read_text(encoding="utf-8")
+            content = prose_outside_block(existing) + block
+        else:
+            content = header + ["#"] + block
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        BASELINE.write_text("\n".join(content) + "\n", encoding="utf-8")
         print(f"baseline written: {BASELINE.relative_to(ROOT)} ({len(observed)} measured)")
         for label in sorted(observed):
             classes, tests, skipped = observed[label]
