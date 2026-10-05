@@ -135,3 +135,60 @@ All domain IDs are `@JvmInline value class` wrappers over `String`:
 **Never hard-code a static user** — always inject `ProfileAwareCurrentUser`.
 
 **Used in:** all repository factories, `ProfileAwareCurrentUserTestHelper`
+
+---
+
+## Surface
+
+A **surface** is one screen a model has drawn, together with its own data model. It is the unit a chat
+message points at, and it belongs to exactly one answer: two answers sharing a surface would make an
+older message redraw whatever the newest one produced.
+
+The wire format carries a `surfaceId` chosen by the model, but that name only groups the lines of a
+single answer — `createSurface` and the `updateData` that follows it. Which answer a surface belongs
+to is the caller's decision and is expressed as a `SurfaceId` value class.
+
+**Never treat the identifier inside a message as a surface's address** — retarget it
+(`UiEvent.retargeted`) before applying.
+
+**Used in:** `feature/genui/surface/`, `feature/ai/chat/` (`ChatMessage.surfaceId`),
+`ADR 2026-10-05-genui-catalog-as-contract`
+
+---
+
+## Catalog
+
+**Also known as:** component catalog
+
+The **catalog** is the single declaration of every component a model may emit, and it is the source
+of the prompt, the validator and the JSON Schema alike. Declaring a component once and generating the
+three things that have to agree about it is what stops the model being offered something the client
+cannot render.
+
+It is identified on the wire as `catalogId = "singularity.todo/genui"`, `protocolVersion = 1` — a
+private dialect, not A2UI v0.9.
+
+**Never describe a component outside the catalog** — the prompt is generated from the declaration.
+
+**Used in:** `feature/genui/catalog/` (`A2uiCatalog`, `SingularityCatalog`),
+`ADR 2026-10-05-genui-catalog-as-contract`
+
+---
+
+## Severity
+
+Every rejection of a GenUI message carries one of three levels, and the level is what decides what
+happens:
+
+- `COMPONENT` — one component is dropped, the rest of the surface renders.
+- `ADVISORY` — reported, nothing dropped. For a reference that will arrive in a later message, and
+  for a response cut off mid-message once something usable has already arrived.
+- `MESSAGE` — the whole message is dropped.
+
+The distinction exists because streaming makes "not yet" indistinguishable from "never": discarding a
+surface because one child has not arrived yet would leave the user with nothing, every time.
+
+**Never report a truncation as a rejection when something already applied** — asking again with the
+same token limit truncates it again.
+
+**Used in:** `feature/genui/core/A2uiError.kt`, `GenuiSession`, `ADR 2026-09-26-genui-subsystem-applied-r23`

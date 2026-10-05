@@ -19,6 +19,7 @@ import com.singularity.todo.feature.ai.tools.CreateTaskTool
 import com.singularity.todo.feature.ai.tools.DecomposeAndCreateTool
 import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
 import com.singularity.todo.feature.ai.tools.DeleteNoteTool
+import com.singularity.todo.feature.ai.tools.DeleteProjectTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
 import com.singularity.todo.feature.ai.tools.ExtractActionsTool
@@ -31,6 +32,7 @@ import com.singularity.todo.feature.ai.tools.ImproveNoteTool
 import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.ai.tools.ListAdrsTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
+import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.ProjectReviewTool
@@ -61,10 +63,7 @@ import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
 import com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase
-import com.singularity.todo.feature.genui.GenuiEngine
-import com.singularity.todo.feature.genui.parser.A2uiParser
-import com.singularity.todo.feature.genui.surface.SurfaceController
-import com.singularity.todo.feature.genui.transport.GenuiTransport
+import com.singularity.todo.feature.genui.transport.BaseGenuiTransport
 import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
@@ -121,6 +120,7 @@ actual fun aiToolsModule(): Module = module {
             agent = get(),
             idGen = get(),
             crashReporter = get(),
+            genui = get(),
         )
     }
     viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
@@ -128,18 +128,9 @@ actual fun aiToolsModule(): Module = module {
 
     // ─── GenUI ───
 
-    single { SurfaceController() }
-    single { A2uiParser() }
-
-    factory<GenuiTransport> { KoogGenuiTransport(get()) }
-
-    factory {
-        GenuiEngine(
-            transport = get(),
-            parser = get(),
-            controller = get(),
-        )
-    }
+    // The bindings themselves live in one shared module; what stays here is the part that is
+    // genuinely platform-specific, which is the transport the shared module decorates.
+    single<BaseGenuiTransport> { KoogGenuiTransport(get()) }
 
     // ─── AI Use Cases ───
 
@@ -190,6 +181,15 @@ actual fun aiToolsModule(): Module = module {
     factory { DeleteNoteTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     factoryOf(::CreateProjectTool)
     factoryOf(::UpdateProjectTool)
+    // Registered on both platforms, and the Android list used to stop here.
+    // `scripts/check-readme-claims.py` caught the consequence: the AI agent on
+    // Android could create and update a project but had no tool to read the
+    // existing ones or delete one, so a conversation that named a project the
+    // user could not see or remove. Both tools take only commonMain
+    // dependencies (ProjectsRepository, ProposalRepository, ProfileAwareCurrentUser,
+    // Clock), so there was never a platform reason for the gap.
+    factory { DeleteProjectTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
+    factoryOf(::ListProjectsTool)
     factoryOf(::CreateTagTool)
     factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     // Stateless and shared: it resolves its decisions directory once, at construction.
@@ -231,6 +231,8 @@ actual fun aiToolsModule(): Module = module {
             get<DeleteNoteTool>(),
             get<CreateProjectTool>(),
             get<UpdateProjectTool>(),
+            get<DeleteProjectTool>(),
+            get<ListProjectsTool>(),
             get<CreateTagTool>(),
             get<DeleteTagTool>(),
             get<ListAdrsTool>(),

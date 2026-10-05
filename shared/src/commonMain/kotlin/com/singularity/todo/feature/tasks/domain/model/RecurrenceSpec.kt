@@ -170,3 +170,21 @@ fun RecurrenceSpec.isExhaustedBy(nextDue: kotlinx.datetime.LocalDate): Boolean {
     val end = termination?.endDate ?: return false
     return nextDue > end
 }
+
+/**
+ * This rule with [termination] attached.
+ *
+ * `copy()` is generated per variant, not on the sealed base, so there is no way
+ * to set a termination without knowing which variant you hold — until now. This
+ * dispatches once so callers that receive a `RecurrenceSpec` from elsewhere (the
+ * recurrence parser, an importer) can bound a rule they never constructed.
+ *
+ * Passing `null` returns an equivalent unbounded rule, so callers can clear a
+ * bound without a second code path.
+ */
+fun RecurrenceSpec.withTermination(termination: RecurrenceTermination?): RecurrenceSpec = when (this) {
+    is RecurrenceSpec.Interval -> copy(termination = termination)
+    is RecurrenceSpec.Weekly -> copy(termination = termination)
+    is RecurrenceSpec.Monthly -> copy(termination = termination)
+    is RecurrenceSpec.Yearly -> copy(termination = termination)
+}

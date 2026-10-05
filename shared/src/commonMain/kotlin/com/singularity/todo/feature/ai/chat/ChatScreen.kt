@@ -33,6 +33,13 @@ import com.singularity.todo.core.ui.components.MessageBubble
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.genui.render.ComponentRegistry
+import kotlinx.serialization.json.JsonElement
+import com.singularity.todo.feature.genui.render.GenuiSurface
+import com.singularity.todo.feature.genui.render.rememberDataContext
+import com.singularity.todo.feature.genui.surface.SurfaceController
+import com.singularity.todo.feature.genui.surface.SurfaceId
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -53,6 +60,9 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             ChatMessagesList(
                 messages = state.messages,
                 isLoading = state.isLoading,
+                onSurfaceAction = { name: String, context: JsonElement? ->
+                    vm.onIntent(ChatViewModel.Intent.SurfaceAction(name, context))
+                },
                 modifier = Modifier.weight(1f),
             )
             HorizontalDivider()
@@ -76,8 +86,41 @@ private fun ChatUiEvent.toNotification(): Notification = when (this) {
     is ChatUiEvent.Error -> Notification.Error(message)
 }
 
+/**
+ * Draws the surface attached to a message, if one is still there.
+ *
+ * Resolved through the layer's dependency graph rather than passed down: a screen that received a
+ * surface model would be coupled to how the model happens to be served, and a message that
+ * outlived its surface — after a profile switch, say — renders nothing rather than failing.
+ */
 @Composable
-private fun ChatMessagesList(messages: List<ChatMessage>, isLoading: Boolean, modifier: Modifier = Modifier) {
+private fun GenuiMessageSurface(
+    surfaceId: SurfaceId,
+    onSurfaceAction: (String, JsonElement?) -> Unit,
+) {
+    val controller: SurfaceController = koinInject()
+    val registry: ComponentRegistry = koinInject()
+    val ctx = rememberDataContext(
+        surfaceId = surfaceId,
+        controller = controller,
+        registry = registry,
+        // A press inside a rendered screen is the next turn of this conversation, not a call out to
+        // a tool: the model is already in context and the user is already in a flow. Swallowing it
+        // here would leave every button on every generated screen decorative.
+        onAction = { _, name, data -> onSurfaceAction(name, data) },
+        onDataChange = { _, _, _ -> },
+        clock = koinInject(),
+    )
+    GenuiSurface(ctx, Modifier.fillMaxWidth().padding(vertical = 4.dp))
+}
+
+@Composable
+private fun ChatMessagesList(
+    messages: List<ChatMessage>,
+    isLoading: Boolean,
+    onSurfaceAction: (String, JsonElement?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val listState = rememberLazyListState()
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -93,6 +136,9 @@ private fun ChatMessagesList(messages: List<ChatMessage>, isLoading: Boolean, mo
                 role = if (msg.role == ChatRole.User) BubbleRole.User else BubbleRole.Assistant,
                 content = msg.content,
             )
+            // A reply may be a sentence and a screen at once. The surface is drawn inside the
+            // bubble rather than below it so that the two read as one answer.
+            msg.surfaceId?.let { surfaceId: SurfaceId -> GenuiMessageSurface(surfaceId, onSurfaceAction) }
         }
         if (isLoading) item { ThinkingIndicator() }
     }
@@ -139,6 +185,7 @@ private fun ChatScreenLightPreview() = PreviewThemed(darkTheme = false, useSurfa
                     ),
                 ),
                 isLoading = false,
+                onSurfaceAction = { _, _ -> },
                 modifier = Modifier.weight(1f),
             )
             HorizontalDivider()
@@ -173,6 +220,7 @@ private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSur
                     ),
                 ),
                 isLoading = true,
+                onSurfaceAction = { _, _ -> },
                 modifier = Modifier.weight(1f),
             )
             HorizontalDivider()

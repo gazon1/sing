@@ -26,6 +26,24 @@ inline fun <E, T> Either<E, T>.getOrElse(default: (E) -> T): T = when (this) {
     is Either.Right -> value
 }
 
+/**
+ * The error, or `null` when this is a success.
+ *
+ * For asserting that a validation **failed**, without unwrapping the value.
+ * `isLeft` says so; this says *why*, which is what a test usually wants to pin
+ * (`leftOrNull()?.code`). For asserting success, `getOrNull` reads better.
+ */
+fun <E> Either<E, *>.leftOrNull(): E? = when (this) {
+    is Either.Left -> error
+    is Either.Right -> null
+}
+
+/** The value, or `null` when this is a failure. The success-side twin of [leftOrNull]. */
+fun <T> Either<*, T>.getOrNull(): T? = when (this) {
+    is Either.Left -> null
+    is Either.Right -> value
+}
+
 /** Maps the success value using [transform]. */
 inline fun <E, T, R> Either<E, T>.map(transform: (T) -> R): Either<E, R> = when (this) {
     is Either.Left -> this

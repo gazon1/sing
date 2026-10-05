@@ -70,28 +70,15 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
         }
     }
 
-    private fun setNode(doc: JsonObject, path: UiPath, value: JsonElement): JsonObject {
-        val segments = path.toSegmentList()
-        return setSegments(doc, segments, value)
-    }
-
-    private fun setSegments(doc: JsonObject, segments: List<String>, value: JsonElement): JsonObject {
-        if (segments.isEmpty()) {
-            return value as? JsonObject ?: JsonObject(emptyMap())
-        }
-        val key = segments[0]
-        val rest = segments.drop(1)
-
-        return if (rest.isEmpty()) {
-            // Terminal segment — set the value directly
-            JsonObject(doc.toMutableMap().apply { this[key] = value })
-        } else {
-            // Non-terminal — recursively build nested structure
-            val child: JsonObject = doc[key] as? JsonObject ?: JsonObject(emptyMap())
-            val updatedChild = setSegments(child, rest, value)
-            JsonObject(doc.toMutableMap().apply { this[key] = updatedChild })
-        }
-    }
+    /**
+     * Writing is [JsonPathWriter]'s job.
+     *
+     * It has to choose the *kind* of every node it creates along the path — array for an index,
+     * object for a name — and this class is about storing and observing the result of that choice,
+     * not about making it.
+     */
+    private fun setNode(doc: JsonObject, path: UiPath, value: JsonElement): JsonObject =
+        JsonPathWriter.write(doc, path.toSegmentList(), value)
 }
 
 /** Returns a [UiPath.Segment] for the given string, inferring Int vs String. */

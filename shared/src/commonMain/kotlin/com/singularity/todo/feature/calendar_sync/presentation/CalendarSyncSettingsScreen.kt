@@ -74,14 +74,19 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
         SettingsSection(title = "System Calendar Sync") {
             SettingsSwitchRow(
                 title = "Enable Sync",
-                subtitle = "One-way: tasks sync to your system calendar",
+                subtitle = if (state.isSupported) {
+                    "One-way: tasks sync to your system calendar"
+                } else {
+                    "Not available on this platform — system calendar sync is Android-only"
+                },
                 checked = state.isEnabled,
+                enabled = state.isSupported,
                 onCheckedChange = { viewModel.onIntent(SetEnabled(it)) },
             )
         }
 
         // ─── Calendar app picker ───────────────────────────────────────────
-        if (state.isEnabled) {
+        if (state.isEnabled && state.isSupported) {
             CalendarAppPicker(
                 selectedAppPackage = state.selectedAppPackage,
                 availableApps = state.availableApps,
@@ -90,7 +95,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
         }
 
         // ─── Calendar selection ──────────────────────────────────────────
-        if (state.isEnabled) {
+        if (state.isEnabled && state.isSupported) {
             SettingsSection(title = "Target Calendar") {
                 if (state.availableCalendars.isEmpty() && state.isLoading) {
                     Text(
@@ -118,7 +123,7 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
         }
 
         // ─── Status ───────────────────────────────────────────────────
-        if (state.isEnabled) {
+        if (state.isEnabled && state.isSupported) {
             SettingsSection(title = "Status") {
                 val statusText = when (val s = state.status) {
                     is CalendarSyncStatus.Disabled -> "Disabled"

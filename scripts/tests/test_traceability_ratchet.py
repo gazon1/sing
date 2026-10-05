@@ -117,7 +117,7 @@ class SpecSplitTest(unittest.TestCase):
                 id_prefix=name.rsplit('-', 1)[0],
                 priority='P1',
                 status=(SpecStatus.DEPRECATED if name in deprecated else SpecStatus.CONFIRMED),
-                targets=tuple(t for t, c in row.items() if c.state.is_claimed),
+                targets=tuple(t for t, c in row.items() if c.state.was_claimed),
                 preconditions='',
                 steps=(),
                 expected='',
@@ -270,7 +270,7 @@ class ReportingTest(unittest.TestCase):
         result = _run_gate(_floors(0))
         self.assertEqual(result.returncode, 1)
         for scenario, target in unreachable:
-            if not any(cell.state.is_claimed for cell in coverage.cells[scenario].values()):
+            if not any(cell.state.was_claimed for cell in coverage.cells[scenario].values()):
                 continue
             self.assertIn(
                 f"◇ {scenario} [{target}]",

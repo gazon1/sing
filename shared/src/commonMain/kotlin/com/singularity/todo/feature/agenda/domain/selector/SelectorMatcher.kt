@@ -74,7 +74,8 @@ fun Selector.matches(task: Task, today: LocalDate): Boolean = when (this) {
         task.dueDate != null &&
             task.dueDate < today && !task.isCompleted
 
-    is Selector.Regexp -> query.toRegex(RegexOption.IGNORE_CASE).containsMatchIn(task.title)
+    // Uses the selector's pre-compiled pattern: see [Selector.Regexp.compiled].
+    is Selector.Regexp -> compiled.containsMatchIn(task.title)
 
     is Selector.AllOf -> children.all { it.matches(task, today) }
 

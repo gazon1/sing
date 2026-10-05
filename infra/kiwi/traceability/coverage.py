@@ -96,12 +96,23 @@ class CellState(StrEnum):
         return _GLYPHS[self]
 
     @property
-    def is_claimed(self) -> bool:
-        """The scenario named this target, whether or not it still should.
+    def was_claimed(self) -> bool:
+        """Did the scenario ever name this target, whether or not it still does.
 
-        ``RETIRED`` counts: a retired scenario keeps the targets it *had*, so the
-        row still shows which platforms it used to cover. What retirement removes
-        is the obligation, not the record.
+        Named apart from [is_obligation] on purpose. The two answer different
+        questions and only one of them is the usual one:
+
+        - [is_obligation] — is this still owed? Every caller asking "should this
+          be automated / does it count in the denominator" wants this.
+        - [was_claimed] — did the target ever appear, so the row has something to
+          show? Only the result matrix wants this, and only because a retired
+          scenario keeps the targets it *had*: retiring a scenario removes the
+          obligation, not the record of what it used to cover.
+
+        When both were called `is_claimed`, a caller reaching for "is this owed"
+        could land on either and neither name would have said which question it
+        answered. One name per question is the whole fix; the old name answered
+        both, which is how a caller would pick the wrong one silently.
         """
         return self is not CellState.UNCLAIMED
 
@@ -295,8 +306,8 @@ def build_results(
     for scenario_id, row in coverage.cells.items():
         cells[scenario_id] = {}
         for target, cell in row.items():
-            if not cell.state.is_claimed:
-                # `is_claimed`, not `is_obligation`: a retired scenario still
+            if not cell.state.was_claimed:
+                # `was_claimed`, not `is_obligation`: a retired scenario still
                 # produced a row here, showing the targets it used to cover as
                 # not-run. Dropping it would have changed the result matrix.
                 continue

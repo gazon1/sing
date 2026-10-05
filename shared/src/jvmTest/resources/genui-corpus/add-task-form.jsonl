@@ -1,0 +1,5 @@
+{"createSurface":{"surfaceId":"form","rootId":"root","components":[{"id":"root","kind":"column","children":["title","when","submit"]},{"id":"title","kind":"text_field","label":"What needs doing?","path":"/draft/title"},{"id":"when","kind":"text_field","label":"When?","path":"/draft/when","initial":"today"},{"id":"submit","kind":"button","label":"Add","action":"create_task"}]}}
+{"updateData":{"surfaceId":"form","path":"/draft/title","value":"Water the plants"}}
+{"updateData":{"surfaceId":"form","path":"/draft/when","value":"2026-10-06"}}
+{"createSurface":{"surfaceId":"done","rootId":"card","components":[{"id":"card","kind":"card","child":"body"},{"id":"body","kind":"column","children":["title","chip","due","ok"]},{"id":"title","kind":"heading","text":"Added","level":1},{"id":"chip","kind":"project_chip","path":"/draft/project"},{"id":"due","kind":"due_date","path":"/draft/when","style":"both"},{"id":"ok","kind":"button","label":"Done","action":"close"}]}}
+{"updateData":{"surfaceId":"done","path":"/draft/project","value":"Home"}}

@@ -30,8 +30,12 @@ capture() {
 }
 
 # --- edit below ---------------------------------------------------------
+#
+# Replace these three steps with your own scenario. The placeholder below is
+# deliberately free of any specific address: this app serves no HTTP endpoint,
+# and a template that names one teaches the reader to keep a stale instruction.
 
-step "Open the app at http://localhost:3000 and sign in."
+step "Launch the app and reproduce the failure."
 
 capture ERRORED "Click the 'Export' button. Did it throw an error? (y/n)"
 
