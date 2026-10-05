@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.flows.agenda
 
+import kotlinx.datetime.LocalDate
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
@@ -48,10 +48,8 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class AgendaBadgePolicyFlowTest {
-
     @Test
-    fun pinned_task_shows_pinned_badge() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun pinned_task_shows_pinned_badge() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = today, title = "Pinned task", isPinned = true)
 
         tapTab("Today")
@@ -64,8 +62,7 @@ class AgendaBadgePolicyFlowTest {
     // @Test fun recurring_task_shows_recurring_badge() = ...
 
     @Test
-    fun completed_task_shows_completed_badge() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun completed_task_shows_completed_badge() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = today, title = "Done task", completed = true)
 
         tapTab("Today")
@@ -86,7 +83,7 @@ class AgendaBadgePolicyFlowTest {
     }
 
     @Test
-    fun undated_task_shows_no_date_badge() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun undated_task_shows_no_date_badge() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).givenUndated(title = "Undated task")
 
         tapTab("Inbox")
@@ -94,8 +91,7 @@ class AgendaBadgePolicyFlowTest {
     }
 
     @Test
-    fun blocked_task_shows_blocked_badge() = runDesktopAppTest(checkA11y = true) { koin ->
-        val today = todayInSystemZone()
+    fun blocked_task_shows_blocked_badge() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         val depId = TaskId("robot-dep-0")
 
         // Seed an incomplete dependency
@@ -117,9 +113,15 @@ class AgendaBadgePolicyFlowTest {
     }
 
     private companion object {
+        // Two dates, because two of these tests are *about* a distance in time: one
+        // pins a task 10 days back and asserts the overdue badge, the other 5 days
+        // back and asserts none. A single instant cannot express both, and this file
+        // already had the pattern — the generalisation is the name.
         /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
         val OVERDUE_NOW: Instant = Instant.parse("2026-09-15T10:00:00Z")
         val OVERDUE_CLOCK: FakeClock = FakeClock(OVERDUE_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
-
 }

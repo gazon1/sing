@@ -219,7 +219,80 @@ SCRIPT_GATES = [
         sabotage="_t = p.read_text(); _lines = _t.splitlines(keepends=True); del _lines[1]; p.write_text(''.join(_lines))",
         why="a skill without a description is undiscoverable, so the check must reject it",
     ),
+    ScriptGate(
+        name="provenance",
+        cmd=[sys.executable, "scripts/check-provenance.py"],
+        # The registry, not a source file. Sabotaging a source file would prove the
+        # wrong direction: every PORTED file already carries a marker, so removing
+        # one would test nothing. Removing a *row* is the honest control — it
+        # leaves a file naming an upstream with no registry entry, which is the
+        # exact state the gate was written to reject.
+        sabotage_path="config/legal/provenance-registry.tsv",
+        sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'QueryTokenizer' not in l) + '\\n')",
+        why="a GPL upstream named in production code with no registry row is a licence claim nobody is tracking",
+    ),
+    ScriptGate(
+        name="pro-licence-boundary",
+        cmd=[sys.executable, "scripts/check-pro-licence-boundary.py"],
+        # The vendor dependency, reintroduced into a free build file. That is the exact
+        # regression this gate exists to catch: `ru.ok.tracer` was a direct `implementation`
+        # dependency of `:shared` and `:androidApp` until 2026-10-05, so it is a change
+        # that has already happened once and can happen again by copy-paste.
+        sabotage_path="shared/build.gradle.kts",
+        sabotage="p.write_text(p.read_text() + '\\ndependencies { implementation(\"ru.ok.tracer:tracer-crash-report:1.4.0\") }\\n')",
+        why="proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour",
+    ),
+    ScriptGate(
+        name="traceability-ratchet",
+        cmd=[sys.executable, "scripts/check-traceability-ratchet.py"],
+        # A spec, not the floor file. The floor is the gate's own configuration,
+        # so raising it is a legitimate edit that must not be read as a
+        # regression — the control has to make the *corpus* worse instead. This
+        # is the shape of the change the gate exists for: claiming one more
+        # target on a scenario that has no carrier for it. The `assert` is what
+        # stops the control silently becoming a no-op if the spec is ever
+        # reformatted — the failure this file was written for, and it already
+        # happened once to the test-runs control.
+        sabotage_path="infra/kiwi/scenarios/tasks/checklist/TASK-CHECK-01.yaml",
+        sabotage=(
+            "import re\n"
+            "_t = p.read_text()\n"
+            "_t2, _n = re.subn(r'^targets: \\[desktop\\]$', 'targets: [desktop, android]', _t, count=1, flags=re.M)\n"
+            "assert _n == 1, 'targets line not found — the control would be a no-op'\n"
+            "p.write_text(_t2)\n"
+        ),
+        why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
+    ),
+    ScriptGate(
+        name="room-schema-integrity",
+        cmd=[sys.executable, "scripts/check-room-schema-integrity.py"],
+        # The exact defect this gate was written after: `SyncColumns.server_version`
+        # was added to `sync_shadow`, the export moved to 37, and `SCHEMA_VERSION`
+        # stayed at 36. Room's identity-hash check then failed for every user with
+        # an existing database — an `IllegalStateException` at first query, invisible
+        # to a suite whose tests each create their own database. Sabotaging the
+        # annotation reproduces that state, so the control is the real bug rather
+        # than a convenient one.
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt",
+        sabotage="p.write_text(p.read_text().replace('const val SCHEMA_VERSION = 37', 'const val SCHEMA_VERSION = 36'))",
+        why="an entity change without a version bump passes every test and crashes every existing install on upgrade",
+    ),
+    ScriptGate(
+        name="dependency-usage",
+        cmd=[sys.executable, "scripts/check-dependency-usage.py", "--quiet"],
+        sabotage_path="scripts/dependency-usage-allowlist.txt",
+        # The gate runs against the repository, so the control can use the same
+        # invocation and the same target every time — no fabricated resolution,
+        # no Gradle, and no second input format to keep honest. Dropping one
+        # allowlist line turns that dependency into a finding the gate must
+        # report, which is exactly the moment the list stops matching reality.
+        sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'kermit-koin' not in l) + '\\n')",
+        why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one",
+    ),
 ]
+# The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
+# keys on the script path, not the full command, so this one registration covers both
+# the repository check and the self-test that proves the rule still fires.
 
 
 # ── Part F: the registry is derived from registration ───────────────────────
@@ -403,6 +476,42 @@ SABOTAGE_ONLY_GATES = [
         target_is_dir=True,
     ),
     ScriptGate(
+        name="suppression-intent",
+        cmd=[sys.executable, "scripts/check-suppression-intent.py"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt",
+        # Strip the whole reason block from a file that has one under the
+        # annotation. That is the shape a thirteenth unjustified suppression
+        # arrives in, and it is a *comment* route specifically because six of the
+        # ten current exemptions are justified through the registry instead — a
+        # control that only exercised one of the two escapes would leave the
+        # other untested. The registry route is covered by the gate's own unit
+        # tests, which run it against an empty registry and require the verdict
+        # to change.
+        #
+        # The reason is removed *in full*, not line by line: the gate reads a
+        # four-line window, so dropping only the first comment line left the rest
+        # of the justification in place and the control passed a file that was
+        # still justified. The first version of this entry did exactly that and
+        # reported a working control over a sabotaged file.
+        sabotage=(
+            "_t = p.read_text()\n"
+            "_lines = _t.splitlines(keepends=True)\n"
+            "assert _lines[0].startswith('@file:Suppress'), 'unexpected file shape'\n"
+            "assert _lines[1].lstrip().startswith('//'), 'no reason line to strip'\n"
+            "_out, _dropped = [_lines[0]], 0\n"
+            "for _ln in _lines[1:]:\n"
+            "    if _ln.lstrip().startswith('//'):\n"
+            "        _dropped += 1\n"
+            "        continue\n"
+            "    if _dropped and not _ln.strip():\n"
+            "        continue\n"
+            "    _out.append(_ln)\n"
+            "assert _dropped >= 2, 'expected a multi-line reason, found ' + str(_dropped)\n"
+            "p.write_text(''.join(_out))\n"
+        ),
+        why="a file-level suppression with no recorded reason switches a rule off for every future call in that file",
+    ),
+    ScriptGate(
         name="test-task-inputs",
         cmd=[sys.executable, "scripts/check-test-task-inputs.py"],
         sabotage_path="shared/build.gradle.kts",
@@ -428,8 +537,45 @@ def run_gate(cmd: list[str]) -> int:
     return proc.returncode
 
 
+#: Flags that disable a gate's own failure. Kept as a list rather than a
+#: per-gate field because the rule is the same for every one of them, and a
+#: per-gate field would let a gate opt itself out of the rule that covers it.
+FORBIDDEN_IN_REGISTERED_INVOCATIONS = ("--accept-growth", "--warn-only")
+
+
+def check_escape_hatches() -> list[str]:
+    """A gate registered with its own off-switch is a gate that cannot fail.
+
+    `check-traceability-ratchet.py --accept-growth` is honest: it exists for the
+    commit that knowingly opens holes, and it prints loudly when used. The
+    problem is not the flag, it is the flag in the *registered* invocation. Once
+    `--accept-growth` is in `check.sh` and in the workflow, the gate is green on
+    every future regression, and the only trace is a word in a command line that
+    no reviewer reads as a policy change — which is the same defect as a
+    `--warn-only` that got committed, one level up.
+
+    The escape stays available for a deliberate one-off; what is forbidden is
+    making it the default. So the check is on the registry entry, not on the
+    script: the flag must never appear in a `cmd` that `check.sh`, a workflow or
+    a recipe installs as the standing invocation.
+    """
+    errors: list[str] = []
+    for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES, *FIXTURE_GATES]:
+        joined = " ".join(gate.cmd)
+        for flag in FORBIDDEN_IN_REGISTERED_INVOCATIONS:
+            if flag in joined:
+                errors.append(
+                    f"gate '{gate.name}' is registered with {flag}, which turns it "
+                    f"into a gate that cannot fail. Use it for a single deliberate "
+                    f"commit invocation, never in the standing one."
+                )
+    return errors
+
+
+
 def check_can_fail() -> list[str]:
     errors: list[str] = []
+    errors += check_escape_hatches()
     # `SCRIPT_GATES + SABOTAGE_ONLY_GATES` is the sabotage registry;
     # `FIXTURE_GATES` is the same property proved a different way. Both are
     # checked here so the two kinds cannot drift apart in *when* they run.

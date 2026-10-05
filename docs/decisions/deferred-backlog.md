@@ -93,7 +93,7 @@ not exist.
 
 **Status: CLOSED.** 2026-10-05.
 
-**Tracked as:** [#148](https://github.com/gazon1/singularity-clone-kmp/issues/148)
+**Tracked as:** [#148](https://github.com/gazon1/sing/issues/148)
 
 **Found in:** the gate audit in
 `2026-10-05-gate-audit-text-shape-vs-fact` (0A.5), which asked every test gate
@@ -137,7 +137,7 @@ unreachable tag, `TAGS=smoke` selects 19.
 
 **Status: OPEN**
 
-**Tracked as:** [#170](https://github.com/gazon1/singularity-clone-kmp/issues/170)
+**Tracked as:** [#170](https://github.com/gazon1/sing/issues/170)
 
 **Found in:** the plan `Ремонт измеримости и сценарии покрытия` (срезы 2-14), and
 then re-confirmed by code on 2026-10-05 once the traceability machinery landed.
@@ -180,7 +180,7 @@ because some will turn out unnecessary.
 
 **Status: OPEN**
 
-**Tracked as:** [#171](https://github.com/gazon1/singularity-clone-kmp/issues/171)
+**Tracked as:** [#171](https://github.com/gazon1/sing/issues/171)
 
 **Found in:** the same plan, 0C.1, and re-confirmed on 2026-10-05 while checking
 which of the queued scenarios have a prerequisite rather than only a missing test.
@@ -210,7 +210,7 @@ first scenario that needs it, and its requirements are the honest ones.
 
 **Status: OPEN**
 
-**Tracked as:** [#173](https://github.com/gazon1/singularity-clone-kmp/issues/173)
+**Tracked as:** [#173](https://github.com/gazon1/sing/issues/173)
 
 **Found in:** the gate audit in
 `2026-10-05-gate-audit-text-shape-vs-fact`, while asking what input passes the
@@ -602,7 +602,7 @@ null text to the snackbar host, or make the parameter non-null).
 
 ## agenda-views-not-in-backup
 
-**Tracked as:** [#77](https://github.com/gazon1/singularity-clone-kmp/issues/77) · OpenSpec change `backup-include-remaining-tables` (proposed)
+**Tracked as:** [#77](https://github.com/gazon1/sing/issues/77) · OpenSpec change `backup-include-remaining-tables` (proposed)
 
 **Found in:** MR-0, свип BackupPayload vs Room tables.
 
@@ -666,7 +666,7 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 
 ## agenda-reachability-byTags-no-ui-entry
 
-**Tracked as:** [#81](https://github.com/gazon1/singularity-clone-kmp/issues/81) · OpenSpec change `agenda-tags-entry-point` (proposed)
+**Tracked as:** [#81](https://github.com/gazon1/sing/issues/81) · OpenSpec change `agenda-tags-entry-point` (proposed)
 
 **Found in:** MR-0, кодовая разведка навигации.
 
@@ -702,7 +702,7 @@ one. That is a product decision, not a gap in the engine.
 
 **Status: OPEN**
 
-**Tracked as:** [#78](https://github.com/gazon1/singularity-clone-kmp/issues/78) · OpenSpec change `delete-safety-feedback` (proposed)
+**Tracked as:** [#78](https://github.com/gazon1/sing/issues/78) · OpenSpec change `delete-safety-feedback` (proposed)
 
 **Found in:** MR-1 retro-gate, `AgendaViewModel.onUndoDelete`.
 
@@ -721,7 +721,7 @@ an error snackbar; or emit a `AgendaUiEvent.ShowError` event.
 
 **Status: OPEN**
 
-**Tracked as:** [#79](https://github.com/gazon1/singularity-clone-kmp/issues/79) · OpenSpec change `delete-safety-feedback` (proposed)
+**Tracked as:** [#79](https://github.com/gazon1/sing/issues/79) · OpenSpec change `delete-safety-feedback` (proposed)
 
 **Found in:** MR-1, attempting to add `Scaffold` + `SnackbarHost` to `TaskDetailViewScreen`.
 Private composables (`LoadingState`, `ErrorState`, etc.) are defined at file level and
@@ -741,7 +741,7 @@ parent nav-graph level and pass it down.
 
 **Status: OPEN**
 
-**Tracked as:** [#80](https://github.com/gazon1/singularity-clone-kmp/issues/80) · OpenSpec change `delete-safety-feedback` (proposed)
+**Tracked as:** [#80](https://github.com/gazon1/sing/issues/80) · OpenSpec change `delete-safety-feedback` (proposed)
 
 **Found in:** MR-1 retro-gate. `LaunchedEffect(pendingDelete)` only re-triggers on
 value changes, not on a timer. The snackbar shows no visual countdown.
@@ -758,7 +758,7 @@ inside the snackbar, animated from 100% to 0% over 5 seconds using `animateFloat
 
 **Status: OPEN**
 
-**Tracked as:** [#82](https://github.com/gazon1/singularity-clone-kmp/issues/82) · OpenSpec change `bulk-import-port` (proposed)
+**Tracked as:** [#82](https://github.com/gazon1/sing/issues/82) · OpenSpec change `bulk-import-port` (proposed)
 
 **Found in:** MR-1, `BackupImporter` class KDoc and architecture review.
 
@@ -776,7 +776,7 @@ and routes writes through repositories. Replace DAO calls in `BackupImporter` wi
 
 **Status: OPEN**
 
-**Tracked as:** [#83](https://github.com/gazon1/singularity-clone-kmp/issues/83)
+**Tracked as:** [#83](https://github.com/gazon1/sing/issues/83)
 
 **Found in:** MR-6, while writing `ViewModelTestCoverageTest` (the Phase 6
 "every VM has a test" gate). Pre-existing — none of these were introduced by the
@@ -838,7 +838,7 @@ silently.
 
 **Status: OPEN**
 
-**Tracked as:** [#84](https://github.com/gazon1/singularity-clone-kmp/issues/84)
+**Tracked as:** [#84](https://github.com/gazon1/sing/issues/84)
 
 **Found in:** MR-6, chasing journey 07's empty profile picker.
 
@@ -866,7 +866,7 @@ wrong.
 
 **Status: OPEN**
 
-**Tracked as:** [#85](https://github.com/gazon1/singularity-clone-kmp/issues/85)
+**Tracked as:** [#85](https://github.com/gazon1/sing/issues/85)
 
 **Found in:** MR-6, while building the agenda coverage ratchet.
 
@@ -902,7 +902,7 @@ rather than measured, and a note is a promise, not a proof.
 
 **Status: OPEN**
 
-**Tracked as:** [#86](https://github.com/gazon1/singularity-clone-kmp/issues/86)
+**Tracked as:** [#86](https://github.com/gazon1/sing/issues/86)
 
 **Found in:** MR-6 follow-up, while adding the Maestro gate recipe.
 
@@ -940,7 +940,7 @@ mechanical sweep and a mechanical fix.
 
 **Status: OPEN**
 
-**Tracked as:** [#87](https://github.com/gazon1/singularity-clone-kmp/issues/87)
+**Tracked as:** [#87](https://github.com/gazon1/sing/issues/87)
 
 **Found in:** 2026-10-04, while adding the `maestro-smoke` CI job.
 
@@ -992,7 +992,7 @@ Still unproven, and unchanged by any of the above:
 
 **Status: OPEN**
 
-**Tracked as:** [#88](https://github.com/gazon1/singularity-clone-kmp/issues/88)
+**Tracked as:** [#88](https://github.com/gazon1/sing/issues/88)
 
 **Found in:** 2026-10-04, the first iteration of the "what next" sweep — while
 asking which recorded findings were still true, instead of which were still
@@ -1131,7 +1131,7 @@ repository that would have caught any of the three defects above.
 
 **Status: OPEN**
 
-**Tracked as:** [#89](https://github.com/gazon1/singularity-clone-kmp/issues/89)
+**Tracked as:** [#89](https://github.com/gazon1/sing/issues/89)
 
 **Found in:** 2026-10-04, twice, in one session — the second time it destroyed
 the run it was supposed to be checking.
@@ -1212,7 +1212,7 @@ proposed in `2026-10-04-testtag-visibility-helper.md`.
 
 **Status: OPEN**
 
-**Tracked as:** [#90](https://github.com/gazon1/singularity-clone-kmp/issues/90)
+**Tracked as:** [#90](https://github.com/gazon1/sing/issues/90)
 
 **Found in:** 2026-10-04, the third `smoke` run, immediately after
 `tasks/04-delete` was fixed — and the same root cause as
@@ -1261,7 +1261,7 @@ text. Both are the same defect: **a selector that a translator can move.**
 
 **Status: OPEN**
 
-**Tracked as:** [#91](https://github.com/gazon1/singularity-clone-kmp/issues/91)
+**Tracked as:** [#91](https://github.com/gazon1/sing/issues/91)
 
 **Found in:** 2026-10-04, while adding a `clock` parameter to the desktop test
 harness (`runDesktopAppTest`) — the fix the backlog had asked for since MR-0.
@@ -1324,7 +1324,7 @@ class-level injection plus a rule, not a point fix in the calendar.
 
 **Status: OPEN**
 
-**Tracked as:** [#92](https://github.com/gazon1/singularity-clone-kmp/issues/92)
+**Tracked as:** [#92](https://github.com/gazon1/sing/issues/92)
 
 **Found in:** 2026-10-04, the second full `smoke` run on the fixed harness.
 
@@ -1922,8 +1922,6 @@ loosening a real constraint. Whichever is chosen, the other file has to change
 too — leaving the mismatch in place is what produced the confusion.
 
 
-
-
 ---
 
 ## direct-dispatchers-mostly-sit-in-platform-ports-where-they-are-correct
@@ -2122,8 +2120,6 @@ The same trap bit `:shared:detektBaseline` three separate ways; see
 `detektbaseline-caches-its-output-and-cannot-drain`.
 
 
-
-
 ---
 
 ## autocorrect-touches-files-outside-the-change
@@ -2162,9 +2158,6 @@ present on a clean `HEAD`, not introduced by B2). A cleanup commit should declar
 that rule rather than leave it on detekt's default.
 
 
-
-
-
 ---
 
 ## no-consecutive-blank-lines-was-never-declared
@@ -2196,9 +2189,6 @@ zero, then delete the baseline entry.
 
 Related: `autocorrect-touches-files-outside-the-change` — the same file is one of
 the five `--auto-correct` wanted to rewrite.
-
-
-
 
 
 ---
@@ -2320,10 +2310,6 @@ Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
 `kover-report` job was **red on `main`** for this reason. A job that is red for a
 reason nobody reads is the same failure as a gate that is green for a reason nobody
 checks.
-
-
-
-
 
 
 ---
@@ -2502,7 +2488,7 @@ the other two. If it is genuinely 4/18 after a forced re-run, plant a side effec
 
 **Status: CLOSED** (2026-10-05) — fixed, and the count above was wrong twice. See the correction.
 
-**Tracked as:** [#143](https://github.com/gazon1/singularity-clone-kmp/issues/143) ·
+**Tracked as:** [#143](https://github.com/gazon1/sing/issues/143) ·
 `openspec/changes/scope-reporter-agreement/`
 
 **Found in:** 2026-10-05, the sweep that followed the crash-reporting migration — asking what
@@ -2549,7 +2535,7 @@ person auditing this class of gap will be tempted to stop at the binding.
 
 **Status: CLOSED** (2026-10-05) — the missing test found a real defect on its first run.
 
-**Tracked as:** [#144](https://github.com/gazon1/singularity-clone-kmp/issues/144) ·
+**Tracked as:** [#144](https://github.com/gazon1/sing/issues/144) ·
 `openspec/changes/failure-visibility/` (REQ-3)
 
 **Found in:** 2026-10-05, re-reading `openspec/changes/failure-visibility/tasks.md` against the tree
@@ -2592,7 +2578,7 @@ two lists, because a reversed pair and a correct pair produce identical two list
 
 **Status: CLOSED** (2026-10-05) — `--check` now fails on a rule with no positive control.
 
-**Tracked as:** [#145](https://github.com/gazon1/singularity-clone-kmp/issues/145) ·
+**Tracked as:** [#145](https://github.com/gazon1/sing/issues/145) ·
 `openspec/changes/detekt-tooling-honesty/`
 
 **Found in:** 2026-10-05, running `python3 scripts/gen-detekt-rule-table.py --check` to confirm the
@@ -2622,7 +2608,7 @@ because a sabotage test that fails for the adjacent reason looks like a passing 
 **Status: CLOSED** (2026-10-05) — the ratchet now refuses to report a floor from a run that
 executed nothing. The underlying anomaly is #138's and stays open.
 
-**Tracked as:** [#146](https://github.com/gazon1/singularity-clone-kmp/issues/146) ·
+**Tracked as:** [#146](https://github.com/gazon1/sing/issues/146) ·
 `openspec/changes/detekt-tooling-honesty/`
 
 **Found in:** 2026-10-05, while reasoning about #138's leading hypothesis — that `jvmTest` came back
@@ -2831,7 +2817,7 @@ reachability rule.
 
 **Status: OPEN**
 
-**Tracked as:** [#174](https://github.com/gazon1/singularity-clone-kmp/issues/174)
+**Tracked as:** [#174](https://github.com/gazon1/sing/issues/174)
 
 **Found in:** 2026-10-05, merging 11 upstream commits and running the gate afterwards.
 
@@ -2862,7 +2848,7 @@ this is filed rather than patched into the archive.
 
 **Status: OPEN**
 
-**Tracked as:** [#186](https://github.com/gazon1/singularity-clone-kmp/issues/186)
+**Tracked as:** [#186](https://github.com/gazon1/sing/issues/186)
 
 **Found in:** 2026-10-05, closing #153 — the duplicated-test-helpers issue whose
 premise turned out to be false, so the real defect had to be looked for.
@@ -2897,7 +2883,7 @@ unification would likely produce. Then a small shared scan-root provider in
 
 **Status: OPEN**
 
-**Tracked as:** [#197](https://github.com/gazon1/singularity-clone-kmp/issues/197)
+**Tracked as:** [#197](https://github.com/gazon1/sing/issues/197)
 
 **OpenSpec change:** `openspec/changes/calendar-palette-follows-the-theme/`
 (capability `app-theming`, REQ-THEME-001/002/003)
@@ -2949,10 +2935,18 @@ could read scheme roles directly.
 
 **Status: OPEN**
 
-**Tracked as:** [#198](https://github.com/gazon1/singularity-clone-kmp/issues/198)
+**Tracked as:** [#198](https://github.com/gazon1/sing/issues/198)
 
 **OpenSpec change:** `openspec/changes/tasks-tokens-follows-the-theme/`
 (capability `app-theming`, REQ-THEME-004/005/006)
+
+**Status update 2026-10-05: PARTIALLY CLOSED.** The two token objects are gone
+and all 27 literals now live in `theme/TaskSemanticColors.kt`; 19 consumer files
+read the active scheme. What remains is not this entry but two follow-ups found
+while doing it: #199 (the other four screens that carry the same defect, which
+this entry's "counted 47 literals" figure under-reported because it was scoped to
+`feature/*/presentation` and three of those files sit outside that segment), and
+the duplicate `priorityColor` noted below.
 
 **Found in:** 2026-10-05, immediately after the MaterialKolor seed-palette
 change (ADR `2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`),
@@ -3008,7 +3002,265 @@ role, and `PriorityChip`'s green/amber/red/pink is correct as data. Then verify
 by eye across all nine accents in both modes, starting with the light theme on
 the task list, because that is the largest visible delta in the app.
 
-A Konsist rule — no `Color(0x…)` literal outside a `*/theme/*` token file, and
-none in a `feature/*/presentation` file at all — would stop this regrowing. It
-will fail loudly on the current tree, so land it *after* the conversion, not
-before.
+A Konsist rule now exists and is live in `ArchitectureTest`
+(`colour literals live in theme files, not in feature code`), validated with a
+negative control: a literal injected into a non-theme feature file makes it fail.
+Its scope is the **whole `feature/` tree**, not `feature/*/presentation` — three
+screens keep their composables directly under `feature/<x>/`, so the narrower
+scope would have passed while 22 literals sat outside it. The allowlist that
+keeps it green names six files; #199 tracks the four that still need converting.
+
+---
+
+## four-worktrees-hold-uncommitted-work
+
+**Found in:** 2026-10-05, while assessing branch and worktree hygiene before
+re-deriving the publication history. The proposed cleanup was "prune dead
+worktrees and consolidate 84 branches"; measuring first showed that framing
+was wrong.
+
+**Status: OPEN**
+
+**Tracked as:** #202
+
+**Symptom:** 17 worktree directories exist, and four of them carry work that
+exists nowhere else:
+
+- `singularity-todo-business-01` — **an interactive rebase stopped mid-flight**
+  (`UU docs/testing/coverage-matrix.md`, 7 changed files, 2 completed picks of 7
+  pending). Its branch content is not reachable from `origin/main`.
+- `singularity-todo-notes-body` — 50 changed files on
+  `refactor/notes-canonical-body`.
+- `singularity-todo-pallete` — 35 changed files on `feature/pallete`.
+- `singularity-todo-test-scences` — 52 changed files on `feat/test-scences`.
+
+Also: 42 local branches are unmerged into `origin/main`; 21 of those are checked
+out in a worktree and 21 are not. A `git branch -D` sweep or a `git worktree
+remove` without reading `git status` in each would destroy the four blocks above
+and 21 unmerged branch tips.
+
+**Already ruled out:** none of this is garbage. The rebase in `business-01` is
+interrupted mid-sequence, not failed — the completed picks are recoverable with
+`git rebase --continue`. The other three are ordinary in-progress work on
+branches that were never merged.
+
+**Try next:** decide per worktree, not per rule. `business-01` first: finish or
+abort the rebase deliberately, because an interrupted rebase is also a trap for
+the *next* person — `git status` in that directory reports a conflict rather than
+the feature it looks like it is working on. Then triage the three dirty branches
+by whether their work is superseded by `origin/main` or still wanted. Only after
+that, prune: the 21 unmerged branches without worktrees are the cheap case, and
+even they should be listed for a human first.
+
+The generalisable lesson: "clean up the repository" is not a safe instruction to
+hand to an agent, and neither is "there are 84 branches and 46 worktrees". Both
+numbers invite a bulk delete, and the interesting content is in the four
+directories that are not clean.
+
+---
+
+### Two things the conversion found that this entry did not
+
+**1. Priority was three scales, not one.** `PriorityPalette` always documented
+two coexisting palettes, and the divergence between them is deliberate — the
+editor is a form, the list is a list, and the reds are tuned differently on
+purpose. But `PriorityChip.kt` held a **third** set of four values
+(`4CAF50` / `FF9800` / `F44336` / `E91E63`) that was never registered in the enum
+and never documented, in a function also named `priorityColor` — shadowing the
+canonical one in a sibling package with different values. The compiler will not
+flag that and a reviewer will not notice; the unit test covers the list one only.
+The chip's values are now preserved exactly as a documented third palette, and
+its function is renamed `priorityChipColor`.
+
+**2. The two palettes were near-duplicates.** `TaskColors.Surface` and
+`TaskListColors.Surface` were both `0xFF161A22`; their backgrounds differed
+(`0xFF0F1115` vs `0xFF0B0E14`) and their text primaries differed
+(`0xFFE2E4E9` vs `0xFFF2F3F5`). Two hand-maintained copies of one palette, which
+is why they had drifted. There was no need to unify them by hand — both now
+resolve from the same scheme, so they are identical by construction.
+
+---
+
+## a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog
+
+**Status: OPEN**
+
+**Tracked as:** [#205](https://github.com/gazon1/sing/issues/205)
+
+**Found in:** 2026-10-05, while trying to close the gap that let MaterialKolor
+sit declared-but-unimported in the catalog and on the `commonMain` classpath
+while nothing referenced it.
+
+**Situation.** `scripts/find-unwired-surfaces.py` counts symbols. A declared
+dependency has no symbol to count until something imports it, so a library that
+is vendored, resolved onto the classpath and called by nobody passes every
+current gate. The obvious gate — "every `[libraries]` entry has at least one
+import" — was assumed cheap in planning and is not.
+
+**Why not.** A Gradle module coordinate does not determine the import package.
+Mapping `org.jetbrains.compose.material3:material3` to the package a source file
+imports is not a prefix operation; that one is `androidx.compose.material3`.
+Measured on this tree: a first two-segment heuristic over all 98 library entries
+reports **45 of 98 as unused**, and every one of those 45 is used. The heuristic
+is wrong in nearly half the catalog, and a gate with 46% false positives is worse
+than no gate — it trains everyone to ignore it.
+
+**Checks already performed.** Ran the heuristic across `shared/src`,
+`androidApp/src`, `desktopApp/src` and `mcp-server/src`; counted the false
+positives by hand for the whole result set. Confirmed the mapping is the problem,
+not the source sets (the failing entries are widely used: `koin-core`,
+`compose-material3`, `kotlinx-coroutines-core`, `coil-compose`).
+
+**Try next:** stop mapping coordinates to packages and read the packages out of
+the resolved artifacts instead. A Gradle task that prints, per source set, the
+resolved files with their originating coordinates gives a coordinate → artifact
+map; scanning each artifact's entries for its package roots yields the real
+mapping, including the KMP case where one coordinate contributes several
+artifacts. The gate then compares that map against the catalog and needs no
+guessing. Budget it as a small Gradle task plus a Konsist check, not a grep.
+
+**Do not** re-attempt the prefix heuristic and "just allowlist the false
+positives": a 45-entry allowlist of libraries that are definitely used is
+indistinguishable, to the next reader, from a 45-entry list of libraries that
+genuinely are not.
+
+---
+
+## billing-entitlement-is-a-port-without-a-caller
+
+**Found in:** 2026-10-05, while assessing what stands between the tree and the
+first paid feature.
+
+**Status: CLOSED — 2026-10-05. Both defects fixed; the port is still unconsumed, which is now a deliberate state rather than an oversight.** Closed by
+`docs/decisions/2026-10-05-entitlement-is-scoped-by-sync-scope.md` and
+`openspec/changes/entitlement-belongs-to-a-sync-scope/`.
+
+The cast that denied paying customers is gone: `entitlement(scope): StateFlow<Entitlement>`
+is read-only in its signature, so there is no mutable supertype to downcast to.
+`hasAccount` is independent of subscription, `Unknown` is separate from a denial, and
+`refresh` returns `Result` so an outage cannot present itself as a paywall. Entitlement is
+scoped by `SyncScope` — the pair sync state belongs to — and the positive case that was
+named-but-never-written now exists against a fake shaped like a real provider.
+
+What remains true and is not a defect: no real billing provider is connected, so every
+scope reads `Unknown`. That is the honest state of a project that has not shipped a paid
+feature. Wiring the first paid feature is now a consumer question rather than a
+port-correctness one.
+
+**Tracked as:** #204
+
+**Symptom:** `core/billing` is five files — `SubscriptionProvider`,
+`SubscriptionInfo`, `PurchaseState`, `purchaseStateFor`, `NoopSubscriptionProvider` —
+registered in `CoreDiModule` and injected nowhere. `hasPro` gates nothing; there
+is no second `if (hasPro)` anywhere in the tree.
+
+**The defect inside it, which matters more than the missing caller.**
+`purchaseStateFor` reads the provider's flow by downcasting it:
+
+    (flow as? MutableStateFlow)?.value
+
+`NoopSubscriptionProvider` exposes a `MutableStateFlow`, so the cast succeeds and
+the tests pass. A real provider — Google Play Billing, RevenueCat — will expose a
+read-only `StateFlow` or a `SharedFlow`, and `asStateFlow()` returns a
+`ReadonlyStateFlow` that is **not** a `MutableStateFlow`. The cast then yields
+`null` for a paying user, and the derived state says "no subscription": a customer
+who has paid is denied. No exception, no log line, no crash.
+
+The existing test is named `hasPro true when subscription is present` and
+asserts the opposite, with a comment saying the positive case needs a real
+provider. That is an accurate description of why the case is unwritable today,
+but it leaves the defect invisible: a test named for the behaviour it does not
+check reads as coverage in any inventory.
+
+**A second defect in the same function, found while writing the first one up.**
+`hasAccount` is derived as `info != null` — that is, "the user has an *active
+paid subscription*". Its own KDoc says "the user has a linked account (even free
+tier)". A free-tier user with a signed-in account therefore reads as
+`hasAccount = false`. The two fields cannot both be right: with a single
+`SubscriptionProvider` source, `hasAccount` is not a function of entitlement at
+all, and deriving it from a paid subscription is what makes the triple look
+independently meaningful when it is not.
+
+This one is also inert today, for the same reason as the first, and it is worth
+naming separately because it will not be fixed by fixing the cast: the KDoc and
+the body disagree about what the field *means*, and that is a decision about the
+entitlement model rather than a type error.
+
+**Already ruled out:** not reachable today. Nothing injects the port, so the
+function is not called in production and the bug cannot yet deny anyone. It is
+recorded now because it becomes a *revenue* defect the moment the first paid
+feature is wired — which is the one moment nobody is re-reading this code.
+
+**Try next:** decide the paid feature first, then fix the read. The fix is
+mechanical — `subscription.first()` in a `suspend` function, or expose a
+`currentSubscription` property on the port — but choosing it means deciding
+whether entitlement is a *snapshot* (a suspend read) or *state* (a Flow the UI
+observes), and that choice belongs with the feature, not with a bug report. Write
+the missing positive-case test with a fake provider exposing a read-only
+`StateFlow` before shipping anything that charges money.
+
+---
+
+## gate-wiring-runs-before-the-tests-it-depends-on
+
+**Found in:** 2026-10-05, while re-running the full gate after adding tests to
+`:pro`.
+
+**Status: OPEN**
+
+**Tracked as:** #206
+
+**Symptom:** `check.sh` invokes `check-gate-wiring.py` at step 7 and
+`:shared:jvmTest` at step 9. Part B of the wiring check proves each registered
+gate *can fail*, and one of those gates — `check-test-runs.py` — reads the JUnit
+XML produced by those test tasks. On a tree where the XML is absent or stale (a
+fresh clone, or after any `--tests`-filtered run) the check reports
+
+    ERROR: gate 'test-runs' already fails on a clean tree (exit 1)
+
+and `check.sh` exits 1 before reaching the step that would have produced what it
+wants. Verified against a clean tree with this session's changes stashed, so it
+is not caused by the new tests.
+
+**Already ruled out:** not a false alarm. The gate is correct — it genuinely
+cannot demonstrate that `test-runs` fails, because on this tree `test-runs` fails
+for an unrelated reason.
+
+**Try next:** move the wiring check after the test tasks. Nothing before step 7
+depends on it, and it does not need to run early. The tempting alternative —
+having the wiring check skip the `test-runs` control when the XML is absent — is
+worse: it teaches the reader that "no results yet" is an acceptable state, which
+is the exact reading this project keeps eliminating. Not done here because it
+changes what the local gate's exit code means, and that deserves its own commit
+rather than arriving as a drive-by.
+
+---
+
+## forty-clock-reads-landed-in-shared-with-the-lint-fix
+
+**Found in:** 2026-10-05, running the full gate after rebasing onto `6899121a`.
+
+**Status: OPEN**
+
+**Tracked as:** #208
+
+**Symptom:** `:shared:detekt` reports 40 `NoDirectClockSystem` violations, all in
+`shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt`
+(lines 625, 645, 693, 721, 1149 and others). detekt is `ignoreFailures = false`, so
+`check.sh` cannot reach step 20.
+
+**Why it is not a regression of the work that found it.** `6899121a` removed a
+blanket `@file:Suppress` that was switching the rule off for 38 clock reads, which
+is exactly the defect `check-suppression-intent.py` now prevents. The fix is
+correct on its own terms; what was missed is bringing the file back to green after
+it. Verified by stashing the session's work and running `:shared:detekt` on the
+clean tree at `bce4873a` — the same 40 findings.
+
+**Try next:** inject a `kotlin.time.Clock` through the fake's constructor and let
+each test pass the clock it already has. A fake reading the wall clock is a source
+of both test flakiness and the "green here, red on a slow host" class of bug, so
+this is the rule working rather than the rule being inconvenient. The alternative
+— a `@file:Suppress` with a written reason, now legal under the new gate — accepts
+the debt, and 40 is a large amount to accept in one commit. Not fixed here because
+it touches every test that constructs one of these fakes, which is not a change to
+carry inside a commit about crash reporting and a repository rename.

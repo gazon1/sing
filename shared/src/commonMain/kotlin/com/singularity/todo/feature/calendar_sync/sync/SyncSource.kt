@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — SyncSource enum, narrowed to one-way sync.
+//   Full registry: docs/legal/PROVENANCE.md
+
 /**
  * Source of a calendar sync trigger.
  *

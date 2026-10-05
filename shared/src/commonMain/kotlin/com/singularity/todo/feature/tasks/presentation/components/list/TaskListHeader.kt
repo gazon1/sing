@@ -21,8 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.elevatedSurfaceColor
 
 /**
  * Заголовок экрана: крупное название списка/дня + счётчик активных задач
@@ -54,7 +55,7 @@ fun TaskListHeader(
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = title,
-                    color = TaskListColors.TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 30.sp,
                     lineHeight = 36.sp,
                     fontWeight = FontWeight.Bold,
@@ -66,7 +67,7 @@ fun TaskListHeader(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    color = TaskListColors.TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     modifier = Modifier.padding(top = 2.dp),
@@ -78,7 +79,7 @@ fun TaskListHeader(
             Icon(
                 imageVector = Icons.Default.CalendarMonth,
                 contentDescription = "Открыть календарь",
-                tint = TaskListColors.Accent,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -86,7 +87,7 @@ fun TaskListHeader(
             Icon(
                 imageVector = Icons.Default.MoreVert,
                 contentDescription = "Больше действий",
-                tint = TaskListColors.TextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -103,12 +104,12 @@ private fun CountBadge(count: Int) {
     Row(
         modifier = Modifier
             .padding(start = TaskListSpacing.Sm, bottom = 4.dp) // 4dp от baseline заголовка
-            .background(TaskListColors.SurfaceElevated, CircleShape)
+            .background(elevatedSurfaceColor(), CircleShape)
             .padding(horizontal = 10.dp, vertical = 3.dp),
     ) {
         Text(
             text = count.toString(),
-            color = TaskListColors.TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.Medium,
@@ -116,10 +117,10 @@ private fun CountBadge(count: Int) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun TaskListHeaderPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Column {
             TaskListHeader(
                 title = "Сегодня",

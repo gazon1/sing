@@ -1,5 +1,8 @@
 package com.singularity.todo
 
+import kotlin.time.Clock
+import com.singularity.todo.core.platform.todayAt
+import com.singularity.todo.core.platform.TimeZoneProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -99,5 +102,17 @@ private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeS
  */
 @Composable
 actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
-    DesktopShellNav3Root(state, navigator, navCallbacks)
+    // The shell's `today` is read from the graph, not from the host (#91). This is the
+    // last reach-around: the calendar anchor and the FAB prefill were computed in
+    // `remember { }` outside Koin, so a test that bound a fixed `Clock` reached every
+    // ViewModel and none of the shell. Safe here and only here — the shell is not
+    // previewed, and this function already resolves two ports with `koinInject`.
+    val shellClock: Clock = koinInject()
+    val shellZone: TimeZoneProvider = koinInject()
+    DesktopShellNav3Root(
+        state = state,
+        navigator = navigator,
+        navCallbacks = navCallbacks,
+        today = todayAt(shellClock, shellZone.current()),
+    )
 }

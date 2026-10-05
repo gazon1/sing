@@ -44,6 +44,13 @@ import kotlinx.datetime.plus
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class NotesListViewModel(
     private val repo: NotesRepository,
+    // `todayFlow` requires both now (#91). Defaulted rather than required: daily
+    // notes are grouped by the host's day and no test in this tree asserts that
+    // grouping, so a required parameter would be a signature change with no failing
+    // test behind it. The parameter exists so one can be added.
+    private val clock: kotlin.time.Clock = kotlin.time.Clock.System,
+    private val timeZone: com.singularity.todo.core.platform.TimeZoneProvider =
+        com.singularity.todo.core.platform.systemTimeZone,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
@@ -88,7 +95,7 @@ class NotesListViewModel(
         scope.launch {
             // Combine five flows: notes + templates + daily notes + sort order + search.
             val templatesFlow = repo.watchTemplates()
-            val dailyNotesFlow = todayFlow().flatMapLatest { today ->
+            val dailyNotesFlow = todayFlow(clock, timeZone.current()).flatMapLatest { today ->
                 val from = today.minus(7, DateTimeUnit.DAY).toString()
                 val to = today.plus(30, DateTimeUnit.DAY).toString()
                 repo.watchDailyNotesInRange(from, to)

@@ -1,4 +1,5 @@
 ---
+title: Per-field last-write-wins as the sync conflict policy
 date: 2026-10-04
 status: accepted
 ---

@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.flows.tasks
 
+import kotlinx.datetime.LocalDate
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitCheckboxChecked
@@ -13,6 +14,7 @@ import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/toggle-task-complete.yaml` and the
@@ -36,30 +38,32 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class TaskRowFlowTest {
-
     @Test
-    fun a_task_due_today_is_listed_under_todays_section() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun a_task_due_today_is_listed_under_todays_section() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         assertCurrentTab("Today")
 
         tasks(koin)
-            .given(due = todayInSystemZone(), title = "Buy milk")
+            .given(due = today, title = "Buy milk")
             .assertInAgenda("Buy milk")
 
         awaitTag(TestTags.agendaSection("Today")).assertIsDisplayed()
     }
 
     @Test
-    fun a_task_due_today_is_also_in_the_inbox_agenda() = runDesktopAppTest(checkA11y = true) { koin ->
+    fun a_task_due_today_is_also_in_the_inbox_agenda() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tapTab("Inbox")
 
         tasks(koin)
-            .given(due = todayInSystemZone(), title = "Buy milk")
+            .given(due = today, title = "Buy milk")
             .assertInAgenda("Buy milk")
     }
 
     @Test
-    fun toggling_the_checkbox_reports_the_task_completed() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).given(due = todayInSystemZone())
+    fun toggling_the_checkbox_reports_the_task_completed() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
+        tasks(koin).given(due = today)
 
         awaitTag(TestTags.taskCheckbox("Buy milk")).assertIsDisplayed()
         clickCheckbox(TestTags.taskCheckbox("Buy milk"))
@@ -67,5 +71,12 @@ class TaskRowFlowTest {
         // Asserting the toggled semantics makes this a state assertion rather than
         // a click-counting smoke test.
         awaitCheckboxChecked(TestTags.taskCheckbox("Buy milk"))
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

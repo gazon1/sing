@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Renders the priority attribute row in the task editor.
@@ -54,16 +54,21 @@ fun TaskEditorPriorityRow(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val hasPriority = priority != TaskPriority.None
+        val activeTint =
+            if (hasPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        val idleTint =
+            if (hasPriority) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
             imageVector = Icons.Filled.Flag,
             contentDescription = null,
-            tint = if (priority != TaskPriority.None) TaskColors.AccentBlue else TaskColors.TextSecondary,
+            tint = if (hasPriority) activeTint else idleTint,
             modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         Text(
             text = priority.label,
-            color = if (priority != TaskPriority.None) TaskColors.TextPrimary else TaskColors.TextSecondary,
+            color = if (hasPriority) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
             fontWeight = if (priority != TaskPriority.None) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f),
@@ -73,7 +78,7 @@ fun TaskEditorPriorityRow(
                 Icon(
                     imageVector = Icons.Filled.Close,
                     contentDescription = "Сбросить приоритет",
-                    tint = TaskColors.TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {

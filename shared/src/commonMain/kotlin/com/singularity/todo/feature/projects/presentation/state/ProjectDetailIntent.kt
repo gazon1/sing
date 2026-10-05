@@ -43,6 +43,14 @@ sealed interface ProjectDetailIntent : MviIntent {
         data object ToggleHideCompleted : Domain
 
         /**
+         * Show or hide tasks that are blocked by unfinished dependencies.
+         *
+         * Continuous state, not a one-shot event — the screen reflects the
+         * current value rather than acting once and resetting.
+         */
+        data object ToggleHideBlocked : Domain
+
+        /**
          * Set or clear the project's reminder.
          *
          * [offsetMinutes] is minutes before the project due date, or null to remove the

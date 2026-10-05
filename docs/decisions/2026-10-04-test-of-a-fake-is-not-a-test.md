@@ -1,4 +1,5 @@
 ---
+title: A test of a fake is not a test of the code
 date: 2026-10-04
 status: accepted
 ---

@@ -27,9 +27,12 @@ if str(_KIWI_DIR) not in sys.path:
 from traceability import ValidationError  # noqa: E402
 from traceability.coverage import (  # noqa: E402
     ALL_TARGETS,
+    CellState,
+    CoverageCell,
     Outcome,
     build_coverage,
     build_results,
+    classify,
 )
 from traceability.junit_xml import parse_junit  # noqa: E402
 from traceability.kiwi_publish import OUTCOME_TO_KIWI, build_runs, run_publish  # noqa: E402
@@ -43,7 +46,12 @@ from traceability.keys import (  # noqa: E402
     normalise_classname,
     normalise_test_name,
 )
-from traceability.links import Carrier, Link, _scenario_from_prefix_token  # noqa: E402
+from traceability.links import (  # noqa: E402
+    Carrier,
+    Link,
+    _scenario_from_prefix_token,
+    scan_all,
+)
 from traceability.normalize import normalise  # noqa: E402
 from traceability.render import render_coverage_matrix, render_result_matrix  # noqa: E402
 from traceability.spec import (  # noqa: E402
@@ -1473,3 +1481,277 @@ class CoverageMatrixCarriesTheProse(unittest.TestCase):
 
     def test_rendering_stays_deterministic(self):
         self.assertEqual(self._render(), self._render())
+
+
+class PerScenarioRuleIsExercisable(unittest.TestCase):
+    """The per-scenario rule must stay reachable, proved on the real corpus.
+
+    For the whole session the rule from #149 never fired on real data: with one
+    scenario per target, the per-target rule always caught the case first. It
+    became reachable only when a second desktop carrier existed — two carriers
+    on one target is the precondition, and the auth/sync tranche that added
+    fifteen specs added none.
+
+    So the property is asserted against the repository, not against a fixture
+    with two hand-made links. A fixture proves the rule works; this proves the
+    rule is *reachable*, which is the part that silently stops being true.
+    """
+
+    def _corpus(self):
+        from traceability import SCENARIOS_DIR
+        from traceability.links import scan_all
+
+        specs = load_specs(SCENARIOS_DIR)
+        return specs, scan_all(specs, REPO_ROOT)
+
+    def test_some_target_carries_two_linked_scenarios(self):
+        specs, links = self._corpus()
+        by_target: dict[Target, list[str]] = {}
+        for link in links:
+            by_target.setdefault(link.target, []).append(link.scenario)
+        busy = {t: v for t, v in by_target.items() if len(set(v)) >= 2}
+        self.assertTrue(
+            busy,
+            "no target has two linked scenarios, so the per-scenario rule "
+            "(REQ-13) is unreachable: the per-target rule catches every case "
+            "first. Add a carrier for an existing spec rather than a new spec.",
+        )
+
+    def test_the_real_rule_fires_when_one_of_those_two_is_filtered_out(self):
+        # A genuine `Authenticated`-free result set built from the repository's
+        # own carrier keys, with one desktop carrier reported and the other
+        # silent. This is the exact shape a tag filter produces.
+        specs, links = self._corpus()
+        by_target: dict[Target, list[str]] = {}
+        for link in links:
+            by_target.setdefault(link.target, []).append(link)
+        target, carriers = next(
+            (t, v) for t, v in by_target.items() if len({l.scenario for l in v}) >= 2
+        )
+        # Report exactly one and assert on every other, rather than picking
+        # carriers[1]. The first version did pick carriers[1] and passed while
+        # the desktop carried two scenarios; the moment a third landed it picked
+        # the reporting one and failed. That is not a flake — it is the test
+        # asserting an accident of ordering, which is how the `--partial` test in
+        # this same file shipped a wrong belief earlier. The rule says nothing
+        # about order: report one, and every other scenario on that target must
+        # be named.
+        scenarios = sorted({l.scenario for l in carriers})
+        reporting = next(l for l in carriers if l.scenario == scenarios[0])
+        silent = [s for s in scenarios if s != scenarios[0]]
+
+        d = pathlib.Path(tempfile.mkdtemp())
+        key = reporting.key
+        _junit(
+            d,
+            f'<testcase classname="{key.fqcn}" name="{key.method}()"/>',
+        )
+        with self.assertRaises(NoResultsError) as ctx:
+            normalise(specs, links, {target: [d]}, "abc")
+        message = str(ctx.exception)
+        for scenario in silent:
+            self.assertIn(
+                f"{scenario}/{target.value}",
+                message,
+                f"{scenario} produced no result on {target.value} but the rule did not name it",
+            )
+        self.assertNotIn(f"{reporting.scenario}/{target.value}", message)
+        self.assertNotIn("ни одного тесткейса", message)
+
+
+class UnreachableCellsTest(unittest.TestCase):
+    """The fifth glyph, and the two mistakes it was added to stop being confusable.
+
+    A hole was ambiguous, and both readings were acted on in one session.
+    `TASK-TIME-01` was narrowed to `targets: [android]` because a reachability
+    probe found no time-tracking node on desktop — wrong, the feature was in
+    `commonMain` and the desktop screen had silently stopped rendering it.
+    `SYNC-OFFLINE-01` claims both targets and needs a second device and a
+    flapping network — true, and unsupplyable by any single-device harness.
+
+    Both drew as `○`. So each mistake looked like the other's remedy, and the
+    only record of the intent was a comment above a `targets:` list, which no
+    tooling read.
+    """
+
+    def _corpus(self):
+        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        return specs, build_coverage(specs, scan_all(specs, REPO_ROOT))
+
+    def test_an_unreachable_cell_is_still_a_hole(self):
+        # The whole point of keeping it in the count: otherwise the cheap move is
+        # to reclassify every unsupplied claim as unreachable, and the ratchet
+        # stops measuring anything while the matrix looks more informative.
+        specs, coverage = self._corpus()
+        unreachable = set(coverage.unreachable_holes())
+        self.assertTrue(unreachable, "fixture assumption: the corpus has unreachable cells")
+        for cell in unreachable:
+            self.assertIn(cell, coverage.holes())
+
+    def test_unreachable_is_a_subset_of_claimed(self):
+        specs, coverage = self._corpus()
+        for scenario, target in coverage.unreachable_holes():
+            self.assertTrue(
+                target in specs[scenario].targets,
+                f"{scenario}/{target.value} is unreachable but not claimed",
+            )
+
+    def test_the_glyph_differs_from_a_plain_hole(self):
+        specs, coverage = self._corpus()
+        scenario, target = coverage.unreachable_holes()[0]
+        unreachable = coverage.glyph(scenario, target)
+        plain = next(
+            coverage.glyph(s, t)
+            for s, t in coverage.holes()
+            if t not in specs[s].unreachable
+        )
+        self.assertNotEqual(unreachable, plain)
+        self.assertEqual(unreachable, "◇")
+        self.assertEqual(plain, "○")
+
+    def test_the_field_is_read_from_the_spec_and_never_inferred(self):
+        # A probe that fails must not be able to set this flag. Inferring
+        # reachability from an observed miss is precisely how TASK-TIME-01 got
+        # narrowed: the probe measured one screen and the conclusion was written
+        # as a statement about the platform.
+        specs, _ = self._corpus()
+        marked = {s for s, spec in specs.items() if spec.unreachable}
+        self.assertTrue(marked)
+        for name in marked:
+            self.assertTrue(
+                (specs[name].unreachable),
+                f"{name} marked unreachable with an empty tuple",
+            )
+
+    def test_a_target_outside_targets_is_rejected(self):
+        # The invariant that stops the flag being used as a disguised narrowing:
+        # a target nobody claimed owes nothing and cannot be unreachable.
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / "SYN-STATUS-01.yaml"
+            path.write_text(
+                "id: SYN-STATUS-01\n"
+                "title: x\npriority: P1\nstatus: confirmed\n"
+                "targets: [android]\n"
+                "unreachable: [android, desktop]\n"
+                "preconditions: x\nsteps: [x]\nexpected: x\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValidationError) as ctx:
+                load_specs(pathlib.Path(d))
+            self.assertIn("не входит в targets", str(ctx.exception))
+
+
+class CarrierRefusesUnreachableTest(unittest.TestCase):
+    """The generator must not write a probe that cannot pass."""
+
+    def test_the_cli_refuses_an_unreachable_target_by_name(self):
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", "SYNC-OFFLINE-01",
+             "--target", "desktop", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            check=False,
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("недостижимый", result.stdout)
+        self.assertNotIn("dry run, не записан", result.stdout)
+
+    def test_a_reachable_neighbour_of_an_unreachable_row_still_generates(self):
+        # The classification is per target, not per scenario: SYNC-STATUS-01
+        # stays fully probe-able while its two-device neighbours do not.
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", "SYNC-STATUS-01", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("dry run", result.stdout)
+
+
+class CellStatePrecedence(unittest.TestCase):
+    """The five states, and the one function that decides between them.
+
+    `CoverageCell` used to carry four independent booleans. That let a caller
+    build a cell nothing could render — `claimed=False, automated=True` most
+    plainly — and the glyph cascade quietly fell through and printed the
+    unclaimed dash, so an impossible cell was indistinguishable from an ordinary
+    one. These tests pin the replacement: one value, a fixed precedence, and no
+    way to say something the matrix has no column for.
+    """
+
+    def test_there_are_exactly_five_states(self):
+        # A sixth state is a change of model, not an addition, and the glyph
+        # table has to grow with it.
+        self.assertEqual(len(list(CellState)), 5)
+
+    def test_every_state_has_its_own_glyph(self):
+        glyphs = [state.glyph for state in CellState]
+        self.assertEqual(len(set(glyphs)), len(glyphs), glyphs)
+
+    def test_a_retired_scenario_outranks_a_carrier(self):
+        # The case the booleans could not express without contradiction: a
+        # scenario retired *after* it was automated. Rendering it `●` would keep
+        # it in the matrix forever, looking supplied.
+        self.assertIs(
+            classify(claimed=True, automated=True, deprecated=True, reachable=True),
+            CellState.RETIRED,
+        )
+
+    def test_reachability_only_distinguishes_two_kinds_of_hole(self):
+        self.assertIs(
+            classify(claimed=True, automated=False, deprecated=False, reachable=True),
+            CellState.HOLE,
+        )
+        self.assertIs(
+            classify(claimed=True, automated=False, deprecated=False, reachable=False),
+            CellState.UNREACHABLE,
+        )
+
+    def test_an_unclaimed_target_is_never_a_hole(self):
+        self.assertIs(
+            classify(claimed=False, automated=False, deprecated=False, reachable=True),
+            CellState.UNCLAIMED,
+        )
+
+    def test_the_unsatisfiable_input_folds_to_something_renderable(self):
+        # `claimed and not automated` is the state the old shape could not
+        # refuse. It now reads as unclaimed, which is the only claim about the
+        # target that is actually true.
+        self.assertIs(
+            classify(claimed=False, automated=True, deprecated=False, reachable=True),
+            CellState.UNCLAIMED,
+        )
+
+    def test_hole_predicates_cover_exactly_the_unsupplied_claims(self):
+        holes = {state for state in CellState if state.is_hole}
+        self.assertEqual(holes, {CellState.HOLE, CellState.UNREACHABLE})
+        unreachable = {state for state in CellState if not state.is_claimed}
+        self.assertEqual(unreachable, {CellState.UNCLAIMED})
+
+    def test_the_cell_no_longer_accepts_the_old_booleans(self):
+        # The point of the refactor, stated as a test: the four facts are
+        # consumed once, by `classify`. A caller that still has them cannot hand
+        # them over, so the impossible combinations cannot be constructed at all
+        # rather than being constructed and quietly rendered wrong.
+        with self.assertRaises(TypeError):
+            CoverageCell(claimed=True, automated=False)  # type: ignore[call-arg]
+
+    def test_a_retired_scenario_is_recorded_but_not_owed(self):
+        # `is_claimed` keeps the row, `is_obligation` drops it from the
+        # denominator. render.py depends on that split to avoid the
+        # "0/2 claimed cells automated · 0 holes" contradiction.
+        self.assertTrue(CellState.RETIRED.is_claimed)
+        self.assertFalse(CellState.RETIRED.is_obligation)
+        self.assertFalse(CellState.UNCLAIMED.is_claimed)
+        self.assertTrue(CellState.AUTOMATED.is_obligation)

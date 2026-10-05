@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.auth.accountIdOrNull
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toAppError
@@ -21,8 +22,18 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * Summary of a push operation.
+ *
+ * [discarded] counts results the server answered that this client refused to apply,
+ * because the account the request was made under is no longer signed in (REQ-UA-018).
+ * It is a fourth number rather than a [failed] one because nothing failed: the server
+ * accepted the work, and the local device has declined to act on the answer. Counting
+ * it as [succeeded] would mark rows delivered that are still queued; counting it as
+ * [failed] would say the server rejected patches it accepted, which is the wrong
+ * repair to go looking for. It carries the weight of a distinct field precisely so
+ * that neither of those two readings is available by accident — the old three-field
+ * summary could not say "the server took it and we ignored it" at all.
  */
-data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int)
+data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int, val discarded: Int = 0)
 
 /**
  * Summary of a pull operation.
@@ -239,10 +250,14 @@ internal class SyncEngine(
         // nothing. Without this the outbox grows without bound under fast editing,
         // and the shadow's "promote only if this patch still owns the marker" guard
         // could never fire.
-        outboxDao.deleteByEntity(entity.syncId)
+        // The owner is the scope this patch was built under — not a scope read again
+        // here, which could be a different one if the profile moved between the two.
+        // The patch itself was diffed against that scope's shadow, so it belongs to it.
+        outboxDao.deleteByEntity(active.ownerId, entity.syncId)
         outboxDao.insert(
             SyncOutboxEntity(
                 patchId = patch.patchId,
+                ownerId = active.ownerId,
                 entityId = entity.syncId,
                 entityType = entity.docType.key,
                 payload = payload,
@@ -300,27 +315,39 @@ internal class SyncEngine(
      */
     private suspend fun planPush(): Result<PushPlan?> {
         val nowMillis = now()
-        // Read before the request, and inside a guard: this used to be the one line
-        // between setting the status and entering the try, so a database that could not
-        // be read left the engine advertising a push that was never attempted.
-        val pending = phases.localStorage("sync.outbox.read", "read the pending changes") {
-            outboxDao.getPending(nowMillis)
-        }
-            .getOrElse { return Result.failure(it.toAppError()) }
-        if (pending.isEmpty()) return Result.success(null)
 
-        val patches = pending.map { entity ->
-            json.decodeFromString<DeltaPatch>(entity.payload)
-        }
-
-        // Read the scope once, before the request is built, and use that same
-        // value for the profile on the wire and for settling the shadow. Reading
-        // it again afterwards would let a profile switch in between put this
+        // Read the scope FIRST, because it is what says whose queue this push is.
+        // It is read once and that same value goes on the wire and settles the shadow —
+        // reading it again afterwards would let a profile switch in between put this
         // cycle's patches under one profile and their shadow under another.
         val active = phases.localStorage("sync.scope.read", "read the active sync scope") {
             scopeProvider.current.first()
         }
             .getOrElse { return Result.failure(it.toAppError()) }
+
+        // Read before the request, and inside a guard: this used to be the one line
+        // between setting the status and entering the try, so a database that could not
+        // be read left the engine advertising a push that was never attempted.
+        //
+        // No scope becomes an empty queue rather than a branch of its own, so that
+        // "nothing of this owner's to send" has exactly one answer. Reading past it
+        // would put one account's queued work in another account's request
+        // (REQ-UA-019), and a push with no profile id has nothing to attribute on the
+        // server either.
+        val pending = active
+            ?.let { scope ->
+                phases.localStorage("sync.outbox.read", "read the pending changes") {
+                    outboxDao.getPending(nowMillis, scope.ownerId)
+                }
+            }
+            ?.getOrElse { return Result.failure(it.toAppError()) }
+            ?: emptyList()
+
+        if (pending.isEmpty()) return Result.success(null)
+
+        val patches = pending.map { entity ->
+            json.decodeFromString<DeltaPatch>(entity.payload)
+        }
 
         return Result.success(
             PushPlan(
@@ -341,14 +368,21 @@ internal class SyncEngine(
      */
     internal suspend fun push(): Result<PushSummary> {
         val session = authRepository.currentSession.value
-        if (session !is Session.SignedIn) {
-            return Result.success(PushSummary(0, 0, 0))
+        val signedIn = session is Session.SignedIn
+        if (signedIn) _status.value = SyncEngineStatus.Pushing
+
+        // One exit for "there is nothing to push", whether that is because nobody is
+        // signed in or because the queue is empty. They are the same answer — an empty
+        // summary over an untouched outbox — and splitting them across two returns cost
+        // the budget the discard below needs.
+        val plan = if (signedIn) {
+            planPush().getOrElse { return phases.pushFailed(it.toAppError(), 0) }
+        } else {
+            null
         }
-
-        _status.value = SyncEngineStatus.Pushing
-
-        val plan = planPush().getOrElse { return phases.pushFailed(it.toAppError(), 0) }
         if (plan == null) {
+            // Idle in the signed-out case too, which is a no-op: no push is in flight,
+            // because the only thing that sets Pushing is three lines above.
             _status.value = SyncEngineStatus.Idle
             return Result.success(PushSummary(0, 0, 0))
         }
@@ -358,6 +392,33 @@ internal class SyncEngine(
 
         return try {
             val response = api.batchPush(plan.request)
+
+            // REQ-UA-018: is the account that authorised this request still the one
+            // signed in? Compared by account, not by session — see ADR
+            // 2026-10-05-a-push-response-is-matched-by-account-not-by-session, and the
+            // token-refresh case that decides it. `null` means there is no account to
+            // match, and that is deliberately not a match.
+            val requestedBy = session.accountIdOrNull
+            val nowSignedInAs = authRepository.currentSession.value.accountIdOrNull
+
+            if (requestedBy != nowSignedInAs) {
+                // The rows stay queued, the shadow keeps its in-flight marker, and the
+                // server's answer is not acted on. Applying it is the defect #181
+                // describes: the previous account's work marked delivered on behalf of
+                // whoever is signed in now, with the device and the server disagreeing
+                // and nothing left to say so. Nothing is lost by discarding — the row is
+                // still in the outbox and the next cycle under an account entitled to
+                // send it delivers it, which the test class checks end to end.
+                log.e {
+                    "Push response discarded: requested under [$requestedBy], " +
+                        "now [$nowSignedInAs]. ${pending.size} row(s) stay queued."
+                }
+                val discarded = PushSummary(0, 0, 0, discarded = response.results.size)
+                _lastPush.value = Result.success(discarded)
+                _status.value = SyncEngineStatus.Idle
+                return Result.success(discarded)
+            }
+
             var succeeded = 0
             var failed = 0
 
@@ -389,7 +450,9 @@ internal class SyncEngine(
                         // fields this one was carrying, instead of diffing against a
                         // state the server never reached.
                         outboxDao.delete(result.patchId)
-                        if (active != null && patch != null) settleShadow(patch, applied = false, scope = active)
+                        if (active != null && patch != null) {
+                            settleShadow(patch, applied = false, scope = active)
+                        }
                     }
                 }
             }
@@ -448,6 +511,11 @@ internal class SyncEngine(
             deadLetterDao.insert(
                 SyncDeadLetterEntity(
                     patchId = entity.patchId,
+                    // Carried over from the row being shelved, rather than read from a
+                    // scope now: the patch is set aside because of what happened to it,
+                    // so it stays that patch's, and a profile that moved in between must
+                    // not file it under the wrong account.
+                    ownerId = entity.ownerId,
                     entityId = entity.entityId,
                     entityType = entity.entityType,
                     payload = entity.payload,

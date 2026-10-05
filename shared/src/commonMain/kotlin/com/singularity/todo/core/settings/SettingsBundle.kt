@@ -1,5 +1,9 @@
 package com.singularity.todo.core.settings
 
+// Provenance: ADAPTED from Orgzly (GPL-3.0) — the persisted / ephemeral settings split
+//   described in the KDoc below follows that project's design.
+//   Full registry: docs/legal/PROVENANCE.md
+
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset

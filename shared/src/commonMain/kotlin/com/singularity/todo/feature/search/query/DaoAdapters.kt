@@ -1,5 +1,10 @@
 package com.singularity.todo.feature.search.query
 
+// Provenance: REWRITTEN from Orgzly (GPL-3.0) — the earlier registry entry said PORTED,
+//   which was an over-classification on the auditor's part: these two classes wrap this
+//   project's own Room DAOs and had no counterpart in Orgzly. Reimplemented per option
+//   A1 in docs/legal/PROVENANCE.md
+
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.TagDao
 

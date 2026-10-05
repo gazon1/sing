@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda
 
+import com.singularity.todo.core.platform.TimeZoneProvider
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
@@ -51,6 +52,7 @@ fun agendaModule(): Module = module {
             deps = AgendaDeps(
                 taskRepo = get<TaskRepository>(),
                 clock = get<Clock>(),
+                timeZone = get<TimeZoneProvider>(),
                 logger = Logger.withTag("Agenda"),
                 draftStore = get<DraftStore>(),
                 reminderScheduler = get<ReminderScheduler>(),

@@ -153,9 +153,26 @@ class FakeSyncApiClient(
      */
     val pushResponses = ArrayDeque<BatchPushResponse>()
 
+    /**
+     * Runs with the request *in flight*, before the response is formed.
+     *
+     * The seam for everything that can change while a request is on the wire and must
+     * not be applied afterwards: a sign-out, a switch to another account, a profile
+     * change. None of those can be staged from the outside — the call is one
+     * suspend function, and by the time it returns the state is already too late to
+     * change anything the caller will look at.
+     *
+     * It exists as a hook rather than as a delay because a delay would make the test
+     * wait for wall-clock time to prove that nothing happened during it, and would
+     * pass whether or not the code under test re-read anything. Here the change lands
+     * at a defined point, and the assertion is about what the code does next.
+     */
+    var onPushInFlight: (suspend (request: BatchPushRequest) -> Unit)? = null
+
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
         pushCalls.add(request)
         failWith?.let { throw it }
+        onPushInFlight?.invoke(request)
         return if (pushResponses.isNotEmpty()) pushResponses.removeFirst() else pushResponse
     }
 

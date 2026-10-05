@@ -13,7 +13,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
@@ -37,7 +36,12 @@ import kotlinx.datetime.LocalDate
  * @param onIntent Dispatch user intent to the ViewModel.
  * @param onTaskClick Called when a task chip is clicked — used by the caller
  *                    to handle navigation (e.g. via [CalendarUiEvent.NavigateToTask]).
- * @param today Today's date (used for highlighting).
+ *
+ * `today` is read from [state] rather than taken as a parameter. It used to be a
+ * parameter with a system-clock default, so the screen passed one value and the state
+ * carried another — two sources for one fact, and the screen's copy was the one no test
+ * could set. The ViewModel computes it from an injected `Clock` and `TimeZoneProvider`,
+ * so the state is already the right place to read it from.
  * @param pagerState Optional [PagerState] — hoist to control from outside (e.g.
  *   tests, custom navigation). When null, a default state is created internally.
  */
@@ -46,7 +50,6 @@ fun CalendarContent(
     state: CalendarUiState,
     onIntent: (CalendarIntent) -> Unit,
     onTaskClick: (LocalDate) -> Unit = {},
-    today: LocalDate = todayInSystemZone(),
     modifier: Modifier = Modifier,
     pagerState: PagerState? = null,
 ) {
@@ -80,7 +83,7 @@ fun CalendarContent(
             ) {
                 CalendarTopBar(
                     state = loadedState,
-                    today = today,
+                    today = loadedState.today,
                     onIntent = onIntent,
                     headerLabelOverride = liveHeaderLabel,
                 )
@@ -88,7 +91,7 @@ fun CalendarContent(
                 when (loadedState.viewMode) {
                     CalendarViewMode.MONTH -> MonthGridView(
                         monthAnchor = loadedState.anchor,
-                        today = today,
+                        today = loadedState.today,
                         selectedDate = loadedState.selectedDate,
                         tasksByDate = loadedState.tasksByDate,
                         onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
@@ -102,7 +105,7 @@ fun CalendarContent(
                     else -> TimeGridView(
                         dates = loadedState.visibleDates,
                         tasksByDate = loadedState.tasksByDate,
-                        today = today,
+                        today = loadedState.today,
                         selectedTaskId = loadedState.selectedTaskId,
                         onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
                         modifier = Modifier.fillMaxSize(),
@@ -119,7 +122,7 @@ fun CalendarContent(
                 MiniCalendarPanel(
                     monthAnchor = loadedState.anchor,
                     selectedDate = loadedState.selectedDate,
-                    today = today,
+                    today = loadedState.today,
                     onDateSelected = { date ->
                         onIntent(CalendarIntent.DayClicked(date))
                         onIntent(CalendarIntent.DismissMiniCalendar)

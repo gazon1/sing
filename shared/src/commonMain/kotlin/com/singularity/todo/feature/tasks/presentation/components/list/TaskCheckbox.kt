@@ -41,10 +41,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 
 /**
  * Кастомный чекбокс задачи.
@@ -67,7 +68,7 @@ fun TaskCheckbox(
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    accentColor: Color = TaskListColors.Accent,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -131,7 +132,7 @@ fun TaskCheckbox(
                 .size(TaskListSizes.Checkbox)
                 .border(
                     width = 1.8.dp,
-                    color = lerpColor(TaskListColors.TextTertiary, accentColor, fillProgress),
+                    color = lerpColor(mutedTextColor(), accentColor, fillProgress),
                     shape = CircleShape,
                 ),
         )
@@ -152,7 +153,7 @@ fun TaskCheckbox(
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = null, // дублируется в stateDescription
-                tint = TaskListColors.OnAccent,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(TaskListSizes.CheckIcon),
             )
         }
@@ -167,10 +168,10 @@ private fun lerpColor(start: Color, end: Color, fraction: Float): Color = Color(
     alpha = start.alpha + (end.alpha - start.alpha) * fraction,
 )
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
+@Preview(showBackground = true)
 @Composable
 private fun TaskCheckboxPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Lg),
             modifier = Modifier.padding(TaskListSpacing.Lg).size(280.dp, 60.dp),
@@ -180,12 +181,12 @@ private fun TaskCheckboxPreview() {
             TaskCheckbox(
                 isChecked = false,
                 onCheckedChange = {},
-                accentColor = TaskListColors.PriorityHigh,
+                accentColor = priorityColor(TaskPriority.High),
             )
             TaskCheckbox(
                 isChecked = true,
                 onCheckedChange = {},
-                accentColor = TaskListColors.PriorityMedium,
+                accentColor = priorityColor(TaskPriority.Medium),
             )
             TaskCheckbox(
                 isChecked = false,

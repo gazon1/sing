@@ -18,8 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Карточка-строка для основных атрибутов задачи (проект, приоритет, дата и т.д.).
@@ -35,9 +35,12 @@ fun TaskAttributeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isActive: Boolean = false,
-    iconTint: Color = if (isActive) TaskColors.AccentBlue else TaskColors.TextSecondary,
-    textColor: Color = if (isActive) TaskColors.TextPrimary else TaskColors.TextSecondary,
-    containerColor: Color = if (isActive) TaskColors.AccentBlueContainer else TaskColors.Surface,
+    iconTint: Color =
+        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+    textColor: Color =
+        if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+    containerColor: Color =
+        if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Surface(

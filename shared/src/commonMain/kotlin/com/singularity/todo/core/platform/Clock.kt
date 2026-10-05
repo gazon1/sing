@@ -28,13 +28,20 @@ import kotlin.time.Instant
  * using the original zone. Re-collect after a time zone change if up-to-date
  * behavior is required.
  *
- * @param zone The time zone used to compute midnight. Defaults to system default.
+ * ## Why both parameters are required
+ * The zone used to be defaulted and the clock was read from `Clock.System` through
+ * the `todayAt(zone)` overload (#91), so this flow was a second, un-injectable
+ * source of "today" — and `AgendaViewModel` composes its whole task stream from it.
+ * A task dated tomorrow relative to a test's pinned clock was bucketed against the
+ * host's date and matched no section at all.
+ *
+ * @param zone The time zone used to compute midnight.
  */
-fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate> = flow {
+fun todayFlow(clock: Clock, zone: TimeZone): Flow<LocalDate> = flow {
     while (true) {
-        val current = todayAt(zone)
+        val current = todayAt(clock, zone)
         emit(current)
-        val delayMs = delayUntilNextMidnight(current, zone)
+        val delayMs = delayUntilNextMidnight(clock, current, zone)
         // Guards against zero/negative delay from a clock adjustment; the loop
         // will recompute the date and re-emit only if it actually changed.
         if (delayMs > 0) {
@@ -43,11 +50,24 @@ fun todayFlow(zone: TimeZone = TimeZone.currentSystemDefault()): Flow<LocalDate>
     }
 }.distinctUntilChanged()
 
-/** Returns today's [LocalDate] in [zone], read from [clock]. */
-fun todayAt(clock: Clock, zone: TimeZone = TimeZone.currentSystemDefault()): LocalDate =
+/**
+ * Today's [LocalDate] in [zone], read from [clock].
+ *
+ * **Both parameters are required, and that is the point** (2026-10-05). This used
+ * to default [zone] to `TimeZone.currentSystemDefault()`, which meant a caller
+ * could inject a clock and still get a date that moved with the machine's
+ * region: deterministic over time, non-deterministic over machines. A scenario
+ * asserting "this is in the Today bucket" needs both, and a default is a way of
+ * forgetting the second one.
+ *
+ * Use [systemToday] where the system zone really is the answer — a preview, a
+ * @Preview-only fixture, a log line. Its name says so, which is what
+ * [todayInSystemZone] never did.
+ */
+fun todayAt(clock: Clock, zone: TimeZone): LocalDate =
     clock.now().toLocalDateTime(zone).date
 
-/** Returns today's [LocalDate] in [zone]. */
+/** Today's [LocalDate] in [zone], read from the system clock. */
 // NoDirectClockSystemRule exemption: this is the intentional single call site.
 // If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
 internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
@@ -80,11 +100,22 @@ fun nowInSystemZone(): LocalDateTime = localTimeAt(Clock.System.now())
  *
  * @param today must be the current local date in [zone] at the time of the call.
  */
-private fun delayUntilNextMidnight(today: LocalDate, zone: TimeZone): Long {
+private fun delayUntilNextMidnight(clock: Clock, today: LocalDate, zone: TimeZone): Long {
     val tomorrowMidnight = today.plus(1, DateTimeUnit.DAY)
         .atStartOfDayIn(zone)
-    val now = Clock.System.now()
+    val now = clock.now()
     return (tomorrowMidnight - now).inWholeMilliseconds
 }
 
-fun todayInSystemZone(): LocalDate = todayAt(TimeZone.currentSystemDefault())
+/**
+ * Today's date **in the host's current time zone**, read from the system clock.
+ *
+ * Prefer [todayAt] with an injected clock and an explicit zone: this function is
+ * the one way to ask "what is today here" that a test cannot answer, which is the
+ * defect behind #91. It survives for the callers where the host's zone genuinely
+ * is the subject — a @Preview rendered on a developer's machine, a log line — and
+ * those callers are the ones the name is for. Renamed from `todayInSystemZone`
+ * on 2026-10-05 to say what it costs the caller; the old name read like a neutral
+ * accessor, and 17 sites used it as one.
+ */
+fun systemToday(): LocalDate = todayAt(TimeZone.currentSystemDefault())

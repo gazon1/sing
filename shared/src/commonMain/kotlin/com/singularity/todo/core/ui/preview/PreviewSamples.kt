@@ -77,7 +77,14 @@ internal val noopClick: () -> Unit = {}
  */
 internal object PreviewSamples {
     // Use epoch-0 so we don't depend on Clock.System (unavailable in some KMP targets)
-    private val now: Instant = Instant.fromEpochMilliseconds(0)
+    /**
+     * The instant previews resolve "now" from.
+     *
+     * Public because screens that take a required `now` need one, and a literal
+     * at each call site would be the second statement of the same fact — the
+     * preview data already says it.
+     */
+    val now: Instant = Instant.fromEpochMilliseconds(0)
     val today: LocalDate = LocalDate(2026, 9, 6)
     val userId: UserId = UserId.anonymous
     private val projectUserId: UserId = UserId.anonymous

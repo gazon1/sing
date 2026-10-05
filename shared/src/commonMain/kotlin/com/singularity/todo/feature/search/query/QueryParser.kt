@@ -1,203 +1,84 @@
 package com.singularity.todo.feature.search.query
 
+// Provenance: REWRITTEN from Orgzly (GPL-3.0) — reimplemented from
+//   docs/specs/search-query-grammar.md per option A1. The ported implementation is gone.
+//
+//   NOT a clean room: the author read the Orgzly source. A1 removes verbatim
+//   correspondence; it does not terminate a derivation. See the honesty clause in the
+//   spec and docs/legal/PROVENANCE.md
+
 /**
- * Abstract query parsing engine.
+ * Base of the search query parser: supplies the token stream and the rule tables, and
+ * declares the entry point.
  *
- * Subclassed by [SingularityQueryParser] to provide concrete regex rules.
- * Drives the [QueryTokenizer] token stream into a [Query] AST,
- * respecting operator precedence (AND > OR) and grouping with parentheses.
+ * The expression grammar lives in [ConditionExprParser] and the concrete word rules in
+ * [SingularityQueryParser]; this class exists to give both a shared vocabulary and a
+ * single abstract entry point.
  *
- * Architecture (lifted from Orgzly, stripped of IntelliJ annotations):
- * - Two-phase consumption: conditions are collected under AND semantics,
- *   and whenever OR is encountered, the accumulated AND-group becomes one
- *   arm of an OR node — producing a left-associative tree.
- * - A `lastTokenWasCondition` flag handles the precedence hack:
- *   `a or b and c` parses as `OR(a, AND(b, c))` because `and` is higher-precedence.
+ * Implements the structure described by §2 and §3 of
+ * [docs/specs/search-query-grammar.md][spec].
+ *
+ * [spec]: ../../../../../../../docs/specs/search-query-grammar.md
+ *
+ * ## Provenance
+ *
+ * The previous implementation was ported from Orgzly (GPL-3.0). This one was written from
+ * the specification above with the behavioural suite as the contract — option **A1** in
+ * `docs/legal/PROVENANCE.md`. It is not a clean room; see the honesty clause in the
+ * specification.
+ *
+ * ## A vestigial second parser was removed
+ *
+ * The ported version carried a private `parseAtom` / `parseGroup` pair — 105 lines
+ * implementing the same grammar a *second* time, reachable only from each other, because
+ * `parse()` threw [UnsupportedOperationException] and every real caller overrode it. It
+ * was not merely dead: it **disagreed** with the live parser. It threw on an unclosed
+ * parenthesis (contradicting G9), required at least two operands for an `OR`, and made
+ * `NOT` bind only the following atom (contradicting G3).
+ *
+ * Leaving it in place would have been worse than leaving it out. A second implementation
+ * of a grammar that contradicts the first is not dead code, it is a trap with a
+ * comment above it. It is gone, and this paragraph is the only thing left of it.
  *
  * @param tokens Pre-tokenized input from [QueryTokenizer].
  */
 abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
 
-    /** Regex-driven condition match: tries each pattern in order, returns first match. */
+    /** Word rules that produce a [Condition]; first match wins (§4). */
     protected abstract val conditionMatches: List<ConditionMatch>
 
-    /** Sort-order match rules. */
+    /** `sort:` rules (§2). */
     protected abstract val sortOrderMatches: List<SortOrderMatch>
 
-    /** Option (limit/offset) match rules. */
+    /** `limit:`/`offset:` rules (§2). */
     protected abstract val optionMatches: List<OptionMatch>
 
     /**
-     * Parse the token stream into a [Query].
+     * Parses the token stream into a [Query].
      *
-     * The base implementation throws [UnsupportedOperationException].
-     * Subclasses must override this with a concrete Pratt-parser implementation.
-     *
-     * @throws QueryParseException if the token stream cannot be consumed.
+     * Abstract in practice: [SingularityQueryParser] is the only implementation, and it
+     * does the work by delegating to [ConditionExprParser]. Throwing here rather than
+     * providing a default keeps a half-parseable base class from being instantiable by
+     * accident.
      */
     open fun parse(): Query = throw UnsupportedOperationException(
         "QueryParser.parse() must be overridden by a concrete implementation",
     )
 
-    /**
-     * Parse a single condition atom (word, quoted, or parenthesized group).
-     * Consumes one or more tokens that form a single condition.
-     */
-    private fun parseAtom(startPos: Int): Pair<Condition, Int> {
-        if (startPos >= tokens.size) {
-            throw QueryParseException(
-                "Unexpected end of input",
-                tokenPosition(startPos),
-            )
-        }
-        val tok = tokens[startPos]
-
-        return when (tok) {
-            is QueryTokenizer.Token.LParen -> {
-                val (inner, nextPos) = parseGroup(startPos + 1)
-                Condition.And(listOf(inner)) to nextPos
-            }
-
-            is QueryTokenizer.Token.Not -> {
-                val (inner, nextPos) = parseAtom(startPos + 1)
-                Condition.Not(inner) to nextPos
-            }
-
-            is QueryTokenizer.Token.Word -> {
-                val matched = matchCondition(tok.text, startPos)
-                    ?: Condition.HasText(tok.text)
-                matched to (startPos + 1)
-            }
-
-            is QueryTokenizer.Token.Quoted -> {
-                Condition.HasText(tok.text) to (startPos + 1)
-            }
-
-            else -> throw QueryParseException(
-                "Unexpected token: ${tok.text}",
-                tokenPosition(startPos),
-            )
-        }
-    }
-
-    /**
-     * Parse a parenthesized group, stopping at the matching RParen.
-     */
-    private fun parseGroup(startPos: Int): Pair<Condition, Int> {
-        val conditions = mutableListOf<Condition>()
-        var pos = startPos
-        var lastWasCond = false
-
-        while (pos < tokens.size) {
-            when (val tok = tokens[pos]) {
-                is QueryTokenizer.Token.RParen -> {
-                    val cond = when {
-                        conditions.isEmpty() -> return Condition.And(emptyList()) to (pos + 1)
-                        conditions.size == 1 -> conditions[0]
-                        else -> flattenAnd(conditions)
-                    }
-                    return cond to (pos + 1)
-                }
-
-                is QueryTokenizer.Token.And -> {
-                    if (conditions.isEmpty()) {
-                        throw QueryParseException(
-                            "Unexpected AND inside group",
-                            tokenPosition(pos),
-                        )
-                    }
-                    pos++
-                    lastWasCond = false
-                }
-
-                is QueryTokenizer.Token.Or -> {
-                    if (conditions.size < 2) {
-                        throw QueryParseException(
-                            "OR inside group requires at least two operands",
-                            tokenPosition(pos),
-                        )
-                    }
-                    val left = flattenAnd(conditions)
-                    conditions.clear()
-                    pos++
-                    var rightPos = pos
-                    while (rightPos < tokens.size && tokens[rightPos] !is QueryTokenizer.Token.RParen) {
-                        val (c, np) = parseAtom(rightPos)
-                        conditions.add(c)
-                        rightPos = np
-                    }
-                    val right = if (conditions.size == 1) conditions[0] else flattenAnd(conditions)
-                    return Condition.Or(listOf(left, right)) to rightPos
-                }
-
-                else -> {
-                    val (cond, nextPos) = parseAtom(pos)
-                    conditions.add(cond)
-                    pos = nextPos
-                    lastWasCond = true
-                }
-            }
-
-            if (!lastWasCond && pos < tokens.size) {
-                val (cond, np) = parseAtom(pos)
-                conditions.add(cond)
-                pos = np
-                lastWasCond = true
-            }
-        }
-
-        throw QueryParseException("Unclosed parenthesis", tokenPosition(startPos - 1))
-    }
-
-    /**
-     * Try to match a word against registered condition patterns.
-     * Returns the first matching [Condition], or `null` if no pattern applies.
-     */
-    protected open fun matchCondition(text: String, position: Int): Condition? {
-        for (match in conditionMatches) {
-            val result = match.regex.find(text) ?: continue
-            return try {
-                match.build(result)
-            } catch (e: Exception) {
-                throw QueryParseException(
-                    "Failed to parse '$text': ${e.message}",
-                    tokenPosition(position),
-                )
-            }
-        }
-        return null
-    }
-
-    /**
-     * Flatten a list of conditions into a single AND condition.
-     * Single-element lists are returned as-is (not wrapped).
-     * Empty lists return `Condition.And(emptyList())` — matches everything.
-     */
-    private fun flattenAnd(conditions: List<Condition>): Condition {
-        val flat = mutableListOf<Condition>()
-        for (c in conditions) {
-            when (c) {
-                is Condition.And -> flat.addAll(c.parts)
-                else -> flat.add(c)
-            }
-        }
-        return if (flat.size == 1) flat[0] else Condition.And(flat)
-    }
-
-    /**
-     * Approximate character position for an error message.
-     * Returns 0 if the token index is out of range.
-     */
-    protected open fun tokenPosition(tokenIndex: Int): Int = 0
-
     // ─── Match data classes ─────────────────────────────────────────────────
 
-    /** A regex pattern that produces a [Condition] when it matches. */
+    /**
+     * A regex that produces a [Condition] when it matches a word.
+     *
+     * [build] is allowed to fail — a rule can match textually and then reject the value,
+     * as `due:` does for `due:soon`. The caller treats that as "this rule does not apply"
+     * and lets the word fall through to free text (D4).
+     */
     data class ConditionMatch(val regex: Regex, val build: (MatchResult) -> Condition)
 
-    /** A regex pattern that produces a [SortOrder] when it matches. */
+    /** A regex that selects a [SortOrder]. */
     data class SortOrderMatch(val regex: Regex, val sortOrder: SortOrder)
 
-    /** A regex pattern that modifies [Options] when it matches. */
+    /** A regex that adjusts [Options]. */
     data class OptionMatch(val regex: Regex, val apply: (MatchResult, Options) -> Options)
 }

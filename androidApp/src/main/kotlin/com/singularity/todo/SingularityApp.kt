@@ -13,6 +13,7 @@ import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.version.appVersion
+import org.koin.core.module.Module
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.feature.profile.ProfileBootstrapper
@@ -27,10 +28,6 @@ import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
-import ru.ok.tracer.HasTracerConfiguration
-import ru.ok.tracer.TracerConfiguration
-import ru.ok.tracer.crash.report.CrashFreeConfiguration
-import ru.ok.tracer.crash.report.CrashReportConfiguration
 
 private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
 
@@ -66,33 +63,37 @@ private fun appUpdateModule() = module {
  * Application class — the canonical place to start Koin.
  * Called exactly once per process lifetime, before any Activity or Service.
  * No guard needed unlike when startKoin lives in Activity.onCreate().
+ *
+ * ## No vendor crash reporting here, on purpose
+ *
+ * This class used to implement the proprietary `HasTracerConfiguration` and carry
+ * AppTracer's settings, which put a non-OSI SDK in a module published under Apache-2.0.
+ * The pro build gets `ProSingularityApp` instead — a subclass in
+ * `androidApp/src/pro/kotlin`, compiled only under `-PwithPro=true` and named through the
+ * `appClass` manifest placeholder. The free build names this class, which carries no vendor
+ * types in its signature at all.
+ *
+ * `open` is the price of that split, and it is worth stating: a class in an Apache-2.0
+ * module that exists only to be subclassed by the pro build is a seam where the licence
+ * boundary can quietly erode. This is the only one.
  */
-class SingularityApp :
-    Application(),
-    HasTracerConfiguration {
+open class SingularityApp : Application() {
 
     /**
-     * AppTracer plugin configuration.
+     * Extra Koin modules contributed by the build configuration.
      *
-     * Read by the SDK exactly once per process, after `attachBaseContext` and **before**
-     * [onCreate]. Nothing here may touch state that [onCreate] initialises — the context is
-     * available, Koin and logging are not.
+     * Empty in the free build. `ProSingularityApp` overrides it to return the
+     * `pro` catalogue's observability module, which re-binds `CrashReportingPort` to
+     * the vendor-backed implementation. Modules listed here are loaded **last**, so a
+     * binding here wins over `platformModule()`.
      *
-     * `setSendAnr` and `setExperimentalNonFatalRateLimitEnabled` are stated explicitly
-     * rather than left implicit: both are the vendor's recommended settings, and a
-     * reviewer should be able to see that a deliberate choice was made rather than a
-     * default inherited. Crash-free is left at its default (enabled) because its only
-     * meaningful switch is `setEnabled`, and a disabled crash-free metric is worse than
-     * none — it would read as a healthy number.
+     * The return type is Koin's `Module`, which is Apache-2.0 — so this hook adds a
+     * capability to the free build without adding a dependency to it. That distinction
+     * is the whole reason the extension point lives here rather than as a hard
+     * reference to `proObservabilityModule()`: a direct call would not compile without
+     * `:pro` on the classpath, and the free build has to stand alone.
      */
-    override val tracerConfiguration: List<TracerConfiguration>
-        get() = listOf(
-            CrashReportConfiguration.build {
-                setSendAnr(true)
-                setExperimentalNonFatalRateLimitEnabled(true)
-            },
-            CrashFreeConfiguration.build { /* defaults: enabled */ },
-        )
+    open fun extraKoinModules(): List<Module> = emptyList()
 
     override fun onCreate() {
         super.onCreate()
@@ -109,6 +110,20 @@ class SingularityApp :
                     domainModule() +
                     listOf(gateModule(PLAY_STORE_URI), appUpdateModule()),
             )
+        }
+        // Configuration-specific modules are loaded *after* `startKoin`, not inside the
+        // `modules { }` call, and that placement is deliberate.
+        //
+        // Adding a variable to the `modules { }` argument makes the whole set
+        // dynamically computed, and the Koin compiler plugin then drops to runtime-only
+        // graph verification (KOIN-W003) for this entry point. That warning is already
+        // present here — it predates this hook, verified on unmodified HEAD — so this
+        // change does not introduce it. Feeding one more variable into the same call
+        // would still be making a known-weak spot weaker, and `loadModules(allowOverride
+        // = true)` says exactly the same thing with a narrower blast radius: only these
+        // modules can be overridden, not the platform graph.
+        if (extraKoinModules().isNotEmpty()) {
+            getKoin().loadModules(extraKoinModules(), allowOverride = true)
         }
         // Device/build context for every subsequent crash report. debugInfo() had no callers
         // and the unwired-surface audit cannot see it (that script only matches

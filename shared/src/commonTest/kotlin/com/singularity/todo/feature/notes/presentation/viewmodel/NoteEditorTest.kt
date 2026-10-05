@@ -104,6 +104,9 @@ class NoteEditorTest {
             applyProposal = applyProposal,
             log = Logger.withTag("NoteEditor"),
             currentUser = currentUser,
+            // The same fixed clock the proposal fixture uses, so an AI proposal's
+            // `modified` stamp is a value this test can assert (#91).
+            clock = clock,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
     }

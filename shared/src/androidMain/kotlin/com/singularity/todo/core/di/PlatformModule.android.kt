@@ -21,7 +21,7 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
-import com.singularity.todo.core.observability.AndroidCrashReportingPort
+import com.singularity.todo.core.observability.FileCrashReportingPort
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
@@ -201,7 +201,10 @@ actual fun platformModule(): Module = module {
 
     single<BackupCodec> { AndroidBackupCodec() }
 
-    single<CrashReportingPort> { AndroidCrashReportingPort(get()) }
+    // Free core: the log-file reporter. The pro catalogue overrides this binding
+    // with the Tracer-backed one, which is why it is a `single<CrashReportingPort>`
+    // and not a concrete type — the override has to be substitutable.
+    single<CrashReportingPort> { FileCrashReportingPort(get()) }
 
     single<String> { get<Context>().filesDir.absolutePath + "/backups" }
 

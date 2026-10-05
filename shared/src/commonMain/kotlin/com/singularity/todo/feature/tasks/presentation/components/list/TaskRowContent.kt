@@ -17,12 +17,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 
 /**
  * Общее "нутро" строки задачи: чекбокс + приоритет + заголовок + мета.
@@ -66,7 +67,7 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
                 }
                 Text(
                     text = task.title,
-                    color = if (task.isCompleted) TaskListColors.TextTertiary else TaskListColors.TextPrimary,
+                    color = if (task.isCompleted) mutedTextColor() else MaterialTheme.colorScheme.onSurface,
                     fontSize = 16.sp,
                     lineHeight = 22.sp,
                     textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
@@ -90,10 +91,10 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun TaskRowContentPreview() {
-    MaterialTheme {
+    PreviewThemed(darkTheme = true, useSurface = true) {
         Column {
             TaskRowContent(
                 task = TaskUi(

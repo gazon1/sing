@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Renders the estimate attribute row in the task editor.
@@ -54,16 +54,21 @@ fun TaskEditorEstimateRow(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val hasEstimate = estimateMinutes != null
+        val activeTint =
+            if (hasEstimate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        val idleTint =
+            if (hasEstimate) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
             imageVector = Icons.Filled.Timer,
             contentDescription = null,
-            tint = if (estimateMinutes != null) TaskColors.AccentBlue else TaskColors.TextSecondary,
+            tint = if (hasEstimate) activeTint else idleTint,
             modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         Text(
             text = estimateRowLabel(estimateMinutes),
-            color = if (estimateMinutes != null) TaskColors.TextPrimary else TaskColors.TextSecondary,
+            color = if (hasEstimate) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
             fontWeight = if (estimateMinutes != null) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f),
@@ -73,7 +78,7 @@ fun TaskEditorEstimateRow(
                 Icon(
                     imageVector = Icons.Filled.Close,
                     contentDescription = "Сбросить оценку",
-                    tint = TaskColors.TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {

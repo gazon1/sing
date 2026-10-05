@@ -52,17 +52,26 @@ import com.singularity.todo.shell.fabActionForNav3
  * [Nav3State] and [Navigator] are owned by [App] and passed in as parameters.
  * The [rememberNav3State] factory lives in commonMain as an expect/actual pair
  * (see [Nav3StateFactory.kt]).
+ *
+ * @param today the date the shell navigates and prefills with, supplied by the caller
+ *   from the Koin graph (#91). Required for the same reason as the desktop shell: a
+ *   date the shell computes for itself is a date a test's fixed `Clock` cannot reach.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
+fun androidShellNav3Root(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+    today: kotlinx.datetime.LocalDate,
+) {
     var menuVisible by rememberSaveable { mutableStateOf(false) }
 
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
-    val fabAction = fabActionForNav3(current) { navigator.open(it) }
+    val fabAction = fabActionForNav3(current, today) { navigator.open(it) }
 
     Scaffold(
         bottomBar = {
@@ -113,7 +122,9 @@ fun androidShellNav3Root(state: Nav3State, navigator: Navigator, navCallbacks: N
         },
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
     ) { padding ->
-        val appEntryProvider = createAppEntryProvider(navCallbacks)
+        // The same `today` the FAB uses, so the calendar anchor and the task
+        // prefill agree (#91).
+        val appEntryProvider = createAppEntryProvider(navCallbacks, today)
         CompositionLocalProvider(LocalNav3State provides state) {
             NavDisplay(
                 entries = state.toDecoratedEntries(appEntryProvider),

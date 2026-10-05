@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-kiwi-tcm-stand
-description: Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — the legacy per-test-class case mapping, the scenario traceability layer (user scenarios in Git, coverage/result matrices, Kiwi as a projection), importing Gradle JUnit results as test runs, and reporting what has never been run. Use when the question is "what do I still need to test", when planning what to verify next, when a test was added and should appear in the case database, when deciding whether a Kiwi failure is a bug in the stand or in the app, or when touching infra/kiwi/*, sync.py, gaps.py, or the just kiwi-* recipes. Read before editing anything under infra/kiwi/ — most Kiwi 16 API behaviour there is non-obvious and contradicts its documentation.
+description: Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — the legacy per-test-class case mapping, the scenario traceability layer (user scenarios in Git, coverage/result matrices, Kiwi as a projection), importing Gradle JUnit results as test runs, and reporting what has never been run. The stand is local and intentionally behind the specs, so the coverage claim lives in git (docs/testing/coverage-matrix.md), never in Kiwi. Use when the question is "what do I still need to test", when planning what to verify next, when a test was added and should appear in the case database, when deciding whether a Kiwi failure is a bug in the stand or in the app, or when touching infra/kiwi/*, sync.py, gaps.py, or the just kiwi-* recipes. Read before editing anything under infra/kiwi/ — most Kiwi 16 API behaviour there is non-obvious and contradicts its documentation.
 ---
 
 # Kiwi TCMS stand
@@ -24,6 +24,34 @@ Kover answers "how many lines did the tests touch". That is not the same questio
 statements to coverage and still never have been executed.
 
 Kiwi does **not** run tests. Gradle runs them; Kiwi stores intent and results.
+
+## What the stand is, and what it is not
+
+**It is a local Kiwi instance, not a mirror of the specs.** Measured 2026-10-05: it
+was **18 of 19 scenarios behind** the corpus, no workflow calls `seed` or `publish`,
+and this build's RPC surface has no `getPlans` at all. It will stay behind. Treating
+it as a mirror is the worst state to be in, because a Kiwi that looks authoritative
+and is wrong is worse than no Kiwi.
+
+Consequences, so nobody has to rediscover them:
+
+- **The coverage claim lives in git**, in `docs/testing/coverage-matrix.md`,
+  regenerated and diffed byte-for-byte in CI. That file is the answer to "what do we
+  verify". The stand is not, and cannot be — it is a projection, and the direction is
+  only ever Git → Kiwi.
+- **Do not read a green `kiwi-seed-check` as evidence it is in sync.** It is a tool
+  for the moment you are deliberately syncing, not a state to assert.
+- **`just kgaps` is a legacy-layer report.** 18 of its 19 plans are the old per-class
+  `Automated/*` cases, which is why it looks authoritative and does not describe the
+  scenario layer at all. It now prints a `!! LEGACY` banner saying so; the banner
+  exists because the ambiguity was never in the documentation, it was in the report
+  looking convincing.
+- **Seeding is a manual step, on purpose.** Nothing in CI holds Kiwi credentials, and
+  it should stay that way: a Kiwi outage must never be able to fail a build, and a
+  committed credential is a worse trade than a stale local database.
+- **If you are working against the stand, seed first** — `just kiwi-seed` — and know
+  that you are looking at the specs as of now, not as of the last time somebody
+  remembered.
 
 ## Operating it
 
@@ -213,10 +241,12 @@ before the next exists.
    **not** list tests or Kiwi ids; linkage lives in step 2.
 2. **`just trace-validate`.** A new spec with no automation is valid and shows a
    `○` hole. That is the expected state here, not a failure.
-3. **Add the Kotlin carrier** — `@DisplayName("<ID> <what it does>")` on a test in
-   `desktopApp/src/jvmTest` (desktop) or `androidApp/src/androidTest` (android).
-   The id is the first token. If no test can reach the UI from JVM (see
-   `ModalBottomSheet` below), go straight to step 4.
+3. **Probe, then add the Kotlin carrier** — `@DisplayName("<ID> <what it does>")` on a
+   test in `desktopApp/src/jvmTest` (desktop) or `androidApp/src/androidTest` (android).
+   The id is the first token. Probe reachability *before* writing the assertion —
+   see "the cheap carrier is a reachability probe" below. If no test can reach the
+   UI from JVM (see `ModalBottomSheet` below), go straight to step 4 and say so in
+   the spec.
 4. **Add the Maestro carrier** — `scenario:<ID>` in the flow's `tags:`. Tag
    matching is exact string comparison, so `TAGS=scenario:<ID> scripts/run-maestro.sh`
    selects exactly that flow with no code change. Pick the tier that can actually
@@ -226,14 +256,82 @@ before the next exists.
 6. **`just trace-results`, then `just kiwi-seed` and `just kiwi-publish`** to
    project it. Kiwi steps are local-only and never gate a build.
 
+### The cheap carrier is a reachability probe, then the test
+
+**Write the probe first, always.** A probe is a test whose only job is to answer
+"can this tier reach that node at all" — and it is throwaway. The recipe is three
+minutes and it is the difference between one probe and one failed commit.
+
+```kotlin
+@Test
+@Tag("slow")
+fun probe() = composeTestRule {
+    // Navigate exactly as the real test would — a probe that does not reproduce
+    // the navigation proves nothing about the node.
+    onNodeWithTag(NAV).performClick()
+    onAllNodesWithTag(TARGET).assertCountEquals(1)   // plural, on purpose
+}
+```
+
+Two measured results, so you know what you are choosing between:
+
+| Сценарий | Зонд | Что он на самом деле сказал |
+|---|---|---|
+| `AUTH-FIRSTRUN-01` | прошёл | Сессия desktop-харнесса — `Anonymous`, поэтому «стены входа нет» утверждается с JVM без фикстур вообще. |
+| `TASK-TIME-01` | **не прошёл, и это была ложь, а не факт о платформе** | Зонд доказал, что на desktop секции тайм-трекинга нет. Я записал это как «UI только на Android» и сузил спеку до `targets: [android]`. На самом деле вся фича лежит в `commonMain` (10 файлов, репозиторий и фейс в общем модуле), а desktop-экран её не рендерил из-за расхождения экранов, о котором никто не знал. Теперь секция на обеих платформах, спека заявляет оба тира. |
+
+**Провалившийся зонд читается двумя противоположными способами, и оба применялись.**
+
+| | Правильно | Ошибка |
+|---|---|---|
+| Фича в `commonMain` | узел отсутствует → **дыра в коде**, починить | сузить спеку до одного тира (сделано с `TASK-TIME-01`) |
+| Нужно 2 устройства / управление сетью | тир не дотянется → `unreachable: [android, desktop]` | оставить `○` и писать Compose-тест, который не может пройти (так выглядели все 8 sync-сценариев) |
+
+Матрица рисовала оба случая одним `○`, поэтому исправление одного выглядело лекарством от другого. Теперь у клетки пять состояний: `—` не заявлен · `●` автоматизирован · `○` дыра, нужен тест · `◇` заявлено, но ни один носитель на этом тире не достанет · `⊘` выведено из эксплуатации.
+
+**`unreachable` — поле спеки, а не вывод из провала зонда.** Оно читается, а не вычисляется: зонд измеряет код перед ним, и «узла нет на этом экране» — это утверждение о коде, а не о платформе. Ограничение жёсткое: `unreachable` обязан быть подмножеством `targets`, иначе это замаскированное сужение — ровно то, ради чего всё затевалось. `just trace-carrier` отказывается на таком таргете и объясняет, что вместо теста здесь нужен второй девайс или ручной прогон.
+
+Размечать надо по требованию сценария, а не по удобству: `SYNC-STATUS-01` («нажать при выключенной сети и без аккаунта») достижим с одного десктопа и остаётся пробуемым, тогда как его соседи по sync-области требуют второго устройства. Сейчас размечено 6 клеток из 32.
+
+**Зонд измеряет код, а не платформу.** «Зонд не прошёл» означает «этого узла нет в этом дереве» — и это не то же самое, что «эта возможность существует только здесь». Прежде чем сузить спеку до одного тира, спросите: **фича лежит в `commonMain`?** Если да, то отсутствие узла — это дыра в коде, а не свойство платформы, и правильный ответ — починить, а не сузить спеку. Ошибочное сужение выглядит как аккуратность и необратимо: оно делает spec корректным по отношению к коду, который неверен.
+
+Есть честный случай сужения: `ModalBottomSheet` на desktop — отдельное окно, и кросс-рутовый селектор для него строить не надо. Там различие **структурное и измеренное** (дерево побайтово идентично, клик по контрольной строке работает), а не «фича случайно не долетела».
+
+If the probe fails, **delete the test and the spec's desktop target** rather than
+leaving a test that asserts the control exists. An unreachable `●` is worse than
+an honest `○`: it is a claim the suite cannot keep.
+
+**Use `onAllNodesWithTag` in the probe.** `onRoot()` and the singular
+`onNodeWithTag` both throw when the composition has two semantics roots, so a
+probe written with them fails with "ambiguous node" and you go looking for a
+semantics bug that is not there. The plural selector does not, so its failure
+means exactly one thing: the node is not there.
+
+**Absence is asserted by the act that would break it.** `AuthFirstRunScenarioTest`
+clicks the FAB and asserts there is no sign-in wall — that click *is* the
+assertion of absence. No `testTag` was added to the auth screens to make it
+possible. Reach for that shape before you add a tag to production code for a
+test's benefit.
+
 ### Which target can assert what — measure, do not assume
 
 - **desktop** (`desktopApp/jvmTest`): anything reachable by `testTag` in the main
-  semantics tree. `AlertDialog` content is reachable; `ModalBottomSheet` content
-  is **not** — it renders into a separate semantics root, so every selector inside
-  a sheet is invisible to a JVM test no matter what tags it carries.
+  semantics tree. `AlertDialog` content is reachable — on skiko an alert renders
+  into the main tree rather than into its own window, which is the opposite of a
+  sheet and the reason the sheet is a special case at all.
 - **android** (`androidApp/src/androidTest` or Maestro): anything else, and the
   only tier that can drive a sheet.
+
+`ModalBottomSheet` is the trap here, and the reason it is written this way: on
+desktop it is a `Dialog`, which is a **separate window**, not a separate semantics
+root. A cross-root search returns nothing, and the tree is byte-identical (98
+nodes) before and after the click. Earlier notes in this repository said
+"separate semantics root"; that was the assumption, and it was wrong. The
+practical rule is unchanged and was verified by a control click on a reachable
+pin row in the same tree: **if a probe cannot find it on desktop, the sheet is a
+window and the carrier is Maestro.** Do not add a root-crossing selector to make
+it work — that is the abstraction that has to be built once and debugged forever.
+
 
 A `●` in the matrix should mean "a real user behaviour is verified here". If the
 best you can write is "the control exists", that is still worth having — but say

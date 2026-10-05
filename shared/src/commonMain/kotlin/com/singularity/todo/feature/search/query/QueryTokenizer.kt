@@ -1,134 +1,174 @@
 package com.singularity.todo.feature.search.query
 
+// Provenance: REWRITTEN from Orgzly (GPL-3.0) — reimplemented from
+//   docs/specs/search-query-grammar.md per option A1. The ported implementation is gone.
+//
+//   NOT a clean room: the author read the Orgzly source. A1 removes verbatim
+//   correspondence; it does not terminate a derivation. See the honesty clause in the
+//   spec and docs/legal/PROVENANCE.md
+
 /**
- * Lexer for the search query language.
+ * Lexer for the search query language — implementation of §1 of
+ * [docs/specs/search-query-grammar.md][spec].
  *
- * Splits an input string into a flat list of [Token]s — words, quoted strings,
- * parentheses, and logical operators (AND / OR / NOT).
+ * Splits a query string into a flat list of [Token]s: words, quoted strings, parentheses,
+ * and the logical operators `AND` / `OR` / `NOT`.
  *
- * Design notes (lifted from Orgzly, stripped of IntelliJ annotations):
- * - Regex-based tokenizer: double-quoted strings, grouped parens, and bare words.
- * - AND / OR / NOT are recognized as keywords (not bare text) when they appear
- *   as isolated whitespace-separated tokens.
- * - Quoting with `"…"` allows spaces, parens, and reserved characters in text.
+ * [spec]: ../../../../../../../docs/specs/search-query-grammar.md
  *
- * @param input The raw query string to tokenize.
+ * ## Provenance
+ *
+ * A previous implementation of this class was ported from Orgzly (GPL-3.0). This one was
+ * written from the grammar specification above, with the behavioural suite as the
+ * contract. That is option **A1** in `docs/legal/PROVENANCE.md`.
+ *
+ * It is **not** a clean room: the author read the original source. A1 removes verbatim
+ * correspondence; it does not terminate a derivation. See the honesty clause at the top
+ * of the specification.
+ *
+ * ## The three lexical rules worth stating twice
+ *
+ * **R1 — an unterminated quote runs to end of input.** The user is typing; a trailing
+ * quote is the normal state of a query mid-edit, and rejecting it would make the search
+ * box feel broken for the half-second before they finish.
+ *
+ * **R2 — quoted contents are literal.** Never re-examined for operators or parentheses,
+ * so `"AND"` is the text `AND`.
+ *
+ * **R3 — a word that case-insensitively equals a keyword *is* that keyword.** The cost is
+ * that a user searching for the literal word `and` must quote it; the alternative is a
+ * grammar where `And` sometimes means one thing and sometimes another.
  */
 class QueryTokenizer(private val input: String) {
 
-    /** Token stream produced from the input. */
+    /** The token stream for [input]. */
     fun tokens(): List<Token> {
-        val result = mutableListOf<Token>()
+        val out = mutableListOf<Token>()
         var pos = 0
-
         while (pos < input.length) {
-            // Skip whitespace
-            if (input[pos].isWhitespace()) {
-                pos++
-                continue
-            }
+            when {
+                input[pos].isWhitespace() -> pos++
 
-            when (input[pos]) {
-                '(' -> {
-                    result.add(Token.LParen)
+                input[pos] == '(' -> {
+                    out += Token.LParen
                     pos++
                 }
 
-                ')' -> {
-                    result.add(Token.RParen)
+                input[pos] == ')' -> {
+                    out += Token.RParen
                     pos++
                 }
 
-                '"' -> {
-                    pos = scanQuoted(pos, result)
-                }
+                input[pos] == '"' -> pos = readQuoted(pos, out)
 
-                else -> {
-                    pos = scanWord(pos, result)
-                }
+                else -> pos = readWord(pos, out)
             }
         }
-        return result
+        return out
     }
 
-    private fun scanQuoted(start: Int, out: MutableList<Token>): Int {
-        // Opening quote already at start
+    /**
+     * Reads a `"…"` token starting at [start], which must be the opening quote.
+     *
+     * Returns the index just past what was consumed. Per R1, running out of input before
+     * the closing quote is not an error — the token simply ends at the end of the input.
+     */
+    private fun readQuoted(start: Int, out: MutableList<Token>): Int {
+        val text = StringBuilder()
         var pos = start + 1
-        val sb = StringBuilder()
         while (pos < input.length && input[pos] != '"') {
+            // R4: a backslash escapes the next character, and only inside quotes.
             if (input[pos] == '\\' && pos + 1 < input.length) {
-                sb.append(input[pos + 1])
+                text.append(input[pos + 1])
                 pos += 2
             } else {
-                sb.append(input[pos])
+                text.append(input[pos])
                 pos++
             }
         }
-        // Consume closing quote or end of input
-        if (pos < input.length && input[pos] == '"') pos++
-        out.add(Token.Quoted(sb.toString()))
+        if (pos < input.length) pos++ // consume the closing quote, if there was one
+        out += Token.Quoted(text.toString())
         return pos
     }
 
-    private fun scanWord(start: Int, out: MutableList<Token>): Int {
+    /**
+     * Reads a bare word starting at [start]: everything up to whitespace or a parenthesis.
+     *
+     * A word is not a unit of meaning. `due:today` is one word here and is only
+     * recognised as a condition later, in the parser — which is what lets §3 G5 fall
+     * through to free text for anything unrecognised.
+     */
+    private fun readWord(start: Int, out: MutableList<Token>): Int {
+        val text = StringBuilder()
         var pos = start
-        val sb = StringBuilder()
         while (pos < input.length && !input[pos].isWhitespace() && input[pos] != '(' && input[pos] != ')') {
-            sb.append(input[pos])
+            text.append(input[pos])
             pos++
         }
-        val word = sb.toString()
-        out.add(
-            when (word.uppercase()) {
-                "AND" -> Token.And
-                "OR" -> Token.Or
-                "NOT" -> Token.Not
-                else -> Token.Word(word)
-            },
-        )
+        val word = text.toString()
+        // R3: keyword recognition is case-insensitive and happens here, at the lexical
+        // layer, so no downstream rule has to re-check it.
+        out += when {
+            word.equals(KEYWORD_AND, ignoreCase = true) -> Token.And
+            word.equals(KEYWORD_OR, ignoreCase = true) -> Token.Or
+            word.equals(KEYWORD_NOT, ignoreCase = true) -> Token.Not
+            else -> Token.Word(word)
+        }
         return pos
+    }
+
+    private companion object {
+        const val KEYWORD_AND = "AND"
+        const val KEYWORD_OR = "OR"
+        const val KEYWORD_NOT = "NOT"
     }
 
     // ─── Token types ────────────────────────────────────────────────────────
 
-    /** A token in the token stream. */
+    /**
+     * One lexical token.
+     *
+     * [CharSequence] is implemented so a token can be used directly in a message or a log
+     * line without a `.text` at every call site — the common case is "show the user what
+     * they typed", and the tokens are the typed thing.
+     */
     sealed interface Token : CharSequence {
         val text: String
 
-        /** Word token: any non-keyword text. */
+        /** A bare word. Not yet known to be a condition or free text — see [QueryTokenizer]. */
         data class Word(override val text: String) : Token
 
-        /** Quoted string token: contents of `"…"` with escape sequences resolved. */
+        /** A `"…"` string, escapes resolved. Always free text, per R2. */
         data class Quoted(override val text: String) : Token
 
-        /** Left parenthesis `(`. */
+        /** The `(` grouping token. */
         data object LParen : Token {
             override val text: String = "("
         }
 
-        /** Right parenthesis `)`. */
+        /** The `)` grouping token. */
         data object RParen : Token {
             override val text: String = ")"
         }
 
-        /** Logical AND operator. */
+        /** Explicit conjunction. Never required — see G2. */
         data object And : Token {
             override val text: String = "AND"
         }
 
-        /** Logical OR operator. */
+        /** Disjunction. */
         data object Or : Token {
             override val text: String = "OR"
         }
 
-        /** Logical NOT operator (prefix). */
+        /** Prefix negation. Binds the rest of the expression — see G3. */
         data object Not : Token {
             override val text: String = "NOT"
         }
 
-        // CharSequence impl
         override val length: Int get() = text.length
         override fun get(index: Int): Char = text[index]
-        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence = text.subSequence(startIndex, endIndex)
+        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence =
+            text.subSequence(startIndex, endIndex)
     }
 }

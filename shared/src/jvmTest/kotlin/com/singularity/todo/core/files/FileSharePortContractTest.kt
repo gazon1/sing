@@ -3,7 +3,7 @@ package com.singularity.todo.core.files
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.condition.EnabledOnOs
 import org.junit.jupiter.api.condition.OS
-import java.awt.Desktop
+import java.awt.GraphicsEnvironment
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -52,8 +52,16 @@ class FileSharePortContractTest {
                     "${outcome.exceptionOrNull()}",
             )
 
-            if (!Desktop.isDesktopSupported()) {
+            if (GraphicsEnvironment.isHeadless()) {
                 // Deterministic on CI, where there is no display at all.
+                //
+                // Asked with `GraphicsEnvironment.isHeadless()` rather than
+                // `Desktop.isDesktopSupported()`, which is the API this test
+                // exists to exercise. On a host with no toolkit the latter
+                // initialises AWT and throws `NoClassDefFoundError` on
+                // `sun.awt.X11.XToolkit`, so the question could not be asked at
+                // all: the assertion below was unreachable and the test failed
+                // in the very line meant to describe the missing browser.
                 assertFalse(
                     outcome.getOrThrow(),
                     "headless runner has no Desktop.browse, so the port must report false",

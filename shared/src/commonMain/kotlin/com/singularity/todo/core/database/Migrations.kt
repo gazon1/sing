@@ -56,15 +56,6 @@ class Migration10To11 : AutoMigrationSpec
 class Migration11To12 : AutoMigrationSpec
 
 /**
- * Migration from v15 to v16 — adds `remote_configs` table.
- *
- * Stores the single Supabase remote configuration (URL + anon key).
- * This is the single-remote design from the sync-orgzly-adoption ADR.
- *
- * No destructive changes: all existing rows continue to work.
- */
-
-/**
  * Migration from v12 to v13 — adds nullable `view_id` column to task_reminders.
  *
  * When a reminder is created from within a saved agenda view, this column stores

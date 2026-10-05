@@ -1,4 +1,11 @@
 @file:Suppress("NoDirectClockSystem")
+// A log line stamps the instant it was written, so reading the clock is the
+// behaviour rather than an accident of it. There is no injected alternative:
+// a logger constructed with a frozen clock writes a wrong time on every line,
+// which is a worse defect than an untestable timestamp. Narrower than a call-
+// site suppression, and deliberately not moved into the rule's allow-list —
+// that list is for code that merely *reads* the clock, and this file is where
+// a timestamp legitimately comes into being.
 
 package com.singularity.todo.core.log
 

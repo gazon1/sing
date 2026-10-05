@@ -28,9 +28,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Универсальная обёртка со свайпом-для-удаления.
@@ -106,7 +107,7 @@ fun SwipeableTaskRow(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(backgroundShape)
-                    .background(TaskListColors.Danger)
+                    .background(TaskSemanticColors.Danger)
                     .padding(horizontal = TaskListSpacing.Xxl),
                 contentAlignment = Alignment.CenterEnd,
             ) {
@@ -126,7 +127,7 @@ fun SwipeableTaskRow(
             // а не только во время свайпа. TaskRowCard красит фон сам (Surface),
             // а TaskRowFlat — прозрачный по дизайну, поэтому фон экрана
             // подкладывается здесь, единожды, для любого стиля строки.
-            Box(modifier = Modifier.fillMaxSize().background(TaskListColors.Background)) {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 Box(modifier = secondaryClickModifier) {
                     content()
                 }

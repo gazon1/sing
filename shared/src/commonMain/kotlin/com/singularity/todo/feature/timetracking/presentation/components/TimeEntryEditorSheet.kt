@@ -50,6 +50,10 @@ import kotlinx.datetime.toLocalDateTime
 @Suppress("LongMethod") // Complex form with validation, time pickers, and kind selection
 fun TimeEntryEditorSheet(
     taskStartedAtMs: Long?,
+    // The moment the sheet opens. Required (#91): the end of a new time entry is
+    // "now", and reading the system clock here made that value untestable and
+    // un-overridable — the host's clock decided what a form prefilled itself with.
+    now: kotlin.time.Instant,
     onSave: (startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -58,7 +62,7 @@ fun TimeEntryEditorSheet(
         kotlinx.datetime.Instant.fromEpochMilliseconds(it)
             .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
     }
-    val defaultEnd = kotlin.time.Clock.System.now()
+    val defaultEnd = now
         .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
 
     var startedDate by mutableStateOf(defaultStart?.date)

@@ -1,5 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
-
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
 package com.singularity.todo.test.fakes
@@ -24,7 +22,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * A fake is a test double: it must reproduce the *production* contract, not a
@@ -43,13 +41,26 @@ class FakeRepositoryFidelityTest {
     private val alice = UserId("alice")
     private val bob = UserId("bob")
 
+    /**
+     * The instant every fixture below is stamped with.
+     *
+     * These builders used to read the wall clock, which needed a file-level
+     * `@file:Suppress("NoDirectClockSystem")` — the same blanket switch this
+     * repository has been removing. A fixture's `createdAt` is setup, not a
+     * measurement: nothing here asserts that an entity was created *now*, so
+     * reading the clock bought nothing and cost determinism. It matches
+     * [FakeClock]'s default epoch, so a fixture timestamp and a timestamp the
+     * fakes stamp are directly comparable.
+     */
+    private val fixtureNow = Instant.fromEpochMilliseconds(0)
+
     private fun project(id: String, uid: UserId, name: String = "P", parentId: ProjectId? = null) = Project(
         id = ProjectId(id),
         name = name,
         color = 0,
         parentId = parentId,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
+        createdAt = fixtureNow,
+        updatedAt = fixtureNow,
         userId = uid,
     )
 
@@ -57,16 +68,16 @@ class FakeRepositoryFidelityTest {
         id = TaskId(id),
         title = "T",
         userId = uid,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
+        createdAt = fixtureNow,
+        updatedAt = fixtureNow,
     )
 
     private fun tag(id: String, uid: UserId) = Tag(
         id = TagId(id),
         name = "Tag",
         color = 0,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
+        createdAt = fixtureNow,
+        updatedAt = fixtureNow,
         userId = uid,
     )
 
@@ -76,8 +87,8 @@ class FakeRepositoryFidelityTest {
         title = title,
         bodyMarkdown = body,
         kind = NoteKind.Plain,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
+        createdAt = fixtureNow,
+        updatedAt = fixtureNow,
     )
 
     // ─── Projects ─────────────────────────────────────────────────────────────
@@ -149,7 +160,7 @@ class FakeRepositoryFidelityTest {
         repo.seed(project("p1", bob), project("root", alice))
         advanceUntilIdle()
 
-        repo.setParent(ProjectId("p1"), ProjectId("root"), Clock.System.now().toEpochMilliseconds())
+        repo.setParent(ProjectId("p1"), ProjectId("root"), fixtureNow.toEpochMilliseconds())
 
         assertNull(
             repo.observe(ProjectId("p1")).first()?.parentId,
@@ -173,10 +184,12 @@ class FakeRepositoryFidelityTest {
     }
 
     @Test
-    fun `tag delete stamps the real clock, not epoch zero`() = runTest {
+    fun `tag delete stamps the clock the fake was given`() = runTest {
         val auth = FakeAuthRepository(Session.Anonymous(alice))
+        val stampedAt = Instant.fromEpochMilliseconds(1_700_000_000_000)
         val repo = FakeTagsRepository(
             currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+            clock = FakeClock(stampedAt),
         )
         repo.seed(tag("t1", alice))
         advanceUntilIdle()
@@ -184,9 +197,17 @@ class FakeRepositoryFidelityTest {
         assertTrue(repo.delete(TagId("t1")).isSuccess)
         val deletedAt = repo.observe(TagId("t1")).first()?.deletedAt
         assertNotNull(deletedAt, "the tag should be soft-deleted, not removed")
-        assertTrue(
-            deletedAt > kotlin.time.Instant.fromEpochMilliseconds(1_000),
-            "deletedAt must be a real timestamp, was $deletedAt",
+        // This used to assert `deletedAt > 1_000ms` — "a real timestamp, not the
+        // default" — which is what a wall-clock read produced and what no test
+        // should depend on. The sentinel could only distinguish "stamped" from
+        // "left at the default"; it could not catch the fake stamping from the
+        // wrong source. Naming the instant catches both: an unstamped entity is
+        // still epoch zero, and one stamped from anywhere else is a different
+        // value.
+        assertEquals(
+            stampedAt,
+            deletedAt,
+            "the fake must stamp exactly the clock it was given, not a different one",
         )
     }
 

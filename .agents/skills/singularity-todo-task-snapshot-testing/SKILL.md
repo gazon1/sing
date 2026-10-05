@@ -158,7 +158,7 @@ Snapshot tests are NOT appropriate for:
 | `TaskChecklistSection` | 3 | default, empty, max-items |
 | `TaskSubtasksSection` | 3 | default, empty, mixed |
 | `RemindersSection` | 3 | default, empty, 1-reminder |
-| `AttachmentsSection` | 3 | file, link, image |
+| `TaskDetailAttachmentsSection` | 3 | file, link, image |
 | `KindSheet` | 2 | Task selected, Note selected |
 | `ConfirmDeleteSheet` | 1 | default |
 

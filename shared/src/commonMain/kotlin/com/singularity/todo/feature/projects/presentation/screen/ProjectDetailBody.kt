@@ -68,6 +68,7 @@ import kotlin.time.Instant
 fun ProjectBodySection(
     ui: ProjectDetailUi,
     hideCompleted: Boolean,
+    hideBlocked: Boolean,
     availableTasks: List<Task>,
     actions: ProjectDetailActions,
     nav: ProjectsNavigator,
@@ -89,11 +90,24 @@ fun ProjectBodySection(
             Text("Tasks", style = MaterialTheme.typography.titleMedium)
             if (ui.totalCount > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Same text-link idiom as the completed toggle, so the two
+                    // read as one control rather than two competing styles.
                     Text(
                         if (hideCompleted) "Show completed" else "Hide completed",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
+                    )
+                    Text(
+                        "  ·  ",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        if (hideBlocked) "Show blocked" else "Hide blocked",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(onClick = actions::onToggleHideBlocked),
                     )
                 }
             }

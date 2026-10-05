@@ -133,7 +133,7 @@ actual fun aiToolsModule(): Module = module {
         )
     }
     viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
-    viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get()) }
+    viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get(), clock = get()) }
 
     // ─── GenUI ───
 
@@ -195,7 +195,7 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::CreateTagTool)
     factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
     // Stateless and shared: it resolves its decisions directory once, at construction.
-    single { AdrStorage(get()) }
+    single { AdrStorage(get(), get(), get()) }
     factory { ListAdrsTool(get()) }
     factory { ReadAdrTool(get()) }
     factory { WriteAdrTool(get()) }

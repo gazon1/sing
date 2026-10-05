@@ -1,4 +1,5 @@
 ---
+title: The sync server: per-field merge in one statement, identity from the session
 date: 2026-10-04
 status: accepted
 ---

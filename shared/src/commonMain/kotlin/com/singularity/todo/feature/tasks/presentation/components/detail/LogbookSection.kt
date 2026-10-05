@@ -31,12 +31,12 @@ import com.singularity.todo.core.ui.monthAbbreviation
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Task logbook — a chronological feed of notes and time entries attached to the current task.
@@ -76,7 +76,7 @@ fun LogbookSection(
 @Composable
 private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        color = TaskColors.Surface,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -91,13 +91,13 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.TextSnippet,
                 contentDescription = null,
-                tint = TaskColors.TextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(TaskSpacing.iconSize),
             )
             Spacer(Modifier.width(TaskSpacing.lg))
             Text(
                 text = "Logbook",
-                color = TaskColors.TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
@@ -106,7 +106,7 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "Add note to logbook",
-                    tint = TaskColors.TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(TaskSpacing.iconSize),
                 )
             }
@@ -132,7 +132,7 @@ private fun LogbookLoadedCard(
     }
 
     Surface(
-        color = TaskColors.Surface,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -151,13 +151,13 @@ private fun LogbookLoadedCard(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.TextSnippet,
                     contentDescription = null,
-                    tint = TaskColors.TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(TaskSpacing.iconSize),
                 )
                 Spacer(Modifier.width(TaskSpacing.lg))
                 Text(
                     text = "Logbook (${entries.size})",
-                    color = TaskColors.TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
@@ -166,7 +166,7 @@ private fun LogbookLoadedCard(
                     Icon(
                         imageVector = Icons.Filled.Add,
                         contentDescription = "Add note to logbook",
-                        tint = TaskColors.TextSecondary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(TaskSpacing.iconSize),
                     )
                 }
@@ -178,7 +178,7 @@ private fun LogbookLoadedCard(
             grouped.forEach { (date: LocalDate, dayEntries: List<LogbookEntry>) ->
                 Text(
                     text = formatDayLabel(date),
-                    color = TaskColors.TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(bottom = 4.dp, top = 8.dp),
@@ -210,7 +210,7 @@ private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier =
     ) {
         Text(
             text = note.title.ifBlank { "(untitled)" },
-            color = TaskColors.TextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 14.sp,
             fontWeight = FontWeight.Normal,
             maxLines = 1,
@@ -233,14 +233,14 @@ private fun LogbookTimeEntryRow(
         Icon(
             imageVector = Icons.Filled.Timer,
             contentDescription = null,
-            tint = TaskColors.TextSecondary,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
         )
         Spacer(Modifier.width(8.dp))
         val duration = entry.durationMs?.let { formatElapsed(it) } ?: "running"
         Text(
             text = "${entry.kind.name.lowercase()} · $duration",
-            color = TaskColors.TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             fontWeight = FontWeight.Normal,
             modifier = Modifier.weight(1f),

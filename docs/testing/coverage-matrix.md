@@ -14,10 +14,11 @@ below; the table carries the one-line version so a row is readable in a diff.
 |---|---|
 | — | target not claimed for this scenario |
 | ○ | claimed, but no automated test exists — **a hole** |
+| ◇ | claimed, no test, and **no automated carrier can reach that tier** |
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**19 scenarios · 3/34 claimed cells automated · 31 holes**
+**19 scenarios · 3/35 claimed cells automated · 32 holes**
 
 ## feature.auth
 
@@ -42,9 +43,9 @@ below; the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `SYNC-FAILED-01` | Deal with a change that could not be sent | ○ | ○ | There is a visible way to reach the screen. It lists the item, its kind, why it failed, when, and how many times it… |
-| `SYNC-INCOMING-01` | Receive a change on the field being typed into | ○ | ○ | Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field… |
-| `SYNC-OFFLINE-01` | Work with no network and watch the queue drain | ○ | ○ | The indicator shows how many changes are waiting, and the count survives a restart. Restoring the network drains it to… |
-| `SYNC-PROFILES-01` | Have a profile follow the account to another device | ○ | ○ | The profile arrives on B under the same name with no duplicate. Switching profiles during a sync does not let the… |
+| `SYNC-INCOMING-01` | Receive a change on the field being typed into | ◇ | ◇ | Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field… |
+| `SYNC-OFFLINE-01` | Work with no network and watch the queue drain | ◇ | ◇ | The indicator shows how many changes are waiting, and the count survives a restart. Restoring the network drains it to… |
+| `SYNC-PROFILES-01` | Have a profile follow the account to another device | ◇ | ◇ | The profile arrives on B under the same name with no duplicate. Switching profiles during a sync does not let the… |
 | `SYNC-PROTO-01` | Meet a server the app is too old for | ○ | ○ | The user is told to update the app to keep syncing. Local work is not blocked and no data is damaged. Proposed rather… |
 | `SYNC-SETTINGS-01` | Change how often sync runs | ○ | ○ | The new interval takes effect without a restart and survives one. |
 | `SYNC-SIGNOUT-01` | Sign out and sign back in as somebody else | ○ | ○ | The first sign-out confirms briefly and leaves no way back into the signed-in state. With unsent changes the user is… |
@@ -56,7 +57,7 @@ below; the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `TASK-CHECK-01` | Add a checklist item to a task | — | ○ | The item persists with its text and its completed state, so the list survives closing and reopening the editor on the… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
-| `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | — | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |
+| `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | ○ | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |
 
 ## Holes
 
@@ -93,6 +94,7 @@ Claimed but not automated:
 - `SYNC-STATUS-01` / desktop
 - `TASK-CHECK-01` / desktop
 - `TASK-TIME-01` / android
+- `TASK-TIME-01` / desktop
 
 ## Scenario details
 
@@ -353,7 +355,7 @@ Steps:
 
 **confirmed** · P1 · `#TASK-TIME`
 
-**Given:** A task exists, the app is signed in, and the task's detail view is open on Android, where the time-tracking section is part of the detail screen.
+**Given:** A task exists, the app is signed in, and the task's detail view is open.
 
 Steps:
 

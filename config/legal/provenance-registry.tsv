@@ -1,0 +1,38 @@
+# Provenance registry — machine-readable form of docs/legal/PROVENANCE.md
+# Tab-separated. Do not edit by hand without updating the document too.
+#
+# Columns:
+#   path     repo-relative path
+#   class    ORIGINAL | SPEC-COMPATIBLE | ADAPTED | PORTED
+#   source   upstream project, or `-` for none
+#   licence  upstream licence, or `-` for none
+#   note     short free text; `-` if none
+#
+# Classes PORTED and ADAPTED require a `// Provenance: <CLASS>` annotation in the file.
+# SPEC-COMPATIBLE and ORIGINAL do not.
+#
+#path	class	source	licence	note
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/QueryTokenizer.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/QueryParser.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/ConditionExprParser.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/Condition.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/QueryInterval.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/Query.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/Relation.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/QueryParseException.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/Options.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/SortOrder.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/DaoAdapters.kt	REWRITTEN	Orgzly	GPL-3.0	over-classified before; wraps this project's own DAOs
+shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/RecurrenceParser.kt	SPEC-COMPATIBLE	Orgzly + Tasks.org	DSL spec	implements published recurrence syntax
+shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/RecurrenceSpec.kt	SPEC-COMPATIBLE	Orgzly + Tasks.org	DSL spec	implements published recurrence syntax
+shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/SingularityQueryParser.kt	SPEC-COMPATIBLE	orgmode.org + Tasks.org	DSL grammar	implements published query grammar
+shared/src/commonMain/kotlin/com/singularity/todo/core/billing/SubscriptionProvider.kt	ADAPTED	Tasks.org	GPL-3.0	interface shape; field names carried over
+shared/src/commonMain/kotlin/com/singularity/todo/core/billing/PurchaseState.kt	ADAPTED	Tasks.org	GPL-3.0	hasPro/hasAccount/hasSubscription triple
+shared/src/commonMain/kotlin/com/singularity/todo/core/billing/BillingProvider.kt	ADAPTED	Tasks.org	GPL-3.0	abstraction only
+shared/src/commonMain/kotlin/com/singularity/todo/core/billing/NoopSubscriptionProvider.kt	ADAPTED	Tasks.org	GPL-3.0	no-op implementation
+shared/src/commonMain/kotlin/com/singularity/todo/core/analytics/Analytics.kt	ADAPTED	Tasks.org	GPL-3.0	logEvent/identify/logEventOncePerDay shape
+shared/src/commonMain/kotlin/com/singularity/todo/core/analytics/AnalyticsEvents.kt	ADAPTED	Tasks.org	GPL-3.0	event naming conventions
+shared/src/commonMain/kotlin/com/singularity/todo/core/analytics/NoopAnalytics.kt	ADAPTED	Tasks.org	GPL-3.0	no-op implementation
+shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/sync/SyncSource.kt	ADAPTED	Tasks.org	GPL-3.0	SyncSource enum narrowed to one-way
+shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/error/CalendarSyncExceptions.kt	ADAPTED	Tasks.org	GPL-3.0	layered SyncException hierarchy
+shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt	ADAPTED	Orgzly	GPL-3.0	persisted/ephemeral settings split

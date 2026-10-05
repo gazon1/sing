@@ -43,3 +43,47 @@ device's clock permanently and the damage is not attributable to a single event.
 #### Scenario: One bad reading does not rewrite the clock
 - A single received reading is far in the future
 - The clock does not move to it, and the next device after it is unaffected
+
+---
+
+## ADDED Requirements
+
+### Requirement: REQ-UA-019
+
+A change queued by one account SHALL be sent only while that account is the one signed
+in, and SHALL be attributable to that account.
+
+This is the sending half of ownership. REQ-UA-018 covers what happens to the *answer* —
+a response is applied only by the account that asked for it. It says nothing about the
+request, and the request is what leaves the device: a patch queued by one account and
+sent inside another account's authenticated request has already gone by the time the
+answer comes back, and discarding the answer does not call it back.
+
+The second sentence is what makes the first enforceable. Without a recorded owner, the
+rule cannot be checked against anything — which is the state the outbox was in, and why
+a switch could not deliver one account's work without also sending another's.
+
+#### Scenario: A queued change is sent only by its own account
+- Work is queued while account A is signed in
+- The device signs out, and account B signs in
+- The push under B's session does not contain A's queued change
+
+#### Scenario: A queued change goes out again when its own account returns
+- Work is queued while account A is signed in and the device signs out before it is sent
+- Account A signs in again
+- The push under A's session contains that work, and it is sent
+
+#### Scenario: One account's work is never erased with another's
+- Account A has queued work that has not been delivered
+- The device switches to account B and the switch erases A's local data
+- B's queued work is still there afterwards
+
+#### Scenario: Work queued before this device could attribute it is not sent as anybody's
+- The upgrade to owner-scoped queuing is applied while work is queued
+- Those rows are cleared rather than attributed to a guess
+- The loss is the cost of not guessing, and not a silent one
+
+#### Scenario: A sign-out keeps the queue
+- Work is queued and the user signs out
+- Nothing is erased and nothing is attributed to the next account
+- The queue is still this device's to send

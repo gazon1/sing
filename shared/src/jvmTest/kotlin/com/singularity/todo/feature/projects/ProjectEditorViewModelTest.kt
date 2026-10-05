@@ -7,6 +7,7 @@ package com.singularity.todo.feature.projects
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.projects.domain.ProjectsDomain
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
@@ -17,10 +18,13 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 /**
@@ -56,5 +60,54 @@ class ProjectEditorViewModelTest {
         val vm = createVm(backgroundScope)
         vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
         assertEquals("My project", vm.state.value.name)
+    }
+
+    // ─── W4: the editor must not keep a private copy of the name rule ──────────
+
+    @Test
+    fun `save accepts a name of exactly max length`() = runTest {
+        val vm = createVm(backgroundScope)
+        vm.onIntent(ProjectEditorIntent.NameChanged("a".repeat(ProjectsDomain.MAX_NAME_LENGTH)))
+        vm.onIntent(ProjectEditorIntent.Save)
+
+        assertEquals(null, vm.state.value.errorMessage)
+        assertEquals(1, fakeProjectsRepo.observeAll().first().size)
+    }
+
+    @Test
+    fun `save rejects a name one character past the limit`() = runTest {
+        val vm = createVm(backgroundScope)
+        vm.onIntent(ProjectEditorIntent.NameChanged("a".repeat(ProjectsDomain.MAX_NAME_LENGTH + 1)))
+        vm.onIntent(ProjectEditorIntent.Save)
+
+        assertNotNull(vm.state.value.errorMessage)
+        assertTrue(fakeProjectsRepo.observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun `save accepts 50 emoji that measure 100 utf-16 units`() = runTest {
+        // The case the old private `name.length > 50` check rejected: 50 visible
+        // characters, 100 UTF-16 units, under a limit the message states in characters.
+        val name = "🎉".repeat(ProjectsDomain.MAX_NAME_LENGTH)
+        assertEquals(100, name.length, "precondition: 100 UTF-16 units")
+
+        val vm = createVm(backgroundScope)
+        vm.onIntent(ProjectEditorIntent.NameChanged(name))
+        vm.onIntent(ProjectEditorIntent.Save)
+
+        assertEquals(null, vm.state.value.errorMessage)
+        assertEquals(1, fakeProjectsRepo.observeAll().first().size)
+    }
+
+    @Test
+    fun `editor and domain agree on the error for an over-long name`() = runTest {
+        val name = "🎉".repeat(ProjectsDomain.MAX_NAME_LENGTH + 1)
+        val domainError = ProjectsDomain.validateName(name)
+
+        val vm = createVm(backgroundScope)
+        vm.onIntent(ProjectEditorIntent.NameChanged(name))
+        vm.onIntent(ProjectEditorIntent.Save)
+
+        assertEquals(domainError?.message, vm.state.value.errorMessage)
     }
 }

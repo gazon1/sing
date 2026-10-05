@@ -132,6 +132,11 @@ object TestTags {
     const val RECURRENCE_OPTION_YEARLY_ON_DATE = "recurrence_option_yearly_on_date"
     const val RECURRENCE_OPTION_NONE = "recurrence_option_none"
 
+    // ── Recurrence end date ───────────────────────────────────────────────────
+    const val RECURRENCE_ENDS_NEVER = "recurrence_ends_never"
+    const val RECURRENCE_ENDS_ON_DATE = "recurrence_ends_on_date"
+    const val RECURRENCE_END_DATE_VALUE = "recurrence_end_date_value"
+
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
@@ -280,6 +285,41 @@ object TestTags {
         const val RESTORE = "overflow_restore"
         const val PIN = "overflow_pin"
         const val UNPIN = "overflow_unpin"
+    }
+
+    // ─── Time tracking ─────────────────────────────────────────────────────
+
+    /**
+     * Start/stop chip of [com.singularity.todo.feature.timetracking.presentation
+     * .components.TimeTrackingSection] on the task detail screen.
+     *
+     * These two were added, removed and are now back, and the round trip is the
+     * point worth keeping in mind. They were added for a desktop carrier that a
+     * reachability probe then ruled out, and removed as "tags for a control
+     * nothing can reach". The ruling-out turned out to be wrong: the section was
+     * absent on desktop because the two platform graphs had diverged onto
+     * different screens, not because the feature was Android-only. So the tags
+     * were not pre-paid debt — they were the one thing that *would* have caught
+     * it, sitting unused while a whole feature was missing from a platform.
+     *
+     * They carry distinct values because the chip swaps between the two states;
+     * one shared tag would make "the chip is still Start after a click" the only
+     * thing a test could assert.
+     */
+    object TimeTracking {
+        const val START = "time_tracking_start"
+        const val STOP = "time_tracking_stop"
+
+        /**
+         * The refusal text, rendered in place of the chip when a write failed.
+         *
+         * Tagged because "the click was refused and said so" is the only thing a
+         * desktop carrier can assert for `TASK-TIME-01` under the anonymous
+         * harness session — `startEntry` cannot succeed there, and until the
+         * failure was a state the test could see, a click that did nothing and a
+         * click that was never wired were the same observation.
+         */
+        const val ERROR = "time_tracking_error"
     }
 
     // ─── Long-press context menu sheet ─────────────────────────────────────

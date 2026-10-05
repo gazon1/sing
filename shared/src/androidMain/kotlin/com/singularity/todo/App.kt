@@ -145,5 +145,13 @@ private fun AppContent(
  */
 @Composable
 actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
-    androidShellNav3Root(state, navigator, navCallbacks)
+    // From the graph, not the host (#91) — see the desktop shell for the full story.
+    val shellClock: kotlin.time.Clock = koinInject()
+    val shellZone: com.singularity.todo.core.platform.TimeZoneProvider = koinInject()
+    androidShellNav3Root(
+        state = state,
+        navigator = navigator,
+        navCallbacks = navCallbacks,
+        today = com.singularity.todo.core.platform.todayAt(shellClock, shellZone.current()),
+    )
 }

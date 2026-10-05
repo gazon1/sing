@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.flows.calendar
 
+import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
-import com.singularity.todo.core.platform.todayInSystemZone
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
@@ -12,6 +12,7 @@ import com.singularity.todo.test.helpers.tapTab
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of the three `Maestro/flows/calendar/` regression flows.
@@ -27,15 +28,12 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("fast")
 class CalendarFlowTest {
-
-    private val today: LocalDate = todayInSystemZone()
-
     /** `"September 2026"` — the month header format the app renders. */
     private val monthTitle: String =
         "${today.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${today.year}"
 
     @Test
-    fun month_view_renders_the_current_month() = runDesktopAppTest(checkA11y = true) {
+    fun month_view_renders_the_current_month() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         tapTab("Calendar")
 
         assertTextDisplayed(monthTitle)
@@ -45,7 +43,7 @@ class CalendarFlowTest {
     }
 
     @Test
-    fun every_day_of_the_month_has_an_addressable_cell() = runDesktopAppTest(checkA11y = true) {
+    fun every_day_of_the_month_has_an_addressable_cell() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         tapTab("Calendar")
 
         // The month view is a pager that also composes the neighbouring months,
@@ -63,7 +61,7 @@ class CalendarFlowTest {
     }
 
     @Test
-    fun view_mode_switches_from_month_to_week() = runDesktopAppTest(checkA11y = true) {
+    fun view_mode_switches_from_month_to_week() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         tapTab("Calendar")
         assertTextDisplayed("Month")
         assertTextDisplayed(monthTitle)
@@ -76,5 +74,17 @@ class CalendarFlowTest {
         // stay in both views, so the header is what distinguishes them.
         assertTextDisplayed("Week")
         assertTextNotExists(monthTitle)
+    }
+
+    private companion object {
+        /**
+         * Mid-month, and a Wednesday — so no assertion in this file straddles a
+         * month or week boundary. The issue this file's evidence section describes
+         * was a test that passed on 30 September and failed on 1 October; a pinned
+         * instant is the whole fix, and `runDesktopAppTest` has accepted one since.
+         */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val today: LocalDate = LocalDate(2026, 9, 16)
     }
 }

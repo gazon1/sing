@@ -242,6 +242,11 @@ object TagsMd {
         "Dialog" to "Dialog",
         "DatePicker" to "Dialog",
         "EditorOverflow" to "Editor Overflow menu",
+        // The start/stop chip on the task detail. Filed under Tasks rather than
+        // given its own heading because it is a row of the task editor, the same
+        // call the recurrence and priority rows make — a heading per control
+        // would make the table a list of two-row sections.
+        "TimeTracking" to "Tasks",
     )
 
     /**

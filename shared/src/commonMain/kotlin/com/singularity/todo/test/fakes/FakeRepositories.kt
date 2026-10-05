@@ -1,4 +1,25 @@
-@file:Suppress("NoDirectClockSystem")
+// Test doubles for the whole repository, in one file so a test can import what it
+// needs without knowing which module a fake was written in.
+//
+// 2026-10-05, first pass: the file-level suppression of the direct-system-clock
+// rule that used to open this file was replaced by a `/test/fakes/` entry in the
+// rule's `isAllowedPath`. A file-level suppression silenced every *future* call
+// in a 1000-line file rather than the ones that exist, and it was invisible to
+// review because the exemption lived in the source instead of in the rule.
+//
+// 2026-10-05, second pass: the ~20 clock reads that the exemption was covering
+// now take a `Clock` and default to `FakeClock`, so a fake stamps entity
+// timestamps with a fixed instant instead of the wall clock. With zero reads
+// left under this directory, the `/test/fakes/` allow-list entry was deleted
+// rather than left matching nothing — and `NoDirectClockSystemRuleTest` asserts
+// that no file here reaches for `Clock.System`, so the door cannot reopen
+// quietly.
+//
+// The default is `FakeClock`, not `Clock.System`, and that asymmetry is the
+// point. A production default that reads the wall clock is a way to forget what
+// "now" means; a fake default that does the same is a way to make every
+// assertion about ordering, recency or staleness non-deterministic. The unsafe
+// default is the one that was removed.
 
 package com.singularity.todo.test.fakes
 
@@ -27,6 +48,7 @@ import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
@@ -81,7 +103,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -283,7 +304,7 @@ class FakeBackupRepository : BackupRepository {
  * In-memory [TaskDao] implementation for tests.
  * Stores only dependency and tag cross-references; all other methods error.
  */
-internal class InMemoryTaskDao : TaskDao {
+internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao {
     /** Dependencies partitioned by userId — mirrors production where SQL queries filter by user_id. */
     private val depsByUser = MutableStateFlow<Map<String, List<TaskDependencyCrossRef>>>(
         emptyMap<String, List<TaskDependencyCrossRef>>(),
@@ -521,6 +542,8 @@ internal class InMemoryTaskDao : TaskDao {
 open class FakeTaskRepository(
     private val dao: TaskDao = InMemoryTaskDao(),
     private val explicitCurrentUser: ProfileAwareCurrentUser? = null,
+    private val clock: Clock = FakeClock(),
+    private val timeZone: TimeZoneProvider = TEST_TZ,
 ) : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
 
@@ -551,7 +574,21 @@ open class FakeTaskRepository(
     var setTagsOverride: Result<Unit>? = null
     var setDependenciesOverride: Result<Unit>? = null
 
-    /** Seeds tasks by merging into existing state (adds or overwrites by id). */
+    /**
+     * Seeds tasks by merging into existing state (adds or overwrites by id).
+     *
+     * ## The trap this does not warn you about
+     *
+     * Reads are scoped to the current user, so a task seeded with a `userId`
+     * other than this fake's current user is **invisible** — `get` returns null,
+     * `observeByFilter` returns an empty list, and the test fails on an assertion
+     * about behaviour rather than about the seed.
+     *
+     * The default is [TestUsers.DEFAULT]. When you need a different one, pass
+     * `FakeTaskRepository(explicitCurrentUser = ...)` so the seed and the reader
+     * agree. Seeding another user's data on purpose (a read-isolation test) is
+     * legitimate — it just has to be deliberate.
+     */
     fun seed(vararg tasks: Task) = store.seed(tasks.toList())
 
     fun add(task: Task) = store.upsert(task)
@@ -606,7 +643,7 @@ open class FakeTaskRepository(
             val uid = currentUserId()
             val existing = store[id.value]?.takeIf { it.userId == uid }
                 ?: throw IllegalArgumentException("Task not found or not owned: ${id.value}")
-            store.upsert(existing.copy(archivedAt = Clock.System.now()))
+            store.upsert(existing.copy(archivedAt = clock.now()))
         }
     }
 
@@ -626,10 +663,10 @@ open class FakeTaskRepository(
                             it,
                             filter,
                             kotlin.time.Instant.fromEpochMilliseconds(
-                                Clock.System.now()
+                                clock.now()
                                     .toEpochMilliseconds(),
                             )
-                                .toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                                .toLocalDateTime(timeZone.current()).date,
                         )
                     }
                     .sortedWith(
@@ -674,7 +711,7 @@ open class FakeTaskRepository(
         softDeleteOverride?.let { return it }
         return runCatchingCancellable {
             store[id.value]?.let { task ->
-                val deleted = task.copy(archivedAt = Clock.System.now())
+                val deleted = task.copy(archivedAt = clock.now())
                 store.upsert(deleted)
             }
         }
@@ -702,7 +739,7 @@ open class FakeTaskRepository(
                 val toggled = if (task.completedAt != null) {
                     task.copy(completedAt = null)
                 } else {
-                    task.copy(completedAt = Clock.System.now())
+                    task.copy(completedAt = clock.now())
                 }
                 store.upsert(toggled)
             }
@@ -1080,8 +1117,10 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
 
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
 
-class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    ProjectsRepository {
+class FakeProjectsRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val clock: Clock = FakeClock(),
+) : ProjectsRepository {
     internal val store = InMemoryStore<Project>(
         keyOf = { it.id.value },
     )
@@ -1130,7 +1169,7 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
         val uid = currentUser.scopedUserId.value
         val existing = store[id.value]?.takeIf { it.userId == uid }
             ?: throw NoSuchElementException("Project $id not found or not owned by current user")
-        store.upsert(existing.copy(isDeleted = true, deletedAt = Clock.System.now()))
+        store.upsert(existing.copy(isDeleted = true, deletedAt = clock.now()))
     }
 
     override suspend fun upsert(project: Project): Project {
@@ -1226,8 +1265,10 @@ class FakeProjectsRepository(private val currentUser: ProfileAwareCurrentUser = 
 
 // ─── TagsRepository ──────────────────────────────────────────────────────────
 
-class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    com.singularity.todo.feature.tags.TagsRepository {
+class FakeTagsRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val clock: Clock = FakeClock(),
+) : com.singularity.todo.feature.tags.TagsRepository {
     private val store = InMemoryStore<com.singularity.todo.feature.tags.Tag>(keyOf = { it.id.value })
 
     fun seed(vararg tags: com.singularity.todo.feature.tags.Tag) = store.seed(tags.toList())
@@ -1282,7 +1323,7 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
         // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
         // looked trashed since 1970 — anything comparing the timestamp saw a
         // different value than production produces.
-        store.upsert(existing.copy(deletedAt = Clock.System.now()))
+        store.upsert(existing.copy(deletedAt = clock.now()))
     }
 
     override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {
@@ -1293,8 +1334,10 @@ class FakeTagsRepository(private val currentUser: ProfileAwareCurrentUser = Fake
 
 // ─── AttachmentRepository ────────────────────────────────────────────────────
 
-open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    com.singularity.todo.core.attachments.AttachmentRepository {
+open class FakeAttachmentRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val clock: Clock = FakeClock(),
+) : com.singularity.todo.core.attachments.AttachmentRepository {
     private val store = InMemoryStore<com.singularity.todo.core.attachments.Attachment>(keyOf = { it.id.value })
 
     fun seed(vararg attachments: com.singularity.todo.core.attachments.Attachment) = store.seed(attachments.toList())
@@ -1371,8 +1414,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
                 type = com.singularity.todo.core.attachments.AttachmentType.File,
                 localPath = sourcePath,
                 mimeType = mimeType,
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
             )
             store.upsert(att)
             att
@@ -1399,8 +1442,8 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
                 url = url,
                 title = title
                     ?: "",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
             )
             store.upsert(att)
             att
@@ -1410,8 +1453,10 @@ open class FakeAttachmentRepository(private val currentUser: ProfileAwareCurrent
 
 // ─── NotesRepository ─────────────────────────────────────────────────────────
 
-open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()) :
-    com.singularity.todo.feature.notes.domain.port.NotesRepository {
+open class FakeNotesRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val clock: Clock = FakeClock(),
+) : com.singularity.todo.feature.notes.domain.port.NotesRepository {
     /** Exposes raw store map for tests that need direct map access. */
     val notes: Map<String, com.singularity.todo.feature.notes.Note> get() = store.state.value
     private val store = InMemoryStore<com.singularity.todo.feature.notes.Note>(keyOf = { it.id.value })
@@ -1488,7 +1533,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         deleteOverride?.let { return it }
         return runCatchingCancellable {
             store[id.value]?.let { existing ->
-                store.upsert(existing.copy(deletedAt = Clock.System.now()))
+                store.upsert(existing.copy(deletedAt = clock.now()))
             }
         }
     }
@@ -1560,7 +1605,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         createWithContentOverride?.let { return it }
         return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
-            val now = Clock.System.now()
+            val now = clock.now()
             val note = com.singularity.todo.feature.notes.Note(
                 id = id,
                 userId = uid,
@@ -1584,7 +1629,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
             val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-            val now = Clock.System.now()
+            val now = clock.now()
             val note = com.singularity.todo.feature.notes.Note(
                 id = id,
                 userId = uid,
@@ -1619,7 +1664,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                         wordCount = bodyMarkdown.split(Regex("\\s+"))
                             .count { it.isNotBlank() },
                         charCount = bodyMarkdown.length,
-                        updatedAt = Clock.System.now(),
+                        updatedAt = clock.now(),
                     ),
                 )
             }
@@ -1630,7 +1675,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         archiveOverride?.let { return it }
         return runCatchingCancellable {
             store[id.value]?.let { existing ->
-                store.upsert(existing.copy(archivedAt = Clock.System.now()))
+                store.upsert(existing.copy(archivedAt = clock.now()))
             }
         }
     }
@@ -1648,7 +1693,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         setPinnedOverride?.let { return it }
         return runCatchingCancellable {
             store[id.value]?.let { existing ->
-                store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) Clock.System.now() else null))
+                store.upsert(existing.copy(isPinned = pinned, pinnedAt = if (pinned) clock.now() else null))
             }
         }
     }
@@ -1729,7 +1774,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
         val template = store.state.value.values.firstOrNull { it.id == templateId && it.userId == uid }
             ?: throw IllegalArgumentException("Template not found: $templateId")
         val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val now = Clock.System.now()
+        val now = clock.now()
         val finalTitle = targetDateKey?.let { "$it — $targetTitle" }
             ?: targetTitle
         val note = template.copy(
@@ -1774,7 +1819,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
                 it.deletedAt == null
         }
         if (existing != null) return@runCatchingCancellable existing.id
-        val now = Clock.System.now()
+        val now = clock.now()
         val newId = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val template = fromTemplateId?.let {
             store.state.value.values.firstOrNull { n -> n.id == it && n.userId == uid }
@@ -1818,7 +1863,7 @@ open class FakeNotesRepository(private val currentUser: ProfileAwareCurrentUser 
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
-        val now = Clock.System.now()
+        val now = clock.now()
         val note = com.singularity.todo.feature.notes.Note(
             id = id,
             userId = uid,
@@ -2056,6 +2101,7 @@ private fun extractUserId(session: Session): UserId = when (session) {
  */
 class FakeSavedAgendaViewsRepository(
     private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val clock: Clock = FakeClock(),
 ) : SavedAgendaViewsRepository {
 
     private val store = MutableStateFlow<Map<SavedAgendaViewKey, SavedAgendaView>>(emptyMap())
@@ -2083,7 +2129,7 @@ class FakeSavedAgendaViewsRepository(
 
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> =
         runCatchingCancellable {
-            val now = Clock.System.now()
+            val now = clock.now()
             val copy = view.copy(
                 id = SavedAgendaViewId.generate(),
                 userId = UserId(targetUserId),
@@ -2147,11 +2193,13 @@ class FakeSavedAgendaViewsRepository(
 
 /**
  * No-op [FileRevealer] for tests.
+ *
+ * Reports `true`, like [FakeFileSharePort]: a fake that returned `false` would
+ * put every settings test that opens the folder onto the failure branch, and the
+ * point of this class is to stand in for a file manager that opened.
  */
 class FakeFileRevealer : FileRevealer {
-    override suspend fun revealAttachmentsFolder(folderPath: String) {
-        // no-op in tests
-    }
+    override suspend fun revealAttachmentsFolder(folderPath: String): Boolean = true
 
     override fun attachmentsBasePath(): String = "/fake/attachments"
 }

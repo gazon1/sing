@@ -3,8 +3,12 @@ package com.singularity.todo.core.observability
 /**
  * Reports handled failures to the crash-reporting backend.
  *
- * Android: AppTracer (`ru.ok.tracer`). JVM: a no-op — desktop keeps its Kermit
- * file log as its only sink.
+ * Android: the rolling Kermit log, via `FileCrashReportingPort`. JVM: a no-op —
+ * desktop keeps its Kermit file log as its only sink.
+ *
+ * The Android binding is an interface-typed `single` rather than a concrete type
+ * because the source-available `pro` catalogue substitutes a vendor-backed
+ * implementation for it. The free core has no vendor dependency at all.
  *
  * ## Contract
  *

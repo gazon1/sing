@@ -49,7 +49,7 @@ actual fun AgendaNavGraph(
     }
 
     // Desktop context menu host — renders the actual ContextMenuHost.
-    // Uses platform desktop colors (TaskListColors) via the ContextMenuHost implementation.
+    // Uses platform desktop colors via the ContextMenuHost implementation.
     // The [onIntent] parameter is passed through AgendaScreen → AgendaContent so that
     // menu actions (pin, delete, expand, AI) can dispatch domain intents.
     val contextMenuHost: @Composable (

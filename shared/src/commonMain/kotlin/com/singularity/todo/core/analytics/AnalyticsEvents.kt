@@ -1,5 +1,8 @@
 package com.singularity.todo.core.analytics
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — event naming conventions only.
+//   Full registry: docs/legal/PROVENANCE.md
+
 /**
  * Canonical analytics event names and parameter keys.
  *

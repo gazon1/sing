@@ -48,6 +48,8 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
 
     fun onToggleHideCompleted() = block(ProjectDetailIntent.Domain.ToggleHideCompleted)
 
+    fun onToggleHideBlocked() = block(ProjectDetailIntent.Domain.ToggleHideBlocked)
+
     fun onSetReminder(offsetMinutes: Int?) = block(ProjectDetailIntent.Domain.SetReminder(offsetMinutes))
 
     // ── Inline edits ────────────────────────────────────────────────────────

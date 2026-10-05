@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.calendar_sync.error
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — layered SyncException hierarchy.
+//   Full registry: docs/legal/PROVENANCE.md
+
 /**
  * Sealed hierarchy of calendar-sync errors.
  *

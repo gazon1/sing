@@ -149,6 +149,14 @@ trace-coverage-check:
     PYTHONPATH=infra/kiwi python3 -m traceability coverage --check
 
 [group('traceability')]
+[doc('Generate a reachability probe for a scenario: `just trace-carrier TASK-CHECK-01 [--dry-run]`')]
+[working-directory(justfile_directory())]
+trace-carrier scenario:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability carrier {{scenario}}
+
+[group('traceability')]
 [doc('Normalise JUnit/Maestro XML into build/traceability/results.json + a result matrix')]
 [working-directory(justfile_directory())]
 trace-results maestro="":

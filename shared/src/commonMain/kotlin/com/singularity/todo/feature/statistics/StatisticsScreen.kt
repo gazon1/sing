@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.theme.DataSeriesColors
+import com.singularity.todo.core.ui.theme.DataStatusColors
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
@@ -155,7 +157,7 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
                     // Completed: green bar from bottom
                     val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
                     drawRect(
-                        color = Color(0xFF4CAF50),
+                        color = DataStatusColors.Completed,
                         topLeft = Offset(index * (barWidth + spacing), chartHeight - completedHeight),
                         size = Size(barWidth, completedHeight),
                     )
@@ -164,7 +166,7 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
                     val overdueHeight = (bucket.overdueCount.toFloat() / maxCount) * chartHeight
                     if (overdueHeight > 0) {
                         drawRect(
-                            color = Color(0xFFFF9800),
+                            color = DataStatusColors.Overdue,
                             topLeft = Offset(
                                 index * (barWidth + spacing),
                                 chartHeight - completedHeight - overdueHeight,
@@ -193,15 +195,6 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
 }
 
 // ─── Insights tab ───────────────────────────────────────────────────────────────
-
-private val INSIGHTS_COLORS = listOf(
-    Color(0xFF4CAF50), // green
-    Color(0xFF2196F3), // blue
-    Color(0xFFFF9800), // orange
-    Color(0xFF9C27B0), // purple
-    Color(0xFFE91E63), // pink
-    Color(0xFF00BCD4), // cyan
-)
 
 @Composable
 private fun InsightsTabContent(
@@ -297,7 +290,7 @@ private fun ProjectBreakdown(
     val overflow = projectBuckets.size - topProjects.size
 
     topProjects.forEachIndexed { index, bucket ->
-        val color = INSIGHTS_COLORS[index % INSIGHTS_COLORS.size]
+        val color = DataSeriesColors.at(index)
         ProjectTimeRow(
             name = bucket.projectName,
             totalMs = bucket.totalMs,
@@ -343,7 +336,7 @@ private fun InsightsStackedBarChart(buckets: List<DayInsightsBucket>, modifier: 
                     }
 
                     drawRect(
-                        color = Color(0xFF4CAF50),
+                        color = DataStatusColors.Completed,
                         topLeft = Offset(index * (barWidth + spacing), chartHeight - normalizedHeight),
                         size = Size(barWidth, normalizedHeight),
                     )

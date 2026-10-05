@@ -5,7 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
-import com.singularity.todo.core.platform.todayInSystemZone
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph
 import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
@@ -46,14 +46,23 @@ import org.koin.compose.koinInject
  *
  * [AgendaStartRoute.SavedAgendaEdit] and other non-tab agenda starts fall back to a
  * per-entry stack — they are never top-level routes, so there is nothing to hoist.
+ *
+ * @param today the date a calendar route with no explicit anchor opens at. Required
+ *   (#91): the two call sites below read `systemToday()` *outside* the Koin graph, so a
+ *   test that binds a fixed `Clock` in its module was overridden by a second,
+ *   un-injectable read of the host's wall clock. `CalendarFlowTest` failed on exactly
+ *   this — the harness supplied a fixed clock, the app rendered the host's month.
  */
 @Composable
-fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppDestination> {
+fun createJvmEntryProvider(
+    nav: NavCallbacks,
+    today: kotlinx.datetime.LocalDate = systemToday(),
+): (AppDestination) -> NavEntry<AppDestination> {
     // Hoisted top-level graph stacks — see the KDoc above for why they must live in the
     // shell composition rather than inside the entry content.
     val projectsStack = remember { NavBackStack<ProjectsRoute>(ProjectsRoute.List) }
     val calendarStack = remember {
-        NavBackStack<CalendarRoute>(CalendarRoute.Month(todayInSystemZone().toString()))
+        NavBackStack<CalendarRoute>(CalendarRoute.Month(today.toString()))
     }
     val notesStack = remember { NavBackStack<NotesRoute>(NotesRoute.List) }
     val searchStack = remember { NavBackStack<Search>(Search) }
@@ -90,9 +99,7 @@ fun createJvmEntryProvider(nav: NavCallbacks): (AppDestination) -> NavEntry<AppD
 
         entry<AppDestination.Calendar> {
             CalendarNavGraph(
-                start = CalendarRoute.Month(
-                    todayInSystemZone().toString(),
-                ),
+                start = CalendarRoute.Month(today.toString()),
                 onExitGraph = nav.graphExit,
                 backStack = calendarStack,
             )

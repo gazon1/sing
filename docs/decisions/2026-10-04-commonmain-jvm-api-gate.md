@@ -1,4 +1,5 @@
 ---
+title: commonMain imports JVM APIs with no gate to stop it
 date: 2026-10-04
 status: accepted
 ---
