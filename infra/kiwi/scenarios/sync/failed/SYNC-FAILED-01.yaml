@@ -1,0 +1,22 @@
+# Scenario specification for SYNC-FAILED-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-K). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-FAILED-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-FAILED-01
+title: Deal with a change that could not be sent
+priority: P2
+status: proposed
+targets: [android, desktop]
+preconditions: A signed-in device that has produced a change the server will never accept.
+steps:
+  - Produce a change that cannot be sent, and let it exhaust its attempts.
+  - Open the screen that lists problem changes.
+  - Retry one, retry all, and delete one.
+expected: >-
+  There is a visible way to reach the screen. It lists the item, its kind, why it failed, when, and how many times it was tried. Retrying one sends it and it disappears on success. Retrying all reports a result and leaves what still fails. Deleting confirms first, explains that the local copy then differs from the server, and does not touch the local data. Proposed rather than confirmed: the screen does not exist yet, and the plan introduces it as a condition of a fix rather than as shipped behaviour.

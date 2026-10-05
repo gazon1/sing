@@ -1,6 +1,7 @@
 package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,27 +75,70 @@ class SecureSessionStore(
 
     override suspend fun getOrInitDeviceId(): String = legacy.getOrInitDeviceId()
 
+    /**
+     * Writes the session, or nothing.
+     *
+     * The four fields are written one at a time because the keychain has no
+     * multi-key transaction, and a failure on the third left a half-written identity
+     * in the store: two fields of the new session beside two fields of the old one,
+     * or of none. A later launch reads the tokens it finds and concludes the device
+     * is signed in as an owner the fields disagree about, which is worse than being
+     * signed out — the user is told they are signed in, and every row they then write
+     * is attributed to an owner the store half-records.
+     *
+     * So the write is undone when it does not finish. That is the opposite of the
+     * migration's rule below, and for the same reason inverted: there, a failure means
+     * the *only* copy is in plain text and must be kept; here, the tokens being
+     * written are the fresh ones and the plain-text copy is not involved, so a partial
+     * set is the worst outcome available and there is nothing worth trading it for.
+     */
     override suspend fun save(session: Session.SignedIn) {
         // Suppress the migration for this write: the caller has just handed us a
         // current token, and moving a stale one first would overwrite it.
         attempted = true
-        secure.write(KEY_ACCESS, session.accessToken)
-        secure.write(KEY_REFRESH, session.refreshToken)
-        secure.write(KEY_EMAIL, session.email)
-        secure.write(KEY_USER_ID, session.userId.value)
+        runCatchingCancellable {
+            secure.write(KEY_ACCESS, session.accessToken)
+            secure.write(KEY_REFRESH, session.refreshToken)
+            secure.write(KEY_EMAIL, session.email)
+            secure.write(KEY_USER_ID, session.userId.value)
+        }.onFailure { cause ->
+            // Undo, and report the original failure rather than anything the undo
+            // might throw: the cause is what tells the caller the keychain is the
+            // problem, and an undo that fails must not replace that with a second,
+            // different error.
+            runCatchingCancellable { deleteSession() }
+                .onFailure { log.w(it) { "Could not undo a partially written session" } }
+            log.e(cause) { "Could not write the session; the store was left without one" }
+            throw AppError.Persistence(
+                // Names the local failure and, deliberately, does not suggest the
+                // address or the password was at fault — it was neither, and a user
+                // told their password is wrong will retype it. It also says the
+                // attempt got as far as the provider, because for a sign-up the
+                // account now exists and a blind retry would answer "that address is
+                // already registered".
+                "This device could not save your session, so you are not signed in. " +
+                    "If this was a new account it still exists — check your email.",
+                code = STORAGE_FAILED,
+                cause = cause,
+            )
+        }
         // A previously migrated install may still have the old copies if an
         // earlier version wrote them after a sign-in. Removing is idempotent.
         legacy.forgetTokens()
         publish()
     }
 
-    override suspend fun saveDeviceId(id: String) = legacy.saveDeviceId(id)
-
-    override suspend fun clear() {
+    private suspend fun deleteSession() {
         secure.delete(KEY_ACCESS)
         secure.delete(KEY_REFRESH)
         secure.delete(KEY_EMAIL)
         secure.delete(KEY_USER_ID)
+    }
+
+    override suspend fun saveDeviceId(id: String) = legacy.saveDeviceId(id)
+
+    override suspend fun clear() {
+        deleteSession()
         legacy.forgetTokens()
         publish()
     }
@@ -112,25 +156,38 @@ class SecureSessionStore(
                 publish()
                 return
             }
+
+            // A session is already in the secure store, so the plain-text copy is an
+            // older one that a write did not manage to erase before the process ended.
+            // Importing it would move this device *backwards* — a refresh token that
+            // was rotated on the way out is usually already revoked, so the result is
+            // a sign-in that works once and then fails, and the user has been signed
+            // out of a session that was sitting in the keychain the whole time. The
+            // newer session wins and the leftover is erased.
+            if (secure.read(KEY_ACCESS) != null) {
+                log.w { "Discarding a plain-text session the secure store has already superseded" }
+                legacy.forgetTokens()
+                publish()
+                return
+            }
+
             // Any one of these throwing leaves the plaintext in place, and the
             // `attempted` flag is already set, so this install keeps the copy it
             // has rather than losing the session over a transient keychain error.
             // A permanent keyring failure then looks like a signed-out user, which
             // is recoverable; the alternative is a silent sign-out with no copy
             // anywhere.
-            runCatchingCancellable { writeAll(legacyAccess, legacyRefresh, legacyEmail) }
+            runCatchingCancellable {
+                if (legacyAccess != null) secure.write(KEY_ACCESS, legacyAccess)
+                if (legacyRefresh != null) secure.write(KEY_REFRESH, legacyRefresh)
+                if (legacyEmail != null) secure.write(KEY_EMAIL, legacyEmail)
+            }
                 .onSuccess { legacy.forgetTokens() }
                 .onFailure {
                     log.w(it) { "Could not move the session token into secure storage; the plain-text copy is kept" }
                 }
             publish()
         }
-    }
-
-    private suspend fun writeAll(access: String?, refresh: String?, email: String?) {
-        if (access != null) secure.write(KEY_ACCESS, access)
-        if (refresh != null) secure.write(KEY_REFRESH, refresh)
-        if (email != null) secure.write(KEY_EMAIL, email)
     }
 
     private suspend fun publish() {
@@ -178,6 +235,15 @@ class SecureSessionStore(
     }
 
     companion object {
+        /**
+         * The code a failed session write reports under.
+         *
+         * Separate from the generic persistence code because this one has a specific
+         * consequence the caller must act on: the provider has already issued a
+         * session, and a retry would be a second sign-in rather than a repair.
+         */
+        const val STORAGE_FAILED = "auth.session_not_stored"
+
         /**
          * Secure-store keys. Not the tokens themselves — the values under them
          * are, and that is the whole reason this class exists.

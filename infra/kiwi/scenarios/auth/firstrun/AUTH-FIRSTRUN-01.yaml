@@ -1,0 +1,22 @@
+# Scenario specification for AUTH-FIRSTRUN-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-A). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:AUTH-FIRSTRUN-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: AUTH-FIRSTRUN-01
+title: Use the app on a first launch, with no account
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: A clean install with the network on, and no account configured yet.
+steps:
+  - Start the app and do not sign in.
+  - Create a task, a note and a project.
+  - Turn the network off and restart the app.
+expected: >-
+  Tasks can be created without signing in, they are stored locally, and restarting offline shows the data with no error and no dialog. The sync indicator shows a neutral state — having no account is not an error.

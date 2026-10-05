@@ -1,0 +1,20 @@
+# Scenario specification for SYNC-PROTO-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-M). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-PROTO-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-PROTO-01
+title: Meet a server the app is too old for
+priority: P2
+status: proposed
+targets: [android, desktop]
+preconditions: The server returns an event written by a newer version of the protocol.
+steps:
+  - Open the app and let a sync run against that server.
+expected: >-
+  The user is told to update the app to keep syncing. Local work is not blocked and no data is damaged. Proposed rather than confirmed: the client skips the event today, which is safe but silent — there is no such message yet.

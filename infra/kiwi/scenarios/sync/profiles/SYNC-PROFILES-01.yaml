@@ -1,0 +1,22 @@
+# Scenario specification for SYNC-PROFILES-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-H). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-PROFILES-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-PROFILES-01
+title: Have a profile follow the account to another device
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: Two devices signed into the same account.
+steps:
+  - Create a profile on device A.
+  - Switch to that profile on device B while a sync is running.
+  - Switch back to the first profile and delete the second one with unsent changes.
+expected: >-
+  The profile arrives on B under the same name with no duplicate. Switching profiles during a sync does not let the other profile's data appear. Each profile keeps its own sync position, so returning to one does not reload everything. Deleting a profile that has unsent changes warns first.

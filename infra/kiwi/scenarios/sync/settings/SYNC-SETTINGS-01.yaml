@@ -1,0 +1,21 @@
+# Scenario specification for SYNC-SETTINGS-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-N). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-SETTINGS-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-SETTINGS-01
+title: Change how often sync runs
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: A signed-in device with sync enabled.
+steps:
+  - Change the sync interval.
+  - Restart the app and check the setting.
+expected: >-
+  The new interval takes effect without a restart and survives one.

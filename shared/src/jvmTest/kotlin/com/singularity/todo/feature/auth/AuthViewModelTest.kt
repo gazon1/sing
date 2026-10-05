@@ -14,12 +14,15 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -44,6 +47,21 @@ class AuthViewModelTest {
     private fun TestScope.viewModel(
         signIn: Result<Unit> = Result.success(Unit),
         signUp: Result<Unit> = Result.success(Unit),
+        /**
+         * The session left behind by a successful attempt.
+         *
+         * Signed-in by default, and that default matters: a fake that returns success
+         * while leaving the session signed out is indistinguishable from the one
+         * outcome that is *not* a completed sign-in — an account created with an
+         * address still to be confirmed — so a view model that treated every success
+         * as entry would pass here.
+         */
+        sessionAfterSuccess: Session = Session.SignedIn(
+            userId = UserId.generate(),
+            email = "a@b.c",
+            accessToken = "access",
+            refreshToken = "refresh",
+        ),
     ): AuthViewModel {
         val provider = SupabaseClientProvider(
             resolver = SupabaseConfigResolver(idGenerator = FixedIds()),
@@ -52,8 +70,16 @@ class AuthViewModelTest {
         val repository = object : AuthRepository {
             override val currentSession = sessions.asStateFlow()
             override val isLoading = MutableStateFlow(false)
-            override suspend fun signIn(email: String, password: String) = signIn
-            override suspend fun signUp(email: String, password: String) = signUp
+            override suspend fun signIn(email: String, password: String): Result<Unit> {
+                if (signIn.isSuccess) sessions.value = sessionAfterSuccess
+                return signIn
+            }
+
+            override suspend fun signUp(email: String, password: String): Result<Unit> {
+                if (signUp.isSuccess) sessions.value = sessionAfterSuccess
+                return signUp
+            }
+
             override suspend fun signInAnonymously() = Result.success(Unit)
             override suspend fun signOut(): Result<Unit> {
                 sessions.value = Session.SignedOut
@@ -166,7 +192,11 @@ class AuthViewModelTest {
         val repository = object : AuthRepository {
             override val currentSession = sessions.asStateFlow()
             override val isLoading = MutableStateFlow(false)
-            override suspend fun signIn(email: String, password: String) = Result.success(Unit)
+            override suspend fun signIn(email: String, password: String): Result<Unit> {
+                sessions.value = Session.SignedIn(UserId.generate(), "a@b.c", "access", "refresh")
+                return Result.success(Unit)
+            }
+
             override suspend fun signUp(email: String, password: String) = Result.success(Unit)
             override suspend fun signInAnonymously() = Result.success(Unit)
             override suspend fun signOut() = Result.success(Unit)
@@ -185,6 +215,125 @@ class AuthViewModelTest {
         // it as a failed sign-in would send them round the password loop again for
         // something that has already succeeded.
         awaitState { viewModel.state.value is AuthUiState.Success }
+    }
+
+    // ── REQ-UA-014 — a sign-up with no session is not a completed sign-in ────
+
+    @Test
+    fun `a sign-up awaiting confirmation does not enter the application`() = runTest {
+        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+
+        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+        awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+
+        assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.state.value)
+    }
+
+    @Test
+    fun `a sign-up awaiting confirmation emits no navigation`() = runTest {
+        // The user landed inside the app with no session: a task list that cannot be
+        // saved, and nothing on screen that says why.
+        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+        val events = mutableListOf<AuthUiEvent>()
+        // A foreground `launch` on the test scope, not `backgroundScope`: the
+        // collector has to be subscribed before `onIntent`, and a background coroutine
+        // is not guaranteed to have been scheduled by the time the intent runs.
+        // A foreground `launch` on the test scope, not `backgroundScope`: the
+        // collector has to be subscribed before `onIntent`, and a background coroutine
+        // is not guaranteed to have been scheduled by the time the intent runs.
+        //
+        // The `finally` is not decoration. `runTest` waits for every foreground
+        // coroutine, so a collector left running by a failed assertion turns a red
+        // test into a hung build — and a hang hides the failure it was reporting.
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+            awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+            runCurrent()
+
+            assertTrue(
+                events.filterIsInstance<AuthUiEvent.Message>().isNotEmpty(),
+                "the collector saw nothing at all, so 'no navigation' would pass for the wrong reason: $events",
+            )
+            assertTrue(
+                events.none { it is AuthUiEvent.NavigateToHome },
+                "navigating on a session-less success put the user in with no session: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a sign-up awaiting confirmation does not seed`() = runTest {
+        // Seeding runs on behalf of an account. With no session there is no account to
+        // seed for, and the rows it would upload have no owner to be attributed to.
+        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+
+        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+        awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+
+        assertEquals(0, seedCalls)
+    }
+
+    @Test
+    fun `a sign-up awaiting confirmation says what to do, and not as an error`() = runTest {
+        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+            awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+            runCurrent()
+
+            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+            assertNotNull(message, "the user has to check their mail; nothing says so: $events")
+            assertTrue(
+                message.message.contains("email", ignoreCase = true),
+                "the message has to name the step that unblocks them: ${message.message}",
+            )
+            assertTrue(
+                events.none { it is AuthUiEvent.Error },
+                "the account was created; reporting it in the error colour reads as a failed sign-up: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a completed sign-up still enters the application`() = runTest {
+        // The guard on the guard: the session-less branch must not swallow the ordinary
+        // case, or nobody could ever sign up.
+        val viewModel = viewModel()
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+            awaitState { viewModel.state.value is AuthUiState.Success }
+            runCurrent()
+
+            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+            assertEquals(1, seedCalls)
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed sign-up is reported as a failure, not as "check your mail"`() = runTest {
+        val viewModel = viewModel(signUp = Result.failure(AppError.Unauthorized("nope")))
+
+        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+        awaitState { viewModel.state.value is AuthUiState.Idle }
+
+        assertIs<AuthUiState.Idle>(viewModel.state.value)
     }
 
     // ── Infrastructure ──────────────────────────────────────────────────────

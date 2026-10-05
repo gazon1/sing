@@ -1,0 +1,22 @@
+# Scenario specification for SYNC-STATUS-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-E). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-STATUS-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-STATUS-01
+title: See what sync is doing, and start it by hand
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: A signed-in device with a non-empty account.
+steps:
+  - Look at the sync indicator in each of its states.
+  - Press the sync action ten times in a row.
+  - Press it with the network off, and with no account signed in.
+expected: >-
+  Each state reads as what it is: no account and no network are calm states rather than red errors, and an error names its cause and offers a retry without showing a token. Ten presses run one cycle and at most one follow-up. Pressing with no network or no account explains the situation rather than failing.

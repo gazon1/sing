@@ -1,0 +1,21 @@
+# Scenario specification for AUTH-ATTACH-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-L). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:AUTH-ATTACH-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: AUTH-ATTACH-01
+title: Turn an account-less session into a real account
+priority: P1
+status: proposed
+targets: [android, desktop]
+preconditions: A device working without an account, holding data.
+steps:
+  - Create an account from the account screen.
+  - Wait for the attach to finish, including a case where it fails part way.
+expected: >-
+  The existing data stays visible throughout and ends up belonging to the new account. A failure part way through is reported and can be retried without losing or duplicating data. Proposed rather than confirmed: the transfer's own shape depends on an open question in the plan, and the provider may attach the identity without moving any rows at all.

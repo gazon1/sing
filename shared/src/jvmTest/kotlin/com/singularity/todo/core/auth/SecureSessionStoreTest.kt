@@ -7,9 +7,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import com.singularity.todo.core.error.AppError
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -162,8 +165,153 @@ class SecureSessionStoreTest {
         )
     }
 
-    // ── Infrastructure ───────────────────────────────────────────────────────
+    // ── REQ-UA-012: a session is written whole or not at all ─────────────────
 
+    @Test
+    fun `a write that fails part way leaves the store empty, not half a session`() = runTest {
+        // The keychain has no multi-key transaction, so four fields are four writes
+        // and the third can fail on its own. A blanket failure would not catch a
+        // caller that leaves a partial set behind, so this fails exactly one write.
+        val prefs = seededPreferences()
+        val secure = MapSecureStorage(failWriteNumber = 3)
+        val store = newStore(prefs, secure)
+
+        val error = assertFailsWith<AppError.Persistence> {
+            store.save(
+                Session.SignedIn(userId(), "a@b.c", "new-access", "new-refresh"),
+            )
+        }
+
+        assertTrue(
+            secure.values.isEmpty(),
+            "a half-written identity is worse than none: found ${secure.values.keys}",
+        )
+        assertEquals(SecureSessionStore.STORAGE_FAILED, error.code)
+    }
+
+    @Test
+    fun `a failed write is undone for each of the four fields, not just the one that failed`() = runTest {
+        // One representative of the four: the undo cannot be written to pass only for
+        // the third write, because the caller's undo does not know which one failed.
+        val secure = MapSecureStorage(failWriteNumber = 1)
+        val store = newStore(seededPreferences(), secure)
+
+        assertFailsWith<AppError.Persistence> {
+            store.save(Session.SignedIn(userId(), "a@b.c", "new-access", "new-refresh"))
+        }
+
+        assertTrue(secure.values.isEmpty(), "the first field failed, so nothing should remain")
+    }
+
+    @Test
+    fun `a failed write keeps the cause, so a crash report can be acted on`() = runTest {
+        val secure = MapSecureStorage(failWriteNumber = 2)
+        val store = newStore(seededPreferences(), secure)
+
+        val error = assertFailsWith<AppError.Persistence> {
+            store.save(Session.SignedIn(userId(), "a@b.c", "new-access", "new-refresh"))
+        }
+
+        assertNotNull(
+            error.cause,
+            "the storage failure is the thing worth reading a stack trace for; " +
+                "the wrapper's own stack ends where the wrapper was built",
+        )
+    }
+
+    @Test
+    fun `a launch after a failed write reads no session`() = runTest {
+        val secure = MapSecureStorage(failWriteNumber = 3)
+        val first = newStore(seededPreferences(), secure)
+        assertFailsWith<AppError.Persistence> {
+            first.save(Session.SignedIn(userId(), "a@b.c", "new-access", "new-refresh"))
+        }
+
+        // A second store over the same storage is what the next launch is: the partial
+        // write is gone, so the device comes up signed out rather than half restored.
+        val second = newStore(seededPreferences(), secure)
+        assertNull(second.currentAccessToken())
+        assertNull(second.currentRefreshToken())
+        assertNull(second.currentUserId())
+    }
+
+    // ── REQ-UA-013: a plain-text token cannot displace a newer session ────────
+
+    @Test
+    fun `a leftover plain-text token does not overwrite a session the keychain already holds`() = runTest {
+        // The interrupted `save`: the session reached the keychain, and the process
+        // ended before the plain-text copy was erased. `attempted` is per-instance, so
+        // the next launch re-runs the migration — and the value it finds in preferences
+        // is the one that was just superseded. Importing it moves the device backwards,
+        // onto a refresh token that was rotated on the way out and is usually revoked.
+        val prefs = seededPreferences(access = "stale-access", refresh = "stale-refresh", email = "a@b.c")
+        val secure = MapSecureStorage().apply {
+            values[SecureSessionStore.KEY_ACCESS] = "new-access"
+            values[SecureSessionStore.KEY_REFRESH] = "new-refresh"
+        }
+        val store = newStore(prefs, secure)
+
+        assertEquals("new-access", store.currentAccessToken())
+        assertEquals("new-refresh", store.currentRefreshToken())
+        assertNull(plaintextAccess(prefs), "the superseded copy is erased, not imported")
+        assertNull(plaintextRefresh(prefs))
+    }
+
+    @Test
+    fun `an interrupted migration does not force the user to sign in again`() = runTest {
+        val prefs = seededPreferences(access = "stale-access", refresh = "stale-refresh", email = "a@b.c")
+        // A *complete* newer session, as `save` would have left it — all four fields.
+        // Seeding only the tokens would make the owner assertion below fail for a
+        // reason that has nothing to do with the migration, which is the trap this
+        // fixture is easy to fall into.
+        val secure = MapSecureStorage().apply {
+            values[SecureSessionStore.KEY_ACCESS] = "new-access"
+            values[SecureSessionStore.KEY_REFRESH] = "new-refresh"
+            values[SecureSessionStore.KEY_EMAIL] = "new@b.c"
+            values[SecureSessionStore.KEY_USER_ID] = "new-owner"
+        }
+        val store = newStore(prefs, secure)
+
+        store.currentAccessToken()
+
+        assertNotNull(
+            store.currentAccessToken(),
+            "a valid session was sitting in the keychain all along",
+        )
+        assertEquals("new-owner", store.currentUserId())
+        assertNull(plaintextAccess(prefs), "the superseded copy is erased, not merely ignored")
+    }
+
+    @Test
+    fun `a failed migration still keeps the plain-text copy when the keychain is empty`() = runTest {
+        // The other case, and the one the ordering rule above was written for: the
+        // secure store holds nothing, so the plain-text copy is the only copy and a
+        // failed write must not erase it. "Do not displace" must not be implemented as
+        // "never import".
+        val prefs = seededPreferences(access = "only-access", refresh = "only-refresh", email = "a@b.c")
+        val secure = MapSecureStorage(failWrites = true)
+        val store = newStore(prefs, secure)
+
+        assertNull(store.currentAccessToken())
+
+        assertEquals(
+            "only-access",
+            plaintextAccess(prefs),
+            "a missing token is an account the user cannot get back into",
+        )
+    }
+
+    @Test
+    fun `a plain-text copy is still imported when the keychain is empty and the write works`() = runTest {
+        val prefs = seededPreferences(access = "old-access", refresh = "old-refresh", email = "a@b.c")
+        val secure = MapSecureStorage()
+        val store = newStore(prefs, secure)
+
+        assertEquals("old-access", store.currentAccessToken())
+        assertNull(plaintextAccess(prefs))
+    }
+
+    // ── Infrastructure ───────────────────────────────────────────────────────
     private fun newStore(prefs: DataStore<Preferences>, secure: SecureStorage) = SecureSessionStore(
         log = testLogger(),
         secure = secure,

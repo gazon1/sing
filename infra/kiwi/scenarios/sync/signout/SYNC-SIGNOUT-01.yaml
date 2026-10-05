@@ -1,0 +1,22 @@
+# Scenario specification for SYNC-SIGNOUT-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-I). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-SIGNOUT-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-SIGNOUT-01
+title: Sign out and sign back in as somebody else
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: A signed-in device, possibly holding unsent changes.
+steps:
+  - Sign out with nothing pending, then sign out with unsent changes.
+  - Sign out while offline, and sign out while a sync is running.
+  - Sign back in as a different user.
+expected: >-
+  The first sign-out confirms briefly and leaves no way back into the signed-in state. With unsent changes the user is told how many, and chooses. Signing out offline still completes locally. Signing out mid-sync stops the cycle cleanly. Signing in as another user shows none of the previous user's data.

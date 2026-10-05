@@ -3,6 +3,7 @@ package com.singularity.todo.core.auth
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
+import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.log.Redaction
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -130,15 +131,17 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun signUp(email: String, password: String): Result<Unit> = attempt("sign up", email) {
-        AuthDomain.validateEmail(email)
+        val address = AuthDomain.normalizeEmail(email)
+        AuthDomain.validateEmail(address)
         AuthDomain.validatePassword(password)
-        gateway.signUp(email, password)
+        gateway.signUp(address, password)
     }
 
     override suspend fun signIn(email: String, password: String): Result<Unit> = attempt("sign in", email) {
-        AuthDomain.validateEmail(email)
+        val address = AuthDomain.normalizeEmail(email)
+        AuthDomain.validateEmail(address)
         AuthDomain.validatePassword(password)
-        gateway.signIn(email, password)
+        gateway.signIn(address, password)
     }
 
     override suspend fun signInAnonymously(): Result<Unit> = attempt("anonymous sign in", null) {
@@ -157,6 +160,17 @@ class SupabaseAuthRepository(
      * is left believing the sign-up did not happen. Success with a signed-out
      * session tells the screen to say "check your mail", which is the truth, and
      * nothing is persisted because there is nothing to persist.
+     *
+     * ## Why the write to the store is inside the captured block
+     *
+     * Storing the session was the last statement of a success handler, and a handler
+     * that throws is not caught by the result it is attached to — so a keychain that
+     * failed while writing turned a failed attempt into an exception that left the
+     * repository, and from there an uncaught failure in the view model's scope. The
+     * user saw nothing at all, and the account existed at the provider holding a live
+     * session the device had never learned about. Doing the write inside the block
+     * makes it a failure of the attempt, which is what it is: the attempt got as far
+     * as the provider and then could not be completed here.
      */
     private suspend fun attempt(
         what: String,
@@ -169,20 +183,37 @@ class SupabaseAuthRepository(
             // `runCatchingResult` passes an AppError through untouched, so the
             // provider's wording survives instead of being flattened into
             // "unknown" on the way out.
-            runCatchingResult { block().getOrThrow() }
-                .onSuccess { remote ->
-                    if (remote.email.isNullOrBlank() && !remote.isAnonymous) {
-                        _currentSession.value = Session.SignedOut
-                    } else {
-                        apply(remote, remote.email.orEmpty())
-                    }
+            runCatchingResult {
+                val remote = block().getOrThrow()
+                if (remote.email.isNullOrBlank() && !remote.isAnonymous) {
+                    _currentSession.value = Session.SignedOut
+                } else {
+                    apply(remote, remote.email.orEmpty())
                 }
+            }
                 .map { }
                 .onFailure { e ->
+                    if (e.toAppError().code == SecureSessionStore.STORAGE_FAILED) endOrphanedSession(what)
                     log.e(e) { "Auth $what failed [email=${email?.let(Redaction::redactEmail) ?: "none"}]" }
                 }
         } finally {
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Ends a session the provider issued and the device could not store.
+     *
+     * Without this the provider is left holding a live session for an account the
+     * user believes failed, and nothing will ever revoke it: the refresh token is
+     * gone, so no later request carries it. The call is best-effort and its own
+     * failure is not reported over the storage failure that is already the answer to
+     * "why am I not signed in" — the message says the attempt reached the provider, so
+     * a user who cares knows to confirm the account.
+     */
+    private suspend fun endOrphanedSession(what: String) {
+        gateway.signOut().onFailure {
+            log.w(it) { "Auth $what left a session at the provider that could not be ended" }
         }
     }
 
@@ -261,11 +292,12 @@ class SupabaseAuthRepository(
                     code = "auth.not_anonymous",
                 ),
             )
+        val address = AuthDomain.normalizeEmail(email)
         return runCatchingResult {
-            AuthDomain.validateEmail(email)
+            AuthDomain.validateEmail(address)
             AuthDomain.validatePassword(password)
         }.mapCatching {
-            attempt("attach identity", email) { gateway.attachEmail(email, password) }
+            attempt("attach identity", address) { gateway.attachEmail(address, password) }
         }.getOrElse { Result.failure(it) }
             .mapCatching {
                 // A successful attach is no longer anonymous — it is a signed-in

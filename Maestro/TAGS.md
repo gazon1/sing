@@ -32,6 +32,7 @@ non-alphanumeric characters with `_`.
 | `AUTH_EMAIL_INPUT` | `auth_email_input` | |
 | `AUTH_ERROR_TEXT` | `auth_error_text` | |
 | `AUTH_LOADING` | `auth_loading` | |
+| `AUTH_MESSAGE_TEXT` | `auth_message_text` | |
 | `AUTH_PASSWORD_INPUT` | `auth_password_input` | |
 | `AUTH_SAVE_SERVER_BUTTON` | `auth_save_server_button` | |
 | `AUTH_SERVER_KEY_INPUT` | `auth_server_key_input` | |

@@ -1,0 +1,22 @@
+# Scenario specification for SYNC-INCOMING-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-G). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:SYNC-INCOMING-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: SYNC-INCOMING-01
+title: Receive a change on the field being typed into
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: Two devices signed into the same account.
+steps:
+  - On device A open a task and start typing a title without saving.
+  - On device B change that task's due date and wait for the sync.
+  - On device B change the title itself, and separately delete the task.
+expected: >-
+  Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field is changed remotely the outcome is defined and never discards in-progress typing without warning. A remote deletion of an open task reports itself as deleted, and saving does not resurrect it. A page of incoming changes does not jump the scroll or lose the selection.

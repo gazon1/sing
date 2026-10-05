@@ -106,9 +106,25 @@ class AuthViewModel(
             updateState { AuthUiState.Loading }
             authRepository.signUp(email, password).fold(
                 onSuccess = {
-                    runCatching { onFirstSignIn() }
-                    updateState { AuthUiState.Success }
-                    emit(AuthUiEvent.NavigateToHome)
+                    // A success with no session is the "account created, address must
+                    // be confirmed" case, and it is not a completed sign-in. The
+                    // repository reports it this way deliberately — a failure here
+                    // would answer "that address is already registered" on the retry —
+                    // so the distinction has to be carried this far rather than
+                    // re-decided. Navigating on it put the user inside the app with no
+                    // session and no explanation.
+                    if (authRepository.currentSession.value is Session.SignedOut) {
+                        updateState { AuthUiState.AwaitingEmailConfirmation }
+                        emit(
+                            AuthUiEvent.Message(
+                                "Account created. Check your email to confirm the address, then sign in.",
+                            ),
+                        )
+                    } else {
+                        runCatching { onFirstSignIn() }
+                        updateState { AuthUiState.Success }
+                        emit(AuthUiEvent.NavigateToHome)
+                    }
                 },
                 onFailure = {
                     updateState { AuthUiState.Idle }

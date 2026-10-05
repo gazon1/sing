@@ -40,6 +40,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     val form = rememberLoginFormState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // Kept apart from `errorMessage` so a neutral "your account was created, go check
+    // your mail" is not painted in the error colour and is not announced as a failure.
+    var message by remember { mutableStateOf<String?>(null) }
+
     val navigator = LocalAppNavigator.current
 
     // With no project configured there is nothing to sign in to, and the
@@ -56,8 +60,19 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            is AuthUiEvent.NavigateToHome -> navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
-            is AuthUiEvent.Error -> errorMessage = event.message
+            is AuthUiEvent.NavigateToHome -> {
+                navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
+            }
+
+            is AuthUiEvent.Error -> {
+                errorMessage = event.message
+                message = null
+            }
+
+            is AuthUiEvent.Message -> {
+                message = event.message
+                errorMessage = null
+            }
         }
     }
 
@@ -108,6 +123,17 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
+            )
+        }
+
+        val capturedMessage = message
+        if (capturedMessage != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = capturedMessage,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag(TestTags.AUTH_MESSAGE_TEXT),
             )
         }
 

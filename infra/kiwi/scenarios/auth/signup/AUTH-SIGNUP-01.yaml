@@ -1,0 +1,22 @@
+# Scenario specification for AUTH-SIGNUP-01.
+#
+# A user scenario from the auth/sync test plan (`/home/max/Downloads/Тест-план_
+# авторизация и синхронизация.md`, §7, flow UX-B). Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:AUTH-SIGNUP-01` Maestro tag).
+#
+# The plan states that screen names are provisional: the steps and the checks stand
+# even if the screen is arranged differently, and only the locators change. This spec
+# records the behaviour, not the layout, so that a redesign does not invalidate it.
+
+id: AUTH-SIGNUP-01
+title: Create an account
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: The server is configured and the user is on the sign-in screen.
+steps:
+  - Switch to creating an account.
+  - Enter a malformed address, then a password that is too short.
+  - Enter valid details and submit.
+expected: >-
+  Invalid input is refused beside the field without a request leaving the device. A valid submission shows a pending state with the fields and the button disabled, and a second press does not create a second request.

@@ -28,6 +28,9 @@ object TestTags {
     const val AUTH_TOGGLE_MODE_BUTTON = "auth_toggle_mode_button"
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
+
+    /** A neutral "you have to do something" message, as opposed to a failure. */
+    const val AUTH_MESSAGE_TEXT = "auth_message_text"
     const val AUTH_LOADING = "auth_loading"
     const val AUTH_SERVER_URL_INPUT = "auth_server_url_input"
     const val AUTH_SERVER_KEY_INPUT = "auth_server_key_input"
