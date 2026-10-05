@@ -26,6 +26,31 @@ GENERATED_BANNER = (
 _HEADER = "| Scenario | Title | " + " | ".join(t.value for t in ALL_TARGETS) + " |"
 _DIVIDER = "|---|---|" + "---|" * len(ALL_TARGETS)
 
+#: The coverage table carries one more column than the result table, because a
+#: coverage question is "what is unverified" and a result question is "what
+#: happened" — the same glyphs answer different questions in each. Built by
+#: concatenation rather than by slicing `_HEADER`, because slicing a Markdown
+#: header silently eats the column separator and produces a header with one
+#: cell fewer than the rows below it, which renders as data with no error.
+_COVERAGE_HEADER = (
+    "| Scenario | Title | " + " | ".join(t.value for t in ALL_TARGETS) + " | What we verify |"
+)
+_COVERAGE_DIVIDER = "|---|---|" + "---|" * (len(ALL_TARGETS) + 1)
+
+#: How much of `expected` fits a table cell before it stops being scannable.
+#: The full text is a click away in the details section; the point of the column
+#: is to make a row meaningful in a diff, not to replace reading the spec.
+_EXPECTED_CELL_LIMIT = 120
+
+
+def _cell(text: str, limit: int = _EXPECTED_CELL_LIMIT) -> str:
+    """A one-line table cell, truncated with an ellipsis that says so."""
+    inline = _inline(text)
+    if len(inline) <= limit:
+        return inline
+    cut = inline[: limit - 1].rsplit(" ", 1)[0]
+    return f"{cut}…"
+
 
 def _legend_coverage() -> list[str]:
     return [
@@ -98,6 +123,14 @@ def render_coverage_matrix(coverage: Coverage) -> str:
 
     Grouped because ``feature.tasks`` is the taxonomy a reader navigates by;
     a flat alphabetical list of ids would hide the structure the specs encode.
+
+    Carries the *expected result* of every scenario, not just its title. A
+    table of ``id | title | ● | ○`` answers "how much", which was never the
+    question; #156's acceptance criterion is that a reader uses this to decide
+    what to test next, and nobody can decide that from four glyphs and a title.
+    With 32 holes the reader's first question is "what is unverified, exactly",
+    and that is prose — which the specs already carry and this file was not
+    printing.
     """
     lines: list[str] = [
         GENERATED_BANNER,
@@ -106,6 +139,9 @@ def render_coverage_matrix(coverage: Coverage) -> str:
         "",
         "Derived from `infra/kiwi/scenarios/**` and the `@DisplayName` / `scenario:`",
         "tags in code. It changes only when code or specs change.",
+        "",
+        "Full steps and preconditions are in the [scenario details](#scenario-details)",
+        "below; the table carries the one-line version so a row is readable in a diff.",
         "",
         *_legend_coverage(),
         "",
@@ -132,21 +168,66 @@ def render_coverage_matrix(coverage: Coverage) -> str:
     ]
 
     for area, scenario_ids in coverage.areas.items():
-        lines += [f"## {area}", "", _HEADER, _DIVIDER]
+        lines += [f"## {area}", "", _COVERAGE_HEADER, _COVERAGE_DIVIDER]
         for scenario_id in scenario_ids:
             spec: ScenarioSpec = coverage.specs[scenario_id]
             glyphs = " | ".join(coverage.glyph(scenario_id, target) for target in ALL_TARGETS)
-            lines.append(f"| `{scenario_id}` | {spec.title} | {glyphs} |")
+            lines.append(
+                f"| `{scenario_id}` | {spec.title} | {glyphs} | {_cell(spec.expected)} |"
+            )
         lines.append("")
 
     if holes:
         lines += ["## Holes", "", "Claimed but not automated:", ""]
         lines += [f"- `{scenario_id}` / {target.value}" for scenario_id, target in holes]
         lines.append("")
-    else:
-        lines += ["No holes: every claimed target has automation.", ""]
+
+    lines += _render_details(coverage)
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_details(coverage: Coverage) -> list[str]:
+    """Preconditions, steps and expected result, per scenario.
+
+    Deterministic, and the reason it is safe to commit: the matrix is compared
+    byte-for-byte in CI, so anything time-, order- or environment-derived here
+    would be a diff on every run. Everything here comes from the spec files.
+    """
+    lines = ["## Scenario details", ""]
+    for area, scenario_ids in coverage.areas.items():
+        lines += [f"### {area}", ""]
+        for scenario_id in scenario_ids:
+            spec: ScenarioSpec = coverage.specs[scenario_id]
+            status = f"**{spec.status.value}** · {spec.priority} · `#{spec.id_prefix}`"
+            lines.append(f"#### `{scenario_id}` — {spec.title}")
+            lines.append("")
+            lines.append(f"{status}")
+            lines.append("")
+            if spec.preconditions:
+                lines += [_paragraph("Given", spec.preconditions), ""]
+            if spec.steps:
+                lines.append("Steps:")
+                lines.append("")
+                lines += [f"{i}. {_inline(step)}" for i, step in enumerate(spec.steps, 1)]
+                lines.append("")
+            lines += [_paragraph("Expected", spec.expected), ""]
+    return lines
+
+
+def _paragraph(label: str, text: str) -> str:
+    return f"**{label}:** {_inline(text)}"
+
+
+def _inline(text: str) -> str:
+    """One line, no pipes — safe in a table cell and stable in a diff.
+
+    A `|` in a table cell silently starts a new column, and the specs are
+    prose written by hand: a scenario about a filter by project would otherwise
+    render a table with one column too many and no error anywhere.
+    """
+    collapsed = " ".join(text.split())
+    return collapsed.replace("|", "\\|")
 
 
 def render_result_matrix(matrix: ResultMatrix) -> str:

@@ -1395,3 +1395,74 @@ class AbsenceRulesAreDisjoint(unittest.TestCase):
     def test_a_fully_reported_target_is_silent(self):
         links = [self._link_for("A", "TASK-A-01"), self._link_for("B", "TASK-B-01")]
         self.assertIsNone(self._run(links, reporting=["A", "B"]))
+
+
+class CoverageMatrixCarriesTheProse(unittest.TestCase):
+    """The matrix must answer "what is unverified", not only "how much".
+
+    It printed `id | title | ● | ○` and nothing else, so a reader could count
+    holes but not learn which behaviour each one is. #156's acceptance criterion
+    is that a reader uses the matrix to decide what to test next, and four
+    glyphs do not support that decision. The specs already carried the prose;
+    nothing printed it.
+    """
+
+    def _render(self) -> str:
+        specs = {
+            "TASK-REC-01": _spec(
+                steps=("Open the composer.", "Choose Daily."),
+                expected="The next occurrence is dated one day after completion.",
+            ),
+            "TASK-OLD-01": _spec(
+                "TASK-OLD-01", status=SpecStatus.DEPRECATED, id_prefix="TASK-OLD"
+            ),
+        }
+        return render_coverage_matrix(build_coverage(specs, [_link()]))
+
+    def test_the_table_has_a_what_we_verify_column(self):
+        self.assertIn("| What we verify |", self._render())
+
+    def test_the_expected_result_reaches_the_row(self):
+        self.assertIn(
+            "dated one day after completion",
+            self._render(),
+        )
+
+    def test_every_scenario_has_a_details_section(self):
+        rendered = self._render()
+        self.assertIn("## Scenario details", rendered)
+        for scenario_id in ("TASK-REC-01", "TASK-OLD-01"):
+            self.assertIn(f"#### `{scenario_id}`", rendered)
+
+    def test_details_carry_preconditions_steps_and_expected(self):
+        rendered = self._render()
+        self.assertIn("Steps:", rendered)
+        self.assertIn("1. Open the composer.", rendered)
+        self.assertIn("2. Choose Daily.", rendered)
+        self.assertIn("**Expected:**", rendered)
+
+    def test_a_deprecated_scenario_is_described_too(self):
+        # A retired scenario is exactly the one a reader needs the history for —
+        # "why is this here and why is nothing done about it".
+        self.assertIn("**deprecated**", self._render())
+
+    def test_a_pipe_in_the_prose_does_not_add_a_column(self):
+        # A `|` in a table cell starts a new column, and the specs are hand-written
+        # prose: a scenario about filtering by "project | tag" would render a table
+        # with one column too many and no error anywhere.
+        specs = {"TASK-A-01": _spec("TASK-A-01", id_prefix="TASK-A", expected="project | tag | status")}
+        row = [line for line in render_coverage_matrix(build_coverage(specs, [])).splitlines() if "TASK-A-01` |" in line][0]
+        self.assertIn("project \\| tag \\| status", row)
+
+    def test_a_long_expected_is_truncated_in_the_cell_but_not_in_the_details(self):
+        # The column makes a row readable in a diff; the details are where the
+        # full text lives. Truncating both would lose the sentence.
+        long_text = "word " * 80
+        specs = {"TASK-A-01": _spec("TASK-A-01", id_prefix="TASK-A", expected=long_text)}
+        rendered = render_coverage_matrix(build_coverage(specs, []))
+        row = [line for line in rendered.splitlines() if "TASK-A-01` |" in line][0]
+        self.assertIn("…", row)
+        self.assertIn(long_text.strip(), rendered)
+
+    def test_rendering_stays_deterministic(self):
+        self.assertEqual(self._render(), self._render())
