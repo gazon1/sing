@@ -48,7 +48,18 @@ internal sealed interface Decode {
  * asked for it, which is why the branches read defensively even though the presence check above
  * has already run.
  */
-internal class A2uiNodeFactory(private val catalog: A2uiCatalog) {
+internal class A2uiNodeFactory(
+    private val catalog: A2uiCatalog,
+    /**
+     * What the model reaches for, recorded where a component becomes a node.
+     *
+     * After the checks and before the dispatch, so that a kind the model wrote and the validator
+     * then rejected is counted as a mistake rather than as usage — the tally answers "does this
+     * component earn its place", and a component that is only ever written wrongly has not earned
+     * anything.
+     */
+    private val usage: GenuiUsageCounter = GenuiUsageCounter(),
+) {
 
     /**
      * The messages this layer reports about a model's own output.
@@ -57,6 +68,9 @@ internal class A2uiNodeFactory(private val catalog: A2uiCatalog) {
      * contract as the nodes are: two components failing the same way should say the same thing.
      */
     private val errors: A2uiComponentErrors = A2uiComponentErrors(catalog)
+
+    /** The running tally of which kinds a model actually draws. */
+    fun usageCounter(): GenuiUsageCounter = usage
 
     fun parseComponents(
         array: JsonArray,
@@ -119,6 +133,7 @@ internal class A2uiNodeFactory(private val catalog: A2uiCatalog) {
         )
         val problem: A2uiError? = checkProperties(component, id, schema, pointer, surfaceId)
         if (problem != null) return Decode.Bad(problem)
+        usage.record(kind)
         return decodeFor(kind, component, id, pointer, surfaceId)
     }
 

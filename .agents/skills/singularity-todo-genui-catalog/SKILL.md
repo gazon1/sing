@@ -141,6 +141,33 @@ database, or the clock.
   everything, `MESSAGE` drops the message. A forward reference to a component a later message defines
   is `ADVISORY` — dropping it would empty a surface that was about to fill in.
 
+## When the catalog renders nothing, and nothing tells you
+
+Two things have to line up for a rendering regression to be caught, and only one of them is in
+your control.
+
+**The tags are already right.** `GenuiSurfaceCorpusTest` reads files off disk and the render tests
+compose through the Compose harness — both are `@Tag("slow")`, which is what `slow` means in this
+project (crossing a process boundary, not "long"). A default `./gw :shared:jvmTest` excludes them,
+so a green default run says nothing about whether a component draws.
+
+**So they run in the `slow-tests` CI job, and that job has been failing.** Until it is green, the
+checks that catch "a registered renderer that draws nothing" are not running anywhere. Do not
+re-tag them to `fast` to compensate — that puts a file read and a Compose harness in the loop that
+is supposed to be quick, and the default run is still not where the answer lives.
+
+The split that matters, and it does hold:
+
+| Regression | Caught by |
+|---|---|
+| Catalog and schema disagree; a property is wrongly typed | `SingularityCatalogTest`, `A2uiValidatorTest` — `fast`, default run |
+| A wire line no longer becomes the node you expect | `A2uiParserTest` — `fast`, default run |
+| The catalog can no longer express our own screens | `GenuiSurfaceCorpusTest` — `slow-tests` |
+| A registered renderer draws an empty box | `GenuiCatalogRenderTest` (desktopApp) — `slow-tests` |
+
+The first two are contract regressions and you will see them immediately. The last two are drawing
+regressions, and they are invisible until `slow-tests` runs.
+
 ## Reference
 
 - `catalog/A2uiCatalog.kt`, `catalog/SingularityComponents.kt`, `catalog/CatalogPrompt.kt`

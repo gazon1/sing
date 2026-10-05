@@ -46,6 +46,18 @@ class GenuiSession(
     private val rejectionCounter: GenuiRejectionCounter = GenuiRejectionCounter(),
 ) {
 
+    /**
+     * Reports which components this answer drew.
+     *
+     * Logged per turn rather than on demand because the interesting moment is while the
+     * answer is still being looked at: "it never uses the card component" is a conclusion
+     * about the catalog that somebody has to reach, and it is much easier to reach while
+     * looking at the surface that failed to use it.
+     */
+    private fun reportUsage() {
+        parser.usageCounter().report()
+    }
+
     private val history: MutableList<GenuiTurn> = mutableListOf()
 
     /**
@@ -79,6 +91,7 @@ class GenuiSession(
             if (rejections.isEmpty()) {
                 remember(prompt, turn)
                 rejectionCounter.recordAndReport(collected)
+                reportUsage()
                 return GenuiOutcome(turn.text, turn.drawnAs(surfaceId), attempts, collected, failed = false)
             }
             if (attempts > maxCorrectionTurns) {

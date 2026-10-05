@@ -5,6 +5,7 @@ import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiValidator
 import com.singularity.todo.feature.genui.core.GenuiRejectionCounter
+import com.singularity.todo.feature.genui.core.GenuiUsageCounter
 import com.singularity.todo.feature.genui.engine.GenuiSession
 import com.singularity.todo.feature.genui.function.A2uiFunctionRegistry
 import com.singularity.todo.feature.genui.parser.A2uiParser
@@ -33,12 +34,27 @@ fun genuiModule(): Module = module {
     single { A2uiFunctionRegistry() }
     single { A2uiValidator(get()) }
     single { SurfaceController() }
-    single { A2uiParser(get()) }
+    // The usage tally is the parser's to own: it is the only thing that sees every kind.
+    single { A2uiParser(get(), usage = get()) }
     single { A2uiMessageProcessor(get(), get()) }
     single { GenuiRejectionCounter() }
+    // One tally for the process, injected into the parser so every turn accumulates into it.
+    // `GenuiSession` is a factory, so a counter created per session would answer "what did this
+    // conversation use" rather than the question the tally exists for: "what does the catalog
+    // actually earn".
+    single { GenuiUsageCounter() }
     single { ComponentRegistry().also { Material3Catalog.installAll(it) } }
     single<GenuiTransport> {
         UsageRecordingGenuiTransport(get<BaseGenuiTransport>(), get(), get(), get())
     }
-    factory { GenuiSession(get(), get(), get(), get(), get(), rejectionCounter = get()) }
+    factory {
+        GenuiSession(
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            rejectionCounter = get(),
+        )
+    }
 }

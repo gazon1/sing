@@ -66,6 +66,8 @@ import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.assertNotNull
 
+
+
 /**
  * Validates the Koin DI graph for desktop JVM — checks that every singleton
  * can be resolved from the graph without throwing.
@@ -87,121 +89,6 @@ import kotlin.test.assertNotNull
  */
 @Tag("slow")
 class KoinGraphValidationTest {
-
-    /**
-     * Mirrors [com.singularity.todo.core.di.platformModule] for JVM
-     * so this test can run without Android-specific dependencies.
-     */
-    private fun desktopPlatformModule(): Module = module {
-        // Mirrors `single<CrashReportingPort> { JvmCrashReportingPort() }` from the real
-        // PlatformModule.jvm.kt. It became load-bearing when the calendar-sync bindings started
-        // composing their own failure handler from the injected port rather than reading a
-        // process-wide one: a definition that needs `get<CrashReportingPort>()` is unresolvable
-        // in a graph that does not bind one, and this mirror is a graph.
-        single<CrashReportingPort> { JvmCrashReportingPort() }
-        // Mirrors `coreLoggingModule()`'s Logger binding, for the same reason.
-        single { Logger.withTag("App") }
-
-        // ─── Room Database ──────────────────────────────────────────────
-        single<AppDatabase> {
-            val dbPath = System.getProperty("user.home") +
-                "/.singularity-todo/singularity-todo.db"
-            File(dbPath).parentFile?.mkdirs()
-            wipeIfNotRoomManaged(dbPath)
-            AppDatabaseFactory.build(createSqlDriver(), dbPath)
-        }
-
-        single<UnitOfWork> { RoomUnitOfWork(get()) }
-
-        single { get<AppDatabase>().taskDao() }
-        single { get<AppDatabase>().noteDao() }
-        single { get<AppDatabase>().projectDao() }
-        single { get<AppDatabase>().tagDao() }
-        single { get<AppDatabase>().syncOutboxDao() }
-        single { get<AppDatabase>().syncDeadLetterDao() }
-        single { get<AppDatabase>().syncStateDao() }
-        single { get<AppDatabase>().syncShadowDao() }
-        single { get<AppDatabase>().remoteConfigDao() }
-        single { get<AppDatabase>().remoteConfigCacheDao() }
-        single { get<AppDatabase>().attachmentDao() }
-        single { get<AppDatabase>().reminderDao() }
-        single { get<AppDatabase>().projectReminderDao() }
-        single { get<AppDatabase>().checklistDao() }
-        single { get<AppDatabase>().llmUsageDao() }
-        single { get<AppDatabase>().profileDao() }
-        single { get<AppDatabase>().agendaViewDao() }
-        single { get<AppDatabase>().calendarSyncTaskMapDao() }
-        // The three Google-sync DAOs, added to the mirror with the desktop platform module's
-        // bindings. PlatformModuleMirrorTest checks this direction: a DAO bound on desktop and
-        // absent here means the graph test resolves a graph the app cannot build.
-        single { get<AppDatabase>().calendarSyncStateDao() }
-        single { get<AppDatabase>().googleEventShadowDao() }
-        single { get<AppDatabase>().calendarImportEventDao() }
-        single { get<AppDatabase>().savedSearchDao() }
-        single { get<AppDatabase>().timeEntryDao() }
-        single { get<AppDatabase>().proposalDao() }
-        single { get<AppDatabase>().proposalItemDao() }
-        single { get<AppDatabase>().tagGroupDao() }
-        single { get<AppDatabase>().projectInheritedTagGroupDao() }
-
-        // ─── DataStore ─────────────────────────────────────────────────
-        val userHome = System.getProperty("user.home")
-        val userSettingsDs: DataStore<Preferences> =
-            androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-                File(userHome, ".singularity-todo/user_settings.preferences_pb")
-            }
-        single<DataStore<Preferences>> { userSettingsDs }
-
-        // Mirrors the named `calendar_sync` DataStore in PlatformModule.jvm.kt. Google sync
-        // runs on desktop, so the coordinator's settings dependency has to resolve here too
-        // — and the mirror test is what notices when a platform module gains a binding the
-        // mirror lacks.
-        single<DataStore<Preferences>>(qualifier = named("calendar_sync")) {
-            androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-                File(userHome, ".singularity-todo/calendar_sync.preferences_pb")
-            }
-        }
-
-        // ─── Platform Ports ────────────────────────────────────────────
-        single<SecureStoragePort> { JvmSecureStorage() }
-        single<FileSystem> { JvmFileSystem() }
-        single<FileRevealer> { JvmFileRevealer() }
-        single<SharePort> { JvmSharePort() }
-        single<FileSharePort> { JvmFileSharePort() }
-        single<BackupCodec> { JvmBackupCodec() }
-        single<String> { "$userHome/.singularity-todo/backups" }
-        single<String> { "$userHome/.singularity-todo/logs" }
-        single { LogBundleExporter(get(), get(), get()) }
-
-        // ─── Pomodoro ──────────────────────────────────────────────────
-        single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
-        single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
-        factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get(), get(), get()) }
-
-        // ─── Reminders ─────────────────────────────────────────────────
-        single<ReminderScheduler> { JvmReminderScheduler() }
-
-        // ─── Sync (disabled on desktop) ────────────────────────────────
-        single<SyncPeriodicTrigger> {
-            DelayLoopSyncPeriodicTrigger(request = { }, scope = CoroutineScope(Dispatchers.Unconfined))
-        }
-        single<SyncWorkScheduler> { JvmSyncWorkScheduler(get()) }
-        single<BackgroundWorkScheduler> { testBackgroundScheduler(get()) }
-        single<CalendarSyncRepository> { NoopCalendarSyncRepositoryImpl() }
-        single<CalendarProviderPort> { NoopCalendarProvider() }
-        single<CalendarSyncWorkScheduler> { NoopCalendarSyncWorkScheduler() }
-        single<CalendarAppQueries> { JvmCalendarAppQueries() }
-
-        // Mirrors PlatformModule.jvm.kt. Google sync is supported on desktop, so this is a
-        // real binding and not a no-op — a mirror that quietly omitted it would leave the
-        // desktop graph untested exactly where it is now needed.
-        single<GoogleSyncPeriodicTrigger> {
-            DelayLoopGoogleSyncPeriodicTrigger(
-                coordinatorProvider = { get<GoogleSyncCoordinator>() },
-                scope = CoroutineScope(Dispatchers.Unconfined),
-            )
-        }
-    }
 
     @Test
     fun `all singletons resolve without missing bindings`() {
@@ -256,18 +143,3 @@ class KoinGraphValidationTest {
         }
     }
 }
-
-/**
- * A scheduler for the graph test that runs on a scope nothing will ever cancel.
- *
- * The graph is built to prove it resolves; these jobs are never scheduled in this test, and
- * a scope tied to the test body would either leak the loop or need a cleanup path that the
- * assertion does not need.
- */
-@Suppress("NoDirectClockSystem") // a graph test has nothing to inject from
-private fun testBackgroundScheduler(catalog: BackgroundJobCatalog) = JvmBackgroundWorkScheduler(
-    catalog = catalog,
-    clock = Clock.System,
-    scope = CoroutineScope(Dispatchers.Unconfined),
-    crashReporter = com.singularity.todo.core.observability.NoOpCrashReportingPort(),
-)

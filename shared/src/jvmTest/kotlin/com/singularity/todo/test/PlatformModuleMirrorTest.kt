@@ -7,16 +7,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * [KoinGraphValidationTest] re-declares the platform bindings instead of using
- * [com.singularity.todo.core.di.platformModule], because the real one pulls in
- * Android-only dependencies.
+ * [desktopPlatformModule] re-declares the platform bindings instead of using
+ * [com.singularity.todo.core.di.platformModule], because the real one opens the
+ * user's database and cannot be loaded twice in a process.
  *
  * That duplication is a trap, and it has already caught two production problems in
  * this change: `SyncStateDao` was bound in neither platform module, and
- * `projectReminderDao` was bound on desktop but not in the mirror. In both cases
- * `KoinGraphValidationTest` was green, because it resolves the mirror rather than the
- * app. A test that mirrors the thing it is testing cannot report the thing going
- * missing from both copies at once.
+ * `projectReminderDao` was bound on desktop but not in the mirror. In both cases the
+ * graph test was green, because it resolves the mirror rather than the app. A test that
+ * mirrors the thing it is testing cannot report the thing going missing from both
+ * copies at once.
  *
  * So the mirror is checked against its source, one directionally — see the test for
  * why. Cheap, and it fails with a sentence naming the missing DAO rather than with a
@@ -69,11 +69,15 @@ class PlatformModuleMirrorTest {
         // jvmMain.root = <shared>/src/jvmMain/kotlin; this test lives in the sibling
         // source set. Deriving from commonMain.root would look in the wrong tree —
         // the mirror is a test double and has no business being in commonMain.
+        //
+        // The mirror moved out of `KoinGraphValidationTest.kt` into its own file so the
+        // GenUI graph test can build the same graph; this path has to follow it, and
+        // `assertTrue` below is what says so when it does not.
         val root = System.getProperty("jvmMain.root")
             ?: error("jvmMain.root is not set — see the jvmTest task config")
         val file = File(
             File(File(root).parentFile.parentFile, "jvmTest/kotlin/com/singularity/todo/test"),
-            "KoinGraphValidationTest.kt",
+            "DesktopPlatformGraph.kt",
         )
         assertTrue(file.exists(), "Koin mirror not found at $file")
         return file
@@ -99,7 +103,7 @@ class PlatformModuleMirrorTest {
         assertEquals(
             emptySet(),
             production - mirror,
-            "KoinGraphValidationTest mirrors the platform module by hand; these DAOs are " +
+            "desktopPlatformModule mirrors the platform module by hand; these DAOs are " +
                 "bound on desktop and absent from the mirror, so the graph test resolves a " +
                 "graph the app cannot build",
         )
