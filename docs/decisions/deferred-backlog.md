@@ -2508,3 +2508,98 @@ that gets skipped. Refusing to report is the cheaper half of the same honesty.
 **Try next.** #138, with `just cr RERUN=1`. The gate now makes the cache case loud; whether it was
 the cause is still #138's to answer, and the `feature/calendar_sync` note must be deleted or
 re-adopted in the same commit, as that note already requires.
+
+---
+
+## scenario-result-missing-for-a-claiming-commit-is-not-a-failure
+
+**Status:** OPEN
+
+**Tracked as:** #149
+**OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
+
+**Found in:** the scenario traceability layer
+(`2026-10-05-scenario-test-cases-in-kiwi.md`), while wiring its result matrix into
+CI. Not a regression — a requirement that was never written down.
+
+**Why it is deceptive:** everything about this looks finished. The layer has a
+result matrix, four outcomes, a green gate and a committed coverage matrix. The
+matrix even renders the outcome that matters — a claimed target with no result at
+this commit — and *nothing acts on it*. A reader scanning the table cannot tell
+whether a cell means "verified" or "nobody looked".
+
+This is the same failure class as `-Ptest.tags=fast,slow` selecting 16 of 218 test
+classes for months, and as the three faces already pinned in
+`openspec/specs/test-execution-integrity`. It is the fifth.
+
+**Already ruled out:** a floor in `config/docs/kiwi-gaps-baseline.txt` is the
+wrong instrument. Polarity differs — for a class, *never run* is the failure; for
+a scenario, *never run* is normal (it may be new, or its target may be a different
+CI job) and *missing from a commit that claims it* is the failure.
+
+**Try first:** pin what "this build claims the target" means before writing the
+check, because the two requirements are unimplementable until that is decided.
+Emitting "attempted, not merely present" per target is the enabling change; the
+current signal cannot tell "ran and produced nothing" from "was never run".
+
+## maestro-results-are-produced-and-discarded-in-ci
+
+**Status:** OPEN
+
+**Tracked as:** #150, #151
+**OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
+
+**Found in:** the same layer, while asking why the Android column of the result
+matrix is permanently empty.
+
+**Why it is deceptive:** the Android flows *do* run in CI, and they *do* produce
+the JUnit XML the normaliser reads — `scripts/run-maestro.sh` now passes
+`--format=JUNIT --output=build/maestro-results`. The output is then discarded:
+the only artifact that job uploads is Maestro's own debug report, and only
+`if: failure()`. Twenty of 59 flows carry the `smoke` tag, so the scenario flow is
+among them.
+
+So the Android column of the result matrix is not a coverage hole. It is a hole
+in the plumbing, and it is indistinguishable from the former when you look at the
+table.
+
+**Already ruled out:** simply uploading the directory with `if: always()`. The
+flows run in a *different workflow* from the job that builds the matrix, so making
+the data available does not put it in the matrix, and cross-workflow artifact
+handoff is its own problem. The honest minimum is for the matrix header to state
+which targets this build covered.
+
+**Try first:** run one scenario flow on a host with a working emulator and check
+whether the result reaches the matrix at all. That single run settles the join
+(`file` attribute, its base, whether the sheet's confirm is reachable) and every
+remaining question here is downstream of the answer. Note that no flow has yet
+produced a result in this environment, so the Android tier is unverified end to
+end — the reporter emitting a `file` field is confirmed in the Maestro 2.10.0 jar,
+but the join is inference until a real run exercises it.
+
+## untested-has-two-answers-per-class-and-per-scenario
+
+**Status:** OPEN
+
+**Tracked as:** #157
+
+**Found in:** the same layer, while writing its README and skill and noticing
+that the new matrix answers the question the old one already answered.
+
+**Root cause:** `gaps.py` measures *never-run per test class* over the
+`Automated/*` plans; the scenario matrix measures *claimed targets per user
+scenario* over the `Scenarios` plan. Both are correct about different things, and
+both are presented as authoritative. A reader arriving cold has no rule for which
+to trust, and the two will drift in vocabulary — "hole" means a claimed target
+with no automation in one layer and something closer to "never run" in the other.
+
+**Already ruled out:** merging them. The polarity is opposite, so a single
+instrument cannot express both: for a class, *never run* is the failure; for a
+scenario, *never run* is normal and *missing from a claiming commit* is the
+failure. The per-class floor stays correct for what it measures.
+
+**Try first:** write the decision down before adding more scenarios. Growing the
+layer without settling this is how two authoritative-looking answers to one
+question get created. The decision owed: does the scenario layer eventually
+replace the legacy per-class reporting, with Kover keeping code coverage and
+`Automated/*` retired?

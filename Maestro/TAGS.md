@@ -51,6 +51,14 @@ non-alphanumeric characters with `_`.
 | `PRIORITY_OPTION_MEDIUM` | `priority_option_medium` | |
 | `PRIORITY_OPTION_NONE` | `priority_option_none` | |
 | `PRIORITY_OPTION_URGENT` | `priority_option_urgent` | |
+| `RECURRENCE_OPTION_DAILY` | `recurrence_option_daily` | |
+| `RECURRENCE_OPTION_DAY_OF_MONTH` | `recurrence_option_day_of_month` | |
+| `RECURRENCE_OPTION_MONTHLY` | `recurrence_option_monthly` | |
+| `RECURRENCE_OPTION_NONE` | `recurrence_option_none` | |
+| `RECURRENCE_OPTION_SPECIFIC_WEEKDAYS` | `recurrence_option_specific_weekdays` | |
+| `RECURRENCE_OPTION_WEEKLY` | `recurrence_option_weekly` | |
+| `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
+| `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
 | `TASKS_FAB` | `tasks_fab` | |
 | `TASKS_LIST` | `tasks_list` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |

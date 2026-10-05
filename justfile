@@ -103,6 +103,17 @@ alias kgaps        := kiwi::gaps
 alias kprune       := kiwi::prune
 alias kfloor       := kiwi::floor
 
+# ----- Spec-first traceability (scenarios → coverage/result matrices) -----
+# Coverage is committed and CI-checked; results are a per-commit CI artifact.
+# The long forms (`just kiwi::trace-coverage-check`) stay available; the check
+# variant is deliberately not aliased, so "did you check or just regenerate?"
+# is visible in the command rather than in the diff.
+alias trace-validate := kiwi::trace-validate
+alias trace-coverage := kiwi::trace-coverage
+alias trace-results  := kiwi::trace-results
+alias kiwi-seed      := kiwi::kiwi-seed
+alias kiwi-publish   := kiwi::kiwi-publish
+
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench
 alias rd     := scripts::refresh-decisions

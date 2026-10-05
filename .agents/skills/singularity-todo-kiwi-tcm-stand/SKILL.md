@@ -1,12 +1,23 @@
 ---
 name: singularity-todo-kiwi-tcm-stand
-description: Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — mapping repository test classes to test cases, importing Gradle JUnit results as test runs, and reporting what has never been run. Use when the question is "what do I still need to test", when planning what to verify next, when a test was added and should appear in the case database, when deciding whether a Kiwi failure is a bug in the stand or in the app, or when touching infra/kiwi/*, sync.py, gaps.py, or the just kiwi-* recipes. Read before editing anything under infra/kiwi/ — most Kiwi 16 API behaviour there is non-obvious and contradicts its documentation.
+description: Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — the legacy per-test-class case mapping, the scenario traceability layer (user scenarios in Git, coverage/result matrices, Kiwi as a projection), importing Gradle JUnit results as test runs, and reporting what has never been run. Use when the question is "what do I still need to test", when planning what to verify next, when a test was added and should appear in the case database, when deciding whether a Kiwi failure is a bug in the stand or in the app, or when touching infra/kiwi/*, sync.py, gaps.py, or the just kiwi-* recipes. Read before editing anything under infra/kiwi/ — most Kiwi 16 API behaviour there is non-obvious and contradicts its documentation.
 ---
 
 # Kiwi TCMS stand
 
-`infra/kiwi/` tracks **test intent**: each test class becomes a Kiwi TestCase, each
-Gradle run becomes a TestRun, and a case with no TestExecution is a visible hole.
+`infra/kiwi/` tracks **test intent** in two layers, and knowing which one you are
+in saves an hour:
+
+| Layer | Unit | Code | State |
+|---|---|---|---|
+| **Legacy** (frozen) | one test **class** | `sync.py` → plans `Automated/*` | 259 cases, as-is |
+| **Scenarios** (current) | one user **scenario** (`TASK-REC-01`) | `traceability/` → Kiwi plan named Scenarios | specs in Git, matrices derived |
+
+The legacy layer still runs and is still gated by `just kgaps` / `just kfloor`; it is
+simply no longer where new work goes. New scenarios go through `traceability/` only.
+
+`infra/kiwi/` tracks intent: each unit becomes a Kiwi TestCase, each Gradle run becomes
+a TestRun, and a unit with no TestExecution is a visible hole.
 
 Kover answers "how many lines did the tests touch". That is not the same question as
 "what do I intend to verify, and what have I never run". A class can contribute
@@ -65,9 +76,33 @@ obvious-looking code is the broken one.
 
 Do not "fix" these without an ADR.
 
-**One case per test class, not per test method.** A Kiwi case id must be stable, and a
-Kotlin class name changes far less often than the set of `@Test` methods inside it.
-Changing a test's signature must not mint a new case or split run history.
+**Two case granularities, on purpose — do not "unify" them.**
+
+*Legacy, still true for `Automated/*`:* one case per test **class**, not per test
+method, so that changing a test's signature does not mint a new case or split run
+history.
+
+*Scenarios, current:* one case per user **scenario** (`TASK-REC-01`), because "one
+case = one class" cannot express *"TASK-REC-01 passes on Android and fails on
+Desktop"*. Kiwi holds several TestExecutions under one TestCase, and **one run per
+(commit, target)** is what keeps the per-tier status — two executions in one run are
+one observation written twice, and a last-wins reader loses the tiers.
+See ADR `2026-10-05-scenario-test-cases-in-kiwi.md`, which supersedes the class-level
+invariant.
+
+**Scenario id is a prefix token, and strictness is deliberate.** In Kotlin
+`@DisplayName("TASK-REC-01 …")` and in Maestro `tags: [scenario:TASK-REC-01]`. An id
+not at the start, two ids on one method, an id with no spec, or two tests claiming one
+scenario are **errors**, not shapes to accommodate — a regex that starts tolerating
+whitespace variance is the first step toward reimplementing a Kotlin parser in Python.
+
+**JUnit writes `@DisplayName` into `<testcase name>`, not the method name.** Verified
+on this repo's output. A link keyed on `fun` matches nothing while looking perfectly
+correct, and the only symptom is an empty result matrix.
+
+**`ModalBottomSheet` is unreachable from a desktop JVM Compose test.** It renders into a
+separate semantics root on Compose Multiplatform desktop. `AlertDialog` *is* reachable.
+Do not add tags inside a sheet hoping a JVM test can drive it — that is ballast.
 
 **Idempotency key is `source_path`, not FQN.** `CoroutineDiagnosticsTest` exists in both
 `shared/src/jvmTest` and `desktopApp/src/jvmTest`. Keying on FQN would silently collapse
@@ -122,3 +157,91 @@ collapses it to one call per plan.
 Errors are raised as `KiwiError` carrying the endpoint and the failing method, never
 as a bare `xmlrpc.client` fault. A raw fault means something reaches the proxy directly
 and bypasses the wrapping in `KiwiClient.call`.
+
+## Scenario traceability (`infra/kiwi/traceability/`)
+
+```bash
+just trace-validate              # specs + links + namespace; no stand, no network
+just trace-coverage              # regenerate the committed coverage matrix
+just kiwi::trace-coverage-check  # fail if the committed copy is stale (CI)
+just trace-results [maestro]     # JUnit/Maestro XML → build/traceability/results.json
+just kiwi-seed-dry-run           # what seeding would write
+just kiwi-seed                   # project specs into Kiwi (idempotent on the id)
+just kiwi-seed-check             # fail on drift between Kiwi and the specs
+just kiwi-publish                # results.json → Kiwi run history
+```
+
+One direction only: **Git → Kiwi**. Editing a scenario case in the UI is overwritten
+by the next seed, so every seeded case carries `extra_link` back to its spec and
+`seed --check` exists.
+
+**Two API traps that cost real time here** (both found by using them, not by reading):
+
+- `get_all_cases_properties(...)` takes **plan** ids; `get_cases_properties(...)` takes
+  **case** ids. Passing case ids to the former returns `{}` silently — which reads
+  exactly like "no such scenario" and makes every seed create a duplicate.
+- Case status comes back as `case_status__name`. Reading `status` yields `None`,
+  so a drift check reports every case as drifted, forever.
+
+**Exit codes matter in CI**: `1` bad spec/link/stale commit · `2` a claimed target
+produced zero testcases (the "quietly green" case) · `3` the stand is unreachable. A
+stand outage must never read as a broken spec, and Kiwi is a projection, never a gate.
+
+**Coverage is committed; results are not.** `docs/testing/coverage-matrix.md` is
+regenerated and diffed byte-for-byte in CI. The result matrix is a build artifact
+(under `build/traceability/`, gitignored) that names one identified commit and is
+uploaded as an artifact — a file mixing "who claimed this" with "what passed on
+abc1234" goes stale at merge time and conflicts across branches.
+
+## Adding a scenario — the order that works
+
+The pieces are independent, so do them in this order; each step is verifiable
+before the next exists.
+
+1. **Write the spec.** `infra/kiwi/scenarios/<area>/<subarea>/<ID>.yaml`. The id
+   prefix must abbreviate the directory (`TASK-REC` in `tasks/recurrence/`), and
+   `area` is derived from the path — state it only to have it cross-checked. Do
+   **not** list tests or Kiwi ids; linkage lives in step 2.
+2. **`just trace-validate`.** A new spec with no automation is valid and shows a
+   `○` hole. That is the expected state here, not a failure.
+3. **Add the Kotlin carrier** — `@DisplayName("<ID> <what it does>")` on a test in
+   `desktopApp/src/jvmTest` (desktop) or `androidApp/src/androidTest` (android).
+   The id is the first token. If no test can reach the UI from JVM (see
+   `ModalBottomSheet` below), go straight to step 4.
+4. **Add the Maestro carrier** — `scenario:<ID>` in the flow's `tags:`. Tag
+   matching is exact string comparison, so `TAGS=scenario:<ID> scripts/run-maestro.sh`
+   selects exactly that flow with no code change. Pick the tier that can actually
+   assert the behaviour; do not add tags to a surface no test can drive.
+5. **`just trace-validate` again, then `just trace-coverage`.** The committed
+   matrix must be regenerated and committed; CI diffs it byte-for-byte.
+6. **`just trace-results`, then `just kiwi-seed` and `just kiwi-publish`** to
+   project it. Kiwi steps are local-only and never gate a build.
+
+### Which target can assert what — measure, do not assume
+
+- **desktop** (`desktopApp/jvmTest`): anything reachable by `testTag` in the main
+  semantics tree. `AlertDialog` content is reachable; `ModalBottomSheet` content
+  is **not** — it renders into a separate semantics root, so every selector inside
+  a sheet is invisible to a JVM test no matter what tags it carries.
+- **android** (`androidApp/src/androidTest` or Maestro): anything else, and the
+  only tier that can drive a sheet.
+
+A `●` in the matrix should mean "a real user behaviour is verified here". If the
+best you can write is "the control exists", that is still worth having — but say
+so in the test's KDoc, as `TaskRecurrenceScenarioTest` does, so the next reader
+does not read `●` as more than it is.
+
+### The four things that will bite you
+
+1. **JUnit writes `@DisplayName` into `<testcase name>`, not the method name.** A
+   key built on `fun` matches nothing and looks entirely correct; the only symptom
+   is an empty matrix.
+2. **Gradle appends `()` and, on KMP targets, `[jvm]`.** `shared` emits
+   `foo()[jvm]`, desktop emits `foo()`. Both normalise to the same key — one
+   function does it, and adding a second normalisation breaks the join silently.
+3. **Same commit, new outcome.** A commit is routinely re-tested. An existing
+   execution is overwritten, never skipped, or Kiwi keeps a stale `PASSED` while
+   the matrix says `❌`.
+4. **A target with no result directory is not a violation.** A desktop-only run
+   must not fail on Android having no XML; only a target that *ran* and produced
+   nothing is an error (exit 2).

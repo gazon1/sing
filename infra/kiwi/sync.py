@@ -46,13 +46,32 @@ import argparse
 import re
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from kiwi_client import KiwiClient, KiwiError, status_for
+# `infra/kiwi` — плоский каталог скриптов, а не установленный пакет, поэтому
+# пакет `traceability` лежит рядом и не находится без явного пути. Обычно
+# достаточно sys.path[0] (скрипт запускают как `./infra/kiwi/sync.py`), но
+# gaps.py и тесты грузят модуль через importlib — без этой строки любой такой
+# запуск падает на импорте общего JUnit-ридера.
+_KIWI_DIR = str(Path(__file__).resolve().parent)
+if _KIWI_DIR not in sys.path:
+    sys.path.insert(0, _KIWI_DIR)
+
+from kiwi_client import KiwiClient, KiwiError
+from traceability.junit_xml import TestCaseResult
+from traceability.junit_xml import parse_junit as parse_junit_flat
+
+# The JUnit reader itself lives in traceability/junit_xml.py and is shared with
+# the scenario pipeline. Two parsers of one format is how the join between "what
+# ran" and "what was claimed" quietly breaks: each side normalises slightly
+# differently and the matrix comes out empty rather than loudly wrong. The
+# re-export below keeps `sync.parse_junit` and `sync.TestResult` working for
+# existing callers and for scripts/tests/test_kiwi_sync.py, which pins the
+# parsing behaviour (classname-not-testsuite@name, failure/error/skipped
+# precedence, malformed XML tolerated).
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PKG_PREFIX = "com.singularity.todo"
@@ -322,13 +341,8 @@ def scan_repository() -> list[RepoTest]:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class TestResult:
-    classname: str
-    name: str
-    status: str  # passed / failed / skipped
-    time: float = 0.0
-    message: str = ""
+# Re-exported, not redefined: see the import note above.
+TestResult = TestCaseResult
 
 
 # Свежесть JUnit XML. build/test-results — артефакт, а не источник истины:
@@ -363,52 +377,18 @@ def parse_junit(dirs: list[Path]) -> dict[str, list[TestResult]]:
     Класс группируется по FQN из `<testcase classname=…>`, потому что
     именно он записан в свойства кейса в Kiwi (`source_class`) и по нему
     выполняется привязка.
+
+    Разбор делегирован `traceability/junit_xml.parse_junit`: этот кейс
+    группирует по классу, сценарийная ветка работает по тесту, и обе должны
+    видеть одно и то же XML. Идентификатор класса берётся из
+    `<testcase classname="...">`, а НЕ из `<testsuite name="...">`: Gradle
+    пишет в testsuite имя с суффиксом целевой платформы
+    («AgendaDslTest[jvm]»), и такое имя не совпадает ни с одним FQN
+    репозитория — привязка результатов молча давала 0 совпадений.
     """
     by_class: dict[str, list[TestResult]] = defaultdict(list)
-    for d in dirs:
-        for xml_file in sorted(d.glob("TEST-*.xml")):
-            try:
-                root = ET.parse(xml_file).getroot()
-            except ET.ParseError as exc:
-                print(f"  ! нечитаемый {xml_file.name}: {exc}", file=sys.stderr)
-                continue
-            suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
-            for suite in suites:
-                for case in suite.findall("testcase"):
-                    # Идентификатор класса берём из <testcase classname="...">,
-                    # а НЕ из <testsuite name="...">: Gradle пишет в testsuite
-                    # имя с суффиксом целевой платформы («AgendaDslTest[jvm]»),
-                    # и такое имя не совпадает ни с одним FQN репозитория —
-                    # привязка результатов молча давала 0 совпадений.
-                    classname = case.get("classname") or ""
-                    if case.find("failure") is not None:
-                        status = "failed"
-                        node = case.find("failure")
-                    elif case.find("error") is not None:
-                        status = "error"
-                        node = case.find("error")
-                    elif case.find("skipped") is not None:
-                        status = "skipped"
-                        node = None
-                    else:
-                        status = "passed"
-                        node = None
-                    message = ""
-                    if node is not None and node.get("message"):
-                        message = node.get("message", "")[:2000]
-                    try:
-                        elapsed = float(case.get("time") or 0.0)
-                    except ValueError:
-                        elapsed = 0.0
-                    by_class[classname].append(
-                        TestResult(
-                            classname=classname,
-                            name=case.get("name") or "",
-                            status=status,
-                            time=elapsed,
-                            message=message,
-                        )
-                    )
+    for result in parse_junit_flat(dirs):
+        by_class[result.classname].append(result)
     return by_class
 
 

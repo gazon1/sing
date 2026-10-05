@@ -1,0 +1,25 @@
+# Scenario specification for TASK-REC-01.
+#
+# The canonical statement of this user scenario. Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:TASK-REC-01`
+# Maestro tag), so there is no second source of truth to keep in sync.
+#
+# `area` is derived from this path (scenarios/tasks/…) and only cross-checked
+# when stated; the id prefix TASK-REC is checked against tasks/recurrence.
+
+id: TASK-REC-01
+title: Create a daily recurring task
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  An empty task database on a signed-in device, with the app in the foreground
+  and notifications permitted.
+steps:
+  - Open the task composer and give the task a title.
+  - Enable recurrence and choose the Daily interval.
+  - Save the task and complete it once.
+expected: >-
+  The task list shows the next occurrence dated one day after the completion
+  date, and the original instance is gone from Today.

@@ -117,6 +117,33 @@ python3 scripts/gen-detekt-rule-table.py --check || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [8c1/21] the skills catalog is current ===${NC}"
+# docs/SKILLS-CATALOG.md is generated from skill frontmatter and was committed
+# stale on a clean tree, with nothing noticing: "do not edit by hand" discourages
+# the wrong edit but cannot catch the edit nobody made. The catalog is what an
+# agent reads to choose a skill, so a stale line count or description sends it to
+# the wrong file. Same lesson as the detekt rule inventory above.
+./scripts/regen-skills-catalog.sh --check || {
+    echo -e "${RED}skills catalog is stale — run: ./scripts/regen-skills-catalog.sh${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [8c/21] the committed coverage matrix matches the specs and the code ===${NC}"
+# The coverage matrix is generated from infra/kiwi/scenarios/** plus the
+# @DisplayName / scenario: linkage in code, and it is committed. Generating it is
+# only half the job; without this check a hand-edited or stale matrix merges
+# silently, which is the exact failure mode the generated file exists to remove.
+# `validate` runs first so a broken spec or an unknown scenario id is reported
+# as such rather than as a matrix diff.
+PYTHONPATH=infra/kiwi python3 -m traceability validate --quiet || {
+    echo -e "${RED}scenario specs or their links to automation are invalid${NC}"
+    exit 1
+}
+PYTHONPATH=infra/kiwi python3 -m traceability coverage --check || {
+    echo -e "${RED}coverage matrix is stale — run: just trace-coverage${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [9/21] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"

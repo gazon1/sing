@@ -32,7 +32,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-desktop-compose-ui-tests` | 346 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
-| `singularity-todo-detekt-rules-authoring` | 497 | How to write and register custom detekt rules in the Singularity Todo project. |
+| `singularity-todo-detekt-rules-authoring` | 489 | How to write and register custom detekt rules in the Singularity Todo project. |
 | `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
@@ -44,7 +44,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-icon-registry` | 273 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 103 | JvmInline value class patterns for Singularity Todo. |
-| `singularity-todo-kiwi-tcm-stand` | 123 | Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — mapping repository test classes to test cases, importing Gradle JUnit results as test runs, and reporting what has never been run. |
+| `singularity-todo-kiwi-tcm-stand` | 246 | Run and extend the local Kiwi TCMS test-case stand in infra/kiwi — the legacy per-test-class case mapping, the scenario traceability layer (user scenarios in Git, coverage/result matrices, Kiwi as a projection), importing Gradle JUnit results as test runs, and reporting what has never been run. |
 | `singularity-todo-kmp-platform-specific` | 263 | KMP expect/actual patterns for AI features and platform-only dependencies. |
 | `singularity-todo-kmp-reorderable` | 226 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
 | `singularity-todo-koin-dsl` | 101 | Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf vs viewModel {}, singleOf / factoryOf, koinBridge for suspend factories, and where bindings live (per-domain *DiModule.kt, with core/di/Modules.kt as an aggregator). |

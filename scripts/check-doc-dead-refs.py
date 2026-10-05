@@ -467,6 +467,11 @@ _EXTERNAL_SYMBOLS = frozenset({
     "KtCallExpression", "KtNameReferenceExpression", "KtDotQualifiedExpression",
     "KtAnnotationEntry", "KtValueArgument", "KtTypeReference",
     "CompilationUnit", "Rule", "Config", "Finding", "SourceCode",
+    # Compose Material3 overlay types. Documented in the Kiwi/scenario skill
+    # because a ModalBottomSheet is a separate semantics root on desktop and
+    # therefore invisible to a JVM Compose test — the fact is only actionable if
+    # the reader can look the type up.
+    "ModalBottomSheet", "AlertDialog", "Dialog", "Popup",
 })
 # Types that are framework-allocated and never have production call sites.
 _FRAMEWORK_ALLOCATED = frozenset({

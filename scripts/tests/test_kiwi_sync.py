@@ -28,6 +28,8 @@ _sync.__file__ = str(_kiwi_dir / "sync.py")
 sys.modules["kiwi_sync"] = _sync
 _spec.loader.exec_module(_sync)
 
+import kiwi_client  # noqa: E402  (resolved from the sys.path entry above)
+
 sync = _sync
 
 
@@ -109,7 +111,15 @@ class ParseJunitTest(unittest.TestCase):
 
 
 class StatusForTest(unittest.TestCase):
-    """JUnit статус → Kiwi TestExecutionStatus."""
+    """JUnit статус → Kiwi TestExecutionStatus.
+
+    Exercised through ``kiwi_client``, where the function actually lives. It
+    used to be reached via ``sync.status_for``, which only worked because
+    ``sync.py`` imported it and never called it — the per-class rollup that
+    replaced it is inline in ``sync_results``. Testing through an unused import
+    made the legacy pipeline look like it had a reusable status mapper, which is
+    the belief that would have produced a second one.
+    """
 
     def test_maps_common_spellings(self):
         for junit, expected in (
@@ -121,12 +131,12 @@ class StatusForTest(unittest.TestCase):
             ("disabled", "IDLE"),
         ):
             with self.subTest(junit=junit):
-                self.assertEqual(sync.status_for(junit), expected)
+                self.assertEqual(kiwi_client.status_for(junit), expected)
 
     def test_unknown_status_becomes_idle_not_passed(self):
         # Kiwi не знает произвольных статусов; молча превращать неизвестное в
         # PASSED значило бы записать в базу успех там, где его не было.
-        self.assertEqual(sync.status_for("quarantined"), "IDLE")
+        self.assertEqual(kiwi_client.status_for("quarantined"), "IDLE")
 
 
 class FeatureOfTest(unittest.TestCase):

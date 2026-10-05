@@ -115,3 +115,79 @@ floor:
     #!/bin/bash
     set -euo pipefail
     ./scripts/check-kiwi-gaps.py
+
+# ==============================================================================
+# 🔗 TRACEABILITY — сценарии пользовательского поведения (infra/kiwi/traceability)
+#
+# Ответ на вопрос «какие сценарии мы проверяем, на чём и с каким результатом» —
+# производный артефакт, а не таблица, которую ведут руками. Git хранит спеки и
+# связь (@DisplayName / scenario: теги), CI — факт прохождения, Kiwi — проекция.
+# ==============================================================================
+
+[group('traceability')]
+[doc('Validate scenario specs and their links to automation (no stand, no network)')]
+[working-directory(justfile_directory())]
+trace-validate:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability validate
+
+[group('traceability')]
+[doc('Regenerate the committed coverage matrix from specs + links')]
+[working-directory(justfile_directory())]
+trace-coverage:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability coverage
+
+[group('traceability')]
+[doc('Fail if the committed coverage matrix differs from the regenerated one (CI)')]
+[working-directory(justfile_directory())]
+trace-coverage-check:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability coverage --check
+
+[group('traceability')]
+[doc('Normalise JUnit/Maestro XML into build/traceability/results.json + a result matrix')]
+[working-directory(justfile_directory())]
+trace-results maestro="":
+    #!/bin/bash
+    set -euo pipefail
+    if [ -n "{{maestro}}" ]; then
+        PYTHONPATH=infra/kiwi python3 -m traceability results --maestro
+    else
+        PYTHONPATH=infra/kiwi python3 -m traceability results
+    fi
+
+[group('traceability')]
+[doc('Project scenario specs into Kiwi (idempotent on the scenario id)')]
+[working-directory(justfile_directory())]
+kiwi-seed:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability seed
+
+[group('traceability')]
+[doc('Report what seeding would write, without writing it')]
+[working-directory(justfile_directory())]
+kiwi-seed-dry-run:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability seed --dry-run
+
+[group('traceability')]
+[doc('Fail when Kiwi has drifted from the scenario specs')]
+[working-directory(justfile_directory())]
+kiwi-seed-check:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability seed --check
+
+[group('traceability')]
+[doc('Publish results.json into Kiwi as execution history (never gates the build)')]
+[working-directory(justfile_directory())]
+kiwi-publish results="build/traceability/results.json":
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=infra/kiwi python3 -m traceability publish --results {{results}}

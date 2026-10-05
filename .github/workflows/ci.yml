@@ -221,6 +221,54 @@ jobs:
         # same failure one level up. 20 ms, no JVM, so it runs every time.
         run: python3 -m unittest discover -s scripts/tests
 
+      # Scenario traceability. `check.sh` step 8c carries the same check, but CI
+      # does not run check.sh — it restates the gates inline — so a check that
+      # lives only in check.sh runs only on a maintainer's machine. The coverage
+      # matrix is generated and committed; without this a hand-edited or stale
+      # matrix merges silently, which is the failure mode the generated file
+      # exists to remove. `validate` runs first so a broken spec or an unknown
+      # scenario id is reported as such rather than as a matrix diff.
+      - name: Scenario specs, links and coverage matrix are current
+        run: |
+          PYTHONPATH=infra/kiwi python3 -m traceability validate
+          PYTHONPATH=infra/kiwi python3 -m traceability coverage --check
+
+      # The result matrix describes exactly one commit, so it is an artifact and
+      # never a committed file. Uploaded unconditionally: a result set that
+      # exists only when something broke is the half you cannot use, and the
+      # commit-scoped matrix is also rendered into the job summary below, where a
+      # reviewer sees which scenario failed on which platform without opening an
+      # artifact.
+      #
+      # A declared target that produced zero testcases exits 2 and fails this
+      # step. `continue-on-error` is NOT used: that is the "quietly green" case
+      # the whole subsystem exists to catch.
+      - name: Normalise results into the scenario matrices
+        run: |
+          PYTHONPATH=infra/kiwi python3 -m traceability results --targets android,desktop \
+            --out-dir build/traceability
+
+      - name: Render the result matrix into the job summary
+        if: always()
+        run: |
+          if [ -f build/traceability/result-matrix.md ]; then
+            echo "## Scenario result matrix" >> "$GITHUB_STEP_SUMMARY"
+            # The file opens with an HTML comment banner; strip it so the summary
+            # does not render a stray comment block above the table.
+            grep -v '^<!--' build/traceability/result-matrix.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_result matrix not produced (see the step above)_" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload scenario traceability artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: traceability-${{ github.job }}-${{ github.run_id }}
+          path: build/traceability/
+          if-no-files-found: error
+          retention-days: 7
+
       # config/detekt/detekt-rules-module.yml is generated from config/detekt/detekt.yml,
       # so it can go stale while both files still parse and detekt still passes — against
       # a config that no longer says what the rules need. --check fails on drift.
@@ -283,6 +331,13 @@ jobs:
       # held 247 of 428 baseline entries and two of them contradicted AGENTS.md.
       - name: Lint rules are declared decisions
         run: python3 scripts/check-rule-intent.py
+
+      # docs/SKILLS-CATALOG.md is generated from skill frontmatter and was
+      # committed stale on a clean tree with nothing noticing. The catalog is what
+      # an agent reads to choose a skill, so a stale line count or description
+      # sends it to the wrong file.
+      - name: Check the skills catalog is current
+        run: ./scripts/regen-skills-catalog.sh --check
 
       - name: Check skill frontmatter
         run: ./scripts/check-skill-frontmatter.sh

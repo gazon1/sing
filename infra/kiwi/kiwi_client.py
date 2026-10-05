@@ -304,12 +304,21 @@ class KiwiClient:
         component_id: int | None = None,
         priority: str = "P2",
         category: str = "--default--",
+        case_status: str = "CONFIRMED",
     ) -> dict:
+        """Создать кейс.
+
+        `case_status` передаётся явно, а не зашивается в CONFIRMED: жизненный
+        цикл спеки (`proposed`/`confirmed`/`deprecated`) должен попадать в Kiwi
+        при создании. Иначе кейс с `proposed`-спеком создаётся как CONFIRMED и
+        проверка `seed --check` потом не сходится никогда — «починить» это
+        нельзя, потому что обновлять статус нечем.
+        """
         values: dict[str, Any] = {
             "product": product_id,
             "summary": summary,
             "priority": self._priority_id(priority),
-            "case_status": self._case_status_id(),
+            "case_status": self._case_status_id(case_status),
             "category": self.ensure_category(product_id, category)["id"],
         }
         if component_id is not None:
@@ -546,6 +555,29 @@ class KiwiClient:
         if comment:
             values["comment"] = comment
         return self.call("TestExecution.create", values)
+
+    def update_execution(
+        self, execution_id: int, status: str, comment: str | None = None
+    ) -> dict:
+        """Обновить статус уже записанного execution.
+
+        Нужно, потому что один и тот же коммит перепрогоняют: тот же HEAD,
+        который прошёл вчера, падает после обновления зависимости. Если такой
+        execution пропустить, в Kiwi навсегда остаётся старый PASSED, пока
+        матрица результатов честно показывает ❌ — то есть сохраняется «зелёный»
+        там, где правда «красный».
+
+        Две особенности RPC-поверхности, обе привели к отладке:
+          * `update(id, values)` — позиционные аргументы. Вызов с одним
+            словарём даёт «update() missing 1 required positional argument:
+            'values'»;
+          * `status` — pk из TestExecutionStatus, а не строка, ровно как в
+            `add_execution`.
+        """
+        values: dict[str, Any] = {"status": self._execution_status_id(status)}
+        if comment is not None:
+            values["comment"] = comment
+        return self.call("TestExecution.update", execution_id, values)
 
 
 def status_for(result: str) -> str:
