@@ -21,8 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
@@ -45,10 +46,15 @@ fun TaskTitleRow(
             triggerKey = if (isCompleted) taskId else "",
         ) {
             IconButton(onClick = onCheckToggle) {
+                val doneTint = if (isCompleted) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
                 Icon(
                     imageVector = if (isCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckBoxOutlineBlank,
                     contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
-                    tint = if (isCompleted) TaskColors.AccentBlue else TaskColors.TextSecondary,
+                    tint = doneTint,
                     modifier = Modifier.size(TaskSpacing.iconSizeLarge),
                 )
             }
@@ -58,11 +64,11 @@ fun TaskTitleRow(
             value = title,
             onValueChange = onTitleChange,
             textStyle = LocalTextStyle.current.copy(
-                color = TaskColors.TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
-            cursorBrush = SolidColor(TaskColors.AccentBlue),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             singleLine = true,
             modifier = Modifier
                 .weight(1f)
@@ -71,7 +77,7 @@ fun TaskTitleRow(
                 if (title.isEmpty()) {
                     Text(
                         text = "Название задачи",
-                        color = TaskColors.TextPlaceholder,
+                        color = placeholderTextColor(),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
                     )

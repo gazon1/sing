@@ -17,9 +17,9 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 
 /**
  * Плоский стиль строки — без своей подложки, разделение достигается тонкой
@@ -94,7 +94,7 @@ fun TaskRowFlat(
         if (showDivider) {
             HorizontalDivider(
                 thickness = TaskListSizes.DividerThickness,
-                color = TaskListColors.Divider,
+                color = dividerColor(),
                 modifier = Modifier.padding(start = 52.dp), // выравниваем по началу текста, не по краю
             )
         }

@@ -1922,8 +1922,6 @@ loosening a real constraint. Whichever is chosen, the other file has to change
 too — leaving the mismatch in place is what produced the confusion.
 
 
-
-
 ---
 
 ## direct-dispatchers-mostly-sit-in-platform-ports-where-they-are-correct
@@ -2122,8 +2120,6 @@ The same trap bit `:shared:detektBaseline` three separate ways; see
 `detektbaseline-caches-its-output-and-cannot-drain`.
 
 
-
-
 ---
 
 ## autocorrect-touches-files-outside-the-change
@@ -2162,9 +2158,6 @@ present on a clean `HEAD`, not introduced by B2). A cleanup commit should declar
 that rule rather than leave it on detekt's default.
 
 
-
-
-
 ---
 
 ## no-consecutive-blank-lines-was-never-declared
@@ -2196,9 +2189,6 @@ zero, then delete the baseline entry.
 
 Related: `autocorrect-touches-files-outside-the-change` — the same file is one of
 the five `--auto-correct` wanted to rewrite.
-
-
-
 
 
 ---
@@ -2320,10 +2310,6 @@ Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
 `kover-report` job was **red on `main`** for this reason. A job that is red for a
 reason nobody reads is the same failure as a gate that is green for a reason nobody
 checks.
-
-
-
-
 
 
 ---
@@ -2954,6 +2940,14 @@ could read scheme roles directly.
 **OpenSpec change:** `openspec/changes/tasks-tokens-follows-the-theme/`
 (capability `app-theming`, REQ-THEME-004/005/006)
 
+**Status update 2026-10-05: PARTIALLY CLOSED.** The two token objects are gone
+and all 27 literals now live in `theme/TaskSemanticColors.kt`; 19 consumer files
+read the active scheme. What remains is not this entry but two follow-ups found
+while doing it: #199 (the other four screens that carry the same defect, which
+this entry's "counted 47 literals" figure under-reported because it was scoped to
+`feature/*/presentation` and three of those files sit outside that segment), and
+the duplicate `priorityColor` noted below.
+
 **Found in:** 2026-10-05, immediately after the MaterialKolor seed-palette
 change (ADR `2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag`),
 while auditing what else hardcodes colour now that the app *has* a generated
@@ -3008,10 +3002,13 @@ role, and `PriorityChip`'s green/amber/red/pink is correct as data. Then verify
 by eye across all nine accents in both modes, starting with the light theme on
 the task list, because that is the largest visible delta in the app.
 
-A Konsist rule — no `Color(0x…)` literal outside a `*/theme/*` token file, and
-none in a `feature/*/presentation` file at all — would stop this regrowing. It
-will fail loudly on the current tree, so land it *after* the conversion, not
-before.
+A Konsist rule now exists and is live in `ArchitectureTest`
+(`colour literals live in theme files, not in feature code`), validated with a
+negative control: a literal injected into a non-theme feature file makes it fail.
+Its scope is the **whole `feature/` tree**, not `feature/*/presentation` — three
+screens keep their composables directly under `feature/<x>/`, so the narrower
+scope would have passed while 22 literals sat outside it. The allowlist that
+keeps it green names six files; #199 tracks the four that still need converting.
 
 ---
 
@@ -3059,3 +3056,68 @@ The generalisable lesson: "clean up the repository" is not a safe instruction to
 hand to an agent, and neither is "there are 84 branches and 46 worktrees". Both
 numbers invite a bulk delete, and the interesting content is in the four
 directories that are not clean.
+
+---
+
+## Two things the conversion found that this entry did not
+
+**1. Priority was three scales, not one.** `PriorityPalette` always documented
+two coexisting palettes, and the divergence between them is deliberate — the
+editor is a form, the list is a list, and the reds are tuned differently on
+purpose. But `PriorityChip.kt` held a **third** set of four values
+(`4CAF50` / `FF9800` / `F44336` / `E91E63`) that was never registered in the enum
+and never documented, in a function also named `priorityColor` — shadowing the
+canonical one in a sibling package with different values. The compiler will not
+flag that and a reviewer will not notice; the unit test covers the list one only.
+The chip's values are now preserved exactly as a documented third palette, and
+its function is renamed `priorityChipColor`.
+
+**2. The two palettes were near-duplicates.** `TaskColors.Surface` and
+`TaskListColors.Surface` were both `0xFF161A22`; their backgrounds differed
+(`0xFF0F1115` vs `0xFF0B0E14`) and their text primaries differed
+(`0xFFE2E4E9` vs `0xFFF2F3F5`). Two hand-maintained copies of one palette, which
+is why they had drifted. There was no need to unify them by hand — both now
+resolve from the same scheme, so they are identical by construction.
+
+---
+
+## a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog
+
+**Status: OPEN**
+
+**Found in:** 2026-10-05, while trying to close the gap that let MaterialKolor
+sit declared-but-unimported in the catalog and on the `commonMain` classpath
+while nothing referenced it.
+
+**Situation.** `scripts/find-unwired-surfaces.py` counts symbols. A declared
+dependency has no symbol to count until something imports it, so a library that
+is vendored, resolved onto the classpath and called by nobody passes every
+current gate. The obvious gate — "every `[libraries]` entry has at least one
+import" — was assumed cheap in planning and is not.
+
+**Why not.** A Gradle module coordinate does not determine the import package.
+Mapping `org.jetbrains.compose.material3:material3` to the package a source file
+imports is not a prefix operation; that one is `androidx.compose.material3`.
+Measured on this tree: a first two-segment heuristic over all 98 library entries
+reports **45 of 98 as unused**, and every one of those 45 is used. The heuristic
+is wrong in nearly half the catalog, and a gate with 46% false positives is worse
+than no gate — it trains everyone to ignore it.
+
+**Checks already performed.** Ran the heuristic across `shared/src`,
+`androidApp/src`, `desktopApp/src` and `mcp-server/src`; counted the false
+positives by hand for the whole result set. Confirmed the mapping is the problem,
+not the source sets (the failing entries are widely used: `koin-core`,
+`compose-material3`, `kotlinx-coroutines-core`, `coil-compose`).
+
+**Try next:** stop mapping coordinates to packages and read the packages out of
+the resolved artifacts instead. A Gradle task that prints, per source set, the
+resolved files with their originating coordinates gives a coordinate → artifact
+map; scanning each artifact's entries for its package roots yields the real
+mapping, including the KMP case where one coordinate contributes several
+artifacts. The gate then compares that map against the catalog and needs no
+guessing. Budget it as a small Gradle task plus a Konsist check, not a grep.
+
+**Do not** re-attempt the prefix heuristic and "just allowlist the false
+positives": a 45-entry allowlist of libraries that are definitely used is
+indistinguishable, to the next reader, from a 45-entry list of libraries that
+genuinely are not.

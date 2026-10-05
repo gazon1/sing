@@ -43,10 +43,10 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Unified task editor Composable for both Create and View modes.
@@ -142,7 +142,7 @@ fun TaskEditorContent(
             )
         },
         bottomBar = bottomBar ?: {},
-        containerColor = TaskColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier.padding(padding)
@@ -234,7 +234,7 @@ fun TaskEditorContent(
                             Icon(
                                 imageVector = Icons.Filled.Folder,
                                 contentDescription = "Clear project",
-                                tint = TaskColors.TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(16.dp),
                             )
                         }

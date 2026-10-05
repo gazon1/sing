@@ -19,9 +19,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 
 /**
  * Вторая строка карточки задачи: [повтор?] дата · проект.
@@ -50,7 +51,7 @@ fun TaskMetaRow(
             Icon(
                 imageVector = Icons.Default.Block,
                 contentDescription = "Задача заблокирована зависимостями",
-                tint = TaskListColors.TextTertiary,
+                tint = mutedTextColor(),
                 modifier = Modifier.size(TaskListSizes.MetaIcon),
             )
             Spacer(Modifier.width(TaskListSpacing.Xs))
@@ -60,7 +61,7 @@ fun TaskMetaRow(
             Icon(
                 imageVector = Icons.Default.Repeat,
                 contentDescription = "Повторяющаяся задача",
-                tint = TaskListColors.TextTertiary,
+                tint = mutedTextColor(),
                 modifier = Modifier.size(TaskListSizes.MetaIcon),
             )
             Spacer(Modifier.width(TaskListSpacing.Xs))
@@ -69,7 +70,7 @@ fun TaskMetaRow(
         dueLabel?.let {
             Text(
                 text = it,
-                color = if (isOverdue) TaskListColors.Danger else TaskListColors.TextTertiary,
+                color = if (isOverdue) TaskSemanticColors.Danger else mutedTextColor(),
                 fontSize = 12.sp,
                 fontWeight = if (isOverdue) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
@@ -83,7 +84,7 @@ fun TaskMetaRow(
         project?.let {
             Text(
                 text = it,
-                color = TaskListColors.TextTertiary,
+                color = mutedTextColor(),
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -101,7 +102,7 @@ private fun MetaSeparator() {
     Spacer(Modifier.width(TaskListSpacing.Xs))
     Text(
         text = "·",
-        color = TaskListColors.TextTertiary,
+        color = mutedTextColor(),
         fontSize = 12.sp,
     )
     Spacer(Modifier.width(TaskListSpacing.Xs))

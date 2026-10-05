@@ -20,10 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.tasks.presentation.theme.TaskColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Renders the due date attribute row in the task editor.
@@ -57,16 +57,20 @@ fun TaskEditorDueDateRow(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val activeTint =
+            if (dueDate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        val idleTint =
+            if (dueDate != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
             imageVector = Icons.Outlined.CalendarToday,
             contentDescription = null,
-            tint = if (dueDate != null) TaskColors.AccentBlue else TaskColors.TextSecondary,
+            tint = if (dueDate != null) activeTint else idleTint,
             modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
         Text(
             text = dueDateRowLabel(dueDate, dueTime),
-            color = if (dueDate != null) TaskColors.TextPrimary else TaskColors.TextSecondary,
+            color = if (dueDate != null) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
             fontWeight = if (dueDate != null) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f),
@@ -76,7 +80,7 @@ fun TaskEditorDueDateRow(
                 Icon(
                     imageVector = Icons.Filled.Close,
                     contentDescription = "Сбросить дату",
-                    tint = TaskColors.TextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {

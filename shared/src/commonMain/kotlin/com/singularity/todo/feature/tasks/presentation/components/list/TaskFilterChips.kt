@@ -20,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListColors
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 
@@ -70,11 +69,15 @@ fun TaskFilterChips(
 @Composable
 private fun FilterChip(label: String, count: Int, isSelected: Boolean, onClick: () -> Unit) {
     val background by animateColorAsState(
-        targetValue = if (isSelected) TaskListColors.Accent else TaskListColors.Surface,
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         label = "chipBg",
     )
     val textColor by animateColorAsState(
-        targetValue = if (isSelected) TaskListColors.OnAccent else TaskListColors.TextSecondary,
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
         label = "chipText",
     )
 
