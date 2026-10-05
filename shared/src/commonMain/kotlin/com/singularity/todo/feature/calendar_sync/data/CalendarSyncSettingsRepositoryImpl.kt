@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.datastore.catchDataStoreIoError
+import com.singularity.todo.feature.calendar_sync.domain.logic.CalendarSyncStatusCodec
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import kotlinx.coroutines.flow.Flow
@@ -73,43 +74,19 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
     override fun observeStatus(): Flow<CalendarSyncStatus> = dataStore.data
         .catchDataStoreIoError()
         .map { prefs ->
-            val statusName = prefs[CALENDAR_SYNC_STATUS]
-            when (statusName) {
-                "Disabled" -> CalendarSyncStatus.Disabled
-
-                "Syncing" -> CalendarSyncStatus.Syncing
-
-                else -> {
-                    val reason = statusName?.removePrefix("Failed:")
-                    if (reason != null) {
-                        CalendarSyncStatus.Failed(reason)
-                    } else {
-                        val lastAt = prefs[CALENDAR_SYNC_LAST_AT]
-                        CalendarSyncStatus.Idle(lastAt)
-                    }
-                }
-            }
+            // Nothing written yet: fall back to Idle, seeded from the last-sync timestamp
+            // rather than from the (absent) status string.
+            CalendarSyncStatusCodec.decode(
+                raw = prefs[CALENDAR_SYNC_STATUS],
+                fallback = CalendarSyncStatus.Idle(prefs[CALENDAR_SYNC_LAST_AT]),
+            )
         }
 
     override suspend fun setStatus(status: CalendarSyncStatus) {
         dataStore.edit { prefs ->
-            when (status) {
-                is CalendarSyncStatus.Disabled -> {
-                    prefs[CALENDAR_SYNC_STATUS] = "Disabled"
-                }
-
-                is CalendarSyncStatus.Idle -> {
-                    prefs[CALENDAR_SYNC_STATUS] = "Idle"
-                    status.lastSyncedAt?.let { prefs[CALENDAR_SYNC_LAST_AT] = it }
-                }
-
-                is CalendarSyncStatus.Syncing -> {
-                    prefs[CALENDAR_SYNC_STATUS] = "Syncing"
-                }
-
-                is CalendarSyncStatus.Failed -> {
-                    prefs[CALENDAR_SYNC_STATUS] = "Failed:${status.reason}"
-                }
+            prefs[CALENDAR_SYNC_STATUS] = CalendarSyncStatusCodec.encode(status)
+            if (status is CalendarSyncStatus.Idle) {
+                status.lastSyncedAt?.let { prefs[CALENDAR_SYNC_LAST_AT] = it }
             }
         }
     }

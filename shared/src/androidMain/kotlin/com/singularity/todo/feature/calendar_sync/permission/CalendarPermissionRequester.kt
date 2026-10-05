@@ -40,6 +40,7 @@ actual fun rememberCalendarPermissionRequester(): CalendarPermissionRequester {
 
     return object : CalendarPermissionRequester {
         override val hasPermissions: Boolean get() = hasPermissions
+        override val isSupported: Boolean get() = true
         override fun requestPermissions() {
             launcher.launch(CalendarPermissionContracts.PERMISSIONS)
         }

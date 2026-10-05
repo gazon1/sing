@@ -7,9 +7,15 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
+import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentialStore
+import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
+import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.domain.port.GoogleCalendarSettingsRepository
+import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -22,6 +28,15 @@ import kotlinx.coroutines.CancellationException
  * UI state for the calendar sync settings screen.
  */
 data class CalendarSyncUiState(
+    /**
+     * Which calendar this tab is configuring.
+     *
+     * A selector rather than two tabs, because the two features are alternatives — the user
+     * wants their tasks on *a* calendar, not on both — and because Google works on desktop
+     * where the system calendar does not. Splitting into two settings entries would have had
+     * a desktop user looking at an "Android only" panel beside a working one.
+     */
+    val provider: CalendarProvider = CalendarProvider.SystemCalendar,
     val isEnabled: Boolean = false,
     val availableCalendars: Map<String, String> = emptyMap(),
     val selectedCalendarId: String? = null,
@@ -33,7 +48,47 @@ data class CalendarSyncUiState(
     val availableApps: List<CalendarAppInfo> = emptyList(),
     /** Currently selected calendar app package (null = system default). */
     val selectedAppPackage: String? = null,
-)
+    /** Whether a Google account is connected for this profile. */
+    val googleConnected: Boolean = false,
+    /**
+     * True when the connected Google grant has no refresh token, so background sync will
+     * stop when the access token expires and the user has to re-authorise.
+     */
+    val googleCanRenew: Boolean = true,
+    /** Calendars the account can write to, for the Google picker. */
+    val googleCalendars: List<GoogleCalendarSummary> = emptyList(),
+    val selectedGoogleCalendarId: String? = null,
+    /** Whether to pull Google events the app did not create into the app. */
+    val importFromGoogle: Boolean = false,
+    /**
+     * Why the last attempt to read the Google calendar list failed, if it did.
+     *
+     * Kept apart from an empty [googleCalendars] list on purpose: "no calendars" and
+     * "could not reach Google" are different problems with different fixes, and collapsing
+     * them into one empty picker is how a user ends up staring at a control that has
+     * nothing in it and no explanation.
+     */
+    val googleError: String? = null,
+) {
+    /** True when the user has connected Google and picked a calendar. */
+    val googleReady: Boolean get() = googleConnected && selectedGoogleCalendarId != null
+}
+
+/**
+ * Which calendar the settings tab is configuring.
+ *
+ * The two are genuinely different features, not two implementations of one: the system
+ * calendar is a one-way projection of tasks onto a device calendar, while Google is a
+ * two-way peer. Modelling them as one provider with capability flags would have made the
+ * honest answer to "can this platform do that?" a nullable field on every call.
+ */
+enum class CalendarProvider {
+    /** Android's own calendar. One-way. Not available on desktop. */
+    SystemCalendar,
+
+    /** Google Calendar. Two-way, on every platform. */
+    Google,
+}
 
 /**
  * User intents for the calendar sync settings screen.
@@ -50,16 +105,39 @@ sealed interface CalendarSyncIntent : MviIntent {
 
     /** Select which calendar app to sync to (null = system default). */
     data class SelectAppPackage(val packageName: String?) : CalendarSyncIntent
+
+    /** Switch the tab between the system calendar and Google. */
+    data class SelectProvider(val provider: CalendarProvider) : CalendarSyncIntent
+
+    /** Connect or disconnect the Google account. */
+    data class SetGoogleConnected(val connected: Boolean) : CalendarSyncIntent
+
+    data class SelectGoogleCalendar(val calendarId: String) : CalendarSyncIntent
+
+    /** Whether to pull Google events the app did not create into the app. */
+    data class SetImportFromGoogle(val enabled: Boolean) : CalendarSyncIntent
 }
 
 /**
- * Canonical 6-arg ViewModel for calendar sync settings.
+ * Canonical ViewModel for calendar sync settings.
  *
- * - [syncRepo] — settings repository (DataStore-backed)
+ * Covers two providers — see [CalendarProvider] — which means it carries two sets of
+ * dependencies. They are kept side by side rather than behind a common interface because
+ * they have nothing in common beyond being calendars: the system half writes into a
+ * device provider, the Google half reads a REST API as a peer.
+ *
+ * - [syncRepo] — system-calendar settings (DataStore-backed)
  * - [calendarProvider] — system calendar provider (ContentResolver on Android)
  * - [scheduler] — WorkManager scheduler (used for cancel only)
  * - [appQueries] — queries installed calendar apps for the picker
  * - [orchestrator] — debounced sync orchestrator (hands off to scheduler)
+ * - [googleSettings] — the user's Google *choices* (which calendar, import on or off)
+ * - [credentialStore] — the user's Google *credentials*, and the only honest source for
+ *   "is an account connected"
+ * - [currentUser] — the active profile; the credential store is keyed by it
+ * - [eventSource] — a *factory*, resolved per call rather than captured once, so a profile
+ *   switch mid-session cannot leave the screen talking to the previous profile's calendar
+ * - [crashReporter] — see below
  * - [scope] — [AutoCloseableCoroutineScope] for launching concurrent operations. Derived from
  *   [crashReporter] unless a test supplies its own: a scope supplied here alongside
  *   [crashReporter] is chosen independently, so nothing would guarantee that a handled failure
@@ -71,6 +149,10 @@ class CalendarSyncViewModel(
     private val scheduler: com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler,
     private val appQueries: CalendarAppQueries,
     private val orchestrator: CalendarSyncOrchestrator,
+    private val googleSettings: GoogleCalendarSettingsRepository,
+    private val credentialStore: GoogleCredentialStore,
+    private val currentUser: CurrentUser,
+    private val eventSource: () -> CalendarEventSource,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
@@ -94,7 +176,9 @@ class CalendarSyncViewModel(
                 syncRepo.observeStatus(),
                 syncRepo.observeLastSyncedAt(),
                 syncRepo.observeTargetAppPackage(),
-            ) { enabled, calendarId, status, lastAt, appPkg ->
+                googleSettings.observeSelectedCalendarId(),
+                googleSettings.observeImportForeignEvents(),
+            ) { enabled, calendarId, status, lastAt, appPkg, googleId, importForeign ->
                 { content: CalendarSyncUiState ->
                     content.copy(
                         isEnabled = enabled,
@@ -102,6 +186,8 @@ class CalendarSyncViewModel(
                         status = status,
                         lastSyncedAt = lastAt,
                         selectedAppPackage = appPkg,
+                        selectedGoogleCalendarId = googleId,
+                        importFromGoogle = importForeign,
                     )
                 }
             }.collect { reduce -> updateState { reduce(it) } }
@@ -117,7 +203,123 @@ class CalendarSyncViewModel(
             is CalendarSyncIntent.RequestPermission -> { /* UI layer */ }
             is CalendarSyncIntent.SetPermission -> setPermission(intent.granted)
             is CalendarSyncIntent.SelectAppPackage -> selectAppPackage(intent.packageName)
+            is CalendarSyncIntent.SelectProvider -> selectProvider(intent.provider)
+            is CalendarSyncIntent.SetGoogleConnected -> setGoogleConnected(intent.connected)
+            is CalendarSyncIntent.SelectGoogleCalendar -> selectGoogleCalendar(intent.calendarId)
+            is CalendarSyncIntent.SetImportFromGoogle -> setImportFromGoogle(intent.enabled)
         }
+    }
+
+    /**
+     * Switching provider resets the loaded data rather than keeping both.
+     *
+     * The two lists come from different sources and describe different calendars, so leaving
+     * the system calendar's rows visible while Google is selected would show a picker full
+     * of ids the next request will not match.
+     */
+    private fun selectProvider(provider: CalendarProvider) {
+        updateState {
+            it.copy(
+                provider = provider,
+                availableCalendars = emptyMap(),
+                availableApps = emptyList(),
+                googleCalendars = emptyList(),
+                googleError = null,
+            )
+        }
+        if (provider == CalendarProvider.Google) {
+            vmScope.launch { refreshGoogleConnection() }
+        }
+    }
+
+    /**
+     * Disconnecting clears the account's calendar choice too.
+     *
+     * Leaving a stale id behind would mean a later reconnect silently syncs to a calendar
+     * the user has not looked at since, which is the kind of surprise that makes people
+     * distrust a sync feature entirely.
+     */
+    private fun setGoogleConnected(connected: Boolean) {
+        vmScope.launch {
+            if (!connected) {
+                credentialStore.clear(currentUser.current.value)
+                googleSettings.setSelectedCalendarId(null)
+                updateState {
+                    it.copy(
+                        googleConnected = false,
+                        googleCanRenew = true,
+                        googleCalendars = emptyList(),
+                        selectedGoogleCalendarId = null,
+                        googleError = null,
+                    )
+                }
+                return@launch
+            }
+            updateState { it.copy(googleConnected = true, googleError = null) }
+            refreshGoogleConnection()
+        }
+    }
+
+    private fun selectGoogleCalendar(calendarId: String) {
+        vmScope.launch {
+            googleSettings.setSelectedCalendarId(calendarId)
+            if (currentState.isEnabled) {
+                orchestrator.requestSync(SyncSource.ConfigChanged)
+            }
+        }
+    }
+
+    /**
+     * Import can be turned on before an account is connected.
+     *
+     * The setting is kept regardless, because the user's answer does not change based on
+     * whether they have finished signing in — and requiring the order would make the toggle
+     * appear to do nothing when it is pressed first.
+     */
+    private fun setImportFromGoogle(enabled: Boolean) {
+        vmScope.launch {
+            googleSettings.setImportForeignEvents(enabled)
+            if (enabled && currentState.isEnabled) {
+                orchestrator.requestSync(SyncSource.ConfigChanged)
+            }
+        }
+    }
+
+    /**
+     * Re-reads the credential, then the calendar list.
+     *
+     * Connected-ness is read from the credential store and *not* assumed from the fact that
+     * the screen is open. An access token that expired an hour ago with no refresh token to
+     * renew it leaves the account "connected" in every other sense while being unable to
+     * make a single call, and the screen has to be able to say so.
+     */
+    private suspend fun refreshGoogleConnection() {
+        updateState { it.copy(isLoading = true, googleError = null) }
+        val credentials = credentialStore.load(currentUser.current.value)
+        if (credentials == null) {
+            updateState { it.copy(isLoading = false, googleConnected = false) }
+            return
+        }
+        updateState { it.copy(googleConnected = true, googleCanRenew = credentials.canRenew) }
+
+        val result = runCatchingResult { eventSource().listCalendars() }
+        updateState {
+            result.fold(
+                onSuccess = { calendars -> it.copy(googleCalendars = calendars, isLoading = false) },
+                onFailure = { error ->
+                    Logger.w(error) { "Failed to list Google calendars" }
+                    it.copy(
+                        isLoading = false,
+                        googleCalendars = emptyList(),
+                        googleError = error.message ?: "Could not reach Google Calendar",
+                    )
+                },
+            )
+        }
+    }
+
+    private fun loadGoogleCalendars() {
+        vmScope.launch { refreshGoogleConnection() }
     }
 
     private fun loadCalendars() {
@@ -162,12 +364,17 @@ class CalendarSyncViewModel(
     private fun setEnabled(enabled: Boolean) {
         vmScope.launch {
             syncRepo.setEnabled(enabled)
+            // No `updateState { it.copy(isEnabled = enabled) }` here. The collector in
+            // `init` already projects `isEnabled` from `syncRepo.observeEnabled()`, so an
+            // optimistic write is redundant on a working repository and actively wrong on
+            // a no-op one: it made the toggle report a state the repository never
+            // accepted. Over a `NoopCalendarSyncRepository` the switch snapped on, then
+            // off again on the next emission — a control that appears to work and does not.
             if (enabled) {
                 orchestrator.requestSync(SyncSource.ConfigChanged)
             } else {
                 scheduler.cancelSync()
             }
-            updateState { it.copy(isEnabled = enabled) }
         }
     }
 

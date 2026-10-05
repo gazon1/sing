@@ -31,6 +31,7 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UlidIdGenerator
 import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
@@ -87,6 +88,14 @@ import kotlin.time.Clock
  * Does NOT include feature use cases or ViewModels — those live in feature modules.
  */
 fun coreModule(): org.koin.core.module.Module = module {
+    // ─── HTTP ───────────────────────────────────────────────────────────
+
+    // One client for the whole graph, so two features cannot quietly disagree about
+    // timeouts. Bound here rather than in a feature module because it is a process-wide
+    // resource: Ktor clients hold a connection pool, and a second one would mean a second
+    // pool. Consumers must not close it — the graph owns its lifetime.
+    single { createHttpClient() }
+
     // ─── Coroutine Scope ────────────────────────────────────────────────
 
     // Background scope для долгоживущих компонентов (репозитории, движки синхронизации).
