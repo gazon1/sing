@@ -42,15 +42,13 @@ class DataStoreSyncPrefs(
         val LAST_SUCCESSFUL_SYNC_AT = longPreferencesKey("sync/last_successful_sync_at")
         val LAST_LSN = longPreferencesKey("sync/last_lsn")
 
-        fun parseTriggers(raw: String): Set<SyncTrigger> = if (raw.isBlank()) {
-            SyncTrigger.entries.toSet()
-        } else {
-            raw.split(',').mapNotNull { name ->
-                SyncTrigger.entries.find { it.name == name }
-            }.toSet()
-        }
+        // Delegates rather than re-implementing: this class used to carry its own copy of
+        // the CSV codec, and the two had drifted — both treated "" as "all triggers", which
+        // meant an explicitly empty set could not survive a round trip. [SyncTrigger] owns
+        // the format and knows the sentinel for the empty set.
+        fun parseTriggers(raw: String?): Set<SyncTrigger> = SyncTrigger.parseCsv(raw)
 
-        fun serializeTriggers(triggers: Set<SyncTrigger>): String = triggers.joinToString(",") { it.name }
+        fun serializeTriggers(triggers: Set<SyncTrigger>): String = SyncTrigger.toCsv(triggers)
     }
 
     private val _autoSyncEnabled = MutableStateFlow(false)
@@ -70,7 +68,10 @@ class DataStoreSyncPrefs(
             runCatching {
                 val prefs = dataStore.data.first()
                 _autoSyncEnabled.value = prefs[Keys.AUTO_SYNC_ENABLED] ?: false
-                _enabledTriggers.value = Keys.parseTriggers(prefs[Keys.ENABLED_TRIGGERS] ?: "")
+                // No "?: \"\"" here: an absent key already means "all triggers" (parseCsv
+                // treats null that way), and substituting "" would be indistinguishable
+                // from a stored value while hiding the difference from the reader.
+                _enabledTriggers.value = Keys.parseTriggers(prefs[Keys.ENABLED_TRIGGERS])
                 _scheduledInterval.value = (prefs[Keys.SCHEDULED_INTERVAL] ?: 30).minutes
                 _lastSuccessfulSyncAt.value = prefs[Keys.LAST_SUCCESSFUL_SYNC_AT]
                 _lastLsn.value = prefs[Keys.LAST_LSN] ?: 0L

@@ -8,6 +8,7 @@ import android.provider.CalendarContract
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
 import com.singularity.todo.feature.calendar_sync.error.translateExceptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -172,7 +173,13 @@ class AndroidCalendarProvider(
     ): ContentValues {
         val tz = java.util.TimeZone.getDefault().id
         val cv = ContentValues()
-        cv.put(CalendarContract.Events.CALENDAR_ID, syncEvent.calendarId.toLongOrNull() ?: 1L)
+        // Fails loudly rather than defaulting: this used to be `?: 1L`, so a calendar id
+        // that was not numeric silently wrote the event into calendar 1 — a real calendar,
+        // belonging to someone, that the user never chose. A wrong-write is harder to
+        // notice and to undo than a refused one.
+        val calendarId = syncEvent.calendarId.toLongOrNull()
+            ?: throw CalendarSyncException.CalendarNotFoundException(syncEvent.calendarId)
+        cv.put(CalendarContract.Events.CALENDAR_ID, calendarId)
         cv.put(CalendarContract.Events.TITLE, syncEvent.title)
         cv.put(CalendarContract.Events.DESCRIPTION, syncEvent.description)
         cv.put(CalendarContract.Events.DTSTART, syncEvent.startMs)
