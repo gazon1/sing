@@ -152,7 +152,7 @@ def cmd_results(args) -> int:
 
     result_dirs = {target: _result_dirs(target, args.dirs, args.maestro) for target in selected}
     commit = args.commit or _git_commit()
-    report = normalise(specs, links, result_dirs, commit)
+    report = normalise(specs, links, result_dirs, commit, partial=args.partial)
 
     out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
     json_path = write_results(report, out_dir)
@@ -242,6 +242,16 @@ def build_parser() -> argparse.ArgumentParser:
         "'цель не дала ни одного тесткейса'",
     )
     p_results.add_argument("--maestro", action="store_true", help="учесть XML потоков Maestro")
+    p_results.add_argument(
+        "--partial",
+        action="store_true",
+        help="прогон был отфильтрован по тегам и не покрывает все сценарии "
+        "цели. Без этого флага действует правило 'сценарий заявлен и "
+        "запускался, но не дал результата' — оно верно для CI (прогон "
+        "fast+slow) и ложно для локального прогона по умолчанию, который "
+        "исключает @Tag(\"slow\"), а носители сценариев помечены slow. "
+        "Локальный рецепт just trace-results передаёт этот флаг.",
+    )
     p_results.add_argument("--out-dir", help=f"куда писать (по умолчанию {OUTPUT_DIR})")
     p_results.set_defaults(func=cmd_results)
 

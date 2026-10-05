@@ -164,6 +164,7 @@ def normalise(
     result_dirs: dict[Target, list[Path]],
     commit: str,
     expected_commit: str | None = None,
+    partial: bool = False,
 ) -> NormaliseReport:
     """Build the canonical result set from raw XML and the link index.
 
@@ -172,6 +173,16 @@ def normalise(
     rejected outright, so a regenerated-but-old report cannot masquerade as
     current. A 24-hour heuristic would be the wrong tool — it is a guess about
     the clock when the answer is written in the file.
+
+    ``partial`` says the run was tag-filtered rather than complete. It is a
+    fact only the caller knows, and guessing it here is impossible: the
+    normaliser can see that a carrier exists in the sources and that no result
+    mentions it, but it cannot tell a filtered-out class from a broken one. The
+    distinction matters because the default local run excludes ``@Tag("slow")``
+    and every scenario carrier is slow, so enforcing the per-scenario rule on a
+    fast-only local run reports a defect where the developer chose a subset.
+    Default is the strict reading, because a rule that silently stops matching
+    is worse than one that asks a question the caller has to answer.
     """
     if expected_commit and commit != expected_commit:
         raise ValidationError(
@@ -256,8 +267,19 @@ def normalise(
     # nobody scheduled. The distinction is the whole point: "ran and produced
     # nothing" is the quiet-green bug, "was never run" is a fact the matrix
     # already reports as not-run.
+    #
+    # And on a partial run the rule has no answer at all, for the same reason the
+    # per-scenario rule below has none: the run is a subset, so absence is what
+    # the caller asked for. This was measured, not designed — `just trace-results`
+    # after the documented fast cycle failed here with "produced no testcase",
+    # which is exactly the subset it was told to accept. The first version of the
+    # `--partial` flag suppressed only the per-scenario rule, on the assumption
+    # that the per-target one was immune to tag filtering. It is not: the target
+    # runs, produces ten unrelated XMLs, and no *scenario* testcase appears.
     empty: list[str] = []
     for spec in specs.values():
+        if partial:
+            break
         if not spec.is_claimed:
             continue
         for target in spec.targets:
@@ -284,8 +306,11 @@ def normalise(
     # cases stay out of it for the same reason they stay out of the rule above —
     # a local desktop-only run must not fail over Android, and a hole is a hole,
     # not an error.
+    #
+    # Skipped entirely on a partial run, which is the tag-filtered case the
+    # parameter documents: there, "no result" is what the developer asked for.
     missing: list[str] = []
-    for link in links:
+    for link in [] if partial else links:
         if link.target not in ran_targets:
             continue
         spec = specs.get(link.scenario)

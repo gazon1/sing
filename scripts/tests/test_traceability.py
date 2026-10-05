@@ -1163,3 +1163,107 @@ class FlowAttributeBaseAgnostic(unittest.TestCase):
         report = self._run("flows/tasks/99-nope.yaml")
         self.assertEqual(report.kept, 0)
         self.assertEqual(report.unmapped, 1)
+
+
+class PartialRunScope(unittest.TestCase):
+    """A tag-filtered local run must not be reported as a missing result.
+
+    Every scenario carrier is `@Tag("slow")` and the default local run excludes
+    `slow` (see `desktopApp/build.gradle.kts`), so the documented fast cycle
+    produces exactly the shape the per-scenario rule exists to catch — while
+    having done nothing wrong. The distinction is not derivable from the XML, so
+    the caller states it, and these tests pin both the behaviour and the two
+    wirings that decide who states it.
+    """
+
+    def _other_scenario(self) -> Link:
+        """A second link with its own carrier, so the target reports something.
+
+        Needed to isolate the per-scenario rule: with one scenario the
+        zero-testcase rule fires first, and a test that passes for the wrong
+        reason is worse than no test.
+        """
+        return Link(
+            scenario="TASK-REC-02",
+            target=Target.DESKTOP,
+            level=Level.E2E,
+            carrier=Carrier.KOTLIN,
+            source=REPO_ROOT / "shared/src/jvmTest/kotlin/Bar.kt",
+            key=TestKey("com.example.Bar", "does_another_thing"),
+        )
+
+    def _run_reporting_only_one(self, partial: bool):
+        d = pathlib.Path(tempfile.mkdtemp())
+        _junit(d, '<testcase classname="com.example.Foo" name="does_a_thing()"/>')
+        return normalise(
+            {"TASK-REC-01": _spec(), "TASK-REC-02": _spec("TASK-REC-02")},
+            [_link(), self._other_scenario()],
+            {Target.DESKTOP: [d]},
+            "abc",
+            partial=partial,
+        )
+
+    def test_complete_run_reports_the_missing_scenario(self):
+        # The rule's own case: one scenario reported, the other silent, on a
+        # complete run. Without partial it must fail.
+        with self.assertRaises(NoResultsError) as ctx:
+            self._run_reporting_only_one(partial=False)
+        self.assertIn("TASK-REC-02/desktop", str(ctx.exception))
+
+    def test_partial_run_does_not(self):
+        report = self._run_reporting_only_one(partial=True)
+        self.assertEqual(report.kept, 1)
+
+    def test_partial_flag_also_silences_the_zero_testcase_rule(self):
+        # Inverted from the first version of this test, which asserted the
+        # opposite on the assumption that the per-target rule was immune to tag
+        # filtering. A real run disproved it: the target executes, writes ten
+        # unrelated XMLs, and no *scenario* testcase appears — so the per-target
+        # rule fires on exactly the subset `--partial` was asked to accept. Both
+        # rules are absence-based, and on a partial run absence carries no
+        # information.
+        d = pathlib.Path(tempfile.mkdtemp())
+        report = normalise(
+            {"TASK-REC-01": _spec()},
+            [_link()],
+            {Target.DESKTOP: [d]},
+            "abc",
+            partial=True,
+        )
+        self.assertEqual(report.kept, 0)
+
+    def test_a_complete_run_with_no_results_at_all_still_fails(self):
+        # The guard on the guard: `--partial` must not become a way to switch
+        # the gate off, only a way to declare that a run is a subset.
+        d = pathlib.Path(tempfile.mkdtemp())
+        with self.assertRaises(NoResultsError):
+            normalise(
+                {"TASK-REC-01": _spec()},
+                [_link()],
+                {Target.DESKTOP: [d]},
+                "abc",
+                partial=False,
+            )
+
+    def _workflow_and_recipe(self):
+        ci = REPO_ROOT / ".github/workflows/ci.yml"
+        recipe = REPO_ROOT / ".just/kiwi/mod.just"
+        return ci.read_text(encoding="utf-8"), recipe.read_text(encoding="utf-8")
+
+    def test_ci_does_not_pass_partial(self):
+        # CI runs `-Ptest.tags=fast,slow`, so the rule is accurate there and
+        # passing the flag on purpose would be a real loss of coverage.
+        ci, _ = self._workflow_and_recipe()
+        self.assertNotIn("--partial", ci)
+
+    def test_local_recipe_does_pass_partial(self):
+        # The counterpart: a developer on the fast cycle must not be told their
+        # build is broken because they skipped slow tests on purpose.
+        _, recipe = self._workflow_and_recipe()
+        self.assertIn("results --partial", recipe)
+
+    def test_the_two_wirings_stay_distinguishable(self):
+        # If both stopped carrying the flag the drift would be invisible: CI
+        # would keep enforcing by accident while local runs started failing.
+        ci, recipe = self._workflow_and_recipe()
+        self.assertNotEqual("--partial" in ci, "--partial" in recipe)
