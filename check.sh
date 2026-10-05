@@ -144,6 +144,31 @@ PYTHONPATH=infra/kiwi python3 -m traceability coverage --check || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [8d/21] scenario coverage holes did not grow ===${NC}"
+# A hole is not a mistake — it is the point of the matrix. A *growing* hole
+# count is a regression, and until this gate existed nothing read these numbers:
+# the 15-spec auth/sync tranche landed with zero carriers and took the matrix
+# from 2 holes to 32 in one commit, green, because `validate` reports holes as
+# information on the same run the CI step treats as a pass. Filling a hole is
+# always allowed; opening one fails and has to be justified in review.
+python3 scripts/check-traceability-ratchet.py || {
+    echo -e "${RED}scenario coverage grew — attach a carrier, or state the growth in the commit${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [8c2/21] Room schema, exports and migration chain agree ===${NC}"
+# `SyncColumns.server_version` was added to `sync_shadow` while SCHEMA_VERSION
+# stayed at 36 and the export moved to 37. Room's identity-hash check then threw
+# `IllegalStateException` at first query for every user with an existing
+# database — and no test saw it, because every test creates its own database and
+# a fresh database has no identity to mismatch. This checks the three artefacts
+# that must describe one schema: the @Database annotation, the exported NN.json
+# files, and the Migration classes.
+python3 scripts/check-room-schema-integrity.py || {
+    echo -e "${RED}Room schema integrity FAILED — the annotation, the exports and the migration chain disagree${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [9/21] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"

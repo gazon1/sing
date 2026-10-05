@@ -1473,3 +1473,79 @@ class CoverageMatrixCarriesTheProse(unittest.TestCase):
 
     def test_rendering_stays_deterministic(self):
         self.assertEqual(self._render(), self._render())
+
+
+class PerScenarioRuleIsExercisable(unittest.TestCase):
+    """The per-scenario rule must stay reachable, proved on the real corpus.
+
+    For the whole session the rule from #149 never fired on real data: with one
+    scenario per target, the per-target rule always caught the case first. It
+    became reachable only when a second desktop carrier existed — two carriers
+    on one target is the precondition, and the auth/sync tranche that added
+    fifteen specs added none.
+
+    So the property is asserted against the repository, not against a fixture
+    with two hand-made links. A fixture proves the rule works; this proves the
+    rule is *reachable*, which is the part that silently stops being true.
+    """
+
+    def _corpus(self):
+        from traceability import SCENARIOS_DIR
+        from traceability.links import scan_all
+
+        specs = load_specs(SCENARIOS_DIR)
+        return specs, scan_all(specs, REPO_ROOT)
+
+    def test_some_target_carries_two_linked_scenarios(self):
+        specs, links = self._corpus()
+        by_target: dict[Target, list[str]] = {}
+        for link in links:
+            by_target.setdefault(link.target, []).append(link.scenario)
+        busy = {t: v for t, v in by_target.items() if len(set(v)) >= 2}
+        self.assertTrue(
+            busy,
+            "no target has two linked scenarios, so the per-scenario rule "
+            "(REQ-13) is unreachable: the per-target rule catches every case "
+            "first. Add a carrier for an existing spec rather than a new spec.",
+        )
+
+    def test_the_real_rule_fires_when_one_of_those_two_is_filtered_out(self):
+        # A genuine `Authenticated`-free result set built from the repository's
+        # own carrier keys, with one desktop carrier reported and the other
+        # silent. This is the exact shape a tag filter produces.
+        specs, links = self._corpus()
+        by_target: dict[Target, list[str]] = {}
+        for link in links:
+            by_target.setdefault(link.target, []).append(link)
+        target, carriers = next(
+            (t, v) for t, v in by_target.items() if len({l.scenario for l in v}) >= 2
+        )
+        # Report exactly one and assert on every other, rather than picking
+        # carriers[1]. The first version did pick carriers[1] and passed while
+        # the desktop carried two scenarios; the moment a third landed it picked
+        # the reporting one and failed. That is not a flake — it is the test
+        # asserting an accident of ordering, which is how the `--partial` test in
+        # this same file shipped a wrong belief earlier. The rule says nothing
+        # about order: report one, and every other scenario on that target must
+        # be named.
+        scenarios = sorted({l.scenario for l in carriers})
+        reporting = next(l for l in carriers if l.scenario == scenarios[0])
+        silent = [s for s in scenarios if s != scenarios[0]]
+
+        d = pathlib.Path(tempfile.mkdtemp())
+        key = reporting.key
+        _junit(
+            d,
+            f'<testcase classname="{key.fqcn}" name="{key.method}()"/>',
+        )
+        with self.assertRaises(NoResultsError) as ctx:
+            normalise(specs, links, {target: [d]}, "abc")
+        message = str(ctx.exception)
+        for scenario in silent:
+            self.assertIn(
+                f"{scenario}/{target.value}",
+                message,
+                f"{scenario} produced no result on {target.value} but the rule did not name it",
+            )
+        self.assertNotIn(f"{reporting.scenario}/{target.value}", message)
+        self.assertNotIn("ни одного тесткейса", message)

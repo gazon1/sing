@@ -1,6 +1,8 @@
 ---
+title: The event log carries the post-merge document, and the clock goes over the wire as an object
 date: 2026-10-04
 status: accepted
+deciders: [sync client]
 deciders: [sync client]
 ---
 

@@ -1,5 +1,10 @@
 package com.singularity.todo.core.billing
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — interface shape. The field names
+//   isTasksSubscription and isGitHubSponsor are carried over from that source, so the
+//   derivation is nameable rather than incidental.
+//   Full registry: docs/legal/PROVENANCE.md
+
 import kotlinx.coroutines.flow.Flow
 
 /**

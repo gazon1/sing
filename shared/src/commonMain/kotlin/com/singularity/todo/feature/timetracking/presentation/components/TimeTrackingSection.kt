@@ -24,8 +24,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.formatMonthDayTime
@@ -84,6 +86,7 @@ fun TimeTrackingSection(
                         FilterChip(
                             selected = true,
                             onClick = onStop,
+                            modifier = Modifier.testTag(TestTags.TimeTracking.STOP),
                             label = { Text("Stop") },
                             leadingIcon = {
                                 Icon(
@@ -99,6 +102,7 @@ fun TimeTrackingSection(
                         FilterChip(
                             selected = false,
                             onClick = onStart,
+                            modifier = Modifier.testTag(TestTags.TimeTracking.START),
                             label = { Text("Start") },
                             leadingIcon = {
                                 Icon(

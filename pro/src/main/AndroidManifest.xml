@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The pro catalogue's own manifest. Deliberately empty of components: it contributes
+  code and a Koin module, not activities or services. Everything it adds is reached
+  through the Application class named by the `appClass` manifest placeholder in
+  androidApp, which points here only under -PwithPro=true.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

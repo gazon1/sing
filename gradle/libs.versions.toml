@@ -320,6 +320,12 @@ datastore = [
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
+# NOTE: there is deliberately no `androidLibrary` / `kotlinAndroid` alias here.
+# `:pro` applies `id("com.android.library")` unversioned — AGP is already on the buildscript
+# classpath from `:androidApp`, so an alias carrying `version.ref = "agp"` fails with
+# "the plugin is already on the classpath with an unknown version" — and it applies no
+# Kotlin plugin at all, because AGP 9 has built-in Kotlin support and errors if one is
+# added. The `agp` version is still pinned in exactly one place, by `androidApplication`.
 androidMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

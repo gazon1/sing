@@ -52,7 +52,11 @@ class DetektSourceSetsAreAllScannedTest {
      * `kotlin` subdirectory with sources in it.
      */
     private val sourceSetsOnDisk: Map<String, Set<String>> by lazy {
-        listOf("shared", "androidApp", "desktopApp", "mcp-server").associateWith { module ->
+        // `pro` is in this list from 2026-10-05. It is an Android library with one
+        // source set, added to the open-core catalogue the same day it was created; leaving
+        // it out would make it the only module in the repository whose source sets no test
+        // checks, which is the exact shape of hole this class exists to close.
+        listOf("shared", "androidApp", "desktopApp", "mcp-server", "pro").associateWith { module ->
             File(repoRoot, module)
                 .resolve("src")
                 .takeIf { it.isDirectory }

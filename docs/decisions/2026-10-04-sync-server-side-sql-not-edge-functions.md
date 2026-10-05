@@ -1,4 +1,5 @@
 ---
+title: Sync server side is SQL functions over typed tables, not edge functions
 date: 2026-10-04
 status: accepted
 ---

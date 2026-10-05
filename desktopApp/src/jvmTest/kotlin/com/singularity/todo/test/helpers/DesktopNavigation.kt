@@ -61,7 +61,14 @@ private fun DesktopComposeUiTest.isDrawerOpen(): Boolean =
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.openDrawer() = step("openDrawer") {
     if (isDrawerOpen()) return@step
-    onNodeWithContentDescription(DesktopShell.HAMBURGER).performClick()
+    // Await before clicking. `onNodeWithContentDescription` fetches once and
+    // throws if the node is not composed *yet*; the hamburger is the first thing
+    // the shell draws, so under load it has sometimes not drawn when this runs.
+    // The failure reads as "Failed to inject mouse input ... could not find any
+    // node that satisfies ContentDescription = 'Menu'", which blames the input
+    // injection and the drawer and never mentions timing — measured on
+    // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
+    awaitContentDescription(DesktopShell.HAMBURGER).performClick()
     waitUntil(
         conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
         timeoutMillis = TIMEOUT_MS,

@@ -1,4 +1,5 @@
 ---
+title: Sync state is keyed by (owner, profile), and the cursor is only half of it
 date: 2026-10-04
 status: accepted
 ---

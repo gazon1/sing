@@ -282,6 +282,30 @@ object TestTags {
         const val UNPIN = "overflow_unpin"
     }
 
+    // ─── Time tracking ─────────────────────────────────────────────────────
+
+    /**
+     * Start/stop chip of [com.singularity.todo.feature.timetracking.presentation
+     * .components.TimeTrackingSection] on the task detail screen.
+     *
+     * These two were added, removed and are now back, and the round trip is the
+     * point worth keeping in mind. They were added for a desktop carrier that a
+     * reachability probe then ruled out, and removed as "tags for a control
+     * nothing can reach". The ruling-out turned out to be wrong: the section was
+     * absent on desktop because the two platform graphs had diverged onto
+     * different screens, not because the feature was Android-only. So the tags
+     * were not pre-paid debt — they were the one thing that *would* have caught
+     * it, sitting unused while a whole feature was missing from a platform.
+     *
+     * They carry distinct values because the chip swaps between the two states;
+     * one shared tag would make "the chip is still Start after a click" the only
+     * thing a test could assert.
+     */
+    object TimeTracking {
+        const val START = "time_tracking_start"
+        const val STOP = "time_tracking_stop"
+    }
+
     // ─── Long-press context menu sheet ─────────────────────────────────────
 
     /**

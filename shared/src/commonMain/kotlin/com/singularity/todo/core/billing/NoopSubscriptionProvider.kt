@@ -1,5 +1,8 @@
 package com.singularity.todo.core.billing
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — no-op implementation only.
+//   Full registry: docs/legal/PROVENANCE.md
+
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**

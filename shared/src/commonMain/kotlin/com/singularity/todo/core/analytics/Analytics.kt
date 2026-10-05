@@ -1,5 +1,8 @@
 package com.singularity.todo.core.analytics
 
+// Provenance: ADAPTED from Tasks.org (GPL-3.0) — interface shape and method names only.
+//   Full registry: docs/legal/PROVENANCE.md
+
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.longPreferencesKey

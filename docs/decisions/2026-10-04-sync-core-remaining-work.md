@@ -1,4 +1,5 @@
 ---
+title: Sync core: what is left, and why the remaining items are ordered this way
 date: 2026-10-04
 status: accepted
 ---

@@ -5,51 +5,26 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.detekt)
-    alias(libs.plugins.tracer)
+    // NOTE: `alias(libs.plugins.tracer)` used to be here. The vendor plugin and SDK
+    // are in :pro (FSL-1.1-ALv2) — see pro/build.gradle.kts. Applying it here would
+    // put proprietary code in an Apache-2.0 module. ADR 2026-10-05-provenance-audit §3.
     // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
     id("io.insert-koin.compiler.plugin") version "1.2.1"
 }
 
+// Whether to build the source-available `pro` catalogue in. Default false, so a fresh
+// clone is Apache-2.0-only and needs no proprietary artefact to resolve. Read through
+// `providers.*` rather than System.getenv for the same configuration-cache reason the
+// Tracer tokens used to be: a raw environment read is snapshotted at configuration time
+// and silently goes stale.
+val withPro: Boolean = providers.gradleProperty("withPro")
+    .orElse("false")
+    .map { it.toBoolean() }
+    .get()
+
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_11
-    }
-}
-
-// ---------------------------------------------------------------------------
-// AppTracer (ru.ok.tracer)
-//
-// Tokens are read through `providers.*` rather than System.getenv, because a
-// raw environment read is snapshotted by the configuration cache and silently
-// goes stale — the same reason desktopApp/build.gradle.kts forwards its test
-// switches via providers.systemProperty. Supply them either as Gradle
-// properties in ~/.gradle/gradle.properties (outside this repo) or as the
-// TRACER_APP_TOKEN / TRACER_PLUGIN_TOKEN environment variables.
-//
-// With no token, `isDisabled = true` keeps Tracer inert and the build green, so
-// CI and any secretless checkout still produce an installable APK.
-// ---------------------------------------------------------------------------
-val tracerAppToken = providers.gradleProperty("tracerAppToken")
-    .orElse(providers.environmentVariable("TRACER_APP_TOKEN"))
-val tracerPluginToken = providers.gradleProperty("tracerPluginToken")
-    .orElse(providers.environmentVariable("TRACER_PLUGIN_TOKEN"))
-
-tracer {
-    create("defaultConfig") {
-        appToken = tracerAppToken.getOrElse("")
-        pluginToken = tracerPluginToken.getOrElse("")
-
-        uploadMapping = true
-        uploadRetryCount = 2
-        // A network blip during CI must not fail the build.
-        dontFailOnUploadFailure = true
-        isDisabled = tracerAppToken.getOrElse("").isBlank()
-    }
-
-    // Configurations inherit defaultConfig; "debug" is spelled out only so the
-    // intent is visible next to the token wiring above.
-    create("debug") {
-        isDisabled = tracerAppToken.getOrElse("").isBlank()
     }
 }
 
@@ -83,11 +58,13 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
 
-    // AppTracer
-    // Repeated from shared/build.gradle.kts on purpose: this module implements
-    // HasTracerConfiguration, and `implementation` deps of :shared are not
-    // visible here at compile time.
-    implementation(libs.tracer.crash.report)
+    // The source-available catalogue. `-PwithPro=true` is what pulls it in, and it is
+    // absent by default: the free configuration must build and pass every gate with no
+    // proprietary code on the classpath at all. That is the property the open-core model
+    // rests on, and it is only true if the default really is free.
+    if (withPro) {
+        implementation(project(":pro"))
+    }
 
     // Testing — Android Instrumentation (adb device)
     androidTestImplementation(libs.androidx.testExt.junit)
@@ -133,6 +110,15 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
+        // The Application class differs between the two configurations, and the
+        // difference is not cosmetic: `ProSingularityApp` implements the vendor's
+        // `HasTracerConfiguration`, so naming it in the free build would put a
+        // proprietary type in an Apache-2.0 module. A manifest placeholder keeps the
+        // choice in one place instead of editing the manifest per configuration.
+        manifestPlaceholders["appClass"] =
+            if (withPro) "com.singularity.todo.pro.ProSingularityApp"
+            else "com.singularity.todo.SingularityApp"
+
         // Instrumentation test runner
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -155,6 +141,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+    sourceSets {
+        if (withPro) {
+            // Compiled only in the pro configuration. `getByName("main").kotlin.srcDir`
+            // rather than a named source set: the files belong to the main variant (they
+            // are part of the shipped app), they are simply not part of the free build.
+            // `directories`, not `srcDir(...)` / `srcDirs(...)`: both are deprecated in AGP 9.
+            // Adding to the set rather than replacing it keeps the default
+            // `src/main/kotlin` in place — `setSrcDirs` would have dropped it.
+            getByName("main").kotlin.directories.add("src/pro/kotlin")
         }
     }
     compileOptions {
@@ -207,9 +204,21 @@ detekt {
     // docs/decisions/2026-10-05-debug-source-set-is-linted.md, issue #99.
     // `DetektSourceSetsAreAllScannedTest` fails if a source set is added to this module
     // and not here, which is the class of defect this line used to be.
+    // A flat literal list on purpose, with `src/pro/kotlin` always in it.
+    //
+    // `DetektSourceSetsAreAllScannedTest` reads this list with a regex and fails if a
+    // source set that exists on disk is missing from it. A conditional spread —
+    // `*(if (withPro) arrayOf("src/pro/kotlin") else emptyArray())` — compiles and looks
+    // clever, but the path is then invisible to that test, which is precisely the omission
+    // the test exists to catch.
+    //
+    // Linting the pro sources in *both* configurations is also just correct: the directory
+    // is on disk either way, and a file nobody lints is a file where a defect accumulates
+    // without a signal. Only *compilation* is gated on `withPro`, not linting.
     source.setFrom(
         "src/main/kotlin",
         "src/androidTest/kotlin",
         "src/debug/kotlin",
+        "src/pro/kotlin",
     )
 }

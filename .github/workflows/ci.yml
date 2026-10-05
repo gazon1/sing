@@ -233,6 +233,15 @@ jobs:
           PYTHONPATH=infra/kiwi python3 -m traceability validate
           PYTHONPATH=infra/kiwi python3 -m traceability coverage --check
 
+      # The matrix above is regenerated and compared; this one asks whether the
+      # thing it renders got worse. `validate` prints holes as information —
+      # correctly, a hole is not a mistake — on the same run this job treats as
+      # a pass, so before this gate existed the 15-spec auth/sync tranche landed
+      # with zero carriers, took the matrix from 2 holes to 32, and went green.
+      # check.sh step 8d carries the same check, because CI does not run check.sh.
+      - name: Scenario coverage holes did not grow
+        run: python3 scripts/check-traceability-ratchet.py
+
       # The result matrix describes exactly one commit, so it is an artifact and
       # never a committed file. Uploaded unconditionally: a result set that
       # exists only when something broke is the half you cannot use, and the
@@ -296,7 +305,7 @@ jobs:
       - name: Detekt baseline ratchet
         run: python3 scripts/check-baseline-ratchet.py
 
-      - name: Run detekt
+      - name: Run detekt (free configuration)
         # blocking as of 2026-10-04: enforceMode is already on in both modules and
         # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
         # reports violations nobody has to fix.
@@ -308,12 +317,43 @@ jobs:
         # and a rule that is never linted is a rule whose own style rots unnoticed.
         run: ./gradlew :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --no-daemon --configuration-cache
 
+      - name: Run detekt (pro configuration)
+        # `:pro` exists only under `-PwithPro=true`, so the step above cannot see it and
+        # `check.sh` cannot invoke it either — the free configuration has no such project.
+        # Without this step, `pro/build.gradle.kts` declares a detekt block, a baseline and
+        # `ignoreFailures = false` that nothing ever runs, which is exactly the
+        # "configured but unreachable" defect the free step's own comment describes.
+        # `check-gate-wiring.py` Part A is what enforces its presence.
+        #
+        # No Tracer token is supplied, so the vendor SDK stays disabled and this needs no
+        # secret. It verifies that the FSL code compiles and lints — not that the vendor
+        # crash-reporting path runs, which stays unverified until a build has a token.
+        run: ./gradlew :pro:detekt -PwithPro=true --no-daemon --configuration-cache
+
+      - name: Assemble Android debug (pro configuration)
+        # Proves the second configuration builds end to end, and that the app's
+        # `src/pro/kotlin` source set compiles with `:pro` on the classpath. The
+        # `appClass` manifest placeholder resolves to `ProSingularityApp` here and to
+        # `SingularityApp` in the free build above, and neither build is asserted to
+        # contain the other's classes — `check-pro-licence-boundary.py --verify-apk`
+        # is the check for that.
+        run: ./gradlew :androidApp:assembleDebug -PwithPro=true --no-daemon --configuration-cache
+
       - name: Find unwired surfaces
         run: python3 scripts/find-unwired-surfaces.py --quiet
         # blocking: any new unwired surface is a regression
 
       - name: Check unwired backlog references
         run: python3 scripts/check-unwired-backlog-refs.py
+
+      # An entity change without a SCHEMA_VERSION bump compiles, passes every
+      # test, and throws IllegalStateException at first query for every user
+      # with an existing database — because every test creates its own database
+      # and a fresh one has no identity hash to mismatch. That is how
+      # `sync_shadow.server_version` reached a shipped build.
+      - name: Room schema integrity
+        run: python3 scripts/check-room-schema-integrity.py
+        # blocking: an existing install must be able to upgrade
 
       - name: Audit-script regression tests
         run: python3 -m unittest discover -s scripts/tests
@@ -450,6 +490,42 @@ jobs:
             bash Maestro/scripts/wait-for-boot.sh
             ./gradlew :androidApp:installDebug --no-daemon
             TAGS=smoke MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
+            # The scenario-tagged flows, in the same emulator session. They were
+            # not run at all before 2026-10-05: this job passed `TAGS=smoke`,
+            # and `TASK-REC-01` is the only flow carrying a `scenario:` tag, so
+            # the one flow whose result the result matrix could consume never
+            # executed in CI. The tags are read from the flows rather than
+            # written out here, because a hard-coded list is a list that goes
+            # stale the moment a second scenario flow lands and reads as
+            # complete.
+            SCENARIO_TAGS=$(grep -rhoE 'scenario:[A-Z0-9-]+' Maestro/flows | sort -u | paste -sd, -)
+            if [ -n "$SCENARIO_TAGS" ]; then
+              echo "Running scenario flows: $SCENARIO_TAGS"
+              TAGS="$SCENARIO_TAGS" MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
+            else
+              echo "No scenario-tagged flows found — the result matrix will have no android rows"
+            fi
+
+      # Uploaded unconditionally, and uploaded from `build/maestro-results/`
+      # rather than only `~/.maestro/tests/`. Two reasons, both measured:
+      #
+      #   * The XML is the only thing `traceability results` can join to a
+      #     scenario. It was written to disk and then thrown away with the
+      #     runner, so the android half of the result matrix could never be
+      #     produced from CI — the matrix has said `not-run` for android on
+      #     every commit since the layer was added.
+      #   * `if: failure()` uploads only the half you cannot use. A result set
+      #     that exists solely when something broke cannot answer "which
+      #     scenario passed on abc1234", which is the question the matrix is
+      #     for.
+      - name: Upload Maestro JUnit results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-junit-${{ github.job }}-${{ github.run_id }}
+          path: build/maestro-results/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Maestro failure artifacts
         if: failure()

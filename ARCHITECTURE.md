@@ -43,7 +43,7 @@
 
 | Пакет | Screen | ViewModel | Repository |
 |---|---|---|---|
-| `tasks/` | `TaskDetailViewScreen` | `TaskCreateViewModel` | `TaskRepository` |
+| `tasks/` | `TaskDetailScreen` | `TaskCreateViewModel` | `TaskRepository` |
 | `notes/` | `NotesListScreen` | `NotesListViewModel`, `NoteEditor`, `NotePreview` | `NotesRepository` |
 | `projects/` | `ProjectsScreen` | `ProjectsViewModel`, `ProjectDetail`, `ProjectEditorViewModel` | `ProjectsRepository` |
 | `tags/` | — | `TagsViewModel` | `TagsRepository` |

@@ -34,19 +34,27 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailAttachmentsSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailChecklistSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailRecurrenceSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailTagsSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
+import com.singularity.todo.feature.tasks.presentation.state.FirstRun
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
+import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
+import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
@@ -56,6 +64,10 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAiSheet by rememberSaveable { mutableStateOf(false) }
+    // Separate flag rather than one `showSheet` enum: the two sheets are
+    // reachable from two different sections far apart in the list, and an enum
+    // would mean every call site names a state it does not own.
+    var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(coordinator.events) {
         coordinator.events.collect { event ->
@@ -109,6 +121,7 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
 
                 is TaskDetailUiState.Loaded -> {
                     val ui = s.ui
+                    val extras = s.extras
 
                     TaskEditorContent(
                         taskId = ui.task.id.value,
@@ -147,11 +160,67 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                         pinCallbacks = null,
                         dependsOn = ui.dependsOn,
                         availableTasks = ui.availableTasks,
+                        // Was absent on the desktop path while the Android-only
+                        // screen had it, so an estimate set on one platform was
+                        // invisible on the other. Both routes render this now.
+                        estimateMinutes = ui.task.estimateMinutes,
+                        estimateCallbacks = RowCallbacks(
+                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(it)) },
+                            onClick = null,
+                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
+                        ),
                         extraSections = {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
+                                // First-run nudge and pending AI proposals both
+                                // arrive through `extras`, which is Unresolved
+                                // until the coordinator's cold-start work lands.
+                                // Reading them as absent while unresolved is the
+                                // intended behaviour: there is nothing to show yet,
+                                // and inventing an empty offer would flash a
+                                // section that disappears a frame later.
+                                val firstRun = when (val ex = extras) {
+                                    is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                    is TaskDetailExtras.Ready -> ex.firstRun
+                                }
+                                if (firstRun is FirstRun.Offer) {
+                                    FirstRunSection(
+                                        onWriteNote = { /* scroll to body */ },
+                                        onAddChecklist = { /* expand checklist */ },
+                                        onAskAi = { showAiSheet = true },
+                                    )
+                                }
+                                val proposals = when (val ex = extras) {
+                                    is TaskDetailExtras.Unresolved -> emptyList()
+                                    is TaskDetailExtras.Ready -> ex.proposals
+                                }
+                                if (proposals.isNotEmpty()) {
+                                    TaskDetailProposalSection(
+                                        proposals = proposals,
+                                        onConfirm = { itemId ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
+                                            )
+                                        },
+                                        onReject = { itemId, reason ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.RejectProposalItem(itemId, reason),
+                                            )
+                                        },
+                                        onConfirmAll = { proposalId ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.ConfirmAllProposalItems(proposalId),
+                                            )
+                                        },
+                                        onDismiss = { proposalId ->
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.DismissProposal(proposalId),
+                                            )
+                                        },
+                                    )
+                                }
                                 TaskDetailTagsSection(
                                     tags = ui.tags,
                                     onDeleteTag = { coordinator.onIntent(TaskDetailIntent.Domain.RemoveTag(it)) },
@@ -170,6 +239,12 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                                         coordinator.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(it))
                                     },
                                 )
+                                SubtasksSection(
+                                    subtasks = ui.subtasks,
+                                    onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleSubtask(it)) },
+                                    onDelete = { coordinator.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
+                                    onOpen = { navigator.openDetail(it.id) },
+                                )
                                 if (ui.attachments.isNotEmpty()) {
                                     TaskDetailAttachmentsSection(
                                         attachments = ui.attachments,
@@ -183,6 +258,12 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                                         onOpenTask = { navigator.openDetail(it) },
                                     )
                                 }
+                                TimeTrackingSection(
+                                    state = ui.timeSlotState,
+                                    onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
+                                    onStop = { coordinator.onIntent(TaskDetailIntent.Domain.Stop) },
+                                    onAddManual = { showTimeEntrySheet = true },
+                                )
                                 LogbookSection(
                                     entries = ui.logbookEntries,
                                     onOpenNote = { navigator.openNote(it) },
@@ -208,6 +289,24 @@ fun TaskDetailContent(coordinator: TaskDetailCoordinator, modifier: Modifier = M
                                 showAiSheet = false
                             },
                             onDismiss = { showAiSheet = false },
+                        )
+                    }
+
+                    if (showTimeEntrySheet) {
+                        TimeEntryEditorSheet(
+                            taskStartedAtMs = ui.task.createdAt.toEpochMilliseconds(),
+                            onSave = { startedAtMs, endedAtMs, kind, note ->
+                                coordinator.onIntent(
+                                    TaskDetailIntent.Domain.CreateManual(
+                                        startedAtMs = startedAtMs,
+                                        endedAtMs = endedAtMs,
+                                        kind = kind,
+                                        note = note,
+                                    ),
+                                )
+                                showTimeEntrySheet = false
+                            },
+                            onDismiss = { showTimeEntrySheet = false },
                         )
                     }
                 }

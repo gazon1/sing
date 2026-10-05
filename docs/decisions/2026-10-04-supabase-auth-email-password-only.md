@@ -1,4 +1,5 @@
 ---
+title: Supabase auth is email and password only; the OAuth skeleton is deleted
 date: 2026-10-04
 status: accepted
 ---

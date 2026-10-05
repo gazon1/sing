@@ -78,6 +78,8 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_START_DATE_ROW` | `task_editor_start_date_row` | |
 | `TASK_EDITOR_TAGS_ROW` | `task_editor_tags_row` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
+| `TimeTracking.START` | `time_tracking_start` | |
+| `TimeTracking.STOP` | `time_tracking_stop` | |
 
 ### Agenda
 | Constant | Value | Where |
