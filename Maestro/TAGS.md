@@ -55,6 +55,9 @@ non-alphanumeric characters with `_`.
 | `PRIORITY_OPTION_MEDIUM` | `priority_option_medium` | |
 | `PRIORITY_OPTION_NONE` | `priority_option_none` | |
 | `PRIORITY_OPTION_URGENT` | `priority_option_urgent` | |
+| `RECURRENCE_ENDS_NEVER` | `recurrence_ends_never` | |
+| `RECURRENCE_ENDS_ON_DATE` | `recurrence_ends_on_date` | |
+| `RECURRENCE_END_DATE_VALUE` | `recurrence_end_date_value` | |
 | `RECURRENCE_OPTION_DAILY` | `recurrence_option_daily` | |
 | `RECURRENCE_OPTION_DAY_OF_MONTH` | `recurrence_option_day_of_month` | |
 | `RECURRENCE_OPTION_MONTHLY` | `recurrence_option_monthly` | |

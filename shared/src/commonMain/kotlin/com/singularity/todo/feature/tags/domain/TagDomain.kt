@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags.domain
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.text.visibleLength
 
 /**
  * Pure domain logic for tag validation.
@@ -10,12 +11,25 @@ import com.singularity.todo.core.error.AppError
 object TagDomain {
 
     /**
+     * Maximum tag name length, counted in visible characters.
+     *
+     * Not `String.length` — see [visibleLength]. An emoji counts once here, which
+     * is what a person reading "max 100 characters" expects.
+     */
+    const val MAX_NAME_LENGTH: Int = 100
+
+    /**
      * Validates tag creation input.
      * @return null if valid, error message otherwise.
      */
     fun validateName(name: String): AppError.Validation? = when {
         name.isBlank() -> AppError.Validation("Tag name cannot be blank", code = "tag.name.blank")
-        name.length > 100 -> AppError.Validation("Tag name too long (max 100 characters)", code = "tag.name.too_long")
+
+        name.visibleLength() > MAX_NAME_LENGTH -> AppError.Validation(
+            "Tag name too long (max $MAX_NAME_LENGTH characters)",
+            code = "tag.name.too_long",
+        )
+
         else -> null
     }
 
