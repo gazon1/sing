@@ -1,4 +1,5 @@
 ---
+title: commonMain referenced the JVM in 21 places, and the gate could only see 17 of them
 date: 2026-10-05
 status: accepted
 ---

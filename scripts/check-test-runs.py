@@ -20,6 +20,27 @@ no navigation test and no desktop flow test had ever run.
 it compares the executed counts against a committed baseline and fails when a
 source set runs fewer classes or tests than the floor.
 
+## The second half, and why the floor was not enough
+
+A floor compares a run against a *number recorded earlier*. That is blind to
+the case that actually happens when someone adds a test: the new class is not
+in the baseline, so dropping it lowers nothing the floor can see, and the gate
+stays green while the test never executes once. The two untagged recurrence
+classes were exactly this — invisible to the tag gate whose predicate matched
+only `@Test`, absent from a baseline that had not been written yet.
+
+So this gate also asks the question directly: for every `@Tag("fast")` class the
+sources declare, is there a JUnit suite by that name in the XML? That is a fact
+about the run rather than a comparison, which is why it survives a JUnit
+annotation form no text predicate knows about. `fast` is the right scope and not
+a convenience: `shared/build.gradle.kts` maps an absent `-Ptest.tags` to
+`excludeTags("slow")`, so a plain local run executes exactly the `fast` classes
+and CI's `-Ptest.tags=fast,slow` is a superset of them.
+
+The class list is produced by `infra/kiwi/sync.py` — the same scanner that
+backs the Kiwi stand — because "is this class runnable" had already been
+implemented three times and the copies had drifted apart twice.
+
 The point is that "tests passed" and "the tests ran" are different claims, and
 only the second one is worth recording. A verification step that reports
 pass/fail without reporting *how much ran* is not a baseline.
@@ -80,6 +101,7 @@ fine). Investigate before regenerating whenever they go *down* — a drop means 
 class stopped being selected, which is the defect.
 """
 import argparse
+import importlib.util
 import pathlib
 import re
 import sys
@@ -98,6 +120,142 @@ SOURCE_SETS = {
 }
 
 SUITE_RE = re.compile(r'tests="(\d+)"')
+
+#: Gradle writes suite names in two shapes and this gate has to read both:
+#:
+#:   shared      `RecurrenceRuleMapperTest[jvm]`      — simple name, target suffix
+#:   desktopApp  `com.singularity.todo.core.ui.menu.MenuBarTest`
+#:   mcp-server  `com.singularity.todo.mcp.schema.KoogJsonSchemaBuilderTest`
+#:
+#: Not a cosmetic difference: comparing a source class name against a
+#: fully-qualified report name reports every class as missing, and a check that
+#: always fails is a check nobody runs. The target suffix is stripped first,
+#: then everything up to the last dot, so both shapes reduce to the simple name.
+#: A JUnit `@Nested` suite (`OuterTest$NestedTest`) therefore stays distinct from
+#: its outer class rather than colliding with it.
+TARGET_SUFFIX_RE = re.compile(r"\[[^\]]+\]$")
+
+#: source set label -> source roots whose *fast* classes it must have executed.
+#:
+#: Only the Gradle module roots are listed. `TEST_ROOTS` in `infra/kiwi/sync.py`
+#: also covers androidHostTest, androidTest and detekt-rules, which are not this
+#: gate's source sets — see `androidApp` and `detekt-rules` in SOURCE_SETS.
+#:
+#: The choice of *fast* is what makes this check true for both callers without a
+#: second mode. `shared/build.gradle.kts` translates an absent `-Ptest.tags` to
+#: `excludeTags("slow")`, so a plain local run executes every `fast` class, and
+#: CI's `-Ptest.tags=fast,slow` is a superset. Checking `slow` as well would
+#: fail every local run and mean nothing in CI.
+EXPECTED_CLASS_SOURCES = {
+    "shared:jvmTest": (
+        "shared/src/commonTest/kotlin",
+        "shared/src/jvmTest/kotlin",
+    ),
+    "desktopApp:test": ("desktopApp/src/jvmTest/kotlin",),
+    "mcp-server:test": ("mcp-server/src/test/kotlin",),
+}
+
+
+class ScannerUnavailable(RuntimeError):
+    """`infra/kiwi/sync.py` could not be loaded, so the by-results check cannot run.
+
+    A dedicated type so the caller can fail loudly instead of skipping. Returning
+    None here and treating it as "nothing to check" is the vacuous green this
+    gate exists to prevent: measured by appending a failing import to sync.py,
+    the gate reported "Test run floors met" and exit 0 while the by-results half
+    was not running at all.
+    """
+
+
+def _load_sync():
+    """The repository scanner from `infra/kiwi/sync.py`.
+
+    Reusing the one implementation that already answers "is this class runnable"
+    is the point. This gate previously asked the same question a third time, and
+    the three answers had already drifted apart twice.
+
+    Raises [ScannerUnavailable] rather than returning None. The caller has results
+    to check, so "could not check" must be a failure, not an absence.
+    """
+    kiwi_dir = ROOT / "infra" / "kiwi"
+    sync_py = kiwi_dir / "sync.py"
+    if not sync_py.is_file():
+        raise ScannerUnavailable(f"no repository scanner at {sync_py}")
+    # sync.py imports its sibling kiwi_client, so its own directory has to be
+    # importable before it is executed — not just its file.
+    kiwi_str = str(kiwi_dir)
+    added = kiwi_str not in sys.path
+    if added:
+        sys.path.insert(0, kiwi_str)
+    try:
+        spec = importlib.util.spec_from_file_location("check_test_runs_sync", sync_py)
+        module = importlib.util.module_from_spec(spec)
+        module.__name__ = "check_test_runs_sync"
+        module.__file__ = str(sync_py)
+        # Must precede exec_module: the @dataclass defined there resolves its
+        # module through sys.modules[cls.__module__] and fails without this.
+        sys.modules["check_test_runs_sync"] = module
+        spec.loader.exec_module(module)
+    except Exception as exc:  # noqa: BLE001 — any import failure is disqualifying
+        sys.modules.pop("check_test_runs_sync", None)
+        raise ScannerUnavailable(f"{sync_py} did not import: {exc!r}") from exc
+    finally:
+        if added:
+            sys.path.remove(kiwi_str)
+    return module
+
+
+def expected_fast_classes(label: str):
+    """Class names the source declares that are `@Tag("fast")`, or None if out of scope.
+
+    None means *this gate has no opinion about that source set* — there are no
+    roots configured for it. It never means "could not check": an unavailable
+    scanner raises [ScannerUnavailable] instead, because a check that quietly
+    does not run is indistinguishable from a check that passed.
+    """
+    roots = EXPECTED_CLASS_SOURCES.get(label)
+    if not roots:
+        return None
+    sync = _load_sync()
+    names = set()
+    for rel in roots:
+        root = ROOT / rel
+        if not root.is_dir():
+            continue
+        for kt in root.rglob("*Test.kt"):
+            source = kt.read_text(encoding="utf-8", errors="replace")
+            for name in sync._test_classes_in(source):  # noqa: SLF001 — one repo, one scanner
+                if sync._read_tag(source, name) == "fast":  # noqa: SLF001
+                    names.add(name)
+    return names
+
+
+def executed_classes(detail_dir: pathlib.Path) -> set[str]:
+    """Every class that produced a JUnit suite in *detail_dir*."""
+    executed = set()
+    if not detail_dir.is_dir():
+        return executed
+    for xml in detail_dir.glob("**/*.xml"):
+        try:
+            root = ET.parse(xml).getroot()
+        except ET.ParseError:
+            continue
+        if root.tag != "testsuite":
+            continue
+        name = root.get("name")
+        if name:
+            executed.add(TARGET_SUFFIX_RE.sub("", name).rsplit(".", 1)[-1])
+    return executed
+
+
+def missing_classes(expected: set[str], executed: set[str]) -> list[str]:
+    """Declared-but-not-executed class names, sorted.
+
+    Kept as a free function so the rule can be tested without a Gradle run, a
+    temp tree, or the real scanner — the three things that make every other
+    assertion in this file slow enough that nobody adds any.
+    """
+    return sorted(expected - executed)
 
 
 def newest_report(detail_dir: pathlib.Path):
@@ -222,24 +380,71 @@ def main() -> int:
             "#",
             "# A DROP means a test class stopped being selected — an untagged class, a",
             "# JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do",
-            "# not regenerate. A RISE just means tests were added.",
+            "# not regenerate. A RISE just means tests were added — but see the warning",
+            "# --update-baseline prints on a rise, because a rise measured with",
+            "# `-Ptest.tags=fast,slow` is not a floor at all.",
             "#",
             "# max-skipped is a CEILING, not a floor, and it is 0. A skipped test is a",
             "# silent green: JUnit counts it in tests= exactly like a passing one, so a",
             "# @Disabled class or a failing assumption guard removes real coverage with no",
             "# other symptom. Do not raise it to make this gate pass — re-enable the test.",
             "#",
+            "# Only source sets that were actually measured are rewritten. A line for a",
+            "# source set that did not run is carried over untouched — see the",
+            "# --update-baseline section of this file for why deleting it is a defect.",
+            "#",
             "# Regenerate with: python3 scripts/check-test-runs.py --update-baseline",
         ]
+        previous = load_baseline(BASELINE)
         for label in sorted(observed):
             classes, tests, skipped = observed[label]
             lines.append(f"{label} {classes} {tests} {skipped}")
+        for label in sorted(previous):
+            if label in observed:
+                continue
+            classes, tests, max_skipped = previous[label]
+            lines.append(f"{label} {classes} {tests} {max_skipped}")
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
         BASELINE.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        print(f"baseline written: {BASELINE.relative_to(ROOT)} ({len(observed)} source sets)")
+        print(f"baseline written: {BASELINE.relative_to(ROOT)} ({len(observed)} measured)")
         for label in sorted(observed):
             classes, tests, skipped = observed[label]
             print(f"  {label}: {classes} classes, {tests} tests, {skipped} skipped")
+        carried = sorted(set(previous) - set(observed))
+        if carried:
+            print(
+                f"  carried over unchanged (not run here): {', '.join(carried)}",
+            )
+        rises = [
+            (label, previous[label], observed[label])
+            for label in sorted(observed)
+            if label in previous
+            # Either dimension rising counts. A tuple comparison was wrong here:
+            # `(1, 60) > (5, 50)` is False because the class count fell, so a run
+            # that added tests while merging two classes reported no rise and the
+            # warning stayed silent. Each dimension has its own direction.
+            and (observed[label][0] > previous[label][0]
+                 or observed[label][1] > previous[label][1])
+        ]
+        if rises:
+            # A rise is only trustworthy as a floor when it came from the
+            # floor-producing configuration — the default run, which excludes
+            # @Tag("slow"). Recording a `-Ptest.tags=fast,slow` number here is
+            # how this file once held 1003 when the sources contained 998: a
+            # floor above the number of tests that exist cannot be satisfied by
+            # any real run, and it failed a CI job on its first use.
+            print(
+                "\nWARNING: these counts ROSE. Confirm the run that produced them was the\n"
+                "floor-producing one (no -Ptest.tags, which excludes @Tag(\"slow\")),\n"
+                "not `-Ptest.tags=fast,slow`. A floor recorded from a wider run makes\n"
+                "every plain local run look like a regression:",
+                file=sys.stderr,
+            )
+            for label, before, after in rises:
+                print(
+                    f"  {label}: {before[0]}/{before[1]} -> {after[0]}/{after[1]}",
+                    file=sys.stderr,
+                )
         return 0
 
     baseline = load_baseline(BASELINE)
@@ -284,6 +489,40 @@ def main() -> int:
             classes, tests, skipped = observed[label]
             print(f"{label}: {classes} classes, {tests} tests, {skipped} skipped")
 
+    # The by-results half. A count floor answers "did fewer things run than
+    # last time", which is silent when a *new* class is the one that got
+    # skipped: a baseline recorded before the class existed cannot notice its
+    # absence. This asks the direct question instead — for every @Tag("fast")
+    # class in the sources, did a JUnit suite by that name land in the XML?
+    #
+    # It is a fact about the run, not a judgement about the source, which is why
+    # a form of JUnit annotation this file has never heard of is caught here even
+    # if both text predicates miss it.
+    for label in sorted(observed):
+        if label not in EXPECTED_CLASS_SOURCES:
+            continue
+        try:
+            expected = expected_fast_classes(label)
+        except ScannerUnavailable as exc:
+            # Loudly, because the alternative — skipping the source set — is a
+            # green light wired to nothing. That is the exact failure this gate
+            # was written to catch, one level down.
+            regressions.append(
+                f"{label}: the by-results check could not run — {exc}. A check that "
+                f"does not execute is not a passing check."
+            )
+            continue
+        if expected is None:
+            continue
+        detail_dir = ROOT / SOURCE_SETS[label]
+        executed = executed_classes(detail_dir)
+        missing = missing_classes(expected, executed)
+        if missing:
+            regressions.append(
+                f"{label}: {len(missing)} @Tag(\"fast\") class(es) declared in the "
+                f"sources produced no JUnit report: {', '.join(missing)}"
+            )
+
     if regressions:
         print("\nTest runs below the recorded floor — a suite stopped running:", file=sys.stderr)
         for line in regressions:
@@ -291,7 +530,10 @@ def main() -> int:
         print(
             "\nUsually an untagged class, a JUnit 4 class on the Vintage engine, or a\n"
             "narrowed -Ptest.tags filter. See TestTagCoverageTest and the note in\n"
-            "config/docs/test-runs-baseline.txt before regenerating.",
+            "config/docs/test-runs-baseline.txt before regenerating.\n\n"
+            "A class that is in the sources and absent from the XML was never\n"
+            "selected — no count floor can see that when the class is newer than\n"
+            "the baseline. Tag it (@Tag(\"fast\")) or find out why JUnit skipped it.",
             file=sys.stderr,
         )
         return 1

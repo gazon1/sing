@@ -89,6 +89,155 @@ not exist.
 
 ---
 
+## flow-has-tag-drops-a-flow-whose-tag-has-a-trailing-space
+
+**Status: CLOSED.** 2026-10-05.
+
+**Tracked as:** [#148](https://github.com/gazon1/singularity-clone-kmp/issues/148)
+
+**Found in:** the gate audit in
+`2026-10-05-gate-audit-text-shape-vs-fact` (0A.5), which asked every test gate
+"what input passes silently?". Reproduced by probe the same day, not inferred.
+
+**Symptom:** `flow_has_tag` (`scripts/run-maestro.sh:166`) compares a flow's
+header tag to the requested tag with awk string equality. A tag with one
+trailing space does not match, so `TAGS=smoke scripts/run-maestro.sh` omits that
+flow and says nothing. Nothing asserts that every flow is reachable by some tag,
+so a flow dropped this way disappears from every suite while every gate stays
+green — the same shape as the D1 defect, where two classes were reported clean
+by the gate that exists to report them.
+
+**Already ruled out:** not a Maestro behaviour. `--include-tags` is ignored when
+a single file is passed, which is exactly why the filter is applied in the
+script; the comparison is the script's own.
+
+**Fix, and why the first deferral was the wrong call.** The tag matching moved
+out of `run-maestro.sh` into `scripts/maestro-flow-tags.sh`, a sourceable file
+with no adb or emulator dependency, and both ends of the comparison are now
+trimmed. This was filed rather than fixed alongside the other gate repairs
+because the change could not be exercised in that environment — which turned out
+to be the wrong reason. The matching is pure text and is now unit tested
+(`scripts/tests/test_maestro_flow_tags.py`, 16 cases) with no device at all.
+
+Three further defects surfaced while writing those tests, none visible before:
+the tag block was never terminated, so a step like `- tapOn: 'x'` under
+`commands:` was read as a tag and `TAGS=tapOn:` would have selected every flow;
+`tags:  # comment` did not open the block; and a CRLF-edited flow kept a `\r`
+in its tag and matched nothing.
+
+The tests add the invariant that closes the loop and which nothing in CI
+asserted before: every flow declares at least one tag, every declared tag
+selects its own flow, and every `TAGS=` value CI asks for resolves to at least
+one flow. Measured over the current tree: 58 flows, none untagged, no
+unreachable tag, `TAGS=smoke` selects 19.
+
+---
+
+## thirteen-scenario-slices-queued-not-yet-written
+
+**Status: OPEN**
+
+**Tracked as:** [#170](https://github.com/gazon1/singularity-clone-kmp/issues/170)
+
+**Found in:** the plan `Ремонт измеримости и сценарии покрытия` (срезы 2-14), and
+then re-confirmed by code on 2026-10-05 once the traceability machinery landed.
+
+**Situation:** the scenario layer exists and holds exactly one scenario,
+`TASK-REC-01`, delivered as the pilot. The other thirteen are written nowhere — not
+here, not in an issue, not in an OpenSpec change. The matrix says
+"1 scenarios · 2/2 claimed cells automated · 0 holes", which is true and says almost
+nothing: one scenario is not a matrix.
+
+**Measured 2026-10-05, per area, so the queue is facts rather than suspicion:**
+
+| Area | Test files | Production files | Reachable in UI |
+|---|---|---|---|
+| `feature/checklist` | **0** | 6 | yes — `ChecklistEditorSheet` via `TaskEditorSheetsHost.kt:140` |
+| `feature/timetracking` | **0** | 11 | yes — `TimeTrackingSection` at `TaskDetailViewScreen.kt:218` |
+| `feature/statistics` | 1 | 3 | yes, no tag on the chart |
+
+The first two are why slices 2-4 come first rather than being an arbitrary order: they
+are areas with **zero tests in any layer** that a user can reach. Filling the matrix
+from the areas that already have tests would produce a full matrix that mostly means
+"what was already covered is now also a scenario" — the same illusion the class-count
+floor was created to remove.
+
+**Deliberately not slices.** Cloud sync has no host screen (ADR
+`2026-09-29-sync-config-screen-has-no-host`), bulk task operations have no multi-select
+(#36), the 7 tables outside the backup payload are #77, and `Regexp`/`DateRange` agenda
+templates are JSON-only. Each is a gap with its own issue, not a scenario to write, and
+they are reported as `unreachable` with a link to an OPEN record — an audit that treats
+an honest gap as a failure gets its gaps filled with fiction.
+
+**Try next:** `TASK-SUB-01` first (it guards a bug that actually shipped), then
+`TASK-CHK-01` and `TASK-TT-01`. Each slice is one PR carrying its spec, its test, and
+the seed or tag *it* needs — not a pre-paid batch of tags for every reachable control,
+because some will turn out unnecessary.
+
+---
+
+## debug-seed-cannot-build-a-related-graph
+
+**Status: OPEN**
+
+**Tracked as:** [#171](https://github.com/gazon1/singularity-clone-kmp/issues/171)
+
+**Found in:** the same plan, 0C.1, and re-confirmed on 2026-10-05 while checking
+which of the queued scenarios have a prerequisite rather than only a missing test.
+
+**Situation:** `DebugSeedActivity` dispatches on a single key and the first matching
+branch wins, so one invocation seeds **one object**. Three queued scenarios need a
+graph: a subtask attached to its parent, a task with time entries, a populated
+database to round-trip. Adding branches does not reach that — the branches cannot
+reference each other and nothing is atomic, so a failure halfway leaves a half-seeded
+database that the next assertion reads as real data.
+
+**Already ruled out:** seeding by writing a backup and restoring it. Seven tables sit
+outside the backup payload (#77), so that route silently omits them and the scenario
+tests a subset of the database while claiming to test all of it.
+
+**Try next:** a JSON payload describing the object graph, deserialised into a
+`sealed interface SeedItem` and applied through the existing use cases in one
+transaction. Through use cases, not DAOs: a scenario must not be able to construct a
+state the app itself could not produce, because that is the property that makes it
+worth having. The same model should serve the desktop Compose harness, with the shared
+part in the test support module. Do not build it speculatively — `TASK-SUB-01` is the
+first scenario that needs it, and its requirements are the honest ones.
+
+---
+
+## class-body-scanning-is-not-string-aware
+
+**Status: OPEN**
+
+**Tracked as:** [#173](https://github.com/gazon1/singularity-clone-kmp/issues/173)
+
+**Found in:** the gate audit in
+`2026-10-05-gate-audit-text-shape-vs-fact`, while asking what input passes the
+runnable-test predicate silently.
+
+**Situation, measured rather than suspected:** the class-body scanner counts braces
+line by line and is not string-aware, and **97 lines** in the current test tree carry
+an unbalanced literal brace inside a string. So the trap is set on 97 lines. Comparing
+the naive counter against a string-aware one across **all 269 real test classes**
+produced **zero** differing verdicts, so nothing has fallen into it — the braces that
+matter are balanced `${...}` templates, and the unbalanced ones sit after the last test
+member in their class.
+
+**Why it stays open rather than being fixed:** a real lexer for a defect with zero
+measured impact, in a source set (`commonTest`) that has no parser dependency today. A
+gate that needs a new build dependency is a gate that gets removed the first time that
+dependency is inconvenient.
+
+**Try next:** nothing, unless a test file puts a bare `}` in a literal *above* a test
+member in its class. It is already covered one layer up — the by-results check in
+`check-test-runs.py` reads the run rather than the source, so a class the predicate
+mis-scopes and a genuinely untagged class produce the same symptom and are caught
+either way. That is the argument for keeping the structural check above the text one,
+not an argument that this one is fine forever.
+
+---
+
 ## bulk-task-operations-have-no-ui
 
 **Status: OPEN**
@@ -1148,6 +1297,27 @@ so the plumbing exists and only the default is wrong. Then `CalendarFlowTest`
 can pin a date like every other flow test. Until then, any UI assertion that
 depends on "now" is a test that reports the calendar.
 
+**Scope, measured 2026-10-05** (the plan that produced this entry called the
+class "wider than believed"; these are the counts, so the next attempt starts
+from facts rather than from the suspicion):
+
+- 17 call sites of `todayInSystemZone()` across 10 files under `commonMain`:
+  `feature/agenda/domain/logic/RelativeBucket.kt`,
+  `feature/calendar/CalendarPreview.kt`,
+  `feature/calendar/presentation/screen/{CalendarContent,CalendarScreen}.kt`,
+  `feature/nav/AppDestination.kt`, `feature/search/query/SearchQueryResolver.kt`,
+  `feature/tasks/domain/usecase/CreateTaskFromDraft.kt`,
+  `shell/FabActionResolver.kt`, `core/observability/RoomUsageRecorder.kt`,
+  and `core/platform/Clock.kt` itself.
+- 17 direct `Clock.System.now()` calls under `feature/**`.
+
+Two of those reach the core of what a scenario matrix would assert:
+`CreateTaskFromDraft` (creating a task with `due = today`) and
+`SearchQueryResolver` (searching by date ranges around today). Neither is
+deterministic today, so a `TASK-*` or `SEARCH-01` scenario written against
+either would be non-deterministic by construction — which is why the fix is a
+class-level injection plus a rule, not a point fix in the calendar.
+
 ---
 
 ## six-smoke-flows-still-red-after-the-harness-fix
@@ -1193,6 +1363,23 @@ so the fix is likely one more wait (after the `openLink`, before the first
 assertion) rather than six separate bugs. That is a hypothesis, not a
 conclusion, and it is cheap to test: add the wait, re-run, see which of the six
 move.
+
+**Attempted 2026-10-05, not completed — the device would not boot.**
+`scripts/ensure-emulator.sh` started `Medium_Phone`, but `adb devices` went
+`emulator-5554 offline` and then dropped the device from the list entirely while
+the emulator process was still alive; 12 polling attempts over ~4 minutes never
+reached `device`. No flow was run, so **no new diagnosis was produced and the
+table above is unchanged**. This is the host-side gfxstream instability recorded
+in `2026-09-28-emulator-gfxstream-colorbuffer-segv.md` and in `AGENTS.md` ("Maestro
+currently fails in this environment"), showing up as a device that never
+registers. Re-run the six one at a time on a host where the emulator boots; the
+per-flow `FLOW=…` recipe in the paragraph above is still the right first move.
+
+Related: a debug APK now carries its git sha in `versionName`
+(`0.1.0+g<sha>`, see `androidApp/build.gradle.kts`) and `run-maestro.sh`
+refuses to run when the installed binary's sha disagrees with the checkout.
+That check is why the next run cannot silently report a result for a
+snapshot-restored APK.
 ---
 
 ## test-doubles-in-commonmain-source

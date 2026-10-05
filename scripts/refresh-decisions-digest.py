@@ -13,6 +13,14 @@ DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
 MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
+# The two flat sections below were uncapped, and one of them had already been trimmed once
+# for exactly this reason (the duplicate slug->tags index, ~385 lines). An uncapped index
+# is a second copy of the directory listing wearing an index's clothes: it grows by one
+# line per ADR, forever, and the only ways to stay under budget are to stop listing or to
+# stop writing ADRs. Both lists are capped, newest first, with the same
+# "_... and N more items_" convention the per-tag sections already use.
+MAX_OPEN_DEFERRED = 25
+MAX_ACTIVE_ENTRIES = 300
 MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
 
 
@@ -184,9 +192,17 @@ def main() -> None:
     if open_deferred:
         out.append(f"_{len(open_deferred)} entries need attention._")
         out.append("")
-        for slug in sorted(open_deferred.keys()):
+        shown = 0
+        for slug in sorted(open_deferred.keys(), reverse=True):
+            if shown >= MAX_OPEN_DEFERRED:
+                break
             st, ti = open_deferred[slug]
             out.append(f"- `{slug}` — **{st}** — {ti}")
+            shown += 1
+        total_open = len(open_deferred)
+        if total_open > MAX_OPEN_DEFERRED:
+            out.append(f"- _... and {total_open - MAX_OPEN_DEFERRED} more in "
+                       "`docs/decisions/deferred-backlog.md`_")
     else:
         out.append("_No open or deferred entries._")
 
@@ -205,10 +221,13 @@ def main() -> None:
     # ~385 duplicated lines that pushed the digest past its budget on every new ADR.
     # Tags are already reachable through the per-tag sections above, and a title is the
     # more useful half of an index.
-    for path in entries:
+    active = [p for p in entries if p.stem not in superseded]
+    for path in reversed(active[-MAX_ACTIVE_ENTRIES:]):
         slug = path.stem
-        if slug not in superseded:
-            out.append(f"- `{slug}` — {titles.get(slug, '') or '_(no title)_'}")
+        out.append(f"- `{slug}` — {titles.get(slug, '') or '_(no title)_'}")
+    if len(active) > MAX_ACTIVE_ENTRIES:
+        out.append(f"- _... and {len(active) - MAX_ACTIVE_ENTRIES} older entries in "
+                   "`docs/decisions/`_")
     out.append("")
 
     DIGEST.write_text('\n'.join(out) + '\n')

@@ -25,9 +25,12 @@ import kotlin.test.assertTrue
  *
  * Tags are matched per class, so a file holding two test classes where only one is
  * tagged still loses the other. This test therefore requires the annotation on every
- * **class that declares `@Test` members** — not once per file. Helper classes that live
- * in a `*Test.kt` file (fakes, harnesses such as `RunVmTest` / `IsolatedComposeTest`)
- * declare no `@Test` and are correctly left untagged.
+ * **class that declares a member JUnit executes** — not once per file. That set is
+ * [RunnableTestMember]'s, and it is deliberately wider than `@Test`: matching
+ * `@Test` alone reported `RecurrenceRuleMapperTest` and `RruleGeneratorTest` as
+ * clean while CI, which runs `-Ptest.tags=fast,slow`, skipped both. Helper classes
+ * that live in a `*Test.kt` file (fakes, harnesses such as `RunVmTest` /
+ * `IsolatedComposeTest`) declare no test member and are correctly left untagged.
  *
  * ## Adding a test
  *
@@ -80,12 +83,16 @@ class TestTagCoverageTest {
     }
 
     /**
-     * Class declarations in [file] that declare `@Test` members but carry no `@Tag`.
+     * Class declarations in [file] that declare test members but carry no `@Tag`.
      *
      * A deliberately small scanner: it looks for a class header, matches braces to find
-     * its body, and reports the class when the body has a `@Test` but the annotation
+     * its body, and reports the class when the body has a test member but the annotation
      * block above the header has no `@Tag`. Adding a real parser here would cost more
      * than the check is worth.
+     *
+     * "Has a test member" is [RunnableTestMember]'s job, not this test's — the same
+     * question `infra/kiwi/sync.py` asks, which is why it lives in one object that
+     * both are tested against (`config/test-fixtures/runnable-test-members.txt`).
      */
     private fun untaggedClassesIn(file: File): List<String> {
         val lines = file.readText().split("\n")
@@ -103,16 +110,12 @@ class TestTagCoverageTest {
             ?: TAG_ANNOTATION
 
         lines.forEachIndexed { index, line ->
-            // `find`, not `matchEntire`: a declaration line continues with " {" or " :",
-            // and an anchored full match would silently skip every class in the repo.
-            val header = CLASS_HEADER.find(line.trim()) ?: return@forEachIndexed
-            if (header.range.first != 0) return@forEachIndexed
+            val name = RunnableTestMember.classHeaderAt(lines, index) ?: return@forEachIndexed
             val annotationBlock = annotationBlockAbove(lines, index)
             if (annotationBlock.any { tagAnnotation.containsMatchIn(it) }) return@forEachIndexed
 
-            val body = classBody(lines, index)
-            if (body.any { TEST_MEMBER.containsMatchIn(it) }) {
-                offenders += "$relative:${index + 1} ${header.groupValues[1]}"
+            if (RunnableTestMember.classHasTestMember(lines, index)) {
+                offenders += "$relative:${index + 1} $name"
             }
         }
         return offenders
@@ -129,67 +132,8 @@ class TestTagCoverageTest {
         return block
     }
 
-    /** Lines from [classLineIndex] to the line closing the class body (empty if none). */
-    private fun classBody(lines: List<String>, classLineIndex: Int): List<String> {
-        val declaration = lines[classLineIndex]
-        // A bodyless declaration — `data object Alpha : TestDialog`, a sealed-interface
-        // member — has no '{' here. Without this guard the brace counter would run to the
-        // end of the file and blame the *next* real class for this file's @Test methods.
-        if (!declaration.contains('{')) return emptyList()
-        val body = mutableListOf<String>()
-        var depth = 0
-        var opened = false
-        for (i in classLineIndex until lines.size) {
-            val line = lines[i]
-            body.add(line)
-            line.forEach { ch ->
-                when (ch) {
-                    '{' -> {
-                        depth++
-                        opened = true
-                    }
-
-                    '}' -> depth--
-                }
-            }
-            if (opened && depth == 0) break
-        }
-        return body
-    }
-
     private companion object {
-        /**
-         * Anchored at the start of a (trimmed) line and **not** anchored at the end: a
-         * declaration continues with " {" or " :", so a full match would skip every class
-         * and this test would pass vacuously.
-         */
-        private val CLASS_HEADER = Regex(
-            "^(?:public |internal |private |protected |abstract |open |final |sealed |data |value )*" +
-                "(?:class|object)\\s+(\\w+)",
-        )
-
         private val ANNOTATION = Regex("@\\w+.*")
-
-        /**
-         * Every JUnit annotation that makes a member an actual test, not just `@Test`.
-         *
-         * Matching `@Test` alone left a real hole: `RecurrenceRuleMapperTest` and
-         * `RruleGeneratorTest` declare `@ParameterizedTest` members, so this gate
-         * never saw a test in them and reported both as clean while CI — which runs
-         * `-Ptest.tags=fast,slow` — silently skipped both classes. The check was
-         * "this class has no tests" wearing the costume of "this class has no tag",
-         * which is worse than not having the check: it was answering about
-         * something else while appearing to answer about this.
-         *
-         * The set is the JUnit 5 test annotations, plus the `kotlin.test` spelling
-         * this project also uses. `@TestFactory` and `@TestTemplate` are included
-         * because they produce test runs exactly as `@Test` does. A trailing `\b`
-         * is required: without it `@Test` matches the `@TestFactory` prefix, and
-         * conversely a bare `@Test` match would also catch `@TestFoo`.
-         */
-        private val TEST_MEMBER = Regex(
-            """^\s*@(?:kotlin\.test\.)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b""",
-        )
 
         /**
          * Both the imported `@Tag("…")` and the fully-qualified

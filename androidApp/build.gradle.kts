@@ -1,3 +1,4 @@
+import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -95,6 +96,32 @@ dependencies {
     androidTestImplementation(libs.kotlinx.coroutines.test)
 }
 
+// ---------------------------------------------------------------------------
+// Build provenance in versionName
+//
+// A green Maestro run is only evidence about the binary that ran. After an
+// emulator is restored from a snapshot, `run-maestro.sh` reinstalls nothing, so
+// the device holds whatever APK the snapshot held — and the flows report a
+// result for a build that no longer exists. Size and mtime are not a substitute
+// for identity: both are satisfied by a rebuild that changed only the sources
+// this run is supposed to be testing.
+//
+// So a debug build carries its git sha in versionName, and run-maestro.sh reads
+// that sha back with `dumpsys package` and refuses to run when it disagrees with
+// the checkout. Release builds keep the plain version: a user-facing string is
+// not the place for a build identifier, and a release sha is not evidence
+// anyway — nobody runs flows against a release build.
+//
+// Read through providers.exec rather than a bare `git` call: the configuration
+// cache snapshots the filesystem, so a value read by running git at
+// configuration time goes stale exactly when the commit changes. An absent git
+// (a source tarball, a CI export) yields "unknown" and the check degrades to
+// comparing "unknown" with "unknown" instead of failing every build.
+// ---------------------------------------------------------------------------
+val gitShaProvider: Provider<String> = providers.exec {
+    commandLine("git", "rev-parse", "--short=12", "HEAD")
+}.standardOutput.asText.map { it.trim() }.orElse("unknown")
+
 android {
     namespace = "com.singularity.todo"
     compileSdk = libs.versions.sdk.compile.get().toInt()
@@ -115,6 +142,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // `0.1.0+g<sha>` — the sha is what `dumpsys package versionName`
+            // gives back, and what run-maestro.sh compares against the checkout
+            // before it runs a single flow. Gradle accepts `+` in versionName;
+            // the character survives into the manifest unchanged.
+            versionNameSuffix = "+g${gitShaProvider.get()}"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

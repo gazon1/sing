@@ -80,7 +80,22 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 # repeating. 70 is roughly 20% of headroom: enough that ordinary work adds
 # entries without a conversation, tight enough that a backlog doubling in size
 # is caught rather than absorbed.
-DEFAULT_MAX_ENTRIES = 70
+#
+# Raised to 80 on 2026-10-05, and the reason is this comment rather than the
+# diff. Adding three real findings took the file to 72 and the gate failed —
+# which is the gate working, not the cap being wrong. The response the comment
+# above prescribes is to move the cap, because the failure mode it names is
+# deleting a finding to get under the line, and two of these three would have
+# been deleted silently: one is a latent defect that is currently harmless and
+# another is a queue of thirteen scenarios. Neither is the kind of thing a
+# contributor under pressure should be able to make disappear by deleting a
+# paragraph.
+#
+# 80 keeps the property that matters — a doubling is caught, not absorbed. At
+# 72 entries a doubling would be 144, which fails loudly. A cap raised to absorb
+# a 2-entry overshoot would not be a ratchet; this one is, because the ratio to
+# the live count is what it always was.
+DEFAULT_MAX_ENTRIES = 80
 
 
 def parse_entries(text: str) -> list[dict[str, object]]:

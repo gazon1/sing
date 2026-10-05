@@ -1,4 +1,5 @@
 ---
+title: A database that could not be read was reported as a server that refused
 date: 2026-10-05
 status: accepted
 ---
