@@ -1,0 +1,107 @@
+name: Documentation Audit
+
+# Runner image is pinned to ubuntu-24.04 on purpose (2026-10-05). GitHub is migrating
+# the `ubuntu-latest` label to Ubuntu 26.04 between 2026-10-19 and 2026-11-19; the
+# warning is silenced by pinning, which is the mitigation the runner-images notice
+# recommends. 26.04 moves the kernel 6.17 -> 7.0 and systemd 255 -> 259, and the
+# Android assemble plus both emulator workflows are exactly the surface that would
+# notice. Reviving `ubuntu-latest` is a deliberate migration, not a cleanup — it will
+# not come back on its own. See docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/decisions/**'
+      - 'AGENTS.md'
+      # Skills are agent-facing documentation and check-skill-frontmatter.sh runs
+      # in this workflow. Without these paths a PR that left a skill without a
+      # `description` — making it undiscoverable to the agent loader — never
+      # triggered the audit that would have caught it.
+      - '.agents/skills/**'
+      - '.just/**'
+      - 'ARCHITECTURE.md'
+      - 'docs/doc-maintenance.md'
+      - 'README.md'
+      - 'PROGRESS.md'
+      - '.github/workflows/docs-audit.yml'
+      - 'scripts/**'
+      - 'openspec/**'
+      - 'README.md'
+      - 'PROGRESS.md'
+      - 'docs/**'
+      - '.agents/skills/**'
+      - 'config/detekt/**'
+      - 'config/docs/**'
+      - 'scripts/**'
+      - '.just/**'
+
+jobs:
+  docs-audit:
+    runs-on: ubuntu-24.04
+    # Script checks plus one npx invocation. Long past this it is a hung fetch rather than a slow
+    # audit, and GitHub's 360-minute default would hold a runner the whole time.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # Advisory, deliberately — and the reason is now written down rather than
+      # hidden behind `|| true`. The normaliser exits 2 when any ADR drifts, and
+      # ~15 pre-existing ADRs do (mostly `created:` where the schema wants
+      # `date:`). Making it blocking today would fail the build on debt this
+      # change did not create. The step to take is: run
+      # `./scripts/normalize-adr-frontmatter.sh` without --dry-run, commit the
+      # result, then delete `continue-on-error` here. Tracked in
+      # deferred-backlog-archive.md#adr-frontmatter-drift-is-unenforced.
+      - name: Check ADR frontmatter (advisory — pre-existing drift)
+        continue-on-error: true
+        run: ./scripts/normalize-adr-frontmatter.sh --dry-run
+
+      - name: Refresh DIGEST
+        run: python3 scripts/refresh-decisions-digest.py
+
+      # Was `|| true` plus an `echo "Warning:"`, so this step could not fail.
+      # The digest budget is now enforced: a verbose ADR that pushes DIGEST.md
+      # over its cap must be dealt with, not announced. The remedy is to lower
+      # MAX_ITEMS_PER_TAG in scripts/refresh-decisions-digest.py — see
+      # deferred-backlog-archive.md#digest-line-limit-pressure — not to raise the cap.
+      - name: Enforce DIGEST size budget
+        run: python3 scripts/check-doc-sizes.py
+
+      - name: Check DIGEST has no double-suffix bugs
+        run: |
+          DOUBLE_SUFFIX_COUNT=$(grep -c "_(from " docs/decisions/DIGEST.md || echo "0")
+          if [ "$DOUBLE_SUFFIX_COUNT" -gt 100 ]; then
+            echo "DIGEST.md has $DOUBLE_SUFFIX_COUNT '_(from ' occurrences — double-suffix bug"
+            exit 1
+          fi
+          echo "DIGEST.md looks clean ($DOUBLE_SUFFIX_COUNT citations)"
+
+      # A stale open/deferred ADR is a reminder, not a build failure — the
+      # backlog is expected to hold open items. Kept non-blocking on purpose,
+      # and said so here so the next reader does not "fix" it.
+      - name: List stale open/deferred ADRs (advisory)
+        continue-on-error: true
+        run: |
+          STALE=$(find docs/decisions -name "*.md" -newer docs/doc-maintenance.md -exec grep -l "status: open\|status: deferred" {} \; 2>/dev/null || true)
+          if [ -n "$STALE" ]; then
+            echo "Note: open/deferred ADRs newer than doc-maintenance.md:"
+            echo "$STALE"
+          fi
+
+      # Was `openspec validate` behind a `command -v openspec` guard. Two defects:
+      #
+      # 1. The CLI takes a scope. `openspec validate` with no argument exits 1 with
+      #    "Nothing to validate. Try one of: --all / --changes / --specs" — and in a
+      #    non-interactive runner it cannot prompt for one either. So this step was
+      #    guaranteed to fail on any host that has the CLI installed, and guaranteed
+      #    to skip on every host that does not. Neither outcome validated anything.
+      # 2. The guard meant the audit ran *no* OpenSpec validation in practice, while
+      #    ci.yml's `openspec-validate` job did — on `npx`, which needs no install.
+      #
+      # Now the same invocation ci.yml uses, so the two cannot disagree about whether
+      # a change is valid.
+      - name: Validate OpenSpec changes
+        run: npx --yes @fission-ai/openspec validate --all --strict

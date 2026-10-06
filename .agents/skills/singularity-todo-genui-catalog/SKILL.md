@@ -116,6 +116,18 @@ defect in this layer, and the repository audits for it
 pixels. Only a Compose test can. If you add a renderer, that is the gap — and the feature the corpus
 was built for is the gap that finally needed closing.
 
+**The same shape has a second form, and it is the more expensive one.** Not "nothing renders this" but
+"something renders this perfectly and nobody invokes it". `GenuiUsageCounter.neverUsed()` was exactly
+that: correct, documented, tested, and called from nothing outside its own tests, while `report()`
+logged a different measurement. `find-unwired-surfaces.py` cannot see it — it looks for surfaces with
+no call site, not for functions nobody calls.
+
+So when you add an instrument — a counter, a reporter, an audit hook — the acceptance test asserts
+what it *reports*, not that it *records*. `record("task_card")` proving a map has an entry says
+nothing about whether anybody can act on the map. Ask instead: who reads this, and in what decision?
+If the answer is nobody yet, the honest options are to wire it or to say so in its KDoc; leaving it
+looking connected is the worst of the three.
+
 ## Tests that must go with a component
 
 - `SingularityCatalogTest` — schema ↔ renderer in both directions (already automatic).
@@ -172,5 +184,7 @@ regressions, and they are invisible until `slow-tests` runs.
 
 - `catalog/A2uiCatalog.kt`, `catalog/SingularityComponents.kt`, `catalog/CatalogPrompt.kt`
 - `ADR 2026-10-05-genui-catalog-as-contract` — why the catalog is the contract
+- `ADR 2026-10-06-an-instrument-nobody-reads-is-not-an-instrument` — the second wiring defect
+- `ADR 2026-10-06-genui-audit-gaps` — what a post-merge audit found, and what it deliberately left
 - `openspec/changes/genui-catalog-contract/specs/genui-catalog/spec.md` — REQ-GC-001…006
 - `docs/CONTEXT.md` — Surface, Catalog, Severity

@@ -968,8 +968,13 @@ def check_ci_steps_blocking() -> list[str]:
 
 # ── Part E: CI/local gate parity ─────────────────────────────────────────────
 
-#: Where each `check-*.py` gate is *expected* to run, and why when it is not
-#: both. Keyed by the gate path; "both" gates need no entry.
+#: Gates whose CI/local wiring **differs from the default**, and why.
+#: Keyed by the gate path.
+#:
+#: The default is "both": a `check-*.py` gate is expected to run in `ci.yml` *and*
+#: in `check.sh`, and needs no entry here. An entry declares an asymmetry — this
+#: gate is ci-only, or local-only — and carries the reason for it. The gate is
+#: absent from this table **because** it runs in both places, which is correct.
 #:
 #: The reason this exists (2026-10-05): the `--partial` incident in
 #: `traceability results`. Both wirings existed, both were present, and Part B
@@ -1001,6 +1006,19 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "housekeeping invariant over a file that changes with every commit; it "
         "is deliberately NOT in the shared registry, because a PR must not be "
         "blocked by backlog bookkeeping",
+    ),
+    "scripts/check-publication-hygiene.py": (
+        "ci",
+        "a file that would be published is only reachable from CI's checkout of "
+        "the branch being merged: locally the working tree is a developer's, and "
+        "a personal path or email in an unpushed file is not yet a leak. The "
+        "gate is about what reaches main, which is a fact only CI has",
+    ),
+    "scripts/check-readme-claims.py": (
+        "ci",
+        "the same shape as publication-hygiene, and it reads committed state: it "
+        "compares numbers in README.md against the tree as merged. A developer's "
+        "uncommitted README describes a tree nobody else has",
     ),
 }
 

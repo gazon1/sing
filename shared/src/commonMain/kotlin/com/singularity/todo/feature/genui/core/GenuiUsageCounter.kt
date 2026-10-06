@@ -2,6 +2,7 @@ package com.singularity.todo.feature.genui.core
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.genui.catalog.A2uiCatalog
+import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,11 +54,32 @@ class GenuiUsageCounter {
         .sortedByDescending { it.value }
         .map { it.key to it.value }
 
-    /** Logs the ranking — called when an answer ends, where the decision to act on it is made. */
-    fun report() {
+    /**
+     * The two lines [report] logs, as data.
+     *
+     * Returning them rather than formatting them inside [report] is what makes the reporting
+     * testable: a log line written by a private `logger` can only be asserted by capturing Kermit
+     * output, and a test that does that asserts the logging framework rather than the tally. The
+     * question "did this turn tell me which catalog components went unused" is a question about the
+     * content of the report, and this is the content.
+     *
+     * Empty when nothing has been drawn — a prose-only answer, or a failure before the first
+     * component. A tally of zeroes against seventeen components is noise, not a finding, and
+     * "everything is unused" is the least useful thing this instrument could say.
+     */
+    fun summary(catalog: A2uiCatalog = SingularityCatalog): List<String> {
         val ranking = ranking()
-        if (ranking.isEmpty()) return
-        logger.i { "Component usage: ${ranking.joinToString(", ") { "${it.first}=${it.second}" }}" }
+        if (ranking.isEmpty()) return emptyList()
+        val unused = neverUsed(catalog)
+        return buildList {
+            add("Component usage: ${ranking.joinToString(", ") { "${it.first}=${it.second}" }}")
+            if (unused.isNotEmpty()) add("Never drawn: ${unused.joinToString(", ")}")
+        }
+    }
+
+    /** Logs [summary] — called when an answer ends, where the decision to act on it is made. */
+    fun report(catalog: A2uiCatalog = SingularityCatalog) {
+        summary(catalog).forEach { line -> logger.i { line } }
     }
 
     /** Forgets everything. Only meaningful for a test. */

@@ -86,6 +86,57 @@ class GenuiUsageCounterTest {
     }
 
     /**
+     * The report names the components that went unused — the half the instrument exists for.
+     *
+     * A line of `heading=2` answers "what is popular" and not the question anybody actually has,
+     * which is which of the other sixteen the model was never shown how to use. That question has
+     * no other answer in the system, so the report is where it has to appear: an instrument that
+     * computes the answer and then logs something else is worse than no instrument, because it
+     * reads as though the question had been considered.
+     */
+    @Test
+    fun `the report names the components nothing drew`() {
+        counter.record("heading")
+
+        val report = counter.summary(SingularityCatalog)
+
+        assertTrue(report.isNotEmpty(), "A turn that drew something has something to report")
+        assertTrue(
+            report.any { it.startsWith("Component usage:") && "heading=1" in it },
+            "The ranking is reported: $report",
+        )
+        val unusedLine = report.firstOrNull { it.startsWith("Never drawn:") }
+        assertTrue(unusedLine != null, "The unused components are reported: $report")
+        assertTrue(
+            "task_card" in unusedLine!! && "heading" !in unusedLine,
+            "Unused means never drawn: $unusedLine",
+        )
+    }
+
+    /**
+     * A turn that drew nothing reports nothing.
+     *
+     * The alternative — "all seventeen components are unused" on every prose-only answer — is
+     * technically true and practically useless: it is what the counter says before any answer at
+     * all, so it carries no information about this one.
+     */
+    @Test
+    fun `a turn that drew nothing reports nothing`() {
+        assertEquals(emptyList(), counter.summary(SingularityCatalog))
+    }
+
+    /** A component drawn once is no longer a candidate for "unused", however rarely. */
+    @Test
+    fun `a drawn component leaves the unused list`() {
+        counter.record("task_card")
+
+        val unusedLine = counter.summary(SingularityCatalog)
+            .first { it.startsWith("Never drawn:") }
+
+        assertTrue("task_card" !in unusedLine, "It was drawn: $unusedLine")
+    }
+
+    /**
      * A component the model wrote and the validator rejected is a mistake, not a use.
      *
      * This is the whole reason the tally is recorded in the factory rather than where the model's
