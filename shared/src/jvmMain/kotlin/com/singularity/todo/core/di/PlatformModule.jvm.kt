@@ -35,7 +35,9 @@ import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncCoordinator
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
-import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
+import com.singularity.todo.core.sync.work.JvmSyncWorkScheduler
+import com.singularity.todo.core.work.BackgroundWorkScheduler
+import com.singularity.todo.core.work.JvmBackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
@@ -218,7 +220,10 @@ actual fun platformModule(): Module = module {
     }
 
     // WorkManager scheduler — JVM no-op stub (sync is not supported on desktop).
-    single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+    // Real, not a no-op: `SyncEngine` calls enqueuePush() on every sign-in, and this used
+    // to discard it silently. Registry row `SyncWorkScheduler` records why.
+    single<SyncWorkScheduler> { JvmSyncWorkScheduler(get()) }
+    single<BackgroundWorkScheduler> { JvmBackgroundWorkScheduler(get(), get(), get(), crashReporter = get()) }
 
     // ─── Calendar Sync ────────────────────────────────────────────────
 

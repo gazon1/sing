@@ -37,6 +37,8 @@ import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.AndroidSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
+import com.singularity.todo.core.work.AndroidBackgroundWorkScheduler
+import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
@@ -237,6 +239,7 @@ actual fun platformModule(): Module = module {
 
     // WorkManager scheduler (reacts to auth session changes, survives process death)
     single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }
+    single<BackgroundWorkScheduler> { AndroidBackgroundWorkScheduler(get(), get(), get()) }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
