@@ -93,6 +93,25 @@ upload, `if-no-files-found: warn`, explicit timeouts — are the parts that can 
 
 **Why deferred:** the fix is a repository or organisation permission, not a change to this codebase.
 
+### `openspec validate --strict` fails 32 changes on main, all for the same reason
+
+`--strict` promotes warnings to failures, and the dominant warning is "requirement text is very
+long (>500 characters)". There are 62 of them across 32 changes — every one authored recently. The
+suggestion in the warning is to move examples into scenarios or split the requirement, and both are
+usually right, but the scale means the gate now reports a wall of red that nobody is going to read
+one requirement at a time.
+
+One of those 62 was this branch's own: `REQ-GC-001` stated two separable claims (the catalog is
+declared once and everything derives from it; and what that declaration must contain), and splitting
+it also surfaced three validation scenarios that had none of their own. Fixed. The remaining 61
+belong to other changes.
+
+**The generalisable part, and it connects to the CI ADR above:** a gate that has been green and then
+goes red on 32 items at once has stopped being a signal, whatever the cause. Either the 32 get fixed
+in one pass or the bound moves — but the state in between, where every run reports the same wall and
+the number only goes up, trains the reader to ignore it. Which of those to do is a decision for
+whoever owns the spec backlog; recorded here so it is a decision rather than a surprise.
+
 ### The Kiwi inventory bound moves more slowly than the class count
 
 `test_kiwi_sync.ScanRepositoryTest` asserts the scanned inventory stays between 200 and 320 (now
