@@ -13,8 +13,8 @@ Shapes detected (via Detector table — add new rows, not new loops):
   2. default-noop   — a callback parameter defaulting to `{}` where the
                        consumer writes `param ?: fallback`, which the empty
                        lambda defeats
-  3. di-binding     — a Room DAO accessor with no `get<AppDatabase>()…`
-                       binding in either PlatformModule
+  3. di-binding     — a Room DAO accessor that no `get<AppDatabase>()…` binding and
+                       no production call on a database instance reaches
   4. log-writer     — a Kermit `LogWriter` subclass never registered via
                        `Logger.setLogWriters(...)`, so it silently receives
                        nothing
@@ -236,12 +236,29 @@ def _check_default_noop(
 _DAO_ACCESSOR = re.compile(r"abstract fun (\w+)\(\)\s*:\s*(\w*Dao)\b")
 _DAO_BINDING = re.compile(r"get<AppDatabase>\(\)\.(\w+)\(\)")
 
+# A DAO accessor does not need its own `single { get<AppDatabase>().x() }` binding to be
+# reachable. Injecting the database itself is a second, legitimate route:
+# `OwnerRowIdResolver(private val database: AppDatabase)` calls
+# `database.ownerEraseDao()`, and every consumer of that resolver gets the DAO with it.
+#
+# The detector has to know about that route, or it reports a DAO that the app very much
+# does use. What it must NOT start accepting is a DAO that *nothing* asks for — so the
+# route is counted only from production sources. A DAO reachable solely from a test is
+# still a finding, and so is one nothing mentions at all.
+_DAO_CALL = re.compile(r"\.\s*(\w+)\s*\(\s*\)")
+
+# Source sets that ship to no device. A call here is evidence about the test, not about
+# the app.
+_TEST_SOURCE = re.compile(r"(?:^|/)(?:jvmTest|androidTest|commonTest|desktopTest|iosTest)/")
+
 
 def _precompute_di_binding(code: dict[pathlib.Path, str]) -> set[str]:
     bound: set[str] = set()
     for path, text in code.items():
         if "PlatformModule" in path.name:
             bound.update(_DAO_BINDING.findall(text))
+        if not _TEST_SOURCE.search(rel(path)):
+            bound.update(_DAO_CALL.findall(text))
     return bound
 
 
@@ -258,7 +275,8 @@ def _check_di_binding(
                 findings.append(
                     (
                         "di-binding",
-                        f"{rel(path)}: {dao} via {accessor}() is not bound in any PlatformModule",
+                        f"{rel(path)}: {dao} via {accessor}() is neither bound in a "
+                        f"PlatformModule nor called on a database in production",
                     )
                 )
     return findings

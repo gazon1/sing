@@ -17,6 +17,9 @@ import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.auth.SupabaseAuthRepository
+import com.singularity.todo.feature.auth.AccountSwitcher
+import com.singularity.todo.feature.auth.OwnerRowIdResolver
+import com.singularity.todo.feature.auth.OwnerScopedEraser
 import com.singularity.todo.core.security.SecureStorageAdapter
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
@@ -156,6 +159,20 @@ fun coreModule(): org.koin.core.module.Module = module {
             gateway = get<AuthGateway>(),
             sessionStore = get<SecureSessionStore>(),
             scope = get(),
+        )
+    }
+
+    // The owner-scoped erase, split read / write so the caller has to resolve the ids
+    // before it can delete anything. `AccountSwitcher` is the only caller, and it is the
+    // reason these are bound at all: until a switch exists there is nobody to erase.
+    single { OwnerRowIdResolver(database = get()) }
+    single { OwnerScopedEraser(database = get(), log = { Logger.withTag("AccountSwitcher").i(it) }) }
+    single {
+        AccountSwitcher(
+            authRepository = get(),
+            syncRepository = get(),
+            resolver = get(),
+            eraser = get(),
         )
     }
 

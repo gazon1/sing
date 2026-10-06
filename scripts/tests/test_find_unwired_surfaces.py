@@ -119,6 +119,32 @@ class TestDetectorTable(unittest.TestCase):
         findings = fus._check_di_binding(code, self._corpus(code), pre)
         self.assertFalse(any("foo" in f for _, f in findings), findings)
 
+    def test_di_binding_reached_through_an_injected_database(self):
+        # Injecting the database is a second route to a DAO: the resolver is handed the
+        # database and asks it for the DAO itself. No `single { … }` binding is needed,
+        # so flagging this would report a DAO the app uses on every account switch.
+        code = self._fake_code({
+            "AppDatabase.kt": "abstract fun foo(): FooDao",
+            "OwnerScopedEraser.kt": (
+                "class E(private val database: AppDatabase) { "
+                "fun go() = database.foo() }"
+            ),
+        })
+        pre = fus._precompute_di_binding(code)
+        findings = fus._check_di_binding(code, self._corpus(code), pre)
+        self.assertFalse(any("foo" in f for _, f in findings), findings)
+
+    def test_di_binding_reachable_only_from_a_test_is_still_flagged(self):
+        # A test calling the DAO says nothing about whether the app can. That is the
+        # whole defect the detector names, so the test source set is excluded.
+        code = self._fake_code({
+            "AppDatabase.kt": "abstract fun foo(): FooDao",
+            "shared/src/jvmTest/kotlin/SomeTest.kt": "val dao = db.foo()",
+        })
+        pre = fus._precompute_di_binding(code)
+        findings = fus._check_di_binding(code, self._corpus(code), pre)
+        self.assertTrue(any("foo" in f for _, f in findings), findings)
+
     def test_log_writer_positive(self):
         code = self._fake_code({"x.kt": "class MyWriter : LogWriter()", "Bootstrap.kt": "Logger.setLogWriters(ColorizedWriter())"})
         registered, _ = fus._precompute_log_writer(code)

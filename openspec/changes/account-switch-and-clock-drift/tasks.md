@@ -77,9 +77,16 @@ exact list rather than a `LIKE` — a suffix match cannot tell `prof/u1` from `e
 - [ ] `shared/` Keep sign-out as it is today: credentials cleared, local data retained, no
       network required. **Test:** the existing sign-out-with-the-server-unreachable test
       still passes, and local rows survive it.
-- [ ] `shared/` Add the switch as a distinct path, not a variant of sign-out, and make the
-      distinction visible in the code rather than in a comment. **Test:** a gate or test
-      asserting the two are separate entry points.
+- [x] `shared/` Add the switch as a distinct path, not a variant of sign-out, and make the
+      distinction visible in the code rather than in a comment. **Test:**
+      `AccountSwitcher` is a separate class on a different object — it needs three
+      collaborators `AuthRepository` has no business holding — and `signOut` takes no
+      parameter that could select the destructive path. Bound in `CoreDiModule`, so the
+      unwired-surface detector sees it.
+- [x] `shared/` Credentials are validated **before** anything irreversible, so a wrong
+      password cannot leave the device signed out with its data gone.
+      **Test:** `an invalid password is caught before anything irreversible` — the sync
+      repository is never called.
 - [x] `shared/` Resolve an owner to the exact ids an erase would remove, before anything is
       deleted, so the decision about what belongs to whom is reviewable on its own.
       **Test:** `OwnerRowIdResolverTest` — 8 tests, including the profile-prefix case that
@@ -99,17 +106,29 @@ exact list rather than a `LIKE` — a suffix match cannot tell `prof/u1` from `e
       account's child rows are gone AND that another account's survive, since a count can
       be right while the survivors are wrong. Verified by mutation: deleting parents first
       fails 2 of 9, and they are the two orphan tests.
-- [ ] `shared/` Before erasing, deliver the departing account's queued changes under its
-      own session. **Test:** the outgoing push carries the departing account's scope.
-- [ ] `shared/` Erase only after the delivery succeeded. **Test:** a delivery that fails
-      leaves every row in place and the incoming account not signed in.
-- [ ] `shared/` Refuse a switch that cannot deliver, with a message naming the network.
-      **Test:** offline with queued work — nothing is erased and nothing is half-applied.
+- [x] `shared/` Before erasing, deliver the departing account's queued changes under its
+      own session. **Test:** `AccountSwitcherTest` — the delivery runs before the erase,
+      and a cycle that never ran (`SyncOutcome.Skipped`) is not treated as a delivery.
+- [x] `shared/` Erase only after the delivery succeeded. **Test:** five cases — a failed
+      push, a partially-failed push (2 of 3), a discarded response, a cycle that never ran,
+      and a transport failure. Each asserts the row is still there **and** nobody was
+      signed in. Verified by mutation: erasing despite a failed delivery fails 5 of 10.
+- [x] `shared/` Refuse a switch that cannot deliver, with a message naming the network.
+      **Test:** `the refused switch names its reason rather than leaving a spinner` — the
+      refusal is a `SwitchStep.Refused` value carrying the error, because a device with no
+      network is the ordinary case rather than an exception a screen has to catch.
 - [x] `shared/` Wipe by owner, so every profile of the departing account goes and not only
       the active one. **Test:** two profiles, one erase, both gone — `OwnerRowIdResolverTest`
       covers the resolution; the end-to-end switch is the remaining task above.
-- [ ] `shared/` Report progress during the switch so it cannot be mistaken for a hang.
-      **Test:** the state names the delivery step while it runs.
+- [x] `shared/` Report progress during the switch so it cannot be mistaken for a hang.
+      **Test:** `SwitchStep` names each step — validating, delivering, erasing, signing in,
+      refused, done — and is exposed as a `StateFlow` a screen can render.
+- [ ] `shared/` The erase itself is still not atomic: `withTransaction` does not exist in
+      `commonMain`, so the deletes are separate statements and a failure part-way leaves
+      the owner's rows partly erased. The ordering guarantees only that no account's data
+      ends up under another's ownership. See
+      `2026-10-05-who-owns-a-row-and-the-patch-that-describes-it` — option 2, accepted,
+      not implemented.
 
 ## REQ-UA-018 — queued work belongs to the account that made it
 
