@@ -63,6 +63,7 @@ import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncRpc
 import com.singularity.todo.core.sync.SyncBootstrapper
 import com.singularity.todo.core.sync.SyncCoordinator
+import com.singularity.todo.core.sync.SyncDocumentWriter
 import com.singularity.todo.core.sync.SyncPatchBuilder
 import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SyncPrefs
@@ -243,6 +244,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             scopeProvider = get(),
             shadowDao = get(),
             patchBuilder = get(),
+            writer = get(),
             scheduler = get(),
             retryPolicy = get(),
             clock = get(),
@@ -312,18 +314,27 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    // SyncBootstrapper: registers pull handlers for all DocTypes.
-    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
-    // The init {} block performs the registration.
+    // SyncDocumentWriter: the one statement of "which repository stores which DocType".
+    // Registered before the engine and the bootstrapper so both get the same table —
+    // two lists would be two answers to that question. See #203.
     single {
-        SyncBootstrapper(
-            engine = get(),
+        SyncDocumentWriter(
             taskRepo = get(),
             noteRepo = get(),
             projectRepo = get(),
             tagRepo = get(),
             tagGroupRepo = get(),
             timeTrackingRepo = get(),
+        )
+    }
+
+    // SyncBootstrapper: registers pull handlers for all DocTypes.
+    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
+    // The init {} block performs the registration.
+    single {
+        SyncBootstrapper(
+            engine = get(),
+            writer = get(),
         )
     }
 

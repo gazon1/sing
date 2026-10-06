@@ -99,6 +99,7 @@ class SyncEngineStorageFailureTest {
             stateRepository = state,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            writer = fakeSyncDocumentWriter(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-storage", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             clock = clock,

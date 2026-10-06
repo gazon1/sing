@@ -196,6 +196,7 @@ class SyncRunnerTest {
             scopeProvider = scopeProvider,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            writer = fakeSyncDocumentWriter(),
             scheduler = FakeSyncWorkScheduler(),
             clock = MutableClock(),
             scope = scope,

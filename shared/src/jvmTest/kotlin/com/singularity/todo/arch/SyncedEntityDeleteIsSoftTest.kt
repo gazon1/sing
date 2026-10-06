@@ -13,8 +13,11 @@ import kotlin.test.fail
  *
  * ## The defect this prevents
  *
- * `SyncBootstrapper` handles a server's `DELETED` event by calling `repo.delete(id)`
- * — one call per `DocType`, and nothing in the code checks what `delete` means. Today
+ * `SyncDocumentWriter` handles a server's `DELETED` event by calling `repo.delete(id)`
+ * — one call per `DocType`, and nothing in the code checks what `delete` means. The
+ * dispatch moved out of `SyncBootstrapper` in #203, when resolving a lost race needed
+ * the same per-type write by a caller that is not a pull handler; the gate followed the
+ * table rather than the file, so it still reads the code that does the deleting. Today
  * all six implementations make it a soft delete: `TaskRepositoryImpl.delete` delegates
  * to `softDelete`, the rest call `softDeleteForUser` on their DAO. That is what keeps
  * the trashed row on the *receiving* device instead of destroying it, and therefore
@@ -170,7 +173,7 @@ class SyncedEntityDeleteIsSoftTest {
     @Test
     fun the_repository_type_is_read_from_the_constructor() {
         val source = """
-            class SyncBootstrapper(
+            class SyncDocumentWriter(
                 private val taskRepo: TaskRepository,
                 private val timeTrackingRepo: TimeTrackingRepository,
             )
@@ -183,7 +186,7 @@ class SyncedEntityDeleteIsSoftTest {
 
     @Test
     fun every_doc_type_is_dispatched_from_a_recognised_repository() {
-        val source = bootstrapperSource()
+        val source = dispatchSource()
         val dispatched = dispatchedDeletes(source)
         val types = repositoryTypes(source)
 
@@ -197,7 +200,7 @@ class SyncedEntityDeleteIsSoftTest {
         assertEquals(
             DocType.entries.map { it.name }.toSet(),
             dispatched.keys,
-            "the DELETED branch of SyncBootstrapper no longer covers exactly DocType. " +
+            "the DELETED dispatch no longer covers exactly DocType. " +
                 "A new doc type is either undeleted on receipt, or deleted by a " +
                 "repository this gate does not know about.",
         )
@@ -205,7 +208,7 @@ class SyncedEntityDeleteIsSoftTest {
 
     @Test
     fun every_repository_the_delete_handler_calls_deletes_softly() {
-        val source = bootstrapperSource()
+        val source = dispatchSource()
         val dispatched = dispatchedDeletes(source)
         val types = repositoryTypes(source)
         val root = commonMainRoot()
@@ -353,10 +356,21 @@ class SyncedEntityDeleteIsSoftTest {
                         "see the jvmTest task config in shared/build.gradle.kts",
                 )
 
-        fun bootstrapperSource(): String =
+        /**
+         * The file that dispatches a `DocType` to a repository.
+         *
+         * `SyncDocumentWriter.kt` since #203, not `SyncBootstrapper.kt`. That move is
+         * why this helper exists rather than a hard-coded path in each test: the gate's
+         * subject is the dispatch table, and following it when the per-type knowledge
+         * moved is the whole difference between checking it and silently checking an
+         * empty file. Pointed at the wrong file this test still passes its synthetic
+         * cases and reports nothing in production — a gate that has been moved without
+         * being followed does not fail, it just stops meaning anything.
+         */
+        fun dispatchSource(): String =
             File(
                 commonMainRoot(),
-                "com/singularity/todo/core/sync/SyncBootstrapper.kt",
+                "com/singularity/todo/core/sync/SyncDocumentWriter.kt",
             ).readText()
 
         /** [source] with comments and string literals replaced by spaces. */

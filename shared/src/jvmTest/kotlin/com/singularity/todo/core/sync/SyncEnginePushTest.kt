@@ -76,6 +76,7 @@ class SyncEnginePushTest {
             // halves cannot see each other.
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            writer = fakeSyncDocumentWriter(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = policy,

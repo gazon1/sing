@@ -8,6 +8,7 @@ import com.singularity.todo.core.auth.accountIdOrNull
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toAppError
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.jsonObject
 
 /**
  * Summary of a push operation.
@@ -32,8 +34,22 @@ import kotlinx.coroutines.CancellationException
  * repair to go looking for. It carries the weight of a distinct field precisely so
  * that neither of those two readings is available by accident — the old three-field
  * summary could not say "the server took it and we ignored it" at all.
+ *
+ * [lost] counts patches whose every field lost a per-field race on the server. The
+ * server reports these as `ok: true`, so [succeeded] would claim the user has the
+ * edit somewhere the server agrees with, and [failed] would send an operator looking
+ * for a rejection that never happened. It is a fourth number so that neither reading
+ * is available by accident — and so that a summary can answer "did this device lose
+ * anything today", which is a question about a user's work rather than about a
+ * transport. See REQ-OS-026.
  */
-data class PushSummary(val processed: Int, val succeeded: Int, val failed: Int, val discarded: Int = 0)
+data class PushSummary(
+    val processed: Int,
+    val succeeded: Int,
+    val failed: Int,
+    val discarded: Int = 0,
+    val lost: Int = 0,
+)
 
 /**
  * Summary of a pull operation.
@@ -169,6 +185,15 @@ internal class SyncEngine(
     private val scopeProvider: SyncScopeProvider,
     private val shadowDao: SyncShadowDao,
     private val patchBuilder: SyncPatchBuilder,
+    /**
+     * Writes a document to the local store, by type.
+     *
+     * Needed for more than the pull handlers: resolving a lost race means writing back
+     * the state the server is known to hold, which is the same per-type write by a
+     * caller that is not a pull. [SyncDocumentWriter] holds that knowledge in one place
+     * so the two callers cannot disagree about what a type is.
+     */
+    private val writer: SyncDocumentWriter,
     private val scheduler: SyncWorkScheduler,
     private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     /**
@@ -421,10 +446,25 @@ internal class SyncEngine(
 
             var succeeded = 0
             var failed = 0
+            var lost = 0
 
             response.results.forEach { result ->
                 val patch = patches.firstOrNull { it.patchId == result.patchId }
-                if (result.ok) {
+                // `lost` is checked before `ok` because the server reports a lost race
+                // as `ok: true`. Branching on `ok` first is the original defect: the
+                // outbox row was deleted and the shadow settled as confirmed, promoting
+                // a state the server never took, and the next diff was computed against
+                // that fiction. #203, REQ-OS-026.
+                if (result.ok && result.lost) {
+                    lost++
+                    // The queued change is not left in place: the server has refused it
+                    // on per-field LWW grounds, so re-sending the identical patch would
+                    // lose identically. Keeping it would block every patch behind it.
+                    outboxDao.delete(result.patchId)
+                    if (active != null && patch != null) {
+                        resolveLostRace(patch, scope = active)
+                    }
+                } else if (result.ok) {
                     outboxDao.delete(result.patchId)
                     if (active != null && patch != null) {
                         // The version the server just reported, recorded on the same
@@ -457,7 +497,7 @@ internal class SyncEngine(
                 }
             }
 
-            val summary = PushSummary(response.results.size, succeeded, failed)
+            val summary = PushSummary(response.results.size, succeeded, failed, lost = lost)
             _lastPush.value = Result.success(summary)
             _status.value = SyncEngineStatus.Idle
             Result.success(summary)
@@ -710,6 +750,61 @@ internal class SyncEngine(
             phases.pullFailed(e.toAppError(), sinceLsn)
         }
     }
+
+    /**
+     * Returns the row to the state the server holds, and drops the marker that would
+     * otherwise re-send the edit that lost.
+     *
+     * ## Where the server's state comes from
+     *
+     * Not from the response. `PatchResult.serverState` exists in the client model and
+     * the server never populates it — `sync_batch_apply` returns `patchId`, `ok`,
+     * `cached`, `lost`, `legacy` and `newVersion`, and nothing else. The decision to
+     * adopt the server's state was therefore not executable as first worded, and the
+     * fact the server does hold is one this device already has: the shadow's
+     * `confirmed_json`, "serialised entity state the server is known to hold". A lost
+     * patch changed nothing on the server, so that row is still true.
+     *
+     * ## Why the revert precedes the release
+     *
+     * `SyncPatchBuilder` diffs against `inFlightJson ?: confirmedJson`. Releasing the
+     * marker first and failing to revert would make the next diff compare the losing
+     * edit against confirmed state, regenerate it, and lose it again — forever. Doing
+     * it in this order, and releasing only on success, is what makes the fourth
+     * scenario ("the next change is built on the server's state") an empty diff rather
+     * than a loop. A silent loop is a worse defect than the silent loss it replaces.
+     *
+     * ## What happens when the revert fails
+     *
+     * The marker is deliberately left in place. The queued edit stays owned by the
+     * shadow, so nothing regenerates it, and the loss is logged with the reason rather
+     * than being resolved into a state neither the server nor the device holds. The
+     * push summary counts this as a loss either way — the server did refuse the edit,
+     * and that is true whatever this device managed to do about it afterwards.
+     */
+    private suspend fun resolveLostRace(patch: DeltaPatch, scope: SyncScope) {
+        val typeKey = patch.entityType.key
+        val confirmed = shadowDao
+            .get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
+            ?.confirmedJson
+
+        val reverted = confirmed?.let { document ->
+            runCatchingCancellable {
+                val json = StableJson.parseToJsonElement(document).jsonObject
+                writer.upsert(patch.entityType, json)
+            }.onFailure { e ->
+                log.e(e) {
+                    "Patch ${patch.patchId} lost its race and the row could not be " +
+                        "returned to the server's state; the edit is left un-sent"
+                }
+            }.isSuccess
+        } ?: true
+
+        if (reverted) {
+            settleShadow(patch, applied = false, scope = scope)
+        }
+    }
+
     private suspend fun settleShadow(
         patch: DeltaPatch,
         applied: Boolean,

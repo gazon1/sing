@@ -16,10 +16,6 @@ import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProjectsRepository
-import com.singularity.todo.test.fakes.FakeTagGroupRepository
-import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.testTask
@@ -94,6 +90,7 @@ class SyncBootstrapperDispatchTest {
             stateRepository = stateRepository,
             shadowDao = FakeSyncShadowDao(),
             patchBuilder = fakeSyncPatchBuilder(),
+            writer = fakeSyncDocumentWriter(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             clock = clock,
@@ -102,12 +99,10 @@ class SyncBootstrapperDispatchTest {
         )
         SyncBootstrapper(
             engine = engine,
-            taskRepo = taskRepo,
-            noteRepo = FakeNotesRepository(),
-            projectRepo = FakeProjectsRepository(),
-            tagRepo = FakeTagsRepository(),
-            tagGroupRepo = FakeTagGroupRepository(),
-            timeTrackingRepo = timeTracking,
+            writer = fakeSyncDocumentWriter(
+                tasks = taskRepo,
+                timeTracking = timeTracking,
+            ),
         )
         return engine
     }
@@ -308,6 +303,7 @@ class SyncBootstrapperDispatchTest {
             stateRepository = FakeSyncStateRepository(),
             shadowDao = FakeSyncShadowDao(),
             patchBuilder = fakeSyncPatchBuilder(),
+            writer = fakeSyncDocumentWriter(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             clock = clock,

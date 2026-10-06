@@ -88,6 +88,29 @@ data class PatchResult(
     val newState: JsonElement? = null,
     val serverState: JsonElement? = null,
     val error: String? = null,
+    /**
+     * The server kept a newer value for every field this patch carried.
+     *
+     * ## Why this arrives with `ok: true`
+     *
+     * Nothing went wrong. The server accepted the request, understood it, and applied
+     * its own merge — per-field LWW, in which this patch's fields all lost to values
+     * already held. `sync_batch_apply` reports it as `ok: true` plus this flag, and
+     * verified against the live project on 2026-10-05: two writes to one field, the
+     * second clock behind, answer `ok: true, lost: true` with `applied: 0, created: 0`.
+     *
+     * That combination is what made the signal invisible. `ok` alone said "landed", the
+     * engine deleted the outbox row and settled the shadow as confirmed, and the
+     * device promoted a state the server never took — after which the next diff was
+     * computed against that fiction and the edit was never re-sent. `StableJson` sets
+     * `ignoreUnknownKeys = true`, so before this field existed the answer was dropped
+     * at the parse boundary without a word.
+     *
+     * See REQ-OS-026 and #203. Note the neighbouring [serverState] is **not** a
+     * shortcut out of this: the server never populates it, which is why the resolution
+     * reads the shadow's own confirmed state instead.
+     */
+    val lost: Boolean = false,
 ) {
     /**
      * Whether this result should be retried.
