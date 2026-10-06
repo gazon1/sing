@@ -69,9 +69,9 @@ Haptic|seam|AndroidHaptic|createHaptic|exempt|injected|Deliberate. Task detail c
 CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|injected|Deliberate. Desktop logs through loggingBackgroundFailureHandler; a definition must exist or composition throws every frame.
 
 # ── Infrastructure bindings: present on both platforms, not behavioural seams ──────────
-AppDatabase|infra|-|-|injected|
-DataStore|infra|-|-|injected|
+AppDatabase|infra|-|-|infra|injected|
+DataStore|infra|-|-|infra|injected|
 BackgroundWorkScheduler|seam|AndroidBackgroundWorkScheduler|JvmBackgroundWorkScheduler|real|injected|
-CoroutineScope|infra|-|-|injected|
-String|infra|-|-|injected|
-UnitOfWork|infra|-|-|injected|RoomUnitOfWork on both platforms, so not a seam: it is Room's own withWriteTransaction and the Android and Desktop databases are the same type. Bound in both platform modules because both need the transaction, and listed here because a binding that appears in a platform module with no row is exactly what this file exists to make impossible. See ADR 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
+CoroutineScope|infra|-|-|infra|injected|
+String|infra|-|-|infra|injected|
+UnitOfWork|infra|-|-|infra|injected|RoomUnitOfWork on both platforms, so not a seam: it is Room's own withWriteTransaction and the Android and Desktop databases are the same type. Bound in both platform modules because both need the transaction, and listed here because a binding that appears in a platform module with no row is exactly what this file exists to make impossible. See ADR 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.work
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -20,6 +21,7 @@ import kotlinx.datetime.plus
  * next boundary from a 03:00:00 clock would return 03:00:00 again; the loop wrapping this
  * would then spin forever rather than fail. Every boundary case below is that one.
  */
+@Tag("fast")
 class JobScheduleMathTest {
 
     private val utc = TimeZone.UTC
