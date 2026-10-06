@@ -23,9 +23,7 @@ import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.observability.FileCrashReportingPort
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.AndroidHostEnvironment
 import com.singularity.todo.core.platform.HostEnvironmentPort
@@ -37,6 +35,8 @@ import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.AndroidSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
+import com.singularity.todo.core.work.AndroidBackgroundWorkScheduler
+import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
@@ -72,7 +72,6 @@ import com.singularity.todo.core.database.UnitOfWork
  *
  * - Room [AppDatabase] is created via [AppDatabaseFactory] (single seam for Room).
  * - [SecureStoragePort] → [AndroidSecureStorage]
- * - [NotificationPort] → [AndroidNotificationPort]
  * - [FileSystem] → [AndroidFileSystem]
  * - [BackupCodec] → [AndroidBackupCodec]
  * - [androidx.datastore.core.DataStore] → application preferences DataStore
@@ -199,8 +198,6 @@ actual fun platformModule(): Module = module {
 
     // ─── Platform Ports ─────────────────────────────────────────────────
 
-    single<NotificationPort> { AndroidNotificationPort(get()) }
-
     single<FileSystem> { AndroidFileSystem(get()) }
 
     single<HostEnvironmentPort> { AndroidHostEnvironment(get()) }
@@ -245,6 +242,7 @@ actual fun platformModule(): Module = module {
 
     // WorkManager scheduler (reacts to auth session changes, survives process death)
     single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }
+    single<BackgroundWorkScheduler> { AndroidBackgroundWorkScheduler(get(), get(), get()) }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 

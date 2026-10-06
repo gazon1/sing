@@ -19,12 +19,20 @@
 #   - a seam's named implementation disappears from a platform module
 #   - a seam marked `real` is actually a Noop/NoOp/Stub
 #   - a seam marked `stub` carries no written reason
+#   - a seam declared `injected` is referenced NOWHERE outside its two bindings
 #   - a NEW typed binding appears in a platform module with no registry row  ← the load-bearing one
 #
 # That last rule is the point: seam 26 cannot be added silently.
 #
+# The `injected` rule exists because of NotificationPort. It was bound on both
+# platforms, looked real, and no production code injected it — while its JVM half
+# shelled out to `atq`/`atrm` and deleted every `at` job on the host, jobs the
+# user had queued outside the app. A binding that nothing calls is invisible to
+# `find-unwired-surfaces.py`, which reports only bindings nothing injects *and*
+# only within CoreDiModule.kt. So this registry says so out loud instead.
+#
 # Format: pipe-separated, `#` starts a comment, blank lines ignored.
-# Columns: port | kind | androidImpl | jvmImpl | verdict | reason
+# Columns: port | kind | androidImpl | jvmImpl | verdict | wiring | reason
 #
 #   kind    seam  — platform-divergent; impl names are asserted
 #           infra — infrastructure binding (paths, DataStore, scope); presence only
@@ -38,32 +46,32 @@
 # Adding a binding? Add a row here first. The gate will remind you if you do not.
 
 # ── Platform-divergent seams ─────────────────────────────────────────────────────────
-SyncPeriodicTrigger|seam|AndroidSyncPeriodicTrigger|DelayLoopSyncPeriodicTrigger|real|
-GoogleSyncPeriodicTrigger|seam|AndroidGoogleSyncPeriodicTrigger|DelayLoopGoogleSyncPeriodicTrigger|real|Google sync runs on both platforms, so both bindings are real: WorkManager on Android, a delay loop on Desktop. Listed separately from SyncPeriodicTrigger because they are two schedulers for two features, and a row each is what stops one of them being dropped from a platform module unnoticed.
-SyncWorkScheduler|seam|AndroidSyncWorkScheduler|NoopSyncWorkScheduler|stub|Every Desktop sign-in enqueues a push that evaporates. Replaced by the BackgroundWorkScheduler executor.
-CalendarSyncWorkScheduler|seam|AndroidCalendarSyncWorkScheduler|NoopCalendarSyncWorkScheduler|stub|Calendar sync is Android-only by design; the Desktop settings UI is capability-gated so it cannot be mistaken for working.
-ReminderScheduler|seam|AlarmManagerReminderScheduler|JvmReminderScheduler|stub|A Desktop reminder is written to Room and never fires. Replaced by the systemd --user scheduler.
-CalendarSyncRepository|seam|CalendarSyncSettingsRepositoryImpl|NoopCalendarSyncRepositoryImpl|stub|Android-only feature. Its flowOf(false) is why the Desktop toggle used to stay visually ON.
-CalendarProviderPort|seam|AndroidCalendarProvider|NoopCalendarProvider|stub|Android-only feature. Its Result.failure is the capability signal the Desktop UI now reads.
-CalendarAppQueries|seam|AndroidCalendarAppQueries|JvmCalendarAppQueries|stub|Android-only feature; Desktop reports no installed calendar apps.
-PomodoroTaskListProvider|seam|AndroidPomodoroTaskListProvider|JvmPomodoroTaskListProvider|stub|Returns an empty, never-updating list, which is indistinguishable from "no tasks selected".
-PomodoroScheduler|seam|PomodoroAlarmScheduler|-|exempt|Android-only OS alarm. Desktop drives the pomodoro timer in-process instead.
-NotificationPort|seam|AndroidNotificationPort|JvmNotificationPort|real|
-BackupCodec|seam|AndroidBackupCodec|JvmBackupCodec|real|
-SecureStoragePort|seam|AndroidSecureStorage|JvmSecureStorage|real|
-FileSystem|seam|AndroidFileSystem|JvmFileSystem|real|
-HostEnvironmentPort|seam|AndroidHostEnvironment|JvmHostEnvironment|real|
-FileRevealer|seam|AndroidFileRevealer|JvmFileRevealer|real|
-FileSourceFactory|seam|AndroidFileSourceFactory|JvmFileSourceFactory|real|
-SharePort|seam|AndroidSharePort|JvmSharePort|real|
-FileSharePort|seam|AndroidFileSharePort|JvmFileSharePort|real|
-PomodoroTimer|seam|AndroidPomodoroTimer|JvmPomodoroTimer|real|
-Haptic|seam|AndroidHaptic|createHaptic|exempt|Deliberate. Task detail composes haptics unconditionally, so a definition must exist on every platform or composition fails.
-CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|Deliberate. Desktop logs through loggingBackgroundFailureHandler; a definition must exist or composition throws every frame.
+SyncPeriodicTrigger|seam|AndroidSyncPeriodicTrigger|DelayLoopSyncPeriodicTrigger|real|injected|
+GoogleSyncPeriodicTrigger|seam|AndroidGoogleSyncPeriodicTrigger|DelayLoopGoogleSyncPeriodicTrigger|real|injected|Google sync runs on both platforms, so both bindings are real: WorkManager on Android, a delay loop on Desktop. Listed separately from SyncPeriodicTrigger because they are two schedulers for two features, and a row each is what stops one of them being dropped from a platform module unnoticed.
+SyncWorkScheduler|seam|AndroidSyncWorkScheduler|JvmSyncWorkScheduler|real|injected|
+CalendarSyncWorkScheduler|seam|AndroidCalendarSyncWorkScheduler|NoopCalendarSyncWorkScheduler|stub|injected|Calendar sync is Android-only by design; the Desktop settings UI is capability-gated so it cannot be mistaken for working.
+ReminderScheduler|seam|AlarmManagerReminderScheduler|JvmReminderScheduler|stub|injected|A Desktop reminder is written to Room and never fires. Replaced by the systemd --user scheduler.
+CalendarSyncRepository|seam|CalendarSyncSettingsRepositoryImpl|NoopCalendarSyncRepositoryImpl|stub|injected|Android-only feature. Its flowOf(false) is why the Desktop toggle used to stay visually ON.
+CalendarProviderPort|seam|AndroidCalendarProvider|NoopCalendarProvider|stub|injected|Android-only feature. Its Result.failure is the capability signal the Desktop UI now reads.
+CalendarAppQueries|seam|AndroidCalendarAppQueries|JvmCalendarAppQueries|stub|injected|Android-only feature; Desktop reports no installed calendar apps.
+PomodoroTaskListProvider|seam|AndroidPomodoroTaskListProvider|JvmPomodoroTaskListProvider|stub|injected|Returns an empty, never-updating list, which is indistinguishable from "no tasks selected".
+PomodoroScheduler|seam|PomodoroAlarmScheduler|-|exempt|injected|Android-only OS alarm. Desktop drives the pomodoro timer in-process instead.
+BackupCodec|seam|AndroidBackupCodec|JvmBackupCodec|real|injected|
+SecureStoragePort|seam|AndroidSecureStorage|JvmSecureStorage|real|injected|
+FileSystem|seam|AndroidFileSystem|JvmFileSystem|real|injected|
+HostEnvironmentPort|seam|AndroidHostEnvironment|JvmHostEnvironment|real|injected|
+FileRevealer|seam|AndroidFileRevealer|JvmFileRevealer|real|injected|
+FileSourceFactory|seam|AndroidFileSourceFactory|JvmFileSourceFactory|real|injected|
+SharePort|seam|AndroidSharePort|JvmSharePort|real|injected|
+FileSharePort|seam|AndroidFileSharePort|JvmFileSharePort|real|injected|
+PomodoroTimer|seam|AndroidPomodoroTimer|JvmPomodoroTimer|real|injected|
+Haptic|seam|AndroidHaptic|createHaptic|exempt|injected|Deliberate. Task detail composes haptics unconditionally, so a definition must exist on every platform or composition fails.
+CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|injected|Deliberate. Desktop logs through loggingBackgroundFailureHandler; a definition must exist or composition throws every frame.
 
 # ── Infrastructure bindings: present on both platforms, not behavioural seams ──────────
-AppDatabase|infra|-|-|infra|
-UnitOfWork|infra|-|-|infra|RoomUnitOfWork on both platforms, not a seam: it is Room's own withWriteTransaction, and the Android and Desktop databases are the same type. Bound in both platform modules because both need the transaction, and registered here because a binding that appears in a platform module with no row is exactly what this file exists to make impossible. See ADR 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
-DataStore|infra|-|-|infra|
-CoroutineScope|infra|-|-|infra|
-String|infra|-|-|infra|
+AppDatabase|infra|-|-|injected|
+DataStore|infra|-|-|injected|
+BackgroundWorkScheduler|seam|AndroidBackgroundWorkScheduler|JvmBackgroundWorkScheduler|real|injected|
+CoroutineScope|infra|-|-|injected|
+String|infra|-|-|injected|
+UnitOfWork|infra|-|-|injected|RoomUnitOfWork on both platforms, so not a seam: it is Room's own withWriteTransaction and the Android and Desktop databases are the same type. Bound in both platform modules because both need the transaction, and listed here because a binding that appears in a platform module with no row is exactly what this file exists to make impossible. See ADR 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.

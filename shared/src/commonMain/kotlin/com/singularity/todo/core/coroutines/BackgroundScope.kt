@@ -98,7 +98,7 @@ fun loggingBackgroundFailureHandler(): CoroutineExceptionHandler =
  * dispatcher because they use a blocking native API (I/O, file system, notification
  * posting) and the blocking is the entire point of the operation:
  * [AndroidSecureStorage] (security/IO), [JvmSecureStorage] (security/IO),
- * [AndroidCalendarProvider] (ContentResolver/IO), [JvmNotificationPort] (notify-send/IO),
+ * [AndroidCalendarProvider] (ContentResolver/IO), [JvmSecureStorage] (libsecret/subprocess),
  * [FileRevealer.jvm] (XDG-open/IO), [AndroidCalendarAppQueries] (JDBC/IO).
  * These are the exceptions, not the rule.
  *

@@ -45,24 +45,46 @@ val service = koinInject<MyService>()  // ✅
 
 ### Multi-Platform Module Structure
 
-Koin modules are typically defined in `commonMain` and platform-specific bindings use `expect`/`actual`:
+**There is no `expect`/`actual` for DI.** Per AGENTS.md the only `expect`/`actual` seam in this
+project is `platformModule()`; platform divergence in bindings is expressed by two ordinary
+functions, one per source set:
 
 ```kotlin
-// commonMain
-expect fun tasksModule(): Module
+// commonMain/kotlin/.../core/di/CalendarSyncDiModule.kt
+fun calendarSyncModule(): Module = module { /* shared bindings */ }
 
-// androidMain
-actual fun tasksModule(): Module = module {
-    viewModelOf(::TaskListViewModel)
-    // Android-specific: AlarmManager, EncryptedSharedPreferences, etc.
-}
+// androidMain/kotlin/.../core/di/PlatformModule.android.kt
+fun platformModule(): List<Module> = listOf(
+    module {
+        single<ReminderScheduler> { AlarmManagerReminderScheduler(get()) }
+    },
+    // ...
+)
 
-// jvmMain
-actual fun tasksModule(): Module = module {
-    viewModelOf(::TaskListViewModel)
-    // JVM-specific: JDBC, desktop services, etc.
-}
+// jvmMain/kotlin/.../core/di/PlatformModule.jvm.kt
+fun platformModule(): List<Module> = listOf(
+    module {
+        single<ReminderScheduler> { JvmReminderScheduler() }
+    },
+    // ...
+)
 ```
+
+An earlier version of this skill showed `expect fun tasksModule()`. It does not exist, and
+writing one would break `PlatformModuleMirrorTest`, which asserts that every type bound on
+Desktop is also bound on Android.
+
+**What binds where.** `core/di/Modules.kt` is a *facade aggregator*, not the source of truth:
+real bindings live in per-domain `*DiModule.kt` files and in `PlatformModule.{android,jvm}.kt`.
+Compose it with list concatenation, never `includes()` — an `includes()` creates a child scope
+whose bindings are invisible to sibling modules at parent level
+(ADR `2026-09-27-di-module-aggregator-narrative`).
+
+**Every platform binding is a seam and is registered.** `shared/src/jvmTest/resources/platform-seams.tsv`
+classifies each one with its implementations, whether the JVM side is real or a stub, and
+whether anything actually injects it. `PlatformSeamGuardTest` fails when a binding is added
+without a row, when a `real` seam is really a no-op, or when an `injected` seam is referenced
+nowhere. Adding a platform binding means adding a registry row.
 
 ## CalendarSyncViewModel Exception
 

@@ -11,7 +11,6 @@ import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -120,7 +119,6 @@ fun testPlatformModule(): Module = module {
     single<AuthRepository> { FakeAuthRepository() }
     single<RemoteConfigPort> { FakeRemoteConfigPort() }
     single<SecureStoragePort> { InMemorySecureStorage() }
-    single<NotificationPort> { InertNotificationPort() }
     single<FileSystem> { InMemoryFileSystem() }
     single<FileRevealer> { FakeFileRevealer() }
     single<FileSourceFactory> { InertFileSourceFactory() }

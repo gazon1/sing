@@ -30,7 +30,7 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * - `commonMain` has exactly **1** occurrence: `core/log/FileLogWriter.kt`, which is the
  *   whitelisted one below.
  * - `jvmMain` has 8, all inside port implementations (`FileRevealer.jvm`,
- *   `JvmNotificationPort`, `JvmSecureStorage`, `createBackgroundScope`).
+ *   `JvmSecureStorage`, `createBackgroundScope`).
  * - `androidMain` has 11, same story (`AndroidSecureStorage`, `AndroidCalendarProvider`,
  *   `createBackgroundScope`, …).
  *

@@ -204,6 +204,77 @@ class SyncEngineStorageFailureTest {
         assertTrue(recovering.status.value.isSuccess())
     }
 
+    // ─── A row that reads fine and will not decode ────────────────────────────
+
+    /**
+     * An outbox row whose payload is not a patch.
+     *
+     * The read succeeds and the damage is in the bytes, which is what made this one
+     * different from the read failure above: `getPending` returned the row, so the
+     * engine was past every check it had, and the decode was the next unguarded step.
+     */
+    private suspend fun FakeSyncOutboxDao.seedUndecodable(): FakeSyncOutboxDao = apply {
+        insert(
+            SyncOutboxEntity(
+                patchId = "patch-corrupt-1",
+                ownerId = "owner-storage",
+                entityId = "task-2",
+                entityType = "task",
+                payload = "{ this is not a DeltaPatch",
+                createdAt = 1L,
+            ),
+        )
+    }
+
+    /**
+     * The wedge this fixes, and the negative control for it.
+     *
+     * The decode sat outside every `phases.*` guard, so `SerializationException` left
+     * `planPush` with `_status` already set to `Pushing`. `runCycleCatching` caught it
+     * above the phase reporter, so nothing moved the status back and `isRunning()`
+     * answered true from then on — the sync screen showed a push that had been failing
+     * on the same row every cycle, with no dead letter and nothing to retry against.
+     *
+     * Asserted three ways because the failure has three faces: the cycle has to end,
+     * it has to end as a persistence failure rather than a server refusal, and the row
+     * has to still be there afterwards so a repair can push it.
+     */
+    @Test
+    fun `an outbox row that cannot be decoded ends the cycle instead of stranding it`() = runTest {
+        val backing = FakeSyncOutboxDao().seedOne().seedUndecodable()
+        val sut = engine(this, outbox = backing)
+
+        val result = sut.push()
+
+        val error = assertIs<AppError.Persistence>(result.exceptionOrNull())
+        assertEquals("Could not assemble the queued changes", error.message)
+        assertTrue(
+            !sut.status.value.isRunning(),
+            "status stranded at ${sut.status.value}; every later sync is refused",
+        )
+        assertEquals(
+            2,
+            backing.rows.size,
+            "a decode failure must not drop the queued work",
+        )
+    }
+
+    /**
+     * The decode failure is named as storage, not as a server that said no.
+     *
+     * The server was never asked — the request was never built — so reporting it as a
+     * refusal sends the user to look at a connection that was working fine.
+     */
+    @Test
+    fun `a row that cannot be decoded is not reported as a server refusal`() = runTest {
+        val backing = FakeSyncOutboxDao().seedOne().seedUndecodable()
+        val sut = engine(this, outbox = backing)
+
+        val error = assertIs<AppError>(sut.push().exceptionOrNull())
+
+        assertIs<AppError.Persistence>(error, "reported as ${error::class.simpleName}: ${error.message}")
+    }
+
     // ─── Against a server failure, which must read differently ───────────────
 
     @Test

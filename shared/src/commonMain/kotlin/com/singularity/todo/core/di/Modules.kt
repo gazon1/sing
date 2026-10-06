@@ -8,6 +8,7 @@ import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendar_sync.di.calendarSyncModule
+import com.singularity.todo.core.work.backgroundWorkModule
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.core.sync.SyncScopeProvider
@@ -48,6 +49,7 @@ fun domainModule(): List<Module> = buildList {
     add(agendaModule())
     add(proposalModule())
     add(calendarSyncModule())
+    add(backgroundWorkModule())
     // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
     // profileModule() wrapped its bindings in module {} which created a child scope.
     add(
