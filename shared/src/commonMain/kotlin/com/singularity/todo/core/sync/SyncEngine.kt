@@ -345,11 +345,23 @@ internal class SyncEngine(
 
         if (pending.isEmpty()) return Result.success(null)
 
-        val patches = pending.map { entity ->
-            json.decodeFromString<DeltaPatch>(entity.payload)
-        }
-
-        return Result.success(
+        // Decoded inside a guard for the same reason the read above is, and the pairing
+        // is the point: one step on the outbox was guarded and the next was not, so a
+        // single corrupt payload row threw out of `planPush` with `_status` already set
+        // to `Pushing`. `runCycleCatching` caught it above the phase reporter, so
+        // nothing moved the status back and `isRunning()` kept answering true — the sync
+        // screen showed a push that had been failing on the same bytes forever, with no
+        // dead letter and nothing to retry against.
+        //
+        // Reported rather than skipped: a row that will not decode is a storage defect,
+        // not a remote refusal, and `localStorage` is the name that says so.
+        //
+        // The guard spans building the plan as well as decoding, because `getPending`
+        // is only one of the ways out of here and every one of them strands the status
+        // the same way. It also keeps the exits at four: the decode failure rides the
+        // last return rather than adding a fifth.
+        val plan = phases.localStorage("sync.outbox.decode", "assemble the queued changes") {
+            val patches = pending.map { entity -> json.decodeFromString<DeltaPatch>(entity.payload) }
             PushPlan(
                 pending = pending,
                 patches = patches,
@@ -359,7 +371,15 @@ internal class SyncEngine(
                     patches = patches,
                 ),
                 active = active,
-            ),
+            )
+        }
+
+        // `fold` rather than `getOrElse`: this function answers with a Result either way, and
+        // `getOrElse` would have to hand back a PushPlan to say "there is none", which is
+        // the ambiguity the nullable return exists to avoid.
+        return plan.fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { Result.failure<PushPlan?>(it.toAppError()) },
         )
     }
 
