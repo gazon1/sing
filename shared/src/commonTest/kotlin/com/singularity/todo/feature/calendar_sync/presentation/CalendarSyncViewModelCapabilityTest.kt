@@ -19,6 +19,7 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncReposi
 import com.singularity.todo.feature.calendar_sync.domain.port.GoogleCalendarSettingsRepository
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.DirtyHashProvider
+import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.flow.Flow
@@ -174,6 +175,17 @@ class CalendarSyncViewModelCapabilityTest {
             // runTest times out after a minute waiting for it. vmScope.close() ends it.
             currentUser = CurrentUser(anonymousAuth, vmScope),
             eventSource = { error("this test never reaches the Google event source") },
+            // A pass that declines, matching the disconnected state above. This test is
+            // about the *system* calendar's capability flag, so the Google half has to be
+            // inert — but it still has to be inert through the real coordinator, or the
+            // guard would be exercised only by this wiring rather than by its own tests.
+            googleSync = GoogleSyncCoordinator(
+                engineProvider = { error("a declined profile must never reach an engine") },
+                googleSettings = DisconnectedGoogleSettings,
+                credentialStore = EmptyCredentialStore,
+                currentUser = UserId.anonymous,
+                clock = kotlin.time.Clock.System,
+            ),
             crashReporter = NoOpCrashReportingPort(),
             scope = vmScope,
         ) to vmScope

@@ -73,11 +73,22 @@ class GoogleSyncWorker(context: Context, params: WorkerParameters) :
         }
 
         val outcome = coordinator.syncNow()
-        return if (outcome.ran) {
-            Result.success()
-        } else {
-            log.w { "Google sync pass did not run: ${outcome.skippedBecause}" }
-            Result.success()
+        // Three cases, three answers. `ran` used to be a Boolean, and a pass that ran and
+        // *threw* reported `ran = false` — so a Google outage was logged as "did not run"
+        // and answered with success(), permanently stopping background sync with no
+        // retry and nothing on screen. A failure must be a failure here.
+        return when (outcome) {
+            is GoogleSyncCoordinator.Outcome.Completed -> Result.success()
+
+            is GoogleSyncCoordinator.Outcome.Declined -> {
+                log.i { "Google sync pass skipped: ${outcome.reason}" }
+                Result.success()
+            }
+
+            is GoogleSyncCoordinator.Outcome.Failed -> {
+                log.w { "Google sync pass failed: ${outcome.reason}; retrying" }
+                Result.retry()
+            }
         }
     }
 }

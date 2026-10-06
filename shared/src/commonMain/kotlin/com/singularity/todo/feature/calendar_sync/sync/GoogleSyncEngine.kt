@@ -85,7 +85,7 @@ class GoogleSyncEngine(
      * which is useful in tests and honest about the fact that nothing else is doing it.
      */
     private val applier: GoogleTaskApplier? = null,
-) {
+) : GoogleSyncPass {
 
     private val mutex = Mutex()
 
@@ -131,8 +131,10 @@ class GoogleSyncEngine(
      * write before it knew about the other device's edit.
      *
      * Every pass is serialised, so a second caller waits rather than interleaving.
+     *
+     * The mutex is what makes overlapping callers safe, not a re-check.
      */
-    suspend fun sync(calendarId: String): PassResult = mutex.withLock { pull(calendarId) }
+    override suspend fun sync(calendarId: String): PassResult = mutex.withLock { pull(calendarId) }
 
     private suspend fun pull(calendarId: String): PassResult {
         val state = stateDao.get(userId, provider, calendarId)
