@@ -106,6 +106,21 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
         return Result.success(Unit)
     }
 
+    /** The sync apply path's write — replaces the row, no open-entry invariant re-checked. */
+    override suspend fun upsert(entry: TimeEntry): Result<Unit> {
+        entries.value = entries.value + (entry.id.value to entry)
+        return Result.success(Unit)
+    }
+
+    /**
+     * Reads one entry back by id.
+     *
+     * Not on the port: nothing in production needs it, and a sync test does — asserting
+     * that a document was *written* rather than merely routed to a handler that claimed
+     * to.
+     */
+    suspend fun getById(id: TimeEntryId): TimeEntry? = entries.value[id.value]
+
     override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> = entries.map { map ->
         map.values
             .filter {

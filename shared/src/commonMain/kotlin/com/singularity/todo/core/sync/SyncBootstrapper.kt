@@ -20,6 +20,7 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.serializer
@@ -80,6 +81,18 @@ internal class SyncBootstrapper(
             handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
                 val tagGroup = StableJson.decodeFromString(serializer<TagGroup>(), data.toString())
                 tagGroupRepo.upsert(tagGroup)
+            }
+        }
+
+        // #177. The delete half of TimeEntry was registered long before the apply half,
+        // and the gap is not cosmetic: without an apply handler an incoming time-entry
+        // event is Unappliable, the cursor is held back, and every cycle re-receives the
+        // same event and stalls identically. SeedPlanner enqueues these entities, so the
+        // type is reachable from the push side too.
+        engine.registerHandler(DocType.TimeEntry) { event ->
+            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
+                val entry = StableJson.decodeFromString(serializer<TimeEntry>(), data.toString())
+                timeTrackingRepo.upsert(entry)
             }
         }
 
