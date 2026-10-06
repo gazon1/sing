@@ -67,6 +67,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
             get(),
             get(),
             get(),
+            get(),
         )
     }
 
@@ -74,7 +75,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single { RecurrenceCalculator }
 
-    single<ArchiveRepository> { TaskDaoArchiveRepositoryImpl(get(), get(), get(), get()) }
+    single<ArchiveRepository> { TaskDaoArchiveRepositoryImpl(get(), get(), get(), get(), get()) }
 
     single<ChecklistRepository> { ChecklistRepositoryImpl(get(), get(), get()) }
 

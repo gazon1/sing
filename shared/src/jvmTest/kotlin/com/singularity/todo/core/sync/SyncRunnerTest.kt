@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.minutes
+import kotlin.test.assertTrue
 
 /**
  * The runner's *behaviour*, not its wiring.
@@ -121,20 +122,20 @@ class SyncRunnerTest {
     }
 
     @Test
-    fun `a settings-only change does not reach the runner, and that is a defect`() = runTest {
-        // Named as a defect because it is one, and kept as a test because the fix must
-        // not be a passing test that only passes after the fix.
+    fun `a settings-only change reaches the runner without moving the scope`() = runTest {
+        // #186 / #194, REQ CO-09.
         //
-        // The runner reads the settings per emission, which looks like it re-reads them
-        // often enough to notice a change. It does not: the only thing it collects is
-        // the active scope, and a `StateFlow` does not emit when the value it is set to
-        // equals the value it already holds. Changing the sync interval — the one
-        // setting on the screen that exists to be changed — therefore does nothing
-        // until the profile is switched or the app restarts.
+        // This was the test that named the defect: the runner reads the settings per
+        // emission, which looks like it re-reads them often enough to notice a change.
+        // It does not — the only thing it collected was the active scope, and a
+        // `StateFlow` does not emit when the value it is set to equals the value it
+        // already holds. Changing the sync interval — the one setting on the screen
+        // that exists to be changed — did nothing until the profile was switched or the
+        // app restarted.
         //
-        // The test plan expects this to take effect (CO-09). The fix is to also
-        // collect the settings for the active scope, which is a behaviour change and
-        // wants a decision rather than a drive-by: #186.
+        // It was written asserting the broken behaviour and saying so, so that the fix
+        // would not be a test that only ever passed afterwards. The assertion below is
+        // the one that had to change.
         val trigger = RecordingTrigger()
         val scope = SyncScope("owner-1", "profile-1")
         val state = FakeSyncStateRepository().apply {
@@ -149,11 +150,54 @@ class SyncRunnerTest {
         runCurrent()
 
         assertEquals(
-            listOf(15.minutes),
+            listOf(15.minutes, 30.minutes),
             trigger.started,
-            "today the change does not reach the runner. When #186 is fixed this " +
-                "assertion becomes the one that must fail, and the expected value " +
-                "becomes [15m, 30m].",
+            "the changed interval did not reach the trigger",
+        )
+    }
+
+    @Test
+    fun `turning auto-sync off stops the trigger without moving the scope`() = runTest {
+        // The same defect in the other field, and the direction that silently burns
+        // battery: with auto-sync still on, the runner keeps asking for cycles the
+        // user has switched off.
+        val trigger = RecordingTrigger()
+        val scope = SyncScope("owner-1", "profile-1")
+        val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
+        runner(trigger, state, FakeSyncScopeProvider(scope))
+
+        runCurrent()
+        val stopsBefore = trigger.stops
+        state.setAutoSyncEnabled(scope, false)
+        runCurrent()
+
+        assertTrue(
+            trigger.stops > stopsBefore,
+            "turning auto-sync off did not stop the periodic trigger",
+        )
+    }
+
+    @Test
+    fun `a sync that changes the cursor does not restart the trigger`() = runTest {
+        // The regression this fix could easily have introduced. `SyncState` carries
+        // `lastLsn`, `lastSuccessfulSyncAt` and `deviceId`, and observing the state
+        // whole means the trigger is cancelled and restarted after every cycle — so it
+        // is rearmed constantly and an interval can pass without one ever completing.
+        // Only a change to the two fields scheduling depends on may restart it.
+        val trigger = RecordingTrigger()
+        val scope = SyncScope("owner-1", "profile-1")
+        val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
+        runner(trigger, state, FakeSyncScopeProvider(scope))
+
+        runCurrent()
+        val startsAfterFirst = trigger.startCalls
+        repeat(3) { state.setLastLsn(scope, 100L * (it + 1)) }
+        runCurrent()
+
+        assertEquals(
+            startsAfterFirst,
+            trigger.startCalls,
+            "the periodic trigger was rearmed by a cursor advance",
         )
     }
 
@@ -196,7 +240,7 @@ class SyncRunnerTest {
             scopeProvider = scopeProvider,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
-            writer = fakeSyncDocumentWriter(),
+            writerProvider = { fakeSyncDocumentWriter() },
             scheduler = FakeSyncWorkScheduler(),
             clock = MutableClock(),
             scope = scope,

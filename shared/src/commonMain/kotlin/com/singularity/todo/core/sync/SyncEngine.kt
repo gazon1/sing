@@ -186,14 +186,27 @@ internal class SyncEngine(
     private val shadowDao: SyncShadowDao,
     private val patchBuilder: SyncPatchBuilder,
     /**
-     * Writes a document to the local store, by type.
+     * Supplies the per-type document writer, on demand rather than eagerly.
      *
-     * Needed for more than the pull handlers: resolving a lost race means writing back
-     * the state the server is known to hold, which is the same per-type write by a
-     * caller that is not a pull. [SyncDocumentWriter] holds that knowledge in one place
-     * so the two callers cannot disagree about what a type is.
+     * A provider and not the writer itself because of a real dependency cycle, not for
+     * laziness's sake:
+     *
+     * ```
+     * TaskRepository → SyncRepository → SyncEngine → SyncDocumentWriter → TaskRepository
+     * ```
+     *
+     * `SyncDocumentWriter` needs the repositories (that is what it is a table of), and
+     * the repositories need the engine (that is what `enqueue` is). Resolving the
+     * writer as a constructor argument closes the loop, and Koin recurses until the
+     * stack gives out — which it did, in a graph that resolves the chain, rather than
+     * at module-definition time where it would have been obvious.
+     *
+     * A provider is the honest way out: the writer is only needed to resolve a lost
+     * race, by which point the repositories exist. The alternative — reaching into the
+     * repositories from the engine directly, which is the direction the layering runs
+     * away from — trades a runtime failure for a worse structural one.
      */
-    private val writer: SyncDocumentWriter,
+    private val writerProvider: () -> SyncDocumentWriter,
     private val scheduler: SyncWorkScheduler,
     private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     /**
@@ -791,7 +804,7 @@ internal class SyncEngine(
         val reverted = confirmed?.let { document ->
             runCatchingCancellable {
                 val json = StableJson.parseToJsonElement(document).jsonObject
-                writer.upsert(patch.entityType, json)
+                writerProvider().upsert(patch.entityType, json)
             }.onFailure { e ->
                 log.e(e) {
                     "Patch ${patch.patchId} lost its race and the row could not be " +

@@ -267,3 +267,43 @@ the device believe it holds something the server refused.
 - The server accepts it
 - The behaviour is exactly as before this requirement: the change is recorded as
   delivered and the row's record of the server's state advances to it
+
+---
+
+### Requirement: REQ-OS-027
+
+A change to the auto-sync settings SHALL take effect without requiring a change of
+profile or a restart of the application.
+
+The runner SHALL react to the settings of the active scope, not only to the identity of
+that scope. Collecting only the scope is not sufficient and does not look insufficient:
+a `StateFlow` does not emit when it is set to the value it already holds, so a settings
+change produces no emission at all.
+
+Re-arming the periodic trigger SHALL be caused only by a change to the fields the
+schedule depends on. The cursor and the last-successful timestamp change on every cycle,
+and treating those as schedule changes would restart the trigger after each sync, so an
+interval could pass without one ever completing.
+
+#### Scenario: A changed interval reaches the trigger
+- The user changes the sync interval for the active profile
+- The scope does not change
+- The periodic trigger is restarted at the new interval
+
+#### Scenario: Turning auto-sync off stops the trigger
+- The user turns auto-sync off for the active profile
+- The scope does not change
+- The periodic trigger is stopped
+
+#### Scenario: A completed sync does not re-arm the trigger
+- A sync completes and advances the download cursor
+- The interval is unchanged
+- The periodic trigger is left running as it was
+
+#### Scenario: A profile switch still reads the new profile's settings
+- The active scope moves to another profile
+- The trigger is started or stopped according to that profile's settings
+
+#### Scenario: Two collectors are never live at once
+- The active scope moves while the previous scope's settings are still being observed
+- The observation of the previous scope is cancelled rather than left running

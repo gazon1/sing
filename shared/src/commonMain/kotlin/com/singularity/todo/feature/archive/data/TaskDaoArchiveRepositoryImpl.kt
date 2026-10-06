@@ -7,6 +7,7 @@ import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Bulk-archive completed tasks. The repository owns the side effect;
@@ -20,6 +21,7 @@ class TaskDaoArchiveRepositoryImpl(
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
+    private val unitOfWork: UnitOfWork,
 ) : ArchiveRepository {
     /**
      * Archives tasks with completed_at != null AND archived_at IS NULL
@@ -33,14 +35,16 @@ class TaskDaoArchiveRepositoryImpl(
      * trash.
      */
     override suspend fun archiveCompletedTasks(): Result<Int> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value.value
-        val before = taskDao.getTrashForUser(uid).map { it.id }.toSet()
-        val archived = taskDao.archiveCompletedForUser(clock.now().toEpochMilliseconds(), uid)
-        if (archived > 0) {
-            taskDao.getTrashForUser(uid)
-                .filter { it.id !in before }
-                .forEach { syncRepository.enqueue(it.toTask()) }
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val before = taskDao.getTrashForUser(uid).map { it.id }.toSet()
+            val archived = taskDao.archiveCompletedForUser(clock.now().toEpochMilliseconds(), uid)
+            if (archived > 0) {
+                taskDao.getTrashForUser(uid)
+                    .filter { it.id !in before }
+                    .forEach { syncRepository.enqueue(it.toTask()) }
+            }
+            archived
         }
-        archived
     }
 }

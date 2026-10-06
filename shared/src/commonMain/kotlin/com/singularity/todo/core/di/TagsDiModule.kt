@@ -28,6 +28,7 @@ fun tagsModule(): org.koin.core.module.Module = module {
             get(),
             get(),
             get(),
+            get(),
         )
     }
 
@@ -42,6 +43,7 @@ fun tagsModule(): org.koin.core.module.Module = module {
             clock = get(),
             currentUser = get(),
             syncRepository = get(),
+            unitOfWork = get(),
         )
     }
 

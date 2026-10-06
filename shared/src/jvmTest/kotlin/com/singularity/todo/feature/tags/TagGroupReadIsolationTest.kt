@@ -20,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Read-isolation for tag-group observation. Same defect class as `TagsReadIsolationTest`
@@ -55,6 +56,7 @@ class TagGroupReadIsolationTest {
             authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),
         ),
         syncRepository = FakeSyncRepository(),
+        unitOfWork = FakeUnitOfWork(),
     )
 
     @Test

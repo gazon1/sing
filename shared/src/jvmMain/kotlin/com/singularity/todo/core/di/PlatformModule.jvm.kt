@@ -59,6 +59,8 @@ import org.koin.dsl.module
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * JVM/desktop platform bindings — Room 3 (same stack as Android, no extra native deps).
@@ -78,6 +80,11 @@ actual fun platformModule(): Module = module {
         wipeIfNotRoomManaged(dbPath)
         AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
+
+    // One write transaction for the repositories that write a synced row and the
+    // patch describing it. See ADR
+    // 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
+    single<UnitOfWork> { RoomUnitOfWork(get()) }
 
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }

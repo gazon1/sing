@@ -9,6 +9,8 @@ import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import co.touchlab.kermit.Logger
@@ -106,6 +108,8 @@ class KoinGraphValidationTest {
             wipeIfNotRoomManaged(dbPath)
             AppDatabaseFactory.build(createSqlDriver(), dbPath)
         }
+
+        single<UnitOfWork> { RoomUnitOfWork(get()) }
 
         single { get<AppDatabase>().taskDao() }
         single { get<AppDatabase>().noteDao() }

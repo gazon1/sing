@@ -110,6 +110,57 @@ over the engine's own batch, and that is the constraint most likely to affect th
 - The `offline-sync` spec can then state the atomicity as a requirement. Until the
   decision, a requirement about it would be fixing a capability that does not exist.
 
+## Amendment 2026-10-06 — the premise this ADR rested on no longer holds
+
+The Context section says "There is no `withTransaction` anywhere in `commonMain` — the
+audit of the auth/sync test plan found zero occurrences". **That is no longer true.**
+Room 3.0.0 exposes `androidx.room3.withWriteTransaction` (and `useWriterConnection`) in
+`commonMain`:
+
+```kotlin
+public suspend fun <R> RoomDatabase.withWriteTransaction(
+    block: suspend TransactionScope<R>.() -> R
+): R = useWriterConnection { it.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE, block) }
+```
+
+The decision itself is unchanged and was not re-opened — the port is the right shape, and
+the argument against handing six repositories the database still holds. What changed is
+that the work is no longer blocked, and the risk profile of the *implementation* is now
+knowable rather than hypothetical.
+
+**The one claim that had to be checked, and was.** A transaction is only the answer if a
+suspend DAO call made inside the block joins the transaction's connection instead of
+taking its own. If it did not, all nineteen sites would be wrapped in ceremony that
+commits anyway — turning a real defect into a slower one and adding code that reads as a
+guarantee. `UnitOfWorkIsAtomicTest` asserts it against SQLite rather than trusting the
+signature: a row write and an outbox write, a throw between them, and neither row
+survives. Removing the transaction from `RoomUnitOfWork` fails exactly the two rollback
+tests. A nested `write` joins the outer transaction rather than committing twice, which
+the same class covers because repositories call one another.
+
+**The port is `UnitOfWork`; the implementation is `RoomUnitOfWork`.** Six repositories
+now take the port and open `unitOfWork.write { … }` around the write-then-enqueue pair,
+in the thirty-seven methods that do it (the nineteen `enqueue` call sites plus the
+narrow field-update methods that pair a targeted `UPDATE` with `enqueueFresh`). Two sites
+needed reshaping rather than wrapping: an early `return@runCatchingCancellable` from
+inside the block cannot cross a non-inline boundary, so `TagsRepositoryImpl.delete` asks
+"is it still there" instead, and `NotesRepositoryImpl.getOrCreateDailyNote` reads before
+opening the transaction because that branch writes nothing.
+
+**Still open, and not to be forgotten:**
+
+- **The pull side (PL-13) is untouched.** A page of fifty events is applied row by row
+  with nothing around it. That is the engine needing a transaction over its own batch,
+  and the section above is right that the two answers must converge — the port is
+  deliberately usable over the engine's batch so that they can.
+- **Repository tests use `FakeUnitOfWork`, which does not roll back.** They prove the
+  write and the enqueue both happened; they cannot prove a transaction was opened, and a
+  repository that dropped its wrapper would keep them green. That limit is why the
+  guarantee lives in one class that can actually observe it.
+- **`SyncEngine.enqueue`'s own coalescing pair** (`deleteByEntity` then `insert`) is
+  inside whatever transaction its caller opened, so a repository transaction covers it.
+  The engine called from a non-repository path does not yet.
+
 ## Links
 
 - `2026-10-06-a-profile-is-owned-and-an-erase-resolves-its-ids-first` — the owner-scoped

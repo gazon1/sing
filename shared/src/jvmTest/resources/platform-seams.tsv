@@ -63,6 +63,7 @@ CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|Deli
 
 # ── Infrastructure bindings: present on both platforms, not behavioural seams ──────────
 AppDatabase|infra|-|-|infra|
+UnitOfWork|infra|-|-|infra|RoomUnitOfWork on both platforms, not a seam: it is Room's own withWriteTransaction, and the Android and Desktop databases are the same type. Bound in both platform modules because both need the transaction, and registered here because a binding that appears in a platform module with no row is exactly what this file exists to make impossible. See ADR 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
 DataStore|infra|-|-|infra|
 CoroutineScope|infra|-|-|infra|
 String|infra|-|-|infra|

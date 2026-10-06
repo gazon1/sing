@@ -27,6 +27,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Sync-propagation contract for the **real** [TaskRepositoryImpl], against a real
@@ -65,6 +66,7 @@ class TaskRepositorySyncPropagationTest {
             currentUser = currentUser,
             syncRepository = sync,
             dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+            unitOfWork = FakeUnitOfWork(),
         )
     }
 

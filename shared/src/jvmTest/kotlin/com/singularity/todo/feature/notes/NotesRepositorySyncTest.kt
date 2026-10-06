@@ -26,6 +26,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Sync-propagation contract for the real [NotesRepositoryImpl] against real
@@ -60,6 +61,7 @@ class NotesRepositorySyncTest {
                 scope = backgroundScope,
             ),
             syncRepository = sync,
+            unitOfWork = FakeUnitOfWork(),
         )
     }
 

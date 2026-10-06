@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Room-backed production [ProjectsRepository].
@@ -30,6 +31,7 @@ class ProjectsRepositoryImpl(
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
+    private val unitOfWork: UnitOfWork,
 ) : ProjectsRepository {
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
@@ -48,20 +50,24 @@ class ProjectsRepositoryImpl(
     }
 
     override suspend fun create(item: Project): Result<Project> = runCatchingCancellable {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        projectDao.upsert(item.toEntity())
-        item.also { syncRepository.enqueue(it) }
+        unitOfWork.write {
+            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            projectDao.upsert(item.toEntity())
+            item.also { syncRepository.enqueue(it) }
+        }
     }
 
     override suspend fun update(item: Project): Result<Project> = runCatchingCancellable {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        // Re-stamp after the guard, as Tasks and Notes now do: the guard has
-        // established that userId is current-or-anonymous, so normalising cannot
-        // lose information, whereas upserting a caller's anonymous id verbatim
-        // would orphan the row.
-        val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
-        projectDao.upsert(toUpdate.toEntity())
-        toUpdate.also { syncRepository.enqueue(it) }
+        unitOfWork.write {
+            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            // Re-stamp after the guard, as Tasks and Notes now do: the guard has
+            // established that userId is current-or-anonymous, so normalising cannot
+            // lose information, whereas upserting a caller's anonymous id verbatim
+            // would orphan the row.
+            val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
+            projectDao.upsert(toUpdate.toEntity())
+            toUpdate.also { syncRepository.enqueue(it) }
+        }
     }
 
     /**
@@ -86,21 +92,25 @@ class ProjectsRepositoryImpl(
     }
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {
-        val ts = clock.now().toEpochMilliseconds()
-        val uid = currentUser.scopedUserId.value.value
-        val rows = projectDao.softDeleteForUser(id.value, ts, uid)
-        require(rows > 0) { "Project $id not found or not owned by user" }
-        enqueueFresh(id)
+        unitOfWork.write {
+            val ts = clock.now().toEpochMilliseconds()
+            val uid = currentUser.scopedUserId.value.value
+            val rows = projectDao.softDeleteForUser(id.value, ts, uid)
+            require(rows > 0) { "Project $id not found or not owned by user" }
+            enqueueFresh(id)
+        }
     }
 
     // ── SoftDeletable ─────────────────────────────────────────────────────────
 
     override suspend fun restore(id: ProjectId): Result<Unit> = runCatchingCancellable {
-        val ts = clock.now().toEpochMilliseconds()
-        val uid = currentUser.scopedUserId.value.value
-        val rows = projectDao.restoreForUser(id.value, ts, uid)
-        require(rows > 0) { "Project $id not found or not owned by user" }
-        enqueueFresh(id)
+        unitOfWork.write {
+            val ts = clock.now().toEpochMilliseconds()
+            val uid = currentUser.scopedUserId.value.value
+            val rows = projectDao.restoreForUser(id.value, ts, uid)
+            require(rows > 0) { "Project $id not found or not owned by user" }
+            enqueueFresh(id)
+        }
     }
 
     // ── Domain methods ───────────────────────────────────────────────────────

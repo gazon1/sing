@@ -20,7 +20,7 @@ import org.koin.dsl.module
 fun projectsModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<ProjectsRepository> { ProjectsRepositoryImpl(get(), get(), get(), get()) }
+    single<ProjectsRepository> { ProjectsRepositoryImpl(get(), get(), get(), get(), get()) }
 
     // ─── Use Cases ─────────────────────────────────────────────────────
 

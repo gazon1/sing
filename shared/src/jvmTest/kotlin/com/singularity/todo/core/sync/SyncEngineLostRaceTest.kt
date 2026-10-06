@@ -79,7 +79,7 @@ class SyncEngineLostRaceTest {
         scopeProvider = FakeSyncScopeProvider(SCOPE),
         shadowDao = shadow,
         patchBuilder = fakeSyncPatchBuilder(shadow),
-        writer = fakeSyncDocumentWriter(tasks = tasks),
+        writerProvider = { fakeSyncDocumentWriter(tasks = tasks) },
         scheduler = FakeSyncWorkScheduler(),
         retryPolicy = PatchRetryPolicy(),
         clock = clock,
