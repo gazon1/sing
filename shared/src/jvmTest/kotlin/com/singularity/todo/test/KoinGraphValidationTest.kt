@@ -27,8 +27,6 @@ import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
-import com.singularity.todo.core.notifications.JvmNotificationPort
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
@@ -162,7 +160,6 @@ class KoinGraphValidationTest {
 
         // ─── Platform Ports ────────────────────────────────────────────
         single<SecureStoragePort> { JvmSecureStorage() }
-        single<NotificationPort> { JvmNotificationPort() }
         single<FileSystem> { JvmFileSystem() }
         single<FileRevealer> { JvmFileRevealer() }
         single<SharePort> { JvmSharePort() }

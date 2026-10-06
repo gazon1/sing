@@ -23,9 +23,7 @@ import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.observability.FileCrashReportingPort
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.notifications.AndroidNotificationPort
 import com.singularity.todo.core.notifications.AndroidNotifier
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.AndroidHostEnvironment
 import com.singularity.todo.core.platform.HostEnvironmentPort
@@ -72,7 +70,6 @@ import org.koin.dsl.module
  *
  * - Room [AppDatabase] is created via [AppDatabaseFactory] (single seam for Room).
  * - [SecureStoragePort] → [AndroidSecureStorage]
- * - [NotificationPort] → [AndroidNotificationPort]
  * - [FileSystem] → [AndroidFileSystem]
  * - [BackupCodec] → [AndroidBackupCodec]
  * - [androidx.datastore.core.DataStore] → application preferences DataStore
@@ -192,8 +189,6 @@ actual fun platformModule(): Module = module {
     }
 
     // ─── Platform Ports ─────────────────────────────────────────────────
-
-    single<NotificationPort> { AndroidNotificationPort(get()) }
 
     single<FileSystem> { AndroidFileSystem(get()) }
 

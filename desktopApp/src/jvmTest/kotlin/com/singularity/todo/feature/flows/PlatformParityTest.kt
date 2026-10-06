@@ -9,7 +9,6 @@ import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -45,7 +44,6 @@ class PlatformParityTest {
         // OS-access ports: would touch filesystem, secrets, or notifications
         assertIsBoundTo<AuthRepository>(koin, "FakeAuthRepository")
         assertIsBoundTo<SecureStoragePort>(koin, "InMemorySecureStorage")
-        assertIsBoundTo<NotificationPort>(koin, "InertNotificationPort")
         assertIsBoundTo<FileSystem>(koin, "InMemoryFileSystem")
         assertIsBoundTo<FileRevealer>(koin, "FakeFileRevealer")
         assertIsBoundTo<FileSourceFactory>(koin, "InertFileSourceFactory")

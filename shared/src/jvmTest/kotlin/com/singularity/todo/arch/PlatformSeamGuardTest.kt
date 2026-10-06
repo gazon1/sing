@@ -47,6 +47,7 @@ class PlatformSeamGuardTest {
         val androidImpl: String,
         val jvmImpl: String,
         val verdict: String,
+        val wiring: String,
         val reason: String,
     ) {
         val isInfra: Boolean get() = kind == "infra"
@@ -89,11 +90,12 @@ class PlatformSeamGuardTest {
             .map { line ->
                 val f = line.split('|').map { it.trim() }
                 assertEquals(
-                    6,
+                    7,
                     f.size,
-                    "registry row must have 6 columns: port|kind|androidImpl|jvmImpl|verdict|reason — got: $line",
+                    "registry row must have 7 columns: " +
+                        "port|kind|androidImpl|jvmImpl|verdict|wiring|reason — got: $line",
                 )
-                Seam(f[0], f[1], f[2], f[3], f[4], f[5])
+                Seam(f[0], f[1], f[2], f[3], f[4], f[5], f[6])
             }
             .toList()
     }
@@ -272,6 +274,56 @@ class PlatformSeamGuardTest {
                 "Add a row to shared/src/jvmTest/resources/platform-seams.tsv and classify it — " +
                 "an unclassified binding is how a silent no-op gets added.",
         )
+    }
+
+    /**
+     * A seam declared `injected` must actually be referenced somewhere.
+     *
+     * This is the rule that `NotificationPort` would have failed. It was bound on both
+     * platforms, satisfied every other rule here — real, present on both sides, not a
+     * stub — and no production code ever injected it. Its JVM half shelled out to
+     * `atq`/`atrm` and deleted **every** `at` job on the host, including jobs the user
+     * had queued outside the app, and armed notifications through a path that fired them
+     * immediately when the daemon was missing.
+     *
+     * `find-unwired-surfaces.py` cannot see this: `orphan-binding` hard-filters to
+     * CoreDiModule.kt and reports only bindings nothing injects. So the registry
+     * declares each seam's wiring and this test holds the declaration honest.
+     */
+    @Test
+    fun `a seam declared injected is referenced outside its own bindings`() {
+        val boundOnlyIn = setOf(
+            "com/singularity/todo/core/di/PlatformModule.android.kt",
+            "com/singularity/todo/core/di/PlatformModule.jvm.kt",
+        )
+        val commonRoot = sourceRoot("commonMain.root")
+        val bodies = commonRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filterNot { it.toString().substring(commonRoot.path.length).removePrefix("/") in boundOnlyIn }
+            .filterNot { it.name.contains("Test") }
+            .map { it.readText() }
+            .toList()
+
+        val orphans = registry()
+            .filterNot { it.isInfra }
+            .filter { it.wiring == "injected" }
+            .filterNot { seam -> bodies.any { seam.port in it } }
+            .map {
+                "${it.port} is declared injected but appears in no production file outside " +
+                    "its two bindings — declare it `unwired` with a reason, or inject it"
+            }
+
+        assertTrue(orphans.isEmpty(), orphans.joinToString("\n"))
+    }
+
+    @Test
+    fun `an unwired seam carries a written reason`() {
+        val offenders = registry()
+            .filterNot { it.isInfra }
+            .filter { it.wiring == "unwired" }
+            .filter { it.reason.isBlank() }
+            .map { "${it.port} is unwired with no recorded reason" }
+        assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }
 
     @Test

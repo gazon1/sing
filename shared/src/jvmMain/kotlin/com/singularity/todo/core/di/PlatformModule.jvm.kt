@@ -22,8 +22,6 @@ import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
-import com.singularity.todo.core.notifications.JvmNotificationPort
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
@@ -149,8 +147,6 @@ actual fun platformModule(): Module = module {
     // ─── Platform Ports ────────────────────────────────────────────────
 
     single<SecureStoragePort> { JvmSecureStorage() }
-
-    single<NotificationPort> { JvmNotificationPort() }
 
     // NoOp on JVM — TaskTitleRow / ChecklistItemRow inject Haptic unconditionally,
     // so the definition must exist or task detail composition fails.
