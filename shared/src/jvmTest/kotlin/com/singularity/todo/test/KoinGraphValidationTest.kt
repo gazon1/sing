@@ -1,72 +1,20 @@
 package com.singularity.todo.test
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import kotlin.time.Clock
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import com.singularity.todo.core.backup.BackupCodec
-import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
-import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.RoomUnitOfWork
-import com.singularity.todo.core.database.UnitOfWork
-import com.singularity.todo.core.database.contract.createSqlDriver
-import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.di.domainModule
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncViewModel
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
-import com.singularity.todo.core.files.FileRevealer
-import com.singularity.todo.core.files.FileSharePort
-import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.files.JvmFileRevealer
-import com.singularity.todo.core.files.JvmFileSharePort
-import com.singularity.todo.core.files.JvmFileSystem
-import com.singularity.todo.core.files.JvmSharePort
-import com.singularity.todo.core.files.SharePort
-import com.singularity.todo.core.log.LogBundleExporter
-import com.singularity.todo.core.security.JvmSecureStorage
-import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
-import com.singularity.todo.core.work.BackgroundWorkScheduler
-import com.singularity.todo.core.work.BackgroundJobCatalog
-import com.singularity.todo.core.work.JvmBackgroundWorkScheduler
-import com.singularity.todo.core.sync.work.JvmSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncEngine
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.DelayLoopGoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.gate.gateModule
-import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
-import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
-import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
-import com.singularity.todo.feature.pomodoro.PomodoroTimer
-import com.singularity.todo.feature.reminders.JvmReminderScheduler
-import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.junit.jupiter.api.Test
-import org.koin.core.module.Module
-import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
-import org.koin.dsl.module
 import org.junit.jupiter.api.Tag
-import java.io.File
 import kotlin.test.assertNotNull
-
-
 
 /**
  * Validates the Koin DI graph for desktop JVM — checks that every singleton
@@ -123,9 +71,10 @@ class KoinGraphValidationTest {
             //
             // These two were added because the calendar-sync bindings stopped being
             // resolvable-by-accident once they started composing their failure handler from the
-            // injected port. The `CrashReportingPort` and `Logger` bindings above are what that
-            // change required here, and their absence is exactly the class of defect this test
-            // exists to find: a graph that is incomplete in a way nothing else notices.
+            // injected port. The `CrashReportingPort` and `Logger` bindings it needs live in
+            // `desktopPlatformModule()`, which is where that change had to add them — and their
+            // absence is exactly the class of defect this test exists to find: a graph that is
+            // incomplete in a way nothing else notices.
             assertNotNull(app.koin.get<CalendarSyncOrchestrator>())
             assertNotNull(app.koin.get<CalendarSyncViewModel>())
             // The Google pass is a factory chain (coordinator → engine → applier → DAOs),
