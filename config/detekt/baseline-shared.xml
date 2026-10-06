@@ -13,7 +13,6 @@
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19)</ID>
     <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(thisWeekEnd, nextMon, nextFri, nextSun, followingMon)</ID>
     <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
-    <ID>ComplexCondition:JvmNotificationPort.kt:JvmNotificationPort$s.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' || it == '/' }</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
     <ID>CyclomaticComplexMethod:A2uiParser.kt:A2uiParser$private fun parseNode: UiNode?</ID>
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
@@ -37,7 +36,6 @@
     <ID>EndOfSentenceFormat:DraftMviViewModelTest.kt:TestDraft$ Minimal draft for testing </ID>
     <ID>EndOfSentenceFormat:DraftMviViewModelTest.kt:TestDraftVm$ Concrete implementation under test </ID>
     <ID>EndOfSentenceFormat:LlmUseCase.kt:ProjectReviewUseCase$ ProjectReviewTool returns raw text — special case, not using the generic factory </ID>
-    <ID>EndOfSentenceFormat:PlatformModule.kt:* Platform-specific bindings: * - Database DAOs (TaskDao, NoteDao, ProjectDao, TagDao, SyncOutboxDao, AttachmentDao, ReminderDao) * - [com.singularity.todo.core.security.SecureStoragePort] * - [com.singularity.todo.core.notifications.NotificationPort] * - [com.singularity.todo.core.files.FileSystem] * - [com.singularity.todo.core.backup.BackupCodec] * - [com.singularity.todo.core.observability.CrashReportingPort] * - [ai.koog.prompt.executor.model.PromptExecutor] * - [androidx.datastore.core.DataStore] — Android: Preferences DataStore; JVM: FileDataStore</ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.EQ$ Equal to </ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.GE$ Greater than or equal </ID>
     <ID>EndOfSentenceFormat:Relation.kt:Relation.GT$ Greater than </ID>

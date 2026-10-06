@@ -7,7 +7,6 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileStat
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
@@ -53,31 +52,6 @@ class InMemorySecureStorage : SecureStoragePort {
     override fun isHardwareBacked(): Boolean = false
 }
 
-/** No-op [NotificationPort]; the JVM real one shells out to `notify-send`/`at`. */
-class InertNotificationPort : NotificationPort {
-    val scheduled = mutableListOf<String>()
-    val cancelled = mutableListOf<String>()
-
-    override val isAvailable: Boolean = false
-
-    override suspend fun scheduleAt(
-        key: String,
-        title: String,
-        body: String,
-        fireAtEpochMs: Long,
-        payload: String?,
-        viewId: String?,
-    ) {
-        scheduled += key
-    }
-
-    override suspend fun cancel(key: String) {
-        cancelled += key
-    }
-
-    override suspend fun cancelAll() {
-        cancelled.clear()
-    }
 }
 
 /** In-memory [FileSystem]; nothing reaches the real filesystem. */

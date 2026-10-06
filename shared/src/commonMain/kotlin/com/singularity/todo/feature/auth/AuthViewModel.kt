@@ -172,8 +172,21 @@ class AuthViewModel(
         }
     }
 
+    /**
+     * Signs out, and says so when it does not.
+     *
+     * The failure used to be dropped, and dropping it is worse here than anywhere else:
+     * the user leaves the auth screen believing the account is closed while the
+     * session it was supposed to end is still on the device. Nothing about the screen
+     * says otherwise, and the next thing they learn is that their data was still there.
+     *
+     * `emitError` rather than a hand-written `fold` because the siblings above report to
+     * the user but never to the crash reporter, so a sign-out that fails the same way a
+     * sign-in fails is currently the one path that leaves no trace anywhere. The seam
+     * already does both.
+     */
     private fun signOut() {
-        vmScope.launch {
+        emitError("Sign out failed", { msg -> AuthUiEvent.Error("Sign out failed: $msg") }) {
             authRepository.signOut()
         }
     }

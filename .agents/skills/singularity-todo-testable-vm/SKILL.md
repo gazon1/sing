@@ -29,7 +29,7 @@ This skill documents the **canonical testable pattern** including the MviViewMod
 ```kotlin
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope,  // no default — see below
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
     initialState = TagsUiState.Loading,
     scope = scope,
@@ -91,7 +91,13 @@ sealed interface TagsUiEvent : MviEvent {
 
 ## Why `AutoCloseableCoroutineScope` (not `CoroutineScope`)?
 
-`AutoCloseableCoroutineScope` implements both `CoroutineScope` and `AutoCloseable`. This lets us register cleanup via `addCloseable(scope)` (the ViewModel lifecycle 2.8+ API) instead of overriding `onCleared()`. The default ctor `AutoCloseableCoroutineScope()` uses `createBackgroundScope()` internally (a `CoroutineScope(SupervisorJob() + Dispatchers.Default)` for production, controllable per-test).
+`AutoCloseableCoroutineScope` implements both `CoroutineScope` and `AutoCloseable`. This lets us register cleanup via `addCloseable(scope)` (the ViewModel lifecycle 2.8+ API) instead of overriding `onCleared()`. **There is no default constructor.** `AutoCloseableCoroutineScope` takes a `CoroutineContext`
+and nothing else, so a ViewModel that wants one has to be handed one. Production passes
+`createBackgroundScope(crashReportingFailureHandler(...))`; a test passes `testScope(this)`.
+
+A default argument of `AutoCloseableCoroutineScope()` cannot be written, and an earlier version
+of this skill showed it. A caller who believed it would silently get a scope with **no failure
+handler** — exactly the state `BackgroundScope.kt` exists to prevent.
 
 See `core/coroutines/AutoCloseableCoroutineScope.kt` for the full rationale.
 

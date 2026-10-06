@@ -47,6 +47,7 @@ class AuthViewModelTest {
     private fun TestScope.viewModel(
         signIn: Result<Unit> = Result.success(Unit),
         signUp: Result<Unit> = Result.success(Unit),
+        signOut: Result<Unit> = Result.success(Unit),
         /**
          * The session left behind by a successful attempt.
          *
@@ -81,9 +82,17 @@ class AuthViewModelTest {
             }
 
             override suspend fun signInAnonymously() = Result.success(Unit)
+
+            /**
+             * A sign-out that fails leaves the session standing.
+             *
+             * That is the shape that made the dropped failure expensive: the user is
+             * told nothing, walks away from the screen believing the account is closed,
+             * and the session it should have ended is still on the device.
+             */
             override suspend fun signOut(): Result<Unit> {
-                sessions.value = Session.SignedOut
-                return Result.success(Unit)
+                if (signOut.isSuccess) sessions.value = Session.SignedOut
+                return signOut
             }
 
             override suspend fun migrateAnonymousTo(email: String, password: String) = Result.success(Unit)
@@ -334,6 +343,85 @@ class AuthViewModelTest {
         awaitState { viewModel.state.value is AuthUiState.Idle }
 
         assertIs<AuthUiState.Idle>(viewModel.state.value)
+    }
+
+    // ── Signing out ──────────────────────────────────────────────────────
+
+    /**
+     * A sign-out that did not happen is reported.
+     *
+     * This is the negative control for the dropped failure. Before the fix the view
+     * model launched the call, read nothing back, and returned — the user walked away
+     * from the auth screen believing the account was closed while the session it was
+     * meant to end was still on the device, and the next thing they learned was that
+     * their data was still there too.
+     *
+     * The session surviving is asserted as well as the event, because the event alone
+     * would pass against a fix that merely announced a failure the repository had not
+     * actually suffered.
+     */
+    @Test
+    fun `a sign-out that fails is reported rather than swallowed`() = runTest {
+        sessions.value = Session.SignedIn(
+            userId = UserId.generate(),
+            email = "a@b.c",
+            accessToken = "access",
+            refreshToken = "refresh",
+        )
+        val viewModel = viewModel(signOut = Result.failure(AppError.Network("offline")))
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SignOut)
+            runCurrent()
+
+            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+            assertNotNull(
+                error,
+                "the sign-out did not happen and nothing told the user so: $events",
+            )
+            assertTrue(
+                error.message.contains("sign out", ignoreCase = true),
+                "the message has to name what failed: ${error.message}",
+            )
+            assertIs<Session.SignedIn>(
+                sessions.value,
+                "the session survives a sign-out that failed — which is the whole " +
+                    "reason the user has to be told",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a successful sign-out reports no error`() = runTest {
+        sessions.value = Session.SignedIn(
+            userId = UserId.generate(),
+            email = "a@b.c",
+            accessToken = "access",
+            refreshToken = "refresh",
+        )
+        val viewModel = viewModel()
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SignOut)
+            runCurrent()
+
+            assertEquals(
+                emptyList(),
+                events.filterIsInstance<AuthUiEvent.Error>(),
+                "the sign-out worked; an error here would teach users to ignore it",
+            )
+            assertEquals(Session.SignedOut, sessions.value)
+        } finally {
+            collector.cancel()
+        }
     }
 
     // ── Infrastructure ──────────────────────────────────────────────────────

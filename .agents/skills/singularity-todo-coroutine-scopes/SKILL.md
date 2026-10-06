@@ -87,12 +87,23 @@ The `createBackgroundScope()` call is made **once** when Koin instantiates the s
 
 ```kotlin
 // shared/src/commonMain/kotlin/com/singularity/todo/core/coroutines/BackgroundScope.kt
-expect fun createBackgroundScope(): CoroutineScope
-
-// shared/src/{jvmMain,androidMain}/.../BackgroundScope.{jvm,android}.kt
-actual fun createBackgroundScope(): CoroutineScope =
-    CoroutineScope(SupervisorJob() + Dispatchers.Default)
+fun createBackgroundScope(failureHandler: (Throwable) -> Unit): CoroutineScope
 ```
+
+**One function, in commonMain — there is no `expect`/`actual` pair, and there must not
+be one.** Per AGENTS.md the only `expect`/`actual` seam in this project is `platformModule()`.
+An earlier version of this skill showed the split below; it never existed, and adding it
+would put platform declarations in the one place the project forbids them.
+
+```kotlin
+// DO NOT
+expect fun createBackgroundScope(): CoroutineScope
+actual fun createBackgroundScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+```
+
+**The `failureHandler` argument is mandatory by design** (`BackgroundScope.kt`): a scope with
+no exception policy kills an Android process outright when a child throws, so the parameter has
+no default. Pass `crashReportingFailureHandler(get())`, as `PlatformModule` does.
 
 **Naming rationale:** `createBackgroundScope()` makes it obvious that each call returns a **new** scope. Not `backgroundScope()` (sounds like shared access) or `applicationScope()` (Android-specific lifecycle association).
 
@@ -124,7 +135,7 @@ fun example() = runTest {
     val vm = FooViewModel(
         deps = deps,
         // ...
-        scope = backgroundScope,  // ← test scope, auto-cancelled at teardown
+        scope = testScope(this),  // ← NOT backgroundScope; see test-helpers/SKILL.md
     )
     advanceUntilIdle()
     // assertions...
