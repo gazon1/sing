@@ -231,13 +231,21 @@ class NotesListViewModel(
         }
     }
 
+    /**
+     * Deletes every selected note.
+     *
+     * Every delete is attempted even if one fails — a bulk operation that stops at the
+     * first failure leaves the selection describing a half-applied request — and the
+     * first failure is what gets reported. Which one is arbitrary, and saying so is
+     * honest: the alternative is to report nothing until every delete had run, and a
+     * user watching a selection clear has no way to tell that several notes did not go.
+     */
     private fun deleteSelected() {
         val ids = _selectedIds.value.toList()
-        scope.launch {
-            ids.forEach { id ->
-                repo.delete(id)
-            }
+        emitError("Delete failed", { msg -> NotesUiEvent.Error("Delete failed: $msg") }) {
+            val firstFailure = ids.map { id -> repo.delete(id) }.firstOrNull { it.isFailure }
             exitSelectionMode()
+            firstFailure ?: Result.success(Unit)
         }
     }
 
@@ -261,8 +269,17 @@ class NotesListViewModel(
 
     // ─── Delete ───────────────────────────────────────────────────────────
 
+    /**
+     * Deletes one note.
+     *
+     * Pin, archive and unarchive above all route through [emitError], and this one did
+     * not — so a note that failed to delete disappeared from the list the user was
+     * looking at, and the one screen that would have told them the delete did not happen
+     * was never asked. A delete is the mutation a user is least likely to retry on their
+     * own, which is exactly why it must not fail quietly.
+     */
     private fun delete(id: NoteId) {
-        scope.launch {
+        emitError("Delete failed", { msg -> NotesUiEvent.Error("Delete failed: $msg") }) {
             repo.delete(id)
         }
     }

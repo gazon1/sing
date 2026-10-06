@@ -3,12 +3,14 @@
 package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.presentation.NotesIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -18,6 +20,8 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * Smoke tests for [NotesListViewModel] — verify state initialization and filter changes.
@@ -219,5 +223,105 @@ class NotesListViewModelTest {
             vm.listState().unpinned.size,
             "clearing the query must bring the whole list back",
         )
+    }
+
+    // ── A delete that did not happen ────────────────────────────────────
+
+    /**
+     * A delete that failed reaches the user.
+     *
+     * The negative control for the dropped `Result`. Pin, archive and unarchive in
+     * this same view model all route through `emitError`; delete was the one mutation
+     * that did not, so a note that failed to delete vanished from the list with nothing
+     * to say why. A delete is the change a user is least likely to retry on their own,
+     * which is exactly the case that must not fail quietly.
+     */
+    @Test
+    fun `a delete that fails is reported`() = runTest {
+        val id = seedNote("Doomed")
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+        val events = mutableListOf<NotesUiEvent>()
+        val collector = launch { vm.events.collect { events += it } }
+        try {
+            fakeNotesRepo.deleteOverride = Result.failure(AppError.Persistence("disk is full"))
+
+            vm.onIntent(NotesIntent.Delete(id))
+            advanceUntilIdle()
+            runCurrent()
+
+            val error = events.filterIsInstance<NotesUiEvent.Error>().singleOrNull()
+            assertNotNull(error, "the note was never deleted and nothing said so: $events")
+            assertTrue(
+                error.message.contains("delete", ignoreCase = true),
+                "the message has to name what failed: ${error.message}",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a successful delete reports no error`() = runTest {
+        val id = seedNote("Doomed")
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+        val events = mutableListOf<NotesUiEvent>()
+        val collector = launch { vm.events.collect { events += it } }
+        try {
+            vm.onIntent(NotesIntent.Delete(id))
+            advanceUntilIdle()
+            runCurrent()
+
+            assertEquals(
+                emptyList(),
+                events.filterIsInstance<NotesUiEvent.Error>(),
+                "the delete worked; an error here would teach users to ignore it",
+            )
+            assertEquals(emptyList(), vm.listState().unpinned.map { it.id })
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    /**
+     * Bulk delete reports too, and attempts every note even after one fails.
+     *
+     * Stopping at the first failure leaves the selection describing a half-applied
+     * request; reporting only after the last one leaves a user watching the selection
+     * clear with no way to tell that some notes did not go. So: every delete runs, and
+     * one failure is surfaced.
+     */
+    @Test
+    fun `a bulk delete that fails still attempts the rest and says so`() = runTest {
+        val first = seedNote("One")
+        val second = seedNote("Two")
+        val third = seedNote("Three")
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+        val events = mutableListOf<NotesUiEvent>()
+        val collector = launch { vm.events.collect { events += it } }
+        try {
+            vm.onIntent(NotesIntent.EnterSelection(first))
+            vm.onIntent(NotesIntent.ToggleSelection(second))
+            vm.onIntent(NotesIntent.ToggleSelection(third))
+            runCurrent()
+
+            fakeNotesRepo.deleteOverride = Result.failure(AppError.Persistence("disk is full"))
+
+            vm.onIntent(NotesIntent.DeleteSelected)
+            advanceUntilIdle()
+            runCurrent()
+
+            assertNotNull(
+                events.filterIsInstance<NotesUiEvent.Error>().singleOrNull(),
+                "a bulk delete that failed on every note reported nothing: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
     }
 }
