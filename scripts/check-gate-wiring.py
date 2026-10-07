@@ -374,6 +374,27 @@ SCRIPT_GATES = [
         sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'kermit-koin' not in l) + '\\n')",
         why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one",
     ),
+    ScriptGate(
+        name="supabase-schema-integrity",
+        cmd=[sys.executable, "scripts/check-supabase-schema-integrity.py"],
+        # A migration, not a source file. The gate's subject is the agreement between a
+        # file's header and its body, so the control has to move the body: appending a
+        # function with no fingerprint is exactly what an edit to the schema looks like
+        # before anyone re-derives the md5s, and it is the failure the gate exists for.
+        #
+        # Corrupting a fingerprint's *value* would have proved nothing. The gate has no
+        # database, so it cannot know the correct md5; a control asserting a value it cannot
+        # verify would be asserting the gate's own limit rather than testing the rule.
+        sabotage_path="supabase/migrations/2026-10-07-sync_schema.sql",
+        sabotage=(
+            "p.write_text(p.read_text() + \"\\ncreate or replace function \"\n"
+            "             \"public.sync_control_probe(p_type text)\\n\"\n"
+            "             \"returns text as $$ select p_type $$ language sql;\\n\")"
+        ),
+        why="a function added without a fingerprint makes the header understate the schema, and the "
+             "header is the part a reader trusts; the live half of #221 needs credentials and stays "
+             "manual, so this is the half that can be a gate",
+    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both

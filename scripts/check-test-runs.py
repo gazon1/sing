@@ -311,6 +311,26 @@ def missing_classes(expected: set[str], executed: set[str]) -> list[str]:
     return sorted(expected - executed)
 
 
+def read_run_manifest(detail_dir: pathlib.Path):
+    """The manifest `shared/build.gradle.kts` writes beside the XML, or None.
+
+    Absent is normal and means "before this existed", not "filtered": a tree whose test
+    task predates the manifest must not be reported as a filtered run. So this returns None
+    and every caller treats missing as unknown rather than as a verdict.
+    """
+    path = detail_dir / "run-manifest.properties"
+    if not path.is_file():
+        return None
+    fields = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        fields[key.strip()] = value.strip()
+    return fields
+
+
 def newest_report(detail_dir: pathlib.Path):
     """Epoch mtime of the most recent JUnit XML, or None when there is none."""
     if not detail_dir.is_dir():
@@ -679,6 +699,46 @@ def main() -> int:
         print("\nTest runs below the recorded floor — a suite stopped running:", file=sys.stderr)
         for line in regressions:
             print(f"  {line}", file=sys.stderr)
+
+        partial = [
+            (label, read_run_manifest(ROOT / SOURCE_SETS[label]))
+            for label in sorted(observed)
+            if label in SOURCE_SETS
+        ]
+        partial = [(label, m) for label, m in partial if m and m.get("partial") == "true"]
+
+        if partial:
+            # The diagnosis, not a better answer (#222).
+            #
+            # Without this the gate says "a suite stopped running" about a tree where
+            # nothing has: `./gw :shared:jvmTest --tests 'OneClass'` is an ordinary
+            # development command, it rewrites the XML directory with one class's results,
+            # and every gate that reads that directory inherits the damage. Observed twice
+            # in one session, including as `check-gate-wiring` refusing to trust the
+            # `test-runs` control because the gate was "already failing on a clean tree" —
+            # a true sentence that sends the next person to the wrong tree.
+            #
+            # So: the counts were never evidence, and the fix is to re-run, not to
+            # investigate a regression that does not exist.
+            print(
+                "\nThese runs were FILTERED, so their counts are not evidence about the "
+                "suite:",
+                file=sys.stderr,
+            )
+            for label, manifest in partial:
+                print(
+                    f"  {label}: filters={manifest.get('filters', '?')} "
+                    f"({manifest.get('executedClasses', '?')} classes ran)",
+                    file=sys.stderr,
+                )
+            print(
+                "Re-run without --tests before reading anything into the numbers above.\n"
+                "Gradle leaves no other trace of a narrowed run, which is why "
+                "shared/build.gradle.kts writes the manifest next to the XML.",
+                file=sys.stderr,
+            )
+            return 1
+
         print(
             "\nUsually an untagged class, a JUnit 4 class on the Vintage engine, or a\n"
             "narrowed -Ptest.tags filter. See TestTagCoverageTest and the note in\n"

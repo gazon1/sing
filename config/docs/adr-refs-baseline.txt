@@ -44,3 +44,18 @@ docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-discard-false-duplicates-acro
 docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-evaluator-does-not-filter-archived
 docs/plans/2026-10-03-mr3-retro-gate.md:2026-10-03-regexp-always-ignore-case
 openspec/changes/bulk-import-port/design.md:2026-10-03-assert-canwrite-adr
+
+# Added 2026-10-07. One reference, same shape as the five above: an ADR cited
+# as "Prior" that was never written.
+# `2026-10-07-two-of-three-background-jobs-were-not-buildable-yet.md` cites
+# `2026-10-06-desktop-background-work-executor.md`, which is absent from
+# docs/decisions/, its archive/, and docs/plans/ — not renamed, not moved. The
+# decision it refers to was made (the executor exists and has its own ADR,
+# 2026-10-05-background-failure-handler-and-the-guard-it-behind) but the
+# document was not.
+#
+# Not corrected to point at that ADR: a reader following the reference wants the
+# decision about the executor specifically, and silently redirecting them to a
+# neighbouring document is how a citation starts meaning something other than it
+# said. The line disappears when the ADR is written.
+docs/decisions/2026-10-07-two-of-three-background-jobs-were-not-buildable-yet.md:2026-10-06-desktop-background-work-executor

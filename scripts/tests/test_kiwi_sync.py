@@ -32,6 +32,8 @@ import kiwi_client  # noqa: E402  (resolved from the sys.path entry above)
 
 sync = _sync
 
+_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
 
 def _write_xml(directory: pathlib.Path, name: str, body: str) -> pathlib.Path:
     target = directory / name
@@ -236,6 +238,82 @@ class FeatureOfTest(unittest.TestCase):
                 self.assertEqual(sync._feature_of(fqn), expected)
 
 
+def unjustified_skips(repo_root: pathlib.Path, skipped):
+    """Skip entries that no longer deserve to be skipped.
+
+    Extracted so the self-test can hand it synthetic entries. The property is a claim about
+    files on disk, and a claim about files can only be tested by feeding the function files
+    that are in known states — the three cases below, none of which exist in the repository
+    and all of which the hand-written list this replaced could not have expressed.
+    """
+    problems = []
+    for name, rel in skipped:
+        path = repo_root / rel
+        if not path.is_file():
+            problems.append(f"{name}: {rel} is not a file")
+            continue
+        if sync.has_runnable_test(path.read_text(encoding="utf-8")):
+            problems.append(
+                f"{name}: {rel} is skipped but has a runnable test"
+            )
+    return problems
+
+
+class SkipJustificationTest(unittest.TestCase):
+    """The controls for `unjustified_skips`, which is the property that replaced a list."""
+
+    def test_a_ghost_entry_is_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            self.assertEqual(
+                ["GhostTest: nope/NotThereTest.kt is not a file"],
+                unjustified_skips(root, [("GhostTest", "nope/NotThereTest.kt")]),
+            )
+
+    def test_a_base_that_gained_a_subclass_is_reported(self):
+        # The drift the hand-written list could not catch: the name is unchanged, the file
+        # is unchanged, but the file now contains something JUnit will run. The entry stays
+        # in the skip list and the test class silently disappears from the inventory.
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            (root / "Contract").mkdir()
+            path = root / "Contract" / "TaskRepositoryContractTest.kt"
+            path.write_text(
+                "abstract class TaskRepositoryContractTest {\n"
+                "  protected abstract fun make(): Any\n"
+                "}\n"
+            )
+            self.assertEqual(
+                [],
+                unjustified_skips(root, [("TaskRepositoryContractTest", str(path))]),
+                "an abstract-only file is correctly skipped",
+            )
+            path.write_text(
+                "abstract class TaskRepositoryContractTest {\n"
+                "  protected abstract fun make(): Any\n"
+                "}\n"
+                "class RoomContractTest : TaskRepositoryContractTest() {\n"
+                "  override fun make(): Any = Any()\n"
+                "  @Test fun real() {}\n"
+                "}\n"
+            )
+            self.assertEqual(
+                [
+                    "TaskRepositoryContractTest: %s is skipped but has a runnable test"
+                    % path
+                ],
+                unjustified_skips(root, [("TaskRepositoryContractTest", str(path))]),
+                "a base that gained a concrete subclass must stop being skipped",
+            )
+
+    def test_a_genuinely_unrunnable_helper_is_accepted(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            path = root / "RunVmTest.kt"
+            path.write_text("class RunVmTest { fun run() {} }")
+            self.assertEqual([], unjustified_skips(root, [("RunVmTest", str(path))]))
+
+
 class ScanRepositoryTest(unittest.TestCase):
     """Скан реального репозитория."""
 
@@ -305,26 +383,63 @@ class ScanRepositoryTest(unittest.TestCase):
         # просто увеличивать число, потому что вернувшиеся хелперы выглядят
         # ровно так же, как новые тесты.
 
-    def test_abstract_bases_and_helpers_are_excluded(self):
-        # Класс, который никогда не даёт прогона (abstract-база контракта или
-        # хелпер с суффиксом Test), в Kiwi становится вечным «кейсом без
-        # прогона» и портит главный сигнал отчёта. Таких перечислено явно:
-        # иначе отсев выглядит как «пропало N кейсов» без объяснения.
-        #
-        # `ApplyOutcomeArmsTest` added on 2026-10-07 by 7582a27f — the registry
-        # entry landed, this list did not, and the suite has been red on a clean
-        # `origin/main` since. A list that has to be updated by hand next to the
-        # registry it mirrors is exactly the kind of pair that drifts; the comment
-        # above this assertion is the thing that should have changed with it.
+    def test_every_skipped_file_is_really_not_runnable(self):
+        """The skip list is derived from the files, so it is checked against them.
+
+        This used to assert a hand-written list of five names, and that list broke on
+        2026-10-07: `7582a27f` added `ApplyOutcomeArmsTest` to the scanner's bookkeeping
+        and the suite went red on a clean `origin/main` until the name was added by hand.
+        Two artefacts a file apart, one edited without the other — the same failure mode
+        as the platform mirror, and the same fix: derive instead of remember.
+
+        The derived property is stronger than the list ever was. The list could only say
+        "these five are expected"; this says each one is a real file that
+        `has_runnable_test()` rejects *right now*, which also catches the opposite drift —
+        a base class that acquired a concrete subclass and is still being skipped.
+        `SkipJustificationTest` covers the rule itself.
+        """
         self.assertEqual(
-            sorted(fqn.rsplit(".", 1)[-1] for fqn, _ in sync.SKIPPED_NON_TESTS),
-            [
-                "ApplyOutcomeArmsTest",
-                "FileSystemContractTest",
-                "IsolatedComposeTest",
-                "RunVmTest",
-                "TaskRepositoryContractTest",
-            ],
+            [],
+            unjustified_skips(_REPO_ROOT, sync.SKIPPED_NON_TESTS),
+            "these entries are skipped without deserving it — a skipped test class is "
+            "invisible to Kiwi, and the inventory count only has a floor and a ceiling",
+        )
+
+    def test_no_test_file_is_neither_inventoried_nor_skipped(self):
+        """Every `*Test.kt` is accounted for.
+
+        The list above proves each skip is justified; this proves nothing fell through
+        between the two. A scanner change that stopped walking a whole subtree would keep
+        both the inventory count and the skip list looking plausible — the count only has
+        a floor and a ceiling, and a subtree lost that happened to be small would sit
+        comfortably between them.
+        """
+        accounted = {t.rel_path for t in self.tests} | {
+            rel for _, rel in sync.SKIPPED_NON_TESTS
+        }
+        on_disk = {
+            path.relative_to(_REPO_ROOT).as_posix()
+            for _, root in sync.TEST_ROOTS
+            if root.exists()
+            for path in root.rglob("*Test.kt")
+        }
+        self.assertEqual(
+            [],
+            sorted(on_disk - accounted),
+            "these *Test.kt files are in neither the inventory nor the skip list — they "
+            "are invisible to Kiwi entirely",
+        )
+
+    def test_the_skip_list_stays_small(self):
+        # A ceiling rather than a list. The point of the skip list is that a handful of
+        # bases and helpers do not produce a run; a large one means the predicate started
+        # rejecting real tests, which the per-entry check above would not flag on its own
+        # because each entry would still be genuinely unrunnable.
+        self.assertLess(
+            len(sync.SKIPPED_NON_TESTS),
+            20,
+            "the skip list has grown to "
+            f"{len(sync.SKIPPED_NON_TESTS)}; is_runnable_test_class is rejecting real tests?",
         )
 
     def test_every_case_carries_plan_and_path(self):
