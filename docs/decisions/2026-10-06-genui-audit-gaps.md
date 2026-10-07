@@ -64,10 +64,25 @@ runs the parser, the catalog, the validator and the counters — every *contract
 the *drawing* checks. A renderer registered against the right name that draws nothing is invisible
 to the fast loop.
 
-This is a correct classification, not a mistake, and the cheap fix would be wrong: what actually
-belongs on the fast path is a structural check that every catalog kind has a registered renderer,
-which needs no Compose harness at all. That check does not exist yet, and `find-unwired-surfaces.py`
-does not cover it because a renderer *is* wired — it is wired to a name that produces nothing.
+This is a correct classification, not a mistake, and the cheap fix would be wrong: re-tagging puts a
+file read and a Compose harness in the loop that is supposed to be quick, and it still would not catch a
+renderer that draws an *empty box*.
+
+**Corrected after review.** This section originally claimed that "a structural check that every catalog
+kind has a registered renderer... does not exist yet". That was wrong, and wrong in a way worth
+recording: `SingularityCatalogTest` has carried `everyCatalogComponentHasARenderer` (plus
+`catalogDeclaresEverySerializableNodeType` and `everyRendererHasACatalogEntry`) as `@Tag("fast")` since
+the catalog landed. The structural check exists, runs on every default build, and covers the exact case
+I described as uncovered.
+
+So the real gap is narrower than "the fast loop cannot see drawing": it cannot see *pixels*. A
+renderer registered under the right name that emits an empty body still passes. The honest statement of
+the boundary is that the fast loop proves every kind is **wired and registered**, and only the Compose
+tests prove any of them **renders something** — and even those check a handful of screens, not all
+seventeen kinds.
+
+**Why deferred:** closing the last gap means either a Compose test per kind or a snapshot harness, and
+that is new work with a new failure mode, not a fix.
 
 **Why deferred:** it is new work with a new failure mode, not a fix. Doing it while auditing would
 have meant adding a check whose own correctness is unverified.

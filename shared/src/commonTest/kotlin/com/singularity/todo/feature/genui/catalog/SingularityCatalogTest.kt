@@ -59,6 +59,7 @@ class SingularityCatalogTest {
         }
     }
 
+    @Test
     fun aDueDateWithNeitherPathNorValueIsRejected() {
         // The one rule of this component that is not expressible as a required property: either
         // source is acceptable, and a component with neither has nothing to draw.
@@ -71,6 +72,7 @@ class SingularityCatalogTest {
         assertEquals(1, parsed.errors.size)
     }
 
+    @Test
     fun componentNamesAreUnique() {
         // A duplicated name would silently shadow a schema in the map, so the count has to match
         // the declaration count rather than the set count.
