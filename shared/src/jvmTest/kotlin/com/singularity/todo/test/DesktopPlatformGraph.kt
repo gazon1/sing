@@ -19,8 +19,6 @@ import com.singularity.todo.core.database.RoomUnitOfWork
 import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
-import com.singularity.todo.core.database.RoomUnitOfWork
-import com.singularity.todo.core.database.UnitOfWork
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
