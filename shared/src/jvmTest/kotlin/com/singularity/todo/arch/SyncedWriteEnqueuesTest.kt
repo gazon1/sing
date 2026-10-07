@@ -90,6 +90,89 @@ class SyncedWriteEnqueuesTest {
     }
 
     @Test
+    fun `an unscoped write is guarded, or takes its identity from the current user`() {
+        // The canonical pipeline's first step, in the shape that is decidable from source.
+        //
+        // `GenericUserScopedRepository`'s KDoc states the sequence as
+        // assertCanWrite → dao.upsert → enqueue, which reads as though implementations miss
+        // the guard or have it in the wrong place. Neither is true: most of the 37 methods
+        // that write a synced row take the owner *in the query* —
+        // `softDeleteForUser(id, ts, uid)`, `setPinnedForUser(…, uid)` — and need no guard,
+        // because the scope is in the WHERE clause. A rule reading "writes and enqueues,
+        // therefore must guard" reports twenty of them and is wrong twenty times.
+        //
+        // What is left after discounting the scoped calls is decidable: an unscoped write
+        // must be preceded by the guard, or build its row from the ambient current user —
+        // which is what a `create` does by construction.
+        //
+        // The order is checked, not just the presence. `GUARD_BEFORE_WRITE` matches the two
+        // as a sequence, because a guard *after* the write is a cross-user write that has
+        // already happened, and a presence check cannot tell the two apart.
+        val offenders = repositoryFiles().flatMap { file ->
+            val source = file.readText()
+            if (!hasSyncDependency(source)) return@flatMap emptyList()
+            // The apply handlers write unscoped with no guard, and correctly so: the row is
+            // being written *because* the server sent it, and the owner comes from the
+            // document. Exempt for the same reason as everywhere else — derived, not listed.
+            val applyHandlers = applyHandlerNames()
+            methods(source)
+                .filterNot { it.name in applyHandlers }
+                .filter { method -> UNSCOPED_WRITE.containsMatchIn(method.body) }
+                .filterNot { method -> GUARD_BEFORE_WRITE.containsMatchIn(method.body) }
+                .filterNot { method -> AMBIENT_IDENTITY.containsMatchIn(method.body) }
+                .map { "${file.name}:${it.line} ${it.name} writes unscoped with no guard" }
+        }
+
+        if (offenders.isNotEmpty()) {
+            fail(
+                "These writes carry no owner in the query, no cross-user guard, and no ambient " +
+                    "identity to take one from:\n" +
+                    offenders.joinToString("\n") { "  $it" } +
+                    "\n\nEither the query takes the current user's id (`…ForUser(…, uid)`), or " +
+                    "the method guards with `currentUser.assertCanWrite(…)` **before** the " +
+                    "write, or it builds the row from `currentUser.scopedUserId`. A guard " +
+                    "after the write is a cross-user write that has already happened.",
+            )
+        }
+    }
+
+    @Test
+    fun `a method that writes twice enqueues twice`() {
+        // The partial-patch case. Both rules above ask whether an enqueue *exists* in a
+        // method, so a method that writes two synced rows and enqueues one passes them —
+        // and the row it forgot reaches this device and never reaches the server, which
+        // shows up as divergence on the second device, long after the merge.
+        //
+        // Not a violation today: measured across the 37 write methods, none has more writes
+        // than enqueues. The one with two of each is `TagGroupRepositoryImpl.delete`, which
+        // enqueues the group and its released members.
+        val applyHandlers = applyHandlerNames()
+        val notSynced = NOT_SYNCED_WRITES.map { it.first }.toSet()
+        val offenders = repositoryFiles().flatMap { file ->
+            val source = file.readText()
+            if (!hasSyncDependency(source)) return@flatMap emptyList()
+            methods(source)
+                .filterNot { it.name in applyHandlers || it.name in notSynced }
+                .map { it to WRITES_ROW_IN_BODY.findAll(it.body).count() }
+                .filter { (_, writes) -> writes > 1 }
+                .filter { (method, writes) -> ENQUEUES_IN_BODY.findAll(method.body).count() < writes }
+                .map {
+                    "${file.name}:${it.first.line} ${it.first.name} writes ${it.second} rows " +
+                        "and enqueues fewer"
+                }
+        }
+
+        if (offenders.isNotEmpty()) {
+            fail(
+                "These methods write more synced rows than they enqueue:\n" +
+                    offenders.joinToString("\n") { "  $it" } +
+                    "\n\nEach row needs its own patch, inside the same unitOfWork.write { … }. " +
+                    "A method that writes two and enqueues one converges only on this device.",
+            )
+        }
+    }
+
+    @Test
     fun `the exemption set comes from the writer, not from a list`() {
         // The control for the derivation above: a writer that dispatches to `upsert` must
         // yield those method names, and a writer that dispatches to something else must not
@@ -165,6 +248,23 @@ class SyncedWriteEnqueuesTest {
         val WRITES_ROW_IN_BODY = Regex(
             """Dao\.(upsert|insert|update\w*|softDelete\w*|set\w*|patch\w*|delete\w*)\(""",
         )
+
+        /** A write that carries no owner: the row's identity comes from the entity. */
+        val UNSCOPED_WRITE = Regex(
+            """Dao\.(upsert|insert|patch)\(""",
+        )
+
+        /**
+         * The guard, *before* the write. Matched as a sequence rather than as a presence
+         * check, because a guard after the write is the failure this exists to catch and
+         * "contains assertCanWrite" cannot tell the two apart.
+         */
+        val GUARD_BEFORE_WRITE = Regex(
+            """assertCanWrite\([\s\S]*?Dao\.(upsert|insert|patch)\(""",
+        )
+
+        /** Taking the owner from the ambient current user, which is a create by construction. */
+        val AMBIENT_IDENTITY = Regex("""scopedUserId|currentUser""")
 
         /**
          * Writes that are not synced columns.
