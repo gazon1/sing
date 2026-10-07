@@ -174,6 +174,20 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="yaml-duplicate-keys",
+        cmd=[sys.executable, "scripts/check-yaml-duplicate-keys.py", "--quiet"],
+        sabotage_path="config/detekt/detekt-rules-module.yml",
+        sabotage=(
+            "p.write_text(p.read_text().replace('    active: false\\n', '    active: false\\n    active: true\\n', 1))"
+        ),
+        why=(
+            "a repeated key is a hard error for SnakeYAML and silently last-one-wins "
+            "for other readers. :detekt-rules:detekt is the only consumer of this "
+            "file, and :shared/:desktopApp keep their own configs, so the two most-used "
+            "lint targets still pass while this module's config is unreachable."
+        ),
+    ),
+    ScriptGate(
         name="detekt-registrations",
         cmd=["./scripts/check-detekt-registrations.sh"],
         sabotage_path="config/detekt/detekt.yml",

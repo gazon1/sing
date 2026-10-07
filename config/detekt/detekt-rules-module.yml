@@ -363,75 +363,12 @@ ktlint:
     active: false
   PropertyName:
     active: true             # 8 findings: PascalCase `const`/`val` in companion objects
+  # The ktlint `filename` rule (reported as "contains a single class") fires on
+  # KDocEnforcementRules.kt, which groups a cohesive pair of private top-level rule
+  # classes in one file. One file per private class would fragment it for no benefit.
   Filename:
-    # 26 findings, nearly all files holding more than one declaration:
-    # CalendarSyncExceptions.kt, BackupFormatters.kt, AttachmentUploadService.kt.
-    # detekt wants one top-level declaration matching the file name; this project
-    # groups by concern.
-    #
-    # The same rule is also what fires on KDocEnforcementRules.kt, which groups a
-    # cohesive pair of private top-level rule classes in one file. One file per
-    # private class would fragment it for no benefit.
     active: false
-  # ── Declared 2026-10-04, second pass. `main` added findings for these five
-  # between the first declaration sweep and the rebase, and a rule that reports
-  # without being named is a rule nobody chose. All five are ktlint formatting
-  # rules whose detekt default agrees with `.editorconfig`, so each is active
-  # rather than switched off — none of them contradicts a documented convention
-  # the way BackingPropertyNaming and Filename do.
-  ArgumentListWrapping:
-    active: true             # 8 findings: multi-line call argument lists
-  PropertyWrapping:
-    active: true             # 2 findings: property initialisers split across lines
-  TrailingCommaOnCallSite:
-    active: true             # 2 findings: missing trailing comma in a call site
-  NoMultipleSpaces:
-    active: true             # 1 finding: padding inside an expression
-  SpacingBetweenDeclarationsWithComments:
-    active: true             # 1 finding: a KDoc block not followed by a blank line
-  NoUnusedImports:
-    active: true             # 3 findings fixed 2026-10-04; a 4th appeared in
-                             # TaskRowFlowTest after the rebase onto 5a175fdb and
-                             # is fixed there too — the count is only ever true
-                             # for the tree it was measured in
-  EmptyFunctionBlock:
-    active: true             # NoopCalendarSyncRepositoryImpl, FakeHlcFactory — the
-                             # no-op behaviour IS the point of those types
-  ComplexCondition:
-    active: true             # token-type chains in parsers, slug validator
-  Kdoc:
-    active: true             # 9 findings on KDoc block formatting
-  ClassSignature:
-    active: true             # 1 finding: FakeBackupCodec in a test
-  PackageName:
-    # The same 70 `feature.calendar_sync` sites `naming>PackageNaming` reports; the
-    # ktlint wrapper duplicates the check. See the note there for why the rename is
-    # still outstanding — the two sections move together.
-    active: true
-  Indentation:
-    # Note the kebab-case `indent:` key above is a no-op: the ktlint section does
-    # not validate keys, so it was silently doing nothing while this rule ran on
-    # its default. `active: false` for auto-correct per the JDK-NPE note above;
-    # the 1 finding is hand-fixable.
-    active: true
-    auto_correct: false
-  Wrapping:
-    active: true
-    auto_correct: true
-  # This is the mechanism behind the 120-vs-140 conflict, and it is worth writing
-  # down. `.editorconfig` declares 140, `style:MaxLineLength` and
-  # `ktlint:max-line-length` are both `active: false` — and the 17 findings at
-  # 121-131 characters come from the ktlint rule running on its *unconfigured*
-  # default of 120. Declared here at 120, which is the value that has been
-  # effective all along: this changes no behaviour, it just stops the number
-  # being an accident. The 120-vs-140 decision is still open; see
-  # deferred-backlog.md
-  # #two-line-length-authorities-detekt-default-120-beats-editorconfig-140.
-  MaximumLineLength:
-    active: true
-    maxLineLength: 120
-
-  # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
 # All new rules start in warn-only mode; promoted to error in MR-4.
 # NOTE: Rule-specific config (severity, active) added in MR-4 after baseline.

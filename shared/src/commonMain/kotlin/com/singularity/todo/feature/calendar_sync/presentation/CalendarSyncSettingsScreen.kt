@@ -27,7 +27,6 @@ import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
-import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.permission.rememberCalendarPermissionRequester
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarProvider.Google
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarProvider.SystemCalendar
@@ -425,14 +424,14 @@ private fun GoogleImportSection(state: CalendarSyncUiState, onIntent: (CalendarS
             checked = state.importFromGoogle,
             onCheckedChange = { onIntent(SetImportFromGoogle(it)) },
         )
-        // Read from the constant rather than from state, because there is no setting to
-        // read: `ImportWindow.DEFAULT` *is* the window the engine and the event source both
-        // default to. The day this becomes configurable it has to come from the settings
-        // repository instead — a literal copy of the engine's default is exactly the kind of
-        // duplication that silently drifts.
+        // Read from the state, which carries the window the engine is configured with.
+        // It used to read `ImportWindow.DEFAULT` directly, alongside two default
+        // arguments that named the same constant — three sites, and a fourth copy here
+        // was free to drift without anything noticing. The screen would then describe a
+        // window the pass does not use.
         Text(
-            text = "Imports events from the past ${formatWindowBound(ImportWindow.DEFAULT.past)} " +
-                "to ${formatWindowBound(ImportWindow.DEFAULT.future)}.",
+            text = "Imports events from the past ${formatWindowBound(state.importWindow.past)} " +
+                "to ${formatWindowBound(state.importWindow.future)}.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

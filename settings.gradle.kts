@@ -103,6 +103,9 @@ include(":desktopApp")
 include(":shared")
 include(":mcp-server")
 include(":detekt-rules")
+// A KSP processor, its own module: a detekt rule is handed one file at a
+// time and this question spans files. Not yet applied to :shared.
+include(":tools:unwritten-properties")
 
 // The source-available `pro` catalogue (FSL-1.1-ALv2, see LICENSE.pro).
 //

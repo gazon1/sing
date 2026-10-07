@@ -16,6 +16,8 @@ import com.singularity.todo.feature.calendar_sync.domain.model.ChangePage
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventId
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
+import kotlin.time.Duration.Companion.days
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 
 /**
@@ -199,6 +202,7 @@ class CalendarSyncViewModelGoogleTest {
         scope: CoroutineScope,
         selectedCalendarId: String? = "primary",
         hasCredential: Boolean = true,
+        importWindow: ImportWindow = ImportWindow.DEFAULT,
     ): Triple<CalendarSyncViewModel, AutoCloseableCoroutineScope, FakeCredentialStore> {
         val vmScope = testScope(scope)
         // One store, shared: the ViewModel and the coordinator must see the same grant, or
@@ -229,6 +233,7 @@ class CalendarSyncViewModelGoogleTest {
             currentUser = CurrentUser(anonymousAuth, vmScope),
             eventSource = { emptyEventSource() },
             googleSync = coordinator,
+            importWindow = importWindow,
             crashReporter = NoOpCrashReportingPort(),
             scope = vmScope,
         )
@@ -345,6 +350,41 @@ class CalendarSyncViewModelGoogleTest {
 
             assertEquals("no Google account connected", vm.state.value.googleSyncError)
             assertNull(vm.state.value.googleLastSyncedAt)
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    /**
+     * The screen must describe the pass that will run, not a second copy of its default.
+     *
+     * The window used to be a default argument on the engine, the same default on the event
+     * source, and a direct `ImportWindow.DEFAULT` read in the screen — three sites that could
+     * disagree with no compiler error. The symptom is a sentence describing a 30/90-day window
+     * over a pass configured for something else, and nothing anywhere would report it.
+     *
+     * So the display follows the configuration rather than restating it: a non-default window
+     * given to the ViewModel has to come back out on the state the screen renders.
+     */
+    @Test
+    fun `the screen's window is the configured one, not the constant`() = runTest {
+        val configured = ImportWindow(past = 7.days, future = 14.days)
+        val (vm, vmScope, _) = viewModel(
+            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+            scope = this,
+            importWindow = configured,
+        )
+        try {
+            assertEquals(
+                configured,
+                vm.state.value.importWindow,
+                "the screen must render the window the pass is configured with",
+            )
+            assertNotEquals(
+                ImportWindow.DEFAULT,
+                vm.state.value.importWindow,
+                "this test is only meaningful while the two differ",
+            )
         } finally {
             vmScope.close()
         }

@@ -9,6 +9,7 @@ import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentialStore
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
@@ -99,6 +100,21 @@ data class CalendarSyncUiState(
      * *failed* pass would be the confidently-wrong answer this feature has to avoid.
      */
     val googleLastSyncedAt: Instant? = null,
+    /**
+     * How far the Google listing reaches, as the engine is actually configured.
+     *
+     * Not `ImportWindow.DEFAULT` read again here. That constant was the display's
+     * source and the engine's source, and the screen's copy could drift from the
+     * engine's without anything noticing — the screen would confidently describe a
+     * window the pass does not use. So the window is bound once in DI, injected into
+     * the engine and the event source, and read from state here: one value, and the
+     * sentence on screen describes the pass that will actually run.
+     *
+     * When this becomes user-editable it moves to [GoogleCalendarSettingsRepository]
+     * and is observed rather than injected — the same shape item 1's fix took, and
+     * the reason that fix is the template for this one.
+     */
+    val importWindow: ImportWindow = ImportWindow.DEFAULT,
 ) {
     /** True when the user has connected Google and picked a calendar. */
     val googleReady: Boolean get() = googleConnected && selectedGoogleCalendarId != null
@@ -204,10 +220,20 @@ class CalendarSyncViewModel(
      * different things the user should see, and only the failure one was missing.
      */
     private val googleSync: GoogleSyncCoordinator,
+    /**
+     * The window the Google pass actually uses, so the settings screen describes
+     * that pass rather than a second copy of its default.
+     *
+     * Injected from DI, where the same binding feeds the engine and the event source.
+     * A default argument would have kept this silent: the ViewModel would compile, the
+     * screen would render a plausible window, and the two could disagree exactly the
+     * way the three hard-coded `ImportWindow.DEFAULT` references did.
+     */
+    private val importWindow: ImportWindow,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
-        initialState = CalendarSyncUiState(),
+        initialState = CalendarSyncUiState(importWindow = importWindow),
         crashReporter = crashReporter,
         scope = scope,
     ) {

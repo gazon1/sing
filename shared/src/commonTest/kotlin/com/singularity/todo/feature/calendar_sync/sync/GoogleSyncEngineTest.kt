@@ -7,6 +7,7 @@ import com.singularity.todo.feature.calendar_sync.domain.model.ChangePage
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventId
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventStatus
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.helpers.MutableClock
@@ -103,6 +104,7 @@ class GoogleSyncEngineTest {
     private fun engine(source: FakeSource, db: FakeAppDatabase, userId: String = "user-1") =
         GoogleSyncEngine(
             eventSource = source,
+            importWindow = ImportWindow.DEFAULT,
             shadowDao = db.googleEventShadowDao(),
             stateDao = db.calendarSyncStateDao(),
             importDao = db.calendarImportEventDao(),
@@ -191,6 +193,7 @@ class GoogleSyncEngineTest {
 
         val result = GoogleSyncEngine(
             eventSource = source,
+            importWindow = ImportWindow.DEFAULT,
             shadowDao = db.googleEventShadowDao(),
             stateDao = db.calendarSyncStateDao(),
             importDao = db.calendarImportEventDao(),

@@ -58,7 +58,14 @@ class GoogleSyncEngine(
     private val userId: String,
     private val clock: Clock,
     private val provider: String = PROVIDER_GOOGLE,
-    private val importWindow: ImportWindow = ImportWindow.DEFAULT,
+    /**
+     * No default, so there is one place the window is chosen.
+     *
+     * It used to be `= ImportWindow.DEFAULT`, and the event source had the same default,
+     * and the settings screen read the constant a third time. Three sites, no compiler
+     * error if one changed. Bound in `calendarSyncModule()` and injected everywhere.
+     */
+    private val importWindow: ImportWindow,
     /**
      * Whether events this app did not create are pulled in as tasks.
      *

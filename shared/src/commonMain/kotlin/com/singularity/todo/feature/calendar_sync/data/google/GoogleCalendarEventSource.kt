@@ -62,8 +62,12 @@ class GoogleCalendarEventSource(
      * Incremental listings never send this: a sync token already bounds the window, and
      * Google answers `400` if `timeMin`/`timeMax` accompany one. That asymmetry is why this
      * is a separate parameter rather than a field on the request.
+     *
+     * No default, for the same reason as the engine's: this and the engine and the
+     * settings screen must not each hold a copy of the choice. Bound once in
+     * `calendarSyncModule()`.
      */
-    private val importWindow: ImportWindow = ImportWindow.DEFAULT,
+    private val importWindow: ImportWindow,
     /**
      * Injected with no default.
      *

@@ -96,6 +96,65 @@ def _drop_rule_block(lines: list[str], rule: str) -> list[str]:
     return out
 
 
+def _first_duplicate_key(text: str) -> tuple[str, int] | None:
+    """The first key this YAML text repeats inside one mapping, or None.
+
+    Implemented over the rendered text rather than by calling the gate script, so the
+    generator stands alone: it must not depend on a gate that runs *after* it in order
+    to avoid producing a file that gate rejects.
+    """
+    import yaml
+
+    class StrictLoader(yaml.SafeLoader):
+        pass
+
+    def construct_mapping(loader, node, deep=False):
+        mapping: dict = {}
+        for key_node, _ in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise _DuplicateFound(key, node.start_mark.line + 1)
+            mapping[key] = None
+        return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+    StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping)
+    try:
+        list(yaml.load_all(text, Loader=StrictLoader))
+    except _DuplicateFound as exc:
+        return exc.key, exc.line_no
+    except yaml.YAMLError:
+        # A malformed file is a different defect, and one this function must not
+        # silently swallow into "no duplicates found".
+        raise
+    return None
+
+
+class _DuplicateFound(Exception):
+    def __init__(self, key: object, line_no: int) -> None:
+        super().__init__(repr(key))
+        self.key = key
+        self.line_no = line_no
+
+
+def _rule_name_of(block_lines: list[str]) -> str:
+    """The rule an override block configures: its first line that is not a comment.
+
+    Reading `block_lines[0]` was wrong, and the consequence was silent. Both overrides
+    open with an explanatory comment, so the "rule name" came out as that comment text,
+    `_drop_rule_block` found nothing to remove, and the block was appended alongside the
+    copy already present — producing the `Filename:` duplicate key that made
+    `:detekt-rules:detekt` refuse to load its config (ADR
+    2026-10-07-three-files-that-only-one-gate-reads). The generator's own docstring
+    warned about exactly this; the code just did not do what the docstring said.
+    """
+    for line in block_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        return stripped.rstrip(":")
+    return ""
+
+
 def apply_overrides(body: str) -> str:
     """Merge each override into its existing top-level section, or append the section.
 
@@ -116,7 +175,7 @@ def apply_overrides(body: str) -> str:
             lines.append(f"{section}:\n")
             lines.extend(addition)
             continue
-        rule = addition[0].strip().rstrip(":")
+        rule = _rule_name_of(addition)
         if rule:
             # Drop the existing rule first, then re-find the section end: dropping shifts
             # every index after it.
@@ -172,6 +231,21 @@ def main() -> int:
             return 1
         print(f'detekt-rules-module.yml is up to date ({len(ids)} custom blocks excluded)')
         return 0
+
+    # The file this writes is parsed by SnakeYAML, which rejects a repeated key outright
+    # — so a duplicate here does not degrade the config, it makes :detekt-rules:detekt
+    # unable to start. Checking the generator's own output is what makes that impossible
+    # to ship: the rule it broke on was a bug in `_rule_name_of`, and the comment in
+    # `apply_overrides` describing this failure did not prevent it.
+    duplicate = _first_duplicate_key(expected)
+    if duplicate is not None:
+        key, line_no = duplicate
+        print(
+            f'refusing to write {DST.relative_to(ROOT)}: duplicate key {key!r} at line {line_no}. '
+            f'SnakeYAML rejects the whole file, so the rule-set config would be unreachable.',
+            file=sys.stderr,
+        )
+        return 1
 
     DST.write_text(expected)
     print(f'wrote {DST.relative_to(ROOT)} ({len(ids)} custom rule-set blocks excluded)')
