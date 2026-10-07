@@ -351,7 +351,7 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 ---
 
-## projects-flow-one-time-flake
+## desktop-flow-tests-fail-together-and-one-fails-alone
 
 **Status: OPEN**
 
@@ -359,19 +359,43 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
 
-**Symptom:** `ProjectsFlowTest` failed once with `NullPointerException` from
-`ProjectDetailViewModel.getDraftState()` returning null (draft state read
-before the init collector seeded it). Not reproducible: three `--rerun-tasks`
-runs with the change set, one full rerun at MR-4, and the final `check.sh` all
-pass. Suspected ordering interaction with `shared:jvmTest` sharing the daemon.
+**Original observation (2026-07):** `ProjectsFlowTest` failed once with
+`NullPointerException` from `ProjectDetailViewModel.getDraftState()` returning null.
+Not reproducible in three `--rerun-tasks` runs, one full rerun at MR-4, or the final
+`check.sh`. Suspected ordering interaction with `shared:jvmTest` sharing the daemon.
+The entry was filed as a one-time flake, and was.
 
-**Already ruled out:** the change sets at both observation and rerun are
-tag-rename only — nothing touches projects or drafts.
+**Re-measured 2026-10-07, and the "not reproducible" no longer holds.** Bisecting
+`:desktopApp:test` found 8 failures across 6 classes. Because
+`desktopApp/build.gradle.kts` sets `parallel.mode.classes.default = same_thread`, the
+classes run *sequentially in one JVM*, so the failures being interleaved with passes
+ruled out poisoning — and the NPE above is not what is failing now. `ProjectsFlowTest`
+fails reproducibly in the batch on clean `origin/main`.
 
-**Try next:** if it recurs, capture `--scan` per-test timing before touching
-code; the fix is probably an explicit `runCurrent()`/await in the flow test,
-not a product change. Do not chase it on one observation — but do not
-baseline it either: a draft-state NPE is a real crash shape on a device.
+**One of them is not a batch effect at all.** `CreateTaskFlowTest >
+a_saved_task_without_a_due_date_appears_under_inbox_no_date` fails **in isolation** —
+one class, one test. The harness's own failure bundle settles what the assertion message
+did not (`desktopApp/build/diagnostics/CreateTaskFlowTest/attempt-1/`):
+
+- `db-state.txt` — `Tasks (0 rows)`. Nothing was persisted.
+- `tree.txt` — the editor is still mounted: `task_editor_title_input`,
+  `task_editor_save` and every editor row are present. **It never closed.**
+- `steps.txt` — `awaitTag(task_editor_save) OK`, then a 5s timeout. No click step is
+  recorded, though the body does call `clickTag(TestTags.TASK_EDITOR_SAVE)`.
+
+So the click either misses the node or lands and the save does not write. The bundle
+distinguishes those; the assertion alone did not, and read like a render timeout — which
+is what sent the first diagnosis toward "contention under load".
+
+**Also observed:** `coroutines.txt` reports 182 active coroutines at failure, including
+leaked `CurrentUser` collectors. Worth knowing when reading any other failure here: a
+leaked scope outlives the class that made it.
+
+**Try next:** after the click, `awaitTag(task_editor_save).assertDoesNotExist()` before
+awaiting the agenda section — that makes "the editor stayed open" the failure message
+instead of a symptom twenty lines away. The fix itself is in the desktop task-editor
+save path or the harness's click helper, neither of which this branch touches
+(`git diff origin/main...HEAD` is empty for all of `desktopApp/`).
 
 ---
 

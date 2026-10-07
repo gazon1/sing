@@ -62,11 +62,32 @@ def parse(skill_md: pathlib.Path):
     lines = text.count("\n", end) + 1
     return n, d, lines
 
+scanned = sorted(skills_dir.glob("*/SKILL.md"))
 entries = []
-for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+skipped = []
+for skill_md in scanned:
     parsed = parse(skill_md)
     if parsed:
         entries.append((skill_md.parent.name, *parsed))
+    else:
+        skipped.append(skill_md.parent.name)
+
+# A skill the catalog silently omits is a skill no agent will ever find, and the
+# frontmatter gate does not cover it: that gate requires the keys to be present and
+# parseable, while this parser also returns None when the file does not open with
+# `---` — a shape the gate does not look for. So the count is checked here, where the
+# omission would happen, rather than inferred from a gate that examines something
+# adjacent. Writing the catalog anyway would make the header line ("N skills") the
+# only trace, and it is prose.
+if skipped:
+    print(
+        "regen-skills-catalog: refusing to write — "
+        f"{len(skipped)} SKILL.md file(s) parsed to nothing and would vanish from the "
+        f"catalog: {', '.join(skipped)}. This file is the index an agent chooses a skill "
+        "from; a silently dropped entry is worse than a failed run.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 PROJECT = [e for e in entries if e[0].startswith("singularity-todo-")]
 GENERIC = [e for e in entries if not e[0].startswith("singularity-todo-")]

@@ -59,3 +59,4 @@ openspec/changes/bulk-import-port/design.md:2026-10-03-assert-canwrite-adr
 # neighbouring document is how a citation starts meaning something other than it
 # said. The line disappears when the ADR is written.
 docs/decisions/2026-10-07-two-of-three-background-jobs-were-not-buildable-yet.md:2026-10-06-desktop-background-work-executor
+=======

@@ -139,6 +139,15 @@ gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
 # --- report ------------------------------------------------------------------
 echo
 echo "gates: ${#PASSED[@]} passed, ${#FAILED[@]} failed, ${#WARNED[@]} advisory-failed"
+
+# Named on every surface, not only when GITHUB_STEP_SUMMARY exists. The step summary
+# is the CI-only form of this same list; without the stdout half, a local run reports
+# "2 failed" and says nothing about which two — so the next step is re-running the
+# whole registry under GITHUB_ACTIONS=1 to find out. The names are the output; the
+# summary file is where they also get rendered.
+for n in "${FAILED[@]}"; do echo "  ❌ $n"; done
+for n in "${WARNED[@]}"; do echo "  ⚠️  $n (advisory)"; done
+
 if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
   {
     echo "### Static gates"
