@@ -2,6 +2,7 @@ package com.singularity.todo.test
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.backup.BackupCodec
@@ -22,13 +23,14 @@ import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
-import com.singularity.todo.core.notifications.JvmNotificationPort
-import com.singularity.todo.core.notifications.NotificationPort
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
-import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
+import com.singularity.todo.core.work.BackgroundWorkScheduler
+import com.singularity.todo.core.work.BackgroundJobCatalog
+import com.singularity.todo.core.work.JvmBackgroundWorkScheduler
+import com.singularity.todo.core.sync.work.JvmSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
@@ -133,7 +135,6 @@ internal fun desktopPlatformModule(): Module = module {
 
     // ─── Platform Ports ────────────────────────────────────────────
     single<SecureStoragePort> { JvmSecureStorage() }
-    single<NotificationPort> { JvmNotificationPort() }
     single<FileSystem> { JvmFileSystem() }
     single<FileRevealer> { JvmFileRevealer() }
     single<SharePort> { JvmSharePort() }
@@ -155,7 +156,8 @@ internal fun desktopPlatformModule(): Module = module {
     single<SyncPeriodicTrigger> {
         DelayLoopSyncPeriodicTrigger(request = { }, scope = CoroutineScope(Dispatchers.Unconfined))
     }
-    single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+    single<SyncWorkScheduler> { JvmSyncWorkScheduler(get()) }
+    single<BackgroundWorkScheduler> { testBackgroundScheduler(get()) }
     single<CalendarSyncRepository> { NoopCalendarSyncRepositoryImpl() }
     single<CalendarProviderPort> { NoopCalendarProvider() }
     single<CalendarSyncWorkScheduler> { NoopCalendarSyncWorkScheduler() }
@@ -171,3 +173,18 @@ internal fun desktopPlatformModule(): Module = module {
         )
     }
 }
+
+/**
+ * A scheduler for the graph test that runs on a scope nothing will ever cancel.
+ *
+ * The graph is built to prove it resolves; these jobs are never scheduled in this test, and
+ * a scope tied to the test body would either leak the loop or need a cleanup path that the
+ * assertion does not need.
+ */
+@Suppress("NoDirectClockSystem") // a graph test has nothing to inject from
+private fun testBackgroundScheduler(catalog: BackgroundJobCatalog) = JvmBackgroundWorkScheduler(
+    catalog = catalog,
+    clock = Clock.System,
+    scope = CoroutineScope(Dispatchers.Unconfined),
+    crashReporter = com.singularity.todo.core.observability.NoOpCrashReportingPort(),
+)

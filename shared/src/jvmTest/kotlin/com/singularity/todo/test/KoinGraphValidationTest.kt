@@ -71,10 +71,9 @@ class KoinGraphValidationTest {
             //
             // These two were added because the calendar-sync bindings stopped being
             // resolvable-by-accident once they started composing their failure handler from the
-            // injected port. The `CrashReportingPort` and `Logger` bindings it needs live in
-            // `desktopPlatformModule()`, which is where that change had to add them — and their
-            // absence is exactly the class of defect this test exists to find: a graph that is
-            // incomplete in a way nothing else notices.
+            // injected port. The `CrashReportingPort` and `Logger` bindings above are what that
+            // change required here, and their absence is exactly the class of defect this test
+            // exists to find: a graph that is incomplete in a way nothing else notices.
             assertNotNull(app.koin.get<CalendarSyncOrchestrator>())
             assertNotNull(app.koin.get<CalendarSyncViewModel>())
             // The Google pass is a factory chain (coordinator → engine → applier → DAOs),
