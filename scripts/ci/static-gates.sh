@@ -75,6 +75,13 @@ gate blocking "room schema integrity" python3 scripts/check-room-schema-integrit
 gate blocking "unwired surfaces" python3 scripts/find-unwired-surfaces.py --quiet
 gate blocking "unwired backlog refs" python3 scripts/check-unwired-backlog-refs.py
 gate blocking "settings read by a feature" python3 scripts/check-dead-settings.py --quiet
+# A YAML mapping that repeats a key is either a hard parse error (SnakeYAML) or
+# silently last-one-wins (Go, hand-rolled readers). Which one you get depends on
+# the consumer, and the consumer is whichever single tool parses that file — so
+# nothing at edit time objects. Shipped as 1dbff67f: detekt-rules-module.yml had
+# two `Filename:` keys and :detekt-rules:detekt stopped loading its config while
+# :shared and :desktopApp, which have their own, kept reporting clean.
+gate blocking "YAML has no duplicate keys" python3 scripts/check-yaml-duplicate-keys.py --quiet
 
 # Lint-rule governance
 gate blocking "detekt rules config is current" python3 scripts/gen-detekt-rules-config.py --check
