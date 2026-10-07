@@ -105,6 +105,7 @@ class SyncEngineOutboxOwnershipTest {
             stateRepository = FakeSyncStateRepository(),
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            writerProvider = { fakeSyncDocumentWriter() },
             scopeProvider = scopes,
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = retryPolicy,

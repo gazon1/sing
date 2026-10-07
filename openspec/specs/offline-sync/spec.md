@@ -225,3 +225,85 @@ domain repositories and the view models SHALL NOT depend on the vendor SDK.
 #### Scenario: Architecture guard
 - A static analysis rule asserts that no production file outside the transport and
   authentication seams imports the vendor SDK
+
+---
+
+### Requirement: REQ-OS-026
+
+When the server reports that a change lost a per-field race, the device SHALL adopt the
+state the server holds for that row, SHALL NOT record the change as delivered, and SHALL
+report the outcome as distinct from a delivered one.
+
+The state the server holds is the device's own record of it — the last state the server
+confirmed for the row — and not the state the losing change would have produced. That
+distinction is the whole requirement: promoting the losing change's state is what makes
+the device believe it holds something the server refused.
+
+#### Scenario: A change that loses the race is not recorded as delivered
+- A device sends a change to a field the server already holds at a later clock
+- The server reports the change as lost
+- The device does not record the change as delivered
+- The queued change is not left in place as though it were still owed to the server
+
+#### Scenario: The row returns to what the server holds
+- A change to a row lost a per-field race
+- The row on the device holds the state the losing change would have produced
+- The row ends up holding the last state the server confirmed for it
+
+#### Scenario: The outcome is reported as a loss, not as a delivery
+- A change is reported lost
+- The summary of that push counts the result as neither delivered nor refused by the
+  server
+- The count is distinguishable from both, so that neither reading is available by
+  accident
+
+#### Scenario: The next change to that row is built on the server's state
+- A change lost a race and the row was returned to the server's state
+- The device later edits that row again
+- The change sent describes the state the server holds, not the state that was lost
+
+#### Scenario: A change that wins is unaffected
+- A change to a field the server holds at an earlier clock
+- The server accepts it
+- The behaviour is exactly as before this requirement: the change is recorded as
+  delivered and the row's record of the server's state advances to it
+
+---
+
+### Requirement: REQ-OS-027
+
+A change to the auto-sync settings SHALL take effect without requiring a change of
+profile or a restart of the application.
+
+The runner SHALL react to the settings of the active scope, not only to the identity of
+that scope. Collecting only the scope is not sufficient and does not look insufficient:
+a `StateFlow` does not emit when it is set to the value it already holds, so a settings
+change produces no emission at all.
+
+Re-arming the periodic trigger SHALL be caused only by a change to the fields the
+schedule depends on. The cursor and the last-successful timestamp change on every cycle,
+and treating those as schedule changes would restart the trigger after each sync, so an
+interval could pass without one ever completing.
+
+#### Scenario: A changed interval reaches the trigger
+- The user changes the sync interval for the active profile
+- The scope does not change
+- The periodic trigger is restarted at the new interval
+
+#### Scenario: Turning auto-sync off stops the trigger
+- The user turns auto-sync off for the active profile
+- The scope does not change
+- The periodic trigger is stopped
+
+#### Scenario: A completed sync does not re-arm the trigger
+- A sync completes and advances the download cursor
+- The interval is unchanged
+- The periodic trigger is left running as it was
+
+#### Scenario: A profile switch still reads the new profile's settings
+- The active scope moves to another profile
+- The trigger is started or stopped according to that profile's settings
+
+#### Scenario: Two collectors are never live at once
+- The active scope moves while the previous scope's settings are still being observed
+- The observation of the previous scope is cancelled rather than left running

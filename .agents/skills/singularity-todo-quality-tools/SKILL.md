@@ -53,6 +53,78 @@ just coverage                  # = ./gradlew koverReport
 SKIP_ADB=1 ./check.sh
 ```
 
+## The CI/CD shape, and how to change a gate
+
+**One registry, two callers.** `scripts/ci/static-gates.sh` is the single list of
+every gate that needs no JVM and no build output. `ci.yml`'s `static` job and
+`check.sh` both invoke it, so a gate cannot exist on one surface and be
+forgotten on the other — which was the actual cause of two separate incidents
+here. Adding a gate is one line:
+
+```bash
+gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
+gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
+```
+
+`advisory` is the only non-blocking mode and it surfaces as a warning
+annotation plus a summary row. `|| true` on a `gate` line is **rejected** by
+Part D of the meta-gate, so a gate cannot be quietly softened by pasting an
+idiomatic shell expression instead of declaring the mode. `set +e` is rejected
+the same way. A `|| true` *inside a helper function* is fine and is not flagged
+— `n=$(grep -c … || true)` captures a count, it does not suppress a verdict.
+
+**Three workflows, one required check.**
+
+| Workflow | Jobs | Notes |
+|---|---|---|
+| `.github/workflows/ci.yml` | `static`, `tests`, `android` (free/pro), `ci-gate` | `ci-gate` is the only branch-protection check. No path filters, on purpose: a required check skipped by a filter stays pending forever |
+| `.github/workflows/e2e.yml` | `plan`, `build-apk`, `e2e[shard]`, `nightly-alert` | Maestro. The APK is built once and shared |
+| `.github/workflows/release.yml` | `meta`, `android`, `desktop`, `publish` | Tag-triggered; `workflow_dispatch` is a dry run |
+
+`tests` is deliberately **not** split further. Three couplings inside the old
+monolith made a six-leaf split measure the wrong thing, and it was withdrawn for
+that reason (`docs/decisions/2026-10-05-ci-checks-run-in-parallel.md`): the
+`$RUN_STARTED` stamp feeding the count and coverage floors, the flake comparison
+against the previous run's artifact, and kover's report needing a test run.
+All three live in one job on purpose.
+
+**Why everything device-related lives in `scripts/ci/e2e-shard.sh`.** The
+`android-emulator-runner` action kills the emulator the moment its `script:`
+step returns, and it runs each LINE of `script:` as a separate command, so
+variables and `if`/`for` blocks do not survive between lines. Boot, install and
+flow execution therefore have to be one script file, not a `script: |` block.
+The nightly that booted in one step and ran `adb` in the next addressed a
+device that no longer existed.
+
+**Where the meta-gate reaches.** `scripts/check-gate-wiring.py` has seven parts
+and a change to it is a change to the contract of every gate at once:
+
+| Part | Question it answers |
+|---|---|
+| A | Is every configured Gradle check task named by a gate? |
+| B | Can each registered script gate actually fail? (sabotage + restore) |
+| C | Is a Gradle check task capable of failing (`ignoreFailures`)? |
+| D | Does every non-blocking step declare itself advisory? |
+| E | Is every CI/local asymmetry declared with a reason? |
+| F | Does every registered gate have a positive control? |
+| G | Is the shared registry itself invoked by **both** `ci.yml` and `check.sh`? |
+
+Part G exists because moving the gates into the registry left that file
+load-bearing and unchecked: renaming it, or deleting one caller, would drop the
+whole gate suite out of CI with nothing failing.
+
+**Two traps worth knowing before you touch a gate.**
+
+- A control that silently stops sabotaging is reported as a *passing* control.
+  `room-schema-integrity`'s control replaced `SCHEMA_VERSION = 37` by literal
+  while the tree had moved to 38; `replace` found nothing, the gate was handed
+  an untouched file, correctly passed, and the control reported "it cannot
+  detect this". Match by regex and `assert` the match count, as the
+  `test-runs` and `traceability-ratchet` controls do.
+- `openspec validate --all --strict` prints `Totals: N failed` and **exits 0**
+  when those failures are WARNING-level (e.g. "requirement text is very long").
+  Read the exit code, not the summary, when deciding whether a gate is green.
+
 ## Reading CI test failures
 
 A red CI run prints only `See the report at: <workspace path>` — a path that

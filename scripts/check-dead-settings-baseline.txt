@@ -1,0 +1,21 @@
+# Stores exempt from scripts/check-dead-settings.py
+#
+# One store per line; `#` starts a reason. The file is intentionally absent while
+# every current section is wired — an empty baseline file that exists is a claim
+# ("we audited these") and a missing one is not.
+#
+# What belongs here
+# -----------------
+#   * A section whose control is deliberately shown but not yet acted on, with the
+#     issue that will do it named in the reason.
+#   * A section reserved for a platform-specific feature, where the consumer is
+#     registered in a PlatformModule this scan does not read.
+#
+# What does not
+# -------------
+#   * "The screen renders it." feature/settings/ is excluded from the check
+#     precisely because it renders every section unconditionally; that is how
+#     `reminderDefault` looked alive while nothing read it.
+#   * "It has tests." Tests do not consume values in production.
+#
+# When adding a line, say what will make it unnecessary.

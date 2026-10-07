@@ -22,10 +22,14 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  *
  * Deliberately capable of failing: [failOnSchedule] makes the scheduler throw, so the call
  * path that has to cope with an alarm it could not arm is reachable without a real OS.
+ *
+ * [isSupported] defaults to `true` so existing tests keep exercising the write path;
+ * pass `supported = false` to reproduce a platform with no alarm scheduler.
  */
 open class FakeReminderScheduler(
     /** When true, [schedule] throws. Used to exercise the "moved but could not re-arm" path. */
     private val failOnSchedule: Boolean = false,
+    override val isSupported: Boolean = true,
 ) : ReminderScheduler {
 
     /** Every alarm this scheduler has been asked to arm, in order. */

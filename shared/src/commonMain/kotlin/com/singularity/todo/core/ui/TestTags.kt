@@ -197,6 +197,12 @@ object TestTags {
 
         /** Pause icon — shown when the timer is running. */
         const val PAUSE_BUTTON = "pomodoro_pause_button"
+
+        /**
+         * Shown instead of the task chips when the platform cannot supply an Inbox
+         * (Desktop). Distinguishes "no tasks here" from "this platform has no Inbox".
+         */
+        const val TASKS_UNSUPPORTED = "pomodoro_tasks_unsupported"
     }
 
     /** Dynamic tag of the form `pomodoro_task_chip_<slug>`. */

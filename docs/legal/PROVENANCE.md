@@ -135,7 +135,7 @@ commit. Rewriting file contents is not sufficient — see ADR
 | File | LOC | Source | What was taken |
 |---|---|---|---|
 | `core/billing/SubscriptionProvider.kt` | 53 | Tasks.org (GPL-3.0) | Interface shape. Field names `isTasksSubscription`, `isGitHubSponsor` are carried over verbatim, so the source is nameable. |
-| `core/billing/PurchaseState.kt` | 33 | Tasks.org (GPL-3.0) | `hasPro` / `hasAccount` / `hasSubscription` triple, plus the `purchaseStateFor` factory. |
+| `core/billing/Entitlement.kt` | 33 | Tasks.org (GPL-3.0) | `hasPro` / `hasAccount` / `hasSubscription` triple, plus the `purchaseStateFor` factory. The file was `PurchaseState.kt` until `0a7f8222`, which scoped entitlement by `SyncScope` and moved the `PurchaseState` declaration here. |
 | `core/billing/BillingProvider.kt` | 18 | Tasks.org (GPL-3.0) | Abstraction only. |
 | `core/billing/NoopSubscriptionProvider.kt` | 14 | Tasks.org (GPL-3.0) | Single no-op implementation. |
 | `core/analytics/Analytics.kt` | 83 | Tasks.org (GPL-3.0) | `logEvent` / `identify` / `logEventOncePerDay` shape. ADR `2026-09-23-analytics-port` states the names were chosen to match. |

@@ -21,9 +21,13 @@ import kotlinx.datetime.plus
  * next boundary from a 03:00:00 clock would return 03:00:00 again; the loop wrapping this
  * would then spin forever rather than fail. Every boundary case below is that one.
  *
- * Tagged `fast`: pure arithmetic with no clock, no scope and no platform, so it belongs with
- * the tests that run on every change. An untagged class is silently excluded from CI, which
- * runs `-Ptest.tags=fast,slow` — the failure mode TestTagCoverageTest exists to prevent.
+* Tagged `fast` because it crosses no process boundary: no Compose harness, no file, no
+ * database, no spawned executor. The rule is "slow means it leaves the JVM's arithmetic",
+ * not "slow means it takes a while".
+ *
+ * The tag must be here rather than assumed. CI runs `-Ptest.tags=fast,slow`, so an untagged
+ * class is silently excluded — the failure mode TestTagCoverageTest exists to prevent, and
+ * this class shipped untagged once.
  */
 @Tag("fast")
 class JobScheduleMathTest {

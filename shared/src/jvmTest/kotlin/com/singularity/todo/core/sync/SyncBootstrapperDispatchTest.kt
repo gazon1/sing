@@ -9,13 +9,13 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProjectsRepository
-import com.singularity.todo.test.fakes.FakeTagGroupRepository
-import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.testTask
@@ -27,8 +27,9 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Which [DocType]s [SyncBootstrapper] actually wires to a pull handler.
@@ -48,13 +49,14 @@ import kotlin.test.assertTrue
  *
  * ## The asymmetry, stated rather than hidden
  *
- * [DocType.TimeEntry] has a `DELETED` branch in the bootstrapper and no
- * `CREATED`/`UPDATED` branch, because
- * [com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository] has
- * `delete` but no upsert. It is not currently a stall, because nothing enqueues a
- * time entry for push, so the server has no time-entry events to send. The moment
- * that push is wired up, the exclusion assertion below is the one that must change
- * in the same change — which is why it is written down rather than left implicit.
+ * [DocType.TimeEntry] has both a `DELETED` and a `CREATED`/`UPDATED` branch now, but is
+ * absent from [SeedPlanner.SEEDED_TYPES]: tracked time is applied when it arrives and is
+ * not uploaded when it is created. Applying a remote document and publishing a local one
+ * are separate questions and only the first has been decided — see #177.
+ *
+ * The distinction is asserted rather than assumed, because the asymmetry is what makes
+ * the equality in the first test wrong: a missing handler stalls an account forever,
+ * while an unseeded type merely stays on the device.
  */
 @Tag("fast")
 class SyncBootstrapperDispatchTest {
@@ -74,6 +76,7 @@ class SyncBootstrapperDispatchTest {
         api: FakeSyncApiClient = FakeSyncApiClient(),
         taskRepo: TaskRepository = FakeTaskRepository(),
         stateRepository: FakeSyncStateRepository = FakeSyncStateRepository(),
+        timeTracking: FakeTimeTrackingRepository = this.timeTracking,
     ): SyncEngine {
         val engine = SyncEngine(
             log = log,
@@ -87,6 +90,7 @@ class SyncBootstrapperDispatchTest {
             stateRepository = stateRepository,
             shadowDao = FakeSyncShadowDao(),
             patchBuilder = fakeSyncPatchBuilder(),
+            writerProvider = { fakeSyncDocumentWriter() },
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             clock = clock,
@@ -95,12 +99,10 @@ class SyncBootstrapperDispatchTest {
         )
         SyncBootstrapper(
             engine = engine,
-            taskRepo = taskRepo,
-            noteRepo = FakeNotesRepository(),
-            projectRepo = FakeProjectsRepository(),
-            tagRepo = FakeTagsRepository(),
-            tagGroupRepo = FakeTagGroupRepository(),
-            timeTrackingRepo = timeTracking,
+            writer = fakeSyncDocumentWriter(
+                tasks = taskRepo,
+                timeTracking = timeTracking,
+            ),
         )
         return engine
     }
@@ -126,13 +128,21 @@ class SyncBootstrapperDispatchTest {
     fun `the pull dispatch table covers every type that is pushed`() = runTest {
         val engine = bootstrapped(this)
 
-        assertEquals(
-            SeedPlanner.SEEDED_TYPES,
-            engine.handlers.keys,
-            "every DocType the client can enqueue needs a pull handler, or the " +
-                "receiving account's cursor stalls on the first such event and never " +
-                "advances again. A type is only correct on one side of this: " +
-                "the seed must not enqueue what the dispatch table cannot apply.",
+        // Subset, not equality. Equality was the right assertion while the table and
+        // the seed named the same five types; #177 made the table wider than the seed,
+        // because a handler that exists costs nothing and one that is missing stalls the
+        // receiving account forever, while a type that is merely unseeded merely does not
+        // upload. The invariant that prevents the stall is "seeded implies appliable",
+        // and that is what is asserted here. The reverse direction is a product decision,
+        // pinned by its own test below.
+        val appliable = engine.handlers.keys
+        val missing = SeedPlanner.SEEDED_TYPES - appliable
+
+        assertTrue(
+            missing.isEmpty(),
+            "seeded but not appliable: $missing. Either register a pull handler, or stop " +
+                "enqueueing the type — a device that receives an event it cannot apply " +
+                "holds its cursor and never advances again.",
         )
     }
 
@@ -151,23 +161,40 @@ class SyncBootstrapperDispatchTest {
     }
 
     @Test
-    fun `TimeEntry has no pull handler, and the reason is pinned`() = runTest {
-        // Pinned rather than fixed. `TimeTrackingRepository` models tracking as a state
-        // machine (`startEntry` / `stopEntry`) and has no upsert, so there is no way to
-        // apply a remote document — which is why the table can delete a time entry and
-        // not create one.
-        //
-        // The seed stopped enqueueing them, which is the smaller change: a second device
-        // used to receive nothing *and* stall its cursor, so nobody is worse off. If
-        // tracked time should sync, this test and the seed are both wrong and change
-        // together — see #177 for the product question this defers.
+    fun `TimeEntry is appliable, and is still not seeded`() = runTest {
+        // #177. The delete half of TimeEntry was registered long before the apply half,
+        // and the missing handler was the stall: an incoming time-entry event was
+        // Unappliable, the cursor was held back, and every cycle re-received it. The
+        // pinned version of this test asserted the handler was absent, and it is now
+        // inverted — the handler exists, which is the half that cannot be taken away.
         val engine = bootstrapped(this)
 
-        assertNull(
+        assertNotNull(
             engine.handlers[DocType.TimeEntry],
-            "TimeEntry has gained a pull handler. Register it here, add DocType.TimeEntry " +
-                "to SeedPlanner.SEEDED_TYPES in the same change, and delete this test — " +
-                "the two assertions above then carry the invariant.",
+            "TimeEntry lost its pull handler. Without one, an event of that type stalls " +
+                "the receiving account's cursor permanently.",
+        )
+    }
+
+    @Test
+    fun `TimeEntry is appliable but not seeded, and that is a product decision`() = runTest {
+        // Applying a remote entry and uploading a local one are separate questions, and
+        // only the first has been answered. `TimeTrackingRepository` modelled tracking as
+        // a state machine with no whole-row write, so there was no way to apply one; it
+        // now has `upsert` for the sync path, and the seed still does not enqueue the
+        // type. So tracked time does not travel between devices today.
+        //
+        // Adding `DocType.TimeEntry` to `SeedPlanner.SEEDED_TYPES` would make it travel.
+        // That is a product decision, not a correctness one, so it is left open here and
+        // stated as its own test — when it is taken, this test changes to assert the
+        // equality the dispatch table asserts for the other five.
+        val engine = bootstrapped(this)
+
+        assertTrue(
+            DocType.TimeEntry !in SeedPlanner.SEEDED_TYPES,
+            "TimeEntry is now seeded. Tracked time now syncs between devices, which was " +
+                "decided rather than left open — update this test and the dispatch-table " +
+                "assertion above to say so.",
         )
     }
 
@@ -209,17 +236,80 @@ class SyncBootstrapperDispatchTest {
     }
 
     @Test
+    fun `a time-entry document is applied, not merely routed`() = runTest {
+        // The routing assertions above pass the moment a handler is registered, so this
+        // one checks the thing that actually matters: the document reaches the repository
+        // and is readable afterwards. A handler that returned Applied without writing
+        // would satisfy every other test in this class.
+        val tracking = FakeTimeTrackingRepository(FakeClock())
+        val engine = bootstrapped(this, timeTracking = tracking)
+        val handler = engine.handlers.getValue(DocType.TimeEntry)
+        val entry = TimeEntry(
+            id = TimeEntryId.fromString("te-remote-1"),
+            taskId = TaskId.fromString("t-1"),
+            userId = UserId("owner-1"),
+            startedAt = Instant.fromEpochMilliseconds(1_000),
+            endedAt = Instant.fromEpochMilliseconds(2_000),
+            kind = TimeEntryKind.Work,
+            source = TimeEntrySource.Manual,
+            note = "from the server",
+            createdAt = Instant.fromEpochMilliseconds(1_000),
+            updatedAt = Instant.fromEpochMilliseconds(2_000),
+        )
+
+        val outcome = handler.apply(
+            syncEvent {
+                serverLsn = 11
+                entityType = DocType.TimeEntry
+                entityId = entry.id.value
+                data = StableJson.encodeToString(serializer<TimeEntry>(), entry).let {
+                    kotlinx.serialization.json.Json.parseToJsonElement(it)
+                }
+            },
+        )
+
+        assertIs<ApplyOutcome.Applied>(outcome)
+        assertEquals("from the server", tracking.getById(entry.id)?.note)
+    }
+
+    @Test
     fun `an event of an unregistered type stalls the cursor instead of being skipped`() = runTest {
+        // Built WITHOUT the bootstrapper, so the handler map is empty.
+        //
+        // This used to name `DocType.TimeEntry` as the unregistered type, and #177
+        // registered the last one — so the assertion was testing itself to death: there
+        // is no longer a `DocType` this device cannot apply. The behaviour is still
+        // load-bearing, because the next type added to the enum arrives with an empty
+        // handler map until someone registers it, so it is now reached by withholding
+        // the registrations rather than by naming a missing one.
         val api = FakeSyncApiClient(
             pullEvents = listOf(
                 syncEvent {
                     serverLsn = 10
-                    entityType = DocType.TimeEntry
-                    entityId = "te-1"
+                    entityType = DocType.Task
+                    entityId = "t-1"
                 },
             ),
         )
-        val engine = bootstrapped(this, api)
+        val engine = SyncEngine(
+            log = log,
+            api = api,
+            authRepository = FakeSyncAuthRepository(
+                Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+            ),
+            outboxDao = FakeSyncOutboxDao(),
+            deadLetterDao = FakeSyncDeadLetterDao(),
+            idGenerator = SequentialIdGenerator(),
+            stateRepository = FakeSyncStateRepository(),
+            shadowDao = FakeSyncShadowDao(),
+            patchBuilder = fakeSyncPatchBuilder(),
+            writerProvider = { fakeSyncDocumentWriter() },
+            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
+            scheduler = FakeSyncWorkScheduler(),
+            clock = clock,
+            scope = testScope(backgroundScope),
+            crashReporter = NoOpCrashReportingPort(),
+        )
 
         val outcome = engine.syncOnce()
 

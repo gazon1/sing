@@ -27,7 +27,7 @@ shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/Rec
 shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/RecurrenceSpec.kt	SPEC-COMPATIBLE	Orgzly + Tasks.org	DSL spec	implements published recurrence syntax
 shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/SingularityQueryParser.kt	SPEC-COMPATIBLE	orgmode.org + Tasks.org	DSL grammar	implements published query grammar
 shared/src/commonMain/kotlin/com/singularity/todo/core/billing/SubscriptionProvider.kt	ADAPTED	Tasks.org	GPL-3.0	interface shape; field names carried over
-shared/src/commonMain/kotlin/com/singularity/todo/core/billing/PurchaseState.kt	ADAPTED	Tasks.org	GPL-3.0	hasPro/hasAccount/hasSubscription triple
+shared/src/commonMain/kotlin/com/singularity/todo/core/billing/Entitlement.kt	ADAPTED	Tasks.org	GPL-3.0	hasPro/hasAccount/hasSubscription triple; PurchaseState is declared here since the file absorbed PurchaseState.kt in 0a7f8222
 shared/src/commonMain/kotlin/com/singularity/todo/core/billing/BillingProvider.kt	ADAPTED	Tasks.org	GPL-3.0	abstraction only
 shared/src/commonMain/kotlin/com/singularity/todo/core/billing/NoopSubscriptionProvider.kt	ADAPTED	Tasks.org	GPL-3.0	no-op implementation
 shared/src/commonMain/kotlin/com/singularity/todo/core/analytics/Analytics.kt	ADAPTED	Tasks.org	GPL-3.0	logEvent/identify/logEventOncePerDay shape

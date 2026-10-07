@@ -121,6 +121,17 @@ class TimeTrackingRepositoryImpl(
         require(rows > 0) { "Entry $entryId not found or not owned" }
     }
 
+    /**
+     * The sync apply path's write. See the port for why it is not a command.
+     *
+     * No `currentUser` read on purpose: the entry's `userId` comes from the document,
+     * and a local read here would either reject a legitimate cross-device state or
+     * rewrite the owner to whoever happens to be signed in.
+     */
+    override suspend fun upsert(entry: TimeEntry): Result<Unit> = runCatchingCancellable {
+        dao.upsert(entry.toEntity())
+    }
+
     override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
             dao.watchForUserInRange(userId.value, startMs, endMs).map { list -> list.map { it.toDomain() } }

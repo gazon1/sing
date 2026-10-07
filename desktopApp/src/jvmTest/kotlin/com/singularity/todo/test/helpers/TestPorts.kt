@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.time.Duration
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 
 /**
  * Inert implementations of the JVM ports a desktop flow test would otherwise
@@ -50,8 +51,6 @@ class InMemorySecureStorage : SecureStoragePort {
     }
 
     override fun isHardwareBacked(): Boolean = false
-}
-
 }
 
 /** In-memory [FileSystem]; nothing reaches the real filesystem. */
@@ -118,9 +117,19 @@ class InertFileSourceFactory : FileSourceFactory {
         error("FileSourceFactory is not available in desktop flow tests: $path")
 }
 
-/** No-op [ReminderScheduler]; the JVM real one arms `at` jobs. */
+/** No-op [ReminderScheduler] for desktop flow tests. */
 class InertReminderScheduler : ReminderScheduler {
     val scheduled = mutableListOf<Reminder>()
+
+    /**
+     * False, matching the real [com.singularity.todo.feature.reminders.JvmReminderScheduler].
+     *
+     * A fake that claimed support the platform does not have would let a test pass
+     * against behaviour desktop cannot produce. The desktop app currently arms no
+     * reminders at all — the `at`-based backend was deleted; see
+     * `docs/decisions/2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs.md`.
+     */
+    override val isSupported: Boolean = false
 
     override suspend fun schedule(reminder: Reminder) {
         scheduled += reminder
@@ -176,4 +185,38 @@ class TestPomodoroTimer(
     override fun skip() {
         _state.value = _state.value.copy(isRunning = false)
     }
+}
+
+/**
+ * A [SyncWorkScheduler] that records what it was asked and starts nothing.
+ *
+ * ## Why not the real one
+ *
+ * `JvmSyncWorkScheduler` (ADR-backed, replaces the deleted `NoopSyncWorkScheduler`) hands
+ * work to a `BackgroundWorkScheduler`, and on Desktop that starts a daemon coroutine loop.
+ * Binding it in a test module would keep a thread alive for the rest of the run and make
+ * the suite's timing depend on how many tests ran before it — the same reason
+ * `InertSyncPeriodicTrigger` and `InertReminderScheduler` are inert rather than real.
+ *
+ * ## Why this is a test double at all, and not a deletion
+ *
+ * `276a70e3` deleted `NoopSyncWorkScheduler` and replaced it with a working scheduler,
+ * which is the right change: a no-op that every Desktop sign-in wrote into is how a push
+ * got discarded silently. It left `TestPlatformModule` pointing at the deleted class,
+ * and because that file is only compiled by `:desktopApp:test` — step 10 of the gate —
+ * the breakage sat on `main` until a gate ran this far. The production binding and the
+ * test binding want different things from this seam, so both are spelled out here rather
+ * than one standing in for the other.
+ */
+class InertSyncWorkScheduler : SyncWorkScheduler {
+    val oneShot = mutableListOf<Int>()
+    val periodic = mutableListOf<Long>()
+
+    override fun enqueuePush() = Unit
+
+    override fun cancelPush() = Unit
+
+    override fun enqueuePeriodic(intervalMillis: Long) = Unit
+
+    override fun cancelPeriodic() = Unit
 }

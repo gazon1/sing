@@ -5,6 +5,19 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.work.FakeHlcFactory
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeTagGroupRepository
+import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -341,4 +354,32 @@ internal fun fakeSyncPatchBuilder(shadowDao: SyncShadowDao = FakeSyncShadowDao()
     shadowDao = shadowDao,
     hlcFactory = FakeHlcFactory(),
     idGenerator = SequentialIdGenerator(),
+)
+
+/**
+ * A [SyncDocumentWriter] over the shared in-memory repositories.
+ *
+ * Passed to the engine because the engine writes documents for a reason that is not
+ * the pull: resolving a lost race returns the row to the state the server holds. A
+ * test that only pushes needs the writer wired and never exercises it, so the default
+ * is real repositories rather than a stub — a stub here would let the lost-race
+ * behaviour pass in a system whose per-type write does not work.
+ */
+internal fun fakeSyncDocumentWriter(
+    // Interface-typed, not the fakes: a caller that wants a repository which throws on
+    // write must be able to pass it, and a stub that cannot fail would hide exactly the
+    // case the revert-failure path exists to handle.
+    tasks: TaskRepository = FakeTaskRepository(),
+    notes: NotesRepository = FakeNotesRepository(),
+    projects: ProjectsRepository = FakeProjectsRepository(),
+    tags: TagsRepository = FakeTagsRepository(),
+    tagGroups: TagGroupRepository = FakeTagGroupRepository(),
+    timeTracking: TimeTrackingRepository = FakeTimeTrackingRepository(FakeClock()),
+): SyncDocumentWriter = SyncDocumentWriter(
+    taskRepo = tasks,
+    noteRepo = notes,
+    projectRepo = projects,
+    tagRepo = tags,
+    tagGroupRepo = tagGroups,
+    timeTrackingRepo = timeTracking,
 )

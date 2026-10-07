@@ -42,6 +42,9 @@ class AlarmManagerReminderScheduler(
     private val alarmManager: AlarmManager =
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+    /** AlarmManager is the platform alarm authority; there is no fallback here. */
+    override val isSupported: Boolean = true
+
     override suspend fun schedule(reminder: Reminder) {
         if (reminder.fireAt <= clock.now().toEpochMilliseconds()) return
         alarmManager.setAlarmClock(

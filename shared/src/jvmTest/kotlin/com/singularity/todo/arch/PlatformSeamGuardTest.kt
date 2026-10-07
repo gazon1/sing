@@ -3,7 +3,6 @@ package com.singularity.todo.arch
 import java.io.File
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -40,6 +39,18 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class PlatformSeamGuardTest {
 
+    private companion object {
+        /**
+         * Marker a stub's `reason` must contain to decline a capability gate.
+         *
+         * Free prose cannot be checked; a token can. Requiring the literal string turns
+         * "declining to add a gate" from a sentence someone writes into a state someone
+         * searches for, which is what makes the exemption reviewable rather than
+         * decorative.
+         */
+        const val UNGATED_EXEMPTION = "UNGATED"
+    }
+
     /** A row of `platform-seams.tsv`. */
     private data class Seam(
         val port: String,
@@ -48,9 +59,20 @@ class PlatformSeamGuardTest {
         val jvmImpl: String,
         val verdict: String,
         val wiring: String,
+        val gate: String,
         val reason: String,
     ) {
         val isInfra: Boolean get() = kind == "infra"
+
+        /**
+         * True when the row claims the UI is protected by a capability check.
+         *
+         * `-` is an explicit *absence* of a gate, not a default: it is a deliberate
+         * statement that the UI does not check anything before calling an inert
+         * implementation. That is the state the reminder fix changed, so it has to be
+         * written down rather than inferred from a missing column.
+         */
+        val declaresGate: Boolean get() = gate.isNotBlank() && gate != "-"
     }
 
     private fun sourceRoot(property: String): File = File(
@@ -89,13 +111,12 @@ class PlatformSeamGuardTest {
             .filter { it.isNotEmpty() }
             .map { line ->
                 val f = line.split('|').map { it.trim() }
-                assertEquals(
-                    7,
-                    f.size,
-                    "registry row must have 7 columns: " +
-                        "port|kind|androidImpl|jvmImpl|verdict|wiring|reason — got: $line",
+                assertTrue(
+                    f.size == 8,
+                    "registry row must have 8 columns: " +
+                        "port|kind|androidImpl|jvmImpl|verdict|wiring|gate|reason — got: $line",
                 )
-                Seam(f[0], f[1], f[2], f[3], f[4], f[5], f[6])
+                Seam(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7])
             }
             .toList()
     }
@@ -323,6 +344,89 @@ class PlatformSeamGuardTest {
             .filter { it.wiring == "unwired" }
             .filter { it.reason.isBlank() }
             .map { "${it.port} is unwired with no recorded reason" }
+        assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
+    }
+
+    /**
+     * A seam that names a capability gate must have that gate in production code.
+     *
+     * ## The defect this prevents, and why the other rules missed it
+     *
+     * The reminder fix added `ReminderScheduler.isSupported` and a check in
+     * `TaskRemindersSlot`. Every pre-existing rule was satisfied while that check did
+     * not exist: the seam was registered, marked `stub`, and given a reason — a reason
+     * that *described the gate* rather than being enforced by anything. Nothing in this
+     * file, `find-unwired-surfaces.py`, or CI could tell the difference between "the UI
+     * checks this flag" and "the registry says the UI checks this flag".
+     *
+     * So a stub's `reason` column was doing the work of a test. It is prose, and prose
+     * does not fail the build.
+     *
+     * ## Why matching the symbol, not the type
+     *
+     * `isSupported` is checked by name rather than by type. A type-level check ("does any
+     * code branch on `ReminderScheduler.isSupported`") is what this rule already does for
+     * `injected` seams, and it passed — `GoogleTaskApplier` and `TaskLifecycleSlot` both
+     * mention `ReminderScheduler`, so the seam looked used. What matters is narrower: is
+     * the *flag* read, somewhere, by production code? A named symbol is the smallest
+     * thing that can answer that without a type-aware resolver, and it stays readable.
+     *
+     * ## What this deliberately does not require
+     *
+     * It does not require every stub to have a gate. `Haptic` and `CrashReportingPort`
+     * have no UI that could check anything — the binding must merely exist for
+     * composition. Those rows declare `gate=-` and carry a reason saying so. The rule
+     * is that the absence is *written down*, which is what stops the next silent stub
+     * from being filed under "exempt by default".
+     */
+    @Test
+    fun `a seam declaring a capability gate reads that symbol in production code`() {
+        val commonRoot = sourceRoot("commonMain.root")
+        val bodies = commonRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filterNot { it.name.contains("Test") }
+            .map { it.readText() }
+            .toList()
+
+        val offenders = registry()
+            .filterNot { it.isInfra }
+            .filter { it.declaresGate }
+            .filterNot { seam -> bodies.any { seam.gate in it } }
+            .map {
+                "${it.port} declares gate '${it.gate}' but no production file reads it — " +
+                    "either check it before calling the inert implementation, or record " +
+                    "gate=- and say in the reason why no check is possible"
+            }
+
+        assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
+    }
+
+    /**
+     * A stub with no gate must argue for it, in the only form an audit can check.
+     *
+     * The paired half of the gate rule. Without it, `gate=-` would be the path of least
+     * resistance for the next stub, and the column would track the file count rather
+     * than the seams that were actually audited.
+     *
+     * The exemption marker is required rather than free-form prose. An earlier version
+     * accepted any written reason, which meant the gate could be declined by typing a
+     * sentence — the failure mode this whole change exists to remove, one layer down.
+     * `CalendarAppQueries` needs exactly this: its empty list is safe only because the
+     * one caller is gated by a *different* seam's flag, and that coupling is worth more
+     * as a written, greppable claim than as a capability of its own.
+     */
+    @Test
+    fun `a stub declared ungated carries an explicit exemption marker`() {
+        val offenders = registry()
+            .filterNot { it.isInfra }
+            .filter { it.verdict == "stub" }
+            .filterNot { it.declaresGate }
+            .filterNot { UNGATED_EXEMPTION in it.reason }
+            .map {
+                "${it.port} is a stub with no capability gate — add one, or start its reason " +
+                    "with '$UNGATED_EXEMPTION' stating why no check is possible"
+            }
+
         assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }
 

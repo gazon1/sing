@@ -64,6 +64,8 @@ import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Android platform bindings.
@@ -97,6 +99,12 @@ actual fun platformModule(): Module = module {
         val dbPath = context.getDatabasePath("todo.db").absolutePath
         AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
+
+    // One write transaction for the repositories that write a synced row and the
+    // patch describing it. Registered here, beside the database, because it *is* the
+    // database's transaction — not a feature concern. See ADR
+    // 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
+    single<UnitOfWork> { RoomUnitOfWork(get()) }
 
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }

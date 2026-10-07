@@ -6,6 +6,9 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 
@@ -42,25 +45,47 @@ internal class SyncRunner(
     private var scheduledJob: Job? = null
 
     init {
-        // React to scope changes, not just session changes.
+        // React to scope changes *and* to the settings themselves.
         //
         // Auto-sync settings are per scope, so watching the session alone means a
         // profile switch keeps running the previous profile's interval — and a
         // profile that has auto-sync turned off inherits one that has it on. The
         // scope is the sum of the session and the active profile, so watching it
-        // covers both, and the settings are read per emission rather than cached.
+        // covers both.
+        //
+        // But the scope alone is not enough, and the reason is a property of `StateFlow`
+        // rather than of this code: a `StateFlow` does not emit when it is set to the
+        // value it already holds. Changing the sync interval therefore produced no
+        // emission, the runner never re-read the settings, and the one setting on that
+        // screen whose entire purpose is to be changed did nothing until the profile was
+        // switched or the app restarted. `autoSyncEnabled` failed the same way in both
+        // directions.
+        //
+        // `collectLatest` rather than `collect` is what keeps the two collectors from
+        // overlapping: a scope change cancels the settings collection that belongs to
+        // the previous scope, rather than leaving it live beside the new one.
         scope.launch {
-            scopeProvider.current.collect { active ->
+            scopeProvider.current.collectLatest { active ->
                 if (active == null) {
                     stopScheduledSync()
-                    return@collect
+                    return@collectLatest
                 }
-                val settings = stateRepository.get(active)
-                if (settings.autoSyncEnabled) {
-                    startScheduledSync(settings.scheduledInterval)
-                } else {
-                    stopScheduledSync()
-                }
+                // Narrowed to the two fields scheduling actually depends on, and then
+                // de-duplicated. `SyncState` also carries `lastLsn`, `lastSuccessfulSyncAt`
+                // and `deviceId`, which change on every cycle — observing it whole would
+                // cancel and restart the periodic trigger after each sync, so the trigger
+                // would be rearmed constantly and an interval could pass without one ever
+                // completing. Only a real scheduling change may restart it.
+                stateRepository.observe(active)
+                    .map { it.autoSyncEnabled to it.scheduledInterval }
+                    .distinctUntilChanged()
+                    .collect { (enabled, interval) ->
+                        if (enabled) {
+                            startScheduledSync(interval)
+                        } else {
+                            stopScheduledSync()
+                        }
+                    }
             }
         }
     }

@@ -23,6 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Deleting a tag group must release what pointed at it.
@@ -90,6 +91,7 @@ class TagGroupDeleteCascadeTest {
                 authRepository = FakeAuthRepository(Session.Anonymous(userId)),
             ),
             syncRepository = sync,
+            unitOfWork = FakeUnitOfWork(),
         )
 
     @Test

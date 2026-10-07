@@ -34,6 +34,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Verifies that [TaskRepository] implementations satisfy the same contract,
@@ -308,6 +309,7 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
             currentUser = currentUser,
             syncRepository = syncRepo,
             dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+            unitOfWork = FakeUnitOfWork(),
         )
     }
 }

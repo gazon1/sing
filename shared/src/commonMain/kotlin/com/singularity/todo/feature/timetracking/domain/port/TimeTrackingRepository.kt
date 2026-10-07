@@ -77,6 +77,24 @@ interface TimeTrackingRepository {
     suspend fun delete(entryId: TimeEntryId): Result<Unit>
 
     /**
+     * Writes a whole entry, replacing any row with the same id.
+     *
+     * Used **only** by the sync apply path, and deliberately shaped like the other
+     * repositories' `upsert` rather than like the user-facing verbs above. Every other
+     * method here is a command that enforces an invariant — [startEntry] refuses a second
+     * open entry, [updateNote] is scoped to the caller, [delete] is a soft delete — and a
+     * command taken from the server would be the wrong shape for that: an entry that
+     * arrived from another device is already valid, and re-checking "does this user
+     * already have one open" against it would reject a legitimate state change.
+     *
+     * The entry's own `userId` is honoured rather than overwritten with the local user.
+     * The caller has already verified ownership — the pull path is scoped to the session's
+     * owner — and rewriting it here would make the write disagree with the document that
+     * was sent.
+     */
+    suspend fun upsert(entry: TimeEntry): Result<Unit>
+
+    /**
      * Watch all time entries within the given time range, ordered by [startedAt] descending.
      * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
      * Soft-deleted entries are excluded.

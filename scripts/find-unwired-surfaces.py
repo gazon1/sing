@@ -13,8 +13,8 @@ Shapes detected (via Detector table — add new rows, not new loops):
   2. default-noop   — a callback parameter defaulting to `{}` where the
                        consumer writes `param ?: fallback`, which the empty
                        lambda defeats
-  3. di-binding     — a Room DAO accessor with no `get<AppDatabase>()…`
-                       binding in either PlatformModule
+  3. di-binding     — a Room DAO accessor that no `get<AppDatabase>()…` binding and
+                       no production call on a database instance reaches
   4. log-writer     — a Kermit `LogWriter` subclass never registered via
                        `Logger.setLogWriters(...)`, so it silently receives
                        nothing
@@ -181,6 +181,7 @@ def _check_composable(
     code: dict[pathlib.Path, str], corpus: str, _pre: object = None
 ) -> list[tuple[str, str]]:
     findings: list[tuple[str, str]] = []
+    baseline = _load_baseline()
     # Build one pattern for all suffixes: ^fun FooScreen(| ... / ^fun FooCard( ...
     alt = "|".join(_COMPOSABLE_SUFFIXES)
     pattern = re.compile(r"^fun ([A-Z]\w*(?:" + alt + r"))\s*\(", re.M)
@@ -194,7 +195,8 @@ def _check_composable(
             # -1: subtract the declaration itself
             refs = len(re.findall(r"\b" + re.escape(name) + r"\b", corpus)) - 1
             if refs <= 0:
-                findings.append(("screen", f"{rel(path)}: {name}() has no call site"))
+                kind = "exempt" if name in baseline else "screen"
+                findings.append((kind, f"{rel(path)}: {name}() has no call site"))
     return findings
 
 
@@ -236,12 +238,29 @@ def _check_default_noop(
 _DAO_ACCESSOR = re.compile(r"abstract fun (\w+)\(\)\s*:\s*(\w*Dao)\b")
 _DAO_BINDING = re.compile(r"get<AppDatabase>\(\)\.(\w+)\(\)")
 
+# A DAO accessor does not need its own `single { get<AppDatabase>().x() }` binding to be
+# reachable. Injecting the database itself is a second, legitimate route:
+# `OwnerRowIdResolver(private val database: AppDatabase)` calls
+# `database.ownerEraseDao()`, and every consumer of that resolver gets the DAO with it.
+#
+# The detector has to know about that route, or it reports a DAO that the app very much
+# does use. What it must NOT start accepting is a DAO that *nothing* asks for — so the
+# route is counted only from production sources. A DAO reachable solely from a test is
+# still a finding, and so is one nothing mentions at all.
+_DAO_CALL = re.compile(r"\.\s*(\w+)\s*\(\s*\)")
+
+# Source sets that ship to no device. A call here is evidence about the test, not about
+# the app.
+_TEST_SOURCE = re.compile(r"(?:^|/)(?:jvmTest|androidTest|commonTest|desktopTest|iosTest)/")
+
 
 def _precompute_di_binding(code: dict[pathlib.Path, str]) -> set[str]:
     bound: set[str] = set()
     for path, text in code.items():
         if "PlatformModule" in path.name:
             bound.update(_DAO_BINDING.findall(text))
+        if not _TEST_SOURCE.search(rel(path)):
+            bound.update(_DAO_CALL.findall(text))
     return bound
 
 
@@ -258,7 +277,8 @@ def _check_di_binding(
                 findings.append(
                     (
                         "di-binding",
-                        f"{rel(path)}: {dao} via {accessor}() is not bound in any PlatformModule",
+                        f"{rel(path)}: {dao} via {accessor}() is neither bound in a "
+                        f"PlatformModule nor called on a database in production",
                     )
                 )
     return findings
@@ -470,7 +490,7 @@ def _check_dead_symbol(
                         f"other 13 live; if it cannot move, say why in the entry"
                     )
                 findings.append((
-                    "dead-symbol",
+                    "exempt" if name in baseline else "dead-symbol",
                     f"{rel(path)}: {name} has {test_count} test reference(s) but "
                     f"{prod_count} production reference(s) — {backlog_ref}{placement}",
                 ))
@@ -478,6 +498,25 @@ def _check_dead_symbol(
 
 
 def _load_baseline() -> dict[str, str]:
+    """Symbol name → reason, from the exemption file.
+
+    ## Why a row here is an exemption and not only a label
+
+    Until 2026-10-06 this map was read *into the finding message* and changed nothing
+    else — the detector still returned the symbol and `main()` still exited 1. So the file
+    documented an invariant ("before it can be exempted"), `check-unwired-backlog-refs.py`
+    checked that every row's reference resolves, and **nothing ever consumed the exemption**.
+    A row could therefore exist, be perfectly honest, and still leave the gate red, which
+    is the worst of both: the only way to get a green gate was to delete code.
+
+    A row now changes the finding's kind to `exempt`, and `main()` excludes exempt rows
+    from the exit code. That is what makes the other gate load-bearing — it is the thing
+    that stops "add a row" from becoming the answer to every finding.
+
+    Exemption is keyed by symbol name, not by file, because a screen or a class has one
+    home; a same-named symbol elsewhere would be exempt too, which is why the file's own
+    second column records where the exemption was granted.
+    """
     path = ROOT / "scripts" / "find-unwired-surfaces-baseline.txt"
     if not path.exists():
         return {}
@@ -831,8 +870,27 @@ def main() -> int:
 
     for kind, message in sorted(findings):
         print(f"[{kind}] {message}")
-    print(f"\n{len(findings)} finding(s).", file=sys.stderr)
-    return 1
+
+    # An exempt row is reported and does not fail the build. It is printed rather than
+    # dropped so that the decision stays visible in the log of the run that honoured it —
+    # a gate that stops mentioning its exemptions is a gate whose exemptions nobody
+    # remembers agreeing to.
+    blocking = [f for f in findings if f[0] != "exempt"]
+    if blocking:
+        print(f"\n{len(blocking)} finding(s).", file=sys.stderr)
+        return 1
+
+    exempted = len(findings)  # every remaining row is an exemption at this point
+    if exempted:
+        print(
+            f"\n0 blocking finding(s); {exempted} exempted. Every exemption must name a "
+            f"live entry in docs/deferred-backlog.md — see "
+            f"scripts/check-unwired-backlog-refs.py.",
+            file=sys.stderr,
+        )
+    else:
+        print("\nNo unwired surfaces found.", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

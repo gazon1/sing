@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Room-backed production [TagsRepository].
@@ -27,6 +28,7 @@ class TagsRepositoryImpl(
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
+    private val unitOfWork: UnitOfWork,
 ) : TagsRepository {
 
     // ── GenericUserScopedRepository ────────────────────────────────────────────
@@ -45,15 +47,19 @@ class TagsRepositoryImpl(
     }
 
     override suspend fun create(item: Tag): Result<Tag> = runCatchingCancellable {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        tagDao.upsert(item.toEntity())
-        item.also { syncRepository.enqueue(it) }
+        unitOfWork.write {
+            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            tagDao.upsert(item.toEntity())
+            item.also { syncRepository.enqueue(it) }
+        }
     }
 
     override suspend fun update(item: Tag): Result<Tag> = runCatchingCancellable {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        tagDao.upsert(item.toEntity())
-        item.also { syncRepository.enqueue(it) }
+        unitOfWork.write {
+            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            tagDao.upsert(item.toEntity())
+            item.also { syncRepository.enqueue(it) }
+        }
     }
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
@@ -64,14 +70,24 @@ class TagsRepositoryImpl(
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        val ts = clock.now().toEpochMilliseconds()
-        val rows = tagDao.softDeleteForUser(id.value, ts, uid.value)
-        require(rows > 0) { "Tag $id not found or not owned by user" }
-        // Deletion propagates as state (deletedAt) rather than a tombstone, so
-        // the trashed tag itself is pushed and the server converges.
-        val row = tagDao.getByIdForUser(id.value, uid.value) ?: return@runCatchingCancellable
-        syncRepository.enqueue(row.toTag())
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = tagDao.softDeleteForUser(id.value, ts, uid.value)
+            require(rows > 0) { "Tag $id not found or not owned by user" }
+            // Deletion propagates as state (deletedAt) rather than a tombstone, so
+            // the trashed tag itself is pushed and the server converges.
+            //
+            // "if it is still there" rather than an early return: the return would
+            // have to cross the unit-of-work boundary, which is not an inline
+            // function and cannot be returned from non-locally. Same behaviour —
+            // a row that vanished between the delete and the re-read pushes
+            // nothing — and the delete still commits alone rather than not at all.
+            val row = tagDao.getByIdForUser(id.value, uid.value)
+            if (row != null) {
+                syncRepository.enqueue(row.toTag())
+            }
+        }
     }
 
     // Scoped: the unscoped `watchById` returns another profile's tag, and — because it

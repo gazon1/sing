@@ -36,6 +36,7 @@ import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Bundled extras for batch-loading [Task.tags] and [Task.dependsOn].
@@ -48,6 +49,7 @@ class TaskRepositoryImpl(
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
+    private val unitOfWork: UnitOfWork,
     private val dependencyValidator: DependencyValidator,
 ) : TaskRepository {
 
@@ -204,33 +206,37 @@ class TaskRepositoryImpl(
         }
 
     override suspend fun create(item: Task): Result<Task> = runCatchingCancellable {
-        val currentUid = currentUser.scopedUserId.value
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        val toInsert = item.copy(userId = currentUid)
-        taskDao.upsert(toInsert.toEntity())
-        saveOutgoingLinks(toInsert.id, toInsert.description)
-        toInsert.tags.forEach { tagId ->
-            taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
+        unitOfWork.write {
+            val currentUid = currentUser.scopedUserId.value
+            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            val toInsert = item.copy(userId = currentUid)
+            taskDao.upsert(toInsert.toEntity())
+            saveOutgoingLinks(toInsert.id, toInsert.description)
+            toInsert.tags.forEach { tagId ->
+                taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
+            }
+            syncRepository.enqueue(toInsert)
+            toInsert
         }
-        syncRepository.enqueue(toInsert)
-        toInsert
     }
 
     override suspend fun update(item: Task): Result<Task> = runCatchingCancellable {
-        currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-        // Read-before-write guard: reject updates to non-existent entities.
-        // Prevents silent data loss from upsert-on-missing.
-        taskDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
-            ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
-        // Re-stamp after the guard, exactly as `create` does: the guard has just
-        // established that userId is either current or anonymous, so normalising
-        // anonymous -> current cannot lose information, whereas upserting the
-        // caller's anonymous id verbatim would orphan the row.
-        val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
-        taskDao.upsert(toUpdate.toEntity())
-        saveOutgoingLinks(toUpdate.id, toUpdate.description)
-        syncRepository.enqueue(toUpdate)
-        toUpdate
+        unitOfWork.write {
+            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            // Read-before-write guard: reject updates to non-existent entities.
+            // Prevents silent data loss from upsert-on-missing.
+            taskDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
+                ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
+            // Re-stamp after the guard, exactly as `create` does: the guard has just
+            // established that userId is either current or anonymous, so normalising
+            // anonymous -> current cannot lose information, whereas upserting the
+            // caller's anonymous id verbatim would orphan the row.
+            val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
+            taskDao.upsert(toUpdate.toEntity())
+            saveOutgoingLinks(toUpdate.id, toUpdate.description)
+            syncRepository.enqueue(toUpdate)
+            toUpdate
+        }
     }
 
     private suspend fun saveOutgoingLinks(id: TaskId, description: String?) {
@@ -276,40 +282,48 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatchingCancellable {
-        val ts = clock.now().toEpochMilliseconds()
-        val rows = taskDao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
-        require(rows > 0) { "Task $id not found or not owned by current user" }
-        enqueueFresh(id)
+        unitOfWork.write {
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = taskDao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
+            require(rows > 0) { "Task $id not found or not owned by current user" }
+            enqueueFresh(id)
+        }
     }
 
     override suspend fun restore(id: TaskId): Result<Unit> = runCatchingCancellable {
-        val ts = clock.now().toEpochMilliseconds()
-        val rows = taskDao.restoreForUser(id.value, ts, currentUser.scopedUserId.value.value)
-        require(rows > 0) { "Task $id not found or not owned by current user" }
-        enqueueFresh(id)
+        unitOfWork.write {
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = taskDao.restoreForUser(id.value, ts, currentUser.scopedUserId.value.value)
+            require(rows > 0) { "Task $id not found or not owned by current user" }
+            enqueueFresh(id)
+        }
     }
 
     override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatchingCancellable {
-        val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
-            ?: throw IllegalArgumentException("Task not found: ${id.value}")
-        val ts = clock.now().toEpochMilliseconds()
-        val uid = currentUser.scopedUserId.value.value
-        val rows = if (task.completedAt != null) {
-            taskDao.markIncompleteForUser(id.value, ts, uid)
-        } else {
-            taskDao.markCompleteForUser(id.value, ts, uid)
+        unitOfWork.write {
+            val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
+                ?: throw IllegalArgumentException("Task not found: ${id.value}")
+            val ts = clock.now().toEpochMilliseconds()
+            val uid = currentUser.scopedUserId.value.value
+            val rows = if (task.completedAt != null) {
+                taskDao.markIncompleteForUser(id.value, ts, uid)
+            } else {
+                taskDao.markCompleteForUser(id.value, ts, uid)
+            }
+            require(rows > 0) { "Task $id not found or not owned by current user" }
+            enqueueFresh(id)
         }
-        require(rows > 0) { "Task $id not found or not owned by current user" }
-        enqueueFresh(id)
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatchingCancellable {
-        val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
-            ?: throw IllegalArgumentException("Task not found: ${id.value}")
-        val ts = clock.now().toEpochMilliseconds()
-        val rows = taskDao.setPinnedForUser(id.value, !task.isPinned, ts, currentUser.scopedUserId.value.value)
-        require(rows > 0) { "Task $id not found or not owned by current user" }
-        enqueueFresh(id)
+        unitOfWork.write {
+            val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
+                ?: throw IllegalArgumentException("Task not found: ${id.value}")
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = taskDao.setPinnedForUser(id.value, !task.isPinned, ts, currentUser.scopedUserId.value.value)
+            require(rows > 0) { "Task $id not found or not owned by current user" }
+            enqueueFresh(id)
+        }
     }
 
     override fun getTagIds(taskId: TaskId): Flow<List<TagId>> = currentUser.observeForCurrentUser { uid ->
@@ -332,75 +346,79 @@ class TaskRepositoryImpl(
         tagIds: List<TagId>,
         actor: TagEditActor,
     ): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value.value
-        // Touch the owning task first so a foreign id fails here rather than
-        // silently "succeeding" with zero cross-refs written.
-        val entity = taskDao.getByIdForUser(taskId.value, uid)
-            ?: error("Task $taskId not found")
-        val existingTagStrings = taskDao.getTagIdsForUser(taskId.value, uid).first().toSet() // Set<String>
-        val existingTagIds = existingTagStrings.map { TagId.fromString(it) }.toSet() // Set<TagId>
-        val newTagIds = tagIds.toSet() // Set<TagId>
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            // Touch the owning task first so a foreign id fails here rather than
+            // silently "succeeding" with zero cross-refs written.
+            val entity = taskDao.getByIdForUser(taskId.value, uid)
+                ?: error("Task $taskId not found")
+            val existingTagStrings = taskDao.getTagIdsForUser(taskId.value, uid).first().toSet() // Set<String>
+            val existingTagIds = existingTagStrings.map { TagId.fromString(it) }.toSet() // Set<TagId>
+            val newTagIds = tagIds.toSet() // Set<TagId>
 
-        val removed = existingTagIds - newTagIds
-        val added = newTagIds - existingTagIds
+            val removed = existingTagIds - newTagIds
+            val added = newTagIds - existingTagIds
 
-        // Apply cross-ref changes
-        existingTagStrings.forEach { tagId -> taskDao.removeTagRefForUser(taskId.value, tagId, uid) }
-        newTagIds.forEach { tagId -> taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid) }
+            // Apply cross-ref changes
+            existingTagStrings.forEach { tagId -> taskDao.removeTagRefForUser(taskId.value, tagId, uid) }
+            newTagIds.forEach { tagId -> taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid) }
 
-        // Suppression logic only for User actor; AiProposal never touches suppressions
-        val currentSuppressed = StableJson.decodeFromString(
-            SetSerializer(String.serializer()),
-            entity.aiSuppressedTagIds,
-        ).toMutableSet()
-
-        if (actor == TagEditActor.User) {
-            // User removing a tag → record as suppressed
-            currentSuppressed.addAll(removed.map { it.value })
-            // User adding a tag → clear suppression for that tag
-            added.forEach { currentSuppressed.remove(it.value) }
-        }
-        // AiProposal: suppressions unchanged
-
-        // Persist updated suppressions back to the entity
-        val updatedEntity = entity.copy(
-            aiSuppressedTagIds = StableJson.encodeToString(
+            // Suppression logic only for User actor; AiProposal never touches suppressions
+            val currentSuppressed = StableJson.decodeFromString(
                 SetSerializer(String.serializer()),
-                currentSuppressed,
-            ),
-        )
-        taskDao.upsert(updatedEntity)
+                entity.aiSuppressedTagIds,
+            ).toMutableSet()
 
-        // `tags` is a serialised field of Task, so the cross-ref change is part of
-        // the synced state and must be pushed.
-        enqueueFresh(taskId)
+            if (actor == TagEditActor.User) {
+                // User removing a tag → record as suppressed
+                currentSuppressed.addAll(removed.map { it.value })
+                // User adding a tag → clear suppression for that tag
+                added.forEach { currentSuppressed.remove(it.value) }
+            }
+            // AiProposal: suppressions unchanged
+
+            // Persist updated suppressions back to the entity
+            val updatedEntity = entity.copy(
+                aiSuppressedTagIds = StableJson.encodeToString(
+                    SetSerializer(String.serializer()),
+                    currentSuppressed,
+                ),
+            )
+            taskDao.upsert(updatedEntity)
+
+            // `tags` is a serialised field of Task, so the cross-ref change is part of
+            // the synced state and must be pushed.
+            enqueueFresh(taskId)
+        }
     }
 
     override suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value.value
-        require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
-        dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
+            dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
 
-        // Read existing edges so we can preserve their verbs (fixes prior hardcoded BLOCKS bug).
-        val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
-        val existingMap = existingEdges.associateBy({ it.dependsOnTaskId }, { it.verb })
+            // Read existing edges so we can preserve their verbs (fixes prior hardcoded BLOCKS bug).
+            val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
+            val existingMap = existingEdges.associateBy({ it.dependsOnTaskId }, { it.verb })
 
-        val desired = deps.map { it.value }.toSet()
-        val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
+            val desired = deps.map { it.value }.toSet()
+            val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
 
-        // Remove edges no longer in the desired set
-        (existing - desired).forEach { depId ->
-            taskDao.removeDependencyForUser(taskId.value, depId, uid)
+            // Remove edges no longer in the desired set
+            (existing - desired).forEach { depId ->
+                taskDao.removeDependencyForUser(taskId.value, depId, uid)
+            }
+
+            // Upsert remaining edges, preserving existing verb or defaulting to BLOCKS for new ones
+            desired.forEach { depId ->
+                val verb = existingMap[depId] ?: DependencyVerb.BLOCKS.name
+                taskDao.upsertDependencyForUser(taskId.value, depId, verb, uid)
+            }
+
+            // Same as setTags: `dependsOn` is part of the synced payload.
+            enqueueFresh(taskId)
         }
-
-        // Upsert remaining edges, preserving existing verb or defaulting to BLOCKS for new ones
-        desired.forEach { depId ->
-            val verb = existingMap[depId] ?: DependencyVerb.BLOCKS.name
-            taskDao.upsertDependencyForUser(taskId.value, depId, verb, uid)
-        }
-
-        // Same as setTags: `dependsOn` is part of the synced payload.
-        enqueueFresh(taskId)
     }
 
     override suspend fun setDependency(
@@ -409,14 +427,16 @@ class TaskRepositoryImpl(
         verb: DependencyVerb,
         enabled: Boolean,
     ): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value.value
-        require(taskDao.getByIdForUser(from.value, uid) != null) { "Task $from not found" }
-        if (enabled) {
-            taskDao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
-        } else {
-            taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            require(taskDao.getByIdForUser(from.value, uid) != null) { "Task $from not found" }
+            if (enabled) {
+                taskDao.upsertDependencyForUser(from.value, to.value, verb.name, uid)
+            } else {
+                taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
+            }
+            enqueueFresh(from)
         }
-        enqueueFresh(from)
     }
 }
 

@@ -75,6 +75,7 @@ class SyncEnginePullTest {
         scopeProvider = scopeProvider,
         shadowDao = FakeSyncShadowDao(),
         patchBuilder = fakeSyncPatchBuilder(),
+        writerProvider = { fakeSyncDocumentWriter() },
         scheduler = FakeSyncWorkScheduler(),
         // `backgroundScope`, not the test scope. The engine's init collects the auth
         // session forever, so a scope parented to the test's own job would leave an

@@ -12,7 +12,7 @@ import kotlin.test.fail
 /**
  * Automated architectural boundaries (Konsist) — the enforcement layer for the rules
  * that previously lived only in the manual `singularity-todo-clean-architecture-audit`
- * grep audit. Runs as part of `:shared:jvmTest` (check.sh + CI `test-and-check`).
+ * grep audit. Runs as part of `:shared:jvmTest` (check.sh + the CI `tests` job).
  *
  * Scope: `shared/src/commonMain/kotlin` production sources. Platform source sets and
  * tests are out of scope.

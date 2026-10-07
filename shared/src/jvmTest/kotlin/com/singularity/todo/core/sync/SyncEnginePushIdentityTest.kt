@@ -89,6 +89,7 @@ class SyncEnginePushIdentityTest {
             stateRepository = FakeSyncStateRepository(),
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            writerProvider = { fakeSyncDocumentWriter() },
             scopeProvider = scopes,
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = PatchRetryPolicy(),

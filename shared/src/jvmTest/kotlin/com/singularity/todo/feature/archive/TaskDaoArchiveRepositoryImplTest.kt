@@ -25,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Bulk archive has to reach the sync outbox, not just the database.
@@ -58,6 +59,7 @@ class TaskDaoArchiveRepositoryImplTest {
                 scope = backgroundScope,
             ),
             syncRepository = sync,
+            unitOfWork = FakeUnitOfWork(),
         )
     }
 

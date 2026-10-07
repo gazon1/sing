@@ -3,26 +3,7 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.ids.TimeEntryId
-import com.singularity.todo.core.serialization.StableJson
-import com.singularity.todo.feature.notes.Note
-import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.notes.domain.port.NotesRepository
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.tags.Tag
-import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tags.TagsRepository
-import com.singularity.todo.feature.tags.domain.model.TagGroup
-import com.singularity.todo.feature.tags.domain.model.TagGroupId
-import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
-import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.serializer
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -34,12 +15,7 @@ import kotlinx.coroutines.CancellationException
  */
 internal class SyncBootstrapper(
     private val engine: SyncEngine,
-    private val taskRepo: TaskRepository,
-    private val noteRepo: NotesRepository,
-    private val projectRepo: ProjectsRepository,
-    private val tagRepo: TagsRepository,
-    private val tagGroupRepo: TagGroupRepository,
-    private val timeTrackingRepo: TimeTrackingRepository,
+    private val writer: SyncDocumentWriter,
     private val log: Logger = Logger.withTag("SyncBootstrapper"),
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
@@ -48,38 +24,23 @@ internal class SyncBootstrapper(
     }
 
     private fun registerHandlers() {
-        engine.registerHandler(DocType.Task) { event ->
-            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val task = StableJson.decodeFromString(serializer<Task>(), data.toString())
-                taskRepo.upsert(task)
-            }
-        }
-
-        engine.registerHandler(DocType.Note) { event ->
-            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val note = StableJson.decodeFromString(serializer<Note>(), data.toString())
-                noteRepo.upsert(note)
-            }
-        }
-
-        engine.registerHandler(DocType.Project) { event ->
-            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val project = StableJson.decodeFromString(serializer<Project>(), data.toString())
-                projectRepo.upsert(project)
-            }
-        }
-
-        engine.registerHandler(DocType.Tag) { event ->
-            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val tag = StableJson.decodeFromString(serializer<Tag>(), data.toString())
-                tagRepo.upsert(tag)
-            }
-        }
-
-        engine.registerHandler(DocType.TagGroup) { event ->
-            handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
-                val tagGroup = StableJson.decodeFromString(serializer<TagGroup>(), data.toString())
-                tagGroupRepo.upsert(tagGroup)
+        // One registration per type, from the writer's own table. The per-type
+        // knowledge moved to [SyncDocumentWriter] in #203 because a lost race has to
+        // write a document the server never sent, and that is the same write per type
+        // by a caller that is not a pull handler. Registering from [supportedTypes]
+        // rather than listing the types here is what stops the two from disagreeing:
+        // a type added to the writer and forgotten here would be writable and
+        // unreachable, which is the shape the unwired-surface gate exists to catch.
+        //
+        // #177: the delete half of TimeEntry was registered long before the apply
+        // half, and the gap was not cosmetic. Without an apply handler an incoming
+        // time-entry event is Unappliable, the cursor is held back, and every cycle
+        // re-receives the same event and stalls identically.
+        writer.supportedTypes.forEach { type ->
+            engine.registerHandler(type) { event ->
+                handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
+                    writer.upsert(type, data)
+                }
             }
         }
 
@@ -133,40 +94,18 @@ internal class SyncBootstrapper(
                 }
 
                 SyncEventType.DELETED -> {
-                    // Convert entityId String to the typed ID at the boundary, then ask
-                    // the repository to delete.
+                    // The typed-id conversion and the per-repository soft delete both
+                    // live in [SyncDocumentWriter.delete]. What stays here is the
+                    // classification of the outcome, because that is a property of the
+                    // *event* and not of the table it names.
                     //
-                    // Every implementation dispatched to here makes that a *soft* delete —
-                    // `TaskRepositoryImpl.delete` delegates to `softDelete`, and the rest
-                    // call `softDeleteForUser` — which is what keeps the trash item on the
-                    // receiving device instead of destroying it. That is a property of
-                    // those repositories, not of this dispatch, and nothing here checks
-                    // it: a new synced type whose `delete` is a genuine hard delete would
-                    // silently remove the row — trash and all — on every other device,
-                    // and nothing would say so. `SyncedEntityDeleteIsSoftTest` reads
-                    // this dispatch table and checks each repository it names. See #195.
-                    //
-                    // A `RESTORED` event does not come here. It is handled above, in the
-                    // same branch as `CREATED` and `UPDATED`, and applied as an ordinary
-                    // upsert of a document whose delete marker is clear. That is a
-                    // different operation from `SoftDeletable.restore`, and the two are
-                    // kept consistent only by the server putting the right document in
-                    // the event.
-                    val outcome: Result<Unit> = when (event.entityType) {
-                        DocType.Task -> taskRepo.delete(TaskId.fromString(event.entityId))
-
-                        DocType.Note -> noteRepo.delete(NoteId.fromString(event.entityId))
-
-                        DocType.Project -> projectRepo.delete(ProjectId.fromString(event.entityId))
-
-                        DocType.Tag -> tagRepo.delete(TagId.fromString(event.entityId))
-
-                        DocType.TagGroup -> tagGroupRepo.delete(TagGroupId.fromString(event.entityId))
-
-                        DocType.TimeEntry -> timeTrackingRepo.delete(
-                            TimeEntryId.fromString(event.entityId),
-                        )
-                    }
+                    // A `RESTORED` event does not come here. It is handled above, in
+                    // the same branch as `CREATED` and `UPDATED`, and applied as an
+                    // ordinary upsert of a document whose delete marker is clear. That
+                    // is a different operation from `SoftDeletable.restore`, and the two
+                    // are kept consistent only by the server putting the right document
+                    // in the event.
+                    val outcome = writer.delete(event.entityType, event.entityId)
                     outcome.fold(
                         onSuccess = {
                             log.d { "Pull event [DELETED][lsn=${event.serverLsn}]: deleted" }

@@ -32,17 +32,32 @@ DECISIONS_DIR = ROOT / "docs" / "decisions"
 SRC_DIRS = ["shared/src", "shared", "androidApp", "desktopApp", "mcp-server",
             "detekt-rules", "scripts", "docs", "config", "evals", ".agents", "gradle",
             "Maestro", "openspec",
+            # .github/ — workflow-файлы. Без него любая ссылка на `ci.yml` из
+            # AGENTS.md или ADR считалась бы мёртвой: каталог не индексируется,
+            # и гейт сообщал бы ровно о документе, который учит агента ими
+            # пользоваться. Побочный эффект полезный: сами workflow-и теперь
+            # сканируются на висящие ссылки — раньше не сканировались вовсе.
+            ".github",
             # infra/ (локальные стенды, в т.ч. Kiwi TCMS). Без него любая
             # ссылка на infra/kiwi/... из скилла или ADR считалась бы мёртвой
             # — и либо базилась бы, либо вводила автора в заблуждение.
             "infra"]
 
 # Top-level files that exist but are not under SRC_DIRS.
+#
+# The list is an allowlist rather than "every file in the root", because a
+# reference to something that is genuinely absent has to stay reportable. That
+# makes it a place where a real file can be missing: the README's Documentation
+# table cites CONTRIBUTING.md, SECURITY.md and CODE_OF_CONDUCT.md, all three of
+# which exist, and the gate called them dead until they were listed here. A gate
+# that reports a live file as dead does not get baselined — it gets ignored, and
+# the references it really should catch go with it.
 TOP_LEVEL_FILES = [
     "AGENTS.md", "ARCHITECTURE.md", "README.md", "PROGRESS.md", "check.sh",
     "justfile", "build.gradle.kts", "settings.gradle.kts", "gradle.properties",
     "skills-lock.json", "SKILL-MECHANICS.md", "CLAUDE.md", "LICENSE",
     "gradlew", "gradlew.bat", "package.json",
+    "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
 ]
 
 # Per-module build files live beside their module's source, not in an indexed dir.
@@ -460,6 +475,7 @@ _EXTERNAL_SYMBOLS = frozenset({
     "NavDisplay", "NavBackStack", "Display",       # Navigation 3 compose API
     "Test", "ClassData", "Parameterized",           # JUnit / Kotest
     "KotlinTest", "RunTest", "Dispatchers", "IO", "Default", "Main",
+    "CoroutineContext", "CoroutineDispatcher", "CoroutineScope",   # kotlinx.coroutines
     # java.nio and the Kotlin compiler's PSI, which the detekt-rules tests use
     # directly (`compileContentForTest(Path)` wraps the file in a `KtScript`).
     "Path", "KtFile", "KtScript", "KtElement", "KtDeclaration", "KtExpression",
@@ -497,6 +513,39 @@ _DETEKT_RULE_KEY = re.compile(
     r"(?:true|false|null|\[\]|\{\}|$|[-\w'\"])",
     re.M,
 )
+
+def _kt_enum_entries(text: str) -> list[str]:
+    """Names declared inside `enum class` bodies.
+
+    `_TOP_LEVEL_KT` sees `enum class A2uiType` but not the constants below it:
+    they are bare identifiers at the start of a line, so no declaration keyword
+    matches. The consequence was concrete rather than theoretical — the
+    genui-catalog skill quotes `STRING`, `INT`, `BOOL` and `TONE` as members of
+    `A2uiType`, all four of which exist, and the gate called all four dangling.
+
+    The body is read from the opening brace to the first line that closes it at
+    the enum's own indentation. That boundary is what keeps this from indexing
+    arbitrary identifiers: a permissive "every identifier that looks like an
+    entry" scan would add thousands of names, and a check that accepts more than
+    it can prove is the same failure this gate exists to stop.
+    """
+    names: list[str] = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if not re.match(r"^[ \t]*(?:\w+[ \t]+)*enum[ \t]+class[ \t]+\w+", line):
+            continue
+        if "{" not in line:
+            continue
+        indent = len(line) - len(line.lstrip())
+        close = re.compile(r"^[ \t]{%d}\}" % indent)
+        for body in lines[i + 1:]:
+            if close.match(body):
+                break
+            entry = re.match(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)\s*(?:,|$)", body)
+            if entry and entry.group(1) not in {"companion", "public", "private"}:
+                names.append(entry.group(1))
+    return names
+
 
 def _build_kt_symbol_index() -> dict[str, str]:
     """Scan production .kt files; return {symbol_name → file_rel_path}."""
@@ -544,8 +593,9 @@ def _build_kt_symbol_index() -> dict[str, str]:
             continue
         for path in base.rglob("*.kt"):
             text = path.read_text(encoding="utf-8", errors="replace")
-            for m in _TOP_LEVEL_KT.finditer(text):
-                name = m.group(1)
+            declared = [m.group(1) for m in _TOP_LEVEL_KT.finditer(text)]
+            declared += _kt_enum_entries(text)
+            for name in declared:
                 if name in _FRAMEWORK_ALLOCATED or name in _EXTERNAL_SYMBOLS:
                     continue
                 # First-wins: commonMain is the canonical declaration

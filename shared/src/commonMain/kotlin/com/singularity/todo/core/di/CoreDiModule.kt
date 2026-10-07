@@ -17,6 +17,9 @@ import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.auth.SupabaseAuthRepository
+import com.singularity.todo.feature.auth.AccountSwitcher
+import com.singularity.todo.feature.auth.OwnerRowIdResolver
+import com.singularity.todo.feature.auth.OwnerScopedEraser
 import com.singularity.todo.core.security.SecureStorageAdapter
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
@@ -60,6 +63,7 @@ import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncRpc
 import com.singularity.todo.core.sync.SyncBootstrapper
 import com.singularity.todo.core.sync.SyncCoordinator
+import com.singularity.todo.core.sync.SyncDocumentWriter
 import com.singularity.todo.core.sync.SyncPatchBuilder
 import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SyncPrefs
@@ -159,6 +163,20 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
+    // The owner-scoped erase, split read / write so the caller has to resolve the ids
+    // before it can delete anything. `AccountSwitcher` is the only caller, and it is the
+    // reason these are bound at all: until a switch exists there is nobody to erase.
+    single { OwnerRowIdResolver(database = get()) }
+    single { OwnerScopedEraser(database = get(), log = { Logger.withTag("AccountSwitcher").i(it) }) }
+    single {
+        AccountSwitcher(
+            authRepository = get(),
+            syncRepository = get(),
+            resolver = get(),
+            eraser = get(),
+        )
+    }
+
     single { CurrentUser(get(), createBackgroundScope(crashReportingFailureHandler(get()))) }
 
     // ─── Repositories ───────────────────────────────────────────────────
@@ -226,6 +244,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             scopeProvider = get(),
             shadowDao = get(),
             patchBuilder = get(),
+            writerProvider = { get<SyncDocumentWriter>() },
             scheduler = get(),
             retryPolicy = get(),
             clock = get(),
@@ -295,18 +314,27 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    // SyncBootstrapper: registers pull handlers for all DocTypes.
-    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
-    // The init {} block performs the registration.
+    // SyncDocumentWriter: the one statement of "which repository stores which DocType".
+    // Registered before the engine and the bootstrapper so both get the same table —
+    // two lists would be two answers to that question. See #203.
     single {
-        SyncBootstrapper(
-            engine = get(),
+        SyncDocumentWriter(
             taskRepo = get(),
             noteRepo = get(),
             projectRepo = get(),
             tagRepo = get(),
             tagGroupRepo = get(),
             timeTrackingRepo = get(),
+        )
+    }
+
+    // SyncBootstrapper: registers pull handlers for all DocTypes.
+    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
+    // The init {} block performs the registration.
+    single {
+        SyncBootstrapper(
+            engine = get(),
+            writer = get(),
         )
     }
 

@@ -40,6 +40,7 @@ fun notesModule(): org.koin.core.module.Module = module {
             get(),
             get(),
             get(),
+            get(),
         )
     }
     single<InternalLinkRepository> {
