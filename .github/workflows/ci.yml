@@ -43,7 +43,6 @@ jobs:
   static:
     name: Static gates
     runs-on: ubuntu-24.04
-<<<<<<< HEAD
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -89,12 +88,6 @@ jobs:
     name: JVM tests, detekt, coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 40
-=======
-    # The umbrella job: it builds both apps, runs the fast suites and detekt. Nothing here should
-    # take longer than an hour even on a cold cache, and the default 360 would let a wedged daemon
-    # sit on a runner for six hours.
-    timeout-minutes: 60
->>>>>>> 92877838 (fix(gates): an instrument nobody reads, and six jobs that could hang for hours)
     permissions:
       actions: read # flake analysis downloads the previous run's results
       contents: read
@@ -223,7 +216,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-<<<<<<< HEAD
       - name: Upload evidence (diagnostics, traceability, coverage)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -236,195 +228,6 @@ jobs:
             build/traceability/**
             build/reports/kover/report.xml
             **/build/reports/configuration-cache/**
-=======
-  slow-tests:
-    # Pinned like every other job in this file, and with the same action versions. This one job
-    # was left on `ubuntu-latest` with checkout/setup-java/setup-gradle at v4 while the rest moved
-    # to v7/v6/v5 — the exact divergence ADR 2026-10-05-ci-action-versions-and-runner-image-pin
-    # warns about: the label is being migrated to 26.04, and the unpinned job is the one that would
-    # notice, silently, on someone else's schedule.
-    runs-on: ubuntu-24.04
-    # A local slow-only run — compile included — takes about 5 minutes on an idle machine, so 40 is
-    # generous. The bound is not about speed: GitHub's default is 360 minutes, so a job that wedges
-    # on a Gradle daemon or a network fetch holds a runner for six hours and reports it as a pass
-    # with a timeout at the end. Same reason `maestro-smoke` has one.
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      # `tee` rather than a bare run: a Gradle failure whose output lives only in the job log is a
-      # failure nobody can read once the log has scrolled, been pruned, or been retrieved by
-      # something that cannot fetch it — which is exactly what happened to every run in this repo.
-      # The file is uploaded unconditionally, so the next failure arrives with its own evidence.
-      - name: Run slow jvmTest
-        run: |
-          set -o pipefail
-          ./gradlew :shared:jvmTest -Ptest.tags=slow --no-daemon 2>&1 | tee slow-jvmTest.log
-
-      - name: Upload the test run's own output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: slow-jvmTest-log-${{ github.run_id }}
-          path: slow-jvmTest.log
-          if-no-files-found: warn
-          retention-days: 14
-
-      # `warn`, not `ignore`: this bundle is the coroutine dump for a crashed test, so "no files"
-      # is information — it means the failure happened before any test ran.
-      - name: Upload shared failure bundle
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: slow-failure-bundle-${{ github.run_id }}
-          path: shared/build/diagnostics/**
-          if-no-files-found: warn
-          retention-days: 14
-
-  kover-report:
-    runs-on: ubuntu-24.04
-    # Coverage runs the whole test suite and then aggregates, so it is the slowest job here. 45 is
-    # sized from that, and the bound exists for the same reason as every other one on this file.
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      # The configuration cache store lives in the PROJECT .gradle/ directory,
-      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
-      # its own cache. Keys are per-job + per-run (restore via prefix) so every
-      # run persists newly stored entries; a hash change falls back gracefully
-      # (stale entries are simply not reused — invalidation is not a failure).
-      - name: Cache configuration cache store
-        uses: actions/cache@v4
-        with:
-          path: .gradle/configuration-cache
-          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            cc-${{ github.job }}-${{ runner.os }}-
-
-      - name: Generate kover report
-        # The stamp goes in first: the report is only evidence about the code if it
-        # was produced by this run, and a report left in a restored build cache or a
-        # self-hosted workspace would otherwise satisfy the floor indefinitely.
-        #
-        # `koverReport` (not `:shared:koverXmlReport`, not a bare `koverXmlReport`):
-        # coverage is aggregated at settings level (settings.gradle.kts), and the root
-        # `koverReport` task is the one that also runs the test tasks. Kover's
-        # aggregation plugin only picks up `Test` tasks that are already in the graph —
-        # `:koverXmlReport` alone would merge whatever the cache happened to hold.
-        # Aggregation is the point of the change: :desktopApp:test drives the real
-        # shared screens through a Compose harness, and under a per-project report none
-        # of that execution was measurable. Measured on the same suite, 67 packages
-        # read 0% before and 40 after; the 32 that came off account for 108,096
-        # instructions the report could not previously see.
-        run: |
-          echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-          ./gradlew koverReport -Ptest.tags=fast,slow --no-daemon --configuration-cache
-
-      # kover pulls in :shared:testAndroidHostTest (the Robolectric/Android source set),
-      # which no other job exercises. Without this floor, a regression that only breaks
-      # on that source set would be invisible.
-      - name: Check executed test counts (Android source set)
-        run: python3 scripts/check-test-runs.py --require shared:testAndroidHostTest
-
-      # A report nobody reads is not a measurement. Kover 0.9 writes
-      # reports/kover/report.xml — the artifact step pointed at xml-report.xml,
-      # a name this plugin never produced, and had no if-no-files-found: error,
-      # so the upload has always carried nothing.
-      - name: Check coverage floors
-        run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
-
-      - name: Upload kover XML report
-        uses: actions/upload-artifact@v7
-        with:
-          name: kover-report
-          # Kover 0.9 names this report.xml, and since the move to settings-level
-          # aggregation the report is produced once for the whole build at the root
-          # project. The previous `xml-report.xml` never matched anything, so the
-          # artifact was silently empty on every run — `if-no-files-found: error`
-          # makes that class of mistake fail instead.
-          path: build/reports/kover/report.xml
-          if-no-files-found: error
-
-  openspec-validate:
-    runs-on: ubuntu-24.04
-    # Minutes, not safety: this job runs one npx invocation and a schema check. Anything slower is a
-    # hung fetch, and GitHub's 360-minute default would turn that into six hours of a runner.
-    timeout-minutes: 15
-    if: "contains(github.event.head_commit.message, 'openspec') || contains(github.event.pull_request.title, 'openspec') || github.event_name == 'push' || github.event_name == 'pull_request'"
-    steps:
-      - uses: actions/checkout@v7
-      - name: Check Node.js
-        run: node --version
-      - name: OpenSpec stale check (advisory)
-        run: python3 scripts/check-openspec-stale.py || true
-      - name: OpenSpec validate
-        run: npx @fission-ai/openspec validate --all --json --strict
-
-  mcp-server-check:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      # The configuration cache store lives in the PROJECT .gradle/ directory,
-      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
-      # its own cache. Keys are per-job + per-run (restore via prefix) so every
-      # run persists newly stored entries; a hash change falls back gracefully
-      # (stale entries are simply not reused — invalidation is not a failure).
-      - name: Cache configuration cache store
-        uses: actions/cache@v4
-        with:
-          path: .gradle/configuration-cache
-          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            cc-${{ github.job }}-${{ runner.os }}-
-
-      - name: Check mcp-server
-        # :mcp-server:jar builds the fat JAR the E2E suite spawns (it was never
-        # built in CI before — McpServerEndToEndTest always self-skipped).
-        # blocking as of 2026-10-04: this job carried the whole P0 data-corruption
-        # fix (profile bootstrap identity), and advisory tests there mean the fix
-        # ships unverified. check.sh step [7/8] validates the DI graph locally.
-        run: |
-          ./gradlew :mcp-server:jar --no-daemon --configuration-cache
-          ./gradlew :mcp-server:detekt --no-daemon --configuration-cache
-          ./gradlew :mcp-server:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
-          python3 scripts/check-test-runs.py --require mcp-server:test
-      - name: Upload configuration cache report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
-          path: "**/build/reports/configuration-cache/**"
->>>>>>> 92877838 (fix(gates): an instrument nobody reads, and six jobs that could hang for hours)
           if-no-files-found: ignore
           retention-days: 14
 
