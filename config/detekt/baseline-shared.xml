@@ -4,17 +4,7 @@
     <ID>TooGenericExceptionCaught:SupabaseSyncApiClient.kt:SupabaseSyncApiClient$e: Exception</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(RelativeBucket.NextWeek)</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(RelativeBucket.ThisWeek)</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "today", name = "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today), discard = true)</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "week", name = "This Week", order = 1, selector = Selector.DateBucket(RelativeBucket.ThisWeek), discard = true)</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19), Selector.DateBucket(RelativeBucket.ThisWeek))</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon), Selector.DateBucket(RelativeBucket.NextWeek))</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19)</ID>
-    <ID>ArgumentListWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(thisWeekEnd, nextMon, nextFri, nextSun, followingMon)</ID>
-    <ID>ComplexCondition:ConditionExprParser.kt:ConditionExprParser$tok is QueryTokenizer.Token.Word || tok is QueryTokenizer.Token.Quoted || tok is QueryTokenizer.Token.LParen || tok is QueryTokenizer.Token.Not</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
-    <ID>CyclomaticComplexMethod:A2uiParser.kt:A2uiParser$private fun parseNode: UiNode?</ID>
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
@@ -44,10 +34,7 @@
     <ID>EndOfSentenceFormat:Relation.kt:Relation.NE$ Not equal to </ID>
     <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Clear the entire outbox </ID>
     <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Delete a patch by ID </ID>
-    <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Delete all patches for an entity </ID>
-    <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Get all pending patches (non-Flow version) </ID>
     <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Insert a new patch </ID>
-    <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Mark patch as failed and increment attempts </ID>
     <ID>EndOfSentenceFormat:SyncOutbox.kt:SyncOutboxDao$ Watch all pending patches ordered by creation time </ID>
     <ID>EndOfSentenceFormat:TaskAi.kt:AiActionResult$ One-shot AI action results shown to user </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ AI action button — null means AI button is hidden </ID>
@@ -63,14 +50,7 @@
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Recurrence row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Start date + time row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Tags row — null = hidden </ID>
-    <ID>ForbiddenComment:AuthRepository.kt:SupabaseAuthRepository$* Stub implementation of AuthRepository for compilation. * TODO: Replace with actual Supabase implementation once SDK is properly integrated.</ID>
-    <ID>ForbiddenComment:AuthRepository.kt:SupabaseAuthRepository$// TODO: Implement with Supabase SDK</ID>
     <ID>ForbiddenComment:CoreDiModule.kt:// TODO: when a real SDK is connected, replace with RealAnalytics(binding).</ID>
-    <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$* Stub implementation of SyncApiClient for compilation. * TODO: Replace with actual Supabase implementation once SDK is properly integrated.</ID>
-    <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Function or remote-config endpoint</ID>
-    <ID>ForbiddenComment:SyncApi.kt:SupabaseSyncApiClient$// TODO: Implement with Supabase Edge Functions</ID>
-    <ID>ForbiddenComment:SyncApi.kt:SyncApiClient$* Fetches the remote runtime configuration as a raw JSON object. * Returns null if no remote config is set (server returned empty / 404). * * The returned [JsonObject] is then validated and deserialized by * [RemoteConfigSnapshot.validate]. * * TODO: Replace with actual Supabase / edge-function call in sync backend MR.</ID>
-    <ID>Indentation:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest.Companion$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -79,7 +59,6 @@
     <ID>Kdoc:Formatters.kt:/** * Visual state for the due-date chip on the task detail screen. * Used to determine background / text colour (overdue = error, today = warning, future = neutral). */</ID>
     <ID>Kdoc:Nav3State.kt:/** * Handles navigation events (forward and back) by updating [state]. * * @param state The [Nav3State] instance to mutate. */</ID>
     <ID>Kdoc:ToolFactories.kt:/** * Factory functions for creating Koog [SimpleTool] instances. * * Instead of one class file per tool, use these inline factories. * The DI module wires them directly. */</ID>
-    <ID>Kdoc:WhatsNewPrefs.kt:/** * DataStore-backed persistence for the WhatsNew screen. * * Records a hash of the last-shown payload so the screen does not re-appear * after a single dismiss unless the payload content has actually changed. * * Persists across app restarts; cleared on app data reset. * * Use [WhatsNewPrefs.create] in Koin modules to construct from a `DataStore&lt;Preferences&gt;`. */</ID>
     <ID>LongMethod:AgendaContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AgendaContent</ID>
     <ID>LongMethod:AiProviderSettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AiProviderSettingsScreen</ID>
     <ID>LongMethod:AiToolsModule.android.kt:actual fun aiToolsModule: Module</ID>
@@ -89,7 +68,6 @@
     <ID>LongMethod:BackupImporter.kt:BackupImporter$suspend fun import: Result&lt;RestoreResult&gt;</ID>
     <ID>LongMethod:BackupScreen.kt:@Composable private fun BackupScreenContentPreview</ID>
     <ID>LongMethod:BackupScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen</ID>
-    <ID>LongMethod:CalendarSyncSettingsScreen.kt:@Composable fun CalendarSyncSettingsScreen</ID>
     <ID>LongMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>LongMethod:CoreDiModule.kt:fun coreModule: org.koin.core.module.Module</ID>
     <ID>LongMethod:DesktopShellNav3.kt:@Composable fun DesktopShellNav3Root</ID>
@@ -115,21 +93,15 @@
     <ID>LongMethod:SettingsImporter.kt:SettingsImporter$open suspend fun importFromJson: ImportResult</ID>
     <ID>LongMethod:SimpleFilterSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimpleFilterSheet</ID>
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
-    <ID>LongMethod:TaskDetailViewScreen.kt:@Composable fun TaskDetailViewScreen</ID>
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
-    <ID>LoopWithTooManyJumpStatements:A2uiParser.kt:A2uiParser$for</ID>
-    <ID>LoopWithTooManyJumpStatements:ConditionExprParser.kt:ConditionExprParser$while</ID>
     <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
-    <ID>MaximumLineLength:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$)</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
-    <ID>MaximumLineLength:CalendarSyncSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
-    <ID>MaximumLineLength:IdTokenTest.kt:IdTokenTest$"</ID>
     <ID>MaximumLineLength:KoogAgentService.kt:FakeTextGen$,</ID>
     <ID>MaximumLineLength:LlmUseCase.kt:ImproveNoteUseCase$(</ID>
     <ID>MaximumLineLength:LogBundleExporterTest.kt:FakeBackupCodec${</ID>
@@ -144,11 +116,8 @@
     <ID>NoDirectClockSystem:AgendaViewModelTest.kt:AgendaViewModelTest$Clock.System</ID>
     <ID>NoEmptyOnClickLambda:BackupScreen.kt:{}</ID>
     <ID>NoEmptyOnClickLambda:PomodoroScreen.kt:{ }</ID>
-    <ID>NoMultipleSpaces:CoreDiModule.kt: </ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
-    <ID>NoUnusedImports:AgendaEvaluatorMatrixTest.kt:com.singularity.todo.feature.agenda.domain.AgendaEvaluatorMatrixTest.kt</ID>
-    <ID>NoUnusedImports:AgendaScreen.kt:com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -336,21 +305,14 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
-    <ID>PropertyWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$val result = eval(listOf(sunOct11, monOct12, friOct16, satOct17, sunOct18, monOct19), Selector.DateBucket(RelativeBucket.ThisWeek))</ID>
-    <ID>PropertyWrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$val result = eval(listOf(thisWeekEnd, nextMon, nextFri, nextSun, followingMon), Selector.DateBucket(RelativeBucket.NextWeek))</ID>
-    <ID>ReturnCount:A2uiParser.kt:A2uiParser$fun parseLine: UiEvent?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseCatchUp: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseEveryWeekday: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseMonthlyOrdinal: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:BackupFormat.kt:BackupFormat$/** MR-1: +agenda_views entity + taskDependencies (SCHEMA_VERSION 2 was taskDependencies only). */</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
-    <ID>SwallowedException:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
-    <ID>SwallowedException:QueryParser.kt:QueryParser$e: Exception</ID>
     <ID>SwallowedException:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
-    <ID>ThrowsCount:QueryParser.kt:QueryParser$private fun parseGroup: Pair&lt;Condition, Int&gt;</ID>
     <ID>ThrowsCount:RecurrenceParser.kt:RecurrenceParser$fun parse: RecurrenceSpec</ID>
     <ID>TooGenericExceptionCaught:AiToolFilters.kt:e: Throwable</ID>
     <ID>TooGenericExceptionCaught:BackupImporter.kt:BackupImporter$e: Exception</ID>
@@ -358,15 +320,12 @@
     <ID>TooGenericExceptionCaught:CalendarSyncWorker.kt:CalendarSyncWorker$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ClusterNotesTool.kt:ClusterNotesTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ClusterTasksTool.kt:ClusterTasksTool$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:ConditionExprParser.kt:ConditionExprParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:DecomposeTaskTool.kt:DecomposeTaskTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ExtractActionsTool.kt:ExtractActionsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:GenerateChecklistTool.kt:GenerateChecklistTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ImproveNoteTool.kt:ImproveNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NoteEditor.kt:NoteEditor$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NotePreview.kt:NotePreview$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:OAuthTokenRefresh.kt:OAuthTokenRefresh$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:QueryParser.kt:QueryParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RecurrenceParser.kt:RecurrenceParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
@@ -375,7 +334,6 @@
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:SupabaseSyncApiClient.kt:SupabaseSyncApiClient$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SyncBootstrapper.kt:SyncBootstrapper$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:SyncEngine.kt:SyncEngine$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:SyncOutboxWorker.kt:SyncOutboxWorker$e: Exception</ID>
@@ -388,37 +346,26 @@
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
     <ID>TooManyFunctions:Daos.kt:ReminderDao</ID>
     <ID>TooManyFunctions:Daos.kt:TaskDao</ID>
-    <ID>TooManyFunctions:DraftMviViewModel.kt:DraftMviViewModel&lt;D : Any, I : MviIntent, E : MviEvent&gt; : MviViewModel</ID>
-    <ID>TooManyFunctions:JvmSecureStorage.kt:JvmSecureStorage : SecureStoragePort</ID>
-    <ID>TooManyFunctions:NoteEditor.kt:NoteEditor : DraftMviViewModel</ID>
-    <ID>TooManyFunctions:NotesListViewModel.kt:NotesListViewModel : MviViewModel</ID>
     <ID>TooManyFunctions:NotesRepository.kt:NotesRepository : GenericUserScopedRepositorySoftDeletable</ID>
     <ID>TooManyFunctions:ProjectDetailActions.kt:ProjectDetailActions</ID>
     <ID>TooManyFunctions:ProjectsRepositoryImpl.kt:ProjectsRepositoryImpl : ProjectsRepository</ID>
     <ID>TooManyFunctions:Prompts.kt:Prompts</ID>
     <ID>TooManyFunctions:RecurrenceParser.kt:RecurrenceParser</ID>
     <ID>TooManyFunctions:ReminderRepository.kt:ReminderRepository</ID>
-    <ID>TooManyFunctions:SimpleFilterBuilder.kt:SimpleFilterBuilder</ID>
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
     <ID>TopLevelPropertyNaming:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
-    <ID>TrailingCommaOnCallSite:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "today", name = "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today), discard = true)</ID>
-    <ID>TrailingCommaOnCallSite:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(id = "week", name = "This Week", order = 1, selector = Selector.DateBucket(RelativeBucket.ThisWeek), discard = true)</ID>
-    <ID>UnusedParameter:AgendaEvaluator.kt:AgendaEvaluator$selector: Selector</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$targetPath: String</ID>
     <ID>UnusedParameter:AttachmentsSheet.kt:onAttachFile: () -&gt; Unit</ID>
     <ID>UnusedParameter:AttachmentsSheet.kt:taskId: TaskId?</ID>
-    <ID>UnusedParameter:AutoSyncTest.kt:AutoSyncTest$scope: TestScope</ID>
     <ID>UnusedParameter:BackupScreen.kt:/** * Called when user has selected a settings JSON file from [onSelectSettingsFile]. * [jsonContent] is the raw content of the selected JSON file. */ onImportSettings: (jsonContent: String) -&gt; Unit</ID>
     <ID>UnusedParameter:CalendarContent.kt:onTaskClick: (LocalDate) -&gt; Unit = {}</ID>
-    <ID>UnusedParameter:CalendarTheme.kt:scheme: androidx.compose.material3.ColorScheme</ID>
     <ID>UnusedParameter:CalendarTopBar.kt:today: LocalDate</ID>
     <ID>UnusedParameter:ChecklistEditorSheet.kt:taskId: TaskId?</ID>
     <ID>UnusedParameter:ColorPickerSheet.kt:onDismiss: () -&gt; Unit</ID>
     <ID>UnusedParameter:EffectiveTagsResolver.kt:EffectiveTagsResolver$projectId: ProjectId?</ID>
-    <ID>UnusedParameter:GenuiEngine.kt:GenuiEngine$surfaceId: SurfaceId</ID>
     <ID>UnusedParameter:IconPickerSheet.kt:onDismiss: () -&gt; Unit</ID>
     <ID>UnusedParameter:NoteAiActionSheet.kt:onClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:NoteCard.kt:isSelected: Boolean</ID>
@@ -443,7 +390,5 @@
     <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
-    <ID>Wrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(</ID>
-    <ID>Wrapping:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$(listOf(workTomorrow, urgentTomorrow), Selector.AnyOf(listOf( Selector.Tags(setOf(TAG_WORK)), Selector.DateBucket(RelativeBucket.Tomorrow), )))</ID>
   </CurrentIssues>
 </SmellBaseline>
