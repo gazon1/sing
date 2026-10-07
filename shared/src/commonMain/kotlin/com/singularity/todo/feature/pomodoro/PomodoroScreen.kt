@@ -90,6 +90,16 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 }
             }
             Spacer(Modifier.height(24.dp))
+        } else if (!taskListProvider.isSupported) {
+            // An empty list here is an artifact of the platform, not a fact about the
+            // user's Inbox. Without this the chips simply vanish and the screen reads as
+            // "you have no tasks", which is a claim this platform cannot make.
+            Text(
+                "Focus tasks are not available on desktop",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(TestTags.Pomodoro.TASKS_UNSUPPORTED),
+            )
+            Spacer(Modifier.height(24.dp))
         }
 
         // Selected task name

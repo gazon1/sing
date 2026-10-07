@@ -206,6 +206,18 @@ SCRIPT_GATES = [
         why="an exemption pointing at a heading that does not exist is not an exemption",
     ),
     ScriptGate(
+        name="dead-settings",
+        cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
+        # Neutralise the marker-interface lookups rather than the stores. Removing a
+        # *store* from the DI module would fail `KoinGraphValidationTest` first and
+        # never reach this check, which is why an earlier draft of this entry
+        # sabotaged the wrong file and proved nothing.
+        sabotage="p.write_text(p.read_text().replace('getOrNull<NotificationsContributor>()', 'getOrNull<Any>()').replace('getOrNull<GreetingContributor>()', 'getOrNull<Any>()').replace('getOrNull<WorkScheduleContributor>()', 'getOrNull<Any>()'))",
+        why="a settings section no binding resolves is written and never read; "
+             "`reminderDefault` is the live instance and every screen renders it anyway",
+    ),
+    ScriptGate(
         name="doc-sizes",
         cmd=[sys.executable, "scripts/check-doc-sizes.py"],
         sabotage_path="AGENTS.md",

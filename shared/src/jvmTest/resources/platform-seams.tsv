@@ -50,31 +50,31 @@
 # Adding a binding? Add a row here first. The gate will remind you if you do not.
 
 # ── Platform-divergent seams ─────────────────────────────────────────────────────────
-SyncPeriodicTrigger|seam|AndroidSyncPeriodicTrigger|DelayLoopSyncPeriodicTrigger|real|injected|
-GoogleSyncPeriodicTrigger|seam|AndroidGoogleSyncPeriodicTrigger|DelayLoopGoogleSyncPeriodicTrigger|real|injected|Google sync runs on both platforms, so both bindings are real: WorkManager on Android, a delay loop on Desktop. Listed separately from SyncPeriodicTrigger because they are two schedulers for two features, and a row each is what stops one of them being dropped from a platform module unnoticed.
-SyncWorkScheduler|seam|AndroidSyncWorkScheduler|JvmSyncWorkScheduler|real|injected|
-CalendarSyncWorkScheduler|seam|AndroidCalendarSyncWorkScheduler|NoopCalendarSyncWorkScheduler|stub|injected|Calendar sync is Android-only by design; the Desktop settings UI is capability-gated so it cannot be mistaken for working.
-ReminderScheduler|seam|AlarmManagerReminderScheduler|JvmReminderScheduler|stub|injected|Desktop cannot arm alarms (isSupported=false), so the task-reminder UI refuses before writing a row. Replaced by a systemd --user timer scheduler, which must not use the deleted at backend.
-CalendarSyncRepository|seam|CalendarSyncSettingsRepositoryImpl|NoopCalendarSyncRepositoryImpl|stub|injected|Android-only feature. Its flowOf(false) is why the Desktop toggle used to stay visually ON.
-CalendarProviderPort|seam|AndroidCalendarProvider|NoopCalendarProvider|stub|injected|Android-only feature. Its Result.failure is the capability signal the Desktop UI now reads.
-CalendarAppQueries|seam|AndroidCalendarAppQueries|JvmCalendarAppQueries|stub|injected|Android-only feature; Desktop reports no installed calendar apps.
-PomodoroTaskListProvider|seam|AndroidPomodoroTaskListProvider|JvmPomodoroTaskListProvider|stub|injected|Returns an empty, never-updating list, which is indistinguishable from "no tasks selected".
-PomodoroScheduler|seam|PomodoroAlarmScheduler|-|exempt|injected|Android-only OS alarm. Desktop drives the pomodoro timer in-process instead.
-BackupCodec|seam|AndroidBackupCodec|JvmBackupCodec|real|injected|
-SecureStoragePort|seam|AndroidSecureStorage|JvmSecureStorage|real|injected|
-FileSystem|seam|AndroidFileSystem|JvmFileSystem|real|injected|
-HostEnvironmentPort|seam|AndroidHostEnvironment|JvmHostEnvironment|real|injected|
-FileRevealer|seam|AndroidFileRevealer|JvmFileRevealer|real|injected|
-FileSourceFactory|seam|AndroidFileSourceFactory|JvmFileSourceFactory|real|injected|
-SharePort|seam|AndroidSharePort|JvmSharePort|real|injected|
-FileSharePort|seam|AndroidFileSharePort|JvmFileSharePort|real|injected|
-PomodoroTimer|seam|AndroidPomodoroTimer|JvmPomodoroTimer|real|injected|
-Haptic|seam|AndroidHaptic|createHaptic|exempt|injected|Deliberate. Task detail composes haptics unconditionally, so a definition must exist on every platform or composition fails.
-CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|injected|Deliberate. Desktop logs through loggingBackgroundFailureHandler; a definition must exist or composition throws every frame.
+SyncPeriodicTrigger|seam|AndroidSyncPeriodicTrigger|DelayLoopSyncPeriodicTrigger|real|injected|-|
+GoogleSyncPeriodicTrigger|seam|AndroidGoogleSyncPeriodicTrigger|DelayLoopGoogleSyncPeriodicTrigger|real|injected|-|Google sync runs on both platforms, so both bindings are real: WorkManager on Android, a delay loop on Desktop. Listed separately from SyncPeriodicTrigger because they are two schedulers for two features, and a row each is what stops one of them being dropped from a platform module unnoticed.
+SyncWorkScheduler|seam|AndroidSyncWorkScheduler|JvmSyncWorkScheduler|real|injected|-|
+CalendarSyncWorkScheduler|seam|AndroidCalendarSyncWorkScheduler|NoopCalendarSyncWorkScheduler|stub|injected|isSupported|Calendar sync is Android-only by design; the Desktop settings UI is capability-gated so it cannot be mistaken for working.
+ReminderScheduler|seam|AlarmManagerReminderScheduler|JvmReminderScheduler|stub|injected|isSupported|Desktop cannot arm alarms (isSupported=false), so the task-reminder UI refuses before writing a row. Replaced by a systemd --user timer scheduler, which must not use the deleted at backend.
+CalendarSyncRepository|seam|CalendarSyncSettingsRepositoryImpl|NoopCalendarSyncRepositoryImpl|stub|injected|isSupported|Android-only feature. Its flowOf(false) is why the Desktop toggle used to stay visually ON.
+CalendarProviderPort|seam|AndroidCalendarProvider|NoopCalendarProvider|stub|injected|isSupported|Android-only feature. Its Result.failure is the capability signal the Desktop UI now reads.
+CalendarAppQueries|seam|AndroidCalendarAppQueries|JvmCalendarAppQueries|stub|injected|-|UNGATED here, but the caller is already gated: CalendarSyncViewModel.loadCalendars is the only caller, and the Desktop settings screen is unreachable because that VM sets isSupported=false (the CalendarSyncRepository row's gate). So the empty list is never presented as "you have no calendar apps". Not marked isSupported itself: that would add a second capability for one screen's gate to consult, and a reviewer would have to keep the two in step. Revisit if the picker ever becomes reachable on Desktop.
+PomodoroTaskListProvider|seam|AndroidPomodoroTaskListProvider|JvmPomodoroTaskListProvider|stub|injected|isSupported|Desktop returns an empty, never-updating list, which was indistinguishable from an empty Inbox. PomodoroScreen.kt now reads isSupported and says the picker is unavailable here instead of showing no chips. Fixes the same defect class as the reminder gate.
+PomodoroScheduler|seam|PomodoroAlarmScheduler|-|exempt|injected|-|UNGATED but harmless: Desktop drives the pomodoro timer in-process via PomodoroTimer (registered separately as real), so no UI offers to schedule a desktop alarm that will not happen.
+BackupCodec|seam|AndroidBackupCodec|JvmBackupCodec|real|injected|-|
+SecureStoragePort|seam|AndroidSecureStorage|JvmSecureStorage|real|injected|-|
+FileSystem|seam|AndroidFileSystem|JvmFileSystem|real|injected|-|
+HostEnvironmentPort|seam|AndroidHostEnvironment|JvmHostEnvironment|real|injected|-|
+FileRevealer|seam|AndroidFileRevealer|JvmFileRevealer|real|injected|-|
+FileSourceFactory|seam|AndroidFileSourceFactory|JvmFileSourceFactory|real|injected|-|
+SharePort|seam|AndroidSharePort|JvmSharePort|real|injected|-|
+FileSharePort|seam|AndroidFileSharePort|JvmFileSharePort|real|injected|-|
+PomodoroTimer|seam|AndroidPomodoroTimer|JvmPomodoroTimer|real|injected|-|
+Haptic|seam|AndroidHaptic|createHaptic|exempt|injected|-|UNGATED by necessity: a definition must exist on every platform or composition fails. The task detail composes haptics unconditionally, so there is no UI decision point at which a capability could be checked — the Desktop implementation is simply inert.
+CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|injected|-|UNGATED by necessity: Desktop logs through loggingBackgroundFailureHandler. Crash reporting has no user-facing control to gate, so a capability flag would have nothing to protect.
 
 # ── Infrastructure bindings: present on both platforms, not behavioural seams ──────────
-AppDatabase|infra|-|-|infra|injected|
-DataStore|infra|-|-|infra|injected|
-BackgroundWorkScheduler|seam|AndroidBackgroundWorkScheduler|JvmBackgroundWorkScheduler|real|injected|
-CoroutineScope|infra|-|-|infra|injected|
-String|infra|-|-|infra|injected|
+AppDatabase|infra|-|-|infra|injected|-|
+DataStore|infra|-|-|infra|injected|-|
+BackgroundWorkScheduler|seam|AndroidBackgroundWorkScheduler|JvmBackgroundWorkScheduler|real|injected|-|
+CoroutineScope|infra|-|-|infra|injected|-|
+String|infra|-|-|infra|injected|-|
