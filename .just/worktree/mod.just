@@ -2,7 +2,7 @@
 # 🌿 WORKTREE — parameterized worktree creation + mcode launch
 #
 #   just wt new backlog-02      # pull origin/main, branch feature/backlog-02
-#                                # at /home/max/work/backlog-02
+#                                # as a sibling of this checkout (see WT_ROOT)
 #   just wt code backlog-02     # the same, then hand the terminal to mcode
 #   just wt code-in backlog-02  # just launch mcode in an existing worktree
 #   just wt pull                # just `git pull origin main`
@@ -21,7 +21,12 @@
 
 # Where worktrees live, and the branch namespace they get. Overridable because
 # the host's work root is a personal layout, not a project constant.
-WT_ROOT   := env_var_or_default("WT_ROOT", "/home/max/work")
+#
+# The default is derived from this checkout's own location — a sibling directory —
+# rather than a literal home path. A tracked file carrying `/home/<user>` is a
+# machine-specific default that `check-publication-hygiene.py` correctly refuses
+# to let ship, and it is wrong on every host that is not this one.
+WT_ROOT   := env_var_or_default("WT_ROOT", parent_directory(justfile_directory()))
 WT_PREFIX := env_var_or_default("WT_PREFIX", "feature/")
 # Base branch every new worktree forks from.
 WT_BASE   := env_var_or_default("WT_BASE", "main")
