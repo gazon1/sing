@@ -9,6 +9,7 @@ import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSum
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventId
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventStatus
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeReminderRepository
@@ -293,6 +294,7 @@ class GoogleSyncEnginePushTest {
             override suspend fun fetchChanges(calendarId: String, syncToken: String?) =
                 ChangePage(events = events.toList(), nextSyncToken = "t1")
         },
+        importWindow = ImportWindow.DEFAULT,
         shadowDao = db.googleEventShadowDao(),
         stateDao = db.calendarSyncStateDao(),
         importDao = db.calendarImportEventDao(),

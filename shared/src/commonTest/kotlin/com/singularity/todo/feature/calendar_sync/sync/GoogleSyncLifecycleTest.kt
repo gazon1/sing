@@ -12,6 +12,7 @@ import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSum
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventId
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEventStatus
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
@@ -112,6 +113,7 @@ class GoogleSyncLifecycleTest {
 
     private fun engine(source: CalendarEventSource) = GoogleSyncEngine(
         eventSource = source,
+        importWindow = ImportWindow.DEFAULT,
         shadowDao = db.googleEventShadowDao(),
         stateDao = db.calendarSyncStateDao(),
         importDao = db.calendarImportEventDao(),
@@ -355,6 +357,7 @@ class GoogleSyncLifecycleTest {
 
         val result = GoogleSyncEngine(
             eventSource = source,
+        importWindow = ImportWindow.DEFAULT,
             shadowDao = db.googleEventShadowDao(),
             stateDao = db.calendarSyncStateDao(),
             importDao = db.calendarImportEventDao(),

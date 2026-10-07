@@ -8,6 +8,7 @@ import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentialStore
 import com.singularity.todo.feature.calendar_sync.auth.SecureStorageGoogleCredentialStore
 import com.singularity.todo.feature.calendar_sync.data.GoogleCalendarSettingsRepositoryImpl
 import com.singularity.todo.feature.calendar_sync.data.google.GoogleCalendarEventSource
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendar_sync.domain.port.GoogleCalendarSettingsRepository
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncViewModel
@@ -67,6 +68,18 @@ fun calendarSyncModule(): Module = module {
         GoogleCalendarSettingsRepositoryImpl(get(qualifier = named("calendar_sync")))
     }
 
+    // The one place the import window is chosen.
+    //
+    // It was previously a default argument on both GoogleCalendarEventSource and
+    // GoogleSyncEngine, plus a direct `ImportWindow.DEFAULT` read in the settings screen —
+    // three sites that could disagree with no compiler error, and a screen that would
+    // describe a window the pass does not use. Bound once here and injected into all
+    // three.
+    //
+    // A `single`, not a factory: `ImportWindow` is immutable and holds no profile, so
+    // every consumer wants the same instance and `CalendarSyncUiState` copies it by value.
+    single { ImportWindow.DEFAULT }
+
     // The client id is a public identifier, so a build-time value is legitimate; see
     // GoogleClientIdConfig for why a user's pasted value still outranks it.
     single { GoogleClientIdResolver() }
@@ -88,6 +101,7 @@ fun calendarSyncModule(): Module = module {
             credentials = get(),
             userId = get<CurrentUser>().current.value,
             clock = get(),
+            importWindow = get(),
         )
     }
 
@@ -129,6 +143,7 @@ fun calendarSyncModule(): Module = module {
             userId = get<CurrentUser>().current.value,
             clock = get(),
             importForeignEvents = { get<GoogleCalendarSettingsRepository>().observeImportForeignEvents().first() },
+            importWindow = get(),
             applier = get(),
         )
     }
@@ -187,6 +202,7 @@ fun calendarSyncModule(): Module = module {
             // The Google half's "Sync Now". Resolved per call because the coordinator is a
             // factory holding a snapshot of the signed-in profile — see its own registration.
             googleSync = get(),
+            importWindow = get(),
             crashReporter = get(),
         )
     }

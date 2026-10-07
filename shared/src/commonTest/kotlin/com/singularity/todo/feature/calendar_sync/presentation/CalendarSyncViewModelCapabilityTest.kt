@@ -13,6 +13,7 @@ import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentials
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
+import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
@@ -192,6 +193,7 @@ class CalendarSyncViewModelCapabilityTest {
                 currentUser = UserId.anonymous,
                 clock = kotlin.time.Clock.System,
             ),
+            importWindow = ImportWindow.DEFAULT,
             crashReporter = NoOpCrashReportingPort(),
             scope = vmScope,
         ) to vmScope
