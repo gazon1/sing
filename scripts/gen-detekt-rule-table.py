@@ -235,6 +235,22 @@ def main() -> int:
         return 2
 
     text = INVENTORY.read_text(encoding="utf-8")
+    # One marker pair, exactly. The splice below assumes `split(..., 1)`, so a second
+    # BEGIN silently drops everything between the two of them, and a second END leaves
+    # a stale copy of the table in the tail — neither errors, both make the file
+    # describe a different inventory than the one the generator just read. The same
+    # reasoning as the duplicate-YAML-key guard in gen-detekt-rules-config.py: the
+    # output is validated, not the intent.
+    starts = text.count(MARKER_START)
+    ends = text.count(MARKER_END)
+    if starts != 1 or ends != 1:
+        print(
+            f"{INVENTORY.name}: expected exactly one {MARKER_START!r} and one "
+            f"{MARKER_END!r}, found {starts} and {ends}. The splice below would "
+            f"silently drop or duplicate the table. Refusing to write.",
+            file=sys.stderr,
+        )
+        return 2
     head, rest = text.split(MARKER_START, 1)
     _, tail = rest.split(MARKER_END, 1)
     updated = head + block + tail
