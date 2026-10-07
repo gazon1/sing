@@ -122,6 +122,13 @@ fun testPlatformModule(): Module = module {
     single { get<AppDatabase>().timeEntryDao() }
     single { get<AppDatabase>().proposalDao() }
     single { get<AppDatabase>().proposalItemDao() }
+    // Attachment annotations. `26316f2b` added the DAO and bound it in the production
+    // `platformModule`, but not here — so `TestPlatformModuleParityTest` reported the
+    // mirror as incomplete, and a graph resolving the annotation repository would throw
+    // `NoDefinitionFoundException` from inside a Composable, which Compose retries every
+    // frame: an endless redraw that reads as a hang rather than as a missing binding.
+    // `FakeAppDatabase` already implements the DAO.
+    single { get<AppDatabase>().annotationDao() }
 
     // ─── Settings storage ───────────────────────────────────────────────────
     // The three named bindings mirror platformModule(); domainModule()'s
