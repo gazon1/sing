@@ -208,14 +208,17 @@ SCRIPT_GATES = [
     ScriptGate(
         name="dead-settings",
         cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
-        # Neutralise the marker-interface lookups rather than the stores. Removing a
-        # *store* from the DI module would fail `KoinGraphValidationTest` first and
-        # never reach this check, which is why an earlier draft of this entry
-        # sabotaged the wrong file and proved nothing.
-        sabotage="p.write_text(p.read_text().replace('getOrNull<NotificationsContributor>()', 'getOrNull<Any>()').replace('getOrNull<GreetingContributor>()', 'getOrNull<Any>()').replace('getOrNull<WorkScheduleContributor>()', 'getOrNull<Any>()'))",
-        why="a settings section no binding resolves is written and never read; "
-             "`reminderDefault` is the live instance and every screen renders it anyway",
+        # The sabotage removes a baseline entry, so the field it exempts becomes
+        # reportable. An earlier version of this entry mutated the DI bindings in
+        # CoreDiModule.kt, which proved only that the check can see an unwired
+        # *section* — and it stayed green on `reminderDefault` and all seven
+        # work-schedule fields, which are wired and still dead. The check descends
+        # to the field, so the control has to descend with it.
+        sabotage_path="scripts/check-dead-settings-baseline.txt",
+        sabotage="p.write_text(p.read_text().replace('Notifications.reminderDefault', 'Notifications.no_such_field'))",
+        why="a persisted setting rendered in Settings and read by no feature is a " +
+            "control that looks like it works; every baseline line is a claim that " +
+            "needs its own justification",
     ),
     ScriptGate(
         name="doc-sizes",

@@ -1,39 +1,56 @@
 #!/usr/bin/env python3
-"""Find settings that are collected, displayed, and read by no feature.
+"""Find persisted settings that are collected, displayed, and read by no feature.
 
 The defect this catches
 -----------------------
 A setting can be fully wired and still do nothing. `reminderDefault` is the live
 instance: it has a radio group in `NotificationSettingsScreen.kt:71`, a preference
-key, a `SettingsStore`, a DI binding, and a `Contributor` — and nothing under
+key, a `SettingsStore`, a DI binding and a `Contributor` — and nothing under
 `feature/tasks/` ever asks for it. `TaskCreateViewModel`'s KDoc even claims it
 "owns the new task draft with ... reminders". The user picks a default, sees it
 survive a restart, and no task is ever given it.
 
-`find-unwired-surfaces.py` cannot see this: its `orphan-binding` check asks
-whether a Koin binding has an injector, and this chain has one at every step. The
-binding resolves, the screen renders, and the value stops at the edge of
-`core/`.
+The work-schedule group is a larger instance of the same thing: `dayStartMinutes`,
+`dayEndMinutes`, `lunchStart/EndMinutes`, `weekendSat/Sun` have a complete settings
+screen (day start, lunch, weekends) and **no feature anywhere reads them**. The
+store assembles them and the ViewModel passes them to a screen, which is where the
+chain ends.
 
-Why the check is on the chain, not on the key
----------------------------------------------
-The first version of this script matched the preference key name across files and
-reported 40+ dead settings, of which every one was a false positive. A key declared
-in `SettingsRepository` is read there, by the `Flow` its own repository builds from
-the same `Preferences` map it writes to — a tautology, not a consumption. The real
-consumer is two hops away, at the feature boundary:
+`find-unwired-surfaces.py` cannot see this: its `orphan-binding` check asks whether
+a Koin binding has an injector, and this chain has one at every step.
 
-    key -> *SettingsRepository -> *SettingsStore -> *Contributor -> feature
+Three revisions, and why each was wrong
+--------------------------------------
+The first version matched preference-key names and reported 40+ dead settings —
+every one a false positive. A key declared in `SettingsRepository` is read there, by
+the `Flow` its own repository builds from the same `Preferences` map it writes to. A
+tautology, not a consumption.
 
-So the question is not "is this key mentioned elsewhere" but "does the store that
-exposes it ever reach a feature". That is what this script measures.
+The second version followed `XSettingsStore` -> `XSettingsContributor` and excluded
+the DI layer wholesale, reporting **nothing** — because the DI layer
+(`CoreDiModule.kt:403`) is precisely where a contributor is resolved.
+
+The third version counted `getOrNull<NotificationsContributor>()` and stopped there,
+which was correct for *wiring* and wrong for *use*: a section can be wired into the
+SettingsViewModel and still read by nothing outside `feature/settings/`. That is
+the shape of this bug, so the third version was green on `reminderDefault` — the one
+known instance — and on all seven work-schedule fields.
+
+**So the check descends to the individual field.** A persisted field is dead when
+no file outside the settings plumbing names it. The plumbing is precisely the set of
+directories that can only pass a value along without acting on it.
+
+What does not count
+-------------------
+`EphemeralState` (`SettingsBundle.kt:89`) is deliberately not persisted — `isExporting`,
+`exportedPath`, `savedViews` are UI state, and calling them dead settings would be a
+finding about a different concept. They are excluded by the interface they implement.
 
 Exemptions
 ----------
-`scripts/check-dead-settings-baseline.txt` lists stores that are legitimately not
-feature-consumed, one `Store` per line with a `#` reason. A key retained only for
-`SettingsDataStoreMigration` is exempt by the `_LEGACY` suffix: its reader is the
-migration, by design.
+`scripts/check-dead-settings-baseline.txt` lists one `Section.field` per line with a
+`#` reason. A bare `Section` exempts every field in it. Every line is a claim that a
+human chose not to act, which is the thing worth being able to grep for later.
 
 Usage:
     scripts/check-dead-settings.py           # human-readable report
@@ -53,34 +70,36 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE_SETS = ("shared/src/commonMain", "shared/src/androidMain", "shared/src/jvmMain")
 BASELINE = ROOT / "scripts/check-dead-settings-baseline.txt"
 
-# `class XSettingsStore(private val ...)` — the seam between persistence and features.
-STORE_DECL = re.compile(r"\bclass\s+(\w*SettingsStore)\b")
+COMMON = "com/singularity/todo"
 
-# The matching `class XSettingsContributor(private val store: XSettingsStore)`. The
-# Contributor is the *last* link before a feature can consume a setting, so it is
-# what this script follows: a store referenced only by its own Contributor has been
-# handed to a binder and never picked up.
-CONTRIBUTOR_DECL = re.compile(r"\bclass\s+(\w*SettingsContributor)\b")
+# `data class Notifications(` ... `val enabled: Boolean = ...`
+SECTION_DECL = re.compile(r"\bdata class (\w+)\s*\(([^)]*)\)\s*:\s*SettingsSection", re.DOTALL)
+# `data class Ai(` ... `) : EphemeralState`
+EPHEMERAL_DECL = re.compile(r"\bdata class (\w+)\s*\(([^)]*)\)\s*:\s*EphemeralState", re.DOTALL)
+FIELD_DECL = re.compile(r"\bval (\w+)\s*:")
 
-# Where a reference does NOT count as a consumer.
+# Where a field reference does NOT count as consumption.
 #
-# - `core/settings/SettingsContributorsModule.kt` registers every store by design,
-#   so counting it would make the check vacuous;
-# - `feature/settings/` renders and writes *every* section regardless of whether
-#   anything reads the values, which is exactly why `reminderDefault` looks alive
-#   on screen. Counting it as a consumer is what let that bug through;
-# - the store's own Contributor is the bridge being followed, not a destination;
-# - fakes and tests do not consume anything in production.
+# This list is the whole point of the rewrite, so each entry is here for a stated
+# reason rather than convenience:
 #
-# Deliberately *not* excluded: `core/di/CoreDiModule.kt`, which is where a
-# Contributor is actually injected into the SettingsViewModel via `getOrNull()`.
-# Excluding the DI layer wholesale is what made the first version of this script
-# report nothing at all.
-NON_CONSUMERS = (
-    "core/settings/SettingsContributorsModule.kt",
+# - `core/settings/`   — declares the keys, builds the flows, and is the writer.
+# - `core/<domain>/`   — `XSettingsStore` and `XSettingsContributor` read a field to
+#                       hand it to the next layer. That is the plumbing this bug
+#                       hides behind; counting it made the earlier version green on
+#                       every dead field in the codebase.
+# - `feature/settings/`— renders and writes every section unconditionally. This is
+#                       why `reminderDefault` looks alive on screen.
+# - fakes and tests    — do not consume anything in production.
+PLUMBING = (
+    "core/settings/",
+    "core/notifications/",
+    "core/schedule/",
+    "core/appearance/",
     "feature/settings/",
     "test/fakes/",
     "Test.kt",
+    "DiModule.kt",
 )
 
 
@@ -107,74 +126,84 @@ def main() -> int:
         print("check-dead-settings: no Kotlin sources found — refusing to pass silently", file=sys.stderr)
         return 1
 
-    stores = sorted({m.group(1) for text in files.values() for m in STORE_DECL.finditer(text)})
-    if not stores:
-        print("check-dead-settings: found zero settings stores — refusing to pass silently", file=sys.stderr)
+    bundle = ROOT / f"shared/src/commonMain/kotlin/{COMMON}/core/settings/SettingsBundle.kt"
+    if not bundle.is_file():
+        print(f"check-dead-settings: {bundle.relative_to(ROOT)} is missing — the section "
+              f"inventory cannot be read, refusing to pass silently", file=sys.stderr)
         return 1
 
-    exempt: set[str] = set()
+    text = bundle.read_text(encoding="utf-8", errors="replace")
+
+    persisted: dict[str, list[str]] = {}
+    for m in SECTION_DECL.finditer(text):
+        persisted[m.group(1)] = FIELD_DECL.findall(m.group(2))
+
+    ephemeral = {m.group(1) for m in EPHEMERAL_DECL.finditer(text)}
+
+    if not persisted:
+        print("check-dead-settings: found zero persisted sections — refusing to pass silently",
+              file=sys.stderr)
+        return 1
+
+    # Exempt entries: a bare section name covers all of its fields.
+    sections_exempt: set[str] = set()
+    fields_exempt: set[tuple[str, str]] = set()
     if BASELINE.is_file():
         for line in BASELINE.read_text(encoding="utf-8").splitlines():
             line = line.split("#", 1)[0].strip()
-            if line:
-                exempt.add(line)
+            if not line:
+                continue
+            if "." in line:
+                sec, _, fld = line.partition(".")
+                fields_exempt.add((sec, fld))
+            else:
+                sections_exempt.add(line)
 
     findings: list[str] = []
-    contributors = {m.group(1) for text in files.values() for m in CONTRIBUTOR_DECL.finditer(text)}
-
-    # `SettingsViewModel` takes the marker interfaces (`NotificationsContributor`), not
-    # the concrete classes (`NotificationsSettingsContributor`), and looks them up with
-    # `getOrNull()`. So a live section is named at the DI boundary by its *interface*,
-    # and both spellings count as evidence of consumption.
-    for store in stores:
-        if store in exempt:
+    total = 0
+    for section, fields in sorted(persisted.items()):
+        if section in sections_exempt:
             continue
-
-        # `XSettingsStore` -> `XSettingsContributor`, the one hop the value makes
-        # before a feature could read it.
-        contributor = store.replace("Store", "Contributor")
-        if contributor not in contributors:
-            continue
-
-        # Evidence of consumption is a *resolution* of the marker interface — the
-        # `getOrNull<NotificationsContributor>()` in the DI module — not a mention of
-        # the name. An import line is not a use: matching it would make this check
-        # pass for a section whose only remaining trace is the import the compiler
-        # keeps around, which is precisely the "removed the parameter, left the
-        # import" state this is meant to catch.
-        #
-        # Both spellings count, because the graph resolves the interface
-        # (`NotificationsContributor`) while the class that implements it is
-        # `NotificationsSettingsContributor`. Requiring only one form reports all six
-        # sections dead on a codebase where every one of them is wired.
-        marker = contributor.replace("Settings", "")
-        lookup = re.compile(
-            rf"getOrNull\s*<\s*(?:{re.escape(contributor)}|{re.escape(marker)})\s*>",
-        )
-        consumers = [
-            str(p.relative_to(ROOT))
-            for p, text in files.items()
-            if lookup.search(text)
-            and not any(nc in str(p) for nc in NON_CONSUMERS)
-        ]
-
-        if not consumers:
-            findings.append(
-                f"{store} — registered in DI and reachable through {contributor}, but no "
-                f"binding resolves that contributor, so every value it holds is written "
-                f"and never read"
-            )
+        for field in fields:
+            if (section, field) in fields_exempt:
+                continue
+            total += 1
+            needle = re.compile(rf"\b{re.escape(field)}\b")
+            consumers = [
+                str(p.relative_to(ROOT))
+                for p, src in files.items()
+                if needle.search(src)
+                and not any(x in str(p) for x in PLUMBING)
+                and p.name != "SettingsBundle.kt"
+            ]
+            if not consumers:
+                findings.append(
+                    f"{section}.{field} — persisted, rendered in Settings, and read by no "
+                    f"feature outside the settings plumbing"
+                )
 
     if not args.quiet:
-        print(f"check-dead-settings: {len(stores)} settings stores scanned, "
-              f"{len(stores) - len(exempt)} subject to the rule")
+        exempt_count = sum(
+            1
+            for section, fields in persisted.items()
+            if section not in sections_exempt
+            for field in fields
+            if (section, field) in fields_exempt
+        )
+        skipped = sum(len(v) for k, v in persisted.items() if k in sections_exempt)
+        print(f"check-dead-settings: {len(persisted)} persisted sections, "
+              f"{total + exempt_count + skipped} fields "
+              f"({total} scanned, {exempt_count} baselined individually, "
+              f"{skipped} exempted by section)")
         for f in findings:
             print(f"  [dead-setting] {f}")
+        if ephemeral:
+            print(f"  (not scanned, not persisted: {', '.join(sorted(ephemeral))})")
 
     if findings:
         if not args.quiet:
             print()
-            print(f"{len(findings)} settings store(s) written but never read by a feature.")
+            print(f"{len(findings)} setting field(s) written but never read by a feature.")
             print("Either wire the value into the feature that needs it, hide the control,")
             print("or record why in scripts/check-dead-settings-baseline.txt.")
         return 1
