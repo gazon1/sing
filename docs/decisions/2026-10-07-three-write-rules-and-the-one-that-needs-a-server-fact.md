@@ -91,6 +91,46 @@ of document this repository has now produced three of.
 When the live half of #221 lands, the floor it writes is exactly this list, and the exemption
 becomes derivable like the apply-handler set already is.
 
+## A fourth rule, in its own file: is the scan set still the set that enqueues?
+
+The three rules above all answer questions *about a file they are already looking at*. None can
+notice a file they are not looking at, and the files they look at are chosen by a glob —
+`feature/**/*RepositoryImpl.kt` declaring a `SyncRepository`-typed property. A glob is a
+hypothesis about where code lives, and a hypothesis does not fail when it stops being true: it
+quietly stops covering. A new `WidgetStore.kt` under `feature/widget/data/` writes rows and
+enqueues, and all three rules pass, because none was ever asked about a file not named
+`*RepositoryImpl.kt`.
+
+So a fourth rule, `EnqueueSiteIsScannedTest`, asks the coverage question: every call that
+enqueues through the port **and writes a row** must sit in a file the other three scan. It lives
+in its own file because it answers a different question — per `2026-10-07-an-atomicity-rule-and-an-enqueue-rule-answer-different-questions`,
+a file that answers two questions gets fixed when one of them changes.
+
+Its exemptions are derived from the same discipline as the apply-handler set. The question
+"which call is a repository enqueueing its own synced write" is answered by the **receiver**:
+`syncRepository.enqueue(`. `SyncRepositoryImpl` forwards to `engine.enqueue` — it *is* the port —
+and `CoreDiModule` hands `get<SyncEngine>().enqueue` to the writer — it is wiring. Neither is
+matched, rather than matched and excused by filename; a list of those two would be the fourth
+hand-written list in a document that has now produced three which went stale while the tree
+stayed green. The remaining case is documentation: `GenericUserScopedRepository`'s KDoc spells
+out the pipeline, receiver and all, and a dependency that exists only in a comment is not a
+dependency.
+
+The comment stripper is deliberately one-directional. It removes KDoc and `/* */`, and comments
+alone on their line, and leaves trailing `//` alone — because a stripper that mis-tracks string
+literals eats code, and eating code here would hide the very call the rule exists to find.
+Under-stripping costs a false positive a human resolves in a minute.
+
+Verified on the real corpus, not only on controls: with a `WidgetStore.kt` added under
+`feature/widget/data/`, the rule reported `feature/widget/data/WidgetStore.kt:29` and named the
+line of the enqueue call. That is a deliberate check that the rule bites, run once and reverted,
+because a rule with no case that makes it fail is not evidence of correctness.
+
+**What it still does not reach:** a repository that writes synced rows and never enqueues at all
+has no enqueue call to be found by, and a repository that reaches the engine directly instead of
+the port enqueues without matching. Closing the first needs to know which files are *supposed* to
+write synced rows, which is the same server-side fact the exemption above is waiting for.
+
 ## Consequences
 
 - `methods()` counts braces on every line. The early return that looked like an optimisation
@@ -107,4 +147,7 @@ becomes derivable like the apply-handler set already is.
 
 - `2026-10-07-an-atomicity-rule-and-an-enqueue-rule-answer-different-questions` — why the
   exemption set is derived from `SyncDocumentWriter`, and the shape the drifting lists share.
+- `2026-10-07-a-fork-that-died-left-no-evidence` — why the tree's green run is only as
+  trustworthy as the evidence a failure leaves behind, which is why the rule above names lines
+  in its own failure message rather than printing a count.
 - `2026-10-05-who-owns-a-row-and-the-patch-that-describes-it` — the invariant all three serve.

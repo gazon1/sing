@@ -317,6 +317,20 @@ tasks.withType<Test>().configureEach {
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
+        // JVM-level crashes (SIGSEGV, SIGABRT, internal error) write an hs_err file here.
+        //
+        // Added because a fork of this task has died at least once with no failing test
+        // and nothing to show for it afterwards. `build/test-heap-dumps/` is the one
+        // directory under `build/` that no later run clears, so it is the only place a
+        // crash report can be written and still be there to read tomorrow. The heap dump
+        // directory, the reports and the results XML are all replaced by the next
+        // successful run — which is exactly why that failure could not be diagnosed
+        // afterwards. See `docs/decisions/2026-10-07-a-fork-that-died-left-no-evidence.md`.
+        //
+        // This catches the JVM dying, not the kernel killing it: SIGKILL from the OOM
+        // killer produces no hs_err, and only the exit code Gradle prints. That case is
+        // still open, and the file being absent is the evidence that distinguishes them.
+        "-XX:ErrorFile=build/test-heap-dumps/hs_err_pid%p.log",
     )
 }
 
