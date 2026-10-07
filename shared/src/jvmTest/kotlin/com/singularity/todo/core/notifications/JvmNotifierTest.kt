@@ -25,6 +25,16 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class JvmNotifierTest {
 
+    /**
+     * Enough fresh probes that a race cannot pass.
+     *
+     * Measured on the broken implementation: a single probe answered `false` about four
+     * times in five.
+     */
+    private companion object {
+        const val PROBE_RUNS = 12
+    }
+
     /** Records the argv it was handed, so the assertion is on the arguments, not the effect. */
     private class RecordingRunner {
         val calls = mutableListOf<List<String>>()
@@ -95,6 +105,56 @@ class JvmNotifierTest {
         assertTrue(
             runner.calls.isEmpty(),
             "an unsupported platform must not shell out and hope",
+        )
+    }
+
+    /**
+     * The real probe must not wobble between calls.
+     *
+     * Built with no injection at all. Repeated, because the defect it guards against — a
+     * parent that races the child's output instead of waiting for it — is intermittent by
+     * nature, and one call would hide that.
+     *
+     * **What this test does not catch**, verified by sabotaging the runner back to its
+     * broken form: when the parent closes the child's streams, this host answers `false`
+     * *consistently*, so `distinct().size == 1` passes and this test stays green while the
+     * capability is wrong. The systematic failure is caught by
+     * `the real probe agrees with running the command directly`, and by `SubprocessTest`.
+     * Kept because a flaky answer is its own bug, but it is not the guard for this one.
+     */
+    @Test
+    fun `the real capability probe is stable across repeated fresh instances`() {
+        val answers = (1..PROBE_RUNS).map {
+            JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported
+        }
+
+        assertEquals(
+            1,
+            answers.distinct().size,
+            "the probe answered $answers. A spread means the parent is racing the child's " +
+                "output rather than waiting for it, and every false answer here disables " +
+                "reminders for the whole machine",
+        )
+    }
+
+    /**
+     * The probe must agree with the command it wraps.
+     *
+     * Computed independently rather than by calling the same helper, so agreement is
+     * evidence and not a tautology.
+     */
+    @Test
+    fun `the real probe agrees with running the command directly`() {
+        val direct = ProcessBuilder("notify-send", "--version")
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+            .waitFor()
+
+        assertEquals(
+            direct == 0,
+            JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported,
+            "the probe must report exactly what the command returns",
         )
     }
 

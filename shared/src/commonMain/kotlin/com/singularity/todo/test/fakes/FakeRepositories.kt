@@ -2028,8 +2028,20 @@ class FakeProfileRepository : ProfileRepository {
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
-    override suspend fun switchTo(id: ProfileId): Result<Unit> = runCatchingCancellable {
-        _activeProfileId.value = id
+    /**
+     * Makes [switchTo] fail.
+     *
+     * Without this hook a fake profile repository can only ever succeed, so a caller
+     * that reports "switched" regardless cannot be checked against a failed switch —
+     * and a fake that always succeeds is exactly the fake that hid this.
+     */
+    var switchToFailure: Throwable? = null
+
+    override suspend fun switchTo(id: ProfileId): Result<Unit> {
+        switchToFailure?.let { return Result.failure(it) }
+        return runCatchingCancellable {
+            _activeProfileId.value = id
+        }
     }
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {

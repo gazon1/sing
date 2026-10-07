@@ -40,6 +40,12 @@ class ProfileBootstrapper(
      *         was activated, if any. Callers (e.g. MCP server) can read the activated
      *         id directly without a separate `.first()` call — avoiding a potential
      *         race between bootstrap and subsequent tool calls.
+     *
+     * @throws Throwable the exception from [ProfileRepository.switchTo] when the profile
+     *         was found but could not be activated. Not a best-effort step: the returned
+     *         id drives a row migration in the MCP host, so reporting an id for a switch
+     *         that failed would move data into a scope the server is not running under.
+     *         A name that was not found after seeding is not an error and reports `null`.
      */
     suspend fun run(
         seedExtras: List<SeedProfile> = emptyList(),
@@ -51,7 +57,21 @@ class ProfileBootstrapper(
         val profiles = repository.observeAll().first().associateBy { it.name }
         val activated = if (activateName != null) {
             profiles[activateName]?.also { profile ->
-                repository.switchTo(profile.id)
+                // Unwrapped, and it has to be. The returned id is not a status the caller
+                // logs — mcp/Main.kt:164 reads it and, on a non-null id, runs
+                // retromigrateRowsToAgentScope, which moves every row owned by the
+                // unscoped local user id into a scope keyed on this profile. A switch
+                // that failed but still returned an id therefore migrated the rows into a
+                // namespace the server is not running under. Returning null instead would
+                // conflate "nothing asked for a switch" with "the switch failed", which
+                // are different situations and which the caller cannot otherwise tell
+                // apart.
+                //
+                // Throwing is safe: the only production caller already wraps the whole
+                // bootstrap in a try/catch that logs and continues against the default
+                // profile (mcp/Main.kt:175-179). So the throw lands in a handler that
+                // exists, says why, and does not reach the migration.
+                repository.switchTo(profile.id).getOrThrow()
                 logger.i { "ProfileBootstrapper: activated profile (${profile.id.value})" }
             } ?: run {
                 logger.w { "ProfileBootstrapper: '$activateName' not found after seed" }

@@ -1,5 +1,7 @@
 package com.singularity.todo.core.notifications
 
+import com.singularity.todo.core.process.Subprocess
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlin.coroutines.CoroutineContext
@@ -29,7 +31,7 @@ import kotlinx.coroutines.withContext
  */
 class JvmNotifier(
     private val scope: CoroutineScope,
-    private val runCommand: suspend (List<String>) -> Int = { argv -> execQuietly(argv) },
+    private val runCommand: suspend (List<String>) -> Int = { argv -> Subprocess.runQuietly(argv) },
     /** Where the blocking subprocess runs. Injected so a test can run it inline. */
     private val ioContext: CoroutineContext = Dispatchers.IO,
     /**
@@ -90,22 +92,6 @@ class JvmNotifier(
          * chains off a `Unit`-returning call and does not compile as a fluent expression,
          * which is how the first version of this file went wrong.
          */
-        fun probeNotifySend(): Boolean = execQuietly(listOf(NOTIFY_SEND, "--version")) == 0
-
-        /**
-         * Runs a command, discarding output, returning only its exit code.
-         *
-         * The command is passed as a list, never interpolated into a shell string: a
-         * reminder title is user-authored text, and a title containing `;` or `$(...)`
-         * must not become part of the command line.
-         */
-        fun execQuietly(argv: List<String>): Int = runCatching {
-            val process = ProcessBuilder(argv)
-                .redirectErrorStream(true)
-                .start()
-            process.inputStream.close()
-            process.errorStream.close()
-            process.waitFor()
-        }.getOrDefault(-1)
+        fun probeNotifySend(): Boolean = Subprocess.runQuietly(listOf(NOTIFY_SEND, "--version")) == 0
     }
 }
