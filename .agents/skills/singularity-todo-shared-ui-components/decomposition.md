@@ -175,7 +175,7 @@ Removed: ~24 lines of duplicated Box+Alignment ceremony across 4 screens.
 
 ### Worked example: `TaskEditorContent` — slot API for editor unification
 
-`TaskCreateScreen` and `TaskDetailViewScreen` both rendered near-identical task editor forms. Three files were unified into one:
+`TaskCreateScreen` and a second task-detail screen both rendered near-identical task editor forms. Three files were unified into one:
 
 **Before** (two separate composables + a duplicate top bar):
 ```

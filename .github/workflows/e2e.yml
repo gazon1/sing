@@ -1,0 +1,190 @@
+name: E2E (Maestro)
+
+# Replaces maestro-smoke.yml, maestro-nightly.yml and the maestro-smoke job of
+# ci.yml. One workflow, one APK build, arithmetic sharding.
+#
+#   PR labelled `run-maestro` -> smoke  (re-runs on every new push while labelled)
+#   push to main               -> smoke
+#   nightly cron               -> full, 4 shards
+#   manual                     -> either
+#
+# The APK is built ONCE here and shared by every shard. Before this, the debug APK
+# was assembled about six times across ci.yml and the four nightly shards.
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "smoke = tagged subset, full = every flow in 4 shards"
+        type: choice
+        options: [smoke, full]
+        default: smoke
+  pull_request:
+    branches: [main]
+    types: [labeled, synchronize]
+  push:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Repository variable, e.g. the version you run locally (`maestro --version`).
+  MAESTRO_VERSION: ${{ vars.MAESTRO_VERSION }}
+
+jobs:
+  # Decides suite and shard count in one place, so the matrix is arithmetic rather
+  # than four hand-maintained job entries.
+  plan:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'run-maestro') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'run-maestro'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      suite: ${{ steps.p.outputs.suite }}
+      shards: ${{ steps.p.outputs.shards }}
+    steps:
+      - id: p
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_SUITE: ${{ inputs.suite }}
+        run: |
+          suite=smoke
+          [ "$EVENT" = schedule ] && suite=full
+          [ "$EVENT" = workflow_dispatch ] && suite=$INPUT_SUITE
+          shards='[1]'
+          [ "$suite" = full ] && shards='[1,2,3,4]'
+          echo "suite=$suite" >> "$GITHUB_OUTPUT"
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+
+  build-apk:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - run: ./gradlew :androidApp:assembleDebug
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: e2e-apk
+          path: androidApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  e2e:
+    name: e2e (${{ needs.plan.outputs.suite }}, shard ${{ matrix.shard }})
+    needs: [plan, build-apk]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    env:
+      SUITE: ${{ needs.plan.outputs.suite }}
+      SHARD: ${{ matrix.shard }}
+      SHARDS: ${{ strategy.job-total }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Maestro needs a JDK; the runner image has none the CLI can rely on.
+      - uses: actions/setup-java@v6
+        with:
+          java-version: 21
+          distribution: zulu
+
+      # TODO(verify): the major must match the `actions/upload-artifact` used above.
+      - uses: actions/download-artifact@v7
+        with:
+          name: e2e-apk
+          path: apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The version is passed to the installer as MAESTRO_VERSION. Checking the
+      # variable and then running an unpinned `curl | bash` would assert a pin and
+      # install whatever is newest — the same shape as a gate that is configured and
+      # never applied.
+      - name: Install Maestro (pinned)
+        run: |
+          : "${MAESTRO_VERSION:?set the repository variable MAESTRO_VERSION}"
+          MAESTRO_VERSION="$MAESTRO_VERSION" bash -c "$(curl -fsSL https://get.maestro.mobile.dev)"
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # -gpu off sidesteps the gfxstream crash the host emulator hits, so the
+      # device-recovery loop of scripts/run-maestro.sh is not needed here.
+      #
+      # No `locale:` input: the previous workflows passed one and the action has no
+      # such input, so it was silently ignored.
+      #
+      # Everything device-related is inside the script — see scripts/ci/e2e-shard.sh
+      # for why that is not negotiable.
+      - name: Run flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu off -no-audio
+          script: bash scripts/ci/e2e-shard.sh
+
+      # Uploaded unconditionally, and from build/maestro-results/ rather than only
+      # ~/.maestro/tests/. A result set that exists solely when something broke
+      # cannot answer "which flow passed on abc1234".
+      - name: Upload JUnit results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          path: build/maestro-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # No year in the glob: the old path `~/.maestro/tests/**/2026-*/` stops
+      # matching on 1 January 2027 and the failure evidence stops being collected.
+      - name: Upload Maestro screenshots / logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-failures-${{ matrix.shard }}-${{ github.run_id }}
+          path: ~/.maestro/tests/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
+  # somewhere to land other than a scrollback buffer.
+  nightly-alert:
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    needs: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh issue create \
+            --title "Nightly Maestro failed ($(date -u +%F))" \
+            --body "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

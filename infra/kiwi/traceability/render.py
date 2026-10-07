@@ -80,7 +80,7 @@ def _legend_results() -> list[str]:
 #: the artefact itself rather than left to a reader who assumes the flows are
 #: un-automated.
 _ANDROID_CAVEAT = (
-    "The Android flows run in `maestro-smoke.yml`, a different workflow from the "
+    "The Android flows run in `e2e.yml`, a different workflow from the "
     "one that builds this matrix, so their JUnit XML never reaches it. A `⌛` in "
     "that column means \"not filled here\", not \"not automated\" — the flows are "
     "tagged and run, and `Maestro/flows/**` is the source for the coverage matrix."

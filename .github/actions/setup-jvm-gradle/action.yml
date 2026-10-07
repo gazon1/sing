@@ -1,0 +1,33 @@
+name: Setup JVM + Gradle
+description: >
+  JDK 21 and Gradle with one cache policy for every workflow.
+  Only runs on main write the Gradle cache; PRs and tags restore it read-only,
+  so a PR cannot evict or poison the cache that main depends on.
+
+inputs:
+  cache-encryption-key:
+    description: >
+      Secret GRADLE_ENCRYPTION_KEY. Without it setup-gradle does not persist the
+      configuration cache, and the report the coverage gate depends on cannot
+      be proven to come from this run. Required in practice — a repository
+      without it works, and is quietly slower and less provable.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v6
+      with:
+        java-version: 21
+        distribution: zulu
+
+    # The configuration-cache store lives in the PROJECT .gradle/ directory.
+    # setup-gradle picks it up itself via cache-encryption-key, which is why
+    # three hand-written actions/cache blocks do not appear here: they were a
+    # workaround for setup-gradle@v4 and they keyed on run_id, so every run
+    # stored a fresh cache and evicted the previous one.
+    - uses: gradle/actions/setup-gradle@v5
+      with:
+        cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+        cache-encryption-key: ${{ inputs.cache-encryption-key }}

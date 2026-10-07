@@ -92,7 +92,7 @@ openspec validate --all --json --strict
 **This CLI command is the gate.** It is not the same thing as an `/opsx:verify`
 slash-command from the expanded OpenSpec profile: that is a convenience skill that
 re-reads the change and reports drift, and it is non-blocking. `openspec validate
---all --strict` is what CI runs (`.github/workflows/docs-audit.yml`) and what
+--all --strict` is what CI runs (the `static` job of `.github/workflows/ci.yml`) and what
 `just os-validate` wraps. If the two are confused, "I ran verify" can mean a report
 nobody checks.
 

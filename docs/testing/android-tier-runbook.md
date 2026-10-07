@@ -39,7 +39,7 @@ assumption is tested:
    and `--output` are actually reaching the invocation.
 3. **Did `just trace-results maestro` fill the Android cell?** `TASK-REC-01`
    should read `✅` on android. It will still read `⌛` in CI — the flows run in
-   `maestro-smoke.yml`, a different workflow, and #150 settled that the header
+   `e2e.yml`, a different workflow, and #150 settled that the header
    says so rather than moving an emulator into the main pipeline. Local filling
    is the point of this run.
 
