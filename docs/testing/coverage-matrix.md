@@ -18,7 +18,7 @@ below; the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**19 scenarios · 3/35 claimed cells automated · 32 holes**
+**26 scenarios · 9/49 claimed cells automated · 40 holes**
 
 ## feature.auth
 
@@ -37,6 +37,13 @@ below; the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `CAL-FILT-01` | Filter the calendar by project, tag, priority or status | ⊘ | ⊘ | Nothing happens, and nothing ever did: there is no `CalendarFilterPanel` in the tree, no filter state on… |
+| `CAL-SYNC-CONNECT-01` | Connect a Google account and choose a calendar to sync into | ○ | ● | The account section changes from an invitation to connect to a way to disconnect, a "Sync now" control appears only… |
+| `CAL-SYNC-IMPORT-01` | Turn on importing Google events and see how far it reaches | ○ | ● | The toggle stays on across a reopen, and the sentence names the window the pass is actually configured with rather… |
+| `CAL-SYNC-PROVIDER-01` | Choose which calendar the feature syncs to | ○ | ● | The system calendar's controls disappear when Google is selected and return when it is selected again, and neither… |
+| `CAL-SYNC-RECUR-01` | A recurring Google event keeps the exact rule Google supplied | ◇ | ◇ | The series Google holds still carries the rule string it started with, and the series still occurs on its original… |
+| `CAL-SYNC-RENEW-01` | A grant that cannot renew says so before sync silently stops | ○ | ● | The screen warns that the connection cannot be renewed in the background and that sync will stop when the current… |
+| `CAL-SYNC-SYNCNOW-01` | A manual Google pass reports what it actually did | ○ | ● | The control is disabled and reads as in progress while the pass runs, and afterwards the panel reports the outcome of… |
+| `CAL-SYNC-SYSTEM-01` | The system-calendar projection says so when the platform cannot do it | ◇ | ● | The panel states that system calendar sync needs Android and that the user's tasks are unaffected, rather than… |
 
 ## feature.sync
 
@@ -76,6 +83,14 @@ Claimed but not automated:
 - `AUTH-SIGNUP-01` / desktop
 - `AUTH-SIGNUP-02` / android
 - `AUTH-SIGNUP-02` / desktop
+- `CAL-SYNC-CONNECT-01` / android
+- `CAL-SYNC-IMPORT-01` / android
+- `CAL-SYNC-PROVIDER-01` / android
+- `CAL-SYNC-RECUR-01` / android
+- `CAL-SYNC-RECUR-01` / desktop
+- `CAL-SYNC-RENEW-01` / android
+- `CAL-SYNC-SYNCNOW-01` / android
+- `CAL-SYNC-SYSTEM-01` / android
 - `SYNC-FAILED-01` / android
 - `SYNC-FAILED-01` / desktop
 - `SYNC-INCOMING-01` / android
@@ -209,6 +224,99 @@ Steps:
 2. Tap the "Filter" affordance, or a filter row, or "+N more".
 
 **Expected:** Nothing happens, and nothing ever did: there is no `CalendarFilterPanel` in the tree, no filter state on `CalendarViewModel`, and nothing in the task query a filter could narrow. Every one of the nine affordances was a dead `onClick = {}`.
+
+#### `CAL-SYNC-CONNECT-01` — Connect a Google account and choose a calendar to sync into
+
+**confirmed** · P1 · `#CAL-SYNC-CONNECT`
+
+**Given:** Settings → Calendar is open, the provider is set to Google Calendar, and no Google account is connected yet.
+
+Steps:
+
+1. Press "Connect Google account".
+2. Once the account is connected, choose one of the calendars it reported.
+
+**Expected:** The account section changes from an invitation to connect to a way to disconnect, a "Sync now" control appears only after a calendar is chosen, and choosing a calendar persists — reopening Settings still shows it selected. Before a calendar is chosen the panel says what is missing rather than offering a control that does nothing.
+
+#### `CAL-SYNC-IMPORT-01` — Turn on importing Google events and see how far it reaches
+
+**confirmed** · P2 · `#CAL-SYNC-IMPORT`
+
+**Given:** Settings → Calendar is open with Google selected and an account connected, so the import section is on screen.
+
+Steps:
+
+1. Turn on "Import events from Google".
+2. Read the sentence describing how far the listing reaches.
+3. Reopen Settings and return to the tab.
+
+**Expected:** The toggle stays on across a reopen, and the sentence names the window the pass is actually configured with rather than a default that could disagree with it. Turning the toggle off leaves the user's own tasks still syncing to Google.
+
+#### `CAL-SYNC-PROVIDER-01` — Choose which calendar the feature syncs to
+
+**confirmed** · P1 · `#CAL-SYNC-PROVIDER`
+
+**Given:** The app is signed in on a fresh profile with no calendar sync configured, and Settings is open.
+
+Steps:
+
+1. Open Settings and choose the Calendar tab.
+2. Switch the provider selector from the system calendar to Google Calendar.
+3. Switch it back to the system calendar.
+
+**Expected:** The system calendar's controls disappear when Google is selected and return when it is selected again, and neither half leaves the other's choices on screen. On a platform with no calendar provider, selecting the system calendar says so plainly and still leaves Google selectable.
+
+#### `CAL-SYNC-RECUR-01` — A recurring Google event keeps the exact rule Google supplied
+
+**confirmed** · P1 · `#CAL-SYNC-RECUR`
+
+**Given:** A Google calendar contains a recurring event whose rule uses syntax the app's own parser does not fully model — a weekly interval count, a BYDAY with an ordinal, or an UNTIL expressed in UTC.
+
+Steps:
+
+1. The event is imported into the app as an editable task.
+2. The user changes the time of one occurrence.
+3. The change is pushed back to Google.
+
+**Expected:** The series Google holds still carries the rule string it started with, and the series still occurs on its original recurrence. The rule is opaque to this feature and must never be re-derived from parsed dates.
+
+#### `CAL-SYNC-RENEW-01` — A grant that cannot renew says so before sync silently stops
+
+**confirmed** · P1 · `#CAL-SYNC-RENEW`
+
+**Given:** Settings → Calendar is open with Google selected, and the profile holds a credential whose grant carries no refresh token — the shape the hybrid OAuth flow produces, because consent happens in KMPAuth while the durable credential is owned here.
+
+Steps:
+
+1. The screen loads the account.
+2. The user looks at the Google Account section.
+
+**Expected:** The screen warns that the connection cannot be renewed in the background and that sync will stop when the current permission expires, and says to reconnect. The warning appears while the account still looks connected in every other respect — the disconnect control is present and nothing else reports a problem — because that is the state a user cannot otherwise distinguish from working sync.
+
+#### `CAL-SYNC-SYNCNOW-01` — A manual Google pass reports what it actually did
+
+**confirmed** · P1 · `#CAL-SYNC-SYNCNOW`
+
+**Given:** Settings → Calendar is open, Google is the selected provider, an account is connected, and a writable calendar is chosen.
+
+Steps:
+
+1. Press "Sync now" in the Google half.
+2. Let the pass finish.
+
+**Expected:** The control is disabled and reads as in progress while the pass runs, and afterwards the panel reports the outcome of that pass: either a failure with its reason, or the time the pass completed. A failed pass never leaves the panel looking unchanged, and never advances the "last synced" time. The system-calendar half's own status is not moved by a Google pass.
+
+#### `CAL-SYNC-SYSTEM-01` — The system-calendar projection says so when the platform cannot do it
+
+**confirmed** · P2 · `#CAL-SYNC-SYSTEM`
+
+**Given:** Settings → Calendar is open and the provider is the system calendar. On desktop, or any platform with no calendar provider the app can reach.
+
+Steps:
+
+1. Select the system calendar in the provider selector.
+
+**Expected:** The panel states that system calendar sync needs Android and that the user's tasks are unaffected, rather than rendering an enable switch and an empty calendar list over providers that were never asked. The Google half stays reachable, because the two are alternatives and one being impossible must not hide the other.
 
 ### feature.sync
 

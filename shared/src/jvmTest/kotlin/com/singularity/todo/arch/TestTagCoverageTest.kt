@@ -56,6 +56,13 @@ class TestTagCoverageTest {
     private val testSourceDirs = listOf(
         "shared/src/commonTest",
         "shared/src/jvmTest",
+        // Added 2026-10-07. `testAndroidHostTest` applies the same `includeTags` filter
+        // as the other two, so a source set that applies the filter belongs in this list
+        // whether or not it holds tests yet. It held none at the time, and the first
+        // class added to it was excluded from every run — see
+        // "the-android-graph-test-runs-but-cannot-open-a-database" in
+        // `docs/decisions/deferred-backlog.md` for what that cost.
+        "shared/src/androidHostTest",
         "desktopApp/src/jvmTest",
         "mcp-server/src/test",
     )

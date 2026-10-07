@@ -260,11 +260,97 @@ object TestTags {
         /** The Dark Theme toggle row's outer Row (clickable, semantic Role.Switch). */
         const val DARK_THEME_SWITCH = "settings_dark_theme_switch"
 
+        /** Master switch for notifications at all. */
+        const val NOTIFICATIONS_ENABLED_SWITCH = "settings_notifications_enabled_switch"
+
+        /** Per-event sound toggle. Rendered only while notifications are enabled. */
+        const val NOTIFICATIONS_SOUND_SWITCH = "settings_notifications_sound_switch"
+
+        /** Per-event vibration toggle. Rendered only while notifications are enabled. */
+        const val NOTIFICATIONS_VIBRATION_SWITCH = "settings_notifications_vibration_switch"
+
+        /** Weekend-day toggles on the work schedule screen. */
+        const val WORK_SCHEDULE_SATURDAY_SWITCH = "settings_work_schedule_saturday_switch"
+        const val WORK_SCHEDULE_SUNDAY_SWITCH = "settings_work_schedule_sunday_switch"
+
         /**
          * Content-visible marker for a Settings tab's main content area.
          * Use after tapping `settings_tab_<slug>` to assert the tab rendered.
          */
         fun content(tab: String) = "settings_content_${slug(tab)}"
+    }
+
+    // ─── Search ───────────────────────────────────────────────────────────────
+
+    /**
+     * Facet toggles inside `SimpleFilterSheet`.
+     *
+     * Named per sheet rather than per facet because the sheet is a `ModalBottomSheet`,
+     * and Compose Multiplatform renders those into a separate semantics root on
+     * desktop — so these exist for the Android/Maestro tier, where the sheet's
+     * controls are addressable.
+     */
+    object SearchFilter {
+        const val HAS_DESCRIPTION_SWITCH = "search_filter_has_description_switch"
+        const val PINNED_SWITCH = "search_filter_pinned_switch"
+    }
+
+    // ─── Calendar sync ───────────────────────────────────────────────────────
+
+    /**
+     * Settings → Calendar, the one screen that configures *both* calendar providers.
+     *
+     * The panel had no tags at all before this object existed, which made every
+     * user-visible behaviour on it unverifiable from automation — a screen can be
+     * complete, tested at the ViewModel level, and still have no carrier at all.
+     * These are the selectors `CAL-SYNC-*` scenarios are written against.
+     */
+    object CalendarSync {
+        /**
+         * Provider segment in the `SingleChoiceSegmentedButtonRow` ("System calendar" /
+         * "Google Calendar"). Segmented buttons render their own unlabelled internals,
+         * so the tag goes on the button carrying the provider's user-visible label.
+         */
+        fun providerSegment(label: String) = "calendar_sync_provider_${slug(label)}"
+
+        /** The connect button in the not-yet-connected Google account section. */
+        const val GOOGLE_CONNECT_BUTTON = "calendar_sync_google_connect_button"
+
+        /** The disconnect button once an account is connected. */
+        const val GOOGLE_DISCONNECT_BUTTON = "calendar_sync_google_disconnect_button"
+
+        /**
+         * Warning shown when the grant carries no refresh token.
+         *
+         * Worth its own tag: it is the difference between "sync stopped" and "this
+         * connection can never renew", and a test that only checked for the
+         * disconnect button would pass with the warning missing.
+         */
+        const val GOOGLE_RENEW_WARNING = "calendar_sync_google_renew_warning"
+
+        /** Why the calendar *list* could not be read (distinct from a failed pass). */
+        const val GOOGLE_LIST_ERROR = "calendar_sync_google_list_error"
+
+        /** Outcome line of the last Google pass: "Sync failed: …" or "Last synced …". */
+        const val GOOGLE_SYNC_OUTCOME = "calendar_sync_google_sync_outcome"
+
+        /** The manual pass button, present only once a calendar is selected. */
+        const val GOOGLE_SYNC_NOW_BUTTON = "calendar_sync_google_sync_now_button"
+
+        /** The prompt shown when no calendar has been chosen yet. */
+        const val GOOGLE_SYNC_NEEDS_CALENDAR = "calendar_sync_google_sync_needs_calendar"
+
+        /** Dynamic: `calendar_sync_google_calendar_<slug>` — one row per writable calendar. */
+        fun googleCalendarRow(id: String) = "calendar_sync_google_calendar_${slug(id)}"
+
+        /** The import-events toggle, and the window sentence describing what it imports. */
+        const val GOOGLE_IMPORT_SWITCH = "calendar_sync_google_import_switch"
+        const val GOOGLE_IMPORT_WINDOW = "calendar_sync_google_import_window"
+
+        /** System-calendar half: the platform gate desktop hits. */
+        const val SYSTEM_UNAVAILABLE = "calendar_sync_system_unavailable"
+        const val SYSTEM_ENABLE_SWITCH = "calendar_sync_system_enable_switch"
+        const val SYSTEM_SYNC_NOW_BUTTON = "calendar_sync_system_sync_now_button"
     }
 
     // ─── Dialog ──────────────────────────────────────────────────────────────

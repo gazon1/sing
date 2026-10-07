@@ -2,28 +2,37 @@ package com.singularity.todo.test.helpers
 
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileStat
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
+import com.singularity.todo.core.work.BackgroundWorkScheduler
+import com.singularity.todo.core.work.JobSchedule
+import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.pomodoro.PomodoroState
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.time.Duration
-import com.singularity.todo.core.sync.work.SyncWorkScheduler
 
 /**
  * Inert implementations of the JVM ports a desktop flow test would otherwise
@@ -90,6 +99,24 @@ class InertSharePort : SharePort {
 
     override fun shareText(title: String, text: String): Boolean {
         shared += title to text
+        return true
+    }
+}
+
+/**
+ * Records file-share requests instead of handing one to the host desktop.
+ *
+ * Separate from [InertSharePort] rather than a flag on it: this port takes a *path* and a
+ * MIME type, and the only caller is Settings' "Export logs" row. A test that presses it
+ * wants the call recorded so it can assert the exporter produced a real archive — which is
+ * the property worth checking — and it must not open a file manager on a machine that has
+ * no display.
+ */
+class InertFileSharePort : FileSharePort {
+    val sharedFiles = mutableListOf<Pair<String, String>>()
+
+    override fun shareFile(filePath: String, mimeType: String): Boolean {
+        sharedFiles += filePath to mimeType
         return true
     }
 }
@@ -219,4 +246,85 @@ class InertSyncWorkScheduler : SyncWorkScheduler {
     override fun enqueuePeriodic(intervalMillis: Long) = Unit
 
     override fun cancelPeriodic() = Unit
+}
+
+/**
+ * Records background work instead of scheduling it.
+ *
+ * The production `JvmBackgroundWorkScheduler` starts a daemon coroutine loop and keeps a
+ * thread alive for the rest of the run. Under `same_thread` parallelism that loop survives
+ * its own test class and makes every later timing measurement depend on how many tests ran
+ * before it, so the test graph binds this instead.
+ */
+class InertBackgroundWorkScheduler : BackgroundWorkScheduler {
+    val scheduled = mutableListOf<String>()
+    val ranNow = mutableListOf<String>()
+
+    override fun schedule(jobId: String, schedule: JobSchedule) {
+        scheduled += jobId
+    }
+
+    override fun cancel(jobId: String) {
+        scheduled -= jobId
+    }
+
+    override fun runNow(jobId: String) {
+        ranNow += jobId
+    }
+}
+
+/**
+ * Google sync's periodic trigger, inert.
+ *
+ * Returns `isConfigured() == false` so nothing arms it. Same reason as
+ * [InertSyncWorkScheduler]: the production `DelayLoopGoogleSyncPeriodicTrigger` resolves a
+ * `CoroutineScope` and starts a delay loop, which is precisely what a test must not start.
+ */
+class InertGoogleSyncPeriodicTrigger : GoogleSyncPeriodicTrigger {
+    override fun start(interval: kotlin.time.Duration) = Unit
+
+    override fun stop() = Unit
+
+    override suspend fun isConfigured(): Boolean = false
+}
+
+/**
+ * A [CoroutineScope] whose job is already cancelled.
+ *
+ * Bound so the graph *shape* matches production while guaranteeing the shape cannot run
+ * anything. The alternative — a live `createBackgroundScope` — would hand a real
+ * `Dispatchers.Default` scope to whatever resolved it, and a launched job there would
+ * outlive its test class and make every later timing measurement depend on ordering.
+ * Cancelled is the honest version of "this exists so nothing has to be created": a
+ * launch into it throws `CancellationException` immediately, which is a loud failure
+ * rather than a thread that quietly never ends.
+ */
+fun alreadyCancelledScope(): CoroutineScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.Default).also { it.cancel() }
+
+/**
+ * Records notifications instead of showing them.
+ *
+ * The production `JvmNotifier` shells out to `notify-send`, which on a headless CI box
+ * either fails or blocks — and a notification appearing during a test would be a real
+ * window stealing focus from the Compose test that is running. Recording them lets a test
+ * assert that a reminder *was* raised, which is the property worth checking.
+ */
+class RecordingNotifier : Notifier {
+    val posted = mutableListOf<Triple<String, String, String>>()
+
+    /**
+     * False, deliberately.
+     *
+     * The real implementation probes for `notify-send` and a session bus, so on a
+     * headless box it would already answer false — and a test asserting *true* would be
+     * asserting that the test host has a desktop session, which is not a property of the
+     * app. Callers gate on this before posting, so false exercises the same branch a
+     * headless CI run takes while still recording what would have been posted.
+     */
+    override val isSupported: Boolean = false
+
+    override fun post(tag: String, title: String, body: String, viewId: String?) {
+        posted += Triple(tag, title, body)
+    }
 }

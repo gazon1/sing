@@ -183,7 +183,12 @@ def main() -> int:
     specs = load_specs(SCENARIOS_DIR)
     links = scan_all(specs, ROOT)
     coverage = build_coverage(specs, links)
-    measured, dark_ids = _metrics(coverage)
+    # The second return value is the dark-scenario id list. It is not used here —
+    # the failure listing is written per cell (see below) — but `_metrics` returns
+    # it because the gate's own unit tests assert on the metric computation
+    # directly, and changing that signature to suit one caller would make the
+    # tests worse rather than the gate.
+    measured, _dark_ids = _metrics(coverage)
 
     floors = {f["metric"]: f for f in config.get("floors", [])}
     missing = [m.key for m in METRICS if m.key not in floors]
@@ -232,9 +237,17 @@ def main() -> int:
     print("These are scenarios the suite claims to verify and does not. Holes are")
     print("normal — a matrix with none of them is a matrix nobody believes — but a")
     print("count that only ever goes up is a queue nobody drains:")
-    for scenario in dark_ids:
+    # Iterated over the CELLS, not over `dark_ids`. Listing only fully-dark scenarios
+    # was correct while every scenario was either fully covered or fully uncovered, and
+    # stopped being correct the moment a scenario got one target and not the other:
+    # `CAL-SYNC-SYSTEM-01` has a desktop carrier, so its android hole — an ordinary
+    # hole, and one a reader is expected to go and close — never appeared in this
+    # listing at all. The number said 40 and the list showed 34, with the difference
+    # being exactly the holes that a partial fix had made easy to forget. The cell is
+    # the unit the matrix is drawn in, so it is the unit this list is written in too.
+    for scenario in sorted(coverage.cells):
         for target, cell in sorted(coverage.cells[scenario].items()):
-            if cell.state.was_claimed:
+            if cell.state.was_claimed and not cell.state.is_automated:
                 print(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
     print("")
     print("Either attach a carrier (the cheapest path is a reachability probe")

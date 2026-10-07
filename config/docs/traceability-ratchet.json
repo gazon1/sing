@@ -1,37 +1,38 @@
 {
-  "measurement": "PYTHONPATH=infra/kiwi python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-10-05",
-  "commit": "dd8ee328",
-  "corpus": {
-    "specs": 19,
-    "claimed_cells": 35,
-    "carriers": 3
+ "measurement": "PYTHONPATH=infra/kiwi python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
+ "measured_at": "2026-10-07",
+ "commit": "(this commit)",
+ "corpus": {
+  "specs": 26,
+  "claimed_cells": 49,
+  "carriers": 9
+ },
+ "floors": [
+  {
+   "metric": "holes",
+   "max": 40,
+   "measured": 40,
+   "label": "claimed (scenario, target) cells with no automation",
+   "note": "Raised 32 -> 40 on 2026-10-07 for exactly one reason, recorded here because a raised floor is only defensible if the reason is in the repo: the Google calendar-sync feature shipped 23 unit-test classes, 8 OpenSpec requirements and ZERO scenario specs, so it was contributing no cells at all and could not be reported as a gap. Seven specs were added (CAL-SYNC-PROVIDER-01, -CONNECT-01, -RENEW-01, -SYNCNOW-01, -IMPORT-01, -RECUR-01, -SYSTEM-01). Six of them got desktop carriers in the same commit; all seven opened 14 claimed cells and 6 of those are android cells no carrier can close on a host with no device. The honest reading of the previous floor was therefore 'this feature is not measured', not 'this feature is covered' — declaring the scenarios is what made the debt visible, and the floor is raised because visibility is not the same as paying it. NET MOVEMENT SINCE 2026-10-05: 19 specs/35 claimed cells/3 carriers -> 26/49/9, and holes 32 -> 40, i.e. six new scenarios verified on desktop bought an honest accounting of twelve cells that were previously invisible."
   },
-  "floors": [
-    {
-      "metric": "holes",
-      "max": 32,
-      "measured": 32,
-      "label": "claimed (scenario, target) cells with no automation",
-      "note": "The number the plan asked for, and the one 15 auth/sync specs with zero carriers blew past in a single commit: 2 -> 32, green, because nothing read it. Removing a hole is always allowed; adding one fails. Raised 31 -> 32 on 2026-10-05 for one reason, recorded here because a raised floor is only defensible if the reason is in the repo: TASK-TIME-01 was narrowed to `targets: [android]` on the strength of a failed reachability probe, and the narrowing was wrong. The time-tracking feature is entirely in commonMain, and the desktop task detail was not rendering it because a merge (f2a87c7c) had put the two platform navigation graphs on different screens. The spec now claims both targets because that is true of the product, and the desktop cell is a hole because no carrier can assert it yet — the timer will not start under the anonymous desktop harness session and TaskTimeSlot.start() discards the failure with an empty onFailure, so the failure is indistinguishable from a dead control (#196). A claim that is true and unsupplied is a hole; a spec narrowed to match a bug is neither honest nor a coverage claim. A desktop carrier for TASK-TIME-01 was written and passed alone (7.3 s), and the fix for #212 is real — but it was NOT landed, because in a full desktop run it made SetPriorityFlowTest fail on a missing label. Removing only that one file makes SetPriorityFlowTest green again, so the carrier perturbs shared state for the test that follows it. A carrier that passes alone and breaks its neighbour is a landmine, not a proof, so the cell stays a hole until the carrier is made hermetic."
-    },
-    {
-      "metric": "dark_scenarios",
-      "max": 16,
-      "measured": 16,
-      "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it per platform into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting."
-    },
-    {
-      "metric": "unreachable_cells",
-      "max": 6,
-      "measured": 6,
-      "label": "claimed cells whose spec declares the tier unable to reach them",
-      "note": "These are counted in `holes` as well, so reclassifying an ordinary hole as unreachable does not move the total — which is the point, and also the hole this floor closes. Without it, marking every unsupplied claim `unreachable` would make the queue look un-actionable while the number stayed at 32, and the cheap move is always the one that leaves the metric alone. The two metrics together mean a reclassification has to be paid for in one bucket or the other. The 6 are the three sync scenarios that are *defined* by a second device (SYNC-INCOMING-01, SYNC-OFFLINE-01, SYNC-PROFILES-01) on both tiers; the rest of the sync area is one-device and stays probe-able."
-    }
-  ],
-  "known_gaps": [
-    "16 android cells are holes and stay holes on a host with no device: the tier is unverifiable here, and that is more than half the matrix. docs/testing/android-tier-runbook.md is the work order. Because every android hole is 1-for-1, no desktop work can move the total by more than 1; the android tier is where the count is.",
-    "The android column of the result matrix is not filled by CI, deliberately. `:androidApp:connectedDebugAndroidTest` ran in no CI job until android-device-tests.yml added it on 2026-10-07 (nightly, tags, manual, and the `run-device-tests` PR label) — but that job produces instrumentation reports, not Maestro scenario results, so it does not move this column. `traceability results --maestro` would need a `scenario:` tag on every flow that claims android — 18 of 19 specs claim it and exactly one flow (TASK-REC-01) carries the tag. CI therefore normalises `--targets desktop` only, so the android cells read as a deliberate `not-run` instead of looking like a measurement that happened to be empty. To close it, tag the flows — the instrumentation job is necessary but not sufficient, which is why the gap stays. See docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md."
-  ]
+  {
+   "metric": "dark_scenarios",
+   "max": 17,
+   "measured": 17,
+   "label": "declared scenarios with a claimed target and no automation on any target",
+   "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it per platform into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting. Raised 16 -> 17 on 2026-10-07 by exactly one scenario: CAL-SYNC-RECUR-01, whose both cells are declared unreachable because the property is about what a SECOND Google account holds after the app pushes an edit. It is counted here rather than quietly omitted precisely because the recurrence rule is the highest-blast-radius invariant in the feature (REQ-CS-007) and the one a reader would most assume is covered by the 23 passing unit-test classes."
+  },
+  {
+   "metric": "unreachable_cells",
+   "max": 9,
+   "measured": 9,
+   "label": "claimed cells whose spec declares the tier unable to reach them",
+   "note": "These are counted in `holes` as well, so reclassifying an ordinary hole as unreachable does not move the total — which is the point, and also the hole this floor closes. Without it, marking every unsupplied claim `unreachable` would make the queue look un-actionable while the number stayed at 32, and the cheap move is always the one that leaves the metric alone. The two metrics together mean a reclassification has to be paid for in one bucket or the other. The 6 are the three sync scenarios that are *defined* by a second device (SYNC-INCOMING-01, SYNC-OFFLINE-01, SYNC-PROFILES-01) on both tiers; the rest of the sync area is one-device and stays probe-able. Raised 6 -> 9 on 2026-10-07 by three cells: CAL-SYNC-RECUR-01 on both tiers (needs a second Google account) and CAL-SYNC-SYSTEM-01 on android only (reaching the 'permission denied' branch requires granting and then revoking READ_CALENDAR through a system dialog, which is an emulator capability rather than a UI assertion; desktop reaches the branch by construction and IS claimed)."
+  }
+ ],
+ "known_gaps": [
+  "The calendar-sync panel carried ZERO test tags until 2026-10-07, which is the concrete form this gap takes: not a missing test but a missing ADDRESS. No automation could have reached any of its user-visible behaviour regardless of how the ViewModel was tested, so '23 unit-test classes' and '0 carriers' were both true and not in tension. Tags were added alongside TestTags.CalendarSync; and SettingsSwitchRow's testTag parameter — which defaulted to TestTags.Settings.DARK_THEME_SWITCH — is now required, because 15 of its 16 call sites were silently inheriting the dark-theme tag, which makes onNodeWithTag throw on multiple matches.",
+  "16 android cells are holes and stay holes on a host with no device: the tier is unverifiable here, and that is more than half the matrix. docs/testing/android-tier-runbook.md is the work order. Because every android hole is 1-for-1, no desktop work can move the total by more than 1; the android tier is where the count is.",
+  "The android column of the result matrix is not filled by CI, deliberately. `:androidApp:connectedDebugAndroidTest` ran in no CI job until android-device-tests.yml added it on 2026-10-07 (nightly, tags, manual, and the `run-device-tests` PR label) — but that job produces instrumentation reports, not Maestro scenario results, so it does not move this column. `traceability results --maestro` would need a `scenario:` tag on every flow that claims android — 18 of 19 specs claim it and exactly one flow (TASK-REC-01) carries the tag. CI therefore normalises `--targets desktop` only, so the android cells read as a deliberate `not-run` instead of looking like a measurement that happened to be empty. To close it, tag the flows — the instrumentation job is necessary but not sufficient, which is why the gap stays. See docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md."
+ ]
 }

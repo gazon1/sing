@@ -353,9 +353,57 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 ## desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch
 
-**Status: OPEN**
+**Status: OPEN — re-measured 2026-10-07; the bundle narrows it to a state, not a write**
 
 **Tracked as:** #40
+
+**Re-measurement (2026-10-07).** The failure bundle settles the first question — is the
+value saved? — and it is:
+
+```
++0.98s  awaitTag(priority_option_high)    OK    0.65s      <- the click landed
+<then the label assertion fails>
+```
+
+`db-state.txt` for the same attempt:
+
+```
+TaskEntity(id=robot-task-0, title=Buy milk, …, priority=High, …,
+           updatedAt=1789552800000, sync=SyncColumns(…))
+```
+
+So the write completed, `updatedAt` moved, and only the *rendered label* stayed at
+"No priority". That rules out the double-fire and the lost-click hypotheses outright, and
+narrows the defect to: the slot's `mutate()` writes through `core.updateTask { … }` and
+never publishes the result back to the slot, so `TaskEntitySlot` keeps serving the task it
+loaded until some *other* flow re-emits it.
+
+The subscription exists — `TaskDetailCoordinator` collects
+`core.taskRepo.observe(taskId)` and sets `taskLoad` — which is why this is a **race** rather
+than a dead path, and why it passes in isolation: the emission arrives, the batch just
+asserts before it does. `waitUntil` pumps the Compose clock, so a genuine 5-second absence
+is a genuine absence; what varies between runs is which flow got there first.
+
+**What is ruled out, measured rather than argued.** Not the click (the bundle records it
+succeeding). Not the write (`priority=High` with a moved `updatedAt`). Not a lost
+`@Tag` — `assertTagDisplayed` and `assertTextDisplayed` fail differently and this one
+fails on *text*. Not host contention: a run under load 40 reproduced it and a run at load
+16 did not, which is the definition of ordering-dependent rather than resource-dependent.
+
+**Try next, in this order.**
+
+1. **Publish from `mutate()` rather than waiting for the repository flow.** `mutate` is
+   `core.updateTask(id) { … }.onFailure { … }`; the fix is to apply the same transform to
+   the slot's own state on success. That removes the race for *every* slot that uses
+   `mutate` — priority, due date, estimate, recurrence — rather than for one symptom.
+   The trade-off is real and should be written down: the repository flow remains the
+   authority, so this must be a cache update, not a second source of truth.
+2. **Assert through the state, not the render.** If the race is inherent, the test should
+   await the label with a bounded poll instead of asserting once. Cheaper, and it hides a
+   real user-visible lag, so it is second and not first.
+3. **Find what makes the batch late.** 182 active coroutines at failure, including leaked
+   `CurrentUser` collectors, points at a scope outliving its class; that is a leak worth
+   fixing on its own merits but it is not this test's cause.
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
 
@@ -2314,82 +2362,6 @@ touches unrelated source to make a database field line up, and Kotlin does not r
 the two to agree.
 
 
-## an-untagged-test-class-is-invisible-to-a-tag-filtered-run
-
-**Found in:** 2026-10-04, on the first CI run of the verifiability branch — the
-run that finally executes `testAndroidHostTest`, which the old
-`-Ptest.tags=fast,slow` filter had meant never ran at all.
-
-**Status: RESOLVED (2026-10-05).** The open question below — should an untagged class
-fail a gate? — is answered yes, by `TestTagCoverageTest`, and that gate's own
-`@Test`-only blind spot was found and closed in the same change. See "Try next" below.
-
-**Tracked as:** #74 (fixed in the same branch); the open question below is the
-gate, not the test.
-
-**Symptom.** `ReadToolsProfileAwareTest` has five structurally identical tests, and
-which ones fail changes every run: 2 of 970 on a forced `main` run, 1 of 980 on
-this branch, a *different* one each time. A probe of the same scenario in
-isolation passes.
-
-**Root cause — a race the test had with itself, not a tool bug.** The tool
-correctly returned nothing. `ProfileAwareCurrentUser` seeds `scopedUserId`
-synchronously in its constructor, so the construction-time value is right. The
-race is one line later: `profiles.switchTo(...)` changes an upstream, and the only
-thing that propagates that into `scopedUserId` is a collector on the **injected
-scope**. The test injected `createBackgroundScope()` — `Dispatchers.Default` — so
-whether the tool's `scopedUserId.flatMapLatest { … }` read the profile-scoped value
-or the stale pre-switch one was a race. The task was stored under `profile/user`,
-the filter used `user`, and the result was `expected: <1> but was: <0>`.
-
-The class's own KDoc states the contract that was broken — *"In tests, inject a
-`TestScope` or `backgroundScope`"* — and the test carried a comment justifying the
-violation on a premise that is false: the tools under test **do** subscribe.
-
-**The finding that outlives the fix.** The class carries **no `@Tag`**. A
-tag-filtered run skips an untagged class silently, and nothing records the
-omission. `TestTagsWiringTest` verifies that every *tag* is applied by a
-composable; it does not verify that every test class carries one. So the class
-could be arbitrarily broken — as it was — for as long as nobody added a tag.
-
-**Try next — the open question.** Should an untagged test class fail a gate?
-
-A class with no tag is not a test that is deliberately deferred; it is a test that
-is *unrunnable* in a tag-filtered build, and the difference is invisible from the
-source. If tag filtering is going away, the question is moot. If it stays for the
-slow suite, an untagged class is a hole with no marker.
-
-**Answered 2026-10-05 — yes, and the gate that does it had its own hole.**
-`TestTagCoverageTest` (shared/src/jvmTest) fails any test class in a tag-filtered
-source set that carries no `@Tag`. But it detected test members by matching `@Test`
-alone, so a class whose tests are `@ParameterizedTest` registered as *having no
-tests* and was reported clean. Two such classes were, at that moment, invisible to
-CI for the second time — the gate about untagged classes was blind to the same
-condition it was written for:
-
-- `RecurrenceRuleMapperTest`
-- `RruleGeneratorTest`
-
-Both are now `@Tag("fast")`, and the gate matches every JUnit test annotation
-(`@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`,
-plus the `kotlin.test` spelling) instead of one. The check verifies what it claims:
-a class with a test member and no tag fails, whichever annotation carries the test.
-
-Scope note, checked rather than assumed: `detekt-rules` (18 untagged classes) and
-`androidApp` (4) are **not** in the gate's source-set list, and do not need to be —
-neither module's test task applies a tag filter, so an untagged class there still
-runs. Adding them would have been the loud wrong fix. The list now names the
-criterion it encodes: source sets *whose Gradle task translates `-Ptest.tags` into
-a JUnit filter*.
-
-Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
-`kover-report` job was **red on `main`** for this reason. A job that is red for a
-reason nobody reads is the same failure as a gate that is green for a reason nobody
-checks.
-
-
----
-
 ## the-dead-refs-gate-was-green-locally-and-red-in-ci
 
 **Status: RESOLVED (2026-10-04).** Fixed on the verifiability branch; the
@@ -3530,41 +3502,6 @@ authoritative list is `./gradlew :desktopApp:tasks --all`, and
 
 ---
 
-## taskdetailviewscreen-is-633-lines-of-unreachable-composable
-
-**Found in:** 2026-10-06, while running the new `static` gate job against the tree.
-
-**Status: RESOLVED 2026-10-07.** The screen was deleted; the file was the last thing
-holding the finding up.
-
-`shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/
-TaskDetailViewScreen.kt` was 633 lines with no production call site, so
-`scripts/find-unwired-surfaces.py` reported it and the `static` job stayed red.
-
-Its header recorded why it was still there:
-
-> This screen has no call site — `find-unwired-surfaces.py` reports it, and
-> `dad11e6b`'s note says deleting another branch's deliberate carrier is the
-> owner's call, not this one's.
-
-That was a decision deferred and then not revisited — the failure mode
-`an-open-backlog-entry-does-not-mean-the-work-is-still-open` describes. The owner
-re-decided on 2026-10-07 and chose deletion over baselining.
-
-The supporting evidence for deleting rather than baselining: the only remaining
-mention of the file in the tree was a KDoc in `TaskDetailProposalSection.kt` saying
-the section was "Moved out of `TaskDetailViewScreen` when that screen was deleted",
-and a test KDoc in `TaskDetailTimeTrackingSectionTest.kt` recording that nothing
-composed it. Both were rewritten rather than left dangling. `:shared:compileKotlinJvm`
-builds after the deletion, so nothing resolved against it.
-
-**Not to do:** re-add a second task-detail screen as a clock-suppression carrier. That
-is what produced the 633 lines, and the reason the #187 one-screen invariant matters
-is that two screens under one route and one ViewModel shipped with time tracking on
-one platform and not the other — which is the bug
-`TaskDetailTimeTrackingSectionTest` now guards against.
-
-
 ## mainactivity-anr-makes-every-instrumented-test-fail
 
 **Status: OPEN**
@@ -3704,53 +3641,6 @@ the file, forget the database.
 
 ---
 
-## a-filtered-test-run-is-indistinguishable-from-a-shrunken-suite
-
-**Status: RESOLVED 2026-10-07.** The test task writes a run manifest beside the XML, and
-`check-test-runs.py` reads it: below the floor, the message now says the counts are not
-evidence and names the filter, instead of reporting a regression against a tree where
-nothing had happened. Verified end to end — manifest marked partial, most of the XML moved
-aside, gate prints the filtered-run sentence. A missing manifest is treated as unknown, not
-as filtered.
-
-**Tracked as:** #222 (closed)
-
-**Found in:** 2026-10-07, while running `check-gate-wiring.py` on a tree where nothing
-was broken.
-
-`check-test-runs.py` reports the same verdict, with the same message, for two unrelated
-situations: the suite genuinely shrank, and someone ran
-`./gw :shared:jvmTest --tests 'SomeOneClass'` for a fast loop. The second rewrote
-`shared/build/test-results/jvmTest/` with one class's XML and silently invalidated the
-evidence that `check-test-runs.py`, `check-coverage.py` and `check-flaky-tests.py` all
-read.
-
-Observed, on a healthy tree, after a filtered run of two arch test classes:
-
-```
-ERROR: gate 'test-runs' already fails on a clean tree (exit 1). Fix the underlying
-failure before trusting its sabotage control.
-```
-
-Every gate named in that sentence was behaving correctly. The diagnosis cost is the
-defect: it says "fix the underlying failure", and the underlying failure was an ordinary
-development command run on the same machine twenty minutes earlier. The same ambiguity
-hit `origin/main` in the other direction earlier in the session — `check.sh` never reached
-its last steps and nothing in the output said why.
-
-**Not a staleness problem, and must not be regressed into one.** Freshness is handled:
-`check.sh` passes `--max-age 21600`, CI passes `--since "$RUN_STARTED"`, and `count()`
-returns `None` rather than a passing zero when the newest report predates the window. The
-gap is partiality.
-
-**Try first:** have the test task write a run manifest next to the XML — task path,
-whether `--tests` was passed, source-set class count — and have the gate read one field
-from it, so it can say "this evidence came from a filtered run" instead of "a suite
-stopped running". Gradle leaves no such marker today, which is why this is not a
-five-line fix to the gate itself.
-
----
-
 ## the-android-graph-is-never-resolved
 
 **Status: OPEN**
@@ -3783,3 +3673,200 @@ test — the `SyncDiGraphResolutionTest` equivalent over `PlatformModule.android
 `domainModule()`. If Robolectric cannot run on this host, that is the finding; record it
 rather than substituting a fake. Then put `testAndroidHostTest` into
 `check-test-runs.py --require`, which today would pass a source set that executes nothing.
+
+---
+
+## the-measurement-system-cannot-see-a-feature-that-declares-no-scenario
+
+**Status: OPEN — the calendar-sync instance is closed, the class is not**
+
+**Tracked as:** none yet; the class-level gap is the argument for a gate below.
+
+**Found in:** 2026-10-07, while writing the scenario specs the Google calendar-sync
+feature never had.
+
+**Situation, measured.** `infra/kiwi/traceability/` is a real measurement system: 26 specs,
+49 claimed cells, three blocking gates, a one-directional hole ratchet that failed at
+`holes: 2 -> 32` on the day it was written. The calendar-sync feature shipped **23
+unit-test classes, 8 OpenSpec requirements, and 0 scenario specs** — and therefore
+contributed **zero** cells to the matrix. It could not be reported as a gap, because a
+system that enumerates what has declared itself cannot report what has not.
+
+The matrix read `holes: 32` the whole time and looked exactly as healthy as it had the
+week before, on a different product.
+
+**Already ruled out.** Not a coverage shortfall: the unit tests are good and several guard
+invariants that would be expensive to lose (`RecurrenceRuleMapperTest` and
+`EventShadowCodecTest` on the byte-identical recurrence rule; `SyncDiffMergeTest` on the
+merge). Not a linkage problem either — the scanner found the new carriers first try, and
+`traceability validate` exits 0 with holes reported as information by design ("это не
+ошибка — это и есть смысл матрицы").
+
+The reason no carrier could exist was upstream of all that: **the panel had zero
+`testTags` in 592 lines**, and carriers are only recognised in `desktopApp/src/jvmTest` and
+`androidApp/src/androidTest` — `shared/commonTest` cannot carry one, which the 23 existing
+tests do. So the feature was not merely unmeasured, it was *unmeasurable*: there was no
+address to point a carrier at.
+
+**Why this stays open after the fix.** The calendar-sync instance is closed — 7 specs, 6
+desktop carriers, honest `unreachable` on `CAL-SYNC-RECUR-01`, and the floor raised
+32 -> 40 with the reason recorded in `traceability-ratchet.json`. What is not closed is
+the **class**: nothing requires a feature to declare a scenario, so the next feature can
+ship exactly the same way.
+
+**Try next, in this order.**
+
+1. **A gate that a new feature area declares at least one scenario**, failing when a
+   directory under `shared/src/commonMain/.../feature/<new>/` appears with no
+   `infra/kiwi/scenarios/<area>/`. This is the only step that closes the class. The hard
+   part is the exemption list: a feature that genuinely has no user-visible surface should
+   be deletable from the list by adding a name to a file, and that file needs its own
+   reviewer-visible justification — the same bargain the detekt baseline makes.
+2. **The metric that makes it visible without a gate**: `dark_areas` — feature areas with
+   production files and zero specs. It cannot fail anything on its own, but it appears in
+   the matrix output, so the absence is a *looked-at* number rather than an unasked one.
+3. **Reorder the ADR/scenario relationship.** `calendar-sync` got 8 requirements in
+   `openspec/specs/` and zero scenarios, and nothing connected the two. If a spec file
+   under `openspec/specs/<area>/spec.md` were the thing that demanded scenarios, the gap
+   would surface at the moment the requirement was written rather than at the audit.
+
+**Not to do:** raise the hole floor again to make the number smaller. 32 -> 40 was a
+*correct* increase: six new scenarios verified on desktop bought an honest accounting of
+twelve previously invisible cells. Diluting the number back would restore the exact
+condition the ratchet was written to detect.
+
+---
+
+## the-unwritten-property-detector-cannot-see-a-ksp-expression
+
+**Status: OPEN — blocked on an API boundary, re-verified 2026-10-07**
+
+**Tracking:** tracked here rather than as a GitHub issue because the work is a decision
+about a build dependency, not a product commitment — and because the next attempt is option 1
+in "Try next" below, which is self-contained: add `kotlin-compiler-embeddable`, map
+`KtExpression` onto the existing `UnwrittenPropertyAnalysis`, and see whether the gate's
+output is worth a `--require` floor. That is a single afternoon with a known failure mode
+(the full-callback surface is large and will need filtering), not a queue position.
+
+**Found in:** 2026-10-07, while wiring `tools/unwritten-properties/` to a real
+symbol processor. The pure analysis (`UnwrittenPropertyAnalysis.findNeverWritten`) and
+its 13 tests are done and passing; the KSP adapter is not, and the reason is structural
+rather than a missing dependency.
+
+**Already ruled out — measured, not inferred.** `KSExpression`, `KSCallExpression` and
+`KSPropertyAccessExpression` are **absent from every KSP jar in the local Gradle cache**,
+verified by listing the class entries of `symbol-processing-api-2.3.11.jar`,
+`symbol-processing-common-deps-2.3.11.jar` and every other `com.google.devtools.ksp`
+artifact present. What `symbol-processing-api` 2.3.11 ships is declarations only:
+
+```
+KSAnnotated KSAnnotation KSCallableReference KSClassDeclaration KSClassifierReference
+KSDeclaration KSDeclarationContainer KSFile KSFunction KSFunctionDeclaration
+KSModifierListOwner KSName KSNode KSPropertyDeclaration KSPropertyAccessor
+KSPropertyGetter KSPropertySetter KSReferenceElement KSType KSTypeAlias
+KSTypeArgument KSTypeParameter KSTypeReference KSValueArgument KSValueParameter
+KSVisitor KSVisitorVoid
+```
+
+**Why this is the boundary and not a gap.** Detecting a never-written property means
+finding *references* — a property is written by an assignment or an `apply { }`, both of
+which are expressions. KSP's supported API exposes the declaration tree, not the
+expression tree, so "is this property ever written" is not expressible in the supported
+surface. This is the same wall ADR `2026-10-07-reading-a-state-property-is-not-writing-one`
+names from the other side: that ADR proves detekt cannot answer the question because it
+visits one file at a time, and this entry says KSP cannot either, for a different reason.
+
+**Why it is still worth doing rather than deleting.** The question is real — ADR
+`2026-10-07-a-default-argument-that-is-wrong-for-every-caller` found 15 of 16 call sites
+carrying a wrong tag by exactly this reasoning, and a never-written `isSupported` field
+shipped once already. The detection has value; only the *route* is blocked.
+
+**Try next, in this order.**
+
+1. **Kotlin compiler analysis API directly** (`org.jetbrains.kotlin:kotlin-compiler-embeddable`,
+   `KtExpression`). It has the expression tree, so the analysis maps directly onto
+   `UnwrittenPropertyAnalysis`. Cost: an embeddable-compiler dependency and a processor
+   that is no longer KMP-shaped. Check `check-dependency-usage.py` before declaring it —
+   the gate will flag an artifact whose packages it cannot see used.
+2. **A detekt rule over one file at a time, plus the never-written list maintained by
+   review.** Honest, cheap, and it cannot be automated; it is strictly worse than option 1
+   and strictly better than nothing.
+3. **Leave it.** `tools/unwritten-properties/` stays a pure analysis with its tests, not
+   wired into `:shared`. This is the current state and it is defensible: the ADR
+   `2026-10-07-two-of-three-background-jobs-were-not-buildable-yet` records that a gate
+   failing the build on every real finding needs human review, and that was true of the
+   wiring independently of the API gap.
+
+**Not to do:** write the adapter against `KSPropertyDeclaration` only. That sees
+declarations, and a property is never *declared* again — it would report every property in
+the codebase as never-written, which is a green gate asserting something false.
+
+---
+
+## the-android-graph-test-runs-but-cannot-open-a-database
+
+**Status: OPEN — Robolectric is wired and the test executes; Room's native SQLite does not load**
+
+**Tracking:** tracked here rather than as a GitHub issue because the remaining work is a
+single bounded step with a known failure mode — extract `libsqlite3.so` for linux-x86_64
+from the bundled SQLite artifact into `shared/src/androidHostTest/jniLibs`, or point the
+task's `java.library.path` at it, then re-run the one class. Everything else is already in
+place: the stack, the detekt source entry, the tag rule, the task-filter exemption and the
+ADR correction. It does not need a queue position; it needs someone with a spare
+afternoon and the artifact on disk.
+
+**Found in:** 2026-10-07, attempting the fix recorded in the entry above. The stack now
+works far enough to produce an answer, and the answer is not the one the entry expected.
+
+**What is done and verified.**
+
+- `shared/src/androidHostTest` declares `robolectric`, `androidx-test-core`,
+  `androidx-test-junit` and `junit-vintage-engine` (RuntimeOnly).
+- `src/androidHostTest/kotlin` is in `detekt.source`, so detekt now reports on it.
+- `TestTagCoverageTest` lists the source set, which applies the `-Ptest.tags` filter.
+- `AndroidSyncDiGraphResolutionTest` compiles and **runs** under
+  `:shared:testAndroidHostTest -Ptest.tags=fast,slow`. Getting there required two fixes
+  recorded in ADR `2026-10-07-a-default-argument-that-is-wrong-for-every-caller`: the test
+  needed a `@Tag`, and the task needed an exemption from `includeTags`, because the Vintage
+  engine does not map Jupiter's `@Tag` onto Platform tags and so a Robolectric class can
+  never be selected by a tag filter at all. Before those, the task was green over 172
+  classes with this one absent.
+
+**The finding.**
+
+```
+java.lang.UnsatisfiedLinkError: no sqliteJni in java.library.path:
+  …:…:…:…:…/shared/src/androidHostTest/jniLibs
+  at WrappingDriver_androidKt$wrappingDriver$1.open(WrappingDriver.android.kt)
+  at PlatformPragmas.applyOnceToFile(PlatformPragmas.kt:45)
+  at AppDatabaseFactory.build(AppDatabaseFactory.kt:67)
+  at PlatformModule_androidKt.platformModule$lambda$0$0(PlatformModule.android.kt:101)
+  at AndroidSyncDiGraphResolutionTest…
+```
+
+Room's `androidx.sqlite:sqlite-bundled` ships an Android `.so`; Robolectric looks for
+`sqliteJni` under `src/androidHostTest/jniLibs` and does not find a loadable one. So every
+definition that reaches the database — which includes `GoogleSyncEngine` and its four DAOs,
+i.e. exactly the cycle this test was written for — cannot be constructed here.
+
+**Why the test is not committed green.** The only assertions worth having are the ones
+that resolve DB-backed definitions; anything less resolves nothing and asserts nothing.
+Substituting a fake database would test the fake, which is what the entry above warned
+against, so the honest state is: no test in that source set yet, and a known reason.
+
+**Try next, in this order.**
+
+1. **Put the native library where Robolectric looks.** Extract `libsqlite3.so` for
+   linux-x86_64 from the bundled SQLite artifact into `shared/src/androidHostTest/jniLibs`,
+   or set `java.library.path` for the task. Smallest change, and it keeps the test's scope
+   honest. Verify by running the test alone before re-running the task.
+2. **Assert the cycle without a database.** `koin.checkModules()` with a definition check
+   that does not instantiate factories would catch the *shape* of a cycle, which is what
+   `koin-compiler-plugin` missed — but it would not catch a wrong context or a missing
+   DataStore. Weaker, and it should say so in the class name.
+3. **Keep the Robolectric stack for the next Android test and leave this open.** The
+   wiring cost is paid once now rather than by the next person who needs a real `Context`.
+
+**Not to do:** mark the test `@Disabled`, or catch the `UnsatisfiedLinkError` and pass.
+`check-test-runs.py` rejects the first and it would be a lie in the second — a graph test
+that cannot resolve its own database has verified nothing about the graph.

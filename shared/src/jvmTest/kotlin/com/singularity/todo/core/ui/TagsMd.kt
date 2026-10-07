@@ -53,6 +53,9 @@ object TagsMd {
         "Profile",
         "AI",
         "Calendar",
+        // Added 2026-10-07 with `TestTags.CalendarSync` and `TestTags.SearchFilter`.
+        "Calendar sync",
+        "Search filters",
     )
 
     private val dynamicSubsections: List<String> = listOf(
@@ -67,6 +70,8 @@ object TagsMd {
         "Dialog",
         "Profile",
         "AI",
+        "Calendar sync",
+        "Search filters",
     )
 
     // ─── Rendering ─────────────────────────────────────────────────────────────
@@ -96,11 +101,20 @@ object TagsMd {
         // A constant the categorizer does not recognize would be silently dropped from
         // the generated table, making the golden test pass on a constant TAGS.md does not
         // document. Fail loudly instead: a new constant must be classified.
-        val unclassified = byCategory["Other"].orEmpty()
+        //
+        // The check is over *every* category the render loop will not emit, not just
+        // `"Other"`. Classifying a constant into a named category that is missing from
+        // [staticSubsections] drops it just as silently — which is exactly what happened
+        // to `TestTags.CalendarSync` and `TestTags.SearchFilter`: both were classified,
+        // both were rendered nowhere, and the golden test passed on a TAGS.md that
+        // documented none of them. The `"Other"` bucket was the only place the old check
+        // looked, so a mis-placed category was the one failure mode it could not see.
+        val unclassified = byCategory.filterKeys { it !in staticSubsections }.values.flatten()
         check(unclassified.isEmpty()) {
-            "TagsMd.staticCategoryOf does not classify: ${unclassified.map { it.first }.sorted()}. " +
-                "Add a branch for each (or an entry to staticSubsections) so the " +
-                "constant appears in TAGS.md."
+            "TagsMd classified constants into a category that is not rendered: " +
+                "${unclassified.map { it.first }.sorted()}. Either add the category to " +
+                "staticSubsections so it is documented, or return \"Other\" from " +
+                "staticCategoryOf and let the branch below report it."
         }
 
         for (section in staticSubsections) {
@@ -184,6 +198,12 @@ object TagsMd {
     private fun dynamicMeta(fnName: String, prefix: String): DynamicMeta = when (fnName) {
         "navTab" -> DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
 
+        "CalendarSync.providerSegment" ->
+            DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
+
+        "CalendarSync.googleCalendarRow" ->
+            DynamicMeta(fnName, "Calendar sync", "primary-cal", "One row per writable Google calendar")
+
         "settingsTab" -> DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
 
         "Settings.content" -> DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area")
@@ -247,6 +267,14 @@ object TagsMd {
         // call the recurrence and priority rows make — a heading per control
         // would make the table a list of two-row sections.
         "TimeTracking" to "Tasks",
+        // Settings → Calendar. Filed under its own heading rather than under
+        // Settings because it is the only panel there that configures a *remote*
+        // account: a reader looking for a control in Settings should find out which
+        // ones need a Google grant.
+        "CalendarSync" to "Calendar sync",
+        // Inside `SimpleFilterSheet`, a ModalBottomSheet — rendered in a separate
+        // semantics root on desktop, so these exist for the Android/Maestro tier.
+        "SearchFilter" to "Search filters",
     )
 
     /**

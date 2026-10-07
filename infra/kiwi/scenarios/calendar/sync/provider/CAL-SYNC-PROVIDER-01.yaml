@@ -1,0 +1,28 @@
+# Scenario specification for CAL-SYNC-PROVIDER-01.
+#
+# Linkage to automation is *not* here — it lives in code (`@DisplayName` in a
+# user-flow test source set), so there is no second source of truth to keep in
+# sync. See infra/kiwi/traceability/links.py for why.
+#
+# `area` is derived from this path (scenarios/calendar/…) and only cross-checked
+# when stated; the id prefix CAL-SYNC-PROVIDER is checked against
+# calendar/sync/provider.
+
+id: CAL-SYNC-PROVIDER-01
+title: Choose which calendar the feature syncs to
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  The app is signed in on a fresh profile with no calendar sync configured, and
+  Settings is open.
+steps:
+  - Open Settings and choose the Calendar tab.
+  - Switch the provider selector from the system calendar to Google Calendar.
+  - Switch it back to the system calendar.
+expected: >-
+  The system calendar's controls disappear when Google is selected and return
+  when it is selected again, and neither half leaves the other's choices on
+  screen. On a platform with no calendar provider, selecting the system calendar
+  says so plainly and still leaves Google selectable.

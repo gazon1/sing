@@ -1,0 +1,41 @@
+# Scenario specification for CAL-SYNC-RECUR-01.
+#
+# Linkage lives in code (`@DisplayName` in a user-flow test source set).
+# `area` is derived from the path; the id prefix CAL-SYNC-RECUR is checked
+# against calendar/sync/recur.
+
+id: CAL-SYNC-RECUR-01
+title: A recurring Google event keeps the exact rule Google supplied
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android, desktop]
+unreachable: [android, desktop]
+preconditions: >-
+  A Google calendar contains a recurring event whose rule uses syntax the app's
+  own parser does not fully model — a weekly interval count, a BYDAY with an
+  ordinal, or an UNTIL expressed in UTC.
+steps:
+  - The event is imported into the app as an editable task.
+  - The user changes the time of one occurrence.
+  - The change is pushed back to Google.
+expected: >-
+  The series Google holds still carries the rule string it started with, and the
+  series still occurs on its original recurrence. The rule is opaque to this
+  feature and must never be re-derived from parsed dates.
+
+# Why both targets are declared unreachable rather than claimed-and-covered.
+#
+# Verified, not assumed. The invariant itself *is* unit-tested
+# (`RecurrenceRuleMapperTest`, `EventShadowCodecTest` in `shared/commonTest`), and
+# the repo's scenario system deliberately excludes that source set — carriers are
+# only recognised in `desktopApp/src/jvmTest` and `androidApp/src/androidTest`
+# (see `_kt_root_to_target` in infra/kiwi/traceability/links.py). So a claim here
+# would report either a hole no carrier can close, or a `●` whose "verification"
+# is a unit test the matrix never reads.
+#
+# What a carrier would genuinely need is a second Google account, because the
+# property is about what Google *holds* after the app has pushed an edit. That is
+# the same structural reason the 16 SYNC cells are unreachable: a scenario defined
+# by a second peer. Recording it here keeps the debt visible instead of letting
+# the feature look fully covered.

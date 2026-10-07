@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSection
@@ -52,6 +53,7 @@ fun InterfaceSettingsScreen(
             SettingsSwitchRow(
                 title = "Dark Theme",
                 subtitle = "Use dark color scheme",
+                testTag = TestTags.Settings.DARK_THEME_SWITCH,
                 checked = state.appearance.darkTheme,
                 onCheckedChange = { onIntent(SettingsIntent.Appearance.UpdateDarkTheme(it)) },
             )

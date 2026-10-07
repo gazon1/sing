@@ -146,6 +146,11 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
+| `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
+| `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
+| `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
+| `Settings.WORK_SCHEDULE_SATURDAY_SWITCH` | `settings_work_schedule_saturday_switch` | |
+| `Settings.WORK_SCHEDULE_SUNDAY_SWITCH` | `settings_work_schedule_sunday_switch` | |
 
 ### Dialog
 | Constant | Value | Where |
@@ -190,6 +195,28 @@ non-alphanumeric characters with `_`.
 | `PROFILE_CREATE_NAME_INPUT` | `profile_create_name_input` | |
 | `PROFILE_ITEM_PREFIX` | `profile_item_` | |
 
+### Calendar sync
+| Constant | Value | Where |
+|---|---|---|
+| `CalendarSync.GOOGLE_CONNECT_BUTTON` | `calendar_sync_google_connect_button` | |
+| `CalendarSync.GOOGLE_DISCONNECT_BUTTON` | `calendar_sync_google_disconnect_button` | |
+| `CalendarSync.GOOGLE_IMPORT_SWITCH` | `calendar_sync_google_import_switch` | |
+| `CalendarSync.GOOGLE_IMPORT_WINDOW` | `calendar_sync_google_import_window` | |
+| `CalendarSync.GOOGLE_LIST_ERROR` | `calendar_sync_google_list_error` | |
+| `CalendarSync.GOOGLE_RENEW_WARNING` | `calendar_sync_google_renew_warning` | |
+| `CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR` | `calendar_sync_google_sync_needs_calendar` | |
+| `CalendarSync.GOOGLE_SYNC_NOW_BUTTON` | `calendar_sync_google_sync_now_button` | |
+| `CalendarSync.GOOGLE_SYNC_OUTCOME` | `calendar_sync_google_sync_outcome` | |
+| `CalendarSync.SYSTEM_ENABLE_SWITCH` | `calendar_sync_system_enable_switch` | |
+| `CalendarSync.SYSTEM_SYNC_NOW_BUTTON` | `calendar_sync_system_sync_now_button` | |
+| `CalendarSync.SYSTEM_UNAVAILABLE` | `calendar_sync_system_unavailable` | |
+
+### Search filters
+| Constant | Value | Where |
+|---|---|---|
+| `SearchFilter.HAS_DESCRIPTION_SWITCH` | `search_filter_has_description_switch` | |
+| `SearchFilter.PINNED_SWITCH` | `search_filter_pinned_switch` | |
+
 ## Dynamic functions
 
 Use `TestTags.<function>(<input>)` in Kotlin. In a Maestro flow, hard-code
@@ -216,6 +243,8 @@ use the expanded string directly).
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
+| `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
+| `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
 <!-- GENERATED:END -->
 
 ## Raw-string tags (NOT via TestTags.kt)

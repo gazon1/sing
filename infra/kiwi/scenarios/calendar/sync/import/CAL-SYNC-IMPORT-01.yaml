@@ -1,0 +1,24 @@
+# Scenario specification for CAL-SYNC-IMPORT-01.
+#
+# Linkage lives in code (`@DisplayName` in a user-flow test source set).
+# `area` is derived from the path; the id prefix CAL-SYNC-IMPORT is checked
+# against calendar/sync/import.
+
+id: CAL-SYNC-IMPORT-01
+title: Turn on importing Google events and see how far it reaches
+area: feature.calendar
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Settings → Calendar is open with Google selected and an account connected, so
+  the import section is on screen.
+steps:
+  - Turn on "Import events from Google".
+  - Read the sentence describing how far the listing reaches.
+  - Reopen Settings and return to the tab.
+expected: >-
+  The toggle stays on across a reopen, and the sentence names the window the
+  pass is actually configured with rather than a default that could disagree
+  with it. Turning the toggle off leaves the user's own tasks still syncing to
+  Google.
