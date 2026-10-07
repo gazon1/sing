@@ -38,11 +38,15 @@ import com.singularity.todo.core.ui.theme.DataStatusColors
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
+import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlin.time.Duration
 import org.koin.compose.viewmodel.koinViewModel
 
-private val TAB_TITLES = listOf("Tasks", "Time")
+private val TAB_TITLES = listOf("Tasks", "Time", "Health")
 
 @Composable
 fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
@@ -77,6 +81,7 @@ fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
         when (selectedTab) {
             0 -> TasksTabContent(state = state)
             1 -> InsightsTabContent(viewModel = viewModel, insightsState = state.insights, rangeDays = state.rangeDays)
+            2 -> HealthTabContent(health = state.health)
         }
     }
 }
@@ -423,6 +428,72 @@ private fun StatCard(title: String, value: String, modifier: Modifier = Modifier
             )
         }
     }
+}
+
+/**
+ * The Health tab: what is wrong with the open task list, as counts.
+ *
+ * ## Why counts and not a score
+ *
+ * `TaskHealth` refuses to produce one number for a reason stated there — weighting
+ * overdue against blocked against stagnant is an invented judgement. Showing the buckets
+ * separately keeps the reason visible, which is the part the user can act on.
+ *
+ * Ordering is the summary's own `actionable` list (overdue, blocked, stagnant) rather
+ * than the enum's declaration order, so the most actionable problem is the first card.
+ */
+@Composable
+private fun HealthTabContent(health: TaskHealthSummary?) {
+    if (health == null) {
+        // Null means the query failed or has not landed — not "zero problems", which
+        // would be a healthy-looking screen standing in for a broken one.
+        EmptyState(
+            title = "Task health unavailable",
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())
+
+        health.actionable.forEach { bucket ->
+            StatCard(bucket.displayLabel(), health[bucket].toString(), Modifier.fillMaxWidth())
+        }
+
+        health.medianStalledFor?.let { stalled ->
+            Text(
+                text = "Median time untouched: ${stalled.formatDays()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Text(
+            text = health.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
+                ?: "Completion rate: nothing created yet",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun TaskHealthBucket.displayLabel(): String = when (this) {
+    TaskHealthBucket.OVERDUE -> "Overdue"
+    TaskHealthBucket.BLOCKED -> "Blocked"
+    TaskHealthBucket.STAGNANT -> "Not touched in a while"
+    TaskHealthBucket.FINE -> "On track"
+}
+
+/** Whole days, because a partial day is noise on a retention-scale number. */
+private fun Duration.formatDays(): String {
+    val d = inWholeDays
+    return if (d <= 0) "under a day" else "$d day${if (d == 1L) "" else "s"}"
 }
 
 // ===== Preview =====
