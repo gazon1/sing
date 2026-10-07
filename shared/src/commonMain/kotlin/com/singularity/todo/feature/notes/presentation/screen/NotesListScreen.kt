@@ -110,6 +110,13 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
     // which detekt's BlankLineBetweenWhenConditions then demands a blank line for.
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
+            // Not the #212 shape, and deliberately so. This screen consumes a union
+            // of events it does not own, so ignoring the ones it has no reaction to
+            // is correct — unlike a dispatcher whose `else` was swallowing an intent
+            // addressed to it. Audited 2026-10-06 because the pattern search that
+            // found #212 pointed here too. The comment sits above the `when` rather
+            // than inside it because `BlankLineBetweenWhenConditions` reads a branch
+            // comment as a branch that needs separating from the one above it.
             when (event) {
                 is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
                 else -> Unit

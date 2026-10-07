@@ -968,8 +968,13 @@ def check_ci_steps_blocking() -> list[str]:
 
 # ── Part E: CI/local gate parity ─────────────────────────────────────────────
 
-#: Where each `check-*.py` gate is *expected* to run, and why when it is not
-#: both. Keyed by the gate path; "both" gates need no entry.
+#: Gates whose CI/local wiring **differs from the default**, and why.
+#: Keyed by the gate path.
+#:
+#: The default is "both": a `check-*.py` gate is expected to run in `ci.yml` *and*
+#: in `check.sh`, and needs no entry here. An entry declares an asymmetry — this
+#: gate is ci-only, or local-only — and carries the reason for it. The gate is
+#: absent from this table **because** it runs in both places, which is correct.
 #:
 #: The reason this exists (2026-10-05): the `--partial` incident in
 #: `traceability results`. Both wirings existed, both were present, and Part B
@@ -1003,6 +1008,14 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "blocked by backlog bookkeeping",
     ),
 }
+# Both `check-publication-hygiene.py` and `check-readme-claims.py` were declared
+# `ci` here while this was being written, on the reasoning that they read committed
+# state and only CI has the merged tree. Main's #217 moved both into
+# `scripts/ci/static-gates.sh`, which `check.sh` also runs — so they genuinely run in
+# both places now, and the declaration was the thing that had become wrong. Kept as
+# a note because the reasoning is still right about *why* they were CI-only, and the
+# day somebody moves one back out of the shared registry this is the argument for
+# putting it back in this table.
 
 #: Argument-level asymmetries on gates that run in both places. Keyed by
 #: (gate, leading argument), value is where it is expected.

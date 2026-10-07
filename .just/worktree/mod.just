@@ -2,7 +2,7 @@
 # 🌿 WORKTREE — parameterized worktree creation + mcode launch
 #
 #   just wt new backlog-02      # pull origin/main, branch feature/backlog-02
-#                                # at /home/max/work/backlog-02
+#                                # at $WT_ROOT/backlog-02
 #   just wt code backlog-02     # the same, then hand the terminal to mcode
 #   just wt code-in backlog-02  # just launch mcode in an existing worktree
 #   just wt pull                # just `git pull origin main`
@@ -21,7 +21,7 @@
 
 # Where worktrees live, and the branch namespace they get. Overridable because
 # the host's work root is a personal layout, not a project constant.
-WT_ROOT   := env_var_or_default("WT_ROOT", "/home/max/work")
+WT_ROOT   := env_var_or_default("WT_ROOT", "$HOME/work")
 WT_PREFIX := env_var_or_default("WT_PREFIX", "feature/")
 # Base branch every new worktree forks from.
 WT_BASE   := env_var_or_default("WT_BASE", "main")

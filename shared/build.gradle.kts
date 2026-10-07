@@ -245,6 +245,10 @@ kotlin {
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
+            // `verify()` walks every definition and reports the unresolvable ones. The graph test
+            // otherwise asserts a hand-picked list, which cannot notice a definition that is
+            // present, correct-looking, and never satisfiable.
+            implementation(libs.koin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
             // Kotest assertions — matchers only (shouldBe, shouldNotThrowAny, shouldContain).
