@@ -451,6 +451,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "jvmTest.root",
         layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // The positive control of UnannotatedTestMemberTest reads a committed class that is
+    // broken on purpose, and this tree is on no compile path, so nothing else declares
+    // it. Declared here for the same reason as every input above: a gate that cannot be
+    // invalidated by the change it watches reports a verdict about a file it never re-read.
+    inputs.dir(layout.projectDirectory.dir("src/jvmTest/fixtures"))
+        .withPropertyName("jvmTestFixtures")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // Per-platform source roots for SyncPeriodicTriggerWiringTest, which checks that
     // each platform module binds exactly one SyncPeriodicTrigger.
     //
