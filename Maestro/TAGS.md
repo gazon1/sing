@@ -146,6 +146,11 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
+| `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
+| `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
+| `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
+| `Settings.WORK_SCHEDULE_SATURDAY_SWITCH` | `settings_work_schedule_saturday_switch` | |
+| `Settings.WORK_SCHEDULE_SUNDAY_SWITCH` | `settings_work_schedule_sunday_switch` | |
 
 ### Dialog
 | Constant | Value | Where |

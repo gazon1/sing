@@ -184,6 +184,12 @@ object TagsMd {
     private fun dynamicMeta(fnName: String, prefix: String): DynamicMeta = when (fnName) {
         "navTab" -> DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
 
+        "CalendarSync.providerSegment" ->
+            DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
+
+        "CalendarSync.googleCalendarRow" ->
+            DynamicMeta(fnName, "Calendar sync", "primary-cal", "One row per writable Google calendar")
+
         "settingsTab" -> DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
 
         "Settings.content" -> DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area")
@@ -247,6 +253,14 @@ object TagsMd {
         // call the recurrence and priority rows make — a heading per control
         // would make the table a list of two-row sections.
         "TimeTracking" to "Tasks",
+        // Settings → Calendar. Filed under its own heading rather than under
+        // Settings because it is the only panel there that configures a *remote*
+        // account: a reader looking for a control in Settings should find out which
+        // ones need a Google grant.
+        "CalendarSync" to "Calendar sync",
+        // Inside `SimpleFilterSheet`, a ModalBottomSheet — rendered in a separate
+        // semantics root on desktop, so these exist for the Android/Maestro tier.
+        "SearchFilter" to "Search filters",
     )
 
     /**
