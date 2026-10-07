@@ -73,9 +73,29 @@ steps. The trace was honest; the cycle was simply not attributed to any one line
   provider too would be ceremony.
 - A resolution cycle in this graph is a **runtime** failure, not a compile-time one. The
   compiler plugin is a guard, not a guarantee, and the only check that resolves the graph
-  for real is `KoinGraphValidationTest`. It stays in the suite for that reason.
+  for real is `SyncDiGraphResolutionTest`. It stays in the suite for that reason.
 - Anything else added to `SyncEngine` that needs a feature repository must go through the
   same door, or it re-opens this.
+
+## Amendment 2026-10-07 — the check this relied on was deleted
+
+This ADR originally named `KoinGraphValidationTest` as the one test that resolves the
+graph for real. `dc7f1d5d` deleted it, correctly: it "asserts a hand-picked handful of
+singletons rather than resolving them", and a whole-graph test of that kind fails for
+unrelated reasons until it is curated — at which point it is a handful again. GenUI's half
+was replaced by `GenuiDiGraphTest`.
+
+What was lost with it was not a design, it was **coverage of this decision**: after the
+deletion nothing in the repository resolved the sync graph, so the claim above was
+asserting something that no longer existed. `SyncDiGraphResolutionTest` restores it, and is
+narrow on purpose — it resolves the sync chain only, so it has one reason to exist and one
+thing to break.
+
+The general lesson is the one worth keeping: **deleting a gate is not only about the gate.**
+`GenuiDiGraphTest` is better than what it replaced, and the sync graph lost its only check
+as a side effect of a change made for an unrelated reason. When a test is retired, the
+question to ask is not "is it redundant?" but "which claim in the decision log was this
+test the evidence for?"
 
 ## Links
 

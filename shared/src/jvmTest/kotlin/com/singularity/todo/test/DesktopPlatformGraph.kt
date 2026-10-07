@@ -5,12 +5,20 @@ import androidx.datastore.preferences.core.Preferences
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import com.singularity.todo.core.files.FileSourceFactory
+import com.singularity.todo.core.files.JvmFileSourceFactory
+import com.singularity.todo.core.platform.HostEnvironmentPort
+import com.singularity.todo.core.platform.JvmHostEnvironment
+import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
@@ -65,6 +73,12 @@ import java.io.File
  * gains a binding the other never sees, and the graph that then looks healthy is one nobody runs.
  * When the real platform module gains a binding a graph depends on, add it here.
  */
+// A flat, greppable list is the point: `PlatformModuleMirrorTest` reads this file's
+// text to prove the mirror has not drifted from the real module, and a mirror split
+// across helper functions is a mirror nobody reads as a whole. The same shape is
+// baselined for `aiToolsModule`. Splitting it would trade a two-line rule violation
+// for a graph whose completeness is harder to see.
+@Suppress("LongMethod")
 internal fun desktopPlatformModule(): Module = module {
     // Mirrors `single<CrashReportingPort> { JvmCrashReportingPort() }` from the real
     // PlatformModule.jvm.kt. It became load-bearing when the calendar-sync bindings started
@@ -134,9 +148,19 @@ internal fun desktopPlatformModule(): Module = module {
     }
 
     // ─── Platform Ports ────────────────────────────────────────────
+    //
+    // The four below were bound in `PlatformModule.jvm.kt` and absent here, and nothing
+    // complained for the whole time they were missing: the mirror was extracted from a
+    // copy predating them, and a mirror drift is invisible to the source-scanning checks
+    // because the missing entry is exactly the entry nothing refers to. They are here so
+    // that a test which does resolve one of them gets the real JVM implementation rather
+    // than a failure that looks like a defect in the code under test.
     single<SecureStoragePort> { JvmSecureStorage() }
+    single<Haptic> { createHaptic() }
     single<FileSystem> { JvmFileSystem() }
+    single<HostEnvironmentPort> { JvmHostEnvironment() }
     single<FileRevealer> { JvmFileRevealer() }
+    single<FileSourceFactory> { JvmFileSourceFactory() }
     single<SharePort> { JvmSharePort() }
     single<FileSharePort> { JvmFileSharePort() }
     single<BackupCodec> { JvmBackupCodec() }
@@ -152,7 +176,22 @@ internal fun desktopPlatformModule(): Module = module {
     // ─── Reminders ─────────────────────────────────────────────────
     single<ReminderScheduler> { JvmReminderScheduler() }
 
+    // A background scope owned by the graph, matching the desktop module's. It was
+    // missing here as well, and it is invisible to a dependency scan for the same reason
+    // `UnitOfWork` was: `DelayLoopSyncPeriodicTrigger` resolves it through a bare
+    // `get()`, so the type is never named anywhere a `get<X>()` scan can see it.
+    single<CoroutineScope> { CoroutineScope(Dispatchers.Unconfined) }
+
     // ─── Sync (disabled on desktop) ────────────────────────────────
+    //
+    // `UnitOfWork` is here because a repository's `unitOfWork.write { … }` is resolved
+    // the moment the repository is constructed, so a graph without it cannot build a
+    // `TaskRepository` at all. It was in the mirror, and `dc7f1d5d` extracted this
+    // helper from a copy that predated the unit-of-work work — silently dropping it.
+    // `PlatformModuleMirrorTest` did not catch it because the mirror-vs-source check
+    // cannot see a binding declared in the source and absent here when nothing in the
+    // mirror references it; the DAO scan sees DAOs, and `UnitOfWork` is not a DAO.
+    single<UnitOfWork> { RoomUnitOfWork(get()) }
     single<SyncPeriodicTrigger> {
         DelayLoopSyncPeriodicTrigger(request = { }, scope = CoroutineScope(Dispatchers.Unconfined))
     }
