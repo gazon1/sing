@@ -1,0 +1,157 @@
+name: Android device tests
+
+# The instrumentation tier — `:androidApp:connectedDebugAndroidTest` — is the one
+# verification surface that no CI job ran at all before this file. `docs/testing/android-tier-runbook.md`
+# recorded the consequence: 16 of 32 scenario-matrix cells are holes, and the android column
+# is `not-run` by normalisation rather than by measurement.
+#
+# Not on every pull request, and that is a decision rather than an omission. An emulator adds
+# roughly ten minutes and is the flakiest part of any Android CI, so it runs on a schedule,
+# on tags, and on demand. The cheap surfaces (static, JVM tests, both android compile legs)
+# gate every PR and run in minutes.
+#
+#   nightly cron  -> instrumented tests
+#   push v*       -> instrumented tests
+#   manual        -> instrumented tests
+#   PR labelled `run-device-tests` -> instrumented tests
+#
+# Maestro flows live in e2e.yml and are deliberately not merged in here: they need a
+# separate APK and a CLI install, and #150 settled that a failed nightly opens an issue
+# rather than blocking a merge. This file answers the narrower question — does the app
+# start, and do the Espresso assertions hold on a real device.
+
+on:
+  schedule:
+    # 03:00 UTC. Different hour from e2e.yml's 02:00 so the two emulator fleets do not
+    # compete for GitHub's concurrent-job budget on the same runner pool.
+    - cron: "0 3 * * *"
+  push:
+    tags: ["v*"]
+  pull_request:
+    types: [labeled]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: android-device-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  instrumented:
+    # Labelled runs only. A label on a PR that is not aimed at main is not this workflow's business.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'run-device-tests') &&
+       github.event.label.name == 'run-device-tests' &&
+       github.event.pull_request.base.ref == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Without this the emulator falls back to software emulation and takes long enough
+      # to time out the job before the first test runs.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Matches every other workflow in this repository, so the JDK the DI graph is
+      # validated against is the same one here. `cache-read-only` outside main: a PR must
+      # not evict or poison the Gradle cache main depends on.
+      - uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # Cold-booting an AVD is most of this job's runtime and it is the same AVD every
+      # time, so the snapshot is cached. Keyed on the image, not the run id — keying on
+      # run_id stores a fresh copy every run and evicts the previous one, which is the
+      # defect ADR 2026-10-04-configuration-cache-hardening records for the Gradle cache.
+      - name: Cache the AVD
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: android-avd-api36-google_apis-x86_64
+
+      # Skipped on a cache hit. force-avd-creation is false so the cached snapshot is
+      # reused rather than rebuilt, and a cache miss here is a few minutes, not a failure.
+      - name: Create the AVD
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "AVD created"
+
+      # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target). An
+      # emulator below the app's targetSdk is a test of something nobody ships.
+      #
+      # `-gpu swiftshader_indirect`, not `-gpu off`: e2e.yml uses `-gpu off` and gets away
+      # with it because Maestro drives the UI through the accessibility layer and never
+      # composites. These assertions look for a real ComposeView in the view hierarchy, and
+      # software rendering is the configuration GitHub's runner images support.
+      #
+      # The task name is the Gradle one, not `adb install` plus `am instrument`. That is
+      # deliberate: connectedDebugAndroidTest assembles the app APK and the androidTest APK
+      # together and installs the pair that matches each other. Hand-rolling the install
+      # names an APK path, and a path that silently stops matching is a green run against
+      # the wrong binary — which is the defect RUN_MAESTRO's SKIP_INSTALL comment in
+      # check.sh describes.
+      - name: Instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          ram-size: 4096M
+          heap-size: 512M
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb shell am wait-for-broadcast-idle
+            # MainActivity's cold start is what these tests assert, so the surface is
+            # unlocked before the runner launches it. Without this the first
+            # ActivityScenario lands on the lock screen and every assertion fails for a
+            # reason that has nothing to do with the app.
+            adb shell input keyevent 82
+            ./gw :androidApp:connectedDebugAndroidTest --stacktrace
+
+      # Uploaded unconditionally, not `if: failure()`. A report that exists only when
+      # something broke cannot answer "did NavigationFlowInstrumentedTest pass on abc1234",
+      # which is the question a nightly run gets asked the next morning.
+      - name: Upload instrumentation reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-instrumentation-reports-${{ github.run_id }}
+          path: |
+            androidApp/build/reports/androidTests/
+            androidApp/build/outputs/androidTest-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # A nightly that nobody reads is not a gate, it is a scrollback buffer. The nightly
+      # Maestro failure opens an issue (e2e.yml); this one does the same.
+      - name: Open an issue when a nightly fails
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh issue create \
+            --title "Nightly Android instrumentation failed ($(date -u +%F))" \
+            --body "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
