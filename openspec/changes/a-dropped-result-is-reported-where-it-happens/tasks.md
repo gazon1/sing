@@ -19,7 +19,11 @@
 - [x] Write the three blind spots into the rule rather than leaving them for a reader:
       an inferred receiver type, reflection, and a failure dropped in a loop where the
       value is used.
-- [ ] Close the backlog entry `dropped-result-guard`.
+- [x] Closed. There is no backlog entry `dropped-result-guard`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
 - [ ] Derive `selfReportingMethods()` instead of writing it down. Both obvious
       implementations were measured and both are wrong — see the proposal. Needs
       statement-level extraction; do not ship a hand list that looks derived.

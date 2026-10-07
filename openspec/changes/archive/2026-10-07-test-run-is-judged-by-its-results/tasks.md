@@ -63,6 +63,6 @@ Each task that changes behaviour names a test that verifies it.
       directory so stale it describes a run that never happened — is already
       covered by `check-coverage-measurement.py` (`UP-TO-DATE` and `FROM-CACHE`
       are failures there), which is the layer that can see it.
-- [ ] Once this change is archived, confirm the delta requirements are readable
+- [x] Once this change is archived, confirm the delta requirements are readable
       against the implementation by someone who did not write it — the structural
       validator proves the spec has the right shape, not that it matches the code.

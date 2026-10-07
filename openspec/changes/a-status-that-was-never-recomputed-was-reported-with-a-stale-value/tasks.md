@@ -13,7 +13,11 @@
       so the plumbing is a constructor and a DI line.
 - [x] Record the nine false positives this change disproved, with the return type of each,
       so the next reader does not "fix" nine methods that have no `Result` to unwrap.
-- [ ] Close the backlog entry `refresh-status-failure-is-invisible`.
+- [x] Closed. There is no backlog entry `refresh-status-failure-is-invisible`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
 - [ ] Out of scope: the dropped-`Result` guard. Its corpus is now empty, which is what
       makes it landable — see the guard's own change for what it must resolve and what a
       name-based heuristic costs on this tree.

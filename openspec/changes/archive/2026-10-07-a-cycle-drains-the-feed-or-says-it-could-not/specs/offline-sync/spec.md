@@ -8,7 +8,7 @@
 
 ## ADDED Requirements
 
-### Requirement: REQ-OS-026
+### Requirement: REQ-OS-015
 
 A download cycle SHALL keep reading until the feed reports that it has no more, so that a
 backlog larger than one page is applied in one cycle. A cycle SHALL report how many
@@ -35,7 +35,7 @@ changes it received in total, across every page it read.
 
 ---
 
-### Requirement: REQ-OS-027
+### Requirement: REQ-OS-016
 
 A cycle SHALL stop rather than ask again for a page it has already read. A feed that
 answers with nothing past the position asked from SHALL end the cycle, and the cycle

@@ -1,6 +1,6 @@
 # Tasks — a-cycle-drains-the-feed-or-says-it-could-not
 
-Issue: #176. Spec: `offline-sync` REQ-OS-026, REQ-OS-027.
+Issue: #176. Spec: `offline-sync` REQ-OS-015, REQ-OS-016.
 
 - [x] `shared/` Read pages until a short page, rather than one request per cycle.
       **Test:** a 250-change backlog is applied in one cycle and the stored position is

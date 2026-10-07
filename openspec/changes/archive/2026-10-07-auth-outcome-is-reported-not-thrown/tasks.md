@@ -79,10 +79,10 @@ test that only follows the new code would not have caught it.
 
 ## Verification
 
-- [ ] `shared/` `./gw :shared:jvmTest` — the new tests and the existing authentication,
+- [x] `shared/` `./gw :shared:jvmTest` — the new tests and the existing authentication,
       credential-store and view-model tests.
-- [ ] `shared/` `./gw detekt` — formatting is by hand; `detekt --auto-correct` is not run.
-- [ ] `openspec validate auth-outcome-is-reported-not-thrown --strict`.
+- [x] `shared/` `./gw detekt` — formatting is by hand; `detekt --auto-correct` is not run.
+- [x] `openspec validate auth-outcome-is-reported-not-thrown --strict`.
 
 ## Mutation checks
 
