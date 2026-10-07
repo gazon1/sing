@@ -368,6 +368,10 @@ ktlint:
     # CalendarSyncExceptions.kt, BackupFormatters.kt, AttachmentUploadService.kt.
     # detekt wants one top-level declaration matching the file name; this project
     # groups by concern.
+    #
+    # The same rule is also what fires on KDocEnforcementRules.kt, which groups a
+    # cohesive pair of private top-level rule classes in one file. One file per
+    # private class would fragment it for no benefit.
     active: false
   # ── Declared 2026-10-04, second pass. `main` added findings for these five
   # between the first declaration sweep and the rebase, and a rule that reports
@@ -427,12 +431,7 @@ ktlint:
     active: true
     maxLineLength: 120
 
-  # The ktlint `filename` rule (reported as "contains a single class") fires on
-  # KDocEnforcementRules.kt, which groups a cohesive pair of private top-level rule
-  # classes in one file. One file per private class would fragment it for no benefit.
-  Filename:
-    active: false
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
 # All new rules start in warn-only mode; promoted to error in MR-4.
 # NOTE: Rule-specific config (severity, active) added in MR-4 after baseline.

@@ -207,14 +207,14 @@ class GoogleTaskApplier(
     /**
      * Every task that should have a Google event, as the event it wants.
      *
-     * The selection rule deliberately matches the system-calendar worker
-     * (`CalendarSyncWorker.kt:71`): neither completed nor trashed. Divergence would mean a
-     * task appears on one calendar and not the other, which is worse than either policy
-     * being wrong.
+     * The selection rule is [Task.belongsOnACalendar], shared with the system-calendar
+     * worker and the dirty-hash provider. It used to be spelled out here with a comment
+     * saying it "deliberately matches" the other two, which is the arrangement that let
+     * them drift.
      */
     suspend fun desiredEvents(calendarId: String): List<GoogleEvent> =
         taskRepository.observeAll().first()
-            .filter { !it.isCompleted && !it.isTrashed }
+            .filter { it.belongsOnACalendar }
             .map { it.asDesiredEvent(calendarId) }
 
     /**

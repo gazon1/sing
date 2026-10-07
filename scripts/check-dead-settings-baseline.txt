@@ -1,21 +1,65 @@
-# Stores exempt from scripts/check-dead-settings.py
+# Fields exempt from scripts/check-dead-settings.py
 #
-# One store per line; `#` starts a reason. The file is intentionally absent while
-# every current section is wired — an empty baseline file that exists is a claim
-# ("we audited these") and a missing one is not.
+# One entry per line, either `Section.field` or a bare `Section` (which exempts
+# all of its fields). `#` starts the reason.
+#
+# An entry here is a claim, not a silence: it says a human looked at a persisted
+# setting, found no feature reads it, and chose what to do about that. Without the
+# reason a future reader cannot tell a decision from an oversight, which is the
+# distinction the gate exists to preserve.
+#
+# Nothing is exempt right now. The 11 entries below are the gate's findings from
+# 2026-10-07, and they are the *decisions still to be made* — recorded so the gate
+# can go green while the product call stays visible and greppable.
 #
 # What belongs here
 # -----------------
 #   * A section whose control is deliberately shown but not yet acted on, with the
-#     issue that will do it named in the reason.
-#   * A section reserved for a platform-specific feature, where the consumer is
-#     registered in a PlatformModule this scan does not read.
+#     issue that will do it named.
+#   * A setting read by code the scan deliberately excludes, with that code named.
 #
 # What does not
 # -------------
-#   * "The screen renders it." feature/settings/ is excluded from the check
-#     precisely because it renders every section unconditionally; that is how
-#     `reminderDefault` looked alive while nothing read it.
+#   * "The screen renders it." `feature/settings/` is excluded from the check
+#     precisely because it renders every field unconditionally.
 #   * "It has tests." Tests do not consume values in production.
+#   * "It will be used later." That is the bug, stated as a justification.
 #
 # When adding a line, say what will make it unnecessary.
+
+# --- WorkSchedule — a complete day-boundary UI that nothing acts on ---------
+# Day start/end, lunch window and weekend days are editable in
+# WorkScheduleSettingsScreen and reach the ViewModel, then stop. No agenda,
+# query, or selector reads them. Product call: implement a day-boundary concept,
+# or hide the screen. The keys stay — users already have values stored.
+WorkSchedule.dayStartMinutes
+WorkSchedule.dayEndMinutes
+WorkSchedule.lunchStartMinutes
+WorkSchedule.lunchEndMinutes
+WorkSchedule.weekendSat
+WorkSchedule.weekendSun
+
+# --- Greeting — the hour boundaries that decide morning vs afternoon --------
+# Nothing renders a time-of-day greeting; `GreetingSettingsScreen` writes values
+# that no feature consults. Same shape as WorkSchedule.
+Greeting.morningEndHour
+Greeting.afternoonEndHour
+
+# --- Notifications — toggles with no consumer at fire time -------------------
+# `AndroidNotifier.post(tag, title, body, viewId)` takes no sound or vibration
+# argument and never calls setDefaults/setSound/setVibrate, so these switches do
+# not change how a notification behaves. Unlike the rest of this file these are
+# *nearly* wired — the notifier is one parameter away from honouring them, which
+# is worth knowing before someone files this as a missing feature rather than a
+# dead setting.
+Notifications.sound
+Notifications.vibration
+
+# --- Notifications — the documented live instance ---------------------------
+# See docs/decisions/2026-10-07-reminders-capability-gate.md. "Default Reminder"
+# is persisted, exported, imported and rendered, and no task is ever given it.
+# On top of that, Desktop now refuses task reminders outright
+# (ReminderScheduler.isSupported = false), so on that platform the value could not
+# take effect even if it were wired. Product call: wire into TaskCreateViewModel,
+# or hide the control.
+Notifications.reminderDefault

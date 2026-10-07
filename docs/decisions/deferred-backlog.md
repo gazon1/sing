@@ -3496,6 +3496,104 @@ is that two screens under one route and one ViewModel shipped with time tracking
 one platform and not the other — which is the bug
 `TaskDetailTimeTrackingSectionTest` now guards against.
 
+
+## mainactivity-anr-makes-every-instrumented-test-fail
+
+**Status: OPEN**
+
+**Tracked as:** [#219](https://github.com/gazon1/sing/issues/219)
+
+**Found in:** setting up `android-device-tests.yml` (2026-10-07), while reading
+the KDoc on every class in `androidApp/src/androidTest/` before wiring them into a
+CI job.
+
+**Symptom:** all four instrumentation classes (`AuthFlowInstrumentedTest`,
+`NavigationFlowInstrumentedTest`, `CreateTaskFlowInstrumentedTest`,
+`CreateNoteFlowInstrumentedTest`) carry the same warning: `MainActivity` ANRs on
+emulator startup, and "all tests will fail on emulator until the Koin/Startup ANR
+is resolved". Traced to `koinInject<AppearanceSettingsRepository>()` being called
+in the App composable during cold start, per
+`docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md`.
+
+**Already ruled out:** not a stale comment. The cause is still in the tree —
+`shared/src/androidMain/kotlin/com/singularity/todo/App.kt:50` reads
+`val appearance: AppearanceSettingsRepository = koinInject()`. Two other
+`koinInject()` calls sit in the same composable (lines 134, 136). Not ruled out:
+whether the ANR still reproduces — that needs a device, and this host had none up.
+
+**Do not fix by deleting the assertion.** All four classes currently assert only
+that a `ComposeView` is attached; two of the four KDocs say outright that they are
+placeholders that do not exercise the flow in their name. If they are red because
+of the ANR, the honest state is red.
+
+**Try next, in this order:**
+
+1. **Run the workflow once on a real runner** and read the actual failure. This
+   entry is a claim in a KDoc repeated four times; the first nightly run of
+   `android-device-tests.yml` either confirms it or disproves it. Do not spend time
+   on the ANR before that measurement.
+2. If it reproduces: the question is why `koinInject()` on the composition thread
+   at cold start blocks. `AppearanceSettingsRepository` reads a DataStore-backed
+   preference, and a suspend read on the main thread during composition is the
+   shape that produces `ANR: FocusEvent`. The likely fix is hoisting the read out
+   of the composition or making the initial value synchronous.
+3. Either way, replace the four placeholder KDocs with the measured outcome. Four
+   copies of the same unverified warning is the arrangement
+   `2026-10-05-gate-audit-text-shape-vs-fact` was written about.
+
+**Related but separate:** `androidApp/src/androidTest/` contains no test that
+exercises the flow in its class name. That is a coverage gap independent of the
+ANR, and `thirteen-scenario-slices-queued-not-yet-written` (#170) is the same gap
+one tier up.
+
+
+## every-gate-is-reachable-was-measured-not-assumed
+
+**Status: OPEN**
+
+**Tracked as:** none — the work landed with
+`docs/decisions/2026-10-07-branch-protection-is-unavailable.md`; this entry is the
+remainder, not the whole.
+
+**Found in:** auditing what actually enforces anything on 2026-10-07, while
+recording that branch protection is unavailable on the current plan.
+
+**Situation.** Parts A–G of `scripts/check-gate-wiring.py` all start from a gate
+somebody already decided to run. A `scripts/check*` file that can fail and is named
+by nobody is invisible to every one of them: not "invoked" (A), not "registered" (F),
+not asymmetric (E). Part H now covers that gap.
+
+**Measured, not assumed — and the measurement corrected the assumption.** A first
+pass reported three unreachable gates: `check-adr-references.py`, `check_adr_status.py`
+and `check_skill_frontmatter.py`. All three were reachable:
+
+- `check-adr-references.py` and `check_adr_status.py` are named in `.just/tests/mod.just`
+  (lines 253 and 283), which a scan of `justfile` alone never opens.
+- `check-flaky-tests.py`, which a second pass also flagged, is named in `ci.yml:191`.
+- `check_skill_frontmatter.py` is the target of `check-skill-frontmatter.sh`, which
+  `exec`s it. It is reached through the shim, not through surface text.
+
+**Result: 29 candidates, 29 reachable, 0 unreachable.** Part H therefore passes
+immediately, which makes it a ratchet against the next one, not a fix for anything
+existing.
+
+**Already ruled out:** not a claim that nothing is wrong. Two derivations that
+reported a short list and called it complete were the actual defect, and both are
+now encoded as tests: `test_a_gate_reachable_only_from_a_just_recipe_is_reachable`
+(a non-recursive `.just/*` glob misses every nested recipe) and
+`test_a_shim_delegated_gate_is_reachable` (reading surface text alone calls a
+delegated gate an orphan).
+
+**Try next, in this order:**
+
+1. Nothing to fix. The gap is closed. Keep the gate green rather than lowering it.
+2. If a future `scripts/check-*.py` is added and CI is red on Part H, the answer is
+   to name it in `scripts/ci/static-gates.sh` or delete it as superseded — not to
+   widen the scan. A gate that a scan cannot find is usually a gate that is genuinely
+   not run.
+3. If a legitimate third spelling of a gate name appears, add it to `_GATE_CANDIDATE`
+   *and* add the test that proves the new spelling is a candidate.
+
 ---
 
 ## the-versioned-sync-schema-is-never-applied-or-verified

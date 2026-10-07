@@ -13,10 +13,14 @@ import kotlinx.coroutines.flow.first
  *
  * Hash inputs (all at minute granularity to avoid sub-minute flapping):
  * - `enabled`, `targetCalendarId`, `targetAppPackage` from [CalendarSyncRepository]
- * - For every non-completed, non-trashed task:
+ * - For every task matching [Task.belongsOnACalendar] — neither completed nor trashed:
  *   `task.id.value`, `task.title`, `task.description`, `task.dueDate`, `task.dueTime`,
- *   `task.isCompleted`, `task.isTrashed`, `task.accentColor`
+ *   `task.isCompleted`, `task.isTrashed`, and `task.accentColor`
  * - `System.currentTimeMillis() / 60_000` (minute slot)
+ *
+ * [Task.belongsOnACalendar] is read for *selection* — which tasks are on a calendar — while
+ * `isCompleted`/`isTrashed` are hashed again as *inputs*: they decide whether a task already
+ * on a calendar changed. Different questions, so neither looks redundant to the other.
  *
  * @param taskRepo Source of all active tasks.
  * @param syncRepo Source of sync settings (enabled, calendarId, appPackage).
@@ -35,7 +39,7 @@ class DirtyHashProvider(private val taskRepo: TaskRepository, private val syncRe
 
         val tasks = taskRepo.observeAll()
             .first()
-            .filter { !it.isCompleted && !it.isTrashed }
+            .filter { it.belongsOnACalendar }
 
         var h = 17L
         h = h * 31L + calendarId.hashCode()

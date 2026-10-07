@@ -248,10 +248,13 @@ class ScanRepositoryTest(unittest.TestCase):
         # что пути в TEST_ROOTS разошлись с реальностью. Верхняя граница тоже
         # осмысленна: её рост означал бы возврат отсева abstract-баз и хелперов.
         self.assertGreater(len(self.tests), 200)
-        # 350, not upstream's 340: on the merged tree the counter is 342, so 340 fails
-        # before any filter regression — verified on 2026-10-07, with the same check the
-        # previous bumps used (all 342 names end in `Test`, paths unique).
-        self.assertLess(len(self.tests), 350)
+        # 360, not upstream's 350: this merge adds three classes —
+        # SyncWriteIsAtomicTest, SyncEngineTakesNoFeatureTypesTest and
+        # SyncDiGraphResolutionTest — so the counter moves 348 -> 351 on the merged
+        # tree, verified by scan_repository() with the same check the previous bumps
+        # used (paths unique). 360 leaves nine slots, fewer than the growth of the last
+        # merge, so the bound still asks the question rather than absorbing an overshoot.
+        self.assertLess(len(self.tests), 360)
         # 260, а не 259: NoopSubscriptionProviderTest.kt объявляет класс
         # PurchaseStateTest, и прежний отсев по «нет @Test у класса с именем
         # файла» выбрасывал файл целиком, теряя настоящий тест.

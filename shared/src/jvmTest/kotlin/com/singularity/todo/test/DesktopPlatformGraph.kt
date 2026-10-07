@@ -15,6 +15,8 @@ import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.database.RoomUnitOfWork
@@ -97,6 +99,12 @@ internal fun desktopPlatformModule(): Module = module {
         wipeIfNotRoomManaged(dbPath)
         AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
+
+    // `domainModule()` binds TaskRepository over a UnitOfWork, so without this every
+    // repository in the graph is unresolvable and the failure surfaces one level away —
+    // as "could not create TaskRepository", naming the wrong thing entirely. It went
+    // missing when this mirror was moved out of KoinGraphValidationTest.kt.
+    single<UnitOfWork> { RoomUnitOfWork(get()) }
 
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }

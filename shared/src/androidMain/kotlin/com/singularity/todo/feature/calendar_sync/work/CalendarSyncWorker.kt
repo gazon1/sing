@@ -69,7 +69,7 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             val userId = currentUser.scopedUserId.value.value
             val allTasks = taskRepo.observeAll()
                 .first()
-                .filter { !it.isCompleted && !it.isTrashed }
+                .filter { it.belongsOnACalendar }
 
             // Map entities to the domain read model so the pure diff never sees Room types
             val existingMap: Map<String, SyncedEventRef> = taskMapDao.getAll(userId)

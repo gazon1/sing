@@ -18,7 +18,6 @@ import kotlin.time.Instant
  * decision about *whether* to run. Every caller would otherwise repeat the same four
  * preconditions, and any caller that forgot one would sync on top of an account the user
  * never connected. The preconditions are:
- *
  * 1. a calendar has been chosen,
  * 2. a credential exists for this profile,
  * 3. the profile is a real one, and
@@ -40,9 +39,16 @@ import kotlin.time.Instant
  * deliberately not invented here: a field with no screen behind it is the same defect as a
  * control that does nothing. So the outcome is logged and returned, and the caller decides
  * where to show it.
+ *
+ * ## Why the pass arrives as a [GoogleSyncPass] rather than a concrete engine
+ *
+ * Because the `UserId.anonymous` guard below is the one line in this feature that must never
+ * be wrong, and until this seam existed there was no way to assert it: the coordinator took a
+ * `GoogleSyncEngine`, whose construction needs four DAOs and a network client. See
+ * [GoogleSyncPass].
  */
 class GoogleSyncCoordinator(
-    private val engineProvider: () -> GoogleSyncEngine,
+    private val engineProvider: () -> GoogleSyncPass,
     private val googleSettings: GoogleCalendarSettingsRepository,
     private val credentialStore: GoogleCredentialStore,
     private val currentUser: UserId,
@@ -50,17 +56,29 @@ class GoogleSyncCoordinator(
     private val logger: Logger = Logger.withTag("GoogleSyncCoordinator"),
 ) {
 
-    /** What one coordinator-driven pass did, for a caller that wants to log or report it. */
-    data class Outcome(
-        val ran: Boolean,
-        val result: GoogleSyncEngine.PassResult? = null,
-        /** Why the pass did not run, when [ran] is false. */
-        val skippedBecause: String? = null,
-    ) {
-        companion object {
-            /** A pass that was correctly not run. A no-op is an outcome, not a failure. */
-            fun skipped(reason: String) = Outcome(ran = false, skippedBecause = reason)
-        }
+    /**
+     * What one coordinator-driven pass did, for a caller that wants to log or report it.
+     *
+     * Three cases rather than a `ran: Boolean` plus a nullable reason, because "ran and
+     * failed" is not the same answer as "did not run" and the boolean could not say which.
+     * It did: a failure was reported through `skipped`, which set `ran = false`, so
+     * `GoogleSyncWorker` read a *failed* pass as one that never started, logged "did not
+     * run", and returned `Result.success()` — telling WorkManager nothing was wrong while
+     * the user's calendar silently stopped updating. A transient Google outage would have
+     * ended background sync until the app was restarted.
+     *
+     * Making failure its own case is what lets the caller act differently: retry a
+     * [Failed], accept a [Declined].
+     */
+    sealed interface Outcome {
+        /** The pass ran and completed. */
+        data class Completed(val result: GoogleSyncEngine.PassResult) : Outcome
+
+        /** A pass was correctly not run. A no-op is an outcome, not a failure. */
+        data class Declined(val reason: String) : Outcome
+
+        /** The pass ran and failed. Nothing is thrown: a background pass has nobody to throw to. */
+        data class Failed(val reason: String) : Outcome
     }
 
     /**
@@ -70,13 +88,13 @@ class GoogleSyncCoordinator(
      * re-checked every time, and declining to run is a normal outcome rather than an error.
      */
     suspend fun syncNow(userId: UserId = currentUser): Outcome {
-        if (userId == UserId.anonymous) return Outcome.skipped("not signed in")
+        if (userId == UserId.anonymous) return Outcome.Declined("not signed in")
 
         val calendarId = googleSettings.observeSelectedCalendarId().first()
-        if (calendarId.isNullOrBlank()) return Outcome.skipped("no Google calendar selected")
+        if (calendarId.isNullOrBlank()) return Outcome.Declined("no Google calendar selected")
 
         if (credentialStore.load(userId.value) == null) {
-            return Outcome.skipped("no Google account connected")
+            return Outcome.Declined("no Google account connected")
         }
 
         return runCatchingResult { engineProvider().sync(calendarId) }.fold(
@@ -85,13 +103,15 @@ class GoogleSyncCoordinator(
                     "Google sync: ${result.seen} seen, ${result.pushed} pushed, " +
                         "${result.tasksCreated} tasks created, ${result.tasksUpdated} updated"
                 }
-                Outcome(ran = true, result = result)
+                Outcome.Completed(result)
             },
             onFailure = { error ->
                 // Not rethrown. A background pass has nobody to throw to — the scheduler
                 // driving it would retry with no explanation anywhere the user can see.
+                // Still reported as Failed rather than Declined: the pass ran, and the
+                // caller needs to know the difference to decide whether to retry it.
                 logger.w(error) { "Google sync pass failed" }
-                Outcome.skipped(error.message ?: "Google sync failed")
+                Outcome.Failed(error.message ?: "Google sync failed")
             },
         )
     }

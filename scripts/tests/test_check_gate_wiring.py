@@ -450,3 +450,117 @@ class PartETest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PartHTest(unittest.TestCase):
+    """A gate-shaped script nobody reaches reports success forever.
+
+    Parts A–G all begin from a gate somebody already decided to run, so a script
+    that exists, can fail, and is named nowhere is invisible to every one of them.
+    Each test here is a positive control: it constructs the situation and asserts
+    the detector reports it, because "found nothing" and "looked in the wrong
+    place" are otherwise the same result.
+    """
+
+    def _repo_with(self, files: dict[str, str]) -> pathlib.Path:
+        """Build a throwaway repo, point gw at it, restore on teardown."""
+        tmp = pathlib.Path(self.enterContext(_tmpdir()))
+        for rel, body in files.items():
+            p = tmp / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(body, encoding='utf-8')
+        original_root = gw.ROOT
+        original_surfaces = gw._REACH_SURFACES
+        gw.ROOT = tmp
+        gw._REACH_SURFACES = (
+            [tmp / 'check.sh', tmp / 'scripts/ci/static-gates.sh', tmp / 'justfile']
+            + sorted(tmp.glob('.just/**/*.just'))
+            + sorted(tmp.glob('.github/workflows/*.yml'))
+            + sorted(tmp.glob('.github/actions/*/action.yml'))
+        )
+        self.addCleanup(lambda: (setattr(gw, 'ROOT', original_root),
+                                 setattr(gw, '_REACH_SURFACES', original_surfaces)))
+        return tmp
+
+    def test_a_gate_named_by_no_surface_is_reported(self):
+        self._repo_with({
+            'scripts/check-orphan.py': '#!/usr/bin/env python3\n',
+            'scripts/ci/static-gates.sh': 'gate blocking "real" python3 scripts/check-real.py\n',
+            'scripts/check-real.py': '#!/usr/bin/env python3\n',
+        })
+        errors = gw.check_gate_reachability()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn('check-orphan.py', errors[0],
+                      'the message must name the unreachable script, or the reader '
+                      'has to go looking for it')
+
+    def test_the_real_repository_has_no_unreachable_gate(self):
+        self.assertEqual(gw.check_gate_reachability(), [],
+                         'every scripts/check* script must be reachable from '
+                         'check.sh, the registry, a just recipe, a workflow or a '
+                         'composite action')
+
+    def test_a_shim_delegated_gate_is_reachable(self):
+        # `check-skill-frontmatter.sh` execs the .py. Reading only surface text
+        # calls the .py an orphan, and then a future editor "fixes" a gate that
+        # was never broken.
+        self._repo_with({
+            'scripts/check-skill-frontmatter.sh':
+                '#!/usr/bin/env bash\nset -euo pipefail\nROOT="$PWD"\n'
+                'exec python3 "$ROOT/scripts/check_skill_frontmatter.py" "$@"\n',
+            'scripts/check_skill_frontmatter.py': '#!/usr/bin/env python3\n',
+            'scripts/ci/static-gates.sh':
+                'gate blocking "skill frontmatter" ./scripts/check-skill-frontmatter.sh\n',
+        })
+        self.assertEqual(gw.check_gate_reachability(), [])
+
+    def test_both_name_spellings_are_candidates(self):
+        # Two of the three gates whose name uses an underscore would be invisible
+        # to a hyphen-only pattern, which would then report a short list and call
+        # it complete.
+        self._repo_with({
+            'scripts/check_adr_status.py': '#!/usr/bin/env python3\n',
+            'scripts/check-skill-frontmatter.sh': '#!/usr/bin/env bash\n',
+        })
+        candidates = gw.gate_candidate_scripts()
+        self.assertIn('scripts/check_adr_status.py', candidates)
+        self.assertIn('scripts/check-skill-frontmatter.sh', candidates)
+
+    def test_a_gate_reachable_only_from_ci_is_reachable(self):
+        self._repo_with({
+            'scripts/check-flaky-tests.py': '#!/usr/bin/env python3\n',
+            '.github/workflows/ci.yml': 'jobs:\n  t:\n    steps:\n'
+                                        '      - run: python3 scripts/check-flaky-tests.py \\\n'
+                                        '          --current DIR\n',
+        })
+        self.assertEqual(gw.check_gate_reachability(), [],
+                         'a gate named only by a workflow is invoked — ci.yml is a '
+                         'gate surface, not an afterthought')
+
+    def test_a_gate_reachable_only_from_a_just_recipe_is_reachable(self):
+        self._repo_with({
+            'scripts/check-gate-honesty.py': '#!/usr/bin/env python3\n',
+            '.just/tests/mod.just': 'honest:\n    python3 scripts/check-gate-honesty.py {{args}}\n',
+        })
+        self.assertEqual(gw.check_gate_reachability(), [],
+                         '.just/**/*.just is nested; a non-recursive glob misses it '
+                         'and reports a reachable gate as an orphan')
+
+    def test_a_data_file_with_a_gate_like_name_is_not_a_candidate(self):
+        # `scripts/check-dead-settings-baseline.txt` is real and is read by gates.
+        self._repo_with({
+            'scripts/check-dead-settings-baseline.txt': 'key=value\n',
+            'scripts/ci/static-gates.sh': 'gate blocking "x" python3 scripts/check-x.py\n',
+            'scripts/check-x.py': '#!/usr/bin/env python3\n',
+        })
+        self.assertNotIn('scripts/check-dead-settings-baseline.txt',
+                         gw.gate_candidate_scripts())
+
+    def test_two_shims_delegating_to_each_other_terminate(self):
+        self._repo_with({
+            'scripts/check-a.py': '#!/usr/bin/env bash\nexec bash "$PWD/scripts/check-b.sh"\n',
+            'scripts/check-b.sh': '#!/usr/bin/env bash\nexec bash "$PWD/scripts/check-a.py"\n',
+            'scripts/ci/static-gates.sh': 'gate blocking "x" python3 scripts/check-a.py\n',
+        })
+        # The point is that it returns at all.
+        self.assertEqual(gw.check_gate_reachability(), [])

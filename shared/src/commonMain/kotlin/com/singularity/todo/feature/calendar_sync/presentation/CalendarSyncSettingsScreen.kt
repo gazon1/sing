@@ -40,6 +40,7 @@ import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncInten
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetGoogleConnected
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetImportFromGoogle
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SyncNow
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SyncGoogleNow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -124,6 +125,22 @@ private fun ProviderSelector(selected: CalendarProvider, onSelect: (CalendarProv
 private fun providerLabel(provider: CalendarProvider): String = when (provider) {
     SystemCalendar -> "System calendar"
     Google -> "Google Calendar"
+}
+
+/**
+ * "Last synced 06 Oct 2026 02:14", in the device's own zone.
+ *
+ * Extracted rather than inlined so the Google half formats its own timestamp exactly the way
+ * the system half does. Two spellings of "when did this last run" on one screen would drift,
+ * and a reader would be left comparing two formats to work out whether they meant different
+ * things.
+ */
+private fun formatGoogleSyncTime(at: kotlinx.datetime.Instant): String {
+    val local = at.toLocalDateTime(TimeZone.currentSystemDefault())
+    val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
+    val hour = local.hour.toString().padStart(2, '0')
+    val minute = local.minute.toString().padStart(2, '0')
+    return "$month ${local.dayOfMonth}, ${local.year} $hour:$minute"
 }
 
 /**
@@ -435,8 +452,35 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
         // No Sync button until a calendar is chosen. A button that is present and
         // does nothing is the failure this screen was restructured to avoid.
         if (state.googleReady) {
-            Button(onClick = { onIntent(SyncNow) }) {
-                Text("Sync Now")
+            Button(
+                onClick = { onIntent(SyncGoogleNow) },
+                // Disabled while a pass runs, because the coordinator is re-entrant but a
+                // user pressing twice means two passes raced for the same cursor.
+                enabled = !state.googleSyncing,
+            ) {
+                Text(if (state.googleSyncing) "Syncing..." else "Sync Now")
+            }
+
+            // The outcome of the last pass. A Google sync that stops working has to say
+            // so: before this, a failed pass left the button exactly as it was, and the
+            // only evidence was a calendar that had quietly stopped updating.
+            val error = state.googleSyncError
+            if (error != null) {
+                Text(
+                    text = "Sync failed: $error",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else {
+                state.googleLastSyncedAt?.let { at ->
+                    Text(
+                        text = "Last synced ${formatGoogleSyncTime(at)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
         } else {
             Text(

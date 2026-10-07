@@ -166,6 +166,25 @@ data class Task(
     val isCompleted: Boolean get() = completedAt != null
     val isTrashed: Boolean get() = archivedAt != null
 
+    /**
+     * Whether this task should appear on a user's calendar at all.
+     *
+     * One definition, because three call sites had the rule written out separately — the
+     * system-calendar worker, the Google push planner's applier, and the dirty-hash provider
+     * — and they were kept in agreement by a comment in each saying "this deliberately
+     * matches the other". A comment is not a mechanism: it does not fail when someone edits
+     * one copy, and one of the three was in `androidMain`, so the JVM suite could not have
+     * caught the divergence even if a test had tried.
+     *
+     * The failure mode is not subtle but it is user-visible in the worst way: a task on one
+     * calendar and not the other, with nothing explaining the difference.
+     *
+     * Completed and trashed are excluded. Completing a task should remove its event; trashing
+     * is how a task is deleted from the user's point of view, so keeping its event would
+     * resurrect it somewhere the user cannot see.
+     */
+    val belongsOnACalendar: Boolean get() = !isCompleted && !isTrashed
+
     // SyncableEntity implementation
     override val syncId: String get() = id.value
     override val docType: DocType get() = DocType.Task

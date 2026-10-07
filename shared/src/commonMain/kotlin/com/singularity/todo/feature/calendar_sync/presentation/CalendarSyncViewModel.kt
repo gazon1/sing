@@ -17,12 +17,14 @@ import com.singularity.todo.feature.calendar_sync.domain.port.GoogleCalendarSett
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
+import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.sync.SyncSource
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.Instant
 
 /**
  * UI state for the calendar sync settings screen.
@@ -69,6 +71,34 @@ data class CalendarSyncUiState(
      * nothing in it and no explanation.
      */
     val googleError: String? = null,
+    /**
+     * Whether a Google sync pass is running right now.
+     *
+     * Separate from [isLoading], which is the *calendar list* loading. They are different
+     * requests with different failure modes, and one flag for both meant the "Sync Now"
+     * button had nothing to reflect: it either disabled itself while the picker loaded, or
+     * did nothing at all while a pass ran.
+     */
+    val googleSyncing: Boolean = false,
+    /**
+     * Why the last Google sync pass failed, if it did.
+     *
+     * Distinct from [googleError] on purpose, and the distinction is the whole point of this
+     * field. [googleError] means "I could not list your calendars", which happens while
+     * connecting. This means "I tried to sync and it did not work", which is the failure a
+     * user hits days later, when they have stopped expecting anything to happen — and it was
+     * previously reported nowhere at all. A pass that fails silently is indistinguishable
+     * from an app that has stopped syncing, and the user's only evidence is a calendar that
+     * quietly stopped updating.
+     */
+    val googleSyncError: String? = null,
+    /**
+     * When the last successful Google pass finished, or null if there has not been one.
+     *
+     * Reported only after a pass that actually completed. Rendering the clock after a
+     * *failed* pass would be the confidently-wrong answer this feature has to avoid.
+     */
+    val googleLastSyncedAt: Instant? = null,
 ) {
     /** True when the user has connected Google and picked a calendar. */
     val googleReady: Boolean get() = googleConnected && selectedGoogleCalendarId != null
@@ -98,6 +128,18 @@ sealed interface CalendarSyncIntent : MviIntent {
     data class SetEnabled(val enabled: Boolean) : CalendarSyncIntent
     data class SelectCalendar(val calendarId: String) : CalendarSyncIntent
     data object SyncNow : CalendarSyncIntent
+
+    /**
+     * Run one Google pass now.
+     *
+     * A separate intent from [SyncNow] because the two drive different engines. [SyncNow]
+     * goes to `CalendarSyncOrchestrator`, which projects tasks onto a *device* calendar; the
+     * Google half is a two-way peer sync with its own coordinator and its own cursor. The
+     * Google button used to dispatch [SyncNow], so pressing "Sync Now" under Google started a
+     * system-calendar pass and reported its outcome — a button that worked, visibly, on the
+     * wrong feature.
+     */
+    data object SyncGoogleNow : CalendarSyncIntent
 
     /** Handled by the UI layer (rememberLauncherForActivityResult). */
     data object RequestPermission : CalendarSyncIntent
@@ -153,6 +195,15 @@ class CalendarSyncViewModel(
     private val credentialStore: GoogleCredentialStore,
     private val currentUser: CurrentUser,
     private val eventSource: () -> CalendarEventSource,
+    /**
+     * Runs one Google pass, for the Google half's "Sync Now".
+     *
+     * Injected rather than constructed so this ViewModel — which is where the user learns
+     * whether Google sync is working — can be tested against a pass that succeeds, declines,
+     * or fails, without a network client or a database. The three cases produce three
+     * different things the user should see, and only the failure one was missing.
+     */
+    private val googleSync: GoogleSyncCoordinator,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
@@ -200,6 +251,7 @@ class CalendarSyncViewModel(
             is CalendarSyncIntent.SetEnabled -> setEnabled(intent.enabled)
             is CalendarSyncIntent.SelectCalendar -> selectCalendar(intent.calendarId)
             CalendarSyncIntent.SyncNow -> syncNow()
+            CalendarSyncIntent.SyncGoogleNow -> syncGoogleNow()
             is CalendarSyncIntent.RequestPermission -> { /* UI layer */ }
             is CalendarSyncIntent.SetPermission -> setPermission(intent.granted)
             is CalendarSyncIntent.SelectAppPackage -> selectAppPackage(intent.packageName)
@@ -399,6 +451,52 @@ class CalendarSyncViewModel(
 
     private fun syncNow() {
         orchestrator.requestSync(SyncSource.Manual)
+    }
+
+    /**
+     * One Google pass, and — the part that was missing — a report either way.
+     *
+     * The three outcomes are three different things to tell the user, and reporting only two
+     * of them is how a sync stops working without anyone finding out:
+     *
+     * - [Outcome.Completed] — record the time. A clock that only advances on success.
+     * - [Outcome.Declined] — say why nothing ran, because "nothing happened" and "we chose
+     *   not to act" are different to the person watching the screen.
+     * - [Outcome.Failed] — say it failed. Before this, a failed pass rendered as an
+     *   untouched button: indistinguishable from an app that had quietly stopped syncing.
+     *
+     * The failure text goes in [CalendarSyncUiState.googleSyncError] rather than into a log,
+     * because a log is not somewhere a user can look.
+     */
+    private fun syncGoogleNow() {
+        vmScope.launch {
+            updateState { it.copy(googleSyncing = true, googleSyncError = null) }
+            val outcome = googleSync.syncNow()
+            updateState {
+                when (outcome) {
+                    is GoogleSyncCoordinator.Outcome.Completed -> it.copy(
+                        googleSyncing = false,
+                        googleSyncError = null,
+                        // Converted here, at the one seam where the two Instant
+                        // types meet, rather than making either side carry a
+                        // conversion it has no other use for.
+                        googleLastSyncedAt = Instant.fromEpochMilliseconds(
+                            googleSync.completedAt().toEpochMilliseconds(),
+                        ),
+                    )
+
+                    is GoogleSyncCoordinator.Outcome.Declined -> it.copy(
+                        googleSyncing = false,
+                        googleSyncError = outcome.reason,
+                    )
+
+                    is GoogleSyncCoordinator.Outcome.Failed -> it.copy(
+                        googleSyncing = false,
+                        googleSyncError = outcome.reason,
+                    )
+                }
+            }
+        }
     }
 
     private fun setPermission(granted: Boolean) {

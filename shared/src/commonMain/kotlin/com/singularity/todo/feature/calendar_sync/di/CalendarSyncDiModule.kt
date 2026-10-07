@@ -117,6 +117,9 @@ fun calendarSyncModule(): Module = module {
         )
     }
 
+    // Registered as its own factory so a caller that legitimately wants a long-lived engine
+    // for one profile can resolve one. The coordinator does not: it builds per pass, because
+    // the engine captures the active user by value.
     factory {
         GoogleSyncEngine(
             eventSource = get(),
@@ -130,16 +133,18 @@ fun calendarSyncModule(): Module = module {
         )
     }
 
-    // The coordinator — a factory, not a singleton, and the reason is the constructor.
-    //
-    // It takes the active profile as a `UserId` *value*, so an instance is a snapshot of
-    // whoever was signed in when it was built. A `single` resolved at app startup — which is
-    // exactly when the trigger asks for it — would capture `UserId.anonymous` from a cold
-    // process and then decline every pass forever ("not signed in"), or worse, capture one
-    // real profile and sync the next one's calendar into it. Building a coordinator per pass
-    // costs one object and is the only way this constructor is safe to use.
+    // The coordinator — a factory, not a singleton, and the reason is the constructor: it
+    // takes the active profile as a `UserId` *value*, so an instance is a snapshot of whoever
+    // was signed in when it was built. Resolved at app startup — which is when the trigger asks
+    // — a `single` would capture `UserId.anonymous` from a cold process and decline every pass
+    // forever, or capture one real profile and sync the next one's calendar into it.
     factory {
         GoogleSyncCoordinator(
+            // Resolves the factory above rather than rebuilding the engine here. The two
+            // spellings of that construction were duplicated for one commit, which is exactly
+            // how a dependency list drifts: one copy gets a new argument and the other does not.
+            // The coordinator declares `() -> GoogleSyncPass`, and the engine implements it, so
+            // returning a fresh instance per call keeps the per-profile snapshot this needs.
             engineProvider = { get<GoogleSyncEngine>() },
             googleSettings = get(),
             credentialStore = get(),
@@ -179,6 +184,9 @@ fun calendarSyncModule(): Module = module {
             credentialStore = get(),
             currentUser = get(),
             eventSource = { get<CalendarEventSource>() },
+            // The Google half's "Sync Now". Resolved per call because the coordinator is a
+            // factory holding a snapshot of the signed-in profile — see its own registration.
+            googleSync = get(),
             crashReporter = get(),
         )
     }

@@ -208,14 +208,17 @@ SCRIPT_GATES = [
     ScriptGate(
         name="dead-settings",
         cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
-        # Neutralise the marker-interface lookups rather than the stores. Removing a
-        # *store* from the DI module would fail `KoinGraphValidationTest` first and
-        # never reach this check, which is why an earlier draft of this entry
-        # sabotaged the wrong file and proved nothing.
-        sabotage="p.write_text(p.read_text().replace('getOrNull<NotificationsContributor>()', 'getOrNull<Any>()').replace('getOrNull<GreetingContributor>()', 'getOrNull<Any>()').replace('getOrNull<WorkScheduleContributor>()', 'getOrNull<Any>()'))",
-        why="a settings section no binding resolves is written and never read; "
-             "`reminderDefault` is the live instance and every screen renders it anyway",
+        # The sabotage removes a baseline entry, so the field it exempts becomes
+        # reportable. An earlier version of this entry mutated the DI bindings in
+        # CoreDiModule.kt, which proved only that the check can see an unwired
+        # *section* — and it stayed green on `reminderDefault` and all seven
+        # work-schedule fields, which are wired and still dead. The check descends
+        # to the field, so the control has to descend with it.
+        sabotage_path="scripts/check-dead-settings-baseline.txt",
+        sabotage="p.write_text(p.read_text().replace('Notifications.reminderDefault', 'Notifications.no_such_field'))",
+        why="a persisted setting rendered in Settings and read by no feature is a " +
+            "control that looks like it works; every baseline line is a claim that " +
+            "needs its own justification",
     ),
     ScriptGate(
         name="doc-sizes",
@@ -1278,6 +1281,127 @@ def check_registry_wiring() -> list[str]:
     return errors
 
 
+# ── Part H: every gate-shaped script is reachable from some surface ─────────
+#
+# Parts A–G all start from a gate somebody already decided to run. A script that
+# can fail, sits in `scripts/`, and is named by nobody is invisible to every one
+# of them: it is not "invoked" (A), not "registered" (F), not asymmetric (E). It
+# reports success for as long as it exists.
+#
+# Two things make this harder than a `grep`, and both were found by writing the
+# first version of it and watching it produce the wrong answer.
+#
+# 1. The name has two spellings here. `check-skill-frontmatter.sh` uses a hyphen;
+#    `check_skill_frontmatter.py` and `check_adr_status.py` use an underscore. A
+#    pattern that accepts only `check-` sees 26 of the 29 gate scripts and calls
+#    that the complete set — the failure mode this file's own comments warn about
+#    twice ("a derivation that quietly sees a third of its input is worse than no
+#    derivation, because it reports a short list and calls it complete").
+#
+# 2. A shim is an invocation. `check-skill-frontmatter.sh` is six lines and ends
+#    in `exec python3 "$ROOT/scripts/check_skill_frontmatter.py" "$@"`. The
+#    Python file is therefore reachable, and a scanner that reads only the
+#    surface text calls it an orphan. So reachability follows delegation, which
+#    is the opposite of what a reader expects: the *target* of an `exec` counts
+#    as reached, not the shim that reached it.
+
+#: A script is a gate candidate when its basename starts with `check` — hyphen or
+#: underscore, both spellings are in use — and ends in a script extension.
+_GATE_CANDIDATE = re.compile(r"check[-_][\w.-]+\.(?:py|sh)$")
+
+#: Where a gate may be named. This is a superset of `GATE_FILES`, which serves
+#: Parts A/E/F: those ask about gates that run in a *gate* surface, while this
+#: part asks about gates reachable at all, and four of them reach CI only from
+#: `ci.yml` or from a `just` recipe.
+_REACH_SURFACES = (
+    [ROOT / "check.sh", ROOT / "scripts" / "ci" / "static-gates.sh", ROOT / "justfile"]
+    + sorted(ROOT.glob(".just/**/*.just"))
+    + sorted(ROOT.glob(".github/workflows/*.yml"))
+    + sorted(ROOT.glob(".github/actions/*/action.yml"))
+)
+
+#: `exec python3 scripts/x.py` / `exec bash scripts/x.sh` — a shim delegating.
+#: The optional prefix accepts any shell variable, not just `$ROOT`: the shim in
+#: this repository uses `"$ROOT/scripts/…"`, and a scanner written against that one
+#: spelling silently misses `$PWD/` and `${HERE}/`, which is how a reachable gate
+#: gets reported as an orphan and an editor "fixes" a gate that was never broken.
+_SHIM_DELEGATION = re.compile(
+    r"exec\s+(?:python3|bash|sh)\s+[\"']?"
+    r"(?:\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/)?(?:scripts/)?"
+    r"(check[-_][\w.-]+\.(?:py|sh))"
+)
+
+
+def gate_candidate_scripts() -> list[str]:
+    """Every `scripts/check*` / `infra/kiwi/check*` script that exists on disk."""
+    out: list[str] = []
+    for pattern in ("scripts/check*.*", "infra/kiwi/check*.*"):
+        for path in sorted(ROOT.glob(pattern)):
+            name = path.name
+            # `scripts/check-dead-settings-baseline.txt` matches the glob but is a
+            # data file the gates read. Basename-anchored, so a nested path cannot
+            # sneak a non-gate in through the middle of the name.
+            if _GATE_CANDIDATE.search(name) and path.is_file():
+                out.append(path.relative_to(ROOT).as_posix())
+    return sorted(set(out))
+
+
+def reachable_gate_scripts() -> set[str]:
+    """Gate scripts named by a surface, plus everything those shims delegate to."""
+    invoked: set[str] = set()
+    pattern = re.compile(
+        r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?"
+        r"((?:scripts|infra/kiwi)/check[-_][\w.-]+\.(?:py|sh))"
+    )
+    for surface in _REACH_SURFACES:
+        try:
+            text = surface.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in pattern.finditer(text):
+            invoked.add(match.group(1))
+
+    # Follow delegation. Bounded, because a cycle must terminate: two shims that
+    # exec each other would otherwise loop forever, and a gate that hangs is not a
+    # better outcome than a gate that is wrongly reported.
+    frontier = list(invoked)
+    for _ in range(3):
+        found: set[str] = set()
+        for rel in frontier:
+            path = ROOT / rel
+            try:
+                body = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for match in _SHIM_DELEGATION.finditer(body):
+                for candidate in (f"scripts/{match.group(1)}", f"infra/kiwi/{match.group(1)}"):
+                    if (ROOT / candidate).is_file() and candidate not in invoked:
+                        found.add(candidate)
+        if not found:
+            break
+        invoked |= found
+        frontier = sorted(found)
+    return invoked
+
+
+def check_gate_reachability() -> list[str]:
+    errors: list[str] = []
+    reachable = reachable_gate_scripts()
+    for script in gate_candidate_scripts():
+        if script in reachable:
+            continue
+        errors.append(
+            f"{script} can fail and is named by no gate surface — check.sh, the "
+            f"registry, justfile, .just/**/*.just, .github/workflows/*.yml and "
+            f".github/actions/*/action.yml were all searched, following shim "
+            f"delegation. A gate nobody invokes reports success forever. "
+            f"Name it in scripts/ci/static-gates.sh, or delete it if it was "
+            f"superseded — a replacement that leaves its predecessor on disk is "
+            f"two gates where one is meant, and the one that runs is the old one."
+        )
+    return errors
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--wiring", action="store_true", help="Part A only")
@@ -1297,6 +1421,9 @@ def main() -> int:
     ap.add_argument(
         "--registry-wiring", action="store_true", help="Part G only"
     )
+    ap.add_argument(
+        "--reachability", action="store_true", help="Part H only"
+    )
     args = ap.parse_args()
     only = (
         args.wiring
@@ -1306,6 +1433,7 @@ def main() -> int:
         or args.parity
         or args.registry
         or args.registry_wiring
+        or args.reachability
     )
     run_a = args.wiring or not only
     run_b = args.can_fail or not only
@@ -1314,6 +1442,7 @@ def main() -> int:
     run_e = args.parity or not only
     run_f = args.registry or not only
     run_g = args.registry_wiring or not only
+    run_h = args.reachability or not only
 
     errors: list[str] = []
 
@@ -1368,6 +1497,16 @@ def main() -> int:
             errors += wiring_errors
         else:
             print(f"  ok  {GATE_REGISTRY.relative_to(ROOT)} is invoked by ci.yml and check.sh")
+
+    if run_h:
+        print("\nPart H — every gate-shaped script is reachable from a surface")
+        candidates = gate_candidate_scripts()
+        reachable = reachable_gate_scripts()
+        orphans = [s for s in candidates if s not in reachable]
+        print(f"  {len(candidates)} candidate(s), {len(reachable & set(candidates))} reachable")
+        errors += check_gate_reachability()
+        if not orphans:
+            print("  ok  no gate-shaped script is left unreachable")
 
     if errors:
         print("")

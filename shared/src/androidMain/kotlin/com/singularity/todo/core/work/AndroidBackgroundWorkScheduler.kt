@@ -51,15 +51,13 @@ class AndroidBackgroundWorkScheduler(
             JobSchedule.OnDemand -> runNow(jobId)
 
             is JobSchedule.Periodic -> {
-                // WorkManager's interval overloads are `java.time.Duration` in this
-                // version, so the `kotlin.time.Duration` the common `JobSchedule` speaks
-                // is converted here rather than at every call site. `inWholeMilliseconds`
-                // first keeps the clamp against the Long floor readable — mixing the two
-                // duration types inside `maxOf` is exactly what would make the floor
-                // silently uncompilable.
-                val intervalMillis = maxOf(schedule.interval.inWholeMilliseconds, MIN_PERIODIC_MILLIS)
+                // WorkManager 2.10 takes java.time.Duration, while JobSchedule speaks
+                // kotlin.time.Duration. Converted here rather than at the JobSchedule
+                // boundary: the domain must not depend on a platform library, and
+                // androidMain is the only place that is allowed to know WorkManager exists.
+                val interval = maxOf(schedule.interval, MIN_PERIODIC_INTERVAL)
                 val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
-                    java.time.Duration.ofMillis(intervalMillis),
+                    java.time.Duration.ofMillis(interval.inWholeMilliseconds),
                 )
                     .setConstraints(constraints())
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
@@ -100,6 +98,7 @@ class AndroidBackgroundWorkScheduler(
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
             .setInputData(inputData(jobId, schedule))
         if (delay > kotlin.time.Duration.ZERO) {
+            // Same kotlin.time -> java.time conversion as the periodic branch above.
             builder.setInitialDelay(java.time.Duration.ofMillis(delay.inWholeMilliseconds))
         }
         workManager.enqueueUniqueWork(
@@ -146,8 +145,12 @@ class AndroidBackgroundWorkScheduler(
          * WorkManager's floor for periodic work. A shorter request is clamped, not rejected,
          * so log it: silently running a 60-second job every 15 minutes is worse than a line
          * explaining why it cannot be honoured.
+         *
+         * A [kotlin.time.Duration] rather than a millisecond count so it can be compared
+         * against `JobSchedule.Periodic.interval`, which is one. The conversion to
+         * `java.time.Duration` belongs at the WorkManager call, not here — see above.
          */
-        const val MIN_PERIODIC_MILLIS = 15 * 60 * 1000L
+        val MIN_PERIODIC_INTERVAL = kotlin.time.Duration.parse("15m")
 
         val BACKOFF = java.time.Duration.ofSeconds(30)
     }
