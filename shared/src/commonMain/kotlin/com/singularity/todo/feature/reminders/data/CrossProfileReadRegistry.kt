@@ -32,6 +32,23 @@ package com.singularity.todo.feature.reminders.data
  * Reads, and only for the re-arm path. Nothing writes through it: a fire still deletes by
  * explicit `user_id`, and `assertCanWrite` still guards every write. If this grows a
  * second entry, the gate that watches it should be extended rather than the list relaxed.
+ *
+ * ## What watches it
+ *
+ * Two gates, and the split matters:
+ *
+ * - `ScopedReadQueryIsolationTest` **finds** an unfiltered read. It derives the set of
+ *   profile-owned tables from `Entities.kt` — not a hand-maintained list, so a new entity is
+ *   covered the moment it is declared — and fails on any `SELECT` over one of them that
+ *   names no scoping column and is neither a primary-key hydration nor sanctioned here.
+ * - `CrossProfileReadRegistryTest` keeps **this list** honest: that every entry still names a
+ *   method that exists, that the count has not grown quietly, that each entry explains the
+ *   boundary it crosses where the query is read, and that the sanctioned method is still
+ *   called by the re-arm path.
+ *
+ * An earlier version of this KDoc claimed the second test existed. It did not — which is
+ * precisely the defect class the two WS4 bugs shared, a document asserting a guard that was
+ * never built. The failure was invisible because nothing reads KDoc claims and checks them.
  */
 object CrossProfileReadRegistry {
 
