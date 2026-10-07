@@ -25,6 +25,7 @@ import pathlib
 from pathlib import PurePosixPath
 import re
 import sys
+import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
@@ -191,25 +192,67 @@ def is_historical(text: str, pos: int) -> bool:
     return any(m in window for m in HISTORY_MARKERS)
 
 
+def _tracked_files() -> list[pathlib.Path]:
+    """Every file git tracks, as absolute paths.
+
+    This replaces the SRC_DIRS walk. The list was maintained by hand and had to be
+    extended every time a top-level directory was added — `.github`, then `infra`,
+    then `supabase` — because an unindexed directory makes every reference under it
+    report dead. Three separate false positives came from one hand-maintained list,
+    and the fourth directory added to this repository would have produced the fourth.
+    `git ls-files` is the definition of what the repository contains; a list of it is
+    a copy that decays.
+
+    Falls back to the SRC_DIRS walk outside a git checkout (a tarball, a CI cache
+    mount), because a gate that silently indexes nothing reports every reference dead.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "-z"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+    return [ROOT / rel for rel in out.split("\0") if rel]
+
+
 def build_index() -> tuple[set[str], dict[str, list[pathlib.Path]]]:
     """Index every tracked file by repo-relative path and by basename."""
     rel_paths: set[str] = set()
     by_name: dict[str, list[pathlib.Path]] = {}
-    for d in SRC_DIRS:
-        base = ROOT / d
-        if not base.exists():
-            continue
-        for p in base.rglob("*"):
-            if not p.is_file():
-                continue
-            if any(part in {"build", ".gradle", ".git"} for part in p.parts):
-                continue
-            try:
-                rel = p.relative_to(ROOT).as_posix()
-            except ValueError:
-                continue
-            rel_paths.add(rel)
-            by_name.setdefault(p.name, []).append(p)
+
+    def add(p: pathlib.Path) -> None:
+        if any(part in {"build", ".gradle", ".git"} for part in p.parts):
+            return
+        try:
+            rel = p.relative_to(ROOT).as_posix()
+        except ValueError:
+            return
+        rel_paths.add(rel)
+        by_name.setdefault(p.name, []).append(p)
+
+    tracked = _tracked_files()
+    if not tracked:
+        # No git index (a tarball, a CI cache mount). Falling back keeps the gate
+        # working, and says so, because the walk cannot see a directory nobody
+        # remembered to add to SRC_DIRS — which is how three false positives got here.
+        print(
+            "check-doc-dead-refs: no git index available, falling back to the SRC_DIRS "
+            "walk. A new top-level directory stays invisible to it until SRC_DIRS is "
+            "edited — see _tracked_files().",
+            file=sys.stderr,
+        )
+        for d in SRC_DIRS:
+            base = ROOT / d
+            if base.exists():
+                for p in base.rglob("*"):
+                    if p.is_file():
+                        add(p)
+    else:
+        for p in tracked:
+            if p.exists():
+                add(p)
+
     for name in TOP_LEVEL_FILES:
         p = ROOT / name
         if p.exists():

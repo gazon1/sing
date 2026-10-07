@@ -278,12 +278,24 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 val currentDraft = draftState.value
                 val validationError = safeValidate(currentDraft)
                 if (validationError != null) {
+                    // Logged, like the throw arm below. Only the throw arm used to
+                    // write anything, so a draft rejected by validation or refused by
+                    // persist left no trace outside the screen — and the screen's only
+                    // signal is a snackbar that is gone within seconds. That is why
+                    // CreateTaskFlowTest's save failure took six Gradle runs to place:
+                    // the evidence the harness captured had nothing in it.
+                    logger.e { "save rejected by validation: $validationError" }
                     updateState { it.copy(error = validationError, isSaving = false) }
                     return@launch
                 }
                 when (val result = persist(currentDraft)) {
                     is Either.Left -> {
-                        updateState { it.copy(error = result.error.toMessage("Save failed")) }
+                        val message = result.error.toMessage("Save failed")
+                        // With the cause, so the log carries the stack and not just the
+                        // message. A `Left` that arrives without one is indistinguishable
+                        // from a plain refusal once it has crossed the use case boundary.
+                        logger.e(result.error.cause) { "save refused: $message" }
+                        updateState { it.copy(error = message) }
                     }
 
                     is Either.Right -> {

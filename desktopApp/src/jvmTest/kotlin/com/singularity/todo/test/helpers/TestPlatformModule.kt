@@ -30,6 +30,7 @@ import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCalendarAppQueries
 import com.singularity.todo.test.fakes.FakeFileRevealer
@@ -39,7 +40,6 @@ import org.koin.dsl.module
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
-import com.singularity.todo.core.database.RoomUnitOfWork
 import com.singularity.todo.core.database.UnitOfWork
 
 /**
@@ -65,12 +65,19 @@ import com.singularity.todo.core.database.UnitOfWork
 fun testPlatformModule(): Module = module {
     // ─── Data layer ────────────────────────────────────────────────────────
     single<AppDatabase> { FakeAppDatabase() }
-    // The repositories open one of these around every write-then-enqueue pair. The
-    // graph here binds `FakeAppDatabase`, so this is the pass-through implementation and
-    // only has to carry the shape — whether a block actually rolls back is asserted in
-    // `UnitOfWorkIsAtomicTest`, against a real database, because that is the only place
-    // the property can be observed. See `FakeUnitOfWork` for the same note in Kotlin.
-    single<UnitOfWork> { RoomUnitOfWork(get()) }
+    // The repositories open one of these around every write-then-enqueue pair. This has
+    // to be the pass-through, and it has to be *this* class specifically: `FakeAppDatabase`
+    // extends the generated `AppDatabase`, so it is a `RoomDatabase` by type but was never
+    // opened by Room, and Room's `coroutineScope` is a `lateinit` that only Room's own
+    // initialisation assigns. Binding `RoomUnitOfWork` here therefore threw
+    // `UninitializedPropertyAccessException: lateinit property coroutineScope` on the first
+    // write of any test that saved a task — caught as a generic "Save failed" on screen,
+    // with the editor left open and nothing in the database.
+    //
+    // Whether a block actually rolls back is asserted in `UnitOfWorkIsAtomicTest`, against
+    // a real database, because that is the only place the property can be observed. See
+    // `FakeUnitOfWork` for the same note in Kotlin.
+    single<UnitOfWork> { FakeUnitOfWork() }
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }
     single { get<AppDatabase>().projectDao() }

@@ -326,18 +326,27 @@ class ScanRepositoryTest(unittest.TestCase):
         # что пути в TEST_ROOTS разошлись с реальностью. Верхняя граница тоже
         # осмысленна: её рост означал бы возврат отсева abstract-баз и хелперов.
         self.assertGreater(len(self.tests), 200)
-        # 370, from 360, on a tree where the count is exactly 360: `abf88fc2` added
-        # SyncEngineEnqueueReportsFailureTest and the ceiling failed on
-        # `360 not less than 360`. Measured the same way every previous bump was —
-        # scan_repository(), paths unique — before raising it.
-        #
-        # Worth saying plainly, because the comment above this used to assert that all
-        # 342 names end in `Test`, and that stopped being true: the property is now
-        # checked where it can be, by deriving each skip from the file that earns it
-        # rather than by asserting a list of names. What is left here is only the
-        # "did the filter regress" tripwire, and a tripwire that is re-derived on every
-        # legitimate addition is a tripwire with a moving target — which is fine, as
-        # long as nobody reads it as a coverage claim. It is not one.
+        # 360, not upstream's 350: this merge adds three classes —
+        # SyncWriteIsAtomicTest, SyncEngineTakesNoFeatureTypesTest and
+        # SyncDiGraphResolutionTest — so the counter moves 348 -> 351 on the merged
+        # tree, verified by scan_repository() with the same check the previous bumps
+        # used (paths unique). 360 leaves nine slots, fewer than the growth of the last
+        # merge, so the bound still asks the question rather than absorbing an overshoot.
+        # 370, not 360: the counter reached 360 exactly and the bound fired as
+        # `360 not less than 360`. Both classes that took it there are upstream's —
+        # SyncedWriteEnqueuesTest and SyncEngineEnqueueReportsFailureTest, one each
+        # from two separate merges — so the growth is real test classes, not the
+        # abstract-base and helper drift the upper bound exists to catch. Ten slots,
+        # more than the last two merges added together, so the bound still asks the
+        # question on the next merge instead of absorbing an overshoot.
+#
+# One correction to the older comment above this line, which asserted that all 342
+# names end in `Test`. That stopped being true and had stopped before this: the
+# property is checked where it can be, by deriving each skip from the file that earns
+# it rather than by asserting a list of names (`unjustified_skips`). What is left here
+# is only a tripwire against the filter regressing, and a tripwire re-derived on every
+# legitimate addition has a moving target. That is fine — as long as nobody reads it as
+# a coverage claim. It is not one.
         self.assertLess(len(self.tests), 370)
         # 260, а не 259: NoopSubscriptionProviderTest.kt объявляет класс
         # PurchaseStateTest, и прежний отсев по «нет @Test у класса с именем

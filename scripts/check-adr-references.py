@@ -148,6 +148,11 @@ def main() -> None:
         sys.exit(f'check_adr_references.py: no ADRs found under {DECISIONS_DIR}')
 
     dangling = find_dangling(slugs)
+    # Sorted before any write. `find_dangling` returns in scan order, which walks
+    # the file list, so two runs over the same tree could reorder every line and
+    # turn a maintenance command into a diff nobody can read. A baseline whose
+    # ordering is unstable cannot be reviewed as a change.
+    dangling = sorted(dangling)
 
     if args.update_baseline:
         header = (
@@ -164,9 +169,30 @@ def main() -> None:
             '# Regenerate deliberately: python3 scripts/check-adr-references.py --update-baseline\n'
             '\n'
         )
-        pathlib.Path(args.baseline).write_text(header + '\n'.join(dangling) + ('\n' if dangling else ''))
+        # Count the rationale that is about to be discarded, before writing rather
+        # than after: once the file is rewritten the information is gone.
+        baseline_file = pathlib.Path(args.baseline)
+        rationale_before = (
+            len([l for l in baseline_file.read_text().splitlines() if l.startswith('#')])
+            if baseline_file.exists() else 0
+        )
+        baseline_file.write_text(header + '\n'.join(dangling) + ('\n' if dangling else ''))
         print(f'check_adr_references: wrote {len(dangling)} entr(ies) to {args.baseline}')
-        return
+        # The file is rewritten wholesale, so rationale comments — the recorded reason
+        # a piece of debt was accepted — do not survive. Reported rather than
+        # mentioned in a comment, because the whole point is that it happens when
+        # nobody is reading the source.
+        dropped = rationale_before - len(header.splitlines())
+        if dropped > 0:
+            print(
+                f'check_adr_references: warning — {dropped} rationale comment(s) above '
+                f'baseline entries were discarded by the rewrite. Re-add the reasons '
+                f'that still hold, or accept the entries without them knowingly.'
+            )
+        # Fall through rather than return. This is the one command that rewrites the
+        # baseline, so it is the one place a malformed write lands unnoticed: a
+        # `--update-baseline` that then reports success is a gate switched off by its
+        # own maintenance path. The verification below must pass on what was written.
 
     baseline_path = pathlib.Path(args.baseline)
     accepted: set[str] = set()
