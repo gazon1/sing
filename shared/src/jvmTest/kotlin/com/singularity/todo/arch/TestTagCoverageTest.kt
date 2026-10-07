@@ -56,13 +56,17 @@ class TestTagCoverageTest {
     private val testSourceDirs = listOf(
         "shared/src/commonTest",
         "shared/src/jvmTest",
-        // Added 2026-10-07. `testAndroidHostTest` applies the same `includeTags` filter
-        // as the other two, so a source set that applies the filter belongs in this list
-        // whether or not it holds tests yet. It held none at the time, and the first
-        // class added to it was excluded from every run — see
-        // "the-android-graph-test-runs-but-cannot-open-a-database" in
-        // `docs/decisions/deferred-backlog.md` for what that cost.
-        "shared/src/androidHostTest",
+        // `shared/src/androidHostTest` was here from 2026-10-07 to 2026-10-08, on the
+        // rationale that it "applies the same `includeTags` filter as the other two".
+        // That stopped being true the same day: `testAndroidHostTest` was exempted from
+        // the filter, because a Robolectric class is JUnit4 and JUnit4 has no `@Tag`, so
+        // the filter could only ever exclude it. Requiring a tag in a source set where
+        // tags cannot work is not a check — it is a rule that can only be satisfied by a
+        // test that does not exist. `AndroidNotifierTest` is the proof: untagged, JUnit4,
+        // runs, and is held in place by a floor rather than by a tag.
+        //
+        // Put this back if the exemption is ever removed — at which point the filter is
+        // back, and the requirement is back, and they have to agree.
         "desktopApp/src/jvmTest",
         "mcp-server/src/test",
     )
