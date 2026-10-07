@@ -145,12 +145,32 @@ non-alphanumeric characters with `_`.
 ### Settings
 | Constant | Value | Where |
 |---|---|---|
+| `Settings.ACTION_ROW` | `settings_action_row` | |
 | `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
 | `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
+| `Settings.VALUE_ROW` | `settings_value_row` | |
 | `Settings.WORK_SCHEDULE_SATURDAY_SWITCH` | `settings_work_schedule_saturday_switch` | |
 | `Settings.WORK_SCHEDULE_SUNDAY_SWITCH` | `settings_work_schedule_sunday_switch` | |
+
+### Onboarding
+| Constant | Value | Where |
+|---|---|---|
+| `Onboarding.REPLAY_TUTORIAL_ROW` | `onboarding_replay_row` | |
+| `Onboarding.SPOTLIGHT_CARD` | `onboarding_spotlight_card` | |
+| `Onboarding.SPOTLIGHT_NEXT` | `onboarding_spotlight_next` | |
+| `Onboarding.SPOTLIGHT_SKIP` | `onboarding_spotlight_skip` | |
+
+### Sync
+| Constant | Value | Where |
+|---|---|---|
+| `Sync.ATTACHMENTS_SWITCH` | `sync_attachments_switch` | |
+| `Sync.AUTO_SYNC_SWITCH` | `sync_auto_sync_switch` | |
+| `Sync.INTERVAL_ROW` | `sync_interval_row` | |
+| `Sync.SYNC_NOW_ROW` | `sync_now_row` | |
+| `Sync.TAB_SLUG` | `sync` | |
+| `Sync.TEST_CONNECTION_ROW` | `sync_test_connection_row` | |
 
 ### Dialog
 | Constant | Value | Where |
