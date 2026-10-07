@@ -122,7 +122,18 @@ class CreateTaskFromDraftUseCase(
                         Either.Right(taskId)
                     },
                     onFailure = { e ->
-                        Either.Left(AppError.Persistence(e.toMessage(), code = "task.draft.persist_failed"))
+                        // The cause travels with the error. `AppError.Unknown`'s own KDoc
+                        // says every producer attaches one, and dropping it here is what
+                        // made CreateTaskFlowTest's save failure undiagnosable: the screen
+                        // showed a generic message, the failure bundle had no stack, and
+                        // the cause was a lateinit that naming alone did not locate.
+                        Either.Left(
+                            AppError.Persistence(
+                                message = e.toMessage(),
+                                code = "task.draft.persist_failed",
+                                cause = e,
+                            ),
+                        )
                     },
                 )
             }

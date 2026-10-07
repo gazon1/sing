@@ -351,7 +351,7 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 ---
 
-## desktop-flow-tests-fail-together-and-one-fails-alone
+## desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch
 
 **Status: OPEN**
 
@@ -360,42 +360,47 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
 
 **Original observation (2026-07):** `ProjectsFlowTest` failed once with
-`NullPointerException` from `ProjectDetailViewModel.getDraftState()` returning null.
-Not reproducible in three `--rerun-tasks` runs, one full rerun at MR-4, or the final
-`check.sh`. Suspected ordering interaction with `shared:jvmTest` sharing the daemon.
-The entry was filed as a one-time flake, and was.
+`NullPointerException` from `ProjectDetailViewModel.getDraftState()`. Not reproducible in
+three `--rerun-tasks` runs. Filed as a one-time flake, and was.
 
-**Re-measured 2026-10-07, and the "not reproducible" no longer holds.** Bisecting
-`:desktopApp:test` found 8 failures across 6 classes. Because
+**Re-measured 2026-10-07.** `:desktopApp:test` had 8 failures across 6 classes. Because
 `desktopApp/build.gradle.kts` sets `parallel.mode.classes.default = same_thread`, the
-classes run *sequentially in one JVM*, so the failures being interleaved with passes
-ruled out poisoning — and the NPE above is not what is failing now. `ProjectsFlowTest`
-fails reproducibly in the batch on clean `origin/main`.
+classes run *sequentially in one JVM* — so a first guess of "load" was wrong and a second
+guess of "state leaking between classes" was wrong too: dumping the result files in
+completion order showed the failures interleaved with passes, which rules out anything
+monotonic. The harness's own failure bundle (`desktopApp/build/diagnostics/<Class>/`) is
+what actually placed it, and six Gradle runs had not.
 
-**One of them is not a batch effect at all.** `CreateTaskFlowTest >
-a_saved_task_without_a_due_date_appears_under_inbox_no_date` fails **in isolation** —
-one class, one test. The harness's own failure bundle settles what the assertion message
-did not (`desktopApp/build/diagnostics/CreateTaskFlowTest/attempt-1/`):
+**Seven of the eight were one binding, now fixed.** `testPlatformModule()` binds
+`single<UnitOfWork> { RoomUnitOfWork(get()) }` against `FakeAppDatabase`. That fake
+*extends the generated `AppDatabase`*, so it is a `RoomDatabase` by type, but Room never
+opened it and Room's `coroutineScope` is a `lateinit` only Room's own initialisation
+assigns. So the first write of any test that saved a task threw
+`UninitializedPropertyAccessException: lateinit property coroutineScope`, surfaced on screen
+as a generic "Save failed", left the editor open, and wrote nothing — which reads exactly
+like a timeout, and is why it was misdiagnosed twice. `FakeUnitOfWork` is the pass-through
+the comment there always described; it is now bound instead.
 
-- `db-state.txt` — `Tasks (0 rows)`. Nothing was persisted.
-- `tree.txt` — the editor is still mounted: `task_editor_title_input`,
-  `task_editor_save` and every editor row are present. **It never closed.**
-- `steps.txt` — `awaitTag(task_editor_save) OK`, then a 5s timeout. No click step is
-  recorded, though the body does call `clickTag(TestTags.TASK_EDITOR_SAVE)`.
+**What remains is one test.** `SetPriorityFlowTest > choosing_high_updates_the_row_label`
+fails in the full suite and **passes in isolation**. Unlike the others it is not a broken
+double: the DB snapshot shows `priority=High`, so the value persisted and only the row
+label is stale. So the class of defect here is narrower and different — a UI that did not
+re-render for a state change that demonstrably happened.
 
-So the click either misses the node or lands and the save does not write. The bundle
-distinguishes those; the assertion alone did not, and read like a render timeout — which
-is what sent the first diagnosis toward "contention under load".
+Two things worth keeping in mind when reading any other failure in this suite:
 
-**Also observed:** `coroutines.txt` reports 182 active coroutines at failure, including
-leaked `CurrentUser` collectors. Worth knowing when reading any other failure here: a
-leaked scope outlives the class that made it.
+- `coroutines.txt` in the bundle reported 182 active coroutines at failure, including
+  leaked `CurrentUser` collectors. A leaked scope outlives the class that made it, which
+  is the most likely home for a batch-only failure.
+- `DraftMviViewModel.save()` had three failure arms and only the `throw` arm logged. A
+  draft rejected by validation, or refused by the use case, left no trace in the bundle —
+  and `CreateTaskFromDraft` dropped the `cause` when wrapping into `AppError.Persistence`,
+  so the stack died at the boundary. Both now carry it. That is the difference between
+  this taking six runs and the next one taking one.
 
-**Try next:** after the click, `awaitTag(task_editor_save).assertDoesNotExist()` before
-awaiting the agenda section — that makes "the editor stayed open" the failure message
-instead of a symptom twenty lines away. The fix itself is in the desktop task-editor
-save path or the harness's click helper, neither of which this branch touches
-(`git diff origin/main...HEAD` is empty for all of `desktopApp/`).
+**Try next:** for the remaining test, assert the priority row's own state rather than its
+rendered label, to separate "the click did not reach the handler" from "the handler ran
+and the composable did not observe". The DB snapshot already says the latter.
 
 ---
 
