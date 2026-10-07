@@ -58,8 +58,22 @@ data class PushSummary(
  * "the server sent three events and two are stored" and "three events were consumed
  * and one was thrown away" — a distinction the old three-field summary could not
  * express, which is why a permanently unappliable event was invisible.
+ *
+ * ## Why there is no conflict count
+ *
+ * There used to be one, and it was always zero in production. `ApplyOutcome.Conflict`
+ * was produced only by a catch block that classified every throw out of a repository
+ * write as "applied, but a field lost to a newer one" — which is what made a full disk
+ * move the cursor past an event whose row was never written (fixed in `ebb3c1dc`). With
+ * that gone, nothing constructs it.
+ *
+ * The reason it could not be real is structural: applying a pull event is a wholesale
+ * upsert of the remote document, with no field-level merge, so "a field lost to a newer
+ * one" cannot occur on this path. The per-field HLC merge that could produce it lives on
+ * the push side. A counter that cannot become non-zero is the same kind of lie the pull
+ * summary used to tell.
  */
-data class PullSummary(val received: Int, val applied: Int, val conflicts: Int, val dropped: Int = 0)
+data class PullSummary(val received: Int, val applied: Int, val dropped: Int = 0)
 
 /**
  * How many events one pull request asks for.
@@ -136,12 +150,22 @@ sealed interface SyncEngineStatus {
  * again could ever help**, because that is what decides the cursor. Every arm here
  * except [Applied] used to be reported as [Applied], and the result was a pull summary
  * that said it had received an event and applied it while the row was never written.
+ *
+ * ## Why there is no Conflict arm
+ *
+ * There was one — "applied, but a field lost to a newer one" — and it was only ever
+ * produced by a catch block that classified *every* throw out of a repository write
+ * that way. That is what turned a full disk into a cursor that moved past an event
+ * whose row was never written (`ebb3c1dc`).
+ *
+ * It could not have been real even when it was: applying a pull event is a wholesale
+ * upsert of the remote document with no field-level merge, so nothing can be lost to a
+ * newer field on this path. The per-field HLC merge that makes that possible lives on
+ * the push side. If a merge is ever added here, the arm comes back with it — and
+ * `ApplyOutcomeArmsTest` fails until someone explains why.
  */
 sealed interface ApplyOutcome {
     data object Applied : ApplyOutcome
-
-    /** Applied, but a field lost to a newer one. The cursor still advances. */
-    data class Conflict(val reason: String) : ApplyOutcome
 
     /**
      * This event cannot be applied and never will be — a payload that is absent or is
@@ -617,8 +641,8 @@ internal class SyncEngine(
 
     /** What one pulled event did, from the loop's point of view. */
     private sealed interface PullStep {
-        /** Applied or conflicted — the cursor may advance past it. */
-        data class Done(val conflicted: Boolean) : PullStep
+        /** Applied cleanly — the cursor may advance past it. */
+        data object Done : PullStep
 
         /** Another profile's event. Skipped, and the cursor still advances. */
         data object Skipped : PullStep
@@ -657,8 +681,7 @@ internal class SyncEngine(
         if (!event.belongsTo(scope)) return PullStep.Skipped
         val handler = handlers[event.entityType] ?: return PullStep.Unappliable
         return when (val outcome = handler.apply(event)) {
-            is ApplyOutcome.Applied -> PullStep.Done(conflicted = false)
-            is ApplyOutcome.Conflict -> PullStep.Done(conflicted = true)
+            is ApplyOutcome.Applied -> PullStep.Done
             is ApplyOutcome.Skipped -> PullStep.AppliedButUnusable(outcome.reason)
             is ApplyOutcome.Failed -> PullStep.Unappliable
         }
@@ -681,7 +704,6 @@ internal class SyncEngine(
         return try {
             var received = 0
             var applied = 0
-            var conflicts = 0
             var dropped = 0
             var maxLsn = sinceLsn
             var stalled: String? = null
@@ -710,7 +732,6 @@ internal class SyncEngine(
 
                     val outcome = applyPage(page, scope)
                     applied += outcome.applied
-                    conflicts += outcome.conflicts
                     dropped += outcome.dropped
                     maxLsn = maxOf(maxLsn, outcome.maxLsn)
                     stalled = outcome.stalled
@@ -754,7 +775,7 @@ internal class SyncEngine(
             // Stamp lastSuccessfulSyncAt so the UI "Last synced" field stays current.
             stateRepository.recordSuccessfulSync(scope, now())
 
-            val summary = PullSummary(received, applied, conflicts, dropped)
+            val summary = PullSummary(received, applied, dropped)
 
             // A cycle that stopped early is not a cycle that finished. Reporting it as
             // a success stamped "last synced" on a device that is now stuck behind an
@@ -878,15 +899,14 @@ internal class SyncEngine(
      */
     private suspend fun applyPage(page: List<SyncEvent>, scope: SyncScope): PageOutcome {
         var applied = 0
-        var conflicts = 0
         var dropped = 0
         var maxLsn = 0L
         var stalled: String? = null
 
         for (event in page) {
             when (val step = applyEvent(event, scope)) {
-                is PullStep.Done -> {
-                    if (step.conflicted) conflicts++ else applied++
+                PullStep.Done -> {
+                    applied++
                     maxLsn = maxOf(maxLsn, event.serverLsn)
                 }
 
@@ -931,15 +951,9 @@ internal class SyncEngine(
                 }
             }
         }
-        return PageOutcome(applied, conflicts, dropped, maxLsn, stalled)
+        return PageOutcome(applied, dropped, maxLsn, stalled)
     }
 
     /** What one page of the feed cost, and whether it stopped early. */
-    private data class PageOutcome(
-        val applied: Int,
-        val conflicts: Int,
-        val dropped: Int,
-        val maxLsn: Long,
-        val stalled: String?,
-    )
+    private data class PageOutcome(val applied: Int, val dropped: Int, val maxLsn: Long, val stalled: String?)
 }
