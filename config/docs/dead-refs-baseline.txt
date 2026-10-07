@@ -362,3 +362,16 @@ shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector
 .agents/skills/retro/SKILL.md:CLAUDE.md
 .agents/skills/tdd/SKILL.md:GLOSSARY.md
 .agents/skills/triage/SKILL.md:GLOSSARY.md
+
+# Added 2026-10-07 during a merge round. This is a FALSE POSITIVE, not accepted debt.
+#
+# `EnqueueSiteIsScannedTest` builds an in-memory `SourceFile` whose path is
+# `feature/widget/data/WidgetStore.kt` — a synthetic fixture for the control case that
+# proves the scan set is not silently excluding files. No such file exists, or should.
+# The scanner cannot tell a path used as data from one asserted to exist, so the fixture
+# reads as a dead reference.
+#
+# Baselined rather than reworded because rewording would mean changing the fixture's
+# path to something no rule matches, which is exactly the defect the test exists to
+# catch. Present on origin/main as of 59c00f97, not introduced by this branch.
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/EnqueueSiteIsScannedTest.kt:WidgetStore.kt

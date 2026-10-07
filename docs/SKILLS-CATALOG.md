@@ -75,7 +75,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 346 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |
 | `singularity-todo-room-migration` | 322 | Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. |
-| `singularity-todo-room-multi-instance` | 241 | Cross-process SQLite access pattern for Singularity Todo KMP. |
+| `singularity-todo-room-multi-instance` | 149 | Cross-process SQLite access for Singularity Todo KMP. |
 | `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |
 | `singularity-todo-secure-storage` | 173 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
 | `singularity-todo-shared-ui-components` | 41 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
