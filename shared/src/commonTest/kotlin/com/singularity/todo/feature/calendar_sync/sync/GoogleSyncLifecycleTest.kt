@@ -113,7 +113,7 @@ class GoogleSyncLifecycleTest {
 
     private fun engine(source: CalendarEventSource) = GoogleSyncEngine(
         eventSource = source,
-            importWindow = ImportWindow.DEFAULT,
+        importWindow = ImportWindow.DEFAULT,
         shadowDao = db.googleEventShadowDao(),
         stateDao = db.calendarSyncStateDao(),
         importDao = db.calendarImportEventDao(),
