@@ -209,8 +209,21 @@ gate-honesty *args="":
 detekt-fix:
     #!/bin/bash
     set -euo pipefail
-    # detekt 2.x merges formatting into the main task with autoCorrect=true in ktlint config
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt --auto-correct
+    # ONE detekt task per Gradle invocation. With two or more detekt tasks in a single
+    # build, `--auto-correct` silently corrects nothing — no warning, no changed file,
+    # exit 1 for the findings it did not correct. Verified by planting a violation
+    # (missing final newline + `{ return x }`) and watching the byte at EOF:
+    #   one task   -> file rewritten, last byte 0x0a
+    #   two tasks  -> file untouched, last byte 0x7d, "0 files modified"
+    # See ADR 2026-10-07-detekt-auto-correct-single-task.
+    #
+    # The fix pass ignores its exit code: detekt reports the findings it just corrected,
+    # so a clean auto-correct still exits 1. The verification pass below is the
+    # authoritative one and its exit code decides.
+    for module in :shared :desktopApp :detekt-rules :androidApp; do
+        ./gw "$module:detekt" --auto-correct --console=plain >/dev/null 2>&1 || true
+    done
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt --console=plain
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
