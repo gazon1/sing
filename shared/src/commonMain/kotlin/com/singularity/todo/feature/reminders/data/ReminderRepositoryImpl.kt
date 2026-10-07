@@ -34,6 +34,9 @@ class ReminderRepositoryImpl(
         dao.watchAll(uid.value).map { list -> list.map { it.toReminder() } }
     }
 
+    override fun observeAllProfiles(): Flow<List<Reminder>> =
+        dao.watchAllProfiles().map { list -> list.map { it.toReminder() } }
+
     override fun observe(id: ReminderId): Flow<Reminder?> = currentUser.observeForCurrentUser { uid ->
         dao.watchByIdForUser(id.value, uid.value).map { it?.toReminder() }
     }

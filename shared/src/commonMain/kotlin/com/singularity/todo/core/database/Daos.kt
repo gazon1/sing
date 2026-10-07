@@ -677,6 +677,24 @@ interface ReminderDao {
     @Query("SELECT * FROM task_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
     fun watchAll(userId: String): Flow<List<TaskReminderEntity>>
 
+    /**
+     * Every reminder, across every profile.
+     *
+     * The only query in this table with **no** `user_id` filter, and the only deliberate
+     * hole in profile isolation it has. It exists for one caller: re-arming the OS alarms
+     * at boot or launch, which is a device-wide operation and not a per-profile one.
+     *
+     * The alternative was wrong in a way that is hard to see. Arming from `watchAll`
+     * (profile-scoped) means a reminder for a profile that is not active is never armed at
+     * all — it fires only when its owner switches to that profile and relaunches the app.
+     * The user set a reminder, the row exists, and nothing reminds them.
+     *
+     * Reads only. Nothing writes through this, and `ReminderRepository` exposes it under a
+     * name that says what it is — see `CrossProfileReadRegistry`.
+     */
+    @Query("SELECT * FROM task_reminders ORDER BY fire_at ASC")
+    fun watchAllProfiles(): Flow<List<TaskReminderEntity>>
+
     @Query("SELECT * FROM task_reminders WHERE task_id = :taskId AND user_id = :userId ORDER BY fire_at ASC")
     fun watchByTask(taskId: String, userId: String): Flow<List<TaskReminderEntity>>
 

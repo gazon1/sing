@@ -1308,6 +1308,12 @@ private class FakeReminderDao(
     override fun watchAll(userId: String): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
         store.map { it.values.filter { r -> r.userId == userId }.sortedBy { it.fireAt } }
 
+    // The one cross-profile read in this table. Unfiltered on purpose — a fake that
+    // filtered here would make the alarm re-arm look correct while the real DAO query
+    // silently dropped another profile's reminders.
+    override fun watchAllProfiles(): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
+        store.map { it.values.sortedBy { r -> r.fireAt } }
+
     override fun watchByTask(
         taskId: String,
         userId: String,

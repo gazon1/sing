@@ -386,6 +386,7 @@
     <ID>TooManyFunctions:AttachmentDao.kt:AttachmentDao</ID>
     <ID>TooManyFunctions:Daos.kt:NoteDao</ID>
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
+    <ID>TooManyFunctions:Daos.kt:ReminderDao</ID>
     <ID>TooManyFunctions:Daos.kt:TaskDao</ID>
     <ID>TooManyFunctions:DraftMviViewModel.kt:DraftMviViewModel&lt;D : Any, I : MviIntent, E : MviEvent&gt; : MviViewModel</ID>
     <ID>TooManyFunctions:JvmSecureStorage.kt:JvmSecureStorage : SecureStoragePort</ID>

@@ -18,8 +18,8 @@ import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.reminders.JvmReminderFireCommand
+import com.singularity.todo.feature.reminders.JvmReminderFireRunner
 import com.singularity.todo.feature.reminders.JvmReminderRearm
-import com.singularity.todo.feature.reminders.ReminderDelivery
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import kotlinx.coroutines.cancel
@@ -134,7 +134,9 @@ private suspend fun rearmReminders(koin: Koin) {
     val log = Logger.withTag("rearm-reminders")
     val report = JvmReminderRearm.run(
         scheduler = koin.get<ReminderScheduler>(),
-        reminders = koin.get<ReminderRepository>().observeAll().first(),
+        // Cross-profile, like the Android catch-up: a reminder for a profile that is not
+        // active must still be armed, or it never fires until its owner switches to it.
+        reminders = koin.get<ReminderRepository>().observeAllProfiles().first(),
         // The graph's clock, not `Clock.System`: every other time decision in this codebase
         // reads it from DI so a test can drive it. A second time source in the same file is
         // how the two drift.
@@ -181,14 +183,9 @@ private fun fireReminder(request: JvmReminderFireCommand.Request) = runBlocking 
 
     val koin = GlobalContext.get()
     val scope = createBackgroundScope(loggingBackgroundFailureHandler())
-    ProfileBootstrapper(koin.get()).run()
-    // `ReminderDelivery` is the same object Android fires through, so the text, the tag
-    // and the one-shot retirement cannot differ between the two platforms.
-    val outcome = koin.get<ReminderDelivery>().fire(
-        reminderId = request.reminderId,
-        userId = request.userId,
-    )
-    Logger.withTag("fire-reminder").i { "Reminder ${request.reminderId.value}: $outcome" }
+    // The ordering inside the runner — resolve the profile, then fire — is load-bearing
+    // and lives where it can be tested, not in a file no test executes.
+    JvmReminderFireRunner.run(koin, request)
     scope.cancel()
     stopKoin()
 }
