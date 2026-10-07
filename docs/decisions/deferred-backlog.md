@@ -176,6 +176,45 @@ because some will turn out unnecessary.
 
 ---
 
+### Which of them a Maestro flow could close: none, measured 2026-10-07
+
+Asked to tag flows so the matrix would stop standing at `holes: 32 / dark_scenarios: 16`,
+the answer was **zero tags**, because zero could be placed honestly. The 32 holes
+decompose as follows, and every branch is a structural reason rather than an
+unfinished job:
+
+| Holes | Why no flow can close them |
+|---|---|
+| 16 (8 SYNC specs × 2 tiers) | the sync specs are *defined* by a second device; `sync/01-offline-create-survives-reconnect.yaml` is single-device and does not verify any of them |
+| 6 of those | already counted as `unreachable` in the ratchet — same reason, recorded |
+| 6 AUTH specs | **there is no auth flow in `Maestro/flows/` at all**; six specs, zero candidate flows |
+| `TASK-CHECK-01` | its spec claims `targets: [desktop]`, so an Android flow structurally cannot close it — it needs a JVM Compose test |
+| `CAL-FILT-01` | its `expected` records that the feature **does not exist**: "Nothing happens, and nothing ever did: there is no `CalendarFilterPanel` in the tree". A carrier would assert absence, which is a different claim from the one the spec makes |
+| `TASK-TIME-01` (2 cells) | the UI exists (`feature/timetracking/presentation/components/TimeTrackingSection.kt`) but no flow drives it; the `pomodoro/*` flows are a different feature. Its `○` is not a tagging gap, it is a missing flow |
+
+**Already ruled out:** not an argument that tagging is wrong in general. `TASK-REC-01`
+is tagged and legitimately so — one flow, one honest carrier.
+
+**Why this matters more than the number.** The ratchet's own note for `TASK-TIME-01`
+records the failure mode this avoids: "a spec narrowed to match a bug is neither honest
+nor a coverage claim". A tag on a flow that does not exercise the scenario would make
+`holes` fall while coverage stays exactly where it was — the matrix would stop being a
+measurement and become a decoration. Same defect class as a gate that reports green
+without running, and worse, because the number would look like progress.
+
+**Order of work, given the table above:**
+
+1. **Write flows, then tag them.** The order is the whole point. A new flow for
+   `TASK-TIME-01` that starts and stops a timer, verified on a device, earns its tag;
+   a tag on `pomodoro/02-start-focus-task.yaml` does not.
+2. **`CAL-FILT-01` first, because it needs no flow.** Its spec says the feature does
+   not exist. Either delete the spec or implement the filter — both are smaller than a
+   test, and both stop the scenario layer carrying a permanent fiction.
+3. **`TASK-CHECK-01` is a desktop carrier problem**, not a Maestro problem: its spec
+   claims `[desktop]`, and the checklist section is JVM-testable today.
+4. **The AUTH specs need a whole flow family** — six specs, zero flows, which is the
+   largest single block of uncovered product behaviour in the matrix.
+
 ## debug-seed-cannot-build-a-related-graph
 
 **Status: OPEN**

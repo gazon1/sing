@@ -564,3 +564,109 @@ class PartHTest(unittest.TestCase):
         })
         # The point is that it returns at all.
         self.assertEqual(gw.check_gate_reachability(), [])
+
+
+class PartITest(unittest.TestCase):
+    """A Gradle task named by one surface only is a task the other never runs.
+
+    Part A asks whether a task is invoked *somewhere*, which CI alone satisfies —
+    that is how `./check.sh` is green on a module whose lint it never executed.
+    """
+
+    def setUp(self) -> None:
+        # Every test starts from an empty declaration table so that a synthetic
+        # repo is never judged by the real repository's asymmetries: `:pro:detekt`
+        # would be flagged ci-only in a fixture that simply does not mention it.
+        self._table = dict(gw.GRADLE_TASK_PARITY)
+        gw.GRADLE_TASK_PARITY.clear()
+        self.addCleanup(self._restore_table)
+
+    def _restore_table(self) -> None:
+        gw.GRADLE_TASK_PARITY.clear()
+        gw.GRADLE_TASK_PARITY.update(self._table)
+
+    def _surfaces(self, check_sh: str, ci_yml: str) -> None:
+        tmp = pathlib.Path(self.enterContext(_tmpdir()))
+        (tmp / '.github' / 'workflows').mkdir(parents=True)
+        (tmp / 'check.sh').write_text(check_sh, encoding='utf-8')
+        (tmp / '.github' / 'workflows' / 'ci.yml').write_text(ci_yml, encoding='utf-8')
+        original_root = gw.ROOT
+        gw.ROOT = tmp
+        self.addCleanup(setattr, gw, 'ROOT', original_root)
+
+    def test_a_task_named_only_by_ci_is_reported(self):
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task :androidApp:detekt\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':androidApp:detekt', errors[0])
+        self.assertIn('check.sh', errors[0],
+                      'the message must name the surface that has to add it')
+
+    def test_the_real_surfaces_are_in_parity(self):
+        self._restore_table()
+        self.assertEqual(gw.check_gradle_task_parity(), [])
+
+    def test_a_task_named_only_locally_is_reported(self):
+        self._surfaces(
+            './gw :common:task --quiet\n./gw :onlylocal:task\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':onlylocal:task', errors[0])
+        self.assertIn('ci.yml', errors[0])
+
+    def test_a_declared_asymmetry_is_not_a_finding(self):
+        gw.GRADLE_TASK_PARITY[':pro:detekt'] = ('ci', 'only exists under -PwithPro=true')
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task :pro:detekt\n',
+        )
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'an asymmetry with a stated reason is the arrangement; an '
+                         'undeclared one is a lie in a shell script')
+
+    def test_a_covered_task_must_still_be_named_locally(self):
+        gw.GRADLE_TASK_PARITY[':shared:jvmTest'] = ('covered', 'via koverReport')
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':shared:jvmTest', errors[0],
+                      'a covered row must not become a loophole: dropping the task '
+                      'from check.sh has to be reported, not tolerated')
+
+    def test_a_floor_declaration_is_not_an_invocation(self):
+        # `--require common:task` names a task as a floor to compare against and
+        # never runs it. It is spelled without the leading colon the Gradle CLI
+        # uses, so neither surface names a task and nothing is reported. Pinned
+        # deliberately: if this ever started counting, Part I would report
+        # :mcp-server:test as a local gap on the basis of a string that runs nothing.
+        self._surfaces(
+            '# no Gradle task is named on the local surface\n',
+            'jobs:\n  t:\n    steps:\n      - run: python3 scripts/check-test-runs.py '
+            '--require common:task\n',
+        )
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'a floor declaration is not an invocation')
+
+    def test_release_workflow_tasks_are_not_verification_tasks(self):
+        # release.yml assembles an unsigned APK and a deb to publish. Requiring
+        # check.sh to build a release artifact would put a shipping decision in
+        # the developer loop.
+        self._surfaces(
+            './gw :shared:detekt --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :shared:detekt\n',
+        )
+        release = pathlib.Path(gw.ROOT) / '.github' / 'workflows' / 'release.yml'
+        release.write_text('jobs:\n  t:\n    steps:\n'
+                           '      - run: ./gradlew :androidApp:assembleRelease '
+                           ':desktopApp:packageDeb\n',
+                           encoding='utf-8')
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'release.yml is packaging, not verification')

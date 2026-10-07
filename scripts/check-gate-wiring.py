@@ -1384,6 +1384,171 @@ def reachable_gate_scripts() -> set[str]:
     return invoked
 
 
+# ── Part I: a Gradle task named by one surface is named by neither, in effect ──
+#
+# Part A asks whether a Gradle check task is invoked *somewhere*. That question
+# has a defect in it, and the defect is the reason `./check.sh` can be green while
+# CI is red: "somewhere" is satisfied by CI alone.
+#
+# Measured at `5146543f`, two configured check tasks were named by ci.yml and by
+# nothing else: `:androidApp:detekt` and `:detekt-rules:detekt`. The local loop
+# therefore never linted two of the six configured modules — including
+# `detekt-rules`, the module that holds the project's own custom rules, where a
+# rule file that does not lint looks identical to one with no findings. Both are
+# now named in `check.sh`.
+#
+# ## What this check actually detects, precisely
+#
+# It detects **presence of a task string**, not invocation. The two differ:
+# `python3 scripts/check-test-runs.py --require mcp-server:test` names the task as
+# a floor to compare against, and never runs it. Such a mention counts as presence
+# here.
+#
+# That errs toward passing, which is the direction this file warns about elsewhere
+# ("a derivation that quietly sees a third of its input is worse than no
+# derivation"). It is deliberate rather than accidental, because the alternative —
+# proving from shell and YAML text that a Gradle task is *invoked* — means
+# resolving `run:` blocks, matrices and line continuations, and a wrong answer
+# there is worse than a known approximation. What this check guarantees is
+# narrower and still worth having: **a module whose lint or tests nobody names on
+# the local surface cannot go unnoticed**, and every intentional asymmetry is a
+# row in the table with a reason attached. `test_a_floor_declaration_counts_as
+# _presence` pins that behaviour so it cannot change silently.
+
+#: Gradle task -> (side it legitimately runs on, why). Every task named by either
+#: surface and absent from this table is required to run on both.
+#:
+#: `covered` is the state that "both" cannot express: `check.sh` names the task and
+#: CI reaches it by a route that does not spell the task name. `koverReport` is the
+#: case that matters — CI invokes it and it aggregates `:shared:jvmTest` and
+#: `:desktopApp:test`, so both really do run there, but neither string appears in
+#: `ci.yml`. Demanding the literal spelling would mean adding a redundant
+#: invocation; allowing it silently would be the Part A defect one level up.
+GRADLE_TASK_PARITY: dict[str, tuple[str, str]] = {
+    ":shared:jvmTest": (
+        "covered",
+        "CI reaches it through `koverReport`, which aggregates the test task and "
+        "instruments it. `ci.yml` never spells the task; adding a second literal "
+        "invocation would be noise, not coverage.",
+    ),
+    ":desktopApp:test": (
+        "covered",
+        "same route as :shared:jvmTest — `koverReport` in ci.yml's tests job.",
+    ),
+    ":androidApp:connectedDebugAndroidTest": (
+        "covered",
+        "CI runs it in android-device-tests.yml, not ci.yml. It needs an "
+        "emulator, so it cannot join a PR's cheap surfaces; see "
+        "docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md",
+    ),
+    ":mcp-server:compileKotlin": (
+        "local",
+        "CI compiles this module through :mcp-server:jar, which is a strict "
+        "superset — the DI-graph check runs either way. Naming it locally is "
+        "what makes the validation visible on the surface a developer reads.",
+    ),
+    ":mcp-server:jar": (
+        "ci",
+        "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
+        "itself when the jar is absent. Building it is a CI concern; the "
+        "local loop validates compilation, not the packaged artifact.",
+    ),
+    ":pro:detekt": (
+        "ci",
+        ":pro is included in settings.gradle.kts only under "
+        "-PwithPro=true, so the task does not exist in a plain local build. "
+        "CI's `pro` matrix leg passes the flag.",
+    ),
+    ":pro:testDebugUnitTest": (
+        "ci",
+        "same reason as :pro:detekt — the module is only in the graph when "
+        "-PwithPro=true is passed, which is the `pro` matrix leg's job",
+    ),
+    ":shared:testAndroidHostTest": (
+        "ci",
+        "the Android host source set is built only in its own CI job; see "
+        "openspec/changes/ci-checks-parallel-split for why it was split out",
+    ),
+}
+
+#: A Gradle task as it is spelled in a shell script or a workflow: `:module:task`.
+_GRADLE_TASK = re.compile(r"(?<![A-Za-z0-9_.-])(:[a-zA-Z][\w-]*:[a-zA-Z][\w-]*)")
+
+#: The one workflow whose Gradle tasks are packaging steps rather than checks.
+_NON_VERIFICATION_WORKFLOW = "release.yml"
+
+
+def named_gradle_tasks(path: Path) -> set[str]:
+    """Gradle tasks named anywhere in one surface, comments stripped."""
+    try:
+        text = _strip_comments(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return set()
+    return set(_GRADLE_TASK.findall(text))
+
+
+def check_gradle_task_parity() -> list[str]:
+    errors: list[str] = []
+    # Every workflow, not just ci.yml: `:androidApp:connectedDebugAndroidTest`
+    # lives in android-device-tests.yml, and a rule that only reads ci.yml would
+    # report a genuinely-covered task as a hole — the "a derivation that quietly
+    # sees a third of its input" failure this file already warns about twice.
+    #
+    # `release.yml` is excluded because it is not a verification surface. It
+    # assembles an unsigned release APK and a Linux deb in order to publish them;
+    # those are packaging steps, not checks, and requiring `check.sh` to build a
+    # release artifact locally would put a shipping decision in the developer loop.
+    ci: set[str] = set()
+    for workflow in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        if workflow.name == _NON_VERIFICATION_WORKFLOW:
+            continue
+        ci |= named_gradle_tasks(workflow)
+    local = named_gradle_tasks(ROOT / "check.sh")
+
+    # `covered` rows are checked even when absent from both surfaces. Otherwise a
+    # `covered` declaration is a loophole: drop the task from check.sh and the
+    # union no longer contains it, so nothing compares it against the table and
+    # the declaration quietly stops meaning anything.
+    #
+    # `ci` and `local` rows are only judged when the task is actually named
+    # somewhere. `:shared:testAndroidHostTest` is declared ci-only and appears in
+    # neither surface under this spelling — CI reaches it without writing the task
+    # name — and reporting that as a divergence would be the check inventing a
+    # defect to look thorough.
+    covered = {t for t, (side, _) in GRADLE_TASK_PARITY.items() if side == "covered"}
+    for task in sorted(ci | local | covered):
+        declared = GRADLE_TASK_PARITY.get(task)
+        want = declared[0] if declared else "both"
+        in_ci, in_local = task in ci, task in local
+
+        if want == "covered":
+            if not in_local:
+                errors.append(
+                    f"{task}: declared 'covered' — check.sh must still name it, "
+                    f"because that is where the rehearsal happens. {declared[1]}"
+                )
+            continue
+
+        actual = "both" if in_ci and in_local else ("ci" if in_ci else "local")
+        if actual == want:
+            continue
+        errors.append(
+            f"{task}: named only by {actual}, required {want} — "
+            + (
+                declared[1]
+                if declared
+                else (
+                    f"not named by {'check.sh' if in_ci else 'ci.yml'}. Part A "
+                    f"passed this task because it was named *somewhere*, which is "
+                    f"exactly how a local loop ends up green on a module CI would "
+                    f"fail. Name it there, or declare it in GRADLE_TASK_PARITY "
+                    f"with the reason the asymmetry is legitimate."
+                )
+            )
+        )
+    return errors
+
+
 def check_gate_reachability() -> list[str]:
     errors: list[str] = []
     reachable = reachable_gate_scripts()
@@ -1424,6 +1589,9 @@ def main() -> int:
     ap.add_argument(
         "--reachability", action="store_true", help="Part H only"
     )
+    ap.add_argument(
+        "--gradle-parity", action="store_true", help="Part I only"
+    )
     args = ap.parse_args()
     only = (
         args.wiring
@@ -1434,6 +1602,7 @@ def main() -> int:
         or args.registry
         or args.registry_wiring
         or args.reachability
+        or args.gradle_parity
     )
     run_a = args.wiring or not only
     run_b = args.can_fail or not only
@@ -1443,6 +1612,7 @@ def main() -> int:
     run_f = args.registry or not only
     run_g = args.registry_wiring or not only
     run_h = args.reachability or not only
+    run_i = args.gradle_parity or not only
 
     errors: list[str] = []
 
@@ -1507,6 +1677,12 @@ def main() -> int:
         errors += check_gate_reachability()
         if not orphans:
             print("  ok  no gate-shaped script is left unreachable")
+
+    if run_i:
+        print("\nPart I — every Gradle task a surface names is named by both")
+        errors += check_gradle_task_parity()
+        if not check_gradle_task_parity():
+            print("  ok  check.sh and ci.yml name the same Gradle tasks")
 
     if errors:
         print("")
