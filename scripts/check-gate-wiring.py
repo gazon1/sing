@@ -24,8 +24,14 @@ Part B — **can fail.** Every script gate registered below is run against a
 deliberately sabotaged input and must exit non-zero. This is the positive
 control that `--warn-only` and the invalid-YAML cases never had.
 
+Parts C–G cover the properties that Parts A and B cannot see: C, a configured
+Gradle task must be capable of failing; D, a non-blocking step must declare
+itself advisory; E, a CI/local asymmetry must be declared with a reason; F,
+every registered gate must have a positive control; G, the shared gate registry
+itself must be invoked by both CI and `check.sh`.
+
 Usage:
-    python3 scripts/check-gate-wiring.py            # both parts
+    python3 scripts/check-gate-wiring.py            # every part
     python3 scripts/check-gate-wiring.py --wiring   # Part A only (static, fast)
     python3 scripts/check-gate-wiring.py --can-fail # Part B only (mutates, restores)
 
@@ -49,7 +55,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-GATE_FILES = [ROOT / "check.sh", *sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
+#: The single registry of script gates. `ci.yml`'s `static` job and `check.sh`
+#: both call this one file, so a gate named there runs in both environments.
+#:
+#: It belongs in `GATE_FILES` for the same reason `check.sh` does: a surface
+#: this list omits is a surface whose gates are invisible to Part A (is the task
+#: invoked), Part E (where does the gate run) and Part F (does it have a
+#: positive control). Leaving the registry out fails nothing — it makes every
+#: gate in it silently unverified, which is the defect this file exists to
+#: catch, one level up from where it usually shows up.
+GATE_REGISTRY = ROOT / "scripts" / "ci" / "static-gates.sh"
+
+GATE_FILES = [
+    ROOT / "check.sh",
+    *sorted((ROOT / ".github" / "workflows").glob("*.yml")),
+    GATE_REGISTRY,
+]
 
 # Task-name spellings a gate may use instead of the exact `:module:task`. Empty by
 # default on purpose: each entry has to be justified, because a permissive alias is
@@ -299,7 +320,20 @@ SCRIPT_GATES = [
         # annotation reproduces that state, so the control is the real bug rather
         # than a convenient one.
         sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt",
-        sabotage="p.write_text(p.read_text().replace('const val SCHEMA_VERSION = 37', 'const val SCHEMA_VERSION = 36'))",
+        # The value is matched by regex and the match is asserted, never replaced by
+        # a literal. This entry had `SCHEMA_VERSION = 37` hardcoded; the schema moved
+        # to 38, `replace` silently found nothing, the gate was handed an unmodified
+        # file and correctly passed — and the control reported "it cannot detect
+        # this", which reads like a broken gate rather than a broken control. A
+        # control that quietly stops sabotaging is worse than no control, because it
+        # is reported as a passing one. The `assert` makes the no-op loud instead.
+        sabotage=(
+            "import re\n"
+            "_t = p.read_text()\n"
+            "_t2, _n = re.subn(r'const val SCHEMA_VERSION = \\d+', 'const val SCHEMA_VERSION = 1', _t, count=1)\n"
+            "assert _n == 1, 'SCHEMA_VERSION declaration not found — the control would be a no-op'\n"
+            "p.write_text(_t2)\n"
+        ),
         why="an entity change without a version bump passes every test and crashes every existing install on upgrade",
     ),
     ScriptGate(
@@ -816,10 +850,10 @@ def _softens_the_step(commands: str) -> bool:
 
     GitHub runs a `run:` block under `bash -eo pipefail`, so a failing command
     aborts the step. That makes an interior `|| true` a defensive idiom rather
-    than a soft step: `nth_shard` in maestro-nightly.yml ends its pipeline with
-    `grep . || true` so that an empty shard range does not kill the loop that
-    fills the other three, and the step still fails loudly if the arithmetic
-    above it is wrong.
+    than a soft step: the shard loop in scripts/ci/e2e-shard.sh ends its pipeline
+    with `paste -sd, - || true` so that an empty tag list does not kill the loop
+    that fills the rest, and the step still fails loudly if the arithmetic above
+    it is wrong.
 
     Only a `|| true` on the last command of the block can swallow the step's own
     status. Flagging interior ones reports a correct workflow as broken, and the
@@ -840,6 +874,47 @@ def _softens_the_step(commands: str) -> bool:
     return bool(re.search(r"\|\|\s*true\b", lines[-1]))
 
 
+def registry_soft_exits() -> list[str]:
+    """Ways the shared registry could make itself non-blocking behind our back.
+
+    Part D reads workflows, because a workflow step is where a reader looks to
+    decide whether a check gates anything. That worked when the gates *were* the
+    workflow steps. Now they live in `static-gates.sh`, which no reader of
+    `ci.yml` ever sees — so a `|| true` pasted into the registry would soften a
+    gate with no trace in the file people actually review.
+
+    The registry has one honest way to be non-blocking: `gate advisory`, which
+    emits a warning annotation and a summary line. So the rule here is not "no
+    `|| true` ever" — it is that the declared mechanism is the only one available
+    on the line that decides a verdict.
+
+    Scoped to `gate` invocation lines on purpose. `gate` runs its command and
+    reads `$?`, so a `|| true` there is the real defect: the verdict becomes 0
+    whatever the command did. The idiom `n=$(grep -c … || true)` in a helper is a
+    different thing — it captures a count where `grep -c` exits 1 on no match and
+    the "failure" is the answer, not a suppressed error. Flagging that would report
+    a correct script as broken, and the tempting response — delete the `|| true` —
+    would break the helper.
+    """
+    if not GATE_REGISTRY.is_file():
+        return []
+    findings: list[str] = []
+    for num, line in enumerate(GATE_REGISTRY.read_text(encoding="utf-8").splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped.startswith("gate "):
+            continue
+        if re.search(r"\|\|\s*true\b", stripped):
+            findings.append(
+                f"static-gates.sh:{num}: `gate` invocation ends in `|| true` — the "
+                f"verdict becomes 0 whatever the command did; use `gate advisory`"
+            )
+        if re.search(r"set\s+\+e\b", stripped):
+            findings.append(
+                f"static-gates.sh:{num}: `set +e` — a gate that cannot fail is not a gate"
+            )
+    return findings
+
+
 def check_ci_steps_blocking() -> list[str]:
     undeclared = [
         f"{wf}: '{step}' cannot fail ({mech}) and neither its name nor its comment"
@@ -847,6 +922,7 @@ def check_ci_steps_blocking() -> list[str]:
         for wf, step, mech, declared in non_blocking_steps()
         if not declared
     ]
+    undeclared += registry_soft_exits()
     if not undeclared:
         print("  ok  every non-blocking CI step declares itself advisory")
         return []
@@ -859,6 +935,9 @@ def check_ci_steps_blocking() -> list[str]:
                 "as a gate. Either make it blocking, or put 'advisory' in the step name",
                 "or in a comment on the step, so the next reader of the workflow can",
                 "tell which kind it is.",
+                "",
+                "In scripts/ci/static-gates.sh there is no third option: use",
+                "`gate advisory`, which is visible as a warning and in the summary.",
             ]
         )
     ]
@@ -888,15 +967,17 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "previous run to diff against, so it is not runnable locally at all",
     ),
     "scripts/check-openspec-stale.py": (
-        "ci",
-        "advisory by construction (`|| true` in ci.yml): a stale change is "
-        "reported, not blocked, so it is not part of the local pass either",
+        "both",
+        "advisory by construction: it runs as `gate advisory` in the shared "
+        "registry, so both CI and check.sh report a stale change as a warning "
+        "and neither blocks on it",
     ),
     "scripts/check-backlog-status.py": (
         "local",
         "the backlog budget and the 'every OPEN entry is tracked' rule are a "
-        "housekeeping invariant over a file that changes with every commit; CI "
-        "does not enforce it, so an untracked OPEN entry can reach main",
+        "housekeeping invariant over a file that changes with every commit; it "
+        "is deliberately NOT in the shared registry, because a PR must not be "
+        "blocked by backlog bookkeeping",
     ),
 }
 
@@ -911,7 +992,7 @@ GATE_ARG_PARITY: dict[tuple[str, str], str] = {
         "ci"
     ),
     ("scripts/check-doc-dead-refs.py", "--skill-symbols"): (
-        "ci"
+        "both"
     ),
     ("scripts/check-test-runs.py", "--require shared:testAndroidHostTest"): "ci",
     ("scripts/check-test-runs.py", "--require mcp-server:test"): "ci",
@@ -924,7 +1005,8 @@ _ADVISORY_NOTE = {
     ),
     ("scripts/check-doc-dead-refs.py", "--skill-symbols"): (
         "a second variant covering SKILL.md symbol references, which the bare "
-        "call does not check"
+        "call does not check; it now comes from the shared registry, so it runs "
+        "locally too rather than only in CI"
     ),
     ("scripts/check-test-runs.py", "--require shared:testAndroidHostTest"): (
         "the Android host source set is built only in its own CI job"
@@ -966,10 +1048,32 @@ def _leading_arg(args: str) -> str:
     return parts[0]
 
 
-def check_gate_parity() -> list[str]:
+def _gate_texts(side: str) -> str:
+    """Concatenate the gate surfaces of one environment.
+
+    `scripts/ci/static-gates.sh` counts on BOTH sides, and that is the whole
+    point of it: CI and `check.sh` run the same file, so a gate it names runs
+    in both. Counting it as CI-only would report the shared registry as an
+    asymmetry on every gate it holds, and counting it as neither would let a
+    gate run in exactly one environment forever.
+
+    `ci.yml` alone is deliberately not enough: a gate can be invoked from a
+    job that is not `test-and-check`, and a gate that moved into the registry
+    left `ci.yml` entirely. Both mistakes produced the same silent green.
+    """
     root = _repo_root()
-    ci = _gate_invocations((root / ".github/workflows/ci.yml").read_text())
-    local = _gate_invocations((root / "check.sh").read_text())
+    files = [root / ".github/workflows/ci.yml", GATE_REGISTRY] if side == "ci" else [
+        root / "check.sh",
+        GATE_REGISTRY,
+    ]
+    return "\n".join(
+        p.read_text(encoding="utf-8") for p in files if p.is_file()
+    )
+
+
+def check_gate_parity() -> list[str]:
+    ci = _gate_invocations(_gate_texts("ci"))
+    local = _gate_invocations(_gate_texts("local"))
     errors: list[str] = []
 
     for gate in sorted(set(ci) | set(local)):
@@ -1088,6 +1192,56 @@ def check_registry_completeness() -> list[str]:
     return errors
 
 
+# ── Part G: the shared registry is itself wired ─────────────────────────────
+#
+# Every other part of this file asks about a gate somebody wrote. This one asks
+# about the file that decides which gates run at all, and it is here because that
+# file is new and load-bearing: `ci.yml`'s `static` job and `check.sh` both call
+# `scripts/ci/static-gates.sh`, so every script gate in the repository now sits
+# behind one file that no reader of `ci.yml` ever sees.
+#
+# The failure this catches is not hypothetical and not subtle. Moving the gates
+# into the registry without this part would have left the registry itself with
+# no positive control: renaming it, or deleting one of its two callers, would
+# drop the whole gate suite out of CI with nothing failing — the exact shape of
+# the defects Parts A and B were written for, one level up.
+
+
+def check_registry_wiring() -> list[str]:
+    errors: list[str] = []
+    if not GATE_REGISTRY.is_file():
+        errors.append(
+            f"the shared gate registry {GATE_REGISTRY.relative_to(ROOT)} does not "
+            f"exist. `ci.yml` and `check.sh` both call it; without the file both "
+            f"calls fail, and if they do not, the gate suite runs nowhere."
+        )
+        return errors
+
+    callers = {
+        "ci.yml": (ROOT / ".github" / "workflows" / "ci.yml"),
+        "check.sh": ROOT / "check.sh",
+    }
+    # The path must appear as an ARGUMENT to bash/sh, not merely anywhere in the
+    # file. A plain substring search is satisfied by `see scripts/ci/static-gates.sh`
+    # in an error message, so deleting the real call while leaving the prose would
+    # pass — the same "a check that greps the wrong thing and reports success"
+    # defect this file exists to catch, one function over.
+    invocation = re.compile(r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh")
+
+    for name, path in sorted(callers.items()):
+        if not path.is_file():
+            errors.append(f"{name} does not exist, so it cannot call the registry")
+            continue
+        text = _strip_comments(path.read_text(encoding="utf-8"))
+        if not invocation.search(text):
+            errors.append(
+                f"{name} does not invoke scripts/ci/static-gates.sh. The registry "
+                f"is the single list of gates; a caller that bypasses it reports "
+                f"green for gates it never ran."
+            )
+    return errors
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--wiring", action="store_true", help="Part A only")
@@ -1104,6 +1258,9 @@ def main() -> int:
     ap.add_argument(
         "--registry", action="store_true", help="Part F only"
     )
+    ap.add_argument(
+        "--registry-wiring", action="store_true", help="Part G only"
+    )
     args = ap.parse_args()
     only = (
         args.wiring
@@ -1112,6 +1269,7 @@ def main() -> int:
         or args.ci_steps_blocking
         or args.parity
         or args.registry
+        or args.registry_wiring
     )
     run_a = args.wiring or not only
     run_b = args.can_fail or not only
@@ -1119,6 +1277,7 @@ def main() -> int:
     run_d = args.ci_steps_blocking or not only
     run_e = args.parity or not only
     run_f = args.registry or not only
+    run_g = args.registry_wiring or not only
 
     errors: list[str] = []
 
@@ -1165,6 +1324,14 @@ def main() -> int:
         errors += check_registry_completeness()
         if not check_registry_completeness():
             print(f"  ok  {len(registered)} registered gate(s), all controlled or exempt")
+
+    if run_g:
+        print("\nPart G — the shared gate registry is called by CI and by check.sh")
+        wiring_errors = check_registry_wiring()
+        if wiring_errors:
+            errors += wiring_errors
+        else:
+            print(f"  ok  {GATE_REGISTRY.relative_to(ROOT)} is invoked by ci.yml and check.sh")
 
     if errors:
         print("")

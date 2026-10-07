@@ -185,6 +185,21 @@ naming:
       - '**/androidTest/**'
   TopLevelPropertyNaming:
     active: true            # covers top-level constants and properties
+  # ── Declared 2026-10-04. These were reporting findings while absent from this
+  # file, i.e. running on detekt's built-in default — a rule nobody chose.
+  # Verified against detekt's own allowed-property list; an unknown key here is a
+  # hard build failure, which is how the ktlint-wrapper rules were identified as
+  # belonging to the `ktlint:` section instead.
+  ConstructorParameterNaming:
+    # 1 finding: `value class QueryInterval internal constructor(private val _days: Int)`
+    # exposes `val days: Int get() = _days`. The underscore resolves a real collision
+    # with the public getter — same intent as the ktlint `backing-property-naming`
+    # exemption below. Inline that getter and this can be re-enabled.
+    active: false
+  PackageNaming:
+    # 43 findings, nearly all `feature.calendar_sync`. Blocked on the
+    # domain/port/ decision (plan C2) — do the rename with it, not before.
+    active: true
   VariableNaming:
     active: true
 
@@ -256,6 +271,39 @@ style:
 ktlint:
   ImportOrdering:
     active: false          # IDE owns import order; ktlint auto-fix may still sort
+  NoConsecutiveBlankLines:
+    # Declared 2026-10-04, and the reason it is written down at all: this rule was
+    # producing a finding while being absent from this file, i.e. running on
+    # detekt's built-in default. check-rule-intent.py exists to make exactly that
+    # class of invisible choice visible, and this was its first real hit.
+    #
+    # `active: true` is also detekt's default, so declaring it changes no
+    # behaviour — the point is that the behaviour is now a decision on the record
+    # rather than an accident. If a future detekt release changes the default, a
+    # rule nobody declared would silently change what the baseline means.
+    #
+    # NOTE: this section does not validate keys, so a misspelling here is silently
+    # ignored rather than reported — unlike `style:`, which hard-fails on an unknown
+    # key. That is why the spelling below was confirmed by watching this rule's
+    # baseline entry disappear, not by reading documentation.
+    #
+    # The single finding it had (a trailing blank line in
+    # `TimeTrackingSection.kt`) is fixed, so no baseline entry remains.
+    # Related: #56, #57.
+    active: true
+  BlankLineBetweenWhenConditions:
+    # Declared 2026-10-05 after the rebase onto 45896461: main added a `when` in
+    # SavedAgendaListScreen.kt whose baseline entry made this rule the first one
+    # in this section that was reporting without ever appearing in this file.
+    # The rule is a real formatting choice — ktlint's `blank-line-between-when-
+    # conditions` under ktlint_official wants a blank line between branches that
+    # are not both single-line — so it is declared `active: true` rather than
+    # switched off, and the existing baseline entry keeps the code as written.
+    #
+    # Same caveat as NoConsecutiveBlankLines above: a misspelling in this section
+    # is silently ignored, so the spelling was confirmed by watching the
+    # baseline entry survive rather than by reading documentation.
+    active: true
   active: true
   code_style: ktlint_official
   auto_correct: true
@@ -277,6 +325,89 @@ ktlint:
     # override style; enabling it fights `just detekt-fix` and produces churn on every
     # Compose function with more than two parameters.
     active: false
+  # ── Declared 2026-10-04. Verified by measurement, not by assumption. ───────
+  # These nine rule names appear in the baseline but detekt REJECTS them under
+  # `naming:`/`style:` ("is misspelled or does not exist") — they belong to the
+  # ktlint wrapper. This section does not validate keys, so a wrong spelling is
+  # silently ignored rather than reported: my first attempt used the kebab-case
+  # ids (`backing-property-naming`) and removed nothing at all, because the two
+  # spellings already in this file — `ImportOrdering`, `FunctionSignature` — are
+  # camelCase. Each declaration below was confirmed by watching its baseline
+  # entries disappear, not by reading documentation.
+  BackingPropertyNaming:
+    # 53 findings, all AGENTS.md's canonical VM pattern:
+    #   private val _state = MutableStateFlow<UiState>(…)
+    #   val state: StateFlow<UiState> = _state.asStateFlow()
+    # The underscore keeps the mutable backing property visibly distinct from the
+    # public read-only face. Enforcing it would rename 53 sites and rewrite the
+    # documented pattern — a style default beating the architecture. See
+    # deferred-backlog.md#two-largest-baseline-rules-contradict-documented-conventions.
+    active: false
+  PropertyName:
+    active: true             # 8 findings: PascalCase `const`/`val` in companion objects
+  Filename:
+    # 26 findings, nearly all files holding more than one declaration:
+    # CalendarSyncExceptions.kt, BackupFormatters.kt, AttachmentUploadService.kt.
+    # detekt wants one top-level declaration matching the file name; this project
+    # groups by concern.
+    active: false
+  # ── Declared 2026-10-04, second pass. `main` added findings for these five
+  # between the first declaration sweep and the rebase, and a rule that reports
+  # without being named is a rule nobody chose. All five are ktlint formatting
+  # rules whose detekt default agrees with `.editorconfig`, so each is active
+  # rather than switched off — none of them contradicts a documented convention
+  # the way BackingPropertyNaming and Filename do.
+  ArgumentListWrapping:
+    active: true             # 8 findings: multi-line call argument lists
+  PropertyWrapping:
+    active: true             # 2 findings: property initialisers split across lines
+  TrailingCommaOnCallSite:
+    active: true             # 2 findings: missing trailing comma in a call site
+  NoMultipleSpaces:
+    active: true             # 1 finding: padding inside an expression
+  SpacingBetweenDeclarationsWithComments:
+    active: true             # 1 finding: a KDoc block not followed by a blank line
+  NoUnusedImports:
+    active: true             # 3 findings fixed 2026-10-04; a 4th appeared in
+                             # TaskRowFlowTest after the rebase onto 5a175fdb and
+                             # is fixed there too — the count is only ever true
+                             # for the tree it was measured in
+  EmptyFunctionBlock:
+    active: true             # NoopCalendarSyncRepositoryImpl, FakeHlcFactory — the
+                             # no-op behaviour IS the point of those types
+  ComplexCondition:
+    active: true             # token-type chains in parsers, slug validator
+  Kdoc:
+    active: true             # 9 findings on KDoc block formatting
+  ClassSignature:
+    active: true             # 1 finding: FakeBackupCodec in a test
+  PackageName:
+    # 43 findings, the same `feature.calendar_sync` sites detekt's own
+    # `naming>PackageNaming` reports — the ktlint wrapper duplicates the check.
+    # Blocked on the domain/port/ decision (plan C2), same as PackageNaming.
+    active: true
+  Indentation:
+    # Note the kebab-case `indent:` key above is a no-op: the ktlint section does
+    # not validate keys, so it was silently doing nothing while this rule ran on
+    # its default. `active: false` for auto-correct per the JDK-NPE note above;
+    # the 1 finding is hand-fixable.
+    active: true
+    auto_correct: false
+  Wrapping:
+    active: true
+    auto_correct: true
+  # This is the mechanism behind the 120-vs-140 conflict, and it is worth writing
+  # down. `.editorconfig` declares 140, `style:MaxLineLength` and
+  # `ktlint:max-line-length` are both `active: false` — and the 17 findings at
+  # 121-131 characters come from the ktlint rule running on its *unconfigured*
+  # default of 120. Declared here at 120, which is the value that has been
+  # effective all along: this changes no behaviour, it just stops the number
+  # being an accident. The 120-vs-140 decision is still open; see
+  # deferred-backlog.md
+  # #two-line-length-authorities-detekt-default-120-beats-editorconfig-140.
+  MaximumLineLength:
+    active: true
+    maxLineLength: 120
 
   # The ktlint `filename` rule (reported as "contains a single class") fires on
   # KDocEnforcementRules.kt, which groups a cohesive pair of private top-level rule
@@ -293,3 +424,9 @@ ktlint:
 # mvi-viewmodel (4 rules), no-real-delay-in-test.
 # Promotion verified with daemon-free detekt run (see 2026-09-26-epic2-retro-findings R1).
 
+# Registered 2026-10-04, and only discoverable then because the block was added:
+# the rule set was listed in the RuleSetProvider service file, so it looked wired
+# while detekt had never loaded it — the provider existed, the rule never ran, and
+# the KDoc's promise went unkept. Activating it surfaces the pre-existing
+# violations, which are baselined rather than fixed, so "declared" here means
+# "reported", not "clean". See 2026-10-04-ci-test-tag-filter-and-vacuous-gates.

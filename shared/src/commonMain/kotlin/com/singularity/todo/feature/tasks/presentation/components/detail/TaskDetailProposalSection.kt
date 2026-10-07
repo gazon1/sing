@@ -26,9 +26,10 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 /**
  * Pending AI proposals for a task, as a stack of cards.
  *
- * Moved out of `TaskDetailViewScreen` when that screen was deleted. It was a
- * private composable there, which is how it came to be missing from the desktop
- * task detail: the screen it belonged to was reachable from the Android graph
+ * Extracted from a task-detail screen that was itself removed on 2026-10-06
+ * (633 unreachable lines, cleared by `find-unwired-surfaces.py`). It had been a
+ * private composable in that screen, which is how it came to be missing from the
+ * desktop task detail: the screen it belonged to was reachable from the Android graph
  * only, so the section rendered on one platform and not the other while both
  * platforms showed the same route and the same ViewModel. Nothing about the
  * proposal feature is platform-specific, so the section now lives next to its

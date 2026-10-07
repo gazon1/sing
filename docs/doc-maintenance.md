@@ -69,7 +69,7 @@ triage list) and therefore has no status to resolve.
 
 1. **Single source of truth**: DIGEST.md is auto-generated. Never edit it by hand — run `scripts/refresh-decisions-digest.py`
 2. **No orphaned `superseded-by`**: If an ADR has `superseded-by`, the target ADR must exist
-3. **No `open` ADRs older than 30 days**: If `open`, either resolve it to `accepted` or move it to `deferred` with a revisit trigger. Enforced by `docs-audit.yml`.
+3. **No `open` ADRs older than 30 days**: If `open`, either resolve it to `accepted` or move it to `deferred` with a revisit trigger. Enforced by the shared gate registry (`scripts/ci/static-gates.sh`).
 4. **All ADRs must have `status:`** from the vocabulary above: Run `scripts/normalize-adr-frontmatter.sh --dry-run` to check
 5. **Deleting or moving an ADR requires the reference gate**: run `python3 scripts/check-adr-references.py` first. A dated-ADR slug cited in prose carries no path, so `check-doc-dead-refs.py` cannot see it.
 

@@ -11,10 +11,18 @@ which is the defect class the whole file exists to catch — including in the tw
 parts added here.
 """
 
+import contextlib
 import importlib.util
 import pathlib
 import sys
+import tempfile
 import unittest
+
+
+@contextlib.contextmanager
+def _tmpdir():
+    with tempfile.TemporaryDirectory() as d:
+        yield d
 
 SCRIPT = pathlib.Path(__file__).resolve().parent.parent / 'check-gate-wiring.py'
 
@@ -332,6 +340,112 @@ class PartFTest(unittest.TestCase):
         for gate in gw.FIXTURE_GATES:
             for part in gate.cmd:
                 self.assertNotIn(part, sabotage_scripts, f"{gate.name} is in both registries")
+
+
+class PartGTest(unittest.TestCase):
+    """The shared registry is itself wired, and its soft-exit rule is scoped.
+
+    Both properties are about the same thing: the registry is a load-bearing file
+    that no reader of `ci.yml` ever sees, so a change to it can disable the gate
+    suite without anything failing — unless something checks the registry itself.
+    """
+
+    def _registry_in(self, body: str) -> None:
+        """Point the module at a temporary registry holding `body`."""
+        tmp = pathlib.Path(self._tmp)
+        tmp.write_text(body, encoding='utf-8')
+        original = gw.GATE_REGISTRY
+        gw.GATE_REGISTRY = tmp
+        gw.GATE_FILES[:] = [p for p in gw.GATE_FILES if p != original] + [tmp]
+        self.addCleanup(lambda: (setattr(gw, 'GATE_REGISTRY', original),
+                                 gw.GATE_FILES.__setitem__(
+                                     slice(None),
+                                     [p for p in gw.GATE_FILES if p != tmp] + [original])))
+
+    def setUp(self) -> None:
+        self._tmp = pathlib.Path(self.enterContext(_tmpdir())) / 'static-gates.sh'
+
+    def test_a_gate_invocation_ending_in_or_true_is_rejected(self):
+        self._registry_in(
+            'gate blocking "thing" python3 scripts/check-thing.py || true\n'
+        )
+        findings = gw.registry_soft_exits()
+        self.assertTrue(findings, 'a `gate` line whose verdict is forced to 0 must be reported')
+        self.assertIn('advisory', findings[0], 'the message must name the honest alternative')
+
+    def test_an_interior_or_true_in_a_helper_is_not_reported(self):
+        # `grep -c` exits 1 when nothing matches, and the count IS the answer. That
+        # idiom is not a suppressed verdict, and flagging it would push an editor
+        # into deleting the `|| true` and breaking the helper.
+        self._registry_in(
+            'n() {\n'
+            '  local n\n'
+            '  n=$(grep -c pattern file || true)\n'
+            '}\n'
+            'gate blocking "thing" python3 scripts/check-thing.py\n'
+        )
+        self.assertEqual(gw.registry_soft_exits(), [])
+
+    def test_set_plus_e_on_a_gate_line_is_rejected(self):
+        self._registry_in('gate blocking "thing" set +e; python3 scripts/check-thing.py\n')
+        self.assertTrue(gw.registry_soft_exits())
+
+    def test_a_commented_out_line_is_not_a_finding(self):
+        self._registry_in('# gate blocking "thing" python3 scripts/check-thing.py || true\n')
+        self.assertEqual(gw.registry_soft_exits(), [])
+
+    def test_the_real_registry_has_no_soft_gate_invocation(self):
+        if not gw.GATE_REGISTRY.is_file():
+            self.skipTest('registry not present in this checkout')
+        self.assertEqual(gw.registry_soft_exits(), [])
+
+    def test_both_callers_invoke_the_registry(self):
+        if not gw.GATE_REGISTRY.is_file():
+            self.skipTest('registry not present in this checkout')
+        self.assertEqual(gw.check_registry_wiring(), [],
+                         'ci.yml and check.sh must both call scripts/ci/static-gates.sh')
+
+    def test_a_missing_registry_is_reported_by_path(self):
+        if gw.GATE_REGISTRY.is_file():
+            self.skipTest('registry exists in this checkout')
+        errors = gw.check_registry_wiring()
+        self.assertTrue(errors)
+        self.assertIn('static-gates.sh', errors[0])
+
+    def test_a_caller_that_bypasses_the_registry_is_reported(self):
+        # Rewrites check.sh's call away and restores it. The point is that dropping
+        # ONE of the two callers is caught; a gate suite that runs in CI only, or
+        # locally only, is an asymmetry nobody would notice.
+        #
+        # The rewrite targets the *invocation*, not the first occurrence of the
+        # path: `check_registry_wiring` reads comment-stripped text, so an explanatory
+        # comment mentioning the registry does not satisfy it — which is the strictness
+        # that makes this test meaningful.
+        if not gw.GATE_REGISTRY.is_file():
+            self.skipTest('registry not present in this checkout')
+        check_sh = gw.ROOT / 'check.sh'
+        original = check_sh.read_text(encoding='utf-8')
+        invocation = 'bash scripts/ci/static-gates.sh'
+        self.assertIn(invocation, original, 'check.sh must invoke the registry to test this')
+        check_sh.write_text(original.replace(invocation, 'bash scripts/ci/other.sh', 1),
+                            encoding='utf-8')
+        self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
+        errors = gw.check_registry_wiring()
+        self.assertTrue(any('check.sh' in e for e in errors),
+                        f'removing the check.sh call must be reported; got {errors}')
+
+
+class PartETest(unittest.TestCase):
+    """The registry counts on BOTH sides, because it runs in both."""
+
+    def test_the_registry_is_a_gate_surface_in_part_e(self):
+        self.assertIn(gw.GATE_REGISTRY, gw.GATE_FILES,
+                      'the registry must be scanned, or gates in it are invisible to Part E')
+
+    def test_both_sides_include_the_registry(self):
+        for side in ('ci', 'local'):
+            self.assertIn('static-gates.sh', gw._gate_texts(side),
+                          f'the {side} side must see the registry')
 
 
 if __name__ == '__main__':

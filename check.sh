@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check.sh — Full local verification for Singularity Todo KMP project
-# Runs: jvmTest → desktopApp:test → assembleDebug → detekt
+# Runs: static gates → jvmTest → desktopApp:test → assembleDebug → detekt
 # Optionally runs Android instrumentation on adb device if SKIP_ADB=0
 # Usage: SKIP_ADB=1 ./check.sh   # skip adb tests
 #
@@ -31,55 +31,27 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== [1/21] build version catalog gate ===${NC}"
-# Fast: no JVM startup. Fails before Gradle if a *.gradle.kts contains a
-# hardcoded group:artifact:version literal that should come from libs.versions.toml.
-python3 scripts/build-version-catalog-gate.py --quiet . || {
-    echo -e "${RED}build version catalog FAILED — hardcoded literal(s) found${NC}"
+TOTAL=13
+
+echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
+# Every script gate that needs no JVM and no build output lives in
+# scripts/ci/static-gates.sh, which the `static` job of ci.yml also runs.
+#
+# Delegating here is the point of that file, not a convenience. The two failures
+# this repository had were a gate that lived only in ci.yml and a gate that lived
+# only in check.sh — each real, each green, each invisible to the other surface.
+# One registry, two callers, is the only arrangement where that class cannot recur.
+bash scripts/ci/static-gates.sh || {
+    echo -e "${RED}a static gate failed — see scripts/ci/static-gates.sh${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [2/21] detekt rule registry (fast) ===${NC}"
-# Runs before Gradle: a duplicated or missing rule registration otherwise surfaces
-# minutes later as a YAML parse error pointing at detekt.yml rather than the cause.
-./scripts/check-detekt-registrations.sh || {
-    echo -e "${RED}detekt rule registry FAILED${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [3/21] Find unwired surfaces ===${NC}"
-# Detects implemented-but-unreachable code: screens with no call site, noop callbacks
-# that defeat a `?:` fallback, unbound DAOs, LogWriter subclasses never registered.
-# Zero findings means the project has no dormant code. Exits 0; findings are printed.
-python3 scripts/find-unwired-surfaces.py --quiet || {
-    echo -e "${RED}unwired surfaces found — see above${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [4/21] unwired-surface backlog references ===${NC}"
-# Every exemption in find-unwired-surfaces-baseline.txt must name a real
-# deferred-backlog.md heading. The baseline header documents this rule; before
-# this check nothing implemented it and 4 of 5 anchors did not exist.
-python3 scripts/check-unwired-backlog-refs.py || {
-    echo -e "${RED}unwired-surface backlog references FAILED${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [4b/21] declared dependencies are used ===${NC}"
-# material-kolor sat in the catalog and on the classpath for a release, imported
-# by nobody — and `find-unwired-surfaces.py` cannot see that, because it counts
-# symbols and an unused dependency has none until something imports it. The gate
-# reads resolved artifacts rather than the catalog, because a coordinate does not
-# determine an import package: `…compose.material3:material3` is `androidx.…`.
-python3 scripts/check-dependency-usage.py || {
-    echo -e "${RED}a declared dependency is imported by nothing${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [5/21] detekt baseline ratchet ===${NC}"
-
-echo -e "${YELLOW}=== [6/21] backlog entries are classifiable and within budget ===${NC}"
-# 42 of this file's 82 entries carried no status line, and two independently
+# Deliberately NOT in the registry: backlog bookkeeping changes with every commit,
+# and a PR must not be blocked by how the work queue is annotated. Declared
+# `local` in scripts/check-gate-wiring.py's GATE_PARITY, so the asymmetry is
+# visible rather than silent.
+echo -e "${YELLOW}=== [2/$TOTAL] backlog entries are classifiable and within budget ===${NC}"
+# 42 of this file's entries carried no status line, and two independently
 # written regexes counted the resolved ones as 18 and 26 — each silently
 # classifying what it could and skipping the rest. An entry nobody can classify
 # is an entry nobody can triage, and the file's own
@@ -90,111 +62,21 @@ python3 scripts/check-backlog-status.py || {
     exit 1
 }
 
-# A baseline may shrink, never grow. Without this the baseline was a place to
-# park new violations silently — "0 findings" then meant "0 findings outside
-# a 341-entry file that nothing compared to anything".
-python3 scripts/check-baseline-ratchet.py || {
-    echo -e "${RED}detekt baseline grew - fix the finding or justify the growth${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8/21] lint rules are declared decisions ===${NC}"
-# A rule absent from detekt.yml runs on detekt's built-in default, which means
-# nobody chose it. 18 such rules produced 247 of 428 baseline entries, and two
-# contradicted AGENTS.md. Now declared, and the next one has to be declared too.
-python3 scripts/check-rule-intent.py || {
-    echo -e "${RED}rule intent check FAILED — a lint rule is running on defaults${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8b2/21] every file-level suppression says what it hides ===${NC}"
-# check-rule-intent asks whether a rule was *declared*. This asks the other half:
-# a rule can be declared, configured, and provably able to fire, and still be
-# switched off for a whole file by one line no gate could see. 12 production
-# files carried @file:Suppress("NoDirectClockSystem") with no reason, covering 38
-# clock reads — while the baseline held exactly one suppression for that rule.
-python3 scripts/check-suppression-intent.py || {
-    echo -e "${RED}suppression intent check FAILED — a lint rule is switched off silently${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8b/21] the rule inventory in the skill is not stale ===${NC}"
-# The rule table in the rule-authoring skill is generated from source. It was hand-written
-# before that, and drifted twice — a deleted rule still listed, a missing rule still listed —
-# and then three rules shipped with no row at all, which nothing noticed (#139). Generating
-# it is only half the fix; this is the half that keeps it honest.
-python3 scripts/gen-detekt-rule-table.py --check || {
-    echo -e "${RED}rule inventory is stale — run: python3 scripts/gen-detekt-rule-table.py${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8c1/21] the skills catalog is current ===${NC}"
-# docs/SKILLS-CATALOG.md is generated from skill frontmatter and was committed
-# stale on a clean tree, with nothing noticing: "do not edit by hand" discourages
-# the wrong edit but cannot catch the edit nobody made. The catalog is what an
-# agent reads to choose a skill, so a stale line count or description sends it to
-# the wrong file. Same lesson as the detekt rule inventory above.
-./scripts/regen-skills-catalog.sh --check || {
-    echo -e "${RED}skills catalog is stale — run: ./scripts/regen-skills-catalog.sh${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8c/21] the committed coverage matrix matches the specs and the code ===${NC}"
-# The coverage matrix is generated from infra/kiwi/scenarios/** plus the
-# @DisplayName / scenario: linkage in code, and it is committed. Generating it is
-# only half the job; without this check a hand-edited or stale matrix merges
-# silently, which is the exact failure mode the generated file exists to remove.
-# `validate` runs first so a broken spec or an unknown scenario id is reported
-# as such rather than as a matrix diff.
-PYTHONPATH=infra/kiwi python3 -m traceability validate --quiet || {
-    echo -e "${RED}scenario specs or their links to automation are invalid${NC}"
-    exit 1
-}
-PYTHONPATH=infra/kiwi python3 -m traceability coverage --check || {
-    echo -e "${RED}coverage matrix is stale — run: just trace-coverage${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8d/21] scenario coverage holes did not grow ===${NC}"
-# A hole is not a mistake — it is the point of the matrix. A *growing* hole
-# count is a regression, and until this gate existed nothing read these numbers:
-# the 15-spec auth/sync tranche landed with zero carriers and took the matrix
-# from 2 holes to 32 in one commit, green, because `validate` reports holes as
-# information on the same run the CI step treats as a pass. Filling a hole is
-# always allowed; opening one fails and has to be justified in review.
-python3 scripts/check-traceability-ratchet.py || {
-    echo -e "${RED}scenario coverage grew — attach a carrier, or state the growth in the commit${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [8c2/21] Room schema, exports and migration chain agree ===${NC}"
-# `SyncColumns.server_version` was added to `sync_shadow` while SCHEMA_VERSION
-# stayed at 36 and the export moved to 37. Room's identity-hash check then threw
-# `IllegalStateException` at first query for every user with an existing
-# database — and no test saw it, because every test creates its own database and
-# a fresh database has no identity to mismatch. This checks the three artefacts
-# that must describe one schema: the @Database annotation, the exported NN.json
-# files, and the Migration classes.
-python3 scripts/check-room-schema-integrity.py || {
-    echo -e "${RED}Room schema integrity FAILED — the annotation, the exports and the migration chain disagree${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [9/21] shared:jvmTest ===${NC}"
+echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [10/21] desktopApp:test ===${NC}"
+echo -e "${YELLOW}=== [4/$TOTAL] desktopApp:test ===${NC}"
 ./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [11/21] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [5/$TOTAL] androidApp:assembleDebug ===${NC}"
 ./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
@@ -204,7 +86,7 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
-echo -e "${YELLOW}=== [12/21] executed test counts ===${NC}"
+echo -e "${YELLOW}=== [6/$TOTAL] executed test counts ===${NC}"
 python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
     --max-age 21600 || {
     echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
@@ -212,42 +94,26 @@ python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
 }
 echo -e "${GREEN}test run floors met${NC}"
 
-echo -e "${YELLOW}=== [12b/21] gates are wired and can fail ===${NC}"
-# Part A: every configured Gradle check task is named by a gate — catches the
-# :androidApp:detekt instance, which had a full config block and no invoker.
-# Part B: every registered script gate is run against a sabotaged input and must
-# exit non-zero — catches the `--warn-only` class, where a check prints a
-# violation and still passes.
+# NOT in the registry either, and for a related reason. Part A asks whether every
+# configured Gradle check task is named by a gate. Part B proves each registered
+# script gate can fail, and the `test-runs` control does that by sabotaging
+# config/docs/test-runs-baseline.txt and re-running the gate — which reads JUnit XML
+# that only exists once steps 3-5 have run. A registry is static by definition; in
+# CI's `static` job there is no build output at all. Calling it from there
+# reproduces #206 exactly: "already fails on a clean tree", a true statement that
+# reads as a false alarm.
 #
-# This runs after the test steps, not with the other static checks, because the
-# `test-runs` control sabotages config/docs/test-runs-baseline.txt and asks
-# whether the gate notices. The gate reads JUnit XML that only exists once
-# :shared:jvmTest and :desktopApp:test have run. Run this one earlier and on a
-# fresh clone it fails with "gate 'test-runs' already fails on a clean tree" —
-# a true statement that reads as a false alarm, because the check asks its
-# question two steps before the thing that answers it exists (#206).
-#
-# A gate that proves another gate works inherits that gate's preconditions and
-# runs them at its own time. Ordering them wrongly is the bug; skipping the
-# control when the XML is absent would teach the reader that "no results" is
-# acceptable, which is the reading this project is removing.
+# A gate that proves another gate works inherits that gate's preconditions and runs
+# them at its own time. Ordering them wrongly is the bug; skipping the control when
+# the XML is absent would teach the reader that "no results" is acceptable, which is
+# the reading this project is removing.
+echo -e "${YELLOW}=== [7/$TOTAL] gates are wired and can fail ===${NC}"
 python3 scripts/check-gate-wiring.py || {
     echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [13/21] gate script self-tests ===${NC}"
-# check-test-runs.py is the only thing that catches a partial skip, and
-# check-coverage.py is the only thing that catches coverage loss. A regression
-# inside either disables the gate silently — the same failure shape the gates
-# exist to catch. Cheap enough (milliseconds, no JVM) to run every time.
-python3 -m unittest discover -s scripts/tests 2>&1 | tail -3 || {
-    echo -e "${RED}gate script self-tests FAILED${NC}"
-    exit 1
-}
-echo -e "${GREEN}gate script self-tests passed${NC}"
-
-echo -e "${YELLOW}=== [14/21] detekt rule unit tests ===${NC}"
+echo -e "${YELLOW}=== [8/$TOTAL] detekt rule unit tests ===${NC}"
 # A custom rule that cannot fire is indistinguishable from a rule that has
 # nothing to match. These tests are the only evidence either way.
 ./gw :detekt-rules:test --quiet || {
@@ -255,9 +121,9 @@ echo -e "${YELLOW}=== [14/21] detekt rule unit tests ===${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [15/21] workflow YAML parses ===${NC}"
+echo -e "${YELLOW}=== [9/$TOTAL] workflow YAML parses ===${NC}"
 # A malformed workflow is invisible: not a test failure, not a lint error, just a
-# workflow that silently does not exist.
+# workflow that silently does not exist. `docs-audit.yml` once was exactly that.
 python3 -c "
 import sys, yaml, glob
 bad = []
@@ -275,9 +141,9 @@ print('all workflow files parse')
     exit 1
 }
 
-echo -e "${YELLOW}=== [16/21] coverage floors (when a report exists) ===${NC}"
+echo -e "${YELLOW}=== [10/$TOTAL] coverage floors (when a report exists) ===${NC}"
 # --if-present because koverReport instruments every test task and roughly
-# triples the local loop; CI runs it in the kover job on every push.
+# triples the local loop; CI runs it in the same job as the tests on every push.
 #
 # Deliberately NOT --since: this report is produced by a separate, earlier task, so the
 # run-start stamp would make it permanently "stale" and skip the check in silence. Its
@@ -294,39 +160,14 @@ else
     echo "    no Kover report — run ./gw koverReport (skipped)"
 fi
 
-echo -e "${YELLOW}=== [17/21] doc sizes + dead doc references ===${NC}"
-# Both are blocking CI gates; a local loop that skipped them let the DIGEST
-# budget fail unnoticed until the next CI run.
-python3 scripts/refresh-decisions-digest.py >/dev/null
-python3 scripts/check-doc-sizes.py || {
-    echo -e "${RED}doc size budget exceeded${NC}"
-    exit 1
-}
-python3 scripts/check-doc-dead-refs.py || {
-    echo -e "${RED}dead references in docs/skills/KDoc${NC}"
-    exit 1
-}
-echo -e "${GREEN}doc gates passed${NC}"
-
-echo -e "${YELLOW}=== [18/21] test-task input declarations ===${NC}"
-# A test task that reads a tree outside its own module must declare it as an input.
-# Without that declaration the task goes UP-TO-DATE on an edit to that tree and an
-# architecture gate re-reports its previous verdict - green, about a file it never
-# re-read. Measured on MaestroFlowTagsTest; see
-# docs/decisions/2026-10-05-test-task-external-inputs.md. 20 ms, no JVM.
-python3 scripts/check-test-task-inputs.py || {
-    echo -e "${RED}a test task reads a tree it does not declare as an input${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [19/21] mcp-server:compileKotlin (DI graph validation) ===${NC}"
+echo -e "${YELLOW}=== [11/$TOTAL] mcp-server:compileKotlin (DI graph validation) ===${NC}"
 ./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}mcp-server DI graph validated${NC}"
 
-echo -e "${GREEN}=== [20/21] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${GREEN}=== [12/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
@@ -335,7 +176,7 @@ echo -e "${GREEN}=== [20/21] detekt (enforcing, ignoreFailures=false) ===${NC}"
     exit 1
 }
 
-echo -e "${GREEN}=== [21/21] mcp-server:detekt ===${NC}"
+echo -e "${GREEN}=== [13/$TOTAL] mcp-server:detekt ===${NC}"
 # This task was invoked by ci.yml with `ignoreFailures = true`, so it could not
 # fail there, and it was not in check.sh at all, so it did not run here either.
 # Both halves mattered: nothing enforced it and nothing ran it.

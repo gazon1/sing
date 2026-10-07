@@ -1521,8 +1521,16 @@ on their own.
 **Tracked as:** #100
 **OpenSpec change:** `openspec/changes/ci-checks-parallel-split/`
 
-**Status: OPEN.** The split is designed, measured and built, but withdrawn. See
-`2026-10-05-ci-checks-run-in-parallel.md`, which is `status: superseded`.
+**Status: CLOSED 2026-10-06.** The coupling was designed around rather than waited
+out. `ci.yml` now runs four jobs — `static`, `tests`, `android`, `ci-gate` — and
+`tests` deliberately stays a single job holding the run stamp, both count/coverage
+floors, the kover report and the flake comparison, so none of the three couplings
+this entry describes can be broken by the split. See
+`2026-10-06-ci-single-gate-registry-and-leaf-split.md`.
+
+**What is still open** is the narrower question this entry's "try next" list asked:
+whether `tests` itself can be split further. That is not needed for correctness and
+is not tracked as a defect. See the `tests-job-still-a-monolith` entry.
 
 **What happened:** this branch split the 25-step `test-and-check` into six parallel
 leaves and measured 24.25m -> 9.2m. `main` had meanwhile added three couplings inside
@@ -3314,3 +3322,136 @@ Only then build the pull engine on top of it.
 
 **Do not** treat "it compiles" or a green unit test as evidence for this item. The unit
 tests cover the token-refresh *request*, not Google's response to a real grant.
+## android-scenario-matrix-is-not-illuminated-by-ci
+
+**Found in:** 2026-10-06, while restructuring the CI workflows.
+
+**Tracking:** `docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md` — the
+decision to declare rather than fix, and why, live there. No issue filed yet:
+both fixes are scheduled work rather than a defect, and this file already
+flags the unbounded-queue problem, so an issue filed now would be filed
+into the same place 67 other open entries already sit.
+
+**Status: OPEN — accepted as declared debt, not as a defect.**
+
+18 of 19 scenario specs claim the android target. Exactly one Maestro flow carries
+a `scenario:` tag (`TASK-REC-01`), no workflow passes `--maestro` to
+`traceability results`, and `:androidApp:connectedDebugAndroidTest` runs in no CI
+job. So the android column of the result matrix renders as ⌛ on every commit.
+
+**Why it was left declared rather than fixed here:** both honest fixes are not CI
+changes. One is a device-backed instrumentation job on an emulator, which is the
+10-minute `assembleDebug` plus a boot, on every PR. The other is tagging 18 flows
+with scenario ids and keeping their run non-partial, so every claimed scenario with
+a carrier must produce a result. Neither belongs in a restructure whose subject is
+which workflow runs what.
+
+**What was done instead:** CI normalises `--targets desktop` only, so the matrix no
+longer implies an android measurement it did not take, and the limitation is
+recorded in `config/docs/traceability-ratchet.json` under `known_gaps` where a
+reader of the artefact will meet it.
+
+**Try next, in this order:** (1) run `connectedDebugAndroidTest` on the E2E
+emulator and feed its JUnit into `traceability results`; (2) tag the flows that
+already have carriers and switch the nightly to a non-partial android run. Do (2)
+without (1) and every claimed android scenario without a tagged flow fails the
+nightly, which is the exit-2 rule working correctly rather than a new bug.
+
+**Not to do:** pass `--targets android,desktop` without one of the above. That is
+the current state wearing a measurement's clothes.
+
+---
+
+## release-apk-is-unsigned-and-unminified
+
+**Found in:** 2026-10-06, while writing `release.yml`.
+
+**Tracking:** `docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md` — the
+ordering argument (minify before signing) is recorded there. No issue filed yet.
+
+**Status: OPEN — the release pipeline ships what the build can actually build.**
+
+`androidApp/build.gradle.kts` has no `signingConfigs` block at all and sets
+`isMinifyEnabled = false`. `assembleRelease` therefore produces an unsigned,
+unminified APK, and there are no `appVersionName`/`appVersionCode` properties to
+inject a version — `versionName` is hardcoded to `0.1.0`.
+
+**Order matters, and it is not the obvious one.** R8 breaks Koin, Room and
+kotlinx-serialization on their reflection, and nothing in CI exercises a minified
+build today: every CI job assembles debug. So "does the shipped binary work" is a
+larger risk than "who receives the file", and minification lands first.
+
+**Try next, in this order:** (1) set `isMinifyEnabled = true`, write the
+`proguard-rules.pro` entries for Room/Koin/kotlinx-serialization/Compose, and add
+`assembleRelease` to the `android` matrix so R8 breakage surfaces on a PR; (2) add
+a `signingConfigs` block reading `ANDROID_KEYSTORE_*` from the environment and a
+`:androidApp:versionName`/`versionCode` pair fed from the tag; (3) upload
+`mapping.txt` as a private artifact, which is meaningless until (1) exists.
+
+**What exists meanwhile:** `release.yml` names its artifact `-unsigned.apk`, refuses
+to run `apksigner verify` on a build with no signature, and fails when the
+embedded `versionName` does not match the tag. The last one matters most: without
+it a `v1.2.3` tag ships a binary that declares `0.1.0`, and nothing notices.
+
+---
+
+## desktop-msi-and-dmg-are-not-packaged
+
+**Found in:** 2026-10-06, while writing `release.yml`.
+
+**Tracking:** `docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md` — the
+what-this-does-not-do list is there. No issue filed yet.
+
+**Status: OPEN.** `desktopApp/build.gradle.kts` declares
+`nativeDistributions.targetFormats(TargetFormat.Deb)` and nothing else, so
+`packageMsi` and `packageDmg` do not exist and there is no `main-release` directory
+to look in — Compose Desktop has no build variants. `release.yml` publishes the
+Linux `.deb` only.
+
+jpackage cannot cross-compile, so each format needs its own runner: `windows-2025`
+and `macos-15`. Unsigned installers also trip SmartScreen and Gatekeeper, so
+adding the formats without signing ships something users must click through.
+
+**Try next:** add `Msi` and `Dmg` to `targetFormats`, add the two runner legs, then
+add signing and notarization — in that order, because an unsigned installer is
+strictly worse than no installer.
+
+**Not to do:** guess the task names from a different Compose version. The
+authoritative list is `./gradlew :desktopApp:tasks --all`, and
+`main-release` does not exist in this tree.
+
+---
+
+## taskdetailviewscreen-is-633-lines-of-unreachable-composable
+
+**Found in:** 2026-10-06, while running the new `static` gate job against the tree.
+
+**Status: RESOLVED 2026-10-07.** The screen was deleted; the file was the last thing
+holding the finding up.
+
+`shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/
+TaskDetailViewScreen.kt` was 633 lines with no production call site, so
+`scripts/find-unwired-surfaces.py` reported it and the `static` job stayed red.
+
+Its header recorded why it was still there:
+
+> This screen has no call site — `find-unwired-surfaces.py` reports it, and
+> `dad11e6b`'s note says deleting another branch's deliberate carrier is the
+> owner's call, not this one's.
+
+That was a decision deferred and then not revisited — the failure mode
+`an-open-backlog-entry-does-not-mean-the-work-is-still-open` describes. The owner
+re-decided on 2026-10-07 and chose deletion over baselining.
+
+The supporting evidence for deleting rather than baselining: the only remaining
+mention of the file in the tree was a KDoc in `TaskDetailProposalSection.kt` saying
+the section was "Moved out of `TaskDetailViewScreen` when that screen was deleted",
+and a test KDoc in `TaskDetailTimeTrackingSectionTest.kt` recording that nothing
+composed it. Both were rewritten rather than left dangling. `:shared:compileKotlinJvm`
+builds after the deletion, so nothing resolved against it.
+
+**Not to do:** re-add a second task-detail screen as a clock-suppression carrier. That
+is what produced the 633 lines, and the reason the #187 one-screen invariant matters
+is that two screens under one route and one ViewModel shipped with time tracking on
+one platform and not the other — which is the bug
+`TaskDetailTimeTrackingSectionTest` now guards against.

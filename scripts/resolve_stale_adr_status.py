@@ -3,7 +3,8 @@
 
 Phase 2 of the spec-governance sweep (2026-10-05). doc-maintenance.md rule 3 says
 "No `open` ADRs older than 30 days: if `open`, either resolve or defer it." All 24 were
-older than 30 days and docs-audit.yml now enforces the rule, so they are a red gate.
+older than 30 days and the shared gate registry now enforces the rule, so they
+are a red gate.
 
 Each ADR is classified from evidence gathered in the repo, not from its own claims:
 

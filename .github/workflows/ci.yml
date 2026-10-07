@@ -1,748 +1,286 @@
 name: CI
 
-# Runner image is pinned to ubuntu-24.04 on purpose (2026-10-05). GitHub is migrating
-# the `ubuntu-latest` label to Ubuntu 26.04 between 2026-10-19 and 2026-11-19; the
-# warning is silenced by pinning, which is the mitigation the runner-images notice
-# recommends. 26.04 moves the kernel 6.17 -> 7.0 and systemd 255 -> 259, and the
-# Android assemble plus both emulator workflows are exactly the surface that would
-# notice. Reviving `ubuntu-latest` is a deliberate migration, not a cleanup — it will
-# not come back on its own. See docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.
+# Branch protection requires ONE check: "CI gate". There are no path filters on
+# purpose — a required check that is skipped by a filter stays "pending" forever,
+# and a widened filter list is a list that goes stale (pro/**, infra/** and the
+# root build files were already missing from the one that was there).
+#
+# ubuntu-24.04 is pinned deliberately; history and the exit plan live in
+# docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.
+# Incident history for individual gates lives in their ADRs and `git log`, not here.
 
-# Path filters widened 2026-10-05. They were `openspec/**`, the workflow file and one
-# script, so the job was skipped for almost every PR — including any PR that changed a
-# detekt rule or a gate script. Steps that only run on 2 of 30 PRs are decoration.
 on:
   push:
-    branches: [main, "refactor/**", "fix/**"]
-    paths:
-      - "openspec/**"
-      - "detekt-rules/**"
-      - "scripts/**"
-      - "config/detekt/**"
-      - "config/docs/**"
-      - "shared/**"
-      - "desktopApp/**"
-      - "androidApp/**"
-      - "mcp-server/**"
-      - "docs/**"
-      - "Maestro/**"
-      - "*.md"
-      - ".just/**"
-      - "gradle/**"
-      - "build-logic/**"
-      - ".github/workflows/ci.yml"
+    branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - "openspec/**"
-      - "detekt-rules/**"
-      - "scripts/**"
-      - "config/detekt/**"
-      - "config/docs/**"
-      - "shared/**"
-      - "desktopApp/**"
-      - "androidApp/**"
-      - "mcp-server/**"
-      - "docs/**"
-      - "Maestro/**"
-      - "*.md"
-      - ".just/**"
-      - "gradle/**"
-      - "build-logic/**"
-      - ".github/workflows/ci.yml"
-      - "scripts/check-openspec-stale.py"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Passed as -D on the Gradle command line, NOT via GRADLE_OPTS: GRADLE_OPTS
+  # reaches the Gradle client JVM only, and worked before solely because
+  # --no-daemon ran the build inside it. desktopApp's harness reads these as
+  # system properties of the forked test JVM (DesktopAppHarness.kt:138-140),
+  # forwarded via providers.systemProperty (desktopApp/build.gradle.kts:166-177),
+  # so command-line -D is what actually reaches the tests now.
+  #
+  # maxAttempts is absent on main on purpose: repeat(0) skips every test body.
+  RETRY_ARGS: >-
+    ${{ github.event_name == 'pull_request'
+    && '-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false'
+    || '-Dretry.failOnPassedAfterRetry=true' }}
 
 jobs:
-  test-and-check:
+  # ~1 min, no JVM, no Gradle. Runs every script gate and reports ALL of their
+  # failures, not the first one.
+  static:
+    name: Static gates
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # No workflow used setup-python before, which meant it was relying on the
+      # runner image's system Python happening to carry PyYAML. Stated as a
+      # dependency instead of an accident.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install PyYAML
+        run: python -m pip install --disable-pip-version-check pyyaml
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Script gates
+        run: bash scripts/ci/static-gates.sh
+
+      - name: OpenSpec validate
+        env:
+          # Pinned, with a working default: an unpinned `npx` makes the gate change
+          # under you, but requiring a repository variable before the first run
+          # lands turns a safety pin into a day-one outage. Override by setting the
+          # variable when the pin needs to move.
+          OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.1' }}
+        run: >
+          npx --yes "@fission-ai/openspec@${OPENSPEC_VERSION}" validate --all --json --strict
+
+  # One Gradle invocation => one JVM start, one configuration phase, and the
+  # tests run ONCE. The previous shape ran jvmTest twice (this job and
+  # slow-tests), once more inside koverReport, and mcp-server:test twice (here
+  # and in its own job).
+  #
+  # This job is deliberately NOT split further. Three couplings inside the old
+  # monolith made a six-leaf split produce a green run that measured the wrong
+  # thing, and it was withdrawn for that reason — see
+  # docs/decisions/2026-10-05-ci-checks-run-in-parallel.md. What is here respects
+  # all three: the run stamp, the count and coverage floors, and the flake
+  # comparison all read results this same job produced, so they stay together.
+  tests:
+    name: JVM tests, detekt, coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     permissions:
-      # read actions so the flake step can download the previous run's results;
-      # write contents is not needed and not granted.
-      actions: read
+      actions: read # flake analysis downloads the previous run's results
       contents: read
     steps:
       - uses: actions/checkout@v7
 
-      # Strict freshness stamp: on a fresh checkout every test task runs, so results
-      # that predate it cannot belong to this run. check.sh uses the tolerant
-      # --max-age instead, because an UP-TO-DATE task does not rewrite its results.
+      - uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # A fresh checkout runs every test task, so results older than this stamp
+      # cannot belong to this run.
       - name: Stamp run start
         run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
+      # koverReport already dependsOn :shared:jvmTest, :shared:testAndroidHostTest,
+      # :desktopApp:test, :mcp-server:test and :androidApp:test (build.gradle.kts:67-79).
+      # Listing them again here would be a second copy of the list that has to stay
+      # in step with kover's, which is exactly how kover silently stops measuring a
+      # module. Naming koverReport is the whole entry point.
+      #
+      # :mcp-server:jar is REQUIRED in this same invocation. McpServerEndToEndTest
+      # resolves build/libs/mcp-server.jar and skips itself when it is absent
+      # (McpServerEndToEndTest.kt:63) — a silent pass, not a failure, and the floor
+      # below is what catches it.
+      #
+      # :pro:detekt is NOT here on purpose: :pro is only included under
+      # -PwithPro=true (settings.gradle.kts:120-126), so it belongs to the matrix
+      # leg that passes that flag.
+      #
+      # -Dsingularity.test.steps=true fills the opt-in failure bundle.
+      # -Dsingularity.test.a11y=fail makes accessibility findings fatal.
+      # --continue: one red task must not hide the rest of the verdicts.
+      - name: Gradle (tests + coverage + detekt)
+        run: >
+          ./gradlew --continue
+          :mcp-server:jar
+          koverReport
+          :detekt-rules:test
+          :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :detekt-rules:detekt
+          -Ptest.tags=fast,slow
+          -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail
+          $RETRY_ARGS
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      # The configuration cache store lives in the PROJECT .gradle/ directory,
-      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
-      # its own cache. Keys are per-job + per-run (restore via prefix) so every
-      # run persists newly stored entries; a hash change falls back gracefully
-      # (stale entries are simply not reused — invalidation is not a failure).
-      - name: Cache configuration cache store
-        uses: actions/cache@v4
-        with:
-          path: .gradle/configuration-cache
-          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            cc-${{ github.job }}-${{ runner.os }}-
-
-      # Compute retry policy and pass to test JVMs via GRADLE_OPTS.
-      # The desktopApp harness reads System.getProperty("retry.maxAttempts") directly
-      # and does repeat(maxAttempts).
-      # PRs: lenient (max=2, failOnPassedAfterRetry=false).
-      # main: strict (failOnPassedAfterRetry=true, one attempt).
-      # maxAttempts is deliberately ABSENT on the non-PR branch. It used to be 0 here,
-      # read as "no retry" — but "no retry" is one attempt, which is already the harness
-      # default, and repeat(0) skips every test body instead. All 45 desktopApp UI tests
-      # failed with IllegalStateException("unreachable") on every push. "Do not retry"
-      # is not "run the body zero times".
-      - name: Set retry environment
+      # Three separate invocations, not one comma-separated list. The parity table
+      # in check-gate-wiring.py keys on the exact spelling of the argument, so
+      # merging these would leave GATE_ARG_PARITY declaring comparisons it no longer
+      # performs — a declaration that reads as enforced and is not.
+      - name: Executed test counts
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "GRADLE_OPTS=-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false" >> "$GITHUB_ENV"
+          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED"
+          python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED"
+          python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED"
+
+      - name: Coverage floors
+        run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
+
+      # desktop only, deliberately. The android target's results come from
+      # :androidApp:connectedDebugAndroidTest, which no CI job runs, and
+      # --maestro would demand a `scenario:` tag on every flow that claims android —
+      # 18 of 19 specs claim it and exactly one flow carries the tag today. Running
+      # both targets from this job therefore produced a matrix whose android column
+      # was permanently `not-run` while looking like a measurement. That silence is
+      # now a recorded decision (config/docs/traceability-ratchet.json, known_gaps),
+      # not an accident.
+      #
+      # Exits 2 when a declared target produced zero testcases — never
+      # continue-on-error.
+      - name: Normalise desktop results into the scenario matrix
+        run: >
+          PYTHONPATH=infra/kiwi python3 -m traceability results
+          --targets desktop --out-dir build/traceability
+
+      - name: Render result matrix into the job summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f build/traceability/result-matrix.md ]; then
+            { echo "## Scenario result matrix"; grep -v '^<!--' build/traceability/result-matrix.md; } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "GRADLE_OPTS=-Dretry.failOnPassedAfterRetry=true" >> "$GITHUB_ENV"
+            echo "_result matrix not produced (see the step above)_" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Build version catalog gate
-        # blocking as of 2026-10-04: a hardcoded group:artifact:version literal is a
-        # reproducible build defect, and check.sh already fails on it locally.
-        run: python3 scripts/build-version-catalog-gate.py --quiet .
-
-      - name: Run jvmTest (fast + slow)
-        run: ./gradlew :shared:jvmTest -Ptest.tags=fast,slow --no-daemon --configuration-cache
-
-      # -Dsingularity.test.steps=true is what makes the failure bundle below
-      # non-empty: step recording is opt-in (DesktopAppHarness.kt:225), so
-      # without the flag an uploaded diagnostics/ directory contains nothing.
-      # -Dsingularity.test.a11y=fail makes accessibility findings fatal — all
-      # 16 flow tests already opt in, but the harness default is "" (i.e.
-      # report-only), so a violation was never able to fail the build.
-      - name: Run desktopApp:test
-        run: ./gradlew :desktopApp:test -Ptest.tags=fast,slow -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail --no-daemon --configuration-cache
-
-      # The rules that enforce this repo are only trustworthy if their own tests run.
-      # A custom detekt rule with no test is a rule that can silently stop matching.
-      - name: Run detekt-rules:test
-        run: ./gradlew :detekt-rules:test --no-daemon --configuration-cache
-
-      - name: Upload desktop failure bundle
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: desktop-failure-bundle-${{ github.run_id }}
-          path: desktopApp/build/diagnostics/**
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload shared failure bundle
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: shared-failure-bundle-${{ github.run_id }}
-          path: shared/build/diagnostics/**
-          if-no-files-found: ignore
-          retention-days: 14
-
-      # Published on every run, not only on failure: flake analysis is a
-      # comparison between two runs, and a results set that only exists when
-      # something broke is exactly the half you need.
-      - name: Upload JUnit results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: junit-results
-          path: |
-            shared/build/test-results/jvmTest/**/*.xml
-            desktopApp/build/test-results/test/**/*.xml
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Flake analysis vs previous run
-        # Advisory, and deliberately so: a test that failed here already failed the
-        # Gradle step above, so failing again would change no outcome. What it
-        # adds is the other half of the signal — tests that failed in the
-        # previous run and passed now are proven nondeterministic even though
-        # nothing about this run looked wrong.
-        #
-        # Declared advisory on purpose. check-gate-wiring.py Part D requires a
-        # non-blocking step to say so in its name or a comment, so that a reader
-        # of this workflow can tell a soft step from one that is broken.
+      # Compares with the last green run of THIS branch, falling back to main.
+      # The previous version filtered on $GITHUB_REF_NAME, which on a PR is
+      # "<n>/merge" and so never matched — it silently skipped on every PR.
+      - name: Flake analysis vs previous run (advisory)
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
-          PREV=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?status=success&per_page=5" \
-                 --jq "[.workflow_runs[] | select(.head_branch == \"$GITHUB_REF_NAME\")][0].id // empty" 2>/dev/null || true)
-          if [ -z "$PREV" ]; then
-            echo "no previous successful run on this branch — flake analysis skipped"
-            exit 0
-          fi
-          gh run download "$PREV" -n junit-results -D /tmp/prev-run || {
-            echo "previous run $PREV has no junit-results artifact (retention, or first run) — skipped"
-            exit 0
+          prev_on() {
+            gh run list --workflow ci.yml --branch "$1" --status success --limit 1 \
+              --json databaseId --jq '.[0].databaseId // empty'
           }
+          PREV=$(prev_on "$BRANCH")
+          [ -n "$PREV" ] || PREV=$(prev_on main)
+          if [ -z "$PREV" ]; then echo "no previous successful run — skipped"; exit 0; fi
+          gh run download "$PREV" -n junit-results -D /tmp/prev-run || { echo "no junit-results in run $PREV — skipped"; exit 0; }
           python3 scripts/check-flaky-tests.py \
             --current shared/build/test-results/jvmTest \
             --previous /tmp/prev-run \
             --summary "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload configuration cache report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
-          path: "**/build/reports/configuration-cache/**"
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Assemble Android debug
-        # blocking as of 2026-10-04: check.sh step [5/8] already fails on it, so a
-        # red assemble here says nothing new about developer workflow — it just
-        # means the green badge was not reporting the build.
-        run: ./gradlew :androidApp:assembleDebug --no-daemon --configuration-cache
-
-      # "Tests passed" and "the tests ran" are different claims. A JUnit tag filter
-      # matches per class, so a class can stop being selected without any error and the
-      # job still goes green — that is exactly how CI ran 16 of 218 classes for months.
-      # This floor compares the executed counts against a committed baseline.
-      - name: Check executed test counts
-        run: |
-          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
-            --since "$RUN_STARTED"
-
-      - name: Test the gate scripts
-        # A regression inside check-test-runs.py disables the floor silently — the
-        # same failure one level up. 20 ms, no JVM, so it runs every time.
-        run: python3 -m unittest discover -s scripts/tests
-
-      # Scenario traceability. `check.sh` step 8c carries the same check, but CI
-      # does not run check.sh — it restates the gates inline — so a check that
-      # lives only in check.sh runs only on a maintainer's machine. The coverage
-      # matrix is generated and committed; without this a hand-edited or stale
-      # matrix merges silently, which is the failure mode the generated file
-      # exists to remove. `validate` runs first so a broken spec or an unknown
-      # scenario id is reported as such rather than as a matrix diff.
-      - name: Scenario specs, links and coverage matrix are current
-        run: |
-          PYTHONPATH=infra/kiwi python3 -m traceability validate
-          PYTHONPATH=infra/kiwi python3 -m traceability coverage --check
-
-      # The matrix above is regenerated and compared; this one asks whether the
-      # thing it renders got worse. `validate` prints holes as information —
-      # correctly, a hole is not a mistake — on the same run this job treats as
-      # a pass, so before this gate existed the 15-spec auth/sync tranche landed
-      # with zero carriers, took the matrix from 2 holes to 32, and went green.
-      # check.sh step 8d carries the same check, because CI does not run check.sh.
-      - name: Scenario coverage holes did not grow
-        run: python3 scripts/check-traceability-ratchet.py
-
-      # The result matrix describes exactly one commit, so it is an artifact and
-      # never a committed file. Uploaded unconditionally: a result set that
-      # exists only when something broke is the half you cannot use, and the
-      # commit-scoped matrix is also rendered into the job summary below, where a
-      # reviewer sees which scenario failed on which platform without opening an
-      # artifact.
-      #
-      # A declared target that produced zero testcases exits 2 and fails this
-      # step. `continue-on-error` is NOT used: that is the "quietly green" case
-      # the whole subsystem exists to catch.
-      - name: Normalise results into the scenario matrices
-        run: |
-          PYTHONPATH=infra/kiwi python3 -m traceability results --targets android,desktop \
-            --out-dir build/traceability
-
-      - name: Render the result matrix into the job summary
-        if: always()
-        run: |
-          if [ -f build/traceability/result-matrix.md ]; then
-            echo "## Scenario result matrix" >> "$GITHUB_STEP_SUMMARY"
-            # The file opens with an HTML comment banner; strip it so the summary
-            # does not render a stray comment block above the table.
-            grep -v '^<!--' build/traceability/result-matrix.md >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "_result matrix not produced (see the step above)_" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload scenario traceability artifacts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: traceability-${{ github.job }}-${{ github.run_id }}
-          path: build/traceability/
-          if-no-files-found: error
-          retention-days: 7
-
-      # config/detekt/detekt-rules-module.yml is generated from config/detekt/detekt.yml,
-      # so it can go stale while both files still parse and detekt still passes — against
-      # a config that no longer says what the rules need. --check fails on drift.
-      - name: Check generated detekt-rules config is current
-        run: python3 scripts/gen-detekt-rules-config.py --check
-
-      # A3/A5: detekt is no longer advisory. Two rulesets were only *registered*
-      # — no detekt.yml block — so they never loaded while their KDoc promised
-      # coverage. This step is only meaningful because
-      # check-detekt-registrations.sh (below) now fails when a RuleSetId has no
-      # block; without that, a blocking detekt still proves nothing.
-      - name: Detekt rule registry
-        run: ./scripts/check-detekt-registrations.sh
-
-      # The custom rules' own unit tests. These 56 tests had no CI step and no
-      # check.sh step, so they had never run — and 4 of them failed. Two proved
-      # NoDirectDispatchers could not fire on `Dispatchers.IO` (it required a
-      # KtCallExpression selector, but every real call site is a property
-      # reference); one passed a file path where compileContentForTest wants a
-      # package name; one asserted elvis-default handling the rule never
-      # implemented. A gate's own tests are only worth having if they run.
-      - name: Detekt rule unit tests
-        run: ./gradlew :detekt-rules:test --no-daemon
-
-      - name: Detekt baseline ratchet
-        run: python3 scripts/check-baseline-ratchet.py
-
-      - name: Run detekt (free configuration)
-        # blocking as of 2026-10-04: enforceMode is already on in both modules and
-        # check.sh step [12/12] fails on it. An advisory detekt is a detekt that
-        # reports violations nobody has to fix.
-        # androidApp included deliberately: it has had a detekt block, a baseline and
-        # `ignoreFailures = false` since it was added, but no gate ever invoked the
-        # task — the same "configured but unreachable" class as the two rulesets fixed
-        # in 2026-10-04. It runs clean (0 findings, ~16 s), so wiring it costs nothing.
-        # :detekt-rules:detekt is the fourth module: the custom rules are source too,
-        # and a rule that is never linted is a rule whose own style rots unnoticed.
-        run: ./gradlew :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --no-daemon --configuration-cache
-
-      - name: Run detekt (pro configuration)
-        # `:pro` exists only under `-PwithPro=true`, so the step above cannot see it and
-        # `check.sh` cannot invoke it either — the free configuration has no such project.
-        # Without this step, `pro/build.gradle.kts` declares a detekt block, a baseline and
-        # `ignoreFailures = false` that nothing ever runs, which is exactly the
-        # "configured but unreachable" defect the free step's own comment describes.
-        # `check-gate-wiring.py` Part A is what enforces its presence.
-        #
-        # No Tracer token is supplied, so the vendor SDK stays disabled and this needs no
-        # secret. It verifies that the FSL code compiles and lints — not that the vendor
-        # crash-reporting path runs, which stays unverified until a build has a token.
-        run: ./gradlew :pro:detekt -PwithPro=true --no-daemon --configuration-cache
-
-      - name: Assemble Android debug (pro configuration)
-        # Proves the second configuration builds end to end, and that the app's
-        # `src/pro/kotlin` source set compiles with `:pro` on the classpath. The
-        # `appClass` manifest placeholder resolves to `ProSingularityApp` here and to
-        # `SingularityApp` in the free build above, and neither build is asserted to
-        # contain the other's classes — `check-pro-licence-boundary.py --verify-apk`
-        # is the check for that.
-        run: ./gradlew :androidApp:assembleDebug -PwithPro=true --no-daemon --configuration-cache
-
-      - name: pro unit tests
-        # `proObservabilityModule()` re-binds `CrashReportingPort` from the free
-        # `FileCrashReportingPort` to the vendor-backed one, and that rebinding is the
-        # entire reason this module exists. It is invisible to `KoinGraphValidationTest`
-        # in `:shared`, which validates the free graph and cannot see a project that only
-        # exists under `-PwithPro=true`. If the override stopped taking effect, every
-        # configuration would still resolve the same interface, every test would still pass,
-        # and crash reports would quietly go to the local log file instead of the vendor.
-        #
-        # No Tracer token is needed: these assert the wiring, not the vendor SDK's behaviour.
-        run: ./gradlew :pro:testDebugUnitTest -PwithPro=true --no-daemon --configuration-cache
-
-      - name: Find unwired surfaces
-        run: python3 scripts/find-unwired-surfaces.py --quiet
-        # blocking: any new unwired surface is a regression
-
-      - name: Check unwired backlog references
-        run: python3 scripts/check-unwired-backlog-refs.py
-
-      # An entity change without a SCHEMA_VERSION bump compiles, passes every
-      # test, and throws IllegalStateException at first query for every user
-      # with an existing database — because every test creates its own database
-      # and a fresh one has no identity hash to mismatch. That is how
-      # `sync_shadow.server_version` reached a shipped build.
-      - name: Room schema integrity
-        run: python3 scripts/check-room-schema-integrity.py
-        # blocking: an existing install must be able to upgrade
-
-      - name: Audit-script regression tests
-        run: python3 -m unittest discover -s scripts/tests
-
-      # 14 dependencies were declared, resolved onto a classpath and imported by
-      # nothing — and material-kolor sat that way for a release, while the nine
-      # accent choices all rendered the same blue because the palette it should
-      # have been generating was two hard-coded schemes. `find-unwired-surfaces.py`
-      # cannot see this: it counts symbols, and an unused dependency has no symbol
-      # until something imports it.
-      #
-      # The gate maps each *declared* coordinate to the package roots its artifact
-      # actually contributes, which the version catalog cannot answer — #205
-      # measured that a prefix heuristic reports 45 unused and every one is used.
-      - name: Declared dependencies are used
-        run: python3 scripts/check-dependency-usage.py
-
-      # Proves the gates exist AND can fail. Part A catches a Gradle check task
-      # with a config block that no gate invokes (:androidApp:detekt was one).
-      # Part B runs each registered script gate against a sabotaged input and
-      # requires a non-zero exit — the positive control `check-doc-sizes.py
-      # --warn-only || status=1` never had.
+      # The meta-gate runs HERE, not in the `static` job and not in the shared
+      # registry. Part B proves `check-test-runs.py` can fail by sabotaging its
+      # baseline and re-running it, and that gate reads JUnit XML which only exists
+      # once the Gradle step above has run. Called from a static context it fails
+      # with "already fails on a clean tree" — a true statement that reads as a
+      # false alarm (#206).
       - name: Gates are wired and can fail
+        if: ${{ !cancelled() }}
         run: python3 scripts/check-gate-wiring.py
 
-      # Sibling check one level down: a detekt rule absent from detekt.yml runs on
-      # detekt's built-in default, i.e. nobody decided it applies. 18 such rules
-      # held 247 of 428 baseline entries and two of them contradicted AGENTS.md.
-      - name: Lint rules are declared decisions
-        run: python3 scripts/check-rule-intent.py
-
-      # The other half of that question, and the one that was missing here.
-      # check-rule-intent asks whether a rule was *declared*; a rule can be
-      # declared, configured, and provably able to fire, and still be switched
-      # off for a whole file by one @file:Suppress line that no gate could see.
-      # 12 production files did exactly that, hiding 38 direct Clock.System
-      # reads, and the gate that catches it ran in check.sh only — so a file that
-      # needed no comment locally could arrive on main unremarked.
-      - name: Every file-level suppression says what it hides
-        run: python3 scripts/check-suppression-intent.py
-
-      # docs/SKILLS-CATALOG.md is generated from skill frontmatter and was
-      # committed stale on a clean tree with nothing noticing. The catalog is what
-      # an agent reads to choose a skill, so a stale line count or description
-      # sends it to the wrong file.
-      - name: Check the skills catalog is current
-        run: ./scripts/regen-skills-catalog.sh --check
-
-      - name: Check skill frontmatter
-        run: ./scripts/check-skill-frontmatter.sh
-        # A skill without a `description` is undiscoverable to the agent loader.
-        # This gate existed only in check.sh and `just docs-audit`, and
-        # docs-audit.yml's path filter did not include .agents/skills/** — so a PR
-        # that broke a skill's frontmatter failed nothing. ci.yml has no path
-        # filter, so it is reachable from any PR.
-
-      - name: Check doc sizes
-        # DIGEST.md is generated and gitignored, so on a fresh checkout it does
-        # not exist and the budget check would silently skip it. Regenerate
-        # first: this step then measures what the generator actually produces
-        # today, which is the thing that can regress.
-        run: |
-          python3 scripts/refresh-decisions-digest.py
-          python3 scripts/check-doc-sizes.py
-        # blocking: AGENTS.md budget (250 lines) or DIGEST.md budget exceeded
-
-      - name: Check dead doc references
-        run: python3 scripts/check-doc-dead-refs.py
-        # blocking: new dead file/symbol references in docs, skills and KDoc
-
-      # Publication hygiene. A snapshot is irreversible once pushed to a public
-      # remote, so this runs on every PR rather than at release time: a personal
-      # path or email that reaches main is a finding nobody can retract later.
-      # The self-test is the second half and the one that matters — it proves the
-      # rules still fire, which is the failure mode a regex gate always has.
-      - name: Check publication hygiene
-        run: |
-          python3 scripts/check-publication-hygiene.py
-          python3 scripts/check-publication-hygiene.py --self-test
-        # blocking: a machine-specific path, the internal clone name, or a
-        # personal email address in a file that would be published
-
-      - name: Check README claims
-        run: |
-          python3 scripts/check-readme-claims.py
-          python3 scripts/check-readme-claims.py --self-test
-        # blocking: a README number that no longer matches the tree, or the JVM
-        # and Android tool lists having diverged
-
-      # A test task that reads a tree outside its own module must declare it as an input.
-      # Without that declaration the task goes UP-TO-DATE on an edit to that tree and an
-      # architecture gate re-reports its previous verdict — green, about a file it never
-      # re-read. Measured on MaestroFlowTagsTest; see
-      # docs/decisions/2026-10-05-test-task-external-inputs.md. 20 ms, no JVM.
-      - name: Check test-task input declarations
-        run: python3 scripts/check-test-task-inputs.py
-        # blocking: a scan root outside its module with no task input covering it
-
-      - name: Check skill symbols
-        run: python3 scripts/check-doc-dead-refs.py --skill-symbols
-        # blocking: a skill names a Kotlin symbol that does not exist
-
-      # Replaced by com.singularity.todo.arch.MaestroFlowTagsTest in :shared:jvmTest
-      # (blocking — any unknown id fails the build). Retained here as a non-blocking
-      # lint for ad-hoc local use; continues-on-error so it never blocks a PR.
-      - name: Check Maestro test tags
-        run: bash Maestro/scripts/check-tags.sh
-        # Advisory, and redundant by design: the canonical blocking check is
-        # `MaestroFlowTagsTest.kt` inside :shared:jvmTest, which runs earlier in
-        # this workflow and fails the build. This shell copy is kept for ad-hoc
-        # local use where Gradle is unavailable — see the script's own header.
-        # Making this step blocking would buy a second verdict on the same
-        # contract; making it *undeclared* is what would be wrong, because then
-        # it reads as the gate and a reader would not know the real one is
-        # elsewhere.
-        continue-on-error: true
-
-  # The 15 @Tag("slow") classes (restart smoke, file/backup codec contracts,
-  # repo sync propagation). They run here instead of in the blocking job so a
-  # PR is not gated on restart-and-reopen timing, but they are no longer simply
-  # omitted: `-Ptest.tags=slow` selects exactly these and nothing else.
-  maestro-smoke:
-    # Pinned for the same reason as every other job here, and this one has the
-    # strongest claim to it: an emulator job is the surface a kernel bump breaks
-    # first. `ubuntu-latest` moves to 26.04 on 2026-11-19.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      - name: Enable KVM for the emulator
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Install Maestro
-        run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-
-      # Everything that needs the device runs inside `script:`. That input is the
-      # command the action executes *while the emulator is up*, and the action
-      # kills the emulator as soon as it returns — it is not a boot gate. The
-      # first version of this job passed `script: Maestro/scripts/wait-for-boot.sh`,
-      # so the emulator was booted, reported ready, and was then torn down before
-      # the next step ran: `installDebug` failed with "No connected devices!".
-      # The job had never executed, so nothing caught it.
-      #
-      # `wait-for-boot.sh` is kept as the first command, because the action's own
-      # readiness check does not wait for the package manager.
-      - name: Install the APK and run the smoke flows
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          # The host emulator in this project loses its device mid-run with a
-          # gfxstream crash; run-maestro.sh already relaunches and retries, and
-          # the job timeout above bounds the worst case.
-          disable-animations: true
-          # SKIP_INSTALL is deliberately NOT set: the flows must run against the
-          # binary built in this job. run-maestro.sh reinstalls after a device
-          # recovery for the same reason — a relaunched emulator can come back
-          # holding a different build, and a green run would then prove nothing.
-          script: |
-            bash Maestro/scripts/wait-for-boot.sh
-            ./gradlew :androidApp:installDebug --no-daemon
-            TAGS=smoke MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
-            # The scenario-tagged flows, in the same emulator session. They were
-            # not run at all before 2026-10-05: this job passed `TAGS=smoke`,
-            # and `TASK-REC-01` is the only flow carrying a `scenario:` tag, so
-            # the one flow whose result the result matrix could consume never
-            # executed in CI. The tags are read from the flows rather than
-            # written out here, because a hard-coded list is a list that goes
-            # stale the moment a second scenario flow lands and reads as
-            # complete.
-            SCENARIO_TAGS=$(grep -rhoE 'scenario:[A-Z0-9-]+' Maestro/flows | sort -u | paste -sd, -)
-            if [ -n "$SCENARIO_TAGS" ]; then
-              echo "Running scenario flows: $SCENARIO_TAGS"
-              TAGS="$SCENARIO_TAGS" MAESTRO_MAX_RETRIES=1 bash scripts/run-maestro.sh
-            else
-              echo "No scenario-tagged flows found — the result matrix will have no android rows"
-            fi
-
-      # Uploaded unconditionally, and uploaded from `build/maestro-results/`
-      # rather than only `~/.maestro/tests/`. Two reasons, both measured:
-      #
-      #   * The XML is the only thing `traceability results` can join to a
-      #     scenario. It was written to disk and then thrown away with the
-      #     runner, so the android half of the result matrix could never be
-      #     produced from CI — the matrix has said `not-run` for android on
-      #     every commit since the layer was added.
-      #   * `if: failure()` uploads only the half you cannot use. A result set
-      #     that exists solely when something broke cannot answer "which
-      #     scenario passed on abc1234", which is the question the matrix is
-      #     for.
-      - name: Upload Maestro JUnit results
-        if: always()
+      - name: Upload JUnit results
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: maestro-junit-${{ github.job }}-${{ github.run_id }}
-          path: build/maestro-results/
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload Maestro failure artifacts
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: maestro-failures-${{ github.run_id }}
-          path: ~/.maestro/tests/**
-          if-no-files-found: ignore
+          name: junit-results
+          path: |
+            shared/build/test-results/jvmTest/**/*.xml
+            shared/build/test-results/testAndroidHostTest/**/*.xml
+            desktopApp/build/test-results/test/**/*.xml
+            mcp-server/build/test-results/test/**/*.xml
+          if-no-files-found: error
           retention-days: 7
 
-  slow-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Upload evidence (diagnostics, traceability, coverage)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
         with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Run slow jvmTest
-        run: ./gradlew :shared:jvmTest -Ptest.tags=slow --no-daemon
-
-      - name: Upload shared failure bundle
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: slow-failure-bundle-${{ github.run_id }}
-          path: shared/build/diagnostics/**
+          name: ci-evidence-${{ github.run_id }}
+          path: |
+            desktopApp/build/diagnostics/**
+            shared/build/diagnostics/**
+            mcp-server/build/diagnostics/**
+            build/traceability/**
+            build/reports/kover/report.xml
+            **/build/reports/configuration-cache/**
           if-no-files-found: ignore
           retention-days: 14
 
-  kover-report:
+  # free and pro are two different Gradle graphs (-PwithPro), so two matrix legs.
+  android:
+    name: Android (${{ matrix.variant }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: free
+            flags: ""
+            tasks: ":androidApp:assembleDebug"
+          # No Tracer token: proves FSL code compiles and the DI rebinding holds,
+          # not that the vendor SDK works.
+          - variant: pro
+            flags: "-PwithPro=true"
+            tasks: ":pro:detekt :androidApp:assembleDebug :pro:testDebugUnitTest"
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
+      - uses: ./.github/actions/setup-jvm-gradle
         with:
-          java-version: 21
-          distribution: "zulu"
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+      - name: Assemble / lint / test
+        run: ./gradlew --continue ${{ matrix.flags }} ${{ matrix.tasks }}
 
-      # The configuration cache store lives in the PROJECT .gradle/ directory,
-      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
-      # its own cache. Keys are per-job + per-run (restore via prefix) so every
-      # run persists newly stored entries; a hash change falls back gracefully
-      # (stale entries are simply not reused — invalidation is not a failure).
-      - name: Cache configuration cache store
-        uses: actions/cache@v4
-        with:
-          path: .gradle/configuration-cache
-          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            cc-${{ github.job }}-${{ runner.os }}-
-
-      - name: Generate kover report
-        # The stamp goes in first: the report is only evidence about the code if it
-        # was produced by this run, and a report left in a restored build cache or a
-        # self-hosted workspace would otherwise satisfy the floor indefinitely.
-        #
-        # `koverReport` (not `:shared:koverXmlReport`, not a bare `koverXmlReport`):
-        # coverage is aggregated at settings level (settings.gradle.kts), and the root
-        # `koverReport` task is the one that also runs the test tasks. Kover's
-        # aggregation plugin only picks up `Test` tasks that are already in the graph —
-        # `:koverXmlReport` alone would merge whatever the cache happened to hold.
-        # Aggregation is the point of the change: :desktopApp:test drives the real
-        # shared screens through a Compose harness, and under a per-project report none
-        # of that execution was measurable. Measured on the same suite, 67 packages
-        # read 0% before and 40 after; the 32 that came off account for 108,096
-        # instructions the report could not previously see.
-        run: |
-          echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-          ./gradlew koverReport -Ptest.tags=fast,slow --no-daemon --configuration-cache
-
-      # kover pulls in :shared:testAndroidHostTest (the Robolectric/Android source set),
-      # which no other job exercises. Without this floor, a regression that only breaks
-      # on that source set would be invisible.
-      - name: Check executed test counts (Android source set)
-        run: python3 scripts/check-test-runs.py --require shared:testAndroidHostTest
-
-      # A report nobody reads is not a measurement. Kover 0.9 writes
-      # reports/kover/report.xml — the artifact step pointed at xml-report.xml,
-      # a name this plugin never produced, and had no if-no-files-found: error,
-      # so the upload has always carried nothing.
-      - name: Check coverage floors
-        run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
-
-      - name: Upload kover XML report
+      - name: Upload debug APK (sideloadable PR build)
+        if: matrix.variant == 'free'
         uses: actions/upload-artifact@v7
         with:
-          name: kover-report
-          # Kover 0.9 names this report.xml, and since the move to settings-level
-          # aggregation the report is produced once for the whole build at the root
-          # project. The previous `xml-report.xml` never matched anything, so the
-          # artifact was silently empty on every run — `if-no-files-found: error`
-          # makes that class of mistake fail instead.
-          path: build/reports/kover/report.xml
+          name: apk-debug-${{ github.run_id }}
+          path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 3
 
-  openspec-validate:
+  # The only job branch protection should require. `if: always()` is load-bearing:
+  # without it this job is skipped when a leaf fails, and a skipped job reads as
+  # neutral. The assertion is load-bearing too: a failed leaf leaves its siblings
+  # `skipped`, so checking only for "no failures" would pass on a skipped job.
+  ci-gate:
+    name: CI gate
+    if: ${{ always() }}
+    needs: [static, tests, android]
     runs-on: ubuntu-24.04
-    if: "contains(github.event.head_commit.message, 'openspec') || contains(github.event.pull_request.title, 'openspec') || github.event_name == 'push' || github.event_name == 'pull_request'"
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v7
-      - name: Check Node.js
-        run: node --version
-      - name: OpenSpec stale check (advisory)
-        run: python3 scripts/check-openspec-stale.py || true
-      - name: OpenSpec validate
-        run: npx @fission-ai/openspec validate --all --json --strict
-
-  mcp-server-check:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          java-version: 21
-          distribution: "zulu"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      # The configuration cache store lives in the PROJECT .gradle/ directory,
-      # not GRADLE_USER_HOME — setup-gradle@v4 does not pick it up, so it needs
-      # its own cache. Keys are per-job + per-run (restore via prefix) so every
-      # run persists newly stored entries; a hash change falls back gracefully
-      # (stale entries are simply not reused — invalidation is not a failure).
-      - name: Cache configuration cache store
-        uses: actions/cache@v4
-        with:
-          path: .gradle/configuration-cache
-          key: cc-${{ github.job }}-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            cc-${{ github.job }}-${{ runner.os }}-
-
-      - name: Check mcp-server
-        # :mcp-server:jar builds the fat JAR the E2E suite spawns (it was never
-        # built in CI before — McpServerEndToEndTest always self-skipped).
-        # blocking as of 2026-10-04: this job carried the whole P0 data-corruption
-        # fix (profile bootstrap identity), and advisory tests there mean the fix
-        # ships unverified. check.sh step [7/8] validates the DI graph locally.
+      - name: All required jobs succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          ./gradlew :mcp-server:jar --no-daemon --configuration-cache
-          ./gradlew :mcp-server:detekt --no-daemon --configuration-cache
-          ./gradlew :mcp-server:test -Ptest.tags=fast,slow --no-daemon --configuration-cache
-          python3 scripts/check-test-runs.py --require mcp-server:test
-      - name: Upload configuration cache report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: configuration-cache-${{ github.job }}-${{ github.run_id }}
-          path: "**/build/reports/configuration-cache/**"
-          if-no-files-found: ignore
-          retention-days: 14
-
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || exit 1; done
