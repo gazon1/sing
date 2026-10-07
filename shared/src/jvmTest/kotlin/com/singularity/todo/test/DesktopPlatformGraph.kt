@@ -55,6 +55,8 @@ import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.core.notifications.JvmNotifier
+import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.koin.core.module.Module
@@ -180,7 +182,12 @@ internal fun desktopPlatformModule(): Module = module {
     factory<PomodoroTimer> { JvmPomodoroTimer(get(), get(), get(), get(), get(), get()) }
 
     // ─── Reminders ─────────────────────────────────────────────────
-    single<ReminderScheduler> { JvmReminderScheduler() }
+    // Real collaborators, not stubs. `isSupported` is the conjunction of a systemd probe
+    // and `notifier.isSupported`; handing this graph fakes would let a desktop harness
+    // report reminder support it never actually has, which is the defect this file's
+    // other bindings exist to prevent.
+    single<Notifier> { JvmNotifier(get()) }
+    single<ReminderScheduler> { JvmReminderScheduler(get(), get(), get()) }
 
     // A background scope owned by the graph, matching the desktop module's. It was
     // missing here as well, and it is invisible to a dependency scan for the same reason

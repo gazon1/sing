@@ -70,7 +70,10 @@ marking a live seam `unwired` with no reason fails the build, as it should.
 
 - One fewer platform seam: 25 becomes 24.
 - A Desktop reminder backend, when it arrives, will need a **new** notifier port. It must not
-  resurrect this one — see the reminder workstream in issue #214.
+  resurrect this one — see the reminder workstream in issue #214. **Done**, as
+  `core/notifications/Notifier.kt`: it can only display, never schedule, never cancel, never
+  enumerate, so the failure this port embodied has no code path in its replacement. See
+  `2026-10-07-desktop-reminders-systemd-user-timers.md`.
 - Adding a binding to a `PlatformModule` now means adding a registry row. That is the point.
 
 ## Links
@@ -78,4 +81,4 @@ marking a live seam `unwired` with no reason fails the build, as it should.
 - `shared/src/jvmTest/resources/platform-seams.tsv` — the registry and its `wiring` column
 - `scripts/find-unwired-surfaces.py` — the detector that cannot see platform bindings
 - `feature/reminders/AlarmManagerReminderScheduler.kt` — where reminder delivery actually lives
-- Issue #214 — Desktop reminders, still to do
+- Issue #214 — Desktop reminders, landed as `2026-10-07-desktop-reminders-systemd-user-timers.md`

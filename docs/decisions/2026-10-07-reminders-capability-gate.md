@@ -142,9 +142,12 @@ reconstruction.
 - The `at`-based backend stays deleted. Its replacement must be `systemd --user`
   timers, keyed to this app — see
   `2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs.md`.
-  When it lands: flip `isSupported`, delete the throw in `JvmReminderScheduler`, drop the
-  corresponding assertion in `JvmReminderSchedulerCapabilityTest`, and set the registry's
-  `gate` column to whatever the new UI reads.
+  **Landed**, as `2026-10-07-desktop-reminders-systemd-user-timers.md`. The checklist it
+  left behind was executed as written: `isSupported` flipped (to a conjunction of a
+  systemd user session and a working `notify-send`, not a constant), the throw in
+  `JvmReminderScheduler` now guards that narrower condition instead of covering the whole
+  platform, `JvmReminderSchedulerCapabilityTest` was rewritten around both states rather
+  than having its assertion deleted, and the registry row moved from `stub` to `real`.
 - Three false KDoc claims were corrected. Where a file documents the absence of a
   dependency, it now says so explicitly rather than naming a class that does not exist.
 
