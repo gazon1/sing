@@ -146,18 +146,22 @@ class ProjectsRepositoryImpl(
 
     override suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long) {
         val uid = currentUser.scopedUserId.value.value
-        val rows = projectDao.setParentForUser(id.value, parentId?.value, updatedAt, uid)
-        require(rows > 0) { "Project $id not found or not owned by user" }
-        // parentId is a serialised field of Project, so the reparent must sync.
-        enqueueFresh(id)
+        unitOfWork.write {
+            val rows = projectDao.setParentForUser(id.value, parentId?.value, updatedAt, uid)
+            require(rows > 0) { "Project $id not found or not owned by user" }
+            // parentId is a serialised field of Project, so the reparent must sync.
+            enqueueFresh(id)
+        }
     }
 
     override suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long) {
         val uid = currentUser.scopedUserId.value.value
-        val rows = projectDao.setSortOrderForUser(id.value, sortOrder, updatedAt, uid)
-        require(rows > 0) { "Project $id not found or not owned by user" }
-        // sortOrder is a serialised field of Project.
-        enqueueFresh(id)
+        unitOfWork.write {
+            val rows = projectDao.setSortOrderForUser(id.value, sortOrder, updatedAt, uid)
+            require(rows > 0) { "Project $id not found or not owned by user" }
+            // sortOrder is a serialised field of Project.
+            enqueueFresh(id)
+        }
     }
 
     override suspend fun findByIdempotencyKey(key: String): Project? {

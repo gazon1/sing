@@ -46,7 +46,12 @@ class PlatformModuleMirrorTest {
         daoBindings.findAll(file.readText()).map { it.groupValues[1] }.toSet()
 
     private fun typedBindingsIn(file: File): Set<String> =
-        typedBindings.findAll(file.readText()).map { it.groupValues[1] }.toSet()
+        // Simple names, not the text as written: the production module binds
+        // `com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries` in
+        // full while the mirror imports it, and comparing the raw text reported a
+        // difference that was only a difference of spelling. A mirror is allowed to
+        // shorten a name; it is not allowed to drop a binding.
+        typedBindings.findAll(file.readText()).map { it.groupValues[1].substringAfterLast(".") }.toSet()
 
     private fun androidModuleFile(): File {
         val root = System.getProperty("jvmMain.root")
@@ -125,6 +130,34 @@ class PlatformModuleMirrorTest {
                 "so the desktop graph cannot be built. One direction only: a type bound on " +
                 "Android and not on desktop is usually an Android-only feature with a " +
                 "no-op desktop implementation, which is legitimate",
+        )
+    }
+
+    @Test
+    fun `the mirror binds every typed binding the desktop module binds`() {
+        val production = typedBindingsIn(sourceFile("PlatformModule.jvm.kt"))
+        val mirror = typedBindingsIn(mirrorFile())
+
+        // This is the gap `UnitOfWork` fell through, and the two checks above could not
+        // have caught it in either direction.
+        //
+        // The DAO check reads `get<AppDatabase>().(\w+)()` and so sees DAOs only. The
+        // platform check compares desktop against *Android*, not against the mirror. So a
+        // new non-DAO binding in `PlatformModule.jvm.kt` had no check at all: `dc7f1d5d`
+        // extracted the mirror from a copy predating the unit-of-work work, `UnitOfWork`
+        // disappeared from it silently, and every test stayed green while the mirror could
+        // not construct a `TaskRepository`.
+        //
+        // It surfaced only because something now *resolves* the sync chain
+        // (`SyncDiGraphResolutionTest`) rather than reading the mirror's text. That is the
+        // whole lesson: a mirror drift is invisible to source-scanning checks, because the
+        // thing that is missing is precisely the thing nothing references.
+        assertEquals(
+            emptySet(),
+            production - mirror,
+            "desktopPlatformModule mirrors the platform module by hand; these types are " +
+                "bound on desktop and absent from the mirror, so the graph test resolves a " +
+                "graph the app cannot build",
         )
     }
 }

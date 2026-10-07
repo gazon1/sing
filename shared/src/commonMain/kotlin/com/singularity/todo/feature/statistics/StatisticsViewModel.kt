@@ -10,6 +10,9 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
+import com.singularity.todo.feature.tasks.domain.logic.summarizeTaskHealth
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
@@ -26,6 +29,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.TimeZone
 
 /**
@@ -39,6 +43,8 @@ import kotlinx.datetime.TimeZone
 data class StatisticsUiState(
     val snapshot: StatisticsSnapshot? = null,
     val insights: InsightsData = InsightsData(),
+    /** Task-health buckets for the Health tab; null until the first computation lands. */
+    val health: TaskHealthSummary? = null,
     val loading: Boolean = true,
     val rangeDays: Int = 7,
 ) {
@@ -116,6 +122,41 @@ class StatisticsViewModel(
                 }
         }
 
+        // ── Task health ───────────────────────────────────────────────────────
+        // A separate collector rather than a step inside the one above, because that
+        // one maps tasks to `(id, epochMillis)` pairs and throws the `Task` away — health
+        // needs `dependsOn`, `archivedAt` and the timestamps, so it cannot be folded in
+        // without widening the statistics snapshot's inputs.
+        scope.launch {
+            taskRepository.observeByFilter(TaskFilter.All)
+                .map { tasks ->
+                    val now = clock.now()
+                    val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                    // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
+                    // TaskCompletionSlot copies `completedAt` without bumping `updatedAt`,
+                    // so a task finished this morning would otherwise read as untouched
+                    // since whenever it was last edited.
+                    val lastTouched = { task: Task ->
+                        listOfNotNull(task.completedAt, task.updatedAt).max()
+                    }
+                    // Typed nullable so the `catch` below can emit null: a null here is
+                    // what makes the Health tab say "unavailable" instead of rendering a
+                    // healthy-looking all-zero screen for a query that never ran.
+                    val summary: TaskHealthSummary? = summarizeTaskHealth(
+                        allTasks = tasks,
+                        today = today,
+                        now = now,
+                        lastActivityOf = lastTouched,
+                    )
+                    summary
+                }
+                .catch { error ->
+                    crashReporter.report(error, TASK_HEALTH_FAILED)
+                    emit(null)
+                }
+                .collect { summary -> updateState { it.copy(health = summary) } }
+        }
+
         // ── Time-tracking insights (recomputed when rangeDays changes) ────────
         scope.launch {
             state.map { it.rangeDays }.flatMapLatest { days ->
@@ -177,6 +218,7 @@ class StatisticsViewModel(
     private companion object {
         // Machine-shaped grouping keys — these leave the device.
         const val TASK_STATISTICS_FAILED = "statistics.tasks_failed"
+        const val TASK_HEALTH_FAILED = "statistics.health_failed"
         const val TIME_INSIGHTS_FAILED = "statistics.insights_failed"
     }
 }

@@ -8,6 +8,7 @@ import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
+import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import okio.Path
 import okio.Path.Companion.toPath
@@ -55,6 +56,10 @@ fun main() = singleWindowApplication(
     // handler escalates to the platform's uncaught-exception handler.
     createBackgroundScope(loggingBackgroundFailureHandler()).launch {
         ProfileBootstrapper(GlobalContext.get().get()).run()
+        // Arm the maintenance jobs (llm_usage retention). This is the same call the
+        // Android entry point makes, against the same common class, so both platforms
+        // prune on the same schedule instead of drifting apart.
+        GlobalContext.get().get<BackgroundWorkBootstrapper>().run()
     }
 
     // Google Calendar sync runs on the desktop too — it is network plus Room, with no

@@ -21,6 +21,12 @@
 
 # Where worktrees live, and the branch namespace they get. Overridable because
 # the host's work root is a personal layout, not a project constant.
+#
+# The default is `$HOME/work` rather than a literal path: a tracked file carrying
+# `/home/<user>` is a machine-specific default that `check-publication-hygiene.py`
+# correctly refuses to let ship, and it is wrong on every host that is not this
+# one. `just` does not expand it — the value reaches the helpers as a shell
+# argument, so bash expands it there.
 WT_ROOT   := env_var_or_default("WT_ROOT", "$HOME/work")
 WT_PREFIX := env_var_or_default("WT_PREFIX", "feature/")
 # Base branch every new worktree forks from.

@@ -18,6 +18,7 @@ import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINUTES
 import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
+import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import com.singularity.todo.update.AppUpdateGate
 import com.singularity.todo.update.AppUpdatePrefs
@@ -159,6 +160,11 @@ open class SingularityApp : Application() {
             crashReportingFailureHandler(getKoin().get()),
         ).launch {
             getKoin().get<ProfileBootstrapper>().run()
+            // Arm the maintenance jobs (llm_usage retention). Separate from the profile
+            // bootstrap above rather than folded into it: they are unrelated concerns that
+            // happen to share a launch hook, and merging them would make the profile
+            // seeding harder to read than either part is on its own.
+            getKoin().get<BackgroundWorkBootstrapper>().run()
         }
     }
 
