@@ -242,12 +242,12 @@ jobs:
         include:
           - variant: free
             flags: ""
-            tasks: ":androidApp:assembleDebug"
+            tasks: ":androidApp:compileDebugKotlin :androidApp:assembleDebug"
           # No Tracer token: proves FSL code compiles and the DI rebinding holds,
           # not that the vendor SDK works.
           - variant: pro
             flags: "-PwithPro=true"
-            tasks: ":pro:detekt :androidApp:assembleDebug :pro:testDebugUnitTest"
+            tasks: ":pro:detekt :androidApp:compileDebugKotlin :androidApp:assembleDebug :pro:testDebugUnitTest"
     steps:
       - uses: actions/checkout@v7
 
