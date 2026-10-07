@@ -1,5 +1,6 @@
 package com.singularity.todo.core.work
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -19,7 +20,12 @@ import kotlinx.datetime.plus
  * The property that matters is **strictly after**. A "daily at 03:00" job that computed its
  * next boundary from a 03:00:00 clock would return 03:00:00 again; the loop wrapping this
  * would then spin forever rather than fail. Every boundary case below is that one.
+ *
+ * Tagged `fast`: pure arithmetic with no clock, no scope and no platform, so it belongs with
+ * the tests that run on every change. An untagged class is silently excluded from CI, which
+ * runs `-Ptest.tags=fast,slow` — the failure mode TestTagCoverageTest exists to prevent.
  */
+@Tag("fast")
 class JobScheduleMathTest {
 
     private val utc = TimeZone.UTC
