@@ -245,8 +245,15 @@ internal class NoteEditor(
         // Extract outgoing links from the rendered HTML and persist them.
         // This is the write path for the backlinks feature: without this, outgoing_links
         // is never written and [[note://...]] / [[task://...]] links are dead.
+        //
+        // Unwrapped for the same reason as the two writes above, and the comment above is
+        // the reason it has to be: without the unwrap a save reported success while the
+        // backlinks feature silently did nothing, which is the exact failure this comment
+        // claims to prevent. Outgoing links are not synced — no DocType describes them,
+        // see SyncedWriteEnqueuesTest — so a failure here loses the column locally and
+        // there is no later reconciliation that would notice.
         val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html)
-        autosaveContext.repo.setOutgoingLinks(noteId, linkUrls)
+        autosaveContext.repo.setOutgoingLinks(noteId, linkUrls).getOrThrow()
         Either.Right(Unit)
     } catch (e: CancellationException) {
         throw e
