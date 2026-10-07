@@ -48,6 +48,8 @@ import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository
+import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.PatchRetryPolicy
 import com.singularity.todo.core.sync.RoomSyncStateRepository
@@ -123,6 +125,20 @@ fun coreModule(): org.koin.core.module.Module = module {
     // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
     // (real file on Android, in-memory stub on JVM).
     single<SettingsRepository> { DataStoreSettingsRepository(get()) }
+
+    // The spotlight tour's "have I seen this yet" record, on the same DataStore and for
+    // the same reason as `SettingsRepository` above — a second store would need its own
+    // migration, its own behaviour when settings are cleared, and its own answer to
+    // sign-out.
+    //
+    // Bound here because 26316f2b landed `SpotlightTourController` without it:
+    // `:shared:jvmTest`, `:desktopApp:compileKotlin` and `:androidApp:compileDebugKotlin`
+    // all failed with KOIN-D003 "Missing definition: OnboardingSettingsRepository", so
+    // `origin/main` did not build between that commit and this one. The koin-compiler
+    // plugin caught it at compile time, which is the only reason it was not found by
+    // anyone reading the diff — the class was constructed in a `single` body, so nothing
+    // about the binding was visible from `SpotlightTourController` alone.
+    single<OnboardingSettingsRepository> { DataStoreOnboardingSettingsRepository(get()) }
 
     // ─── Drafts ──────────────────────────────────────────────────────────
     // DraftStore uses the same per-platform DataStore<Preferences> binding.
