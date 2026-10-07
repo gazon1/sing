@@ -5,26 +5,21 @@ import android.content.Context
 import android.content.Intent
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_PHASE
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_REMINDER_ID
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_USER_ID
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
-import com.singularity.todo.feature.reminders.ReminderDelivery
+import com.singularity.todo.feature.reminders.AlarmHandler
 import com.singularity.todo.feature.reminders.ReminderId
-import com.singularity.todo.feature.reminders.ReminderScheduler
-import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.context.GlobalContext
-import kotlin.time.Clock
 
 /**
  * Multi-action [BroadcastReceiver] that handles all alarm-driven events:
@@ -51,11 +46,7 @@ class AlarmReceiver :
 
     private val log = Logger.withTag("AlarmReceiver")
 
-    private val reminderRepo: ReminderRepository by inject()
-    private val notifier: AndroidNotifier by inject()
-    private val delivery: ReminderDelivery by inject()
-    private val reminderScheduler: ReminderScheduler by inject()
-    private val clock: Clock by inject()
+    private val handler: AlarmHandler by inject()
     private val crashReporter: CrashReportingPort by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -94,50 +85,22 @@ class AlarmReceiver :
     private suspend fun handleReminderFire(intent: Intent) {
         val reminderId = intent.reminderIdOrNull ?: return
         val userId = intent.userIdOrNull ?: return
-
-        // The four delivery steps live in `ReminderDelivery`, shared with the Desktop
-        // launcher. This class decides *when* to fire; it does not decide what firing
-        // means, because that is the part the two platforms must not disagree about.
-        delivery.fire(reminderId, userId)
+        handler.reminderFired(reminderId, userId)
     }
 
     private suspend fun handlePomodoroPhaseEnd(intent: Intent) {
         val phase = intent.phaseOrNull ?: return
-        val phaseName = when (phase) {
-            PomodoroPhase.Work -> "Work session"
-            PomodoroPhase.ShortBreak -> "Short break"
-            PomodoroPhase.LongBreak -> "Long break"
-        }
-        val body = if (phase == PomodoroPhase.Work) "Time for a break ☕" else "Back to work!"
-        notifier.post(
-            tag = "pomodoro:$phase:${clock.now().toEpochMilliseconds()}",
-            title = "$phaseName ended",
-            body = body,
-            viewId = null,
-        )
+        handler.pomodoroPhaseEnded(phase)
     }
 
     /**
-     * Catch-up handler for [ACTION_BOOT_COMPLETED] and [ACTION_REMINDER_DATA_CHANGED].
+     * Boot and data-changed catch-up.
      *
-     * 1. Fires past-due reminders (capped at 20 to avoid overload after long offline period).
-     * 2. Re-schedules all active reminders from the database.
-     *
-     * Past-due fire deletes one-shot reminders after posting; recurring reminders are kept
-     * and will be re-scheduled by step 2.
+     * The ordering — fire what was missed, then re-arm what is still ahead — lives in
+     * [AlarmHandler.catchUp], where it can be tested. This class only says *that* a boot
+     * happened, which is the one fact only a `BroadcastReceiver` can supply.
      */
-    private suspend fun rescheduleAll() {
-        val now = clock.now().toEpochMilliseconds()
-
-        // Catch-up: fire past-due reminders (cap 20 to avoid notification storm on boot)
-        reminderRepo.watchRecentDueBefore(now, 20).first()
-            .forEach { reminder -> delivery.fireKnown(reminder) }
-
-        // Re-schedule all active reminders
-        reminderRepo.observeAll().first().forEach { reminder ->
-            reminderScheduler.schedule(reminder)
-        }
-    }
+    private suspend fun rescheduleAll() = handler.catchUp()
 
     // ─── Intent helpers ─────────────────────────────────────────────────────────
 

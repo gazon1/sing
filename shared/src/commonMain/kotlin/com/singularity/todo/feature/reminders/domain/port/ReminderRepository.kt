@@ -17,6 +17,21 @@ interface ReminderRepository {
     /** All reminders for the current user. */
     fun observeAll(): Flow<List<Reminder>>
 
+    /**
+     * Every reminder, across every profile.
+     *
+     * ## Why a repository scoped to one profile can offer this
+     *
+     * Arming OS alarms is a device-wide operation. A phone that reboots must re-arm every
+     * reminder it holds, not only the ones belonging to whichever profile happened to be
+     * active when it came back — otherwise a reminder for a second profile silently never
+     * fires until its owner switches to it and relaunches.
+     *
+     * Reads only, and the single sanctioned hole in profile isolation for this table.
+     * See `CrossProfileReadRegistry`.
+     */
+    fun observeAllProfiles(): Flow<List<Reminder>>
+
     /** Single reminder observation by [id] for the current user. */
     fun observe(id: ReminderId): Flow<Reminder?>
 

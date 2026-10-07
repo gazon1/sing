@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -117,5 +118,78 @@ class SubprocessTest {
          * five. At this count a regression cannot pass by luck.
          */
         const val RUNS = 20
+    }
+
+    // ─── runCapturing ────────────────────────────────────────────────────────
+
+    @Test
+    fun `capturing returns the child's stdout`() {
+        val output = Subprocess.runCapturing(listOf("sh", "-c", "echo captured"))
+
+        assertEquals("captured", output?.trim(), "the child's own output must come back")
+    }
+
+    /**
+     * A non-zero exit yields null, not partial output.
+     *
+     * The alternative — returning whatever was written before the failure — hands callers
+     * a value from a command that did not do what it was asked. For `secret-tool lookup`
+     * that is the difference between "no stored secret" and "some error text, stored".
+     */
+    @Test
+    fun `capturing a failing command returns null even when it printed something`() {
+        assertEquals(
+            null,
+            Subprocess.runCapturing(listOf("sh", "-c", "echo partial; exit 1")),
+            "output from a failed command is not a usable value",
+        )
+    }
+
+    @Test
+    fun `capturing a missing command returns null`() {
+        assertNull(Subprocess.runCapturing(listOf("no-such-binary-anywhere-xyz")))
+    }
+
+    /**
+     * stdin is delivered, and closed.
+     *
+     * `secret-tool store` reads the secret from stdin rather than the command line, which
+     * is the point: an argument is visible in `ps` to every process on the machine.
+     */
+    @Test
+    fun `stdin reaches the child`() {
+        val output = Subprocess.runCapturing(listOf("cat"), stdin = "the-secret-value")
+
+        assertEquals("the-secret-value", output, "a child reading stdin to EOF must not hang or see nothing")
+    }
+
+    /**
+     * A child that reads stdin to EOF and gets nothing would wait forever.
+     *
+     * This is the regression the `stdin` parameter's own implementation could regress
+     * silently: without the close, `cat` below would hang rather than fail, so the test
+     * would time out instead of reporting — which is the shape of bug that survives.
+     */
+    @Test
+    fun `stdin is closed even when the caller passes nothing`() {
+        val output = Subprocess.runCapturing(listOf("cat"))
+
+        assertEquals("", output?.trim(), "stdin must be closed, or a reading child waits forever")
+    }
+
+    /**
+     * A child that writes more than a pipe buffer holds must not deadlock.
+     *
+     * 64 KiB is the Linux pipe buffer. A caller that `waitFor()`s without draining blocks
+     * the moment the child crosses it — the exact shape two of `JvmSecureStorage`'s
+     * methods had, invisible today only because `which` writes twenty bytes.
+     */
+    @Test
+    fun `a chatty child does not deadlock the capture`() {
+        val output = Subprocess.runCapturing(
+            listOf("sh", "-c", "head -c 300000 /dev/zero | tr '\\0' 'x'"),
+        )
+
+        assertEquals(300_000, output?.length, "every byte must be drained, not just the first buffer")
     }
 }

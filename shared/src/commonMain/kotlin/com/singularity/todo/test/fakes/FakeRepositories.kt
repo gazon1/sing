@@ -995,6 +995,12 @@ open class FakeReminderRepository(private val currentUser: ProfileAwareCurrentUs
 
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
+    // Deliberately NOT scoped to the current user: this is the cross-profile read the
+    // alarm re-arm depends on, and a fake that filtered here would hide the very gap the
+    // real query exists to close.
+    override fun observeAllProfiles(): Flow<List<Reminder>> =
+        reminders.map { map -> map.values.sortedBy { it.fireAt } }
+
     override fun observeAll(): Flow<List<Reminder>> = currentUser.observeForCurrentUser { uid ->
         reminders.map { map ->
             map.values.filter { it.userId == uid }

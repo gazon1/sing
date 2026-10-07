@@ -70,4 +70,53 @@ object Subprocess {
             .start()
             .waitFor()
     }.getOrDefault(-1)
+
+    /**
+     * Run [argv] and return its standard output, or null when it could not be started or
+     * exited non-zero.
+     *
+     * [stdin] is written to the child and then closed, for commands that take input —
+     * `secret-tool store` reads the secret from stdin rather than the command line, which
+     * is the right choice for a secret and the reason this parameter exists.
+     *
+     * ## Why this exists rather than callers reading `inputStream` themselves
+     *
+     * Three reasons, and the first is a latent deadlock.
+     *
+     * **Draining is mandatory, and only this function does it.** A caller that starts a
+     * process and calls `waitFor()` without reading its output deadlocks the moment the
+     * child writes more than a pipe buffer holds — 64 KiB on Linux. `JvmSecureStorage` had
+     * exactly that shape in two of its four methods: no drain, no close, just `waitFor()`.
+     * They work today because `which` and `secret-tool delete` write a few bytes, and they
+     * would hang the day that changed. The hang is not the kind anyone debugs quickly,
+     * because it appears on a machine where "this always works".
+     *
+     * **Standard error is folded into standard output.** A caller capturing stdout must
+     * also consume stderr, or a chatty child fills the stderr pipe and blocks the same
+     * way.
+     *
+     * **Secrets stay in one place.** `secret-tool lookup` returns a key. Routing that
+     * through a shared, tested function means exactly one line in this repository reads a
+     * subprocess's output, and it can be reviewed as such.
+     *
+     * Null covers both failure modes — not started, and started but failed — because
+     * every caller wants "no usable value", not the distinction.
+     */
+    fun runCapturing(argv: List<String>, stdin: String? = null): String? = runCatching {
+        val process = ProcessBuilder(argv)
+            .redirectErrorStream(true)
+            .start()
+
+        // Close stdin whatever happens. A child that reads stdin to EOF and never gets it
+        // waits forever, and `waitFor()` below would wait right along with it.
+        runCatching {
+            process.outputStream.use { out ->
+                stdin?.let { out.write(it.toByteArray()) }
+            }
+        }
+
+        // Read to EOF *before* waiting. Reversing these two is the deadlock above.
+        val output = process.inputStream.bufferedReader().readText()
+        if (process.waitFor() != 0) null else output
+    }.getOrNull()
 }

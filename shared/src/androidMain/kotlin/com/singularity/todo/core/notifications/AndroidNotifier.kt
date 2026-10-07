@@ -19,8 +19,37 @@ import androidx.core.content.ContextCompat
  */
 class AndroidNotifier(private val context: Context) : Notifier {
 
-    /** Android always has a notification manager; the only question is the user's grant. */
-    override val isSupported: Boolean = true
+    /**
+     * Whether this device will actually show a notification.
+     *
+     * ## Why this is measured rather than asserted
+     *
+     * It was `= true`, with a comment saying "the only question is the user's grant" —
+     * and then it answered `true` without asking. On API 33+ the user can deny
+     * `POST_NOTIFICATIONS`, and [post] returns immediately in that case. So the flag said
+     * "supported" while the thing it promised was quietly not happening, and the caller
+     * was right to believe it: [ReminderDelivery] checks this before posting and reports
+     * `Posted`.
+     *
+     * The result was a reminder that fired, was logged as delivered, and appeared
+     * nowhere — on every Android 13 device whose owner had said no. That is the exact
+     * defect the capability flags were introduced to prevent, wearing the flag itself.
+     *
+     * ## Why it is a getter and not a `val`
+     *
+     * The grant can be revoked from system settings while the app runs, and Android can
+     * be told to re-deliver the app after a permission change. A `val` captured at
+     * construction would answer with the permission the app *started* with, which is
+     * wrong in exactly the situation where the user is trying to fix it.
+     *
+     * Cost is one binder call, on a path that already builds a `Notification`.
+     */
+    override val isSupported: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
 
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -32,6 +61,11 @@ class AndroidNotifier(private val context: Context) : Notifier {
     /**
      * Posts a notification with the given [tag], [title], and [body].
      *
+     * Returns without posting when [isSupported] is false. A caller that checks the flag
+     * first — which [ReminderDelivery] does — never reaches this; the guard is here so a
+     * caller that does not check still cannot produce a notification the user will never
+     * see while believing they were told they would.
+     *
      * @param tag Unique notification tag (used as the second argument to [NotificationManagerCompat.notify]).
      *            For reminders this is `"reminder:${userId}:${reminderId}"`.
      * @param title Notification title.
@@ -40,13 +74,7 @@ class AndroidNotifier(private val context: Context) : Notifier {
      *               launch PendingIntent and read by [MainActivity] to navigate to the correct view.
      */
     override fun post(tag: String, title: String, body: String, viewId: String?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val denied = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
-            if (denied) return
-        }
+        if (!isSupported) return
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (viewId != null) {
                 putExtra(EXTRA_DEEPLINK_VIEW_ID, viewId)

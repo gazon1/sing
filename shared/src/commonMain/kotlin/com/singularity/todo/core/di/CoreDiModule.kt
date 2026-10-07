@@ -75,6 +75,7 @@ import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
+import com.singularity.todo.feature.reminders.AlarmHandler
 import com.singularity.todo.feature.reminders.ReminderDelivery
 import com.singularity.todo.feature.reminders.data.ProjectRemindersRepositoryImpl
 import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
@@ -199,6 +200,10 @@ fun coreModule(): org.koin.core.module.Module = module {
     // precisely so the Android BroadcastReceiver and the Desktop `fire-reminder` launcher
     // cannot drift on the four steps that decide what the user actually sees.
     single { ReminderDelivery(get(), get(), get()) }
+    // Common code even though only Android raises alarms: the decisions live here so they
+    // can be tested without a `BroadcastReceiver`, and the receiver is left with the
+    // `Intent` parsing and `goAsync()` that are genuinely Android's.
+    single { AlarmHandler(get(), get(), get(), get(), get()) }
     single<ProjectRemindersRepository> { ProjectRemindersRepositoryImpl(get(), get(), get()) }
 
     // ─── Ports ───────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.process.Subprocess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.DataInputStream
@@ -51,52 +52,42 @@ class JvmSecureStorage : SecureStoragePort {
     override fun isHardwareBacked(): Boolean = IS_LINUX && secretToolAvailable()
 
     // ─── libsecret via secret-tool CLI ───────────────────────────────────────
+    //
+    // Every call goes through `Subprocess`, which drains the child's output before
+    // waiting. Two of these methods used to `waitFor()` with no drain at all, which
+    // deadlocks as soon as the child writes more than a pipe buffer — a hang that would
+    // only appear on a machine where `secret-tool` was unusually chatty, and so would be
+    // very hard to reproduce.
 
-    private fun secretToolAvailable(): Boolean = runCatching {
-        val p = ProcessBuilder("which", "secret-tool")
-            .redirectErrorStream(true)
-            .start()
-        p.waitFor()
-        p.exitValue() == 0
-    }.getOrDefault(false)
+    private fun secretToolAvailable(): Boolean =
+        Subprocess.runQuietly(listOf("which", "secret-tool")) == 0
 
     private fun secretToolRead(key: String): String? {
         if (!IS_LINUX || !secretToolAvailable()) return null
-        return runCatching {
-            val p = ProcessBuilder("secret-tool", "lookup", "key=$key")
-                .redirectErrorStream(true)
-                .start()
-            val result = p.inputStream.bufferedReader().readText().trim()
-            p.waitFor()
-            if (p.exitValue() == 0) result else null
-        }.getOrNull()
+        return Subprocess.runCapturing(listOf("secret-tool", "lookup", "key=$key"))
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
     }
 
     private fun secretToolWrite(key: String, value: String): Boolean {
         if (!IS_LINUX || !secretToolAvailable()) return false
-        return runCatching {
-            val p = ProcessBuilder(
+        // The secret goes on stdin, never in the command line: an argument is visible in
+        // `ps` output to every process on the machine for as long as it runs.
+        return Subprocess.runCapturing(
+            argv = listOf(
                 "secret-tool",
                 "store",
                 "--label=singularity:$key",
                 "key",
                 key,
-            ).also { it.redirectErrorStream(true) }.start()
-            p.outputStream.writer().use { it.write(value) }
-            p.outputStream.close()
-            p.waitFor()
-            p.exitValue() == 0
-        }.getOrDefault(false)
+            ),
+            stdin = value,
+        ) != null
     }
 
     private fun secretToolDelete(key: String) {
         if (!IS_LINUX || !secretToolAvailable()) return
-        runCatching {
-            val p = ProcessBuilder("secret-tool", "delete", "key=$key")
-                .redirectErrorStream(true)
-                .start()
-            p.waitFor()
-        }
+        Subprocess.runQuietly(listOf("secret-tool", "delete", "key=$key"))
     }
 
     // ─── AES-GCM file fallback ───────────────────────────────────────────────
