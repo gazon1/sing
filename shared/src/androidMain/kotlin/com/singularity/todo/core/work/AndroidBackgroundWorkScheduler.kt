@@ -51,8 +51,15 @@ class AndroidBackgroundWorkScheduler(
             JobSchedule.OnDemand -> runNow(jobId)
 
             is JobSchedule.Periodic -> {
+                // WorkManager's interval overloads are `java.time.Duration` in this
+                // version, so the `kotlin.time.Duration` the common `JobSchedule` speaks
+                // is converted here rather than at every call site. `inWholeMilliseconds`
+                // first keeps the clamp against the Long floor readable — mixing the two
+                // duration types inside `maxOf` is exactly what would make the floor
+                // silently uncompilable.
+                val intervalMillis = maxOf(schedule.interval.inWholeMilliseconds, MIN_PERIODIC_MILLIS)
                 val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
-                    maxOf(schedule.interval.inWholeMilliseconds, MIN_PERIODIC_MILLIS),
+                    java.time.Duration.ofMillis(intervalMillis),
                 )
                     .setConstraints(constraints())
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
@@ -93,7 +100,7 @@ class AndroidBackgroundWorkScheduler(
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
             .setInputData(inputData(jobId, schedule))
         if (delay > kotlin.time.Duration.ZERO) {
-            builder.setInitialDelay(delay)
+            builder.setInitialDelay(java.time.Duration.ofMillis(delay.inWholeMilliseconds))
         }
         workManager.enqueueUniqueWork(
             workName(jobId),
