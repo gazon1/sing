@@ -134,9 +134,18 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 # The alternative was to delete a finding to make room, which is the failure
 # mode this gate exists to prevent: the queue is what makes the reasoning
 # findable, and a queue edited to fit a number is not a queue. Both entries are
-# open, both are tracked, and both name what to try first. The headroom is now
-# ~2%, so the next finding closes something or this number gets asked again.
-DEFAULT_MAX_ENTRIES = 92
+# open, both are tracked, and both name what to try first.
+#
+# Raised 92 -> 93 on 2026-10-07, by one entry and for no other reason:
+# `the-android-graph-is-never-resolved` (#227). `shared/src/androidHostTest`
+# holds no tests, so nothing resolves the Android Koin graph and nothing can see
+# a cycle there; the fix needs a Robolectric stack declared before a single test
+# can run, which is a build-model change rather than a finding.
+#
+# The headroom is now ~1%. That is deliberate discomfort rather than a
+# comfortable number: the next finding either closes an entry or raises this
+# again, and both are decisions somebody should be making on purpose.
+DEFAULT_MAX_ENTRIES = 93
 
 
 def parse_entries(text: str) -> list[dict[str, object]]:

@@ -7,6 +7,7 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.accountIdOrNull
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.original
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.runCatchingResult
@@ -299,6 +300,34 @@ internal class SyncEngine(
 
     /**
      * Enqueues an entity change for sync.
+     *
+     * ## Why this reports its own failure
+     *
+     * The local row is committed inside `unitOfWork.write`, **before** this is called. A
+     * failure here is therefore not a failed write — it is a write that succeeded locally
+     * and will never reach the server, because the patch row was never inserted and no
+     * later cycle has anything to notice. Every other layer reports the same event: the
+     * edit is in the database, and the sync screen says "up to date".
+     *
+     * Eighteen repository call sites discard the returned `Result`, so reporting belongs
+     * here rather than in each of them: this is the one place that knows a patch failed
+     * to be queued, and eighteen log statements across six data-layer classes would still
+     * be silent at the next call site someone writes.
+     *
+     * The `Result` stays. Reporting is not a replacement for the return value — a caller
+     * that wants to react still can, and the contract a test asserts on is unchanged.
+     *
+     * No cancellation branch: `runCatchingResult` rethrows `CancellationException` before
+     * it can become a `Result`, so anything visible here is a real error. Guarding
+     * against cancellation would be a guard against something the type already excludes,
+     * and a cancelled enqueue is not an outage.
+     *
+     * The silence this replaces was not harmless. `2026-09-27-write-layer-soundness.md`
+     * MR-4 found `Note` lacked `@Serializable`, so `toJson()` threw for every note
+     * enqueue: notes stopped syncing for every user, with no error anywhere. MR-5 found
+     * the same in `Project` and `Tag`.
+     *
+     * @see REQ-OS-028
      */
     suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
         val active = scopeProvider.current.first()
@@ -326,6 +355,18 @@ internal class SyncEngine(
                 createdAt = now(),
             ),
         )
+    }.also { result ->
+        val error = result.exceptionOrNull() ?: return@also
+        val appError = error as? AppError ?: error.toAppError()
+        // `original()`, not the wrapper: runCatchingResult builds every AppError in a
+        // catch block, so reporting one hands over a stack that ends where it was
+        // constructed. This is the same pairing SyncPhaseReporter uses for every other
+        // sync failure — see AppError.original().
+        log.e(appError.original()) {
+            "enqueue failed for ${entity.docType.key} ${entity.syncId}: " +
+                "the change is saved locally and will never be pushed"
+        }
+        crashReporter.report(appError.original(), "sync.enqueue_failed")
     }
 
     /**
