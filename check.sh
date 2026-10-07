@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # check.sh — Full local verification for Singularity Todo KMP project
-# Runs: static gates → jvmTest → desktopApp:test → assembleDebug → detekt
+# Runs: static gates → androidApp:compileDebugKotlin → jvmTest → desktopApp:test
+#      → assembleDebug → detekt
 # Optionally runs Android instrumentation on adb device if SKIP_ADB=0
 # Usage: SKIP_ADB=1 ./check.sh   # skip adb tests
 #
@@ -62,21 +63,38 @@ python3 scripts/check-backlog-status.py || {
     exit 1
 }
 
-echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
+echo -e "${YELLOW}=== [3/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
+# Cheapest thing that compiles `androidMain`, run early and unconditionally.
+#
+# `:androidApp:assembleDebug` below also compiles androidMain, but it links and
+# packages a 44 MB APK. Under pressure that is the step that gets dropped, and
+# androidMain then has no compiler in the loop at all — which is how it collected
+# two compile errors in three days (739e7c05, then 276a70e3), neither noticed
+# until somebody ran the expensive gate by hand. This task compiles without
+# packaging, so skipping it saves minutes rather than a minute, and it runs before
+# the long test steps so a broken androidMain costs seconds instead of ten minutes.
+# See docs/decisions/2026-10-07-android-maintenance-needs-a-ci-gate.md
+./gw :androidApp:compileDebugKotlin --quiet || {
+    echo -e "${RED}androidApp:compileDebugKotlin FAILED${NC}"
+    exit 1
+}
+echo -e "${GREEN}androidMain compiled${NC}"
+
+echo -e "${YELLOW}=== [4/$TOTAL] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [4/$TOTAL] desktopApp:test ===${NC}"
+echo -e "${YELLOW}=== [5/$TOTAL] desktopApp:test ===${NC}"
 ./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [5/$TOTAL] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [6/$TOTAL] androidApp:assembleDebug ===${NC}"
 ./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
@@ -86,7 +104,7 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
-echo -e "${YELLOW}=== [6/$TOTAL] executed test counts ===${NC}"
+echo -e "${YELLOW}=== [7/$TOTAL] executed test counts ===${NC}"
 python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
     --max-age 21600 || {
     echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
@@ -107,37 +125,17 @@ echo -e "${GREEN}test run floors met${NC}"
 # them at its own time. Ordering them wrongly is the bug; skipping the control when
 # the XML is absent would teach the reader that "no results" is acceptable, which is
 # the reading this project is removing.
-echo -e "${YELLOW}=== [7/$TOTAL] gates are wired and can fail ===${NC}"
+echo -e "${YELLOW}=== [8/$TOTAL] gates are wired and can fail ===${NC}"
 python3 scripts/check-gate-wiring.py || {
     echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [8/$TOTAL] detekt rule unit tests ===${NC}"
+echo -e "${YELLOW}=== [9/$TOTAL] detekt rule unit tests ===${NC}"
 # A custom rule that cannot fire is indistinguishable from a rule that has
 # nothing to match. These tests are the only evidence either way.
 ./gw :detekt-rules:test --quiet || {
     echo -e "${RED}detekt rule unit tests FAILED - a rule cannot be trusted without them${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [9/$TOTAL] workflow YAML parses ===${NC}"
-# A malformed workflow is invisible: not a test failure, not a lint error, just a
-# workflow that silently does not exist. `docs-audit.yml` once was exactly that.
-python3 -c "
-import sys, yaml, glob
-bad = []
-for f in sorted(glob.glob('.github/workflows/*.yml')):
-    try:
-        yaml.safe_load(open(f, encoding='utf-8'))
-    except Exception as e:
-        bad.append(f'{f}: {e}')
-if bad:
-    print(chr(10).join(bad))
-    sys.exit(1)
-print('all workflow files parse')
-" || {
-    echo -e "${RED}workflow YAML is invalid - that workflow cannot run${NC}"
     exit 1
 }
 

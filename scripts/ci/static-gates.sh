@@ -81,6 +81,11 @@ gate blocking "settings read by a feature" python3 scripts/check-dead-settings.p
 # nothing at edit time objects. Shipped as 1dbff67f: detekt-rules-module.yml had
 # two `Filename:` keys and :detekt-rules:detekt stopped loading its config while
 # :shared and :desktopApp, which have their own, kept reporting clean.
+#
+# This also replaces check.sh's inline "workflow YAML parses" step, which globbed
+# `.github/workflows/*.yml` and used plain `safe_load` — so it missed a duplicate
+# key (last-one-wins, reported clean) and covered 3 of the tree's 125 YAML files.
+# Two checks of different strength on one file is the same defect one level down.
 gate blocking "YAML has no duplicate keys" python3 scripts/check-yaml-duplicate-keys.py --quiet
 
 # Lint-rule governance
