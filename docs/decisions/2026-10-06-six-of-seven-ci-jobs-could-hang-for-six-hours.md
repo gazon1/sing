@@ -81,6 +81,20 @@ runner while producing it.
 - The Kiwi inventory bound (320 → 330) raised after verifying all 321 scanned classes are real test
   classes, which is what the bound exists to distinguish from returned helpers.
 
+## Superseded in part
+
+Main landed #217 while this was being written, which consolidated the seven workflows into four
+jobs and bounded every one of them with `timeout-minutes`. The `docs-audit.yml` file was deleted and
+its openspec validation moved into `ci.yml` against a pinned CLI version.
+
+So the first finding is now **fixed by someone else, more thoroughly** — the workflows here were
+dropped rather than re-applied over a structure that no longer exists. The second finding, the
+`GATE_PARITY` KDoc and its two undeclared entries, was not touched by #217 and is fixed here.
+
+The ADR is kept rather than deleted for one reason: it is now the record of *why* #217's structure
+is shaped the way it is, and why the `timeout-minutes` on those jobs are load-bearing rather than
+decoration. A workflow change that drops them would otherwise look like cleanup.
+
 ## Links
 
 - Code: `scripts/check-gate-wiring.py`, `.github/workflows/ci.yml`, `.github/workflows/docs-audit.yml`

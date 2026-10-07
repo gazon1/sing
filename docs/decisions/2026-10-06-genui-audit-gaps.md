@@ -27,7 +27,9 @@ component" from "nobody needed it". Now wired, and the reporting is a pure `summ
 assert. See ADR `2026-10-06-an-instrument-nobody-reads-is-not-an-instrument`.
 
 **CI jobs could hang for six hours.** Five of six jobs in `ci.yml` and the one in `docs-audit.yml`
-had no `timeout-minutes`, against a 360-minute default. See ADR
+had no `timeout-minutes`, against a 360-minute default. Main's #217 later consolidated the workflows
+and bounded every job, so this branch carries no workflow changes — the ADR is kept as the record of
+why those `timeout-minutes` are load-bearing. See
 `2026-10-06-six-of-seven-ci-jobs-could-hang-for-six-hours`.
 
 **`check-gate-wiring.py` misreported two correctly-wired gates.** `GATE_PARITY`'s KDoc described it
@@ -86,10 +88,10 @@ Step-level logs return `steps: []`, artifacts return `total_count 0`, and job lo
 `BlobNotFound` on every run tried — including runs that finished minutes earlier, with a token whose
 `actions` permission reads `enabled/all`. This is not a code defect and not GenUI's.
 
-Its consequence is real and worth stating: `slow-tests`, `kover-report`, `maestro-smoke`,
-`mcp-server-check` and `docs-audit` fail on `main`, and the diagnosis of *why* is currently blocked
-on something outside the repository. The workarounds already applied — `tee` with unconditional
-upload, `if-no-files-found: warn`, explicit timeouts — are the parts that can be fixed from here.
+Its consequence is real and worth stating: several jobs fail on `main`, and the diagnosis of *why*
+is currently blocked on something outside the repository. Since this was written, main's #217
+consolidated the workflows and moved most of these steps, so the specific job list here is stale —
+what is not stale is the blocker itself.
 
 **Why deferred:** the fix is a repository or organisation permission, not a change to this codebase.
 
