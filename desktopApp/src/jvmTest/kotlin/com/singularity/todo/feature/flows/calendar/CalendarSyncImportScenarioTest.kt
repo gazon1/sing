@@ -7,18 +7,14 @@ import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.connectedCredential
 import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleCalendarSettingsRepository
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
 import com.singularity.todo.test.helpers.assertTagDisplayed
-import com.singularity.todo.test.helpers.assertTagExists
-import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
-import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.scrollToTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -62,7 +58,7 @@ class CalendarSyncImportScenarioTest {
                 credentials = FakeGoogleCredentialStore(
                     initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
                 ),
-                settings = FakeGoogleCalendarSettingsRepository(selectedCalendarId = "primary-cal"),
+                settings = FakeGoogleSettings(calId = "primary-cal"),
                 eventSource = FakeCalendarEventSource(),
                 // Deliberately NOT the default. The sentence is derived from the
                 // value DI handed the engine and the event source, so a screen that

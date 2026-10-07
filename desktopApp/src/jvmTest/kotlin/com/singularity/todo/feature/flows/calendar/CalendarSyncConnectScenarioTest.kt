@@ -2,15 +2,13 @@ package com.singularity.todo.feature.flows.calendar
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.connectedCredential
 import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleCalendarSettingsRepository
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
 import com.singularity.todo.test.helpers.assertTagDisplayed
-import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
@@ -22,7 +20,6 @@ import com.singularity.todo.test.helpers.scrollToTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
-import kotlin.time.Duration
 
 /**
  * The manual sync control appears only once a calendar has been chosen.
@@ -69,7 +66,7 @@ class CalendarSyncConnectScenarioTest {
                 credentials = FakeGoogleCredentialStore(
                     initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
                 ),
-                settings = FakeGoogleCalendarSettingsRepository(),
+                settings = FakeGoogleSettings(),
                 eventSource = FakeCalendarEventSource(),
             ),
         ) {

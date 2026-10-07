@@ -2,15 +2,12 @@ package com.singularity.todo.feature.flows.calendar
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.connectedCredential
 import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleCalendarSettingsRepository
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
-import com.singularity.todo.test.helpers.assertTagDisplayed
-import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
@@ -22,7 +19,6 @@ import com.singularity.todo.test.helpers.scrollToTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
-import kotlin.time.Duration
 
 /**
  * A failed Google pass reports its failure instead of leaving the panel unchanged.
@@ -62,7 +58,7 @@ class CalendarSyncNowScenarioTest {
                 credentials = FakeGoogleCredentialStore(
                     initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
                 ),
-                settings = FakeGoogleCalendarSettingsRepository(selectedCalendarId = "primary-cal"),
+                settings = FakeGoogleSettings(calId = "primary-cal"),
                 eventSource = FakeCalendarEventSource(),
                 // The pass throws. The coordinator turns that into Outcome.Failed,
                 // which is a different answer from declining — and the reason this

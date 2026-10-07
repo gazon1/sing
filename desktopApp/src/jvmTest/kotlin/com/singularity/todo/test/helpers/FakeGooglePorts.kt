@@ -18,31 +18,29 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * In-memory fakes for the four Google seams the Settings → Calendar screen reads.
- *
- * ## Why these exist rather than a `TestPlatformModule` default
- *
- * The screen's behaviour is entirely about what it *shows for a given account
- * state*, and that state comes from four ports. With production bindings (a
- * keystore, a DataStore, an HTTPS client) every arrangement is either
- * unreachable or would attempt a network call from a JVM test. So a carrier for
- * `CAL-SYNC-*` could not exist at all.
- *
- * The alternatives were both worse: mocking the ViewModel would have tested the
- * ViewModel's own mock, and a Maestro-only carrier would have left the whole
- * feature's user-visible behaviour with no desktop verification — which is how
- * this feature ended up with 23 unit-test classes and zero carriers in the first
- * place.
- *
- * ## What each fake deliberately *does not* fake
- *
- * [GoogleCredentials.canRenew] is derived from the real `GoogleCredentials`
- * rather than a flag, because the screen's most important warning ("this
- * connection cannot be renewed") is a rendering of exactly that property. A fake
- * that returned a boolean would let the test pass while the production
- * derivation was wrong.
- */
+// In-memory fakes for the four Google seams the Settings → Calendar screen reads.
+//
+// ## Why these exist rather than a `TestPlatformModule` default
+//
+// The screen's behaviour is entirely about what it *shows for a given account
+// state*, and that state comes from four ports. With production bindings (a
+// keystore, a DataStore, an HTTPS client) every arrangement is either
+// unreachable or would attempt a network call from a JVM test. So a carrier for
+// `CAL-SYNC-*` could not exist at all.
+//
+// The alternatives were both worse: mocking the ViewModel would have tested the
+// ViewModel's own mock, and a Maestro-only carrier would have left the whole
+// feature's user-visible behaviour with no desktop verification — which is how
+// this feature ended up with 23 unit-test classes and zero carriers in the first
+// place.
+//
+// ## What each fake deliberately *does not* fake
+//
+// GoogleCredentials.canRenew is derived from the real GoogleCredentials rather
+// than a flag, because the screen's most important warning ("this connection
+// cannot be renewed") is a rendering of exactly that property. A fake that
+// returned a boolean would let the test pass while the production derivation
+// was wrong.
 
 /**
  * Credential store backed by a map.
@@ -53,9 +51,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *   derived from `refreshToken`, so that is the only thing the screen's renewal
  *   warning reads.
  */
-class FakeGoogleCredentialStore(
-    initial: Map<String, GoogleCredentials> = emptyMap(),
-) : GoogleCredentialStore {
+class FakeGoogleCredentialStore(initial: Map<String, GoogleCredentials> = emptyMap()) : GoogleCredentialStore {
     private val byUser = initial.toMutableMap()
 
     /** Seeds or replaces the grant so a test can start from "connected". */
@@ -83,12 +79,9 @@ class FakeGoogleCredentialStore(
  * asserted here — see the carrier's KDoc, which records that as the gap this
  * fake leaves rather than papering over it.
  */
-class FakeGoogleCalendarSettingsRepository(
-    selectedCalendarId: String? = null,
-    importForeignEvents: Boolean = false,
-) : GoogleCalendarSettingsRepository {
-    private val selected = MutableStateFlow(selectedCalendarId)
-    private val import = MutableStateFlow(importForeignEvents)
+class FakeGoogleSettings(calId: String? = null, importForeign: Boolean = false) : GoogleCalendarSettingsRepository {
+    private val selected = MutableStateFlow(calId)
+    private val import = MutableStateFlow(importForeign)
 
     override fun observeSelectedCalendarId(): Flow<String?> = selected.asStateFlow()
 
@@ -157,6 +150,7 @@ class FakeCalendarEventSource(
         )
     }
 }
+
 /**
  * A renewable credential for the profile `TestPlatformModule` signs in as.
  *
