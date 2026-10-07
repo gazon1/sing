@@ -2362,82 +2362,6 @@ touches unrelated source to make a database field line up, and Kotlin does not r
 the two to agree.
 
 
-## an-untagged-test-class-is-invisible-to-a-tag-filtered-run
-
-**Found in:** 2026-10-04, on the first CI run of the verifiability branch — the
-run that finally executes `testAndroidHostTest`, which the old
-`-Ptest.tags=fast,slow` filter had meant never ran at all.
-
-**Status: RESOLVED (2026-10-05).** The open question below — should an untagged class
-fail a gate? — is answered yes, by `TestTagCoverageTest`, and that gate's own
-`@Test`-only blind spot was found and closed in the same change. See "Try next" below.
-
-**Tracked as:** #74 (fixed in the same branch); the open question below is the
-gate, not the test.
-
-**Symptom.** `ReadToolsProfileAwareTest` has five structurally identical tests, and
-which ones fail changes every run: 2 of 970 on a forced `main` run, 1 of 980 on
-this branch, a *different* one each time. A probe of the same scenario in
-isolation passes.
-
-**Root cause — a race the test had with itself, not a tool bug.** The tool
-correctly returned nothing. `ProfileAwareCurrentUser` seeds `scopedUserId`
-synchronously in its constructor, so the construction-time value is right. The
-race is one line later: `profiles.switchTo(...)` changes an upstream, and the only
-thing that propagates that into `scopedUserId` is a collector on the **injected
-scope**. The test injected `createBackgroundScope()` — `Dispatchers.Default` — so
-whether the tool's `scopedUserId.flatMapLatest { … }` read the profile-scoped value
-or the stale pre-switch one was a race. The task was stored under `profile/user`,
-the filter used `user`, and the result was `expected: <1> but was: <0>`.
-
-The class's own KDoc states the contract that was broken — *"In tests, inject a
-`TestScope` or `backgroundScope`"* — and the test carried a comment justifying the
-violation on a premise that is false: the tools under test **do** subscribe.
-
-**The finding that outlives the fix.** The class carries **no `@Tag`**. A
-tag-filtered run skips an untagged class silently, and nothing records the
-omission. `TestTagsWiringTest` verifies that every *tag* is applied by a
-composable; it does not verify that every test class carries one. So the class
-could be arbitrarily broken — as it was — for as long as nobody added a tag.
-
-**Try next — the open question.** Should an untagged test class fail a gate?
-
-A class with no tag is not a test that is deliberately deferred; it is a test that
-is *unrunnable* in a tag-filtered build, and the difference is invisible from the
-source. If tag filtering is going away, the question is moot. If it stays for the
-slow suite, an untagged class is a hole with no marker.
-
-**Answered 2026-10-05 — yes, and the gate that does it had its own hole.**
-`TestTagCoverageTest` (shared/src/jvmTest) fails any test class in a tag-filtered
-source set that carries no `@Tag`. But it detected test members by matching `@Test`
-alone, so a class whose tests are `@ParameterizedTest` registered as *having no
-tests* and was reported clean. Two such classes were, at that moment, invisible to
-CI for the second time — the gate about untagged classes was blind to the same
-condition it was written for:
-
-- `RecurrenceRuleMapperTest`
-- `RruleGeneratorTest`
-
-Both are now `@Tag("fast")`, and the gate matches every JUnit test annotation
-(`@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`,
-plus the `kotlin.test` spelling) instead of one. The check verifies what it claims:
-a class with a test member and no tag fails, whichever annotation carries the test.
-
-Scope note, checked rather than assumed: `detekt-rules` (18 untagged classes) and
-`androidApp` (4) are **not** in the gate's source-set list, and do not need to be —
-neither module's test task applies a tag filter, so an untagged class there still
-runs. Adding them would have been the loud wrong fix. The list now names the
-criterion it encodes: source sets *whose Gradle task translates `-Ptest.tags` into
-a JUnit filter*.
-
-Also worth noting: `koverXmlReport` depends on `testAndroidHostTest`, so the
-`kover-report` job was **red on `main`** for this reason. A job that is red for a
-reason nobody reads is the same failure as a gate that is green for a reason nobody
-checks.
-
-
----
-
 ## the-dead-refs-gate-was-green-locally-and-red-in-ci
 
 **Status: RESOLVED (2026-10-04).** Fixed on the verifiability branch; the
@@ -3578,41 +3502,6 @@ authoritative list is `./gradlew :desktopApp:tasks --all`, and
 
 ---
 
-## taskdetailviewscreen-is-633-lines-of-unreachable-composable
-
-**Found in:** 2026-10-06, while running the new `static` gate job against the tree.
-
-**Status: RESOLVED 2026-10-07.** The screen was deleted; the file was the last thing
-holding the finding up.
-
-`shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/
-TaskDetailViewScreen.kt` was 633 lines with no production call site, so
-`scripts/find-unwired-surfaces.py` reported it and the `static` job stayed red.
-
-Its header recorded why it was still there:
-
-> This screen has no call site — `find-unwired-surfaces.py` reports it, and
-> `dad11e6b`'s note says deleting another branch's deliberate carrier is the
-> owner's call, not this one's.
-
-That was a decision deferred and then not revisited — the failure mode
-`an-open-backlog-entry-does-not-mean-the-work-is-still-open` describes. The owner
-re-decided on 2026-10-07 and chose deletion over baselining.
-
-The supporting evidence for deleting rather than baselining: the only remaining
-mention of the file in the tree was a KDoc in `TaskDetailProposalSection.kt` saying
-the section was "Moved out of `TaskDetailViewScreen` when that screen was deleted",
-and a test KDoc in `TaskDetailTimeTrackingSectionTest.kt` recording that nothing
-composed it. Both were rewritten rather than left dangling. `:shared:compileKotlinJvm`
-builds after the deletion, so nothing resolved against it.
-
-**Not to do:** re-add a second task-detail screen as a clock-suppression carrier. That
-is what produced the 633 lines, and the reason the #187 one-screen invariant matters
-is that two screens under one route and one ViewModel shipped with time tracking on
-one platform and not the other — which is the bug
-`TaskDetailTimeTrackingSectionTest` now guards against.
-
-
 ## mainactivity-anr-makes-every-instrumented-test-fail
 
 **Status: OPEN**
@@ -3749,53 +3638,6 @@ already records, so the honest state is the recorded one.
 `CREATE FUNCTION` body has a header fingerprint, no object is declared twice, every table
 a policy names exists). That needs no credentials and catches the dominant failure: edit
 the file, forget the database.
-
----
-
-## a-filtered-test-run-is-indistinguishable-from-a-shrunken-suite
-
-**Status: RESOLVED 2026-10-07.** The test task writes a run manifest beside the XML, and
-`check-test-runs.py` reads it: below the floor, the message now says the counts are not
-evidence and names the filter, instead of reporting a regression against a tree where
-nothing had happened. Verified end to end — manifest marked partial, most of the XML moved
-aside, gate prints the filtered-run sentence. A missing manifest is treated as unknown, not
-as filtered.
-
-**Tracked as:** #222 (closed)
-
-**Found in:** 2026-10-07, while running `check-gate-wiring.py` on a tree where nothing
-was broken.
-
-`check-test-runs.py` reports the same verdict, with the same message, for two unrelated
-situations: the suite genuinely shrank, and someone ran
-`./gw :shared:jvmTest --tests 'SomeOneClass'` for a fast loop. The second rewrote
-`shared/build/test-results/jvmTest/` with one class's XML and silently invalidated the
-evidence that `check-test-runs.py`, `check-coverage.py` and `check-flaky-tests.py` all
-read.
-
-Observed, on a healthy tree, after a filtered run of two arch test classes:
-
-```
-ERROR: gate 'test-runs' already fails on a clean tree (exit 1). Fix the underlying
-failure before trusting its sabotage control.
-```
-
-Every gate named in that sentence was behaving correctly. The diagnosis cost is the
-defect: it says "fix the underlying failure", and the underlying failure was an ordinary
-development command run on the same machine twenty minutes earlier. The same ambiguity
-hit `origin/main` in the other direction earlier in the session — `check.sh` never reached
-its last steps and nothing in the output said why.
-
-**Not a staleness problem, and must not be regressed into one.** Freshness is handled:
-`check.sh` passes `--max-age 21600`, CI passes `--since "$RUN_STARTED"`, and `count()`
-returns `None` rather than a passing zero when the newest report predates the window. The
-gap is partiality.
-
-**Try first:** have the test task write a run manifest next to the XML — task path,
-whether `--tests` was passed, source-set class count — and have the gate read one field
-from it, so it can say "this evidence came from a filtered run" instead of "a suite
-stopped running". Gradle leaves no such marker today, which is why this is not a
-five-line fix to the gate itself.
 
 ---
 
