@@ -1,7 +1,10 @@
 package com.singularity.todo.feature.proposals.data
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -37,6 +40,8 @@ class ProposalRepositoryImpl(
     private val items: ProposalItemDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val log: Logger = Logger.withTag("ProposalRepositoryImpl"),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) : ProposalRepository {
 
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> =
@@ -97,11 +102,38 @@ class ProposalRepositoryImpl(
         reason = reason,
     )?.toDomainOrNull()
 
-    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
-        val items = items.getItemsForProposal(proposalId.value)
-        val derived = ProposalStatusReducer.reduce(items.map { ProposalItemStatus.valueOf(it.status) })
-        dao.updateProposalStatus(proposalId.value, derived.name, clock.now().toEpochMilliseconds(), userId.value)
-    }
+    /**
+     * Recomputes a proposal's aggregate status from its items.
+     *
+     * Reported here rather than at the three `ApplyProposalItemUseCase` call sites that
+     * discard this `Result`, for the reason REQ-OS-028 set for `SyncEngine.enqueue`:
+     * three identical calls in one class, each already handling the `Result` of the write
+     * immediately before it. Three error paths would repeat the sentence and still be
+     * silent at the next call site someone writes.
+     *
+     * Reported rather than thrown. The items are already decided correctly in the
+     * database; only the summary row did not get recomputed. Throwing would fail a
+     * confirm that genuinely succeeded, over a derived value — so the failure is made
+     * visible and the next confirm or reject retries the recomputation.
+     *
+     * @see REQ-PROP-001
+     */
+    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> =
+        // Explicit <Unit>: the last expression is `dao.updateProposalStatus`, which returns
+        // Int, and chaining `.also` stops the declared return type from propagating into the
+        // inference. Without it this compiles to Result<Int> and fails to assign.
+        runCatchingCancellable<Unit> {
+            val items = items.getItemsForProposal(proposalId.value)
+            val derived = ProposalStatusReducer.reduce(items.map { ProposalItemStatus.valueOf(it.status) })
+            dao.updateProposalStatus(proposalId.value, derived.name, clock.now().toEpochMilliseconds(), userId.value)
+        }.also { result ->
+            val error = result.exceptionOrNull() ?: return@also
+            log.e(error) {
+                "proposal ${proposalId.value}: items were decided but the aggregate status " +
+                    "was not recomputed, so the proposal keeps its previous status"
+            }
+            crashReporter.report(error, "proposals.refresh_status_failed")
+        }
 
     override suspend fun retract(id: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
         items.retractPendingItems(id.value, userId.value)

@@ -30,6 +30,8 @@ fun proposalModule(): Module = module {
             items = get(),
             clock = get(),
             currentUser = get(),
+            log = get(),
+            crashReporter = get(),
         )
     }
 
