@@ -9,6 +9,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.plus
+import org.junit.jupiter.api.Tag
 
 /**
  * The arithmetic that decides when a job next runs.
@@ -19,7 +20,12 @@ import kotlinx.datetime.plus
  * The property that matters is **strictly after**. A "daily at 03:00" job that computed its
  * next boundary from a 03:00:00 clock would return 03:00:00 again; the loop wrapping this
  * would then spin forever rather than fail. Every boundary case below is that one.
+ *
+ * Tagged `fast` because it crosses no process boundary: no Compose harness, no file, no
+ * database, no spawned executor. The rule is "slow means it leaves the JVM's arithmetic",
+ * not "slow means it takes a while".
  */
+@Tag("fast")
 class JobScheduleMathTest {
 
     private val utc = TimeZone.UTC

@@ -118,9 +118,19 @@ class InertFileSourceFactory : FileSourceFactory {
         error("FileSourceFactory is not available in desktop flow tests: $path")
 }
 
-/** No-op [ReminderScheduler]; the JVM real one arms `at` jobs. */
+/** No-op [ReminderScheduler] for desktop flow tests. */
 class InertReminderScheduler : ReminderScheduler {
     val scheduled = mutableListOf<Reminder>()
+
+    /**
+     * False, matching the real [com.singularity.todo.feature.reminders.JvmReminderScheduler].
+     *
+     * A fake that claimed support the platform does not have would let a test pass
+     * against behaviour desktop cannot produce. The desktop app currently arms no
+     * reminders at all — the `at`-based backend was deleted; see
+     * `docs/decisions/2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs.md`.
+     */
+    override val isSupported: Boolean = false
 
     override suspend fun schedule(reminder: Reminder) {
         scheduled += reminder

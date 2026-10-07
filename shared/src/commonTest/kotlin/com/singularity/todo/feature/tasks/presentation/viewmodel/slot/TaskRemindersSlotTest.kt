@@ -35,6 +35,21 @@ class TaskRemindersSlotTest {
         onError = {},
     )
 
+    private fun slotCapturingErrors(
+        fakes: SlotFakes,
+        source: TaskSource,
+        scope: CoroutineScope,
+        onError: (String) -> Unit,
+    ) = TaskRemindersSlot(
+        taskId = TaskId("t1"),
+        core = fakes.core(),
+        scheduling = fakes.scheduling(),
+        context = fakes.context(),
+        scope = testSlotScope(scope),
+        taskFlow = source.state,
+        onError = onError,
+    )
+
     @Test
     fun `no reminders before anything is scheduled`() = runTest {
         val fakes = SlotFakes()
@@ -85,6 +100,74 @@ class TaskRemindersSlotTest {
         runCurrent()
 
         assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+    }
+
+    // ─── Capability gate ───────────────────────────────────────────────────────
+
+    /**
+     * The Desktop defect this covers: `JvmReminderScheduler` was a no-op on every
+     * method, so the slot wrote the row, the UI reported success, and the reminder
+     * could never fire. A stored row is the half the user can see — it renders as a
+     * live reminder forever — so refusing has to happen *before* the write.
+     */
+    @Test
+    fun `an unsupported platform stores no row and no alarm`() = runTest {
+        val fakes = SlotFakes(remindersSupported = false)
+        val source = TaskSource(task("t1").copy(dueDate = DUE))
+        val errors = mutableListOf<String>()
+        val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+        runCurrent()
+
+        assertTrue(
+            fakes.reminderRepo.reminders.value.isEmpty(),
+            "an unsupported platform must not persist a reminder that cannot fire",
+        )
+        assertTrue(
+            fakes.scheduler.scheduled.isEmpty(),
+            "nothing may be handed to a scheduler that cannot arm anything",
+        )
+        assertEquals(1, errors.size, "the user must be told, not left with silent success")
+    }
+
+    /**
+     * The row is the part that lies. If the gate were implemented as "write the row,
+     * then skip the alarm", this assertion fails while an error-only test still passes —
+     * which is why the assertion above is on the repository, not on the callback.
+     */
+    @Test
+    fun `the gate leaves the reminder list empty on an unsupported platform`() = runTest {
+        val fakes = SlotFakes(remindersSupported = false)
+        val source = TaskSource(task("t1").copy(dueDate = DUE))
+        val slot = slot(fakes, source, backgroundScope)
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+        runCurrent()
+
+        assertEquals(emptyList(), slot.state.value.reminders, "no row may surface to the UI")
+    }
+
+    /**
+     * Clearing is not gated. On an unsupported platform nothing was ever armed, so a
+     * delete must stay a harmless no-op rather than reporting an error — otherwise the
+     * user cannot tidy up reminders seeded by a sync or an older build.
+     */
+    @Test
+    fun `clearing still works on an unsupported platform`() = runTest {
+        val fakes = SlotFakes(remindersSupported = false)
+        val source = TaskSource(task("t1").copy(dueDate = DUE))
+        val errors = mutableListOf<String>()
+        val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+        runCurrent()
+
+        assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+        assertTrue(errors.isEmpty(), "clearing must not surface an error")
     }
 }
 

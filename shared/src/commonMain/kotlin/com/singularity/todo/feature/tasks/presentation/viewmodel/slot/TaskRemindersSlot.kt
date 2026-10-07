@@ -41,6 +41,15 @@ class TaskRemindersSlot(
     private val onError: (String) -> Unit,
 ) : FeatureSlot<TaskRemindersState, TaskRemindersIntent> {
 
+    private companion object {
+        /**
+         * Shown instead of silently accepting the reminder. Deliberately names the
+         * platform rather than saying "not supported", so the user knows it is a
+         * property of the desktop app and not a malformed task.
+         */
+        const val UNSUPPORTED_MESSAGE = "Reminders are not available on desktop — the app has no alarm scheduler here."
+    }
+
     private val _state = MutableStateFlow(TaskRemindersState())
     override val state: StateFlow<TaskRemindersState> = _state.asStateFlow()
 
@@ -65,6 +74,12 @@ class TaskRemindersSlot(
         val task = parentTask.value ?: return@launch
         if (offset == ReminderOffset.AT_DUE) {
             clearReminders(task)
+            return@launch
+        }
+        // Checked before the write, not after: the row is the half the user can see, and a
+        // stored row renders as a live reminder forever while the alarm stays unarmed.
+        if (!scheduling.reminderScheduler.isSupported) {
+            onError(UNSUPPORTED_MESSAGE)
             return@launch
         }
         val userId = core.taskRepo.currentUserId()

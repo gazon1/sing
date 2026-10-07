@@ -72,6 +72,7 @@ class AgendaViewModelTest {
     private val fakeRepo = FakeTaskRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeReminderScheduler = object : ReminderScheduler {
+        override val isSupported: Boolean = true
         override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
         override suspend fun cancel(id: ReminderId, userId: UserId) {}
         override suspend fun cancelByTask(

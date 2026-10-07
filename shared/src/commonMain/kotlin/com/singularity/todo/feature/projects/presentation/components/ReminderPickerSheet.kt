@@ -19,8 +19,16 @@ import com.singularity.todo.feature.reminders.ReminderPicker
 /**
  * Reminder picker sheet for project-level reminders.
  *
- * Project-level reminder dispatch is **not** implemented yet — selecting any offset
- * dismisses the sheet without side-effects. Wiring awaits the project-reminder ADR.
+ * ## Selecting an offset here does persist — and does nothing
+ *
+ * An earlier version of this KDoc said the opposite ("selecting any offset dismisses
+ * the sheet without side-effects"), which was false: [ProjectDetailViewModel.setReminder]
+ * writes the `project_reminders` row. The row was real; only the firing was missing,
+ * because no platform schedules a `ProjectReminder`.
+ *
+ * The sheet is therefore unreachable — the bell in [ProjectBottomActionBar] is disabled
+ * while `PROJECT_REMINDERS_SUPPORTED` is false. It is kept so the follow-up that adds
+ * the scheduler does not also have to rebuild the picker.
  *
  * @param currentOffset The currently selected reminder offset, or null for none.
  * @param onSelect Called with the chosen offset when user confirms.

@@ -17,7 +17,16 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
  * whether a null `task_id` was legitimate or corrupt.
  *
  * A separate table costs one migration and keeps both models honest. The cost is that
- * the fire path has to handle two tables — see [ProjectReminderScheduler].
+ * the fire path has to handle two tables.
+ *
+ * ## Nothing fires this yet
+ *
+ * There is no `ProjectReminderScheduler` on any platform, and `AlarmReceiver` has no
+ * project branch, so a persisted row is never turned into an alarm. The UI is
+ * capability-gated off (`PROJECT_REMINDERS_SUPPORTED`) rather than pretending otherwise.
+ * An earlier version of this KDoc pointed at a `ProjectReminderScheduler` that does not
+ * exist — a link that renders as a resolvable reference in an IDE while documenting a
+ * class nobody ever wrote.
  *
  * ## Semantics
  *

@@ -142,15 +142,45 @@ fun ProjectBodySection(
 }
 
 /**
+ * Whether project reminders can actually fire.
+ *
+ * False on **every** platform, unlike [com.singularity.todo.feature.reminders.ReminderScheduler.isSupported]
+ * which is false only on desktop. A `ProjectReminder` row has no consumer anywhere:
+ * there is no scheduler, and no receiver branch. Flipping this to `true` is the whole
+ * of the remaining work for the slice, and it must not be flipped before the scheduler
+ * exists — the failure mode is a reminder that reads as armed and never arrives.
+ *
+ * Read by [ProjectBottomActionBar] to gate the bell.
+ */
+const val PROJECT_REMINDERS_SUPPORTED: Boolean = false
+
+/**
  * Bottom action bar with reminder, attachment, archive/unarchive, and more buttons.
  *
- * Exposed as public to support preview providers and unit tests without a VM.
+ * ## The reminder button is disabled, and it is not a platform limitation
+ *
+ * `ProjectReminder` is persisted but **no platform ever fires it**: there is no
+ * `ProjectReminderScheduler` on any platform, and `AlarmReceiver` has no project
+ * branch. `docs/decisions/2026-09-30-project-reminder-own-table.md` states this
+ * outright — the model and UI shipped, the fire path is the deliberate follow-up.
+ *
+ * So the bell would have persisted a reminder that can never arrive, on Android as
+ * well as desktop. It is kept, disabled, rather than deleted: the intent, the sheet,
+ * the repository and the `fireAt` maths are all correct and tested, and the follow-up
+ * only has to supply the scheduler and flip [PROJECT_REMINDERS_SUPPORTED].
+ *
+ * Deleting the button instead would leave the whole vertical slice unwired, which is
+ * the defect `scripts/find-unwired-surfaces.py` exists to catch — trading a visible
+ * lie for an invisible half-feature.
  */
 @Composable
 fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailActions, modifier: Modifier = Modifier) {
     BottomAppBar(modifier = modifier.fillMaxWidth()) {
-        IconButton(onClick = actions::onOpenReminderSheet) {
-            Icon(Icons.Filled.Notifications, "Remind")
+        IconButton(
+            onClick = actions::onOpenReminderSheet,
+            enabled = PROJECT_REMINDERS_SUPPORTED,
+        ) {
+            Icon(Icons.Filled.Notifications, "Remind (not yet available)")
         }
         IconButton(onClick = actions::onOpenAttachmentSheet) {
             Icon(Icons.Filled.Folder, "Attach")
