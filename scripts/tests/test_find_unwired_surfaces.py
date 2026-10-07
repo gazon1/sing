@@ -7,6 +7,7 @@ import pathlib
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import importlib.util
 import sys
@@ -75,6 +76,23 @@ class TestDetectorTable(unittest.TestCase):
         code = self._fake_code({"x.kt": "fun FooScreen() = Unit", "y.kt": "fun other() = Unit"})
         findings = fus._check_composable(code, self._corpus(code))
         self.assertTrue(any("FooScreen" in f for _, f in findings), findings)
+
+    def test_screen_a_baseline_row_exempts_the_finding(self):
+        # A baseline row has to change the *kind* of the finding, not just decorate it.
+        # Before 2026-10-06 it was read into the message and the detector still returned
+        # the screen, so an honest, perfectly-formed exemption left the gate red and the
+        # only way to get it green was to delete code.
+        code = self._fake_code({"x.kt": "fun FooScreen() = Unit", "y.kt": "fun other() = Unit"})
+        with mock.patch.object(fus, "_load_baseline", return_value={"FooScreen": "reason"}):
+            findings = fus._check_composable(code, self._corpus(code))
+        self.assertEqual(["exempt"], [k for k, _ in findings], findings)
+
+    def test_screen_an_unlisted_symbol_is_still_a_finding(self):
+        # The exemption must be per-symbol, not a blanket switch.
+        code = self._fake_code({"x.kt": "fun FooScreen() = Unit", "y.kt": "fun other() = Unit"})
+        with mock.patch.object(fus, "_load_baseline", return_value={"BarScreen": "reason"}):
+            findings = fus._check_composable(code, self._corpus(code))
+        self.assertEqual(["screen"], [k for k, _ in findings], findings)
 
     def test_screen_negative_wired(self):
         code = self._fake_code({"x.kt": "fun FooScreen() = Unit", "y.kt": "FooScreen()"})
