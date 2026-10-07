@@ -2,7 +2,10 @@ package com.singularity.todo.feature.projects.data
 
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.projectWithInheritance
+import com.singularity.todo.core.database.replaceInheritedTagGroups
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toInstant
@@ -28,6 +31,7 @@ import com.singularity.todo.core.database.UnitOfWork
  */
 class ProjectsRepositoryImpl(
     private val projectDao: ProjectDao,
+    private val inheritedTagGroupDao: ProjectInheritedTagGroupDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
@@ -53,6 +57,10 @@ class ProjectsRepositoryImpl(
         unitOfWork.write {
             currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
             projectDao.upsert(item.toEntity())
+            // The row must exist before the join table can reference it: both DAO
+            // statements scope themselves through `projects.user_id`, so an upsert
+            // that has not landed yet would silently write nothing.
+            replaceInheritedTagGroups(inheritedTagGroupDao, item)
             item.also { syncRepository.enqueue(it) }
         }
     }
@@ -66,6 +74,7 @@ class ProjectsRepositoryImpl(
             // would orphan the row.
             val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
             projectDao.upsert(toUpdate.toEntity())
+            replaceInheritedTagGroups(inheritedTagGroupDao, toUpdate)
             toUpdate.also { syncRepository.enqueue(it) }
         }
     }
@@ -80,14 +89,27 @@ class ProjectsRepositoryImpl(
      * ships the full snapshot.
      */
     private suspend fun enqueueFresh(id: ProjectId) {
-        val row = projectDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
-        syncRepository.enqueue(row.toProject())
+        // `projectWithInheritance`, not `getByIdForUser(...).toProject()`: the join
+        // table is part of the project document, and a patch built without it would
+        // assert the project inherits nothing — silently erasing it on the server
+        // and on every other device, on a rename.
+        val project = projectWithInheritance(
+            projectDao,
+            inheritedTagGroupDao,
+            id.value,
+            currentUser.scopedUserId.value.value,
+        ) ?: return
+        syncRepository.enqueue(project)
     }
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
     override suspend fun upsert(project: Project): Project {
         projectDao.upsert(project.toEntity())
+        // Without this the row lands and the inheritance does not: `inheritedTagGroupIds`
+        // is in the document but has no column on `ProjectEntity`, so the decode result
+        // would be dropped and the device would keep resolving tags from its old set.
+        replaceInheritedTagGroups(inheritedTagGroupDao, project)
         return project
     }
 

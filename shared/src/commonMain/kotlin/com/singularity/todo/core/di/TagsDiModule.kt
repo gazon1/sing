@@ -39,6 +39,7 @@ fun tagsModule(): org.koin.core.module.Module = module {
         TagGroupRepositoryImpl(
             tagGroupDao = get(),
             inheritedTagGroupDao = get(),
+            projectDao = get(),
             tagDao = get(),
             clock = get(),
             currentUser = get(),

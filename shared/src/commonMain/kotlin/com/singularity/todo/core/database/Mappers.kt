@@ -19,6 +19,56 @@ import kotlinx.serialization.builtins.serializer
 import kotlin.time.Instant
 
 /**
+ * The project row, plus the inheritance that lives outside it.
+ *
+ * `ProjectEntity` has no `inherited_tag_group_ids` column — inheritance is a join
+ * table — so a plain [toProject] returns `inheritedTagGroupIds = emptySet()` for a
+ * project that inherits six groups. That default is not a neutral placeholder: the
+ * field is `@Serializable` and therefore part of the sync document, so a patch built
+ * that way *asserts* the project inherits nothing and the server applies exactly
+ * that. Every project enqueue has to go through here.
+ *
+ * One implementation for two callers, deliberately. `ProjectsRepositoryImpl` needs it
+ * in `enqueueFresh` (a narrow update re-reads the row, and must re-read this too),
+ * and `TagGroupRepositoryImpl` needs it when the join table itself is what changed.
+ * Two copies of "read the row, read the join, copy them together" is two places to
+ * forget, and the failure is silent.
+ */
+internal suspend fun projectWithInheritance(
+    projectDao: ProjectDao,
+    inheritedDao: ProjectInheritedTagGroupDao,
+    projectId: String,
+    userId: String,
+): Project? {
+    val row = projectDao.getByIdForUser(projectId, userId) ?: return null
+    val inherited = inheritedDao.getByProject(projectId, userId)
+        .map(TagGroupId::fromString)
+        .toSet()
+    return row.toProject().copy(inheritedTagGroupIds = inherited)
+}
+
+/**
+ * Replaces the join rows so the table matches [project]'s inheritance.
+ *
+ * Delete-then-insert rather than a diff, because the caller is stating a desired
+ * state and not a delta: a group the caller dropped must disappear from the table
+ * without the caller having to know what was there.
+ *
+ * Both statements are scoped through `projects.user_id`, which is what makes this
+ * safe to call from the remote-apply path as well as from local writes.
+ */
+internal suspend fun replaceInheritedTagGroups(
+    inheritedDao: ProjectInheritedTagGroupDao,
+    project: Project,
+) {
+    val uid = project.userId.value
+    inheritedDao.deleteAllForUser(project.id.value, uid)
+    for (groupId in project.inheritedTagGroupIds) {
+        inheritedDao.insertForUser(project.id.value, groupId.value, uid)
+    }
+}
+
+/**
  * Epoch millis ↔ kotlinx.datetime types.
  */
 internal fun Long.toInstant(): Instant = Instant.fromEpochMilliseconds(this)

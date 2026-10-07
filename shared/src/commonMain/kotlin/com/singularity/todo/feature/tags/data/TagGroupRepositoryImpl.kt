@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.tags.data
 
+import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.TagGroupEntity
+import com.singularity.todo.core.database.projectWithInheritance
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
@@ -30,6 +32,7 @@ import com.singularity.todo.core.database.UnitOfWork
 class TagGroupRepositoryImpl(
     private val tagGroupDao: TagGroupDao,
     private val inheritedTagGroupDao: ProjectInheritedTagGroupDao,
+    private val projectDao: ProjectDao,
     private val tagDao: TagDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
@@ -136,18 +139,42 @@ class TagGroupRepositoryImpl(
     override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
-            require(inheritedTagGroupDao.isProjectOwnedBy(projectId.value, uid)) {
-                "Project $projectId not found or not owned by current user"
-            }
-            // Delete all existing inheritance rows for this project, then re-insert.
-            // Room DAO methods each run in their own implicit transaction, so a crash between
-            // the delete and the insert leaves the inheritance empty — visible immediately,
-            // not silent. The atomic alternative (@RawQuery multi-statement) is not available
-            // without room-ktx. If this ever becomes a real problem, add a new DAO method
-            // annotated @Transaction with a @Query that uses a CTE or MERGE statement.
-            inheritedTagGroupDao.deleteAllForUser(projectId.value, uid)
-            for (groupId in groupIds) {
-                inheritedTagGroupDao.insertForUser(projectId.value, groupId.value, uid)
+            unitOfWork.write {
+                require(inheritedTagGroupDao.isProjectOwnedBy(projectId.value, uid)) {
+                    "Project $projectId not found or not owned by current user"
+                }
+                // Delete all existing inheritance rows for this project, then re-insert.
+                // Room DAO methods each run in their own implicit transaction, so a crash between
+                // the delete and the insert leaves the inheritance empty — visible immediately,
+                // not silent. The atomic alternative (@RawQuery multi-statement) is not available
+                // without room-ktx. If this ever becomes a real problem, add a new DAO method
+                // annotated @Transaction with a @Query that uses a CTE or MERGE statement.
+                inheritedTagGroupDao.deleteAllForUser(projectId.value, uid)
+                for (groupId in groupIds) {
+                    inheritedTagGroupDao.insertForUser(projectId.value, groupId.value, uid)
+                }
+                // Inheritance is part of the *project* document, not a tag group's: the
+                // server's allowlist lists `project.inheritedTagGroupIds`, and no DocType
+                // describes the join table. So the project is what has to be patched, and
+                // its `updated_at` stamped, or the change never leaves this device while
+                // looking locally applied.
+                projectDao.touchUpdatedAtForUser(projectId.value, clock.now().toEpochMilliseconds(), uid)
+                // Inlined rather than factored into an `enqueueProject()` helper.
+                //
+                // `SyncedWriteEnqueuesTest` recognises an enqueue by its spelling —
+                // `.enqueue(`, `enqueueFresh(`, `enqueuePatch(` — so a helper with any
+                // other name makes this method look like a write with no patch. Adding a
+                // fourth spelling to that list would have made the test pass and left the
+                // rule's premise ("the enqueue is in this body") quietly untrue. The
+                // general fix is #229: decide by call graph rather than by name.
+                //
+                // The re-read carries the inheritance this method just wrote. A patch
+                // serialised without it asserts the project inherits nothing, which the
+                // server would apply, erasing the change made a line above.
+                val project = projectWithInheritance(projectDao, inheritedTagGroupDao, projectId.value, uid)
+                if (project != null) {
+                    syncRepository.enqueue(project)
+                }
             }
         }
 

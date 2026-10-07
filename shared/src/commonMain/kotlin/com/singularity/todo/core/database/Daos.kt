@@ -606,6 +606,20 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE idempotency_key = :key AND user_id = :userId LIMIT 1")
     suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity?
 
+    /**
+     * Bumps `updated_at` without touching any column of the caller's choosing.
+     *
+     * For the changes that live outside `projects` but belong to the project
+     * document — currently only its inherited tag groups, which are a join table.
+     * Every other narrow update here stamps `updated_at` as part of its SET clause;
+     * this is the same statement for a change whose columns are not on this table.
+     *
+     * Without it, two different inheritance states share one `updated_at`, and the
+     * server's last-write-wins on that field cannot order them.
+     */
+    @Query("UPDATE projects SET updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun touchUpdatedAtForUser(id: String, ts: Long, userId: String): Int
+
     /** Case-insensitive lookup by name, used to resolve project names in query conditions. */
     @Query("SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND lower(name) = lower(:name) LIMIT 1")
     suspend fun findByNameForUser(userId: String, name: String): ProjectEntity?
@@ -993,6 +1007,25 @@ interface ProjectInheritedTagGroupDao {
         """,
     )
     fun watchByProject(projectId: String, userId: String): Flow<List<String>>
+
+    /**
+     * The one-shot counterpart of [watchByProject], for callers that need the set
+     * to *build* something rather than to display it.
+     *
+     * `watchByProject` returns a Flow, and a Flow cannot be consumed inside the
+     * `unitOfWork.write { }` that produced the change — collecting there would
+     * suspend a transaction open on the same database. The push path needs the
+     * value now: it is about to serialise the project into a patch, and a patch
+     * built without this set says the project inherits nothing.
+     */
+    @Query(
+        """
+        SELECT tag_group_id FROM project_tag_groups
+        WHERE project_id = :projectId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun getByProject(projectId: String, userId: String): List<String>
 
     /**
      * Replaces the entire set of inherited tag groups for a project.

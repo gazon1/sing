@@ -85,6 +85,7 @@ class TagGroupDeleteCascadeTest {
         TagGroupRepositoryImpl(
             tagGroupDao = db.tagGroupDao(),
             inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+            projectDao = db.projectDao(),
             tagDao = db.tagDao(),
             clock = Clock.System,
             currentUser = FakeProfileAwareCurrentUser(

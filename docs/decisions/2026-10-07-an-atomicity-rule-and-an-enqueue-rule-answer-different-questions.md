@@ -65,6 +65,11 @@ absent from the allowlist for `task` and present for `note`.
 Each carries its reason on the entry rather than in a comment above the list, because a
 reason separated from its entry is a reason nobody reads when the entry is questioned.
 
+**`setInheritedForProject` has since left the list entirely** (#228). It now stamps the
+project and pushes it, so the ordinary rule covers it — which is the outcome worth
+recording: the exemption was not a legitimate exception, it was a method that had never
+been given a patch.
+
 ## Consequences
 
 - `SyncedWriteEnqueuesTest` and `SyncWriteIsAtomicTest` are two halves of one invariant and

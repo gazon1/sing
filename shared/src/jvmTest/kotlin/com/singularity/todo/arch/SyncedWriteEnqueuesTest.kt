@@ -299,8 +299,6 @@ class SyncedWriteEnqueuesTest {
          * questioned.
          */
         val NOT_SYNCED_WRITES = setOf(
-            "setInheritedForProject" to
-                "join-table rows only; no project row written (but inheritedTagGroupIds is writable — #228)",
             "saveOutgoingLinks" to
                 "tasks.outgoing_links is not in the allowlist; the note column is, and that one enqueues",
         )

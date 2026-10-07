@@ -20,7 +20,20 @@ import org.koin.dsl.module
 fun projectsModule(): org.koin.core.module.Module = module {
     // ─── Repository ─────────────────────────────────────────────────────
 
-    single<ProjectsRepository> { ProjectsRepositoryImpl(get(), get(), get(), get(), get()) }
+    // Named resolution, not positional: the repository now takes two DAOs of the
+    // same entity family, and `get(), get()` would misbind silently the moment the
+    // parameter order changes. `TagGroupRepository` binds the same way, for the same
+    // reason.
+    single<ProjectsRepository> {
+        ProjectsRepositoryImpl(
+            projectDao = get(),
+            inheritedTagGroupDao = get(),
+            clock = get(),
+            currentUser = get(),
+            syncRepository = get(),
+            unitOfWork = get(),
+        )
+    }
 
     // ─── Use Cases ─────────────────────────────────────────────────────
 

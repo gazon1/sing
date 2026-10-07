@@ -833,6 +833,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         mutateForUser(id, userId) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
     override suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity? =
         store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
+    override suspend fun touchUpdatedAtForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(updatedAt = ts) }
     override suspend fun findByNameForUser(userId: String, name: String): ProjectEntity? =
         store.value.values.firstOrNull {
             it.userId == userId && !it.isDeleted && it.name.equals(
@@ -1839,6 +1841,9 @@ private class FakeProjectInheritedTagGroupDao(
     override fun watchByProject(projectId: String, userId: String): Flow<List<String>> = store.map { list ->
         list.filter { it.projectId == projectId }.map { it.tagGroupId }
     }
+
+    override suspend fun getByProject(projectId: String, userId: String): List<String> =
+        store.value.filter { it.projectId == projectId }.map { it.tagGroupId }
 
     /**
      * The real DAO scopes this through the owning project's `user_id`. This fake
