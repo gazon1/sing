@@ -65,10 +65,10 @@ import kotlin.test.fail
  *
  * ## Where it is deliberately silent
  *
- * 1. `SyncRepository.enqueue` self-reports since REQ-OS-028 and `refreshStatus` since
- *    REQ-PROP-001. Their call sites discard the `Result` **on the record**: the contract is that
- *    the seam reports, so the caller does not have to. A rule that flagged them would demand 18
- *    log statements to undo a decision the owner made deliberately.
+ * 1. A `Result`-returning method that reports the failure it captured is exempt, because the
+ *    contract is that the seam reports and the caller does not have to. The set is **derived**
+ *    and keyed by declaring type — see [selfReportingMethods], where the two derivations that
+ *    failed first are recorded, and why walking backwards does not have their failure mode.
  * 2. `test/fakes` and `test/helpers` are not production. Several fakes return `Result.failure`
  *    deliberately; that is how a control works.
  *
@@ -225,27 +225,351 @@ class DroppedResultIsReportedTest {
         )
     }
 
+    @Test
+    fun `the self-reporting exemption is read off the body, not off a name`() {
+        // The control for the derivation. Three methods that all touch a failure, and only one
+        // of them is exempt — because the exemption is not "reports" but "reports the very
+        // Result it returns", and only that one builds its Result by capturing.
+        val source = """
+            class SyncEngine {
+                suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
+                    dao.insert(entity)
+                }.also { result ->
+                    val error = result.exceptionOrNull() ?: return@also
+                    log.e(error) { "enqueue failed" }
+                    crashReporter.report(error, "sync.enqueue_failed")
+                }
+            }
+
+            class SyncPhaseReporter {
+                fun pushFailed(error: AppError): Result<PushSummary> {
+                    crashReporter.report(error, error.code)
+                    return Result.failure(error)
+                }
+            }
+
+            class SilentPlanner {
+                suspend fun plan(scope: SyncScope): Result<Int> = runCatchingResult {
+                    seed(scope)
+                }
+            }
+        """.trimIndent()
+
+        assertEqual(
+            setOf(MethodKey("SyncEngine", "enqueue")),
+            capturesAndReports(SourceScan.stripComments(source)),
+            "the seed set only. A method that reports the Result it captured is exempt; a " +
+                "method that constructs Result.failure is not, because for its callers that " +
+                "Result is how the failure travels; a method that neither reports nor is " +
+                "reported is not exempt either",
+        )
+    }
+
+    @Test
+    fun `an override and a pure delegation both inherit the reporting`() {
+        // Both links were found by running the derivation on the tree, not by designing them.
+        // `ApplyProposalItemUseCase` calls `proposals.refreshStatus(…)` where `proposals` is
+        // the *interface*, and the report lives in `ProposalRepositoryImpl`; keying on the
+        // implementation alone reported that correct call site as dropped. And
+        // `SyncRepositoryImpl.enqueue` is `= engine.enqueue(entity)` — nothing of its own, so it
+        // reports exactly when `SyncEngine.enqueue` does.
+        val source = """
+            interface ProposalRepository {
+                suspend fun refreshStatus(id: ProposalId): Result<Unit>
+            }
+
+            class ProposalRepositoryImpl(
+                private val crashReporter: CrashReportingPort,
+            ) : ProposalRepository {
+                override suspend fun refreshStatus(id: ProposalId): Result<Unit> =
+                    runCatchingCancellable<Unit> {
+                        dao.update(id)
+                    }.also { result ->
+                        val error = result.exceptionOrNull() ?: return@also
+                        crashReporter.report(error, "proposals.refresh_status_failed")
+                    }
+            }
+
+            class SyncEngine {
+                suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
+                    dao.insert(entity)
+                }.also { result ->
+                    val error = result.exceptionOrNull() ?: return@also
+                    log.e(error) { "enqueue failed" }
+                }
+            }
+
+            interface SyncRepository {
+                suspend fun enqueue(entity: SyncableEntity): Result<Unit>
+            }
+
+            class SyncRepositoryImpl(
+                private val engine: SyncEngine,
+            ) : SyncRepository {
+                // One line, as it is in SyncRepositoryImpl.kt:49. The multi-line form is not
+                // recognised, and saying so is why this control is written the way it is.
+                override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = engine.enqueue(entity)
+            }
+        """.trimIndent()
+
+        val stripped = SourceScan.stripComments(source)
+        val derived = closeOver(capturesAndReports(stripped), declaredMethodsIn(stripped), listOf(stripped))
+
+        assertEqual(
+            setOf(
+                MethodKey("SyncEngine", "enqueue"),
+                MethodKey("SyncRepositoryImpl", "enqueue"),
+                MethodKey("SyncRepository", "enqueue"),
+                MethodKey("ProposalRepositoryImpl", "refreshStatus"),
+                MethodKey("ProposalRepository", "refreshStatus"),
+            ),
+            derived,
+            "the implementation that reports, the supertype the caller names, and the " +
+                "forwarding method in between all report the same failure",
+        )
+    }
+
+    @Test
+    fun `a forwarding method inherits the reporting of what it forwards to`() {
+        // The control for the key, and the reason it is a pair. `enqueue` is not a unique name:
+        // `SyncEngine.enqueue` reports at the seam, and `SyncRepositoryImpl.enqueue` reaches it
+        // by forwarding. A list keyed by the name alone exempts both — and would keep exempting
+        // `syncRepository.enqueue` at 17 call sites even after an implementation that *swallowed*
+        // the failure instead of forwarding it, since a swallow is not a delegation. The rule
+        // would have been protecting the regression rather than the report.
+        val derived = selfReportingMethods()
+
+        assertTrue(
+            derived.contains(MethodKey("SyncEngine", "enqueue")),
+            "SyncEngine.enqueue captures its failure and reports it, so its 18 discarded call " +
+                "sites are exempt on the record; the derivation must find it. Derived: $derived",
+        )
+        assertTrue(
+            derived.contains(MethodKey("ProposalRepositoryImpl", "refreshStatus")),
+            "same shape, different file — REQ-PROP-001's seam. Derived: $derived",
+        )
+        assertTrue(
+            MethodKey("SyncRepository", "enqueue") in derived,
+            "SyncRepositoryImpl.enqueue is `= engine.enqueue(entity)` and reports nothing of its " +
+                "own, so it inherits the seam by forwarding alone — and the interface the 17 " +
+                "discarding call sites actually name inherits it again. Derived: $derived",
+        )
+        assertTrue(
+            MethodKey("SyncRepositoryImpl", "enqueue") in derived,
+            "the forwarding method itself, not only the interface. Derived: $derived",
+        )
+        assertTrue(
+            MethodKey("SyncPhaseReporter", "pushFailed") !in derived,
+            "it reports, but it returns Result.failure on purpose: the caller must read it. " +
+                "Derived: $derived",
+        )
+    }
+
     // ── derivation ────────────────────────────────────────────────────────────────
 
     /**
      * Methods that report their own failure, so discarding the `Result` is the contract.
      *
-     * The one hand-written list left in the rule, and it is a known debt: this should be
-     * derived the way `SyncedWriteEnqueuesTest` derives its exemption set, by finding the
-     * `Result`-returning method whose body contains `crashReporter.report(`. Both obvious
-     * implementations of that derivation were measured and both are wrong — taking the first
-     * balanced brace misses `enqueue` and `refreshStatus`, whose reporting `.also { }` sits
-     * outside the lambda, and a window to the next `fun` at the same indent invents `save`,
-     * because that window runs straight past `override suspend fun getItem`. A correct
-     * derivation needs statement-level extraction, which is the next piece of work and not
-     * something to smuggle in as a one-line change.
+     * Derived, not written down, and keyed by **declaring type and method together** for the
+     * reason the resolver is: the hand-written list this replaced was keyed by name alone, and
+     * `enqueue` is not unique. `SyncEngine.enqueue` reports at the seam; `SyncRepository.enqueue`
+     * only delegates to it. Name-keyed, both were exempt, so a `SyncRepositoryImpl.enqueue` that
+     * swallowed the failure tomorrow would have kept 17 call sites silent — the rule would have
+     * been protecting the regression rather than the report.
+     *
+     * ### How it is derived, and the two derivations that failed first
+     *
+     * For each report call, walk **backwards** to the nearest preceding `fun` and to the class or
+     * object above it, then require two things of that function: it returns a `Result`, and it
+     * builds that `Result` by capturing a failure — its body opens with `runCatching… {`.
+     *
+     * Both earlier derivations looked forward, and both were wrong for the same reason: the
+     * reporting `.also { }` sits **outside** the `runCatching` lambda in every one of these
+     * methods. Taking the first balanced brace from the report call stops inside the lambda and
+     * never reaches the signature; a window to the next `fun` at the same indent runs straight
+     * past `override suspend fun getItem` and invents a `save`. Walking backwards has neither
+     * failure mode — a `fun` keyword does not nest inside another one in Kotlin, so the nearest
+     * preceding `fun` is the enclosing function by construction.
+     *
+     * The `runCatching` requirement is what keeps the exemption narrow. `SyncPhaseReporter
+     * .pushFailed` reports too — `log.e` and `crashReporter.report` — but it *constructs*
+     * `Result.failure(error)` on purpose, because for its callers the returned `Result` **is**
+     * how the failed phase travels. Exempting it would stop the rule from asking the right
+     * question of the one place that must answer it.
      */
-    private fun selfReportingMethods(): Set<String> = setOf(
-        // SyncEngine.enqueue — 18 repository call sites discard it on the record.
-        "enqueue",
-        // ProposalRepositoryImpl.refreshStatus — 3 call sites in ApplyProposalItemUseCase.
-        "refreshStatus",
+    private fun selfReportingMethods(): Set<MethodKey> {
+        val sources = SourceScan.productionFiles().map { SourceScan.stripComments(it.readText()) }
+        val direct = sources.flatMapTo(mutableSetOf()) { capturesAndReports(it) }
+        return closeOver(direct, declaredMethods(), sources)
+    }
+
+    /**
+     * Closes the seed set over the two ways a method can inherit another method's reporting.
+     *
+     * Both were found by running this on the tree, not by designing them:
+     *
+     * - **Override.** A caller never names `ProposalRepositoryImpl`; it names
+     *   `ProposalRepository`. The report lives in the implementation, the caller sees the
+     *   interface, so keying on the implementation alone reported a correct call site as
+     *   dropped. Keying by name instead — what this rule's hand-written list used to do —
+     *   hid that same fact by accident.
+     * - **Delegation.** `SyncRepositoryImpl.enqueue` is `= engine.enqueue(entity)`: it reports
+     *   nothing of its own and returns exactly what `SyncEngine.enqueue` returns, so it is
+     *   exempt for the same reason. `SyncRepository.enqueue` inherits that through the
+     *   override, which is why its 17 discarded call sites are not findings.
+     *
+     * Bounded at [MAX_HOPS] rounds and by the `seen` set, because a lexical rule must not be
+     * able to walk a cycle in the delegation graph.
+     */
+    private fun closeOver(
+        seed: Set<MethodKey>,
+        declarations: Map<String, Map<String, Boolean>>,
+        sources: List<String>,
+    ): Set<MethodKey> {
+        val found = seed.toMutableSet()
+        repeat(MAX_HOPS) {
+            var added = false
+            for (source in sources) {
+                added = added or spreadOverOverride(found, declarations, source)
+                added = added or spreadOverDelegation(found, source)
+            }
+            if (!added) return found
+        }
+        return found
+    }
+
+    /** `Impl.override` reports ⇒ the supertype that declares the method reports too. */
+    private fun spreadOverOverride(
+        found: MutableSet<MethodKey>,
+        declarations: Map<String, Map<String, Boolean>>,
+        source: String,
+    ): Boolean {
+        // Read once per file, not once per key: the hop is the hot loop, and re-parsing every
+        // class header for every candidate is what made this rule slower than the test run it
+        // was supposed to take part in.
+        val supertypes = supertypesIn(source)
+        var added = false
+        for (key in found.toList()) {
+            for (supertype in supertypes[key.type].orEmpty()) {
+                if (declarations[supertype]?.get(key.method) == true && found.add(MethodKey(supertype, key.method))) {
+                    added = true
+                }
+            }
+        }
+        return added
+    }
+
+    /** `Impl.m = other.n(…)` and `Other.n` reports ⇒ `Impl.m` reports, by forwarding alone. */
+    private fun spreadOverDelegation(found: MutableSet<MethodKey>, source: String): Boolean {
+        val receivers = receiverTypes(source)
+        var added = false
+        for (delegation in delegationsIn(source)) {
+            val target = receivers[delegation.receiver]?.substringAfterLast('.')
+            if (target != null &&
+                MethodKey(target, delegation.method) in found &&
+                found.add(MethodKey(delegation.fromType, delegation.fromMethod))
+            ) {
+                added = true
+            }
+        }
+        return added
+    }
+
+    /**
+     * Class name -> the supertypes its header declares: `class Impl(…) : A, B {`.
+     *
+     * Matched by balanced parentheses rather than by a pattern, and the reason is a real class
+     * in this tree: `SyncRepositoryImpl`'s constructor ends with
+     * `private val log: Logger = Logger.withTag("SyncRepository")`, whose `)` sits inside the
+     * parameter list. Both plausible patterns stop there — `[^)]*` at the inner bracket, a lazy
+     * `.*?` at the same place — and the class silently acquires no supertypes, so an `override`
+     * never spreads and a correct call site is reported as a dropped `Result`. A rule that is
+     * wrong quietly is worse than one that is wrong loudly.
+     */
+    private fun supertypesIn(source: String): Map<String, List<String>> =
+        CLASS_DECLARATION.findAll(source).associate { match ->
+            // The pattern ends on the `(`, so that index is already the opener. Searching for the
+            // *next* one finds `Logger.withTag(` inside the parameter list instead, the balanced
+            // close lands there, and every class silently acquires no supertypes — which reads as
+            // "no overrides anywhere" rather than as a parsing mistake.
+            match.groupValues[1] to supertypesAfter(source, SourceScan.closingParen(source, match.range.last))
+        }
+
+    /** The supertypes between the closing `)` of the parameter list and the body's `{`. */
+    private fun supertypesAfter(source: String, closeParen: Int): List<String> {
+        if (closeParen < 0) return emptyList()
+        var i = closeParen + 1
+        while (i < source.length && source[i].isWhitespace()) i++
+        if (i >= source.length || source[i] != ':') return emptyList()
+        val bodyStart = source.indexOf('{', i)
+        if (bodyStart < 0) return emptyList()
+        return source.substring(i + 1, bodyStart)
+            .split(',')
+            .map { it.trim().substringBefore('<').substringBefore('(').trim() }
+            .filter { it.isNotEmpty() && it.all(Char::isLetterOrDigit) }
+    }
+
+    /**
+     * The seed set: the methods that capture their own failure and report it.
+     *
+     * Walking **backwards** is what makes this work. The reporting `.also { }` sits outside the
+     * `runCatching` lambda in every one of these methods, which is why the two forward-looking
+     * derivations both failed — see the class KDoc. A `fun` keyword does not nest inside another
+     * one in Kotlin, so the nearest preceding `fun` is the enclosing function by construction.
+     */
+    private fun capturesAndReports(source: String): Set<MethodKey> =
+        REPORT_CALL.findAll(source)
+            .mapNotNull { report ->
+                val funMatch = FUNCTION_DECLARATION.findAll(source.take(report.range.first)).lastOrNull()
+                    ?: return@mapNotNull null
+                val typeMatch = TYPE_DECLARATION.findAll(source.take(funMatch.range.first)).lastOrNull()
+                    ?: return@mapNotNull null
+                val head = source.substring(funMatch.range.last + 1, report.range.first)
+                if (!capturesItsOwnFailure(head)) return@mapNotNull null
+                MethodKey(typeMatch.groupValues[1], funMatch.groupValues[1])
+            }.toSet()
+
+    /**
+     * The one-expression delegations in a file: `fun m(…) = receiver.n(…)`.
+     *
+     * Only the single-line form, because recognising a delegation spread over several lines
+     * needs the statement-level extraction this rule deliberately does not attempt. A
+     * multi-line delegation is therefore not inherited, and a caller of one is reported. That is
+     * the safe direction: a false report costs one `.getOrThrow()`, a missed exemption costs a
+     * silent failure.
+     */
+    private fun delegationsIn(source: String): List<Delegation> =
+        DELEGATION.findAll(source).mapNotNull { match ->
+            val owner = TYPE_DECLARATION.findAll(source.take(match.range.first)).lastOrNull()
+                ?: return@mapNotNull null
+            Delegation(
+                fromType = owner.groupValues[1],
+                fromMethod = match.groupValues[1],
+                receiver = match.groupValues[2],
+                method = match.groupValues[3],
+            )
+        }.toList()
+
+    /** `Impl.m` that returns nothing but `receiver.n(…)`. */
+    private data class Delegation(
+        val fromType: String,
+        val fromMethod: String,
+        val receiver: String,
+        val method: String,
     )
+
+    /**
+     * True when the function's own text before the report call contains a `runCatching… {`.
+     *
+     * Asking for the capture rather than for the report is the whole discrimination: the report
+     * says the failure is visible, and the capture says the returned `Result` is that same
+     * failure rather than a fresh one the caller is meant to read.
+     */
+    private fun capturesItsOwnFailure(headOfFunction: String): Boolean =
+        CAPTURES_FAILURE.containsMatchIn(headOfFunction)
+
+    /** A method the caller can be told about: a type the caller can name, and its method. */
+    private data class MethodKey(val type: String, val method: String)
 
     /** declaring type -> (method -> does it return Result?). */
     private fun declaredMethods(): Map<String, Map<String, Boolean>> =
@@ -275,14 +599,16 @@ class DroppedResultIsReportedTest {
     private fun droppedCallsIn(
         source: String,
         declarations: Map<String, Map<String, Boolean>>,
-        selfReporting: Set<String>,
+        selfReporting: Set<MethodKey>,
     ): List<Call> =
         standaloneCalls(source)
             .mapNotNull { call ->
-                val declared = receiverTypes(source)[call.receiver]
-                val table = declared?.let { declarations[it.substringAfterLast('.')] }
+                val declared = receiverTypes(source)[call.receiver]?.substringAfterLast('.')
+                val table = declared?.let { declarations[it] }
                 if (table?.get(call.method) != true) return@mapNotNull null
-                if (call.method in selfReporting) return@mapNotNull null
+                if (declared != null && MethodKey(declared, call.method) in selfReporting) {
+                    return@mapNotNull null
+                }
                 if (isConsumed(source, call)) return@mapNotNull null
                 call
             }
@@ -424,5 +750,35 @@ class DroppedResultIsReportedTest {
 
         val PROPERTY_TYPE = Regex("""\b(?:val|var)\s+(\w+)\s*:\s*([A-Za-z0-9_.<>]+)""")
         val PARAM_TYPE = Regex("""\b(\w+)\s*:\s*([A-Za-z0-9_.<>]+)\s*[,)]""")
+
+        /** Any function declaration, used to walk backwards to the enclosing one. */
+        val FUNCTION_DECLARATION = Regex("""\bfun\s+(?:<[^>]*>\s*)?(\w+)\s*\(""")
+
+        /** Where a failure becomes visible. `log.e` counts: it is this app's own seam. */
+        val REPORT_CALL = Regex("""\b(?:crashReporter\.report|reportHandled|reportNonFatal|log\.e)\s*\(""")
+
+        /**
+         * The capture itself: `runCatchingResult {`, `runCatchingCancellable<Unit> {`.
+         *
+         * Required in the text between the signature and the report call, which is also where
+         * the failure has to travel for the exemption to mean anything.
+         */
+        val CAPTURES_FAILURE = Regex("""\brunCatching\w*\s*(<[^>]*>\s*)?\{""")
+
+        /** `class Impl(` — the supertypes after it are found by balancing, not by pattern. */
+        val CLASS_DECLARATION =
+            Regex("""\b(?:internal\s+|abstract\s+|open\s+|sealed\s+|data\s+)*class\s+(\w+)\s*\(""")
+
+        /** A whole function that is nothing but `= receiver.method(…)`. */
+        val DELEGATION = Regex(
+            """^\s*(?:override\s+)?(?:suspend\s+)?fun\s+(\w+)\s*\([^)]*\)\s*:\s*Result<[^>]*>*\s*=\s*(\w+)\.(\w+)\s*\(.*\)\s*$""",
+            // MULTILINE, or `^` and `$` bind to the whole file and the pattern matches nothing
+            // outside line one. Without it the derivation silently found zero delegations and
+            // the rule reported `SyncRepository.enqueue`'s 17 call sites.
+            RegexOption.MULTILINE,
+        )
+
+        /** A lexical rule must not be able to walk a cycle in the delegation graph. */
+        const val MAX_HOPS = 4
     }
 }
