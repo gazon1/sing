@@ -45,7 +45,7 @@ interface Notifier {
      * [viewId] is an opaque deep-link target the notification carries, or null. It is part
      * of the port rather than an Android extra because **both** production callers have it
      * and Android's `post` already took it: `AlarmReceiver.handleReminderFire`, and the
-     * Desktop `JvmReminderFire` that a `systemd --user` unit invokes. A port without it
+     * `ReminderDelivery`, which a `systemd --user` unit invokes on Desktop. A port without it
      * would have made the Desktop implementation drop the tap-through on the floor.
      */
     fun post(tag: String, title: String, body: String, viewId: String? = null)

@@ -3,6 +3,7 @@ package com.singularity.todo.feature.reminders
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.notifications.Notifier
+import com.singularity.todo.core.process.Subprocess
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Clock
@@ -28,7 +29,7 @@ import kotlinx.coroutines.flow.first
  * ## The unit is this app's own launcher
  *
  * `systemd-run` cannot reach the database, and the notification text has to be computed
- * from a fresh read of the task title at fire time (see [JvmReminderFire]). So the unit
+ * from a fresh read of the task title at fire time (see [ReminderDelivery]). So the unit
  * runs `singularity-todo fire-reminder <id> <userId>` — the packaged launcher, which
  * returns from `main` before touching AWT — rather than a second helper binary. A helper
  * binary would be a reminder that silently does not fire wherever it was not installed.
@@ -55,8 +56,8 @@ class JvmReminderScheduler(
     private val reminderRepo: ReminderRepository,
     private val notifier: Notifier,
     private val sessionBusAddress: String? = defaultSessionBusAddress(),
-    private val launcherPath: String = PACKAGED_LAUNCHER,
-    private val runCommand: suspend (List<String>) -> Int = { execQuietly(it) },
+    private val launcherPath: String = REMINDER_LAUNCHER_PATH,
+    private val runCommand: suspend (List<String>) -> Int = { Subprocess.runQuietly(it) },
     private val userSystemdAvailable: () -> Boolean = ::probeUserSystemd,
 ) : ReminderScheduler {
 
@@ -148,14 +149,9 @@ class JvmReminderScheduler(
     private companion object {
         val logger = Logger.withTag("JvmReminderScheduler")
 
-        const val MILLIS_PER_SECOND = 1000L
+        const val SYSTEMD_RUN = "systemd-run"
 
-        /**
-         * The jpackage launcher, from `packageName = "singularity-todo"`
-         * (`desktopApp/build.gradle.kts`). Injected rather than hardcoded at the call site
-         * so a test asserts the argv shape without depending on the install layout.
-         */
-        const val PACKAGED_LAUNCHER = "/usr/bin/singularity-todo"
+        const val MILLIS_PER_SECOND = 1000L
 
         /**
          * The session bus socket, or null when the host does not advertise one.
@@ -173,35 +169,40 @@ class JvmReminderScheduler(
          * `--version` prints and exits without contacting a bus, so it cannot hang on a
          * host with no user session — which a real `systemd-run` invocation could.
          *
-         * The `Process` is bound to a name on purpose: `start().inputStream.close()`
-         * chains off a `Unit`-returning call and does not compile as a fluent expression.
+         * Through [Subprocess] like every other subprocess in this module. This probe once
+         * had its own inline `ProcessBuilder`, complete with the early `close()` that kills
+         * the child with SIGPIPE and returns 141 — which read as "this host cannot schedule
+         * anything", and turned the entire Desktop reminder feature off on a machine that
+         * was perfectly capable. See
+         * `docs/decisions/2026-10-07-closing-child-streams-sends-sigpipe.md`.
          */
-        fun probeUserSystemd(): Boolean = runCatching {
-            val process = ProcessBuilder("systemd-run", "--user", "--version")
-                .redirectErrorStream(true)
-                .start()
-            process.inputStream.close()
-            process.errorStream.close()
-            process.waitFor()
-        }.getOrDefault(-1) == 0
-
-        /**
-         * Runs a command as an argv list, returning only its exit code.
-         *
-         * Never a shell string: the ids come from the database, but the launcher path and
-         * arguments are assembled the same way, and a shell would give a crafted id a way
-         * out. `Notifier.post` holds the same rule for the same reason.
-         */
-        fun execQuietly(argv: List<String>): Int = runCatching {
-            val process = ProcessBuilder(argv)
-                .redirectErrorStream(true)
-                .start()
-            process.inputStream.close()
-            process.errorStream.close()
-            process.waitFor()
-        }.getOrDefault(-1)
+        fun probeUserSystemd(): Boolean =
+            Subprocess.runQuietly(listOf(SYSTEMD_RUN, "--user", "--version")) == 0
     }
 }
+
+/**
+ * Where a `systemd --user` reminder unit finds the launcher.
+ *
+ * ## Why this is a constant and not a lookup
+ *
+ * jpackage puts a Deb's launcher on `PATH` under its `packageName`, so this string is
+ * derived from `packageName = "singularity-todo"` in `desktopApp/build.gradle.kts` — a
+ * different file, in a different Gradle module, that nothing referenced until
+ * `JvmReminderSchedulerLauncherPathTest` did. Rename the package and every Desktop
+ * reminder stops arming, on every installed machine, with the failure surfacing only when
+ * a user goes looking for an 18:00 reminder that never arrived.
+ *
+ * That test reads this value, so the two cannot drift without a failing build.
+ *
+ * ## Why it is not resolved at runtime
+ *
+ * `which singularity-todo` would tolerate a rename by finding whatever is installed — and
+ * would also find a *different* binary if the name were ever taken. The point of the
+ * constant is that the unit runs **this** app and nothing else, which is the containment
+ * property that outlived the deleted `at` backend.
+ */
+internal const val REMINDER_LAUNCHER_PATH = "/usr/bin/singularity-todo"
 
 /**
  * The systemd unit name for one reminder.

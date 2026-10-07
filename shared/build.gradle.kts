@@ -465,6 +465,22 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "maestro.root",
         layout.projectDirectory.dir("../Maestro").asFile.absolutePath,
     )
+    // The Desktop packaging script, read by `JvmReminderSchedulerLauncherPathTest`.
+    //
+    // That test pins `/usr/bin/singularity-todo` — the path a `systemd --user` reminder
+    // unit executes — against jpackage's `packageName`, which lives in this file. Two
+    // files, two modules, and until now zero references: renaming the package would leave
+    // every Desktop reminder silently unable to fire, discovered after installation.
+    //
+    // The path is declared rather than derived. Deriving it from `commonMain.root` by
+    // walking parent directories is exactly what the `maestro.root` comment above calls
+    // out as the defect — an invisible path is invisible to the invalidation wiring too.
+    // The file is already an input of this task via `moduleBuildFiles`, so editing it
+    // re-runs the test rather than letting it report a stale pass.
+    systemProperty(
+        "desktopApp.buildScript",
+        rootProject.file("desktopApp/build.gradle.kts").absolutePath,
+    )
     // SyncPeriodicTriggerWiringTest reads the androidMain and jvmMain platform
     // modules. Same staleness hazard as above: edit a platform module, leave
     // :shared:jvmTest UP-TO-DATE, and the gate re-reports a verdict about the

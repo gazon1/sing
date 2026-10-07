@@ -56,6 +56,26 @@ ports as parameters rather than resolving them — so it needs no DI binding, an
 no `platform-seams.tsv` row: it is not a seam, because Android never binds it and fires
 the same reminder through `AlarmReceiver`.
 
+### The argv trap: `args[0]` is the program name
+
+`fun main(args)` receives the path the OS launched in `args[0]`. For the unit systemd runs
+that is `/usr/bin/singularity-todo`, and `fire-reminder` arrives at index **1**.
+
+The first version of `JvmReminderFireCommand.parse` read `args[0]` as the command. It
+therefore never matched anything: `main` fell through to the GUI branch, a window was
+created and destroyed, the notification never appeared, and `systemd-run` reported success
+because the unit exited 0. A reminder that fires once and then never again, with a clean
+exit code and a log that points nowhere.
+
+It shipped, and every test written against it passed — because every one of them passed a
+hand-built array whose first element *was* the command. `JvmReminderFireCommandTest` now
+feeds the scheduler's real emitted argv back through the parser, which is the only form of
+that test that can fail.
+
+`parse` locates the command rather than assuming a position. Skipping index 0 would be
+equally correct and less forgiving, because it makes every caller reconstruct that `args`
+here is the raw argv.
+
 ### Why the app's own binary and not a helper
 
 A helper binary is a reminder that silently does not fire on every machine where nobody

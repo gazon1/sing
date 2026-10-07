@@ -35,6 +35,17 @@ internal object ReminderFireLogic {
     fun execute(reminder: Reminder, taskTitle: String?): Outcome = Outcome(
         title = taskTitle?.let { "Reminder: $it" } ?: "Task Reminder",
         body = "A reminder is due",
-        shouldDelete = reminder.recurringPattern == null,
+        shouldDelete = shouldDeleteAfterFire(reminder),
     )
+
+    /**
+     * Whether [reminder] is retired once it has fired.
+     *
+     * Exposed separately because the retirement decision is made by the *caller*, which
+     * is the layer that owns the database — [execute] is pure. Reading it back out of a
+     * throwaway [execute] call would compute a title and a body in order to learn a
+     * boolean, and would make the obvious-looking thing (`execute(reminder, null)
+     * .shouldDelete`) the thing everyone actually writes.
+     */
+    fun shouldDeleteAfterFire(reminder: Reminder): Boolean = reminder.recurringPattern == null
 }

@@ -5,7 +5,6 @@ import androidx.compose.ui.window.singleWindowApplication
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
@@ -18,8 +17,9 @@ import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINU
 import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import co.touchlab.kermit.Logger
-import com.singularity.todo.feature.reminders.JvmReminderFire
 import com.singularity.todo.feature.reminders.JvmReminderFireCommand
+import com.singularity.todo.feature.reminders.JvmReminderRearm
+import com.singularity.todo.feature.reminders.ReminderDelivery
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import kotlinx.coroutines.cancel
@@ -119,46 +119,31 @@ fun main(args: Array<String>) {
 }
 
 /**
- * Re-arm every future reminder at launch.
+ * Re-arm every future reminder at launch, then log what happened.
  *
- * A `systemd --user` **transient** unit dies with the user manager: reboot, logout, or
+ * A `systemd --user` transient unit dies with the user manager: reboot, logout, or
  * `daemon-reload` all leave the reminder rows in the database with no timer behind them.
- * This is the Desktop counterpart to Android's `ACTION_BOOT_COMPLETED` catch-up, and it is
- * the reason a Desktop reminder survives a restart at all.
+ * Without this call a Desktop reminder works exactly once.
  *
- * Enumerates through the repository and re-arms through the port — the same shape as
- * `AlarmReceiver.rescheduleAll`, deliberately including its limit: `observeAll` is scoped
- * to the active profile, so reminders belonging to another profile are re-armed when that
- * profile becomes active, not now. Making them cross-profile would need a
- * profile-independent query that nothing else in the codebase has a reason to have.
- *
- * `schedule` is idempotent while a run is in flight and `systemd-run` refuses to redefine
- * a live unit, so calling this on every launch is safe and does not stack timers.
+ * The policy — which reminders, in what order, and what to do about one that fails to arm —
+ * lives in [JvmReminderRearm] rather than here, because this file is an entry point that
+ * no test executes. Everything with behaviour in it is therefore testable; what stays is
+ * three `koin.get()` calls and a log line.
  */
 private suspend fun rearmReminders(koin: Koin) {
-    val scheduler = koin.get<ReminderScheduler>()
-    if (!scheduler.isSupported) return
-    // The graph's clock, not `Clock.System`: every other time decision in this codebase
-    // reads it from DI so a test can drive it. This one is not under test, but a second
-    // time source in the same file is how the two drift.
-    val now = koin.get<Clock>().now().toEpochMilliseconds()
     val log = Logger.withTag("rearm-reminders")
-    koin.get<ReminderRepository>().observeAll().first()
-        .filter { it.fireAt > now }
-        .forEach { reminder ->
-            // `schedule` throws when `systemd-run` fails, and that is the correct behaviour
-            // for a single arming. In a bulk loop it would abandon every reminder after the
-            // first failure — turning one bad unit into reminders that silently never fire,
-            // which is the defect this whole feature exists to end. So each arm is caught,
-            // logged loudly, and the loop continues.
-            //
-            // `runCatchingCancellable`, not `runCatching`: the latter also swallows
-            // `CancellationException`, which here would mean the app cannot be shut down
-            // while it is re-arming.
-            runCatchingCancellable { scheduler.schedule(reminder) }.onFailure {
-                log.e(it) { "Failed to re-arm reminder ${reminder.id.value}" }
-            }
-        }
+    val report = JvmReminderRearm.run(
+        scheduler = koin.get<ReminderScheduler>(),
+        reminders = koin.get<ReminderRepository>().observeAll().first(),
+        // The graph's clock, not `Clock.System`: every other time decision in this codebase
+        // reads it from DI so a test can drive it. A second time source in the same file is
+        // how the two drift.
+        nowEpochMs = koin.get<Clock>().now().toEpochMilliseconds(),
+        onFailure = { reminder, error ->
+            log.e(error) { "Failed to re-arm reminder ${reminder.id.value}" }
+        },
+    )
+    log.i { report.describe() }
 }
 
 /**
@@ -197,10 +182,9 @@ private fun fireReminder(request: JvmReminderFireCommand.Request) = runBlocking 
     val koin = GlobalContext.get()
     val scope = createBackgroundScope(loggingBackgroundFailureHandler())
     ProfileBootstrapper(koin.get()).run()
-    val outcome = JvmReminderFire.fire(
-        reminderRepo = koin.get(),
-        taskRepo = koin.get(),
-        notifier = koin.get(),
+    // `ReminderDelivery` is the same object Android fires through, so the text, the tag
+    // and the one-shot retirement cannot differ between the two platforms.
+    val outcome = koin.get<ReminderDelivery>().fire(
         reminderId = request.reminderId,
         userId = request.userId,
     )

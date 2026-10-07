@@ -75,6 +75,7 @@ import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
+import com.singularity.todo.feature.reminders.ReminderDelivery
 import com.singularity.todo.feature.reminders.data.ProjectRemindersRepositoryImpl
 import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
@@ -194,6 +195,10 @@ fun coreModule(): org.koin.core.module.Module = module {
     factoryOf(::AttachmentStorage)
 
     single<ReminderRepository> { ReminderRepositoryImpl(get(), get(), get()) }
+    // Both platforms fire reminders through this one object. It lives in common code
+    // precisely so the Android BroadcastReceiver and the Desktop `fire-reminder` launcher
+    // cannot drift on the four steps that decide what the user actually sees.
+    single { ReminderDelivery(get(), get(), get()) }
     single<ProjectRemindersRepository> { ProjectRemindersRepositoryImpl(get(), get(), get()) }
 
     // ─── Ports ───────────────────────────────────────────────────────────

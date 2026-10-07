@@ -6,16 +6,14 @@ import android.content.Intent
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotifier
-import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_PHASE
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_REMINDER_ID
 import com.singularity.todo.feature.alarms.AlarmContract.EXTRA_USER_ID
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
-import com.singularity.todo.feature.reminders.ReminderFireLogic
+import com.singularity.todo.feature.reminders.ReminderDelivery
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,8 +52,8 @@ class AlarmReceiver :
     private val log = Logger.withTag("AlarmReceiver")
 
     private val reminderRepo: ReminderRepository by inject()
-    private val taskRepo: TaskRepository by inject()
     private val notifier: AndroidNotifier by inject()
+    private val delivery: ReminderDelivery by inject()
     private val reminderScheduler: ReminderScheduler by inject()
     private val clock: Clock by inject()
     private val crashReporter: CrashReportingPort by inject()
@@ -97,22 +95,10 @@ class AlarmReceiver :
         val reminderId = intent.reminderIdOrNull ?: return
         val userId = intent.userIdOrNull ?: return
 
-        val reminder = reminderRepo.get(reminderId) ?: run {
-            log.w { "Reminder not found: ${reminderId.value}" }
-            return
-        }
-
-        // Fetch fresh task title from DB to avoid showing stale text in notifications.
-        val taskTitle = taskRepo.get(reminder.taskId)?.title
-        val outcome = ReminderFireLogic.execute(reminder, taskTitle)
-        notifier.post(AlarmContract.tagFor(userId, reminderId), outcome.title, outcome.body, reminder.viewId?.raw)
-
-        if (outcome.shouldDelete) {
-            reminderRepo.delete(
-                reminderId,
-                userId,
-            ).onFailure { log.w { "Failed to delete reminder ${reminderId.value}: ${it.message}" } }
-        }
+        // The four delivery steps live in `ReminderDelivery`, shared with the Desktop
+        // launcher. This class decides *when* to fire; it does not decide what firing
+        // means, because that is the part the two platforms must not disagree about.
+        delivery.fire(reminderId, userId)
     }
 
     private suspend fun handlePomodoroPhaseEnd(intent: Intent) {
@@ -145,22 +131,7 @@ class AlarmReceiver :
 
         // Catch-up: fire past-due reminders (cap 20 to avoid notification storm on boot)
         reminderRepo.watchRecentDueBefore(now, 20).first()
-            .forEach { reminder ->
-                val taskTitle = taskRepo.get(reminder.taskId)?.title
-                val outcome = ReminderFireLogic.execute(reminder, taskTitle)
-                notifier.post(
-                    AlarmContract.tagFor(reminder.userId, reminder.id),
-                    outcome.title,
-                    outcome.body,
-                    reminder.viewId?.raw,
-                )
-                if (outcome.shouldDelete) {
-                    reminderRepo.delete(
-                        reminder.id,
-                        reminder.userId,
-                    ).onFailure { log.w { "Failed to delete reminder ${reminder.id.value}: ${it.message}" } }
-                }
-            }
+            .forEach { reminder -> delivery.fireKnown(reminder) }
 
         // Re-schedule all active reminders
         reminderRepo.observeAll().first().forEach { reminder ->
