@@ -1,17 +1,17 @@
 {
   "measurement": "scripts/check-kiwi-inventory-ratchet.py imports infra/kiwi/sync.py by path (the same module scripts/tests/test_kiwi_sync.py loads) and calls scan_repository(), so the number the gate reads is the number the test suite counts — two readers of one scanner, not two scanners",
   "measured_at": "2026-10-07",
-  "commit": "ccda9c13",
+  "commit": "04d14adc",
   "corpus": {
     "test_roots": 7,
-    "inventory": 369,
+    "inventory": 372,
     "skipped": 5
   },
   "floors": [
     {
       "metric": "inventory",
       "max": 380,
-      "measured": 369,
+      "measured": 372,
       "label": "*Test.kt files the scanner classifies as runnable",
       "note": "This is the only metric in the repository that was still a literal inside a test assertion, and it cost two merge conflicts in one day: abf88fc2 and 4733aec4 each added a test class and each raised the number by hand, independently, to the same value. The cost is the point. A number edited in a test file is a number two branches edit, and the merge that reconciles them resolves a number rather than a decision.\n\nWhat the bound is for, precisely, because it is easy to read as more than it is. The skip list is now derived — `unjustified_skips` re-derives each entry from the file that earns it — and there is an exhaustiveness check that every `*Test.kt` is either in the inventory or justified-skip. Neither of those can catch a regression in the *predicate*, because both ask it the same question. The predicate's own controls are synthetic (`test_parameterized_test_counts_as_a_test` and friends), so they do not need this either.\n\nWhat is left is narrow and worth keeping: this fires when the inventory moves in a way no synthetic control anticipated. It caught the two merges above, which is the whole argument for it. It is NOT a coverage claim, and a run where it fires is not evidence that anything regressed — it is a prompt to look.\n\nRaising `max` costs one line in this file, where the reason travels with the measurement. That is the entire difference from the assertion it replaces.\n\nRaised 370 -> 380 with the measurement, on a merge that added eight test classes at once (reminders, proposals, profile, notes). Worth recording that the gate caught this without anyone reading the diff: `measured` was still 360, and the drift check reported a floor file describing a different commit. That is the case the number-in-a-test could not produce at all."
     },
