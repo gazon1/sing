@@ -3917,6 +3917,14 @@ the codebase as never-written, which is a green gate asserting something false.
 
 **Status: OPEN — Robolectric is wired and the test executes; Room's native SQLite does not load**
 
+**Tracking:** tracked here rather than as a GitHub issue because the remaining work is a
+single bounded step with a known failure mode — extract `libsqlite3.so` for linux-x86_64
+from the bundled SQLite artifact into `shared/src/androidHostTest/jniLibs`, or point the
+task's `java.library.path` at it, then re-run the one class. Everything else is already in
+place: the stack, the detekt source entry, the tag rule, the task-filter exemption and the
+ADR correction. It does not need a queue position; it needs someone with a spare
+afternoon and the artifact on disk.
+
 **Found in:** 2026-10-07, attempting the fix recorded in the entry above. The stack now
 works far enough to produce an answer, and the answer is not the one the entry expected.
 
