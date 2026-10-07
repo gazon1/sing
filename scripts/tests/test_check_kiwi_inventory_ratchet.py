@@ -99,7 +99,17 @@ class MainTest(unittest.TestCase):
             # test proves nothing about the flag.
             config = _config(skipped=(20, 5))
             config["floors"].append(
-                {"metric": "inventory", "max": 1, "measured": 360, "label": "inventory", "note": "n"}
+                {
+                    "metric": "inventory",
+                    "max": 1,
+                    # Read from the tree rather than written down. Hardcoding the count here
+                    # made this test fail every time a test class was added — which is the
+                    # manual step the gate exists to remove, reproduced inside its own
+                    # self-test.
+                    "measured": gate.measure()["inventory"],
+                    "label": "inventory",
+                    "note": "n",
+                }
             )
             path.write_text(json.dumps(config))
             self.assertEqual(1, gate.main(["--config", str(path)]))
