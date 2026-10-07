@@ -55,8 +55,10 @@ class CalendarSyncSystemScenarioTest {
         // unaffected — a bare "unsupported" reads as data loss.
         assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
         // The full sentence, not a prefix: `assertTextDisplayed` matches the node's whole
-        // text exactly (`onNodeWithText(..., useUnmergedTree = true)`), so a substring
-        // here fails on a node that is present and correct.
+        // text exactly, so a substring here fails on a node that is present and correct.
+        // The selector name itself is spelled out nowhere in this file because
+        // `HarnessConventionTest` counts a selector call written in a *comment* as a raw
+        // call, and a comment is the one place this rule is easiest to trip.
         assertTextDisplayed(
             "System calendar sync needs Android. Your tasks are unaffected — they stay in the app.",
         )
