@@ -1007,20 +1007,15 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "is deliberately NOT in the shared registry, because a PR must not be "
         "blocked by backlog bookkeeping",
     ),
-    "scripts/check-publication-hygiene.py": (
-        "ci",
-        "a file that would be published is only reachable from CI's checkout of "
-        "the branch being merged: locally the working tree is a developer's, and "
-        "a personal path or email in an unpushed file is not yet a leak. The "
-        "gate is about what reaches main, which is a fact only CI has",
-    ),
-    "scripts/check-readme-claims.py": (
-        "ci",
-        "the same shape as publication-hygiene, and it reads committed state: it "
-        "compares numbers in README.md against the tree as merged. A developer's "
-        "uncommitted README describes a tree nobody else has",
-    ),
 }
+# Both `check-publication-hygiene.py` and `check-readme-claims.py` were declared
+# `ci` here while this was being written, on the reasoning that they read committed
+# state and only CI has the merged tree. Main's #217 moved both into
+# `scripts/ci/static-gates.sh`, which `check.sh` also runs — so they genuinely run in
+# both places now, and the declaration was the thing that had become wrong. Kept as
+# a note because the reasoning is still right about *why* they were CI-only, and the
+# day somebody moves one back out of the shared registry this is the argument for
+# putting it back in this table.
 
 #: Argument-level asymmetries on gates that run in both places. Keyed by
 #: (gate, leading argument), value is where it is expected.
