@@ -498,6 +498,34 @@ class FixtureGate:
 
 FIXTURE_GATES = [
     FixtureGate(
+        name="req-id-uniqueness",
+        cmd=[sys.executable, "scripts/check-req-id-uniqueness.py", "--root", "{tmp}/repo"],
+        setup=(
+            "import pathlib\n"
+            "d = root / 'repo' / 'openspec' / 'specs' / 'offline-sync'\n"
+            "d.mkdir(parents=True, exist_ok=True)\n"
+            "(d / 'spec.md').write_text(\n"
+            "    '# offline-sync\\n\\n'\n"
+            "    '### Requirement: REQ-OS-015\\n\\nIt SHALL hold.\\n',\n"
+            "    encoding='utf-8')\n"
+            "c = root / 'repo' / 'openspec' / 'changes' / 'later' / 'specs' / 'offline-sync'\n"
+            "c.mkdir(parents=True, exist_ok=True)\n"
+            "(c / 'spec.md').write_text(\n"
+            "    '# offline-sync\\n\\n'\n"
+            "    '## ADDED Requirements\\n\\n'\n"
+            "    '### Requirement: REQ-OS-015\\n\\nIt SHALL hold, again.\\n',\n"
+            "    encoding='utf-8')\n"
+        ),
+        why=(
+            "the collision this gate exists for, in the exact shape the tree had: a "
+            "change that ADDs an identifier the spec already defines. The clean corpus "
+            "would pass, so needs_clean_run is False — on this repository the corpus is "
+            "still red (log-export-surface vs add-log-export), which is why the gate is "
+            "registered advisory."
+        ),
+        needs_clean_run=False,
+    ),
+    FixtureGate(
         name="flaky-tests",
         cmd=[sys.executable, "scripts/check-flaky-tests.py", "--current", "{tmp}/cur", "--previous", "{tmp}/prev"],
         setup=(
