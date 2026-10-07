@@ -17,7 +17,6 @@ import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
-import com.singularity.todo.core.sync.work.NoopSyncWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
@@ -40,6 +39,8 @@ import org.koin.dsl.module
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * The JVM platform bindings a desktop flow test needs, rebuilt without touching
@@ -64,6 +65,12 @@ import java.util.concurrent.atomic.AtomicInteger
 fun testPlatformModule(): Module = module {
     // ─── Data layer ────────────────────────────────────────────────────────
     single<AppDatabase> { FakeAppDatabase() }
+    // The repositories open one of these around every write-then-enqueue pair. The
+    // graph here binds `FakeAppDatabase`, so this is the pass-through implementation and
+    // only has to carry the shape — whether a block actually rolls back is asserted in
+    // `UnitOfWorkIsAtomicTest`, against a real database, because that is the only place
+    // the property can be observed. See `FakeUnitOfWork` for the same note in Kotlin.
+    single<UnitOfWork> { RoomUnitOfWork(get()) }
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }
     single { get<AppDatabase>().projectDao() }
@@ -141,11 +148,14 @@ fun testPlatformModule(): Module = module {
     // NoopCalendarSyncRepository / NoopCalendarProvider are JVM-ready production
     // classes, so they are reused rather than re-faked.
     single<ReminderScheduler> { InertReminderScheduler() }
-    // `SyncScheduler` was removed in phase 2.6 along with the alarm-based
-    // driver; `SyncWorkScheduler` is the surviving seam and already has its
-    // no-op above. The old binding stayed here and did not compile — this
-    // file is only built by `:desktopApp:test`, which is step 10 of the gate.
-    single<SyncWorkScheduler> { NoopSyncWorkScheduler() }
+    // Inert, not the real `JvmSyncWorkScheduler`: on Desktop the real one hands work to
+    // a `BackgroundWorkScheduler`, which starts a daemon loop that would outlive the test.
+    // See [InertSyncWorkScheduler] for why this seam has two spellings rather than one.
+    //
+    // This line pointed at `NoopSyncWorkScheduler` until 276a70e3 deleted that class in
+    // favour of the working scheduler, and the file is only compiled by `:desktopApp:test`
+    // — step 10 of the gate — so the breakage reached `main` intact.
+    single<SyncWorkScheduler> { InertSyncWorkScheduler() }
     // Never fires. The desktop production binding starts a daemon coroutine loop,
     // and a test that started one would keep a thread alive for the rest of the run
     // and make the suite's timing depend on how many tests ran before it.
