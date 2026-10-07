@@ -233,7 +233,11 @@ class ScopedReadQueryIsolationTest {
      * the first version of this file did exactly that.
      */
     private fun allReads(): List<Read> {
-        val lines = daoSource().readText().lines()
+        // Comments are blanked first so a `@Query` written inside a KDoc worked example
+        // cannot be counted as a real query. Line numbers survive, so a finding still
+        // points at the right place.
+        val source = SourceScan.stripComments(daoSource().readText())
+        val lines = source.lines()
         val reads = mutableListOf<Read>()
         var iface = ""
         lines.forEachIndexed { index, line ->
@@ -258,10 +262,8 @@ class ScopedReadQueryIsolationTest {
      * gate that will be wrong the first time somebody adds a table.
      */
     private fun scopedTables(): Map<String, Set<String>> {
-        val entities = File(commonMainRoot, "core/database/Entities.kt")
-            .takeIf { it.exists() } ?: daoSource().parentFile.resolve("Entities.kt")
         val scoped = mutableMapOf<String, Set<String>>()
-        entities.readText().split("@Entity").forEach { block ->
+        SourceScan.stripComments(entitiesSource().readText()).split("@Entity").forEach { block ->
             val table = Regex("""tableName\s*=\s*"(\w+)"""")
                 .find(block)?.groupValues?.get(1) ?: return@forEach
             val columns = buildSet { collectScopingColumns(block, this) }
@@ -284,14 +286,29 @@ class ScopedReadQueryIsolationTest {
             .findAll(block).forEach { into += it.groupValues[1] }
     }
 
-    private fun daoSource(): File =
-        File(commonMainRoot).walkTopDown().firstOrNull { it.name == "Daos.kt" }
-            ?: error("Daos.kt not found under $commonMainRoot")
+    /**
+     * The DAO file, found through [SourceScan] rather than by re-reading the property.
+     *
+     * The first version of this file built `File(commonMainRoot, "core/database/Entities.kt")`
+     * behind a `takeIf { exists() } ?: fallback`. `commonMain.root` is `src/commonMain/kotlin`,
+     * **not** the `com/singularity/todo` package root, so that path never existed and the gate
+     * ran entirely on the fallback — a wrong assumption hidden by a working rescue. [SourceScan]
+     * owns that root for every lexical rule that reads sources; a fourth copy of the lookup
+     * would have been the same drift wearing a different name.
+     */
+    private fun daoSource(): File = commonMainFile("Daos.kt")
+
+    private fun entitiesSource(): File = commonMainFile("Entities.kt")
+
+    private fun commonMainFile(name: String): File {
+        val root = SourceScan.commonMainRoot()
+        val direct = root.resolve("core/database/$name")
+        if (direct.isFile) return direct
+        return root.walkTopDown().firstOrNull { it.name == name }
+            ?: error("$name not found under $root — the source root this gate reads has moved")
+    }
 
     private companion object {
-        val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
-
         val SCOPING_COLUMNS = listOf("user_id", "owner_id", "profile_id", "userId", "ownerId", "profileId")
 
         val PRIMARY_KEY_BY_ID = Regex("""SELECT \* FROM \w+ WHERE id = :id""", RegexOption.IGNORE_CASE)

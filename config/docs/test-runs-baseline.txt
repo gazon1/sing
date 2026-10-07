@@ -38,6 +38,19 @@
 # unchanged rather than rewritten. A line written from a run that did not happen is
 # worse than a stale one.
 #
+# **A floor recorded from a wider run is not a floor, and the warning does not stop
+# you.** `--update-baseline` prints `WARNING: these counts ROSE` and then writes the
+# file anyway, in the same breath. Reading 2690 from a `-Ptest.tags=fast,slow` run and
+# committing it makes every plain local run — which excludes @Tag("slow") and measures
+# 2545 — look like a 145-test regression, and the person who sees that will conclude
+# tests disappeared rather than that the floor was taken from the wrong run.
+#
+# So when the warning fires, check which run produced the number before keeping it. The
+# floor comes from a run with no `-Ptest.tags`; re-measure and re-record rather than
+# editing the value, and never reach for `--allow-drop` here — that flag is for tests
+# genuinely deleted, which is a different thing from tests that were merely selected out
+# of this particular run.
+#
 # **998, not 1003.** The 1003 was recorded by `--update-baseline` at 57074f01 and
 # was never a measurement of a real run: `shared/src/commonTest` contained exactly
 # 998 `@Test` declarations, and a fresh run discovered exactly 998 — on this host
@@ -98,7 +111,8 @@
 # convention is already used by `Maestro/TAGS.md`.
 #
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
+shared:jvmTest 2545 0
+shared:testAndroidHostTest 1614 0
 desktopApp:test 33 0
 mcp-server:test 7 0
-shared:jvmTest 1880 0
 # GENERATED:END

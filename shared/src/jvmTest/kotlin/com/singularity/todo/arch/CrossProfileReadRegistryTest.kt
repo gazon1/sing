@@ -40,9 +40,9 @@ class CrossProfileReadRegistryTest {
     fun `every sanctioned cross-profile read names a method that still exists`() {
         val missing = CrossProfileReadRegistry.sanctioned.filterNot { entry ->
             val (iface, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
-            val source = File(commonMainRoot).walkTopDown().firstOrNull { it.name == "Daos.kt" }
-            source != null && Regex("""fun\s+$method\s*\(""").containsMatchIn(source.readText()) &&
-                Regex("""interface\s+$iface\b""").containsMatchIn(source.readText())
+            val source = daosSource().readText()
+            Regex("""fun\s+$method\s*\(""").containsMatchIn(source) &&
+                Regex("""interface\s+$iface\b""").containsMatchIn(source)
         }
         assertTrue(
             missing.isEmpty(),
@@ -66,8 +66,7 @@ class CrossProfileReadRegistryTest {
     fun `every sanctioned read documents the boundary it crosses`() {
         val undocumented = CrossProfileReadRegistry.sanctioned.filterNot { entry ->
             val (_, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
-            val source = File(commonMainRoot).walkTopDown().firstOrNull { it.name == "Daos.kt" }
-            val text = source?.readText() ?: return@filterNot false
+            val text = daosSource().readText()
             val start = text.indexOf("fun $method(")
             if (start < 0) return@filterNot false
             // The KDoc immediately above the declaration has to name what it is doing.
@@ -89,10 +88,10 @@ class CrossProfileReadRegistryTest {
         // Not a tautology: `watchAllProfiles` exists, `sanctioned` names it, and the
         // registry could list a method nobody calls — an approved hole that no longer
         // needs approving. The re-arm is the reason this entry exists, so pin the caller.
-        val repository = File(commonMainRoot).walkTopDown()
-            .firstOrNull { it.name == "ReminderRepositoryImpl.kt" }
-            ?.readText()
-            .orEmpty()
+        val repository = SourceScan.commonMainRoot()
+            .walkTopDown()
+            .first { it.name == "ReminderRepositoryImpl.kt" }
+            .readText()
         assertTrue(
             repository.contains("watchAllProfiles()"),
             "Nothing calls watchAllProfiles any more, so the sanctioned hole can be removed " +
@@ -100,8 +99,11 @@ class CrossProfileReadRegistryTest {
         )
     }
 
-    private companion object {
-        val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
+    private fun daosSource(): File {
+        val root = SourceScan.commonMainRoot()
+        val direct = root.resolve("core/database/Daos.kt")
+        if (direct.isFile) return direct
+        return root.walkTopDown().firstOrNull { it.name == "Daos.kt" }
+            ?: error("Daos.kt not found under $root — the source root this gate reads has moved")
     }
 }

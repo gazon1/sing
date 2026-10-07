@@ -626,15 +626,30 @@ dependencies {
     //   declared: a graph-resolution test composes no UI, and a dependency with no
     //   consumer keeps upgrading while `check-dependency-usage.py` flags it unused.
     //
-    // **As of 2026-10-07 this source set holds no tests.** The graph test compiled and ran
-    // under the stack above, then failed with `UnsatisfiedLinkError: no sqliteJni in
-    // java.library.path` the moment it built the Room database — the first thing every
-    // definition it needed to resolve does. Room's bundled SQLite ships an Android `.so`
-    // Robolectric cannot load on this host. The stack stays because the fix is a native
-    // library in `jniLibs`, not a build change; the finding, and the smallest fix, are
-    // under "the-android-graph-test-runs-but-cannot-open-a-database" in
+    // **A test landed here on 2026-10-08** — `AndroidNotifierTest`, which covers the
+    // `POST_NOTIFICATIONS` matrix on `AndroidNotifier.isSupported`. It needs no Room and
+    // no native library, which is why it runs where `AndroidSyncDiGraphResolutionTest`
+    // could not: `ApplicationProvider` and `ShadowNotificationManager` are pure framework
+    // shadows. The SQLite limitation below is therefore a property of *that* test, not a
+    // property of this source set, and the two must not be conflated — "the source set
+    // holds no tests" was true for a day and false the next.
+    //
+    // The finding that made it so: Room's bundled SQLite ships an Android `.so` that
+    // Robolectric cannot load on this host, so `AndroidSyncDiGraphResolutionTest`
+    // compiled, ran, and then failed with `UnsatisfiedLinkError: no sqliteJni in
+    // java.library.path` the moment it built the database. The stack stays for that test
+    // because the fix is a native library in `jniLibs`, not a build change; the finding,
+    // and the smallest fix, are under
+    // "the-android-graph-test-runs-but-cannot-open-a-database" in
     // `docs/decisions/deferred-backlog.md`.
     add("androidHostTestRuntimeOnly", libs.junit.vintage.engine)
+    // The other three were described above as load-bearing and were not declared; the
+    // Vintage engine alone puts JUnit4 on the Platform but supplies no Android runtime,
+    // so a class annotated `@RunWith(RobolectricTestRunner::class)` needs the runner and
+    // `ApplicationProvider` on the compile classpath to exist at all.
+    add("androidHostTestImplementation", libs.robolectric)
+    add("androidHostTestImplementation", libs.androidx.test.core)
+    add("androidHostTestImplementation", libs.androidx.testExt.junit)
 }
 
 // Room 3 KSP schema export

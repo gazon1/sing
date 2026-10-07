@@ -18,7 +18,7 @@ import kotlin.test.fail
  * glob: `feature/**/*RepositoryImpl.kt` declaring a `SyncRepository`-typed property.
  *
  * A glob is a hypothesis about where the code lives, and a hypothesis does not fail when it
- * stops being true; it just quietly stops covering. A new `WidgetStore.kt` under
+ * stops being true; it just quietly stops covering. A new widget store under
  * `feature/widget/data/` writes rows and enqueues, and every rule above passes, because
  * none of them was ever asked about a file that is not named `*RepositoryImpl.kt`. The
  * write is unscoped, or unguarded, or half-patched, and the suite is green.
