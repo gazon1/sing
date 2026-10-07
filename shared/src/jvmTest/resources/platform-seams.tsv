@@ -7,13 +7,17 @@
 # binding resolves, the caller calls it, and nothing happens. Nothing fails, because a
 # no-op that is bound looks exactly like a no-op that works.
 #
-# Two Desktop bugs are live on origin/main today because of this:
-#   - a reminder is written to Room and no alarm is ever armed (JvmReminderScheduler)
-#   - every sync push evaporates on sign-in (NoopSyncWorkScheduler)
-#
 # The static unwired-surface detector cannot see any of it: `orphan-binding` hard-filters to
 # CoreDiModule.kt, and it reports only bindings nothing injects. A port that is bound,
 # injected and called — but inert — is outside its model.
+#
+# Two Desktop bugs were live on origin/main because of this:
+#   - a reminder was written to Room and no alarm was ever armed (JvmReminderScheduler)
+#   - every sync push evaporated on sign-in (NoopSyncWorkScheduler)
+# Both are now either fixed (sync) or made visible from the UI (reminders: the scheduler
+# declares `isSupported = false` and callers refuse before persisting). Classifying a seam
+# as `stub` therefore does not excuse a lying UI — the registry row is where that gets
+# recorded, and the gate that enforces honesty lives next to the caller.
 #
 # So the registry classifies every seam, and PlatformSeamGuardTest fails when:
 #   - a seam's named implementation disappears from a platform module
@@ -50,7 +54,7 @@ SyncPeriodicTrigger|seam|AndroidSyncPeriodicTrigger|DelayLoopSyncPeriodicTrigger
 GoogleSyncPeriodicTrigger|seam|AndroidGoogleSyncPeriodicTrigger|DelayLoopGoogleSyncPeriodicTrigger|real|injected|Google sync runs on both platforms, so both bindings are real: WorkManager on Android, a delay loop on Desktop. Listed separately from SyncPeriodicTrigger because they are two schedulers for two features, and a row each is what stops one of them being dropped from a platform module unnoticed.
 SyncWorkScheduler|seam|AndroidSyncWorkScheduler|JvmSyncWorkScheduler|real|injected|
 CalendarSyncWorkScheduler|seam|AndroidCalendarSyncWorkScheduler|NoopCalendarSyncWorkScheduler|stub|injected|Calendar sync is Android-only by design; the Desktop settings UI is capability-gated so it cannot be mistaken for working.
-ReminderScheduler|seam|AlarmManagerReminderScheduler|JvmReminderScheduler|stub|injected|A Desktop reminder is written to Room and never fires. Replaced by the systemd --user scheduler.
+ReminderScheduler|seam|AlarmManagerReminderScheduler|JvmReminderScheduler|stub|injected|Desktop cannot arm alarms (isSupported=false), so the task-reminder UI refuses before writing a row. Replaced by a systemd --user timer scheduler, which must not use the deleted at backend.
 CalendarSyncRepository|seam|CalendarSyncSettingsRepositoryImpl|NoopCalendarSyncRepositoryImpl|stub|injected|Android-only feature. Its flowOf(false) is why the Desktop toggle used to stay visually ON.
 CalendarProviderPort|seam|AndroidCalendarProvider|NoopCalendarProvider|stub|injected|Android-only feature. Its Result.failure is the capability signal the Desktop UI now reads.
 CalendarAppQueries|seam|AndroidCalendarAppQueries|JvmCalendarAppQueries|stub|injected|Android-only feature; Desktop reports no installed calendar apps.

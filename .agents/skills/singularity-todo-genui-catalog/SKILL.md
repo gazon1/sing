@@ -40,8 +40,8 @@ private fun sparklineSchema(): A2uiComponentSchema = A2uiComponentSchema(
     name = "sparkline",
     description = "A row of values drawn as bars.",   // the model reads this verbatim
     properties = listOf(
-        A2uiProperty("values", A2uiType.NUMBER_ARRAY, true, "The bars, oldest first."),
-        A2uiProperty("max", A2uiType.NUMBER, false, "Scale. Inferred when absent."),
+        A2uiProperty("values", A2uiType.JSON, true, "The bars, oldest first."),
+        A2uiProperty("max", A2uiType.INT, false, "Scale. Inferred when absent."),
     ),
 )
 ```
@@ -62,8 +62,25 @@ Dates use the existing `formatDueChip` / `formatRussianDueDate` helpers. A third
 
 ## Properties and types
 
-`A2uiType` is closed: `STRING`, `INT`, `NUMBER`, `BOOL`, `NUMBER_ARRAY`, `STRING_ARRAY`, `TONE`, and
-the container enums (`CHILD_SLOT`). Anything a model can mis-spell should be a property with an
+`A2uiType` is closed. Its members, as declared in
+`shared/src/commonMain/kotlin/com/singularity/todo/feature/genui/catalog/A2uiCatalog.kt`, are:
+
+```
+STRING  INT  BOOL  NODE_REF  NODE_REFS  TONE  DIRECTION  PATH  JSON
+```
+
+**Read that declaration rather than trusting this list.** An earlier version of
+this skill enumerated three array types and a container enum that do not exist in
+this repository, and its worked example called one of them — an agent following
+it would emit property types the validator rejects, and would not know that
+`NODE_REF` or `PATH` exist at all. That text survived because
+`check-doc-dead-refs.py` could not see enum constants, so the invented names
+were reported as dangling *and* the real members were reported as dangling too,
+which made the report indistinguishable from noise. The gate now indexes enum
+entries. If you add a member to `A2uiType`, update this list in the same commit;
+the gate will name the member if you do not.
+
+Anything a model can mis-spell should be a property with an
 enumerated `values` list, not free text — the validator then answers with the legal values, which is
 the single most useful thing to send back.
 

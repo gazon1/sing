@@ -1,7 +1,15 @@
 # ci-checks-parallel-split
 
 Issue: #100 · Backlog entry: `ci-parallel-split-blocked-by-new-intra-job-coupling`
-ADR: `2026-10-05-ci-checks-run-in-parallel` (`status: deferred`)
+ADR: `2026-10-05-ci-checks-run-in-parallel` (superseded) ·
+`2026-10-06-ci-single-gate-registry-and-leaf-split` (`status: accepted`)
+
+**Status: implemented as a four-leaf shape, 2026-10-06.** `ci.yml` now runs
+`static`, `tests`, `android` (two-leg matrix) and the `ci-gate` aggregator. The
+tasks below were written for six leaves; what landed keeps `tests` whole, because
+the three couplings this change exists to respect are all inside it. The design
+options in "Try next" remain available for splitting `tests` itself, which is
+optional rather than corrective.
 
 ## What
 

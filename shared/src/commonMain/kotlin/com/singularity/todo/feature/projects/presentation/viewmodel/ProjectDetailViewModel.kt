@@ -421,6 +421,14 @@ class ProjectDetailViewModel(
      *
      * A project with no due date has nothing to anchor to, so picking an offset there
      * reports an error rather than silently dropping the request.
+     *
+     * ## The row this writes is never fired
+     *
+     * There is no `ProjectReminderScheduler` on any platform, so this persists an
+     * instant that nothing will ever act on. The method is correct and tested, and the
+     * UI is gated off via `PROJECT_REMINDERS_SUPPORTED` so no user can reach it — the
+     * re-anchoring logic is worth keeping for the scheduler follow-up. Do not call it
+     * from a new surface before that flag is flipped.
      */
     private fun setReminder(offsetMinutes: Int?) {
         vmScope.launch {

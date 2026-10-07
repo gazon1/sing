@@ -17,6 +17,7 @@ mod desktop  '.just/desktop'
 mod tests    '.just/tests'
 mod scripts  '.just/scripts'
 mod kiwi     '.just/kiwi'
+mod wt       '.just/worktree'
 
 set shell := ["bash", "-uc"]
 set unstable
@@ -122,6 +123,12 @@ alias kiwi-publish   := kiwi::kiwi-publish
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench
 alias rd     := scripts::refresh-decisions
+
+# ----- Worktree shortcuts -----
+# Long form stays `just wt new <name>`; the bare aliases are for the two verbs
+# used constantly enough to be worth two keystrokes.
+alias wt-new  := wt::new
+alias wt-code := wt::code
 
 # ==============================================================================
 # 🔧 Setup

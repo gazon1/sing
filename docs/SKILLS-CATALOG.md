@@ -41,7 +41,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
 | `singularity-todo-emulator-launch` | 147 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 454 | Feature scaffold pattern for the Singularity Todo KMP app. |
-| `singularity-todo-genui-catalog` | 130 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
+| `singularity-todo-genui-catalog` | 147 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
 | `singularity-todo-icon-registry` | 273 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 103 | JvmInline value class patterns for Singularity Todo. |
@@ -66,11 +66,11 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |
 | `singularity-todo-note-ai-multi-op` | 324 | Note AI multi-operation implementation guide for Singularity Todo. |
 | `singularity-todo-notes-ux-patterns` | 417 | Complete collection of Notes-specific UX patterns for the Singularity Todo KMP app. |
-| `singularity-todo-notifications` | 134 | Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. |
+| `singularity-todo-notifications` | 119 | Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. |
 | `singularity-todo-openspec-workflow` | 142 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
-| `singularity-todo-quality-tools` | 393 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
+| `singularity-todo-quality-tools` | 465 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
 | `singularity-todo-relational-counts` | 216 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 346 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |

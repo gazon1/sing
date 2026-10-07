@@ -103,7 +103,7 @@ actual fun createBackgroundScope(): CoroutineScope = CoroutineScope(SupervisorJo
 
 **The `failureHandler` argument is mandatory by design** (`BackgroundScope.kt`): a scope with
 no exception policy kills an Android process outright when a child throws, so the parameter has
-no default. Pass `crashReportingFailureHandler(get())`, as `PlatformModule` does.
+no default. Pass `crashReportingFailureHandler(get())`, as `platformModule()` does.
 
 **Naming rationale:** `createBackgroundScope()` makes it obvious that each call returns a **new** scope. Not `backgroundScope()` (sounds like shared access) or `applicationScope()` (Android-specific lifecycle association).
 

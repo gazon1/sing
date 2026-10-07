@@ -51,13 +51,12 @@ import kotlin.time.Instant
  * live in code. Both graphs now render `TaskDetailContent`, so this test fails if
  * they drift apart again.
  *
- * `TaskDetailViewScreen` was re-added by `45a0831e` as a clock-suppression
- * carrier and currently has no call site, which `find-unwired-surfaces.py`
- * reports. Nothing composes it, so the route under test is still the shared
- * content screen and this test still guards the same thing — but the file is
- * live again and the one-screen invariant from #187 is currently violated in the
- * tree. Tracked against that commit's own work (#201), not fixed here: deleting
- * another branch's deliberate carrier is a decision for whoever owns it.
+ * A second task-detail screen existed from `45a0831e` as a clock-suppression
+ * carrier with no call site, so the one-screen invariant from #187 was already
+ * violated and `find-unwired-surfaces.py` reported it. It was deleted on
+ * 2026-10-06: 633 unreachable lines whose only remaining mention was this note.
+ * The route under test is the shared content screen, and nothing composes a
+ * second screen now — so this test guards the same thing it was written to guard.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")

@@ -53,8 +53,12 @@ internal val TEST_USER = UserId("test-user")
  * The platform scheduler is a real side effect, so the fake tracks the calls instead of
  * performing them — which is also what makes the reminders slot's "row then alarm" order
  * assertable.
+ *
+ * [isSupported] is a constructor parameter, not a constant, because a test for the
+ * capability gate needs a scheduler that says no. Asserting the gate against a fake that
+ * always says yes would pass whether or not the gate exists.
  */
-internal class RecordingReminderScheduler : ReminderScheduler {
+internal class RecordingReminderScheduler(override val isSupported: Boolean = true) : ReminderScheduler {
     val scheduled = mutableListOf<Reminder>()
     val cancelledIds = mutableListOf<ReminderId>()
     val cancelledTasks = mutableListOf<TaskId>()
@@ -86,8 +90,11 @@ internal class RecordingReminderScheduler : ReminderScheduler {
  * `560f3bf8` changed it to `Unconfined`, and the constraint was never re-tested. Verified:
  * all 45 slot tests run on virtual time.
  */
-internal class SlotFakes {
-    val scheduler = RecordingReminderScheduler()
+internal class SlotFakes(
+    /** Whether the platform scheduler claims it can arm alarms; false reproduces desktop. */
+    remindersSupported: Boolean = true,
+) {
+    val scheduler = RecordingReminderScheduler(isSupported = remindersSupported)
 
     val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(
         authRepository = FakeAuthRepository(Session.Anonymous(TEST_USER)),

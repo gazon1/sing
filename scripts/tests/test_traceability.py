@@ -551,7 +551,7 @@ class ResultMatrixScopeLine(unittest.TestCase):
         self.assertIn("android did not report", rendered)
         self.assertIn("not \"not automated\"", rendered)
         # The line must name the workflow, or the reader still has nowhere to go.
-        self.assertIn("maestro-smoke.yml", rendered)
+        self.assertIn("e2e.yml", rendered)
 
     def test_a_full_run_does_not_claim_a_caveat(self):
         # The caveat is about the CI wiring, not about Android as a target. With
@@ -559,7 +559,7 @@ class ResultMatrixScopeLine(unittest.TestCase):
         # is how a real note stops being read.
         rendered = self._render(with_android=True)
         self.assertIn("Every target reported", rendered)
-        self.assertNotIn("maestro-smoke.yml", rendered)
+        self.assertNotIn("e2e.yml", rendered)
 
     def test_reported_targets_are_named(self):
         self.assertIn("**Reported here:** desktop", self._render(with_android=False))

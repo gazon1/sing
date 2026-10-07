@@ -180,19 +180,38 @@ class RealFlowsAreReachableTest(unittest.TestCase):
         )
 
     def test_every_tag_ci_asks_for_actually_selects_a_flow(self):
-        """`TAGS=…` values read out of the workflow, not a hand-written list.
+        """Tags CI asks for, read out of the files that ask for them.
 
-        The only tag a job hardcodes is the one that matters most: if `smoke` in
-        `ci.yml` matched nothing, the job would run zero flows and report success
-        with no complaint. The values are extracted from the workflow so this
-        cannot drift away from what CI actually asks for.
+        The only tags CI hardcodes are the ones that matter most: if `smoke`
+        matched nothing, the job would run zero flows and report success with no
+        complaint. The values are extracted from what CI actually runs rather than
+        from a hand-written list, so this cannot drift away from reality.
+
+        Three surfaces, because the request is expressed in three places and this
+        test exists to catch it disappearing from all of them: `ci.yml` and
+        `e2e.yml` drive the jobs, and `scripts/ci/e2e-shard.sh` is what the
+        emulator action actually executes. Both spellings are read — the
+        `TAGS=…` env of scripts/run-maestro.sh and the `--include-tags …`
+        argument of the shard script.
         """
-        workflow = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        requested = set(re.findall(r"TAGS=([A-Za-z0-9_,:-]+)", workflow))
+        sources = {
+            p.relative_to(_ROOT).as_posix(): p.read_text(encoding="utf-8")
+            for p in (
+                _ROOT / ".github/workflows/ci.yml",
+                _ROOT / ".github/workflows/e2e.yml",
+                _ROOT / "scripts/ci/e2e-shard.sh",
+            )
+            if p.is_file()
+        }
+        requested: set[str] = set()
+        for text in sources.values():
+            requested |= set(re.findall(r"TAGS=([A-Za-z0-9_,:-]+)", text))
+            requested |= set(re.findall(r"--include-tags[= ]+([A-Za-z0-9_,:-]+)", text))
         self.assertTrue(
             requested,
-            "no TAGS= found in ci.yml — this test is guarding something that no "
-            "longer exists, so either the workflow changed or the regex did",
+            "no TAGS= or --include-tags found in ci.yml, e2e.yml or "
+            "scripts/ci/e2e-shard.sh — this test is guarding something that no "
+            "longer exists, so either CI changed or the regex did",
         )
         for value in sorted(requested):
             for tag in (t.strip() for t in value.split(",")):
@@ -201,7 +220,7 @@ class RealFlowsAreReachableTest(unittest.TestCase):
                 matched = [f for f in self._flows() if _has_tag(f, tag)]
                 self.assertTrue(
                     matched,
-                    f"ci.yml asks for TAGS={tag} but no flow under "
+                    f"CI asks for tag {tag} but no flow under "
                     f"{_FLOWS.relative_to(_ROOT)} declares it — the job would run "
                     "zero flows and pass",
                 )
