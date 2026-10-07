@@ -700,3 +700,58 @@ class UpdateBaselineTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunManifestTest(unittest.TestCase):
+    """`read_run_manifest` and the sentence it changes (#222).
+
+    A filtered run and a shrunken suite produce the same counts, so the gate used to say
+    "a suite stopped running" about both — including about a developer who had just run
+    one class on purpose. These tests exist because the diagnosis, not the verdict, is
+    what was wrong.
+    """
+
+    def _write(self, directory: pathlib.Path, body: str) -> pathlib.Path:
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / "run-manifest.properties"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_a_full_run_is_read_as_full(self):
+        with tempfile.TemporaryDirectory() as d:
+            detail = pathlib.Path(d)
+            self._write(
+                detail,
+                "# comment\ntask=jvmTest\npartial=false\nfilters=\nexecutedClasses=307\n",
+            )
+            manifest = _module.read_run_manifest(detail)
+            self.assertEqual("false", manifest["partial"])
+            self.assertEqual("307", manifest["executedClasses"])
+
+    def test_a_filtered_run_records_its_filters(self):
+        with tempfile.TemporaryDirectory() as d:
+            detail = pathlib.Path(d)
+            self._write(
+                detail,
+                "task=jvmTest\npartial=true\n"
+                "filters=com.singularity.todo.arch.SyncWriteIsAtomicTest\n"
+                "executedClasses=1\n",
+            )
+            manifest = _module.read_run_manifest(detail)
+            self.assertEqual("true", manifest["partial"])
+            self.assertIn("SyncWriteIsAtomicTest", manifest["filters"])
+
+    def test_an_absent_manifest_is_unknown_not_filtered(self):
+        # The important direction. A tree whose test task predates the manifest must not be
+        # reported as a filtered run — "no evidence" and "evidence of filtering" are
+        # different claims, and conflating them would make the new sentence wrong on every
+        # tree that has not run the new build.
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(_module.read_run_manifest(pathlib.Path(d)))
+
+    def test_comments_and_blank_lines_are_ignored(self):
+        with tempfile.TemporaryDirectory() as d:
+            detail = pathlib.Path(d)
+            self._write(detail, "# header\n\ntask=jvmTest\n\npartial=false\nnot a pair\n")
+            manifest = _module.read_run_manifest(detail)
+            self.assertEqual({"task": "jvmTest", "partial": "false"}, manifest)

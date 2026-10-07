@@ -23,6 +23,22 @@ data class CreateNoteInput(
 @Serializable
 data class CreateNoteOutput(val noteId: String, val title: String)
 
+/**
+ * Creates a note or folder.
+ *
+ * ## Why the create is unwrapped
+ *
+ * `notesRepository.create` returns a `Result`, and discarding it is not a style
+ * choice here: the id below is generated *before* the write, so a discarded
+ * failure produces byte-identical output to a success — `{"noteId": "<an id
+ * naming nothing>", "title": "..."}`. The model's only evidence about what
+ * happened is that payload, so it goes on to open, link and cite a note that does
+ * not exist. `.getOrThrow()` makes the tool call fail, which is the failure shape
+ * the four `Delete*Tool` in this package already use.
+ *
+ * Every create/update tool here follows this. See openspec change
+ * `a-write-tool-reports-the-write-it-did-not-perform`.
+ */
 class CreateNoteTool(
     private val notesRepository: NotesRepository,
     private val clock: Clock,
@@ -49,7 +65,7 @@ class CreateNoteTool(
             updatedAt = now,
             userId = userId,
         )
-        notesRepository.create(note)
+        notesRepository.create(note).getOrThrow()
         return Json.encodeToString(
             CreateNoteOutput.serializer(),
             CreateNoteOutput(noteId.value, note.title),

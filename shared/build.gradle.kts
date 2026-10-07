@@ -333,6 +333,43 @@ tasks.withType<Test>().configureEach {
 // rather than left as a comment here.
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     forkEvery = 1
+
+    // ── run manifest (#222) ────────────────────────────────────────────────────────
+    //
+    // Gradle leaves no record of whether a run was filtered, so `./gw :shared:jvmTest
+    // --tests 'SomeOneClass'` rewrites the XML directory with one class's results and
+    // every gate that reads it — `check-test-runs.py`, `check-coverage.py`,
+    // `check-flaky-tests.py` — reports a verdict it cannot source. The gates were right
+    // and useless: they said "a suite stopped running" about a tree where nothing had.
+    //
+    // One property decides it, and it is the one Gradle already tracks: a `--tests` filter
+    // populates `filter.includePatterns`, and nothing else does. (`commandLineIncludePatterns`
+    // was the accessor for exactly this until Gradle 9 removed it; `includePatterns` is the
+    // public one now and holds the same set.)
+    //
+    // A `-Ptest.tags` filter deliberately does *not* mark the run partial — tag selection is
+    // what CI does on purpose, and the floors are recorded against it.
+    val manifestDir = layout.buildDirectory.dir("test-results/$name")
+    doLast {
+        val filters = filter.includePatterns
+        val partial = filters.isNotEmpty()
+        val executed = manifestDir.get().asFile.listFiles()
+            ?.count { it.name.startsWith("TEST-") && it.name.endsWith(".xml") } ?: 0
+        manifestDir.get().asFile.resolve("run-manifest.properties").writeText(
+            """
+            # Written by shared/build.gradle.kts. Read by scripts/check-test-runs.py.
+            task=$name
+            partial=$partial
+            filters=${filters.joinToString(",")}
+            executedClasses=$executed
+            finishedAt=${System.currentTimeMillis()}
+            """.trimIndent() + "\n",
+        )
+        logger.lifecycle(
+            "jvmTest run manifest: ${if (partial) "PARTIAL" else "full"} " +
+                "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""})",
+        )
+    }
     // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
     // comment here. It is load-bearing twice over: KoinPlatform state between classes, and —
     // as of the background-handler migration — the `FileSystemContract` temp paths, which

@@ -101,6 +101,10 @@ gate blocking "scenario specs valid" traceability validate
 gate blocking "coverage matrix current" traceability coverage --check
 gate blocking "coverage holes did not grow" python3 scripts/check-traceability-ratchet.py
 
+# Server schema. The live half of #221 needs credentials and stays manual; this is the
+# half that can be a gate, and it is what makes the header's claim checkable at all.
+gate blocking "supabase schema is self-consistent" python3 scripts/check-supabase-schema-integrity.py
+
 # Docs / agent-facing text (formerly docs-audit.yml)
 gate blocking "skills catalog current" ./scripts/regen-skills-catalog.sh --check
 gate blocking "skill frontmatter" ./scripts/check-skill-frontmatter.sh
