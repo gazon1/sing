@@ -255,7 +255,18 @@ SCRIPT_GATES = [
         # cheapest drift to introduce and the first thing a reader would see.
         # The self-tests cover the parse rules; this covers the wiring.
         sabotage_path="README.md",
-        sabotage="p.write_text(p.read_text().replace('schema v38', 'schema v31'))",
+        # Same defect the room-schema control had, found the same way: the schema
+        # moved 38 → 39 → 40 while this entry still replaced the literal 38, so
+        # `replace` matched nothing, the gate read an untouched README, correctly
+        # passed, and the control reported itself broken. Match by regex and
+        # assert, so a version bump cannot silently turn this into a no-op.
+        sabotage=(
+            "import re\n"
+            "_t = p.read_text()\n"
+            "_t2, _n = re.subn(r'schema v\\d+', 'schema v1', _t, count=1)\n"
+            "assert _n == 1, 'schema claim not found in README — the control would be a no-op'\n"
+            "p.write_text(_t2)\n"
+        ),
         why="a README that contradicts the tree is the first failure a reader sees",
     ),
     ScriptGate(

@@ -475,6 +475,7 @@ _EXTERNAL_SYMBOLS = frozenset({
     "NavDisplay", "NavBackStack", "Display",       # Navigation 3 compose API
     "Test", "ClassData", "Parameterized",           # JUnit / Kotest
     "KotlinTest", "RunTest", "Dispatchers", "IO", "Default", "Main",
+    "CoroutineContext", "CoroutineDispatcher", "CoroutineScope",   # kotlinx.coroutines
     # java.nio and the Kotlin compiler's PSI, which the detekt-rules tests use
     # directly (`compileContentForTest(Path)` wraps the file in a `KtScript`).
     "Path", "KtFile", "KtScript", "KtElement", "KtDeclaration", "KtExpression",
