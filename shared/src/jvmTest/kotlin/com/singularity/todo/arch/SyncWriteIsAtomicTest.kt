@@ -151,12 +151,7 @@ class SyncWriteIsAtomicTest {
 
     private enum class Kind { INLINE_ENQUEUE, HELPER_CALL, HELPER_BODY }
 
-    private data class Site(
-        val kind: Kind,
-        val line: Int,
-        val text: String,
-        val insideWrite: Boolean,
-    )
+    private data class Site(val kind: Kind, val line: Int, val text: String, val insideWrite: Boolean)
 
     private fun repositoryFiles(): List<File> {
         val root = System.getProperty("commonMain.root")
@@ -234,5 +229,7 @@ class SyncWriteIsAtomicTest {
         return sites
     }
 
-    private companion object { const val HELPER = "enqueueFresh" }
+    private companion object {
+        const val HELPER = "enqueueFresh"
+    }
 }

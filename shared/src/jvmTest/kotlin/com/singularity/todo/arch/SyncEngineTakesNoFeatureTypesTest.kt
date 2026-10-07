@@ -122,12 +122,11 @@ class SyncEngineTakesNoFeatureTypesTest {
     private fun constructorParameterTypes(source: String): List<String> {
         val header = Regex("""class\s+SyncEngine\s*\(""").find(source) ?: return emptyList()
         val lines = source.substring(header.range.last + 1).split("\n")
-        return lines.takeWhile { it.trim() != ")" && !it.trim().startsWith(")") }
+        return lines.takeWhile { !it.trim().startsWith(")") }
             .mapNotNull { line ->
                 val afterColon = line.substringAfterLast(":", "")
                 val type = afterColon.substringBefore(",").substringBefore("=").trim()
                 type.takeIf { it.isNotEmpty() && it != "*" && !it.startsWith("//") }
             }
-            .map { if (it.startsWith("com.")) it else "$it" }
     }
 }
