@@ -104,7 +104,7 @@ class GoogleSyncEngineTest {
     private fun engine(source: FakeSource, db: FakeAppDatabase, userId: String = "user-1") =
         GoogleSyncEngine(
             eventSource = source,
-        importWindow = ImportWindow.DEFAULT,
+            importWindow = ImportWindow.DEFAULT,
             shadowDao = db.googleEventShadowDao(),
             stateDao = db.calendarSyncStateDao(),
             importDao = db.calendarImportEventDao(),
@@ -193,7 +193,7 @@ class GoogleSyncEngineTest {
 
         val result = GoogleSyncEngine(
             eventSource = source,
-        importWindow = ImportWindow.DEFAULT,
+            importWindow = ImportWindow.DEFAULT,
             shadowDao = db.googleEventShadowDao(),
             stateDao = db.calendarSyncStateDao(),
             importDao = db.calendarImportEventDao(),
