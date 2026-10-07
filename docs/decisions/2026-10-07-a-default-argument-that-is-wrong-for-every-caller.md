@@ -186,13 +186,28 @@ The three gates that caught the other instances were the *tests* catching them, 
 comment — and this one was caught only by noticing the absence of a result file, because
 nothing was failing.
 
-Two structural consequences, both now in place:
+The `@Tag` was also not sufficient, which is the part worth keeping. `testAndroidHostTest`
+applies the same `-Ptest.tags` filter as every other task, and Robolectric is a JUnit4
+runner: the Vintage engine does not map Jupiter's `@Tag` onto Platform tags, so
+`includeTags("fast","slow")` excludes such a class **whatever it is tagged**. The test was
+tagged `@Tag("slow")` and still did not run — 172 result files, none of them its.
 
-- **`TestTagCoverageTest` lists source sets that apply the filter.** `shared/src/androidHostTest`
-  was added the same day the gap appeared, and only because the gap was noticed.
-  A source set belongs in that list whether or not it holds tests yet.
-- **`check-test-runs.py --require`** already knows about this task but cannot see a class
-  it was never told to expect. The tag is what makes it countable.
+So the fix is two-part and neither part is optional: the class carries a `@Tag`, and
+`testAndroidHostTest` is exempted from an explicit tag filter in `shared/build.gradle.kts`.
+A filter that provably cannot select anything in a source set reads as "these were
+considered" while skipping the one class that matters.
+
+`TestTagCoverageTest` also gained `shared/src/androidHostTest` — a source set that applies
+the filter belongs in that list whether or not it holds tests yet.
+
+**And the test still cannot pass here**, for a reason unrelated to tags: Room's bundled
+SQLite ships an Android `.so` that Robolectric cannot load, so building the database — the
+first thing every definition the graph needed to resolve does — fails with
+`UnsatisfiedLinkError: no sqliteJni in java.library.path`. The test is therefore not
+committed; the Robolectric stack is, and the finding is recorded under
+"the-android-graph-test-runs-but-cannot-open-a-database" in
+`docs/decisions/deferred-backlog.md`. The wiring cost is paid; the fix is a native library
+in `jniLibs`, not a build change.
 
 The deeper lesson is not about tags. It is that **`testAndroidHostTest` was green and had
 never executed a single one of its own tests** — the same "invisible rather than absent"

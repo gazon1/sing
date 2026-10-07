@@ -294,6 +294,25 @@ tasks.withType<Test>().configureEach {
         val tags = (project.findProperty("test.tags") as String?)
             ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
         when {
+            // `testAndroidHostTest` is exempt from an explicit tag list, and NOT by
+            // accident. Robolectric is a JUnit4 runner, so its classes execute under the
+            // Vintage engine — and the Vintage engine does not map Jupiter's `@Tag` onto
+            // Platform tags, so `includeTags("fast","slow")` excludes them exactly like
+            // an untagged class. `AndroidSyncDiGraphResolutionTest` compiled, was tagged
+            // `@Tag("slow")`, and still did not run: 172 result files, none of them its.
+            //
+            // Applying a filter that provably cannot select anything in this source set
+            // is worse than applying none: the filter reads as "these were considered"
+            // and the class that #227 exists to protect was silently skipped. The
+            // exemption keeps the task honest — it runs everything it contains, which is
+            // what a source set holding exactly one test means.
+            //
+            // The default branch still excludes `slow`, so a plain `./gradlew
+            // :shared:testAndroidHostTest` skips it; only an explicit tag list loses the
+            // filter, which is the case CI uses.
+            name == "testAndroidHostTest" && tags.isNotEmpty() && tags != listOf("all") -> {
+                // Intentionally no filter — see above.
+            }
             tags.isEmpty() -> {
                 // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
                 excludeTags("slow")
@@ -577,42 +596,44 @@ dependencies {
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
 
-    // androidHostTest — the Android/Robolectric-capable source set. Until 2026-10-07 it
-    // held no test files of its own: its only content was AndroidManifest.xml, and every
-    // test it executed came from commonTest. That left `testAndroidHostTest` a green task
-    // that verified nothing about Android, while `PlatformModule.android.kt` — the half of
-    // the graph where the sync cycle shipped as a StackOverflowError at app start — was
-    // resolved by nothing at all (#227).
+    // androidHostTest — the Android/Robolectric-capable source set. Its only content is
+    // AndroidManifest.xml; every test `testAndroidHostTest` executes comes from
+    // commonTest. That left the task green while `PlatformModule.android.kt` — the half
+    // of the graph where the sync cycle shipped as a StackOverflowError at app start —
+    // was resolved by nothing at all (#227).
     //
-    // The stack is declared for `AndroidSyncDiGraphResolutionTest`, which needs a real
-    // `Context` because `platformModule()` reads `get<Context>()` inside several `single`
-    // bodies. The exact set matters and each entry is load-bearing:
+    // The stack below was declared 2026-10-07 for `AndroidSyncDiGraphResolutionTest`,
+    // which needs a real `Context` because `platformModule()` reads `get<Context>()`
+    // inside several `single` bodies. Each entry is load-bearing:
     //
     // - `robolectric` + `androidx-test-core` + `androidx-testExt-junit`: Robolectric and
-    //   the AndroidX JUnit4 runner. Robolectric supplies the shadowed Android runtime.
-    // - `junit-vintage-engine`: **required**, not optional. Robolectric is a JUnit4
-    //   runner and this task runs the JUnit Platform, so without the Vintage engine the
-    //   class is silently skipped and the task passes having run nothing — the exact
-    //   defect class ADR `2026-10-06-ci-single-gate-registry-and-leaf-split` records.
-    //   `check-test-runs.py --require` is what stops that from recurring silently.
+    //   the AndroidX JUnit4 runner, which supplies the shadowed Android runtime.
+    // - `junit-vintage-engine` (RuntimeOnly): **required**, not optional. Robolectric is
+    //   a JUnit4 runner and this task runs the JUnit Platform, so without the Vintage
+    //   engine the class is silently skipped and the task passes having run nothing.
     //
-    //   Consequence, stated rather than discovered: JUnit's `includeTags` **excludes**
-    //   untagged classes, and this task applies the same `-Ptest.tags` filter as the
-    //   others. The first version of this comment claimed the test carried no `@Tag`
-    //   and therefore "always runs"; that was wrong, and the run proved it —
-    //   `:shared:testAndroidHostTest` finished green over 171 classes with
-    //   `AndroidSyncDiGraphResolutionTest` absent from every result file. It carries
-    //   `@Tag("slow")` now, because a DI graph test that CI can silently skip is the
-    //   exact failure this whole block exists to prevent. `TestTagCoverageTest` gained
-    //   `shared/src/androidHostTest` for the same reason.
+    //   The engine has a consequence that cost a full verification cycle to find: it does
+    //   not map Jupiter's `@Tag` onto Platform tags, so `includeTags("fast","slow")` — which
+    //   this task applies like every other — excludes a Robolectric class no matter what
+    //   it is tagged. The test was tagged `@Tag("slow")` and still did not run: 172 result
+    //   files, none of them its. `testAndroidHostTest` is therefore exempted from an
+    //   explicit tag filter above, because a filter that provably cannot select anything
+    //   in this source set reads as "considered" while skipping the one class that
+    //   matters.
+    //
     // - `compose-ui-test-junit4` (AndroidX, NOT the JetBrains multiplatform artifact —
-    //   AndroidX is Robolectric-compatible, JetBrains is not) is NOT declared: this test
-    //   composes no UI. Declaring it "for the future" would add a dependency that keeps
-    //   its own upgrades without a consumer, which `check-dependency-usage.py` would
-    //   then flag as unused.
-    add("androidHostTestImplementation", libs.robolectric)
-    add("androidHostTestImplementation", libs.androidx.test.core)
-    add("androidHostTestImplementation", libs.androidx.testExt.junit)
+    //   AndroidX is Robolectric-compatible, JetBrains is not) is deliberately NOT
+    //   declared: a graph-resolution test composes no UI, and a dependency with no
+    //   consumer keeps upgrading while `check-dependency-usage.py` flags it unused.
+    //
+    // **As of 2026-10-07 this source set holds no tests.** The graph test compiled and ran
+    // under the stack above, then failed with `UnsatisfiedLinkError: no sqliteJni in
+    // java.library.path` the moment it built the Room database — the first thing every
+    // definition it needed to resolve does. Room's bundled SQLite ships an Android `.so`
+    // Robolectric cannot load on this host. The stack stays because the fix is a native
+    // library in `jniLibs`, not a build change; the finding, and the smallest fix, are
+    // under "the-android-graph-test-runs-but-cannot-open-a-database" in
+    // `docs/decisions/deferred-backlog.md`.
     add("androidHostTestRuntimeOnly", libs.junit.vintage.engine)
 }
 
