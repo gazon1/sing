@@ -4,12 +4,23 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
- * JVM stub implementation of [ReminderScheduler].
+ * JVM implementation of [ReminderScheduler] for a platform with no alarm scheduler.
  *
  * Alarms require OS-level scheduling, which the desktop app has no equivalent of.
- * Every method is a no-op, so [isSupported] is `false`: callers must refuse to persist
- * a reminder rather than writing a row that renders as a working reminder forever and
- * never fires.
+ * [isSupported] is `false`, and [schedule] **throws** rather than returning quietly.
+ *
+ * ## Why `schedule` throws and `cancel` does not
+ *
+ * The three methods are not symmetric, and treating them the same is what made this bug
+ * hard to see. Arming is the act that can silently lie: a caller that returns normally
+ * believes it has scheduled something. Cancelling is a cleanup step that is *correct* to
+ * perform unconditionally — nothing was ever armed, so "cancelled" is the true state and
+ * there is nothing to report.
+ *
+ * Throwing on `schedule` moves the failure to the callsite that forgot its
+ * [isSupported] check, at the moment it forgets it. Callers that do check are unaffected;
+ * callers that do not now fail in a test rather than in production, weeks later, at fire
+ * time, for a reminder nobody can see.
  *
  * ## What a replacement must not be
  *
@@ -25,16 +36,24 @@ class JvmReminderScheduler : ReminderScheduler {
 
     override val isSupported: Boolean = false
 
-    override suspend fun schedule(reminder: Reminder) {
-        // No-op on JVM: there is no alarm scheduler to arm. Callers gate on
-        // `isSupported` before persisting, so reaching here means the guard was skipped.
-    }
+    /**
+     * Always throws — this platform cannot arm an alarm.
+     *
+     * Reached only by a caller that skipped the [isSupported] check, which is the point:
+     * the violation surfaces here instead of becoming a reminder that never fires.
+     */
+    override suspend fun schedule(reminder: Reminder): Unit =
+        throw RemindersUnsupportedException("schedule a reminder")
 
+    /** No-op: nothing was ever armed, so this call is already satisfied. */
     override suspend fun cancel(id: ReminderId, userId: UserId) {
-        // No-op on JVM: nothing was ever armed.
+        // Intentionally silent — see the class KDoc on why cancel is not symmetric
+        // with schedule.
     }
 
+    /** No-op: nothing was ever armed, so this call is already satisfied. */
     override suspend fun cancelByTask(taskId: TaskId, userId: UserId) {
-        // No-op on JVM: nothing was ever armed.
+        // Intentionally silent — see the class KDoc on why cancel is not symmetric
+        // with schedule.
     }
 }

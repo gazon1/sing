@@ -68,6 +68,48 @@ The gate is placed *before the write*, not before the schedule call. This is the
 point: the alarm is invisible and the row is not. Refusing at schedule time would leave
 exactly the artifact that misleads the user.
 
+### Follow-up: the flag alone was not enough
+
+The first version of this change stopped here, and that was a mistake. `isSupported` is
+a *declaration*, and a declaration is only as good as every callsite remembering to read
+it. Auditing the callers found three `.schedule()` sites (`TaskRemindersSlot`,
+`GoogleTaskApplier`, `AlarmReceiver`); the gate existed at exactly one of them, and the
+other two were safe only by coincidence — `GoogleTaskApplier` merely shifts rows that
+could no longer be created. A fourth caller would not have been so lucky.
+
+So `JvmReminderScheduler.schedule` now **throws** `RemindersUnsupportedException`
+instead of returning quietly. A silent no-op is the worst possible contract for a method
+named `schedule`: it converts a missing capability into a successful-looking call.
+
+The three methods are deliberately **not** symmetric, and that is the part most likely
+to be "tidied up" later by someone assuming they should match:
+
+| Method | On an unsupported platform | Why |
+|---|---|---|
+| `schedule` | throws | arming is the act that can silently lie |
+| `cancel` | no-op | nothing was armed, so "cancelled" is already true |
+| `cancelByTask` | no-op | same |
+
+Throwing from `cancel` would break cleanup paths — deleting a task, dropping a due date,
+importing from Google — for no benefit, and would leave a user unable to remove rows
+written by an older build.
+
+### Follow-up: a prose reason is not a test
+
+Adding the check made the registry row describe a gate that nothing enforced. The
+`reason` column said the UI checks `isSupported`; no rule could tell the difference
+between that sentence being true and false. `platform-seams.tsv` therefore gained an
+eighth column, `gate`, naming the symbol a seam's UI must read.
+
+- A seam declaring a gate **must** have that symbol read in production code.
+- A stub declaring no gate **must** justify it in `reason`, so `gate=-` is an audited
+  decision rather than the path of least resistance.
+
+Writing those two rules immediately failed on two stubs the fix had exposed rather than
+created — `PomodoroTaskListProvider` and `CalendarAppQueries` — which is the outcome a
+gate is for. `PomodoroTaskListProvider` was fixed properly (see below) rather than
+annotated away.
+
 ## Rationale
 
 **The implementation is the authority, not the UI.** `isSupported` is read from the port
@@ -93,23 +135,61 @@ reconstruction.
 - Project reminders are unreachable on all platforms until a scheduler exists. This is a
   deliberate reduction in reachable features: the previous state let users create a
   reminder that could not fire.
+- `schedule` on an unsupported platform now throws. Any future caller that skips
+  `isSupported` fails loudly in a test rather than silently in production — which is the
+  intended behaviour, not a regression to route around. `cancel`/`cancelByTask` stay
+  silent and must not be made to throw.
 - The `at`-based backend stays deleted. Its replacement must be `systemd --user`
   timers, keyed to this app — see
   `2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs.md`.
-  When it lands, flip `isSupported`, delete `JvmReminderSchedulerCapabilityTest`'s
-  first assertion, and set `PROJECT_REMINDERS_SUPPORTED` only once a project scheduler
-  exists.
+  When it lands: flip `isSupported`, delete the throw in `JvmReminderScheduler`, drop the
+  corresponding assertion in `JvmReminderSchedulerCapabilityTest`, and set the registry's
+  `gate` column to whatever the new UI reads.
 - Three false KDoc claims were corrected. Where a file documents the absence of a
   dependency, it now says so explicitly rather than naming a class that does not exist.
+
+## A second instance found by the new rule
+
+The `gate` rules failed on `PomodoroTaskListProvider`, and the finding was real rather
+than cosmetic: `JvmPomodoroTaskListProvider` returns an empty never-updating list while
+Android observes the real Inbox, and `PomodoroScreen` renders no chips at all for an
+empty list. A Desktop user saw a working screen with an empty picker and concluded they
+had no tasks — the same "platform limitation presented as a user fact" defect as the
+reminders, arrived at independently.
+
+Fixed in the same shape rather than annotated away: the provider gained `isSupported`
+(defaulting to `true` so the `fun interface` stays implementable in one method), the JVM
+binding reports `false`, and the screen says so with a test tag instead of silently
+hiding the picker.
+
+The lesson is that this defect class is not rare or particular to reminders. The
+companion detector `scripts/check-dead-settings.py` hunts the settings-shaped variant —
+a value that is collected, displayed, and read by no feature — and `reminderDefault` is
+its live instance. That script needed three revisions before it stopped reporting 40+
+false positives, which is worth recording: each failure mode was a wrong idea about what
+counts as consumption, not a bug in the matching.
+
+1. Matching the preference key name — every key is read by the repository that writes it,
+   which is a tautology.
+2. Excluding the DI layer wholesale — but the DI layer is precisely where the
+   contributor is resolved.
+3. Matching the concrete `XSettingsContributor` — but the graph resolves the marker
+   interface `XContributor` via `getOrNull<>()`.
+
+It is proven with a positive control in both directions: zero findings on the current
+tree, six when the six `getOrNull<…Contributor>()` calls are mutated.
 
 ## Links
 
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/reminders/ReminderScheduler.kt`
-- `shared/src/commonMain/.../reminders/ProjectReminder.kt`
-- `shared/src/jvmMain/.../reminders/JvmReminderScheduler.kt`
+- `shared/src/commonMain/.../reminders/RemindersUnsupportedException.kt`
+- `shared/src/commonMain/.../reminders/JvmReminderScheduler.kt`
 - `shared/src/commonMain/.../tasks/presentation/viewmodel/slot/TaskRemindersSlot.kt`
 - `shared/src/commonMain/.../projects/presentation/screen/ProjectDetailBody.kt`
-- `shared/src/commonTest/.../slot/TaskRemindersSlotTest.kt`
+- `shared/src/commonMain/.../pomodoro/PomodoroTaskListProvider.kt`
+- `shared/src/commonMain/.../pomodoro/PomodoroScreen.kt`
 - `shared/src/jvmTest/.../reminders/JvmReminderSchedulerCapabilityTest.kt`
-- `shared/src/jvmTest/resources/platform-seams.tsv` (row `ReminderScheduler`)
+- `shared/src/jvmTest/.../arch/PlatformSeamGuardTest.kt`
+- `shared/src/jvmTest/resources/platform-seams.tsv` (column `gate`)
+- `scripts/check-dead-settings.py`, `scripts/ci/static-gates.sh`
 - Prior: `2026-09-30-project-reminder-own-table.md`, `2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs.md`

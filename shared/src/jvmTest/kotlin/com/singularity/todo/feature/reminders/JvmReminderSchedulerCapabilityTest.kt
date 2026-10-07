@@ -5,6 +5,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
 /**
@@ -17,21 +19,27 @@ import kotlin.test.assertFalse
  * caller wrote the reminder row, the UI reported success, and no alarm ever existed.
  * The user saw a reminder that could not arrive, with nothing to indicate otherwise.
  *
- * A no-op scheduler is only safe if it *declares* itself one. `isSupported = false` is
- * that declaration, and [com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersSlot]
- * reads it before persisting.
+ * ## The two halves of the fix, asserted separately
+ *
+ * [isSupported] is the *declared* capability: callers consult it before persisting.
+ * [RemindersUnsupportedException] from [schedule] is the *enforced* one. The first can
+ * be forgotten by a callsite; the second cannot be forgotten silently. Both are tested
+ * here because a fix that only added the flag would leave the same bug reachable by the
+ * next caller that forgets to check it — which is precisely how the original defect
+ * survived: `isSupported` did not exist, and every callsite would have had to invent its
+ * own guard.
  *
  * ## Why this is a JVM test and not a common test
  *
- * `isSupported` is a fact about the platform, so asserting it in `commonTest` would test
- * a fake. This runs against the class the desktop app actually binds, which is the only
- * place the claim can be wrong in a way that matters.
+ * `isSupported` and the throw are facts about the platform, so asserting them in
+ * `commonTest` would test a fake. This runs against the class the desktop app actually
+ * binds, which is the only place the claim can be wrong in a way that matters.
  *
  * ## What it does not assert
  *
  * That a reminder *fires* on desktop. It does not, and that is the point — the gate makes
  * the absence visible instead of silent. The replacement backend (`systemd --user`
- * timers) will flip this test's first assertion.
+ * timers) will delete the throwing behaviour and flip `isSupported` to `true`.
  */
 @Tag("fast")
 class JvmReminderSchedulerCapabilityTest {
@@ -47,14 +55,15 @@ class JvmReminderSchedulerCapabilityTest {
     }
 
     /**
-     * The flag is what stops the lie; the methods must then stay genuinely inert.
+     * The declared flag is what callers are meant to read.
      *
-     * Asserting both directions matters because the obvious "fix" is to make the JVM
-     * methods log a warning instead of doing nothing — which is only correct if they
-     * still arm nothing. Scheduling nothing while warning is the intended contract here.
+     * Asserting it separately from the throw keeps the two fixes distinguishable: a
+     * future change that made `schedule` throw *and* left `isSupported = true` would
+     * produce a Desktop where every reminder path fails at runtime with no way for a
+     * caller to have known in advance.
      */
     @Test
-    fun `the unsupported scheduler arms nothing and touches nothing`() = runTest {
+    fun `schedule refuses rather than silently doing nothing`() = runTest {
         // Built inline rather than via a factory function: `ClassSignature` rejects a
         // multiline constructor call in an expression body, while `FunctionExpressionBody`
         // rejects the block-body form that would satisfy it. Inline sidesteps both, and
@@ -69,14 +78,47 @@ class JvmReminderSchedulerCapabilityTest {
             recurringPattern = null,
         )
 
-        scheduler.schedule(reminder)
+        val thrown = assertFailsWith<RemindersUnsupportedException> {
+            scheduler.schedule(reminder)
+        }
+
+        assertEquals(
+            "schedule a reminder",
+            thrown.operation,
+            "the exception must name the operation, so a caller can tell which seam was inert",
+        )
+    }
+
+    /**
+     * Cancelling is deliberately *not* symmetric with scheduling.
+     *
+     * Nothing was ever armed on this platform, so "cancelled" is already the true state
+     * and there is nothing to report. Throwing here would break cleanup paths — deleting
+     * a task, dropping a due date, importing from Google — for no benefit, and would
+     * leave a user unable to remove rows written by an older build.
+     *
+     * This asymmetry is the part most likely to be "tidied up" later by someone reading
+     * the class and assuming the three methods should match, so it is pinned explicitly.
+     */
+    @Test
+    fun `cancel and cancelByTask stay silent because nothing was ever armed`() = runTest {
+        val reminder = Reminder(
+            id = ReminderId.generate(),
+            taskId = TaskId("t1"),
+            userId = UserId("u1"),
+            type = ReminderType.Gentle,
+            offsetMinutes = 15,
+            fireAt = 1_800_000_000_000L,
+            recurringPattern = null,
+        )
+
         scheduler.cancel(reminder.id, reminder.userId)
         scheduler.cancelByTask(reminder.taskId, reminder.userId)
 
-        // Nothing to observe directly — the value is that these are total no-ops rather
-        // than deferred work. Any future backend must keep this assertion in mind and
-        // flip `isSupported` in the same change.
-        assertFalse(scheduler.isSupported, "arming nothing must keep the capability false")
+        assertFalse(
+            scheduler.isSupported,
+            "cleanup must not change what the platform supports",
+        )
     }
 
     // A project reminder has no scheduler on *any* platform, so there is deliberately

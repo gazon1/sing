@@ -74,6 +74,7 @@ gate blocking "declared dependencies are used" python3 scripts/check-dependency-
 gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
 gate blocking "unwired surfaces" python3 scripts/find-unwired-surfaces.py --quiet
 gate blocking "unwired backlog refs" python3 scripts/check-unwired-backlog-refs.py
+gate blocking "settings read by a feature" python3 scripts/check-dead-settings.py --quiet
 
 # Lint-rule governance
 gate blocking "detekt rules config is current" python3 scripts/gen-detekt-rules-config.py --check
