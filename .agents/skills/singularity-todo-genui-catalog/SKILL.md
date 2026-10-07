@@ -116,6 +116,18 @@ defect in this layer, and the repository audits for it
 pixels. Only a Compose test can. If you add a renderer, that is the gap — and the feature the corpus
 was built for is the gap that finally needed closing.
 
+**The same shape has a second form, and it is the more expensive one.** Not "nothing renders this" but
+"something renders this perfectly and nobody invokes it". `GenuiUsageCounter.neverUsed()` was exactly
+that: correct, documented, tested, and called from nothing outside its own tests, while `report()`
+logged a different measurement. `find-unwired-surfaces.py` cannot see it — it looks for surfaces with
+no call site, not for functions nobody calls.
+
+So when you add an instrument — a counter, a reporter, an audit hook — the acceptance test asserts
+what it *reports*, not that it *records*. `record("task_card")` proving a map has an entry says
+nothing about whether anybody can act on the map. Ask instead: who reads this, and in what decision?
+If the answer is nobody yet, the honest options are to wire it or to say so in its KDoc; leaving it
+looking connected is the worst of the three.
+
 ## Tests that must go with a component
 
 - `SingularityCatalogTest` — schema ↔ renderer in both directions (already automatic).
@@ -141,9 +153,38 @@ database, or the clock.
   everything, `MESSAGE` drops the message. A forward reference to a component a later message defines
   is `ADVISORY` — dropping it would empty a surface that was about to fill in.
 
+## When the catalog renders nothing, and nothing tells you
+
+Two things have to line up for a rendering regression to be caught, and only one of them is in
+your control.
+
+**The tags are already right.** `GenuiSurfaceCorpusTest` reads files off disk and the render tests
+compose through the Compose harness — both are `@Tag("slow")`, which is what `slow` means in this
+project (crossing a process boundary, not "long"). A default `./gw :shared:jvmTest` excludes them,
+so a green default run says nothing about whether a component draws.
+
+**So they run in the `slow-tests` CI job, and that job has been failing.** Until it is green, the
+checks that catch "a registered renderer that draws nothing" are not running anywhere. Do not
+re-tag them to `fast` to compensate — that puts a file read and a Compose harness in the loop that
+is supposed to be quick, and the default run is still not where the answer lives.
+
+The split that matters, and it does hold:
+
+| Regression | Caught by |
+|---|---|
+| Catalog and schema disagree; a property is wrongly typed | `SingularityCatalogTest`, `A2uiValidatorTest` — `fast`, default run |
+| A wire line no longer becomes the node you expect | `A2uiParserTest` — `fast`, default run |
+| The catalog can no longer express our own screens | `GenuiSurfaceCorpusTest` — `slow-tests` |
+| A registered renderer draws an empty box | `GenuiCatalogRenderTest` (desktopApp) — `slow-tests` |
+
+The first two are contract regressions and you will see them immediately. The last two are drawing
+regressions, and they are invisible until `slow-tests` runs.
+
 ## Reference
 
 - `catalog/A2uiCatalog.kt`, `catalog/SingularityComponents.kt`, `catalog/CatalogPrompt.kt`
 - `ADR 2026-10-05-genui-catalog-as-contract` — why the catalog is the contract
+- `ADR 2026-10-06-an-instrument-nobody-reads-is-not-an-instrument` — the second wiring defect
+- `ADR 2026-10-06-genui-audit-gaps` — what a post-merge audit found, and what it deliberately left
 - `openspec/changes/genui-catalog-contract/specs/genui-catalog/spec.md` — REQ-GC-001…006
 - `docs/CONTEXT.md` — Surface, Catalog, Severity

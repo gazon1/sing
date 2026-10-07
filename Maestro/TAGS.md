@@ -107,6 +107,7 @@ non-alphanumeric characters with `_`.
 | `Pomodoro.PLAY_BUTTON` | `pomodoro_play_button` | |
 | `Pomodoro.SKIP_BUTTON` | `pomodoro_skip_button` | |
 | `Pomodoro.STOP_BUTTON` | `pomodoro_stop_button` | |
+| `Pomodoro.TASKS_UNSUPPORTED` | `pomodoro_tasks_unsupported` | |
 | `Pomodoro.TIMER_LABEL` | `pomodoro_timer_label` | |
 
 ### Tags
