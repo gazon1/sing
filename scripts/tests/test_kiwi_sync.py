@@ -308,12 +308,18 @@ class ScanRepositoryTest(unittest.TestCase):
     def test_abstract_bases_and_helpers_are_excluded(self):
         # Класс, который никогда не даёт прогона (abstract-база контракта или
         # хелпер с суффиксом Test), в Kiwi становится вечным «кейсом без
-        # прогона» и портит главный сигнал отчёта. Таких в репозитории ровно
-        # четыре, и они перечислены явно: иначе отсев выглядит как «пропало
-        # четыре кейса» без объяснения.
+        # прогона» и портит главный сигнал отчёта. Таких перечислено явно:
+        # иначе отсев выглядит как «пропало N кейсов» без объяснения.
+        #
+        # `ApplyOutcomeArmsTest` added on 2026-10-07 by 7582a27f — the registry
+        # entry landed, this list did not, and the suite has been red on a clean
+        # `origin/main` since. A list that has to be updated by hand next to the
+        # registry it mirrors is exactly the kind of pair that drifts; the comment
+        # above this assertion is the thing that should have changed with it.
         self.assertEqual(
             sorted(fqn.rsplit(".", 1)[-1] for fqn, _ in sync.SKIPPED_NON_TESTS),
             [
+                "ApplyOutcomeArmsTest",
                 "FileSystemContractTest",
                 "IsolatedComposeTest",
                 "RunVmTest",
