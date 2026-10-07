@@ -332,7 +332,14 @@ class ScanRepositoryTest(unittest.TestCase):
         # tree, verified by scan_repository() with the same check the previous bumps
         # used (paths unique). 360 leaves nine slots, fewer than the growth of the last
         # merge, so the bound still asks the question rather than absorbing an overshoot.
-        self.assertLess(len(self.tests), 360)
+        # 370, not 360: the counter reached 360 exactly and the bound fired as
+        # `360 not less than 360`. Both classes that took it there are upstream's —
+        # SyncedWriteEnqueuesTest and SyncEngineEnqueueReportsFailureTest, one each
+        # from two separate merges — so the growth is real test classes, not the
+        # abstract-base and helper drift the upper bound exists to catch. Ten slots,
+        # more than the last two merges added together, so the bound still asks the
+        # question on the next merge instead of absorbing an overshoot.
+        self.assertLess(len(self.tests), 370)
         # 260, а не 259: NoopSubscriptionProviderTest.kt объявляет класс
         # PurchaseStateTest, и прежний отсев по «нет @Test у класса с именем
         # файла» выбрасывал файл целиком, теряя настоящий тест.
