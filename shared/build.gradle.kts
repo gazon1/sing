@@ -683,12 +683,16 @@ detekt {
         "src/jvmMain/kotlin",
         "src/jvmTest/kotlin",
         "src/androidMain/kotlin",
-        // `androidHostTest` gained its first real test on 2026-10-07
-        // (`AndroidSyncDiGraphResolutionTest`, #227). It previously held only a
+        // `androidHostTest` gained its first real test on 2026-10-07, the
+        // `AndroidSyncDiGraphResolutionTest` for #227. It previously held only a
         // manifest, which is why it is absent here — detekt reports nothing about a
         // directory it was never given, so a defect in it was invisible rather than
-        // absent. `DetektSourceSetsAreAllScannedTest` is what keeps the list honest: it
-        // fails on any source set that contains Kotlin and is not scanned.
+        // absent. `DetektSourceSetsAreAllScannedTest` keeps the list honest: it fails
+        // on any source set that contains Kotlin and is not scanned.
+        // No parentheses in these comments: `DetektSourceSetsAreAllScannedTest` extracts
+        // this call's argument list with a regex that stops at the first closing paren
+        // anywhere inside the call — including one written inside a comment — and would
+        // then read a truncated list and report this source set as unscanned.
         "src/androidHostTest/kotlin"
     )
 }
