@@ -353,9 +353,57 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 ## desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch
 
-**Status: OPEN**
+**Status: OPEN — re-measured 2026-10-07; the bundle narrows it to a state, not a write**
 
 **Tracked as:** #40
+
+**Re-measurement (2026-10-07).** The failure bundle settles the first question — is the
+value saved? — and it is:
+
+```
++0.98s  awaitTag(priority_option_high)    OK    0.65s      <- the click landed
+<then the label assertion fails>
+```
+
+`db-state.txt` for the same attempt:
+
+```
+TaskEntity(id=robot-task-0, title=Buy milk, …, priority=High, …,
+           updatedAt=1789552800000, sync=SyncColumns(…))
+```
+
+So the write completed, `updatedAt` moved, and only the *rendered label* stayed at
+"No priority". That rules out the double-fire and the lost-click hypotheses outright, and
+narrows the defect to: the slot's `mutate()` writes through `core.updateTask { … }` and
+never publishes the result back to the slot, so `TaskEntitySlot` keeps serving the task it
+loaded until some *other* flow re-emits it.
+
+The subscription exists — `TaskDetailCoordinator` collects
+`core.taskRepo.observe(taskId)` and sets `taskLoad` — which is why this is a **race** rather
+than a dead path, and why it passes in isolation: the emission arrives, the batch just
+asserts before it does. `waitUntil` pumps the Compose clock, so a genuine 5-second absence
+is a genuine absence; what varies between runs is which flow got there first.
+
+**What is ruled out, measured rather than argued.** Not the click (the bundle records it
+succeeding). Not the write (`priority=High` with a moved `updatedAt`). Not a lost
+`@Tag` — `assertTagDisplayed` and `assertTextDisplayed` fail differently and this one
+fails on *text*. Not host contention: a run under load 40 reproduced it and a run at load
+16 did not, which is the definition of ordering-dependent rather than resource-dependent.
+
+**Try next, in this order.**
+
+1. **Publish from `mutate()` rather than waiting for the repository flow.** `mutate` is
+   `core.updateTask(id) { … }.onFailure { … }`; the fix is to apply the same transform to
+   the slot's own state on success. That removes the race for *every* slot that uses
+   `mutate` — priority, due date, estimate, recurrence — rather than for one symptom.
+   The trade-off is real and should be written down: the repository flow remains the
+   authority, so this must be a cache update, not a second source of truth.
+2. **Assert through the state, not the render.** If the race is inherent, the test should
+   await the label with a bounded poll instead of asserting once. Cheaper, and it hides a
+   real user-visible lag, so it is second and not first.
+3. **Find what makes the batch late.** 182 active coroutines at failure, including leaked
+   `CurrentUser` collectors, points at a scope outliving its class; that is a leak worth
+   fixing on its own merits but it is not this test's cause.
 
 **Found in:** MR-5 final `./check.sh` — the only observation in five runs.
 
