@@ -66,7 +66,11 @@ Then close #151 with the result, and the Android column stops being a footnote.
 
 ## What still will not be proven by this run
 
-`TASK-TIME-01` is Android-only by measurement (#187): its UI lives in
-`TaskDetailViewScreen`, wired only in `TasksNavGraph.android.kt`. Its `○` on
-android is a hole this runbook cannot close — it needs a *second* Maestro flow,
-for a scenario whose screen exists on no other platform.
+`TASK-TIME-01` claims `[android, desktop]`. Its `○` on both targets is a hole
+this runbook cannot close, and the reason moved: the screen this page used to name,
+`TaskDetailViewScreen`, was deleted on 2026-10-07 (the file had no production call
+site). The time-tracking UI itself survives in
+`feature/timetracking/presentation/components/TimeTrackingSection.kt`, so the spec is
+not stale — but no Maestro flow drives it, and the `pomodoro/*` flows are a
+different feature. Closing either cell needs a *new* flow, not a run of an existing
+one.
