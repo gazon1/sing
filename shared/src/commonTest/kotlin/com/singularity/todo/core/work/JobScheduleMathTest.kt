@@ -10,7 +10,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.plus
-import org.junit.jupiter.api.Tag
 
 /**
  * The arithmetic that decides when a job next runs.
