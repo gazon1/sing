@@ -18,10 +18,6 @@ be declared once. The instructions given to the model, the validation applied to
 and a machine-readable schema of the component set SHALL each be derived from that single
 declaration, and SHALL NOT be maintained independently of one another.
 
-The declaration SHALL state, for each component: its name, the properties it accepts with their
-types, which properties are required, the legal values of any enumerated property, and — for
-components that contain other components — which components may be placed inside it.
-
 #### Scenario: A component is added to the declaration and appears everywhere
 - A component is added to the declaration
 - The model is instructed about it, its output is validated against it, and it is present in the
@@ -35,6 +31,29 @@ components that contain other components — which components may be placed insi
 #### Scenario: The exported schema is regenerated
 - The machine-readable schema is regenerated from the declaration
 - Two regenerations of an unchanged declaration produce identical output
+
+---
+
+### Requirement: REQ-GC-001a
+
+The declaration SHALL state, for each component: its name, the properties it accepts with their
+types, which properties are required, the legal values of any enumerated property, and — for
+components that contain other components — which components may be placed inside it.
+
+The declaration's contents SHALL be sufficient to validate the model's output without consulting any
+other source, so that a property the declaration does not describe cannot be accepted.
+
+#### Scenario: A property's type is changed
+- The declaration changes a property's type
+- Output carrying the previous type is rejected with that property named, and nothing else accepts it
+
+#### Scenario: A component omits a property the declaration marks required
+- A component in the model's output lacks a required property
+- The message is rejected with a reason naming the component and the property
+
+#### Scenario: A component is placed inside one that may not contain it
+- The model's output nests a component where the declaration forbids it
+- The message is rejected with a reason naming both components
 
 ---
 

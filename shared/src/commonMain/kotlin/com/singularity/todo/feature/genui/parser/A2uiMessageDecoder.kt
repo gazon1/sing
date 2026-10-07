@@ -7,6 +7,7 @@ import com.singularity.todo.feature.genui.core.A2uiErrorCode
 import com.singularity.todo.feature.genui.core.A2uiNodeFactory
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
 import com.singularity.todo.feature.genui.core.A2uiSeverity
+import com.singularity.todo.feature.genui.core.GenuiUsageCounter
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlinx.serialization.json.JsonArray
@@ -25,9 +26,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * Component-level validation belongs to [A2uiNodeFactory], which reads the catalog — so a property
  * this class insists on is a property the *operation* needs, not one a component declares.
  */
-internal class A2uiMessageDecoder(catalog: A2uiCatalog) {
+internal class A2uiMessageDecoder(catalog: A2uiCatalog, private val usage: GenuiUsageCounter = GenuiUsageCounter()) {
 
-    private val factory: A2uiNodeFactory = A2uiNodeFactory(catalog)
+    private val factory: A2uiNodeFactory = A2uiNodeFactory(catalog, usage)
+
+    /** The running tally of which kinds a model actually draws. */
+    fun usageCounter(): GenuiUsageCounter = factory.usageCounter()
 
     fun decode(operation: String, body: JsonObject): A2uiParseOutcome = when (operation) {
         "createSurface" -> createSurface(body)

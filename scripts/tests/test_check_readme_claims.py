@@ -19,6 +19,7 @@ of the counting helpers ignored the root they were handed. Both are pinned here.
 
 import importlib.util
 import pathlib
+import re
 import unittest
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'check-readme-claims.py'
@@ -74,11 +75,19 @@ class SourceOfTruthTest(unittest.TestCase):
         self.assertEqual(len(violations), 4, violations)
 
     def test_schema_version_is_read_from_the_constant(self):
-        # Reads the real constant rather than pinning a number, so bumping
-        # SCHEMA_VERSION does not make this test lie about what it verifies. The
-        # point of the check is that the README claim is derived from the code;
-        # hardcoding the version here would only assert that someone remembered.
-        self.assertEqual(mod.schema_version(mod.DB_FILE), 40)
+        # Parsed independently here, from the same source, rather than asserted against
+        # a literal. A literal is a second place to bump the schema version and it goes
+        # stale on every bump — which is how this test came to disagree with the tree
+        # while the gate it covers was behaving correctly, twice: once at 38, and again
+        # at 40, where the fix replaced one pinned number with the next pinned number
+        # rather than removing the pin. The property is "the reader follows
+        # SCHEMA_VERSION", and a literal cannot express that.
+        source = mod.DB_FILE.read_text(encoding="utf-8")
+        declared = int(re.search(r"SCHEMA_VERSION\s*=\s*(\d+)", source).group(1))
+        self.assertEqual(mod.schema_version(mod.DB_FILE), declared)
+        # And the README agrees with it, which is the property the gate enforces.
+        readme = (mod.ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn(f"schema v{declared}", readme)
 
 
 class PlusSuffixTest(unittest.TestCase):

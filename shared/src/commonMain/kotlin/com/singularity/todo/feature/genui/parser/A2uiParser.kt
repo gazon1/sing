@@ -7,6 +7,7 @@ import com.singularity.todo.feature.genui.core.A2uiErrorCode
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
 import com.singularity.todo.feature.genui.core.A2uiSeverity
 import com.singularity.todo.feature.genui.core.FramedLine
+import com.singularity.todo.feature.genui.core.GenuiUsageCounter
 import com.singularity.todo.feature.genui.core.LineFramer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -32,9 +33,23 @@ import kotlinx.serialization.json.intOrNull
  * envelope and the other about the contract, and a line can fail either without the other being
  * consulted.
  */
-class A2uiParser(private val catalog: A2uiCatalog = SingularityCatalog, private val json: Json = defaultJson) {
+class A2uiParser(
+    private val catalog: A2uiCatalog = SingularityCatalog,
+    private val json: Json = defaultJson,
+    /**
+     * Where the tally of which kinds a model actually draws accumulates.
+     *
+     * Injected rather than created here so that one process-wide count can span every parser
+     * rather than resetting whenever a new session is built — the question is what the catalog earns
+     * across a process, not what one conversation happened to use.
+     */
+    usage: GenuiUsageCounter = GenuiUsageCounter(),
+) {
 
-    private val messages: A2uiMessageDecoder = A2uiMessageDecoder(catalog)
+    private val messages: A2uiMessageDecoder = A2uiMessageDecoder(catalog, usage)
+
+    /** The running tally of which component kinds a model actually draws. */
+    fun usageCounter(): GenuiUsageCounter = messages.usageCounter()
 
     /** Classifies one complete line. */
     fun parseLine(line: String): A2uiParseOutcome =
