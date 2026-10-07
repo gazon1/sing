@@ -3661,9 +3661,13 @@ delegated gate an orphan).
 
 ## the-versioned-sync-schema-is-never-applied-or-verified
 
-**Status: OPEN**
+**Status: RESOLVED 2026-10-07 — structurally.** `scripts/check-supabase-schema-integrity.py`
+is now a blocking gate with a positive control and ten self-tests. It proves the header and
+the body still describe the same set of functions, in both directions. It cannot verify an
+md5: those are `pg_proc.prosrc` values in a live database and reading them needs
+credentials, so the live half stays manual and is why this entry was not closed outright.
 
-**Tracked as:** #221
+**Tracked as:** #221 (closed; the live half is recorded there as what remains)
 
 **Found in:** 2026-10-07, while landing #184 part 2 — the first time the server's sync
 schema was written into the repository at all.
@@ -3697,9 +3701,14 @@ the file, forget the database.
 
 ## a-filtered-test-run-is-indistinguishable-from-a-shrunken-suite
 
-**Status: OPEN**
+**Status: RESOLVED 2026-10-07.** The test task writes a run manifest beside the XML, and
+`check-test-runs.py` reads it: below the floor, the message now says the counts are not
+evidence and names the filter, instead of reporting a regression against a tree where
+nothing had happened. Verified end to end — manifest marked partial, most of the XML moved
+aside, gate prints the filtered-run sentence. A missing manifest is treated as unknown, not
+as filtered.
 
-**Tracked as:** #222
+**Tracked as:** #222 (closed)
 
 **Found in:** 2026-10-07, while running `check-gate-wiring.py` on a tree where nothing
 was broken.
@@ -3734,3 +3743,38 @@ whether `--tests` was passed, source-set class count — and have the gate read 
 from it, so it can say "this evidence came from a filtered run" instead of "a suite
 stopped running". Gradle leaves no such marker today, which is why this is not a
 five-line fix to the gate itself.
+
+---
+
+## the-android-graph-is-never-resolved
+
+**Status: OPEN**
+
+**Tracked as:** #227
+
+**Found in:** 2026-10-07, while restoring the desktop graph's resolution test.
+
+`SyncDiGraphResolutionTest` resolves the JVM graph. The Android side has no equivalent and
+cannot grow one from where it stands: `shared/src/androidHostTest/` contains only
+`AndroidManifest.xml`, and `shared/build.gradle.kts` records that the "Koin graph test" its
+comment referred to "is also gone". `testAndroidHostTest` therefore runs zero tests.
+
+`PlatformModuleMirrorTest` compares declared binding *names* between the two platform
+modules and resolves nothing, so it cannot see anything that only fails when the
+definitions run: a body that resolves a type nobody binds on Android, a resolution cycle
+(a `StackOverflowError` at app start with no application frame in the stack — ADR
+`2026-10-06-the-sync-engine-needs-the-repositories-and-the-repositories-need-the-engine`),
+or a `databaseBuilder` handed the wrong context under a harness. `koin-compiler-plugin`
+covers none of it, for the same reason it missed the sync cycle.
+
+**Not done here.** Resolving the Android graph needs Robolectric, and `androidHostTest`
+declares no test stack — the build file lists exactly what has to be added, and warns that
+the Vintage engine is required because Robolectric is a JUnit 4 runner. Declaring a stack
+that no test has ever run would produce a green task that executes nothing, which is the
+defect class `2026-10-06-ci-single-gate-registry-and-leaf-split.md` already records.
+
+**Try first:** declare the stack as the build-file comment lists it and add exactly one
+test — the `SyncDiGraphResolutionTest` equivalent over `PlatformModule.android.kt` plus
+`domainModule()`. If Robolectric cannot run on this host, that is the finding; record it
+rather than substituting a fake. Then put `testAndroidHostTest` into
+`check-test-runs.py --require`, which today would pass a source set that executes nothing.
