@@ -60,6 +60,20 @@
 -- mismatch later means the schema drifted, not that somebody reformatted SQL.
 -- Re-derive with `select md5(prosrc) from pg_proc where proname like 'sync\_%'`.
 --
+-- Re-verified against the live project on 2026-10-07 22:40 UTC, later the same day
+-- this was first written: all twelve still matched. The `sync_field_allowlist`
+-- seed below was verified in the same pass — 86 rows, 7 entity types, no
+-- `writable = false` row, and identical to the live table row for row. That
+-- second check is the one this repository consumes: `SyncedWriteEnqueuesTest`
+-- derives its synced-field set from this file rather than keeping its own copy,
+-- so "the rule is right" now depends on this seed being right, and it was
+-- checked rather than assumed.
+--
+-- A verification is still a measurement, not a gate — nothing re-runs it. See
+-- issue #221: the live half needs credentials this host's CI does not have, and
+-- a gate that silently passes when it cannot connect is the defect class this
+-- repository already has an ADR against.
+--
 -- ## Drift
 --
 -- This is a point-in-time capture, not a continuous sync. After changing the live schema,
