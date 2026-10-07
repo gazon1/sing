@@ -154,3 +154,47 @@ infinite redraw**, so the observable is always "a thing is missing", never "a th
 That is why this file is an ADR and not a backlog entry: the seven bindings are a chore,
 but "a missing Koin definition is indistinguishable from a missing UI element" is a
 property of the harness that will produce the next expensive diagnosis too.
+
+---
+
+## Second addendum: the fourth instance, and the one that nearly shipped green
+
+`AndroidSyncDiGraphResolutionTest` (#227) carried no `@Tag`. The build file's comment
+explaining this said:
+
+> The Vintage engine does not map Jupiter's `@Tag` onto Platform tags … the test carries
+> no `@Tag` and **always runs** — including under `-Ptest.tags=fast`.
+
+Both halves were false. JUnit's `includeTags` **excludes** untagged classes — stated
+plainly four lines above the same comment, in the `shared/build.gradle.kts` filter block
+itself. So the test was excluded from `-Ptest.tags=fast,slow`, excluded from CI, and
+`:shared:testAndroidHostTest` finished **green over 171 classes that did not include it**.
+
+This is the fourth time this pattern has produced a real defect, and the first time the
+defect was *in the ADR's own subject matter*:
+
+| Instance | Comment said | Reality |
+|---|---|---|
+| `gen-detekt-rules-config.py` | warns against the duplicate-key bug | emits it |
+| `TestPlatformModule.kt` | describes the pass-through `UnitOfWork` | binds the other |
+| `AppError.Unknown` KDoc | every producer attaches a `cause` | one dropped it |
+| `shared/build.gradle.kts` (Vintage) | an untagged test always runs | `includeTags` excludes it |
+
+The pattern is stable enough to be worth a rule rather than a note: **a comment that
+states what a tool does is documentation; only an executed assertion is an invariant.**
+The three gates that caught the other instances were the *tests* catching them, never the
+comment — and this one was caught only by noticing the absence of a result file, because
+nothing was failing.
+
+Two structural consequences, both now in place:
+
+- **`TestTagCoverageTest` lists source sets that apply the filter.** `shared/src/androidHostTest`
+  was added the same day the gap appeared, and only because the gap was noticed.
+  A source set belongs in that list whether or not it holds tests yet.
+- **`check-test-runs.py --require`** already knows about this task but cannot see a class
+  it was never told to expect. The tag is what makes it countable.
+
+The deeper lesson is not about tags. It is that **`testAndroidHostTest` was green and had
+never executed a single one of its own tests** — the same "invisible rather than absent"
+shape as the seven unbound Koin definitions, one layer up. A task that runs only commonTest
+looks identical to a task that runs its own source set, from every surface a gate can see.

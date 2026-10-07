@@ -13,6 +13,7 @@ import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncEngine
 import com.singularity.todo.feature.gate.gateModule
 import org.junit.Test
+import org.junit.jupiter.api.Tag
 import org.junit.runner.RunWith
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.koinApplication
@@ -57,6 +58,7 @@ import kotlin.test.assertNotNull
  * intended scope, and it is the same scope `SyncDiGraphResolutionTest` has on the JVM: if
  * this file ever grows to assert behaviour, it has stopped being a resolution test.
  */
+@Tag("slow")
 @RunWith(RobolectricTestRunner::class)
 class AndroidSyncDiGraphResolutionTest {
 

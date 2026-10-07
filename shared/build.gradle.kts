@@ -596,13 +596,15 @@ dependencies {
     //   defect class ADR `2026-10-06-ci-single-gate-registry-and-leaf-split` records.
     //   `check-test-runs.py --require` is what stops that from recurring silently.
     //
-    //   Consequence, stated rather than discovered: the Vintage engine does not map
-    //   Jupiter's `@Tag` onto Platform tags (see `desktopApp/build.gradle.kts:49`, where the
-    //   same engine was removed for exactly this). So a test in THIS source set cannot be
-    //   tag-selected, and `AndroidSyncDiGraphResolutionTest` therefore carries no `@Tag`
-    //   and always runs — including under `-Ptest.tags=fast`. That is intentional: a
-    //   graph-resolution test that CI could silently skip is the failure mode this whole
-    //   block exists to prevent. `check-test-runs.py --require` is what must include it.
+    //   Consequence, stated rather than discovered: JUnit's `includeTags` **excludes**
+    //   untagged classes, and this task applies the same `-Ptest.tags` filter as the
+    //   others. The first version of this comment claimed the test carried no `@Tag`
+    //   and therefore "always runs"; that was wrong, and the run proved it —
+    //   `:shared:testAndroidHostTest` finished green over 171 classes with
+    //   `AndroidSyncDiGraphResolutionTest` absent from every result file. It carries
+    //   `@Tag("slow")` now, because a DI graph test that CI can silently skip is the
+    //   exact failure this whole block exists to prevent. `TestTagCoverageTest` gained
+    //   `shared/src/androidHostTest` for the same reason.
     // - `compose-ui-test-junit4` (AndroidX, NOT the JetBrains multiplatform artifact —
     //   AndroidX is Robolectric-compatible, JetBrains is not) is NOT declared: this test
     //   composes no UI. Declaring it "for the future" would add a dependency that keeps
