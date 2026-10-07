@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.attachments.AttachmentDao
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
 import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
@@ -17,6 +18,7 @@ class BackupExporter(
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
     private val attachmentDao: AttachmentDao,
+    private val annotationDao: AttachmentAnnotationDao,
     private val agendaViewDao: AgendaViewDao,
     private val codec: BackupCodec,
     private val clock: Clock,
@@ -33,6 +35,7 @@ class BackupExporter(
         val projects = projectDao.listAllForUser(options.userId.value)
         val tags = tagDao.listAllForUser(options.userId.value)
         val attachments = attachmentDao.listAllForUser(options.userId.value)
+        val annotations = annotationDao.listAllForUser(options.userId.value)
         val taskDeps = taskDao.listAllDependenciesForUser(options.userId.value)
         val taskTagRefs = taskDao.listAllTagsForUser(options.userId.value)
         val agendaViews = agendaViewDao.listAllForUser(options.userId.value)
@@ -45,6 +48,7 @@ class BackupExporter(
             projects = projects.map { it.toDto() },
             tags = tags.map { it.toDto() },
             attachments = attachments.map { it.toDto() },
+            attachmentAnnotations = annotations.map { it.toDto() },
             taskTags = taskTagRefs.map { it.toDto() },
             taskDependencies = taskDeps.map { it.toDto() },
             agendaViews = agendaViews.map { it.toDto() },
@@ -61,6 +65,7 @@ class BackupExporter(
             projects = projects.size,
             tags = tags.size,
             attachments = attachments.size,
+            attachmentAnnotations = annotations.size,
             taskTags = taskTagRefs.size,
             taskDependencies = taskDeps.size,
             agendaViews = agendaViews.size,

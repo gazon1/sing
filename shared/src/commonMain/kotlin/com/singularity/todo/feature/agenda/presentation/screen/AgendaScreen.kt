@@ -15,6 +15,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.onboarding.SpotlightContent
+import com.singularity.todo.core.ui.onboarding.SpotlightOverlay
+import com.singularity.todo.core.ui.onboarding.rememberSpotlightTour
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
@@ -90,6 +93,11 @@ fun AgendaScreen(
         }
     }
 
+    // Created here so the elements inside `AgendaContent` and the overlay below agree on
+    // one registry; giving either side its own would leave the tour waiting forever for a
+    // target that registers somewhere else.
+    val tour = rememberSpotlightTour()
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier,
@@ -105,8 +113,23 @@ fun AgendaScreen(
                     navigator.openSavedAgendaCreate(definition)
                 },
                 contextMenuHost = contextMenuHost,
+                spotlightRegistry = tour.registry,
                 modifier = Modifier,
             )
+
+            // Outside `AgendaContent` but inside the same Box, so the scrim covers the
+            // screen it is explaining and not only the part below the app bar.
+            val stepIndex = tour.state.stepIndex
+            if (stepIndex != null && stepIndex in SpotlightContent.STEPS.indices) {
+                SpotlightOverlay(
+                    state = tour.state,
+                    step = SpotlightContent.STEPS[stepIndex],
+                    stepPosition = stepIndex,
+                    stepCount = SpotlightContent.STEPS.size,
+                    onNext = tour::next,
+                    onSkip = tour::skip,
+                )
+            }
         }
     }
 }

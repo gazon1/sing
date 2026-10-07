@@ -28,6 +28,11 @@ import androidx.compose.material3.MaterialTheme
 /**
  * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
  * Клик по чекбоксу — отдельный target от поля ввода (не пересекаются).
+ *
+ * [onCheckToggle] is nullable and `null` hides the checkbox entirely. Create mode
+ * passed `{}`, which rendered a completion checkbox — the screen's most prominent
+ * control — that did nothing when pressed. There is no task to complete before it
+ * exists, so the honest rendering is no checkbox, not a dead one.
  */
 @Composable
 fun TaskTitleRow(
@@ -35,31 +40,38 @@ fun TaskTitleRow(
     title: String,
     isCompleted: Boolean,
     onTitleChange: (String) -> Unit,
-    onCheckToggle: () -> Unit,
+    onCheckToggle: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Celebration(
-            triggerKey = if (isCompleted) taskId else "",
-        ) {
-            IconButton(onClick = onCheckToggle) {
-                val doneTint = if (isCompleted) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+        if (onCheckToggle != null) {
+            Celebration(
+                triggerKey = if (isCompleted) taskId else "",
+            ) {
+                IconButton(onClick = onCheckToggle) {
+                    val doneTint = if (isCompleted) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    val glyph = if (isCompleted) {
+                        Icons.Filled.CheckCircle
+                    } else {
+                        Icons.Outlined.CheckBoxOutlineBlank
+                    }
+                    Icon(
+                        imageVector = glyph,
+                        contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
+                        tint = doneTint,
+                        modifier = Modifier.size(TaskSpacing.iconSizeLarge),
+                    )
                 }
-                Icon(
-                    imageVector = if (isCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckBoxOutlineBlank,
-                    contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
-                    tint = doneTint,
-                    modifier = Modifier.size(TaskSpacing.iconSizeLarge),
-                )
             }
+            Spacer(modifier = Modifier.width(TaskSpacing.md))
         }
-        Spacer(modifier = Modifier.width(TaskSpacing.md))
         BasicTextField(
             value = title,
             onValueChange = onTitleChange,

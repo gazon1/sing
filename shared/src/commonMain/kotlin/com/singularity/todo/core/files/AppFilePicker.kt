@@ -20,6 +20,16 @@ enum class FilePickPurpose {
 
     /** An exported settings snapshot to import. */
     SettingsJson,
+
+    /**
+     * A file to attach to a task.
+     *
+     * Its filter is [MimeTypes.supportedExtensions] — the table the app already judges
+     * files by — rather than a list written out here. That list did not exist, which is
+     * why attaching a file from the UI was impossible end to end: there was no pick
+     * purpose for it, so no caller could ask for one.
+     */
+    Attachment,
 }
 
 /** Dialog title shown for this purpose. */
@@ -27,19 +37,22 @@ internal val FilePickPurpose.title: String
     get() = when (this) {
         FilePickPurpose.Backup -> "Select backup file"
         FilePickPurpose.SettingsJson -> "Select settings file"
+        FilePickPurpose.Attachment -> "Select file"
     }
 
 /**
  * File-type filter for this purpose.
  *
  * Backups are zipped archives produced by [com.singularity.todo.core.backup.BackupExporter];
- * settings snapshots are the JSON produced by `SettingsExporter.exportAsJson()`.
- * FileKit filters by extension rather than MIME type, so both are expressed as extensions.
+ * settings snapshots are the JSON produced by `SettingsExporter.exportAsJson()`;
+ * attachments are anything the app's own [MimeTypes] table recognises.
+ * FileKit filters by extension rather than MIME type, so all are expressed as extensions.
  */
 internal val FilePickPurpose.fileKitType: FileKitType
     get() = when (this) {
         FilePickPurpose.Backup -> FileKitType.File(extensions = setOf("zip"))
         FilePickPurpose.SettingsJson -> FileKitType.File(extensions = setOf("json"))
+        FilePickPurpose.Attachment -> FileKitType.File(extensions = MimeTypes.supportedExtensions)
     }
 
 /**

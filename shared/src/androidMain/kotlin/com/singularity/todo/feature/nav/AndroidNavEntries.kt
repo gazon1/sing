@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph
+import com.singularity.todo.feature.attachments.viewer.AttachmentViewerRoute
 import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
 import com.singularity.todo.feature.archive.ArchiveScreen
@@ -129,6 +130,13 @@ fun createAppEntryProvider(
         ProjectsNavGraph(
             start = ProjectsRoute.Detail(ProjectId.fromString(route.projectId)),
             onExitGraph = nav.graphExit,
+        )
+    }
+
+    entry<AppDestination.AttachmentViewer> { route ->
+        AttachmentViewerRoute(
+            attachmentId = route.attachmentId,
+            onBack = nav.goBack,
         )
     }
 

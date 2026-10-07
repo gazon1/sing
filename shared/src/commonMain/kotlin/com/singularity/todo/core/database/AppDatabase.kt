@@ -7,6 +7,8 @@ import androidx.room3.RoomDatabase
 import com.singularity.todo.core.attachments.AttachmentConverters
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import com.singularity.todo.core.config.RemoteConfigCacheDao
 import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.sync.RemoteConfigDao
@@ -46,7 +48,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 40
+const val SCHEMA_VERSION = 42
 
 /**
  * Room database for Android.
@@ -65,6 +67,7 @@ const val SCHEMA_VERSION = 40
         SyncStateEntity::class,
         RemoteConfigEntity::class,
         AttachmentEntity::class,
+        AttachmentAnnotationEntity::class,
         TaskReminderEntity::class,
         ProjectReminderEntity::class,
         ChecklistItemEntity::class,
@@ -123,6 +126,9 @@ const val SCHEMA_VERSION = 40
         // 38 -> 39 is manual for the same reason, and likewise registered there:
         // it adds profiles.user_id. See Migration38To39.
         AutoMigration(from = 39, to = 40, spec = Migration39To40::class),
+        AutoMigration(from = 40, to = 41, spec = Migration40To41::class),
+        // 41 -> 42 adds attachment_annotations. Room derives the table from the entity.
+        AutoMigration(from = 41, to = 42, spec = Migration41To42::class),
     ],
     exportSchema = true,
 )
@@ -146,6 +152,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun remoteConfigDao(): RemoteConfigDao
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun annotationDao(): AttachmentAnnotationDao
     abstract fun reminderDao(): ReminderDao
     abstract fun projectReminderDao(): ProjectReminderDao
     abstract fun checklistDao(): ChecklistDao

@@ -145,6 +145,132 @@ class TestDetectorTable(unittest.TestCase):
         findings = fus._check_composable(code, self._corpus(code))
         self.assertTrue(any("FooScreen" in f for _, f in findings), findings)
 
+    # ── Detector 1: preview-only — the composable wired only into its own @Preview ──
+    #
+    # Positive control. Before this check existed, a component called only from its own
+    # preview had a call site, satisfied the "does anything reference it" count, and was
+    # reported as wired — while never rendering for a user. ReminderTile and
+    # AttachmentTile were both in that state.
+
+    def test_preview_only_positive(self):
+        # The fixture names are deliberately not real symbols. A fixture that reused a
+        # shipped name passed for the wrong reason the moment that symbol was baselined
+        # — these two failed that way on 2026-10-07, when ReminderTile was exempted.
+        code = self._fake_code(
+            {
+                "Tile.kt": (
+                    "@Composable\nfun PreviewOnlyTile() = Unit\n"
+                    "@Preview\n@Composable\nfun P() { PreviewOnlyTile() }\n"
+                ),
+            }
+        )
+        findings = fus._check_composable(code, self._corpus(code))
+        self.assertTrue(
+            any(k == "preview-only" and "PreviewOnlyTile" in f for k, f in findings),
+            findings,
+        )
+
+    def test_preview_only_positive_for_the_PreviewSamples_convention(self):
+        # The annotation-free shape this project actually uses: a preview function is
+        # named for its role and calls PreviewThemed. Without matching the name, the
+        # only signal there is, ReminderTile's two previews read as real call sites.
+        code = self._fake_code(
+            {
+                "Tile.kt": (
+                    "@Composable\nfun ThemedOnlyTile() = Unit\n"
+                    "private fun ThemedOnlyTileLightPreview() = PreviewThemed { ThemedOnlyTile() }\n"
+                    "private fun ThemedOnlyTileDarkPreview() = PreviewThemed { ThemedOnlyTile() }\n"
+                ),
+            }
+        )
+        findings = fus._check_composable(code, self._corpus(code))
+        self.assertTrue(
+            any(k == "preview-only" and "ThemedOnlyTile" in f for k, f in findings),
+            findings,
+        )
+
+    def test_a_caller_in_the_same_file_is_a_caller(self):
+        # TagCard, found by running this check against the real tree.
+        #
+        # TagCard is called by `TagList` in the same file, and `TagList` is called by the
+        # screen. An earlier version compared against "references in some other file"
+        # and reported it — a false positive that would have been resolved by deleting
+        # a working component. Co-location is not preview-ness.
+        code = self._fake_code(
+            {
+                "TagsScreen.kt": (
+                    "@Composable\nfun TagList() { TagCard() }\n"
+                    "@Composable\nfun TagCard() = Unit\n"
+                ),
+            }
+        )
+        findings = fus._check_composable(code, self._corpus(code))
+        self.assertEqual([], [f for _, f in findings if "TagCard" in f], findings)
+
+    def test_blanking_a_body_does_not_disturb_the_rest_of_the_file(self):
+        # The preview stripper rewrites the text every other count in this detector is
+        # computed from. Two properties matter: the preview body's references are gone,
+        # and everything else is untouched down to the newlines.
+        source = (
+            "@Composable\nfun Screen() = Unit\n"
+            "@Preview\nfun P() { Screen(); After() }\n"
+            "\nfun After() = Unit\n"
+        )
+        stripped = fus._without_previews(source)
+        self.assertNotIn("Screen();", stripped)
+        self.assertIn("fun After() = Unit", stripped)
+        self.assertEqual(
+            source.count("\n"),
+            stripped.count("\n"),
+            "line count must not shift",
+        )
+
+    def test_a_composable_called_from_another_file_is_not_reported(self):
+        # The negative control: the check must not fire on a normally wired component,
+        # and it must not fire on one merely *co-located* with its caller in a different
+        # file. This is the assertion that keeps it from becoming a duplicate of the
+        # "no call site" detector.
+        code = self._fake_code(
+            {
+                "ReminderTile.kt": "@Composable\nfun ReminderTile() = Unit\n",
+                "ReminderScreen.kt": (
+                    "@Composable\nfun ReminderScreen() { ReminderTile() }\n"
+                ),
+            }
+        )
+        findings = fus._check_composable(code, self._corpus(code))
+        self.assertEqual([], [f for _, f in findings if "ReminderTile" in f], findings)
+
+    def test_preview_only_is_exemptable_through_the_baseline(self):
+        # The exemption must change the kind, exactly as it does for `screen` — or the
+        # only way to make the gate green would be deleting working code.
+        code = self._fake_code(
+            {
+                "TagCard.kt": (
+                    "@Composable\nfun TagCard() = Unit\n"
+                    "@Preview\n@Composable\nfun P() { TagCard() }\n"
+                ),
+            }
+        )
+        with mock.patch.object(fus, "_load_baseline", return_value={"TagCard": "reason"}):
+            findings = fus._check_composable(code, self._corpus(code))
+        self.assertEqual(["exempt"], [k for k, _ in findings], findings)
+
+    def test_tile_and_dialog_suffixes_are_scanned(self):
+        # The suffix list is the gate's entry condition. Tile and Dialog were not on it,
+        # so a component named for either shape could not be reported at all.
+        code = self._fake_code(
+            {
+                "a.kt": "@Composable\nfun ColorTile() = Unit\n",
+                "b.kt": "@Composable\nfun ResetDialog() = Unit\n",
+                "c.kt": "@Composable\nfun HeaderRow() = Unit\n",
+            }
+        )
+        findings = fus._check_composable(code, self._corpus(code))
+        reported = {f.split(": ", 1)[1].split("(")[0] for _, f in findings}
+        for name in ("ColorTile", "ResetDialog", "HeaderRow"):
+            self.assertIn(name, reported, findings)
+
     def test_screen_a_baseline_row_exempts_the_finding(self):
         # A baseline row has to change the *kind* of the finding, not just decorate it.
         # Before 2026-10-06 it was read into the message and the detector still returned

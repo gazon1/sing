@@ -87,4 +87,11 @@ maintenance jobs landing together.
 - `shared/src/jvmTest/.../core/work/BackgroundWorkBootstrapperTest.kt`
 - `shared/src/commonMain/.../core/observability/RoomUsageRecorder.kt` (`prune`, :66)
 - `shared/src/commonMain/.../core/backup/RemoteBackupService.kt` (the stub, :9)
-- Prior: `2026-10-06-desktop-background-work-executor.md`, `2026-09-30-project-reminder-own-table.md`
+- Prior: `2026-09-30-project-reminder-own-table.md`
+
+  The background-work machinery this builds on (`BackgroundWorkScheduler`,
+  `JobSchedule`, `BackgroundJobCatalog`, both platform executors) has no ADR of its
+  own — this line used to cite a decision dated 2026-10-06 about the desktop
+  background work executor, but that file was never committed, so the citation was
+  dangling and `check-adr-references.py` failed on a clean tree. If that decision is
+  worth recording, it belongs in a new ADR rather than in a citation.

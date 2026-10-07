@@ -360,6 +360,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.DeleteSubtask,
             is TaskDetailIntent.Domain.AddSubtask,
             is TaskDetailIntent.Domain.AddUrlAttachment,
+            is TaskDetailIntent.Domain.AddFileAttachment,
             is TaskDetailIntent.Domain.DeleteAttachment,
             -> children.onIntent(intent)
 

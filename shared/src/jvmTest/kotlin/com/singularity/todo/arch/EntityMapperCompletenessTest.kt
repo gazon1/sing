@@ -71,6 +71,13 @@ class EntityMapperCompletenessTest {
          * Updated manually when the schema changes.
          */
         private val ENTITY_PARAMS = mapOf(
+            // Mapped both ways by the annotation repository, so it belongs here rather
+            // than in UNMAPPED_ENTITIES: an entry in that map asserts the entity has *no*
+            // domain mapper, which is the opposite of what is true here.
+            "AttachmentAnnotationEntity" to setOf(
+                "id", "attachmentId", "userId", "rangeStart", "rangeEnd", "quote", "note",
+                "syncStatus", "createdAt", "updatedAt", "deletedAt", "serverVersion", "hlc",
+            ),
             "TaskEntity" to setOf(
                 "id", "title", "description", "priority", "kind", "projectId",
                 "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",

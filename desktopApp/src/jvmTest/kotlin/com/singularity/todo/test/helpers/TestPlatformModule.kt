@@ -12,6 +12,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
@@ -41,6 +42,7 @@ import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeCalendarAppQueries
+import com.singularity.todo.test.fakes.FakeFileOpener
 import com.singularity.todo.test.fakes.FakeFileRevealer
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -143,6 +145,7 @@ fun testPlatformModule(): Module = module {
     single<SecureStoragePort> { InMemorySecureStorage() }
     single<FileSystem> { InMemoryFileSystem() }
     single<FileRevealer> { FakeFileRevealer() }
+    single<FileOpener> { FakeFileOpener() }
     single<FileSourceFactory> { InertFileSourceFactory() }
     single<SharePort> { InertSharePort() }
     single<BackupCodec> { UnusedBackupCodec() }

@@ -108,7 +108,10 @@ private fun GenuiMessageSurface(
         // a tool: the model is already in context and the user is already in a flow. Swallowing it
         // here would leave every button on every generated screen decorative.
         onAction = { _, name, data -> onSurfaceAction(name, data) },
-        onDataChange = { _, _, _ -> },
+        // A generated screen's own data model is the source of truth here, so there is
+        // nothing to notify. Stated as null rather than `{ _, _, _ -> }`: the parameter
+        // means "tell someone", and there is no someone.
+        onDataChange = null,
         clock = koinInject(),
     )
     GenuiSurface(ctx, Modifier.fillMaxWidth().padding(vertical = 4.dp))

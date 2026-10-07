@@ -46,6 +46,8 @@ object TagsMd {
         "Search",
         "Projects",
         "Settings",
+        "Onboarding",
+        "Sync",
         "Dialog",
         "Editor Overflow menu",
         "Snackbar / transient UI",
@@ -275,6 +277,15 @@ object TagsMd {
         // Inside `SimpleFilterSheet`, a ModalBottomSheet — rendered in a separate
         // semantics root on desktop, so these exist for the Android/Maestro tier.
         "SearchFilter" to "Search filters",
+        // The spotlight tour and its replay row. Their own heading rather than a
+        // fragment of Settings: a tag that outlives the settings screen it can be
+        // triggered from would otherwise be filed under whichever prefix matched first,
+        // which is the Settings one, and would read as belonging to it.
+        "Onboarding" to "Onboarding",
+        // Sync settings rows. A section of its own rather than a prefix match on
+        // "SETTINGS_": the sync screen is its own tab, and filing its rows under
+        // Settings would make the catalog claim they belong to the settings screen.
+        "Sync" to "Sync",
     )
 
     /**

@@ -59,7 +59,8 @@ data class ChecklistCallbacks(
 data class AttachmentsCallbacks(
     val onOpen: () -> Unit,
     val onAddUrl: (String, String?) -> Unit,
-    val onAttachFile: () -> Unit,
+    /** `null` hides the "Add file" button — Create mode has no task to attach to yet. */
+    val onAttachFile: (() -> Unit)? = null,
     val onDelete: (AttachmentId) -> Unit,
 )
 
@@ -86,7 +87,8 @@ data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit, val te
 data class TaskEditorCallbacks(
     val onBack: () -> Unit,
     val onTitleChange: (String) -> Unit,
-    val onCheckToggle: () -> Unit,
+    /** Null hides the completion checkbox — Create mode has no task to complete yet. */
+    val onCheckToggle: (() -> Unit)?,
     val onDescriptionChange: (String) -> Unit,
     /** Priority row — null = hidden */
     val priority: RowCallbacks<TaskPriority>?,

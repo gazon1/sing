@@ -1,7 +1,9 @@
 package com.singularity.todo.core.backup
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
 import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.ProjectDao
@@ -21,6 +23,8 @@ class BackupImporter(
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
     private val agendaViewDao: AgendaViewDao,
+    private val attachmentDao: AttachmentDao,
+    private val annotationDao: AttachmentAnnotationDao,
     private val attachmentStorage: AttachmentStorage,
     private val codec: BackupCodec,
     private val clock: Clock,
@@ -126,6 +130,17 @@ class BackupImporter(
                 ),
             )
         }
+        // Annotations land after the rows they reference, though nothing enforces the order:
+        // the table has no foreign key (see AttachmentAnnotationEntity), and adding one
+        // would block restoring a note whose file is not in the archive.
+        for (annotation in migratedPayload.attachmentAnnotations) {
+            annotationDao.upsert(
+                annotation.toEntity(options.targetUserId.value).copy(
+                    updatedAt = now,
+                    createdAt = annotation.createdAt,
+                ),
+            )
+        }
 
         // 6. Restore attachment files
         var restoredCount = 0
@@ -137,11 +152,30 @@ class BackupImporter(
             if (bytes != null) {
                 try {
                     val ext = att.mimeType?.substringAfterLast('/') ?: ""
-                    // Unwrapped, because the try/catch below is written against a throwing
-                    // contract and `saveBytes` returns a Result. Without the unwrap a failed
-                    // write fell through to `restoredCount++` and the catch was never entered,
-                    // so the restore report counted an attachment that was not on disk.
-                    attachmentStorage.saveBytes(att.taskId, att.id, bytes, ext).getOrThrow()
+                    // Both halves matter, and neither subsumes the other.
+                    //
+                    // The row, not just the bytes: until it was inserted the importer used
+                    // the attachment DTO only to find the entry in the zip, so a restore
+                    // put every file on disk with nothing pointing at it — and every
+                    // annotation restored below at a file the database had no record of.
+                    //
+                    // `getOrThrow()` because the try/catch below is written against a
+                    // throwing contract: `saveBytes` returns a Result, so without the
+                    // unwrap a failed write fell through to `restoredCount++` and the catch
+                    // was never entered. The restore report then counted an attachment that
+                    // was not on disk.
+                    //
+                    // Order matters: the write has to follow the copy, because `localPath`
+                    // comes back from `saveBytes`.
+                    val localPath = attachmentStorage.saveBytes(att.taskId, att.id, bytes, ext)
+                        .getOrThrow()
+                    attachmentDao.upsert(
+                        att.toEntity(options.targetUserId.value).copy(
+                            localPath = localPath,
+                            updatedAt = now,
+                            createdAt = att.createdAt,
+                        ),
+                    )
                     restoredCount++
                 } catch (e: CancellationException) {
                     throw e
@@ -150,6 +184,13 @@ class BackupImporter(
                     missingIds.add(att.id)
                 }
             } else {
+                // The row is still inserted when the bytes are absent: the attachment exists
+                // as a record of what was there, marked by a null `localPath` rather than by
+                // its absence, and dropping it would also orphan the annotations written
+                // against it.
+                attachmentDao.upsert(
+                    att.toEntity(options.targetUserId.value).copy(localPath = null, updatedAt = now),
+                )
                 missingIds.add(att.id)
             }
         }

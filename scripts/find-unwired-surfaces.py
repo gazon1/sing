@@ -9,6 +9,7 @@ visible to a test, because the test exercised the code that *was* wired.
 Shapes detected (via Detector table — add new rows, not new loops):
 
   1. screen         — a public @Composable named *Screen/*Card/*Section/*Sheet
+                       /*Tile/*Row/*Dialog
                        with no call site
   2. default-noop   — a callback parameter defaulting to `{}` where the
                        consumer writes `param ?: fallback`, which the empty
@@ -174,7 +175,63 @@ def kotlin_files() -> list[pathlib.Path]:
 # ── Detector 1 — Composable surfaces (*Screen/*Card/*Section/*Sheet) ──────
 
 
-_COMPOSABLE_SUFFIXES = "Screen", "Card", "Section", "Sheet"
+_COMPOSABLE_SUFFIXES = "Screen", "Card", "Section", "Sheet", "Tile", "Row", "Dialog"
+
+
+def _without_previews(text: str) -> str:
+    """Return [text] with preview functions' bodies blanked out.
+
+    A preview is evidence about a component, not a call site: `ReminderTile` has two,
+    and neither is ever rendered for a user. Counting them as references is what let a
+    never-shipped component look wired.
+
+    Two shapes have to go. `@Preview\n@Composable\nfun Foo()` is the Compose annotation,
+    and `private fun FooLightPreview() = PreviewThemed(...) { ... }` is this project's
+    `PreviewSamples` convention — no annotation, so the name is the only signal. Both
+    are matched on the function name or the annotation, and the body is blanked by
+    brace counting so the rest of the file stays positionally intact.
+
+    Co-location is deliberately *not* treated as preview-ness. `TagCard` is called by
+    `TagList` in the same file, which is called by the screen — a real chain. An earlier
+    version of this check compared against "any other file" and reported it as unwired,
+    which is how a correct implementation gets deleted to satisfy a gate.
+    """
+    out = list(text)
+
+    def blank(start: int, end: int) -> None:
+        for i in range(start, min(end, len(out))):
+            if out[i] != "\n":
+                out[i] = " "
+
+    for m in re.finditer(r"@(?:androidx\.compose\.ui\.tooling\.preview\.)?Preview\b", text):
+        fn = re.compile(r"\bfun\s+(\w+)\s*\(").search(text, m.end())
+        # The annotation is the signal here, so the function's own name is irrelevant —
+        # `@Preview fun P()` is a preview too. Requiring "Preview" in the name here
+        # silently skipped exactly the shape Compose tooling produces.
+        if fn:
+            _blank_braced_body(text, fn.end(), out)
+    for fn in re.compile(r"\bfun\s+(\w*[Pp]review\w*)\s*\(").finditer(text):
+        _blank_braced_body(text, fn.end(), out)
+    return "".join(out)
+
+
+def _blank_braced_body(text: str, from_index: int, out: list[str]) -> None:
+    """Blank a function body starting at or after [from_index]."""
+    start = text.find("{", from_index)
+    if start == -1:
+        return
+    depth = 0
+    for i in range(start, len(text)):
+        ch = text[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                for j in range(start, i + 1):
+                    if out[j] != "\n":
+                        out[j] = " "
+                return
 
 
 def _check_composable(
@@ -185,6 +242,8 @@ def _check_composable(
     # Build one pattern for all suffixes: ^fun FooScreen(| ... / ^fun FooCard( ...
     alt = "|".join(_COMPOSABLE_SUFFIXES)
     pattern = re.compile(r"^fun ([A-Z]\w*(?:" + alt + r"))\s*\(", re.M)
+    shipped = {p: _without_previews(t) for p, t in code.items()}
+    shipped_corpus = "\n".join(shipped.values())
     for path, text in code.items():
         # Skip components/: they are called by their parent screen and the
         # many-to-one pattern (NoteCard used by NotesListScreen, etc.) is normal.
@@ -192,11 +251,29 @@ def _check_composable(
             continue
         for m in pattern.finditer(text):
             name = m.group(1)
+            word = r"\b" + re.escape(name) + r"\b"
             # -1: subtract the declaration itself
-            refs = len(re.findall(r"\b" + re.escape(name) + r"\b", corpus)) - 1
+            refs = len(re.findall(word, corpus)) - 1
             if refs <= 0:
                 kind = "exempt" if name in baseline else "screen"
                 findings.append((kind, f"{rel(path)}: {name}() has no call site"))
+                continue
+            # Being called is not the question; being called by *shipped* code is.
+            #
+            # A component wired only into a @Preview has a call site, so the count above
+            # is satisfied and nothing was reported — while the component has never
+            # rendered for a user. `ReminderTile` was in that state: implemented,
+            # previewed twice, called by nothing but those two previews.
+            outside = len(re.findall(word, shipped_corpus)) - 1
+            if outside <= 0:
+                kind = "exempt" if name in baseline else "preview-only"
+                findings.append(
+                    (
+                        kind,
+                        f"{rel(path)}: {name}() is called only from a @Preview — it "
+                        f"never renders for a user",
+                    )
+                )
     return findings
 
 

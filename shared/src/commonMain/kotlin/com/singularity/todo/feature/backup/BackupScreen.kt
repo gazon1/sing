@@ -350,7 +350,7 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
             TopAppBar(
                 title = { Text("Backup & Restore") },
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = noopClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
@@ -432,9 +432,9 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                     items(state.backups, key = { it.id.value }) { backup ->
                         BackupListItem(
                             backup = backup,
-                            onRestore = {},
-                            onPush = {},
-                            onDelete = {},
+                            onRestore = noopClick,
+                            onPush = noopClick,
+                            onDelete = noopClick,
                         )
                     }
                 }

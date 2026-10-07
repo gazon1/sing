@@ -157,6 +157,18 @@ sealed interface TaskDetailIntent : MviIntent {
         data class AddUrlAttachment(val url: String, val title: String?) :
             Domain,
             TaskChildrenIntent
+
+        /**
+         * Copy a file the user picked into this task's attachment store.
+         *
+         * [sourcePath] is what the platform picker returned: a plain path on desktop, a
+         * `content://` URI on Android. The copy — and the size check that must precede
+         * it — belongs to `AttachmentStorage`, not to this intent.
+         */
+        data class AddFileAttachment(val sourcePath: String, val mimeType: String?) :
+            Domain,
+            TaskChildrenIntent
+
         data class DeleteAttachment(val id: AttachmentId) :
             Domain,
             TaskChildrenIntent

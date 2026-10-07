@@ -79,6 +79,11 @@ private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) 
 
     is AppDestination.TasksGraph,
     is AppDestination.TasksByProject,
+    // The attachment viewer is reached from the task detail screen, so it belongs to
+    // Tasks for navigation purposes: it is not a family of its own, because the viewer
+    // holds no list state and nothing in the shell renders chrome per family. A new
+    // family would add a case to every consumer of this function and buy nothing.
+    is AppDestination.AttachmentViewer,
     -> ScreenFamily.Tasks
 
     AppDestination.Pomodoro -> ScreenFamily.Pomodoro

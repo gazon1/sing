@@ -2,6 +2,8 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import com.singularity.todo.core.config.RemoteConfigCacheDao
 import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.database.AgendaViewDao
@@ -97,6 +99,8 @@ class FakeAppDatabase : AppDatabase() {
     @Suppress("BackingPropertyNaming")
     private val _syncShadow = MutableStateFlow<Map<SyncShadowKey, SyncShadowEntity>>(emptyMap())
     private val _attachments = MutableStateFlow<Map<String, AttachmentEntity>>(emptyMap())
+    private val _annotations =
+        MutableStateFlow<Map<String, AttachmentAnnotationEntity>>(emptyMap())
     private val _reminders =
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>(
             emptyMap(),
@@ -141,6 +145,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun syncStateDao(): SyncStateDao = FakeSyncStateDao(_syncState)
     override fun syncShadowDao(): SyncShadowDao = FakeSyncShadowDao(_syncShadow)
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
+    override fun annotationDao(): AttachmentAnnotationDao = FakeAttachmentAnnotationDao(_annotations)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
     override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
     override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist)
@@ -191,6 +196,7 @@ class FakeAppDatabase : AppDatabase() {
         _tags.value = emptyMap()
         _outbox.value = emptyMap()
         _attachments.value = emptyMap()
+        _annotations.value = emptyMap()
         _reminders.value = emptyMap()
         _projectReminders.value = emptyMap()
         _checklist.value = emptyMap()
@@ -236,6 +242,9 @@ class FakeAppDatabase : AppDatabase() {
     }
     fun seedAttachments(items: List<AttachmentEntity>) {
         _attachments.value = items.associateBy { it.id }
+    }
+    fun seedAnnotations(items: List<AttachmentAnnotationEntity>) {
+        _annotations.value = items.associateBy { it.id }
     }
     fun seedReminders(items: List<com.singularity.todo.core.database.TaskReminderEntity>) {
         _reminders.value = items.associateBy { it.userId to it.id }
@@ -1062,6 +1071,9 @@ private class FakeSyncStateDao(private val store: MutableStateFlow<Map<SyncScope
     override suspend fun setSeedCompleted(ownerId: String, profileId: String, completed: Boolean) =
         mutate(ownerId, profileId) { it.copy(seedCompleted = completed) }
 
+    override suspend fun setAttachmentsSyncEnabled(ownerId: String, profileId: String, enabled: Boolean) =
+        mutate(ownerId, profileId) { it.copy(attachmentsSyncEnabled = enabled) }
+
     override suspend fun clearAll() {
         store.value = emptyMap()
     }
@@ -1245,6 +1257,52 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
         }
+    }
+}
+
+// ─── AttachmentAnnotationDao ──────────────────────────────────────────────────
+
+/**
+ * In-memory stand-in for [AttachmentAnnotationDao].
+ *
+ * Mirrors the real predicates rather than returning the whole store: a fake that dropped
+ * the `user_id` filter would let a repository bug pass here and fail on a device.
+ */
+private class FakeAttachmentAnnotationDao(
+    private val store: MutableStateFlow<Map<String, AttachmentAnnotationEntity>>,
+) : AttachmentAnnotationDao {
+
+    override fun watchByAttachmentForUser(
+        attachmentId: String,
+        userId: String,
+    ): Flow<List<AttachmentAnnotationEntity>> = store.map {
+        it.values
+            .filter { a -> a.attachmentId == attachmentId && a.userId == userId && a.deletedAt == null }
+            .sortedBy { it.createdAt }
+    }
+
+    override suspend fun getByIdForUser(id: String, userId: String): AttachmentAnnotationEntity? =
+        store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
+
+    override suspend fun listAllForUser(userId: String): List<AttachmentAnnotationEntity> =
+        store.value.values.filter { it.userId == userId }
+
+    override suspend fun upsert(entity: AttachmentAnnotationEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override suspend fun updateNoteForUser(id: String, note: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        if (entity == null || entity.userId != userId || entity.deletedAt != null) return 0
+        store.update { it + (id to entity.copy(note = note, updatedAt = ts)) }
+        return 1
+    }
+
+    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        if (entity == null || entity.userId != userId || entity.deletedAt != null) return 0
+        store.update { it + (id to entity.copy(deletedAt = ts, updatedAt = ts)) }
+        return 1
     }
 }
 

@@ -331,6 +331,7 @@ class ScanRepositoryTest(unittest.TestCase):
         # unrelated commits raised it by hand on the same day — abf88fc2 and 4733aec4 —
         # each landing on the same value and each producing a merge conflict in this
         # file. The number was fine; where it lived was the defect.
+
         #
         # What this file used to assert next to the number, and no longer asserts
         # anywhere: "all 342 names end in `Test`". That had already gone false. The

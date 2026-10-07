@@ -235,4 +235,50 @@ class SyncViewModelTest {
         assertTrue(state.snapshot().isEmpty(), "no row may be created for a scope that does not exist")
         vmScope.job?.cancel()
     }
+
+    // ─── Attachment sync preference ────────────────────────────────────────────
+    //
+    // The preference is read, never written, from this screen. Stage 1 stores it per
+    // scope; there is no binary transport to act on it yet, so the control is locked and
+    // no intent writes it. These two tests pin both halves of that arrangement — they
+    // fail if someone adds an intent that appears to enable a sync that cannot happen.
+
+    @Test
+    fun `the attachment preference is read from the current scope, not from a local field`() = runTest {
+        val state = FakeSyncStateRepository()
+        val provider = FakeSyncScopeProvider(scopeA)
+        val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
+
+        state.setAttachmentsSyncEnabled(scopeA, true)
+        state.setAttachmentsSyncEnabled(scopeB, false)
+        runCurrent()
+
+        assertTrue(
+            vm.state.value.attachmentsSyncEnabled,
+            "the screen must show the preference belonging to the scope it is editing",
+        )
+
+        // Switching profile must swap the displayed value, which is what "per scope"
+        // means from the user's side. A local field could not do this.
+        provider.set(scopeB)
+        runCurrent()
+
+        assertFalse(
+            vm.state.value.attachmentsSyncEnabled,
+            "the previous profile's preference must not follow the user to the next tab",
+        )
+        vmScope.job?.cancel()
+    }
+
+    @Test
+    fun `the attachment preference defaults to off for a scope that never set one`() = runTest {
+        val state = FakeSyncStateRepository()
+        val (vm, vmScope) = createVm(stateRepository = state, scope = this)
+
+        assertFalse(
+            vm.state.value.attachmentsSyncEnabled,
+            "an untouched scope must not appear to have asked for attachment sync",
+        )
+        vmScope.job?.cancel()
+    }
 }

@@ -20,6 +20,19 @@ interface SyncStateRepository {
     suspend fun recordSuccessfulSync(scope: SyncScope, at: Long)
     suspend fun setAutoSyncEnabled(scope: SyncScope, enabled: Boolean)
     suspend fun setScheduledInterval(scope: SyncScope, interval: Duration)
+
+    /**
+     * Records whether this scope uploads attachment payloads.
+     *
+     * Scoped like every other setting here, and deliberately so: a single global
+     * key is exactly the defect this repository was created to remove.
+     *
+     * The value is stored but not yet acted upon — see
+     * [com.singularity.todo.core.sync.ATTACHMENTS_SYNC_TRANSPORT_AVAILABLE] for why,
+     * and why adding a runner-side observer today would be a new inert surface
+     * rather than a fix.
+     */
+    suspend fun setAttachmentsSyncEnabled(scope: SyncScope, enabled: Boolean)
     suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>)
     suspend fun isSeedCompleted(scope: SyncScope): Boolean
     suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean)
@@ -35,6 +48,11 @@ data class SyncState(
     val scheduledInterval: Duration = SyncStateEntity.DEFAULT_INTERVAL_MINUTES.minutes,
     val enabledTriggers: Set<SyncTrigger> = SyncTrigger.entries.toSet(),
     val seedCompleted: Boolean = false,
+    /**
+     * Stored preference only. See [SyncStateRepository.setAttachmentsSyncEnabled]:
+     * it is not yet acted on, because there is no binary transport to act with.
+     */
+    val attachmentsSyncEnabled: Boolean = false,
 ) {
     companion object {
         fun from(entity: SyncStateEntity): SyncState = SyncState(
@@ -45,6 +63,7 @@ data class SyncState(
             scheduledInterval = entity.scheduledIntervalMinutes.minutes,
             enabledTriggers = entity.triggers,
             seedCompleted = entity.seedCompleted,
+            attachmentsSyncEnabled = entity.attachmentsSyncEnabled,
         )
     }
 }
@@ -103,6 +122,11 @@ internal class RoomSyncStateRepository(
     override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) {
         ensureRow(scope)
         dao.setEnabledTriggers(scope.ownerId, scope.profileId, SyncTrigger.toCsv(triggers))
+    }
+
+    override suspend fun setAttachmentsSyncEnabled(scope: SyncScope, enabled: Boolean) {
+        ensureRow(scope)
+        dao.setAttachmentsSyncEnabled(scope.ownerId, scope.profileId, enabled)
     }
 
     override suspend fun isSeedCompleted(scope: SyncScope): Boolean = get(scope).seedCompleted

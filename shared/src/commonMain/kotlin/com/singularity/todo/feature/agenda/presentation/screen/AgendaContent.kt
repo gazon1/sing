@@ -33,6 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
+import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
+import com.singularity.todo.core.ui.onboarding.spotlightAnchor
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -82,6 +85,7 @@ fun AgendaContent(
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onSaveCurrentClick: (() -> Unit)? = null,
+    spotlightRegistry: SpotlightAnchorRegistry? = null,
     contextMenuHost: @Composable (
         taskUi: TaskUi,
         offset: DpOffset,
@@ -120,7 +124,9 @@ fun AgendaContent(
                     if (onSavedViewsClick != null) {
                         IconButton(
                             onClick = onSavedViewsClick,
-                            modifier = Modifier.testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON),
+                            modifier = Modifier
+                                .testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+                                .spotlightAnchorIfRegistered(SpotlightAnchorId.SavedViews, spotlightRegistry),
                         ) {
                             Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
                         }
@@ -128,7 +134,9 @@ fun AgendaContent(
                     if (onSaveCurrentClick != null) {
                         IconButton(
                             onClick = onSaveCurrentClick,
-                            modifier = Modifier.testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON),
+                            modifier = Modifier
+                                .testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
+                                .spotlightAnchorIfRegistered(SpotlightAnchorId.SaveCurrent, spotlightRegistry),
                         ) {
                             Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
                         }
@@ -466,3 +474,15 @@ private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurf
         onSaveCurrentClick = {},
     )
 }
+
+/**
+ * Registers [id] as a spotlight target only when a registry is in play.
+ *
+ * The onboarding tour is not something every caller of this screen knows about, so the
+ * default is `null` and the modifier collapses to itself. Registering unconditionally
+ * would mean every preview and every test built a registry nobody reads.
+ */
+private fun Modifier.spotlightAnchorIfRegistered(
+    id: SpotlightAnchorId,
+    registry: SpotlightAnchorRegistry?,
+): Modifier = if (registry == null) this else spotlightAnchor(id, registry)

@@ -39,8 +39,10 @@ import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
+import com.singularity.todo.core.files.OpenOutcome
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.MapFileSystem
@@ -52,6 +54,7 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
+import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -106,6 +109,11 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotation
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepository
+import com.singularity.todo.core.attachments.annotation.TextRange
 
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
@@ -187,6 +195,25 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
 
         override suspend fun setAfternoonEndHour(hour: Int) {
             _afternoon.value = hour
+        }
+    }
+
+    /**
+     * In-memory onboarding record.
+     *
+     * Kept as a plain flow rather than a fake of the DataStore-backed class, because the
+     * behaviour worth testing is the state machine's, not DataStore's — and the real
+     * class cannot be built without a store.
+     */
+    override val onboarding: OnboardingSettingsRepository = object : OnboardingSettingsRepository {
+        private val seen = MutableStateFlow(0)
+        override val seenSpotlightVersion: Flow<Int> = seen
+        override suspend fun markSpotlightSeen(version: Int) {
+            if (version > seen.value) seen.value = version
+        }
+
+        override suspend fun resetSpotlight() {
+            seen.value = 0
         }
     }
 
@@ -975,6 +1002,101 @@ open class FakeProjectRemindersRepository(
                 ?: return@runCatchingCancellable
             reminders.value += (reminderId.value to existing.copy(lastFiredAt = lastFiredAt))
         }
+    }
+}
+
+/**
+ * In-memory [AttachmentAnnotationRepository] for ViewModel tests.
+ *
+ * Holds rows in a `MutableStateFlow` rather than a map, so a test that watches the list
+ * sees an emission per write — which is what makes the "a stale note survives a text
+ * change" assertions meaningful instead of trivially true.
+ *
+ * @param currentUser resolves the owning profile the way the real repository does. The
+ *   fake does not filter by it: ownership is the repository's contract and these tests are
+ *   about the ViewModel, not about profile isolation. [FakeAppDatabase] and
+ *   `AttachmentAnnotationRepositoryImpl` cover that.
+ * @param idGenerator override for a test that needs a predictable id.
+ */
+class FakeAttachmentAnnotationRepository(
+    private val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
+    private val idGenerator: () -> AttachmentAnnotationId = { AttachmentAnnotationId.generate() },
+    /**
+     * Injected, defaulting to [FakeClock].
+     *
+     * The default this carried was `Clock.System`, which is what
+     * `NoDirectClockSystemRuleTest` exists to stop and what the note above this one
+     * claimed to be avoiding. Dropping the default entirely would also satisfy the rule,
+     * but it would be the wrong fix: the convention at the top of this file is that a
+     * fake stamps timestamps with a *fixed* instant and stays overridable, so a test that
+     * cares about a timestamp can still say which one. `Clock.System` was wrong for the
+     * reason the convention states — a wall-clock default is a way to forget what "now"
+     * means — and removing the parameter would not have addressed that.
+     */
+    private val clock: Clock = FakeClock(),
+) : AttachmentAnnotationRepository {
+
+    private val rows = MutableStateFlow<List<AttachmentAnnotation>>(emptyList())
+
+    /**
+     * When set, the next write fails with this instead of applying.
+     *
+     * A field rather than a `Result` to return, because the failure has to come from the
+     * same place a real one would — inside the write — and a pre-baked `Result.failure`
+     * would let a test pass while the repository's own error handling went unexercised.
+     */
+    var failNextWrite: Throwable? = null
+
+    /** Calls recorded in order, so a test can assert what reached the repository. */
+    val calls = mutableListOf<String>()
+
+    override fun watchForAttachment(attachmentId: AttachmentId): Flow<List<AttachmentAnnotation>> =
+        rows.map { all -> all.filter { it.range.attachmentId == attachmentId && !it.isDeleted } }
+
+    override suspend fun create(range: TextRange, note: String): Result<AttachmentAnnotation> {
+        calls += "create"
+        failNextWrite?.let { pending ->
+            failNextWrite = null
+            return Result.failure(pending)
+        }
+        val now = clock.now()
+        val annotation = AttachmentAnnotation(
+            id = idGenerator(),
+            range = range,
+            note = note,
+            userId = currentUser.scopedUserId.value,
+            createdAt = now,
+            updatedAt = now,
+        )
+        rows.value = rows.value + annotation
+        return Result.success(annotation)
+    }
+
+    override suspend fun update(id: AttachmentAnnotationId, note: String): Result<Unit> {
+        calls += "update"
+        failNextWrite?.let { pending ->
+            failNextWrite = null
+            return Result.failure(pending)
+        }
+        if (rows.value.none { it.id == id }) return Result.failure(NoSuchElementException("$id"))
+        rows.value = rows.value.map { if (it.id == id) it.copy(note = note, updatedAt = clock.now()) else it }
+        return Result.success(Unit)
+    }
+
+    override suspend fun delete(id: AttachmentAnnotationId): Result<Unit> {
+        calls += "delete"
+        failNextWrite?.let { pending ->
+            failNextWrite = null
+            return Result.failure(pending)
+        }
+        if (rows.value.none { it.id == id }) return Result.failure(NoSuchElementException("$id"))
+        rows.value = rows.value.map { if (it.id == id) it.copy(deletedAt = clock.now()) else it }
+        return Result.success(Unit)
+    }
+
+    /** Seeds a row without going through [create], for a test that needs a given id. */
+    fun seed(annotation: AttachmentAnnotation) {
+        rows.value = rows.value.filterNot { it.id == annotation.id } + annotation
     }
 }
 
@@ -2293,6 +2415,35 @@ class FakeFileRevealer : FileRevealer {
  */
 class FakeFileSharePort : FileSharePort {
     override fun shareFile(filePath: String, mimeType: String): Boolean = true
+}
+
+/**
+ * [FileOpener] double that records what it was asked to open and reports
+ * [OpenOutcome.Opened].
+ *
+ * `Opened` rather than `NoHandler` for the same reason as [FakeFileRevealer]: a fake
+ * that reports "no handler" puts every test that opens an attachment onto the failure
+ * screen, which is the branch being tested nowhere and hides the branch that is.
+ *
+ * [lastOpened] lets a test assert the port was reached at all — the "this code is wired"
+ * assertion, which is the one this repository keeps needing.
+ */
+class FakeFileOpener : FileOpener {
+    /** The last file this opener was asked to open, or `null` if never called. */
+    var lastOpened: Pair<String, String>? = null
+        private set
+
+    /** Every open attempt, in order. */
+    val opens: MutableList<Pair<String, String>> = mutableListOf()
+
+    /** When set, [open] reports this instead of [OpenOutcome.Opened]. */
+    var outcome: OpenOutcome = OpenOutcome.Opened
+
+    override suspend fun open(filePath: String, mimeType: String): OpenOutcome {
+        lastOpened = filePath to mimeType
+        opens += filePath to mimeType
+        return outcome
+    }
 }
 
 /**

@@ -104,9 +104,8 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         onAction = { _, action, _ ->
             if (action == "dismiss" || action == "close") handleDismiss()
         },
-        onDataChange = { _, _, _ ->
-            // WhatsNew surfaces are read-only.
-        },
+        // WhatsNew surfaces are read-only, so there is no one to notify.
+        onDataChange = null,
         clock = koinInject(),
     )
 

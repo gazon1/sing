@@ -36,3 +36,4 @@ shared/src/commonMain/kotlin/com/singularity/todo/core/analytics/NoopAnalytics.k
 shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/sync/SyncSource.kt	ADAPTED	Tasks.org	GPL-3.0	SyncSource enum narrowed to one-way
 shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/error/CalendarSyncExceptions.kt	ADAPTED	Tasks.org	GPL-3.0	layered SyncException hierarchy
 shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt	ADAPTED	Orgzly	GPL-3.0	persisted/ephemeral settings split
+shared/src/commonMain/kotlin/com/singularity/todo/core/attachments/AttachmentViewerRoute.kt	SPEC-COMPATIBLE	Gander	MIT	pure classifier splitting in-app rendering from platform hand-off

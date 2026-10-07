@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.attachments
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,11 +25,33 @@ import com.singularity.todo.core.ui.formatFileSize
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
+/**
+ * One row in an attachment list.
+ *
+ * @param onOpen invoked when the row itself is tapped. `null` renders a plain, inert
+ *   row with no ripple and no click semantics — a URL attachment is a link with no file
+ *   behind it, so it has nothing to open, and a tappable-looking row that goes nowhere
+ *   is the defect this whole change is about.
+ * @param onDelete always invoked; the delete affordance is not optional because every
+ *   attachment in this list can be removed.
+ */
 @Composable
-fun AttachmentTile(attachment: Attachment, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+fun AttachmentTile(
+    attachment: Attachment,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    onOpen: (() -> Unit)? = null,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (onOpen != null) {
+                    Modifier.clickable(onClick = onOpen)
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

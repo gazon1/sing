@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.nav
 
 import androidx.navigation3.runtime.NavBackStack
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.notes.NoteId
@@ -57,6 +58,18 @@ open class TasksNavigator(
      */
     open fun openCreateNote(taskId: TaskId) {
         onExitGraph(AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(taskId)))
+    }
+
+    /**
+     * Exit the nested graph and open an attachment in the viewer.
+     *
+     * The viewer lives on the app-level stack, not this graph's, so it is reached the
+     * same way a project or a note is: by naming an outer destination. What the viewer
+     * shows is decided from the attachment's own type once it is there — see
+     * [com.singularity.todo.core.attachments.AttachmentViewerRoute].
+     */
+    open fun openAttachment(attachmentId: AttachmentId) {
+        onExitGraph(AppDestination.AttachmentViewer(attachmentId))
     }
 
     /**

@@ -219,6 +219,9 @@ class FakeSyncStateRepository : SyncStateRepository {
     override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) =
         update(scope) { it.copy(enabledTriggers = triggers) }
 
+    override suspend fun setAttachmentsSyncEnabled(scope: SyncScope, enabled: Boolean) =
+        update(scope) { it.copy(attachmentsSyncEnabled = enabled) }
+
     override suspend fun isSeedCompleted(scope: SyncScope): Boolean = get(scope).seedCompleted
 
     override suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean) =

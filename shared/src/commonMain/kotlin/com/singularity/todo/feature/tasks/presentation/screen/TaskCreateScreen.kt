@@ -141,7 +141,8 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
         callbacks = TaskEditorCallbacks(
             onBack = guardedBack,
             onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
-            onCheckToggle = {},
+            // Create mode: no task exists yet, so there is nothing to complete.
+            onCheckToggle = null,
             onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
             priority = RowCallbacks(
                 onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
@@ -190,7 +191,10 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             attachments = AttachmentsCallbacks(
                 onOpen = { sheets.show(TaskEditorSheet.Attachments) },
                 onAddUrl = { url, title -> vm.onIntent(TaskCreateIntent.AddAttachmentUrl(url, title)) },
-                onAttachFile = { /* file attachment not yet supported in create mode */ },
+                // null, not an empty lambda: the task has no id until it is saved, so
+                // there is nothing to attach the file to. The sheet hides its
+                // "Add file" button rather than offering one that cannot work.
+                onAttachFile = null,
                 onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveAttachmentUrl(id.value)) },
             ),
             dependencies = null,

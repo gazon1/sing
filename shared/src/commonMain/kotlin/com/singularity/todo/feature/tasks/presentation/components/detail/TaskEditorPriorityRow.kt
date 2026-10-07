@@ -45,8 +45,16 @@ fun TaskEditorPriorityRow(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-            .clickable(
-                onClick = onPriorityClick ?: {},
+            // No clickable() at all when the callback is null. `.clickable(onClick = {})
+            // would render the same ripple and the same pointer cursor over a row that
+            // does nothing — an affordance that promises an interaction and delivers
+            // none. The pattern is TaskChip's, not a new one.
+            .then(
+                if (onPriorityClick != null) {
+                    Modifier.clickable { onPriorityClick() }
+                } else {
+                    Modifier
+                },
             )
             .padding(
                 horizontal = TaskSpacing.cardPaddingHorizontal,

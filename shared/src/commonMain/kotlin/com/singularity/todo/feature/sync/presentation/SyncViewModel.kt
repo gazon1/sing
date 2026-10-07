@@ -46,6 +46,18 @@ data class SyncState(
     val errorMessage: String? = null,
     val isTestingConnection: Boolean = false,
     val connectionTestResult: ConnectionTestResult? = null,
+    /**
+     * Per-scope attachment sync preference, read from [SyncStateRepository].
+     *
+     * Deliberately read-only here. The row that shows it is locked while
+     * [ATTACHMENTS_SYNC_TRANSPORT_AVAILABLE] is `false`, so an intent that wrote
+     * this field would have no way to be dispatched — the same "fully
+     * implemented, reachable from nothing" shape this change set is removing.
+     * The write path is [SyncStateRepository.setAttachmentsSyncEnabled], which
+     * is scoped and tested; the intent arrives with stage 2, when it can be
+     * dispatched by something real.
+     */
+    val attachmentsSyncEnabled: Boolean = false,
 )
 
 /**
@@ -164,6 +176,7 @@ class SyncViewModel(
                                 autoSyncEnabled = settings.autoSyncEnabled,
                                 intervalMinutes = settings.scheduledInterval.inWholeMinutes.toInt(),
                                 lastSyncedAt = settings.lastSuccessfulSyncAt,
+                                attachmentsSyncEnabled = settings.attachmentsSyncEnabled,
                             )
                         }
                     }

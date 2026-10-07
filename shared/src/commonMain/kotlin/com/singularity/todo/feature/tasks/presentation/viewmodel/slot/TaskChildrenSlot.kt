@@ -63,6 +63,7 @@ class TaskChildrenSlot(
             is TaskDetailIntent.Domain.ToggleSubtask -> toggleSubtask(intent.task)
             is TaskDetailIntent.Domain.DeleteSubtask -> deleteSubtask(intent.task)
             is TaskDetailIntent.Domain.AddUrlAttachment -> addAttachment(intent)
+            is TaskDetailIntent.Domain.AddFileAttachment -> addFileAttachment(intent)
             is TaskDetailIntent.Domain.DeleteAttachment -> deleteAttachment(intent)
         }
     }
@@ -113,6 +114,12 @@ class TaskChildrenSlot(
         children.attachmentsRepo.addUrlAttachment(taskId, intent.url, intent.title)
             .onSuccess { onSaved("Attachment added") }
             .onFailure { onError("Failed to add attachment") }
+    }
+
+    private fun addFileAttachment(intent: TaskDetailIntent.Domain.AddFileAttachment) = scope.launch {
+        children.attachmentsRepo.saveFileAttachment(taskId, intent.sourcePath, intent.mimeType)
+            .onSuccess { onSaved("File attached") }
+            .onFailure { onError("Failed to attach file: ${it.message}") }
     }
 
     private fun deleteAttachment(intent: TaskDetailIntent.Domain.DeleteAttachment) = scope.launch {

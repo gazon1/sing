@@ -69,6 +69,20 @@ data class SyncStateEntity(
      * an interrupted seed resumes rather than being declared done.
      */
     @ColumnInfo("seed_completed", defaultValue = "0") val seedCompleted: Boolean = false,
+    /**
+     * Whether this scope uploads attachment payloads alongside its documents.
+     *
+     * Per scope, for the same reason as [autoSyncEnabled]: the data the flag
+     * describes belongs to one account/profile pair, so a global flag would let
+     * one profile's choice describe another's attachments.
+     *
+     * Defaults to `false` rather than to "on": there is no binary transport yet
+     * (see ADR `2026-10-07-attachment-sync-is-staged-behind-a-server-blocker`),
+     * so the only value that can be honoured today is "off". Storing `true` would
+     * record a promise the client cannot keep.
+     */
+    @ColumnInfo("attachments_sync_enabled", defaultValue = "0")
+    val attachmentsSyncEnabled: Boolean = false,
 ) {
     val triggers: Set<SyncTrigger>
         get() = SyncTrigger.parseCsv(enabledTriggers)
@@ -85,6 +99,11 @@ data class SyncStateEntity(
  * null: sync has to work on a device that has never synced this scope, and a missing
  * row is the normal first-run state, not an error to propagate.
  */
+// One function per settable column is what a DAO is; splitting it to satisfy a count
+// would scatter one table's write surface across several interfaces and make the
+// cross-field invariants harder to read, not easier. The twelfth member is
+// `attachmentsSyncEnabled`, which is scoped like every other setting on this table.
+@Suppress("TooManyFunctions")
 @Dao
 interface SyncStateDao {
     @Query("SELECT * FROM sync_state WHERE owner_id = :ownerId AND profile_id = :profileId")
@@ -134,6 +153,12 @@ interface SyncStateDao {
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
     suspend fun setSeedCompleted(ownerId: String, profileId: String, completed: Boolean)
+
+    @Query(
+        "UPDATE sync_state SET attachments_sync_enabled = :enabled " +
+            "WHERE owner_id = :ownerId AND profile_id = :profileId",
+    )
+    suspend fun setAttachmentsSyncEnabled(ownerId: String, profileId: String, enabled: Boolean)
 
     @Query("DELETE FROM sync_state")
     suspend fun clearAll()

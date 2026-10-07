@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +22,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,13 +39,22 @@ import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 
+/**
+ * The attachments sheet: add a link, add a file, remove an attachment.
+ *
+ * @param onAttachFile opens the platform file picker. `null` hides the "Add file"
+ *   button — there is no file to attach before the task exists, and a button that
+ *   opens nothing is worse than no button. It was previously a non-null `() -> Unit`
+ *   that Create mode passed as `{}`, and which this sheet's own body never called, so
+ *   the branch was dead in two places at once.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentsSheet(
     taskId: TaskId?,
     attachments: List<Attachment>,
     onAddUrl: (String, String?) -> Unit,
-    onAttachFile: () -> Unit,
+    onAttachFile: (() -> Unit)? = null,
     onDelete: (AttachmentId) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -82,8 +93,16 @@ fun AttachmentsSheet(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (onAttachFile != null) {
+                    OutlinedButton(onClick = onAttachFile) {
+                        Icon(Icons.Default.UploadFile, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add file")
+                    }
+                }
                 FilledTonalButton(
                     onClick = {
                         if (urlText.isNotBlank()) {

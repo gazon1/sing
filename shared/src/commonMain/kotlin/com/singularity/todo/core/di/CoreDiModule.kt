@@ -2,10 +2,13 @@ package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.AppearanceContributor
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.attachments.AttachmentRepositoryImpl
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.attachments.StubAttachmentUploadService
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepository
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepositoryImpl
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
@@ -73,6 +76,7 @@ import com.singularity.todo.core.sync.SyncRunner
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
+import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationViewModel
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.AlarmHandler
@@ -194,6 +198,27 @@ fun coreModule(): org.koin.core.module.Module = module {
     }
 
     factoryOf(::AttachmentStorage)
+
+    // Notes written against spans of a text attachment. Bound here rather than in a
+    // feature module because the entity and its repository live in core/attachments — the
+    // same place AttachmentRepository is bound.
+    single<AttachmentAnnotationRepository> {
+        AttachmentAnnotationRepositoryImpl(get(), get(), get())
+    }
+
+    // The attachment id is a runtime parameter: one panel per open attachment, so two
+    // attachments in two nav entries must not share a ViewModel.
+    viewModel { (attachmentId: AttachmentId) ->
+        AttachmentAnnotationViewModel(
+            // Typed rather than inferred: Koin resolves either, but an inferred `get()`
+            // is invisible to `find-unwired-surfaces.py`, which is how a bound repository
+            // looks unwired. See `AttachmentRepository` in the same module for the
+            // constructor-injected form of the same problem.
+            repository = get<AttachmentAnnotationRepository>(),
+            attachmentId = attachmentId,
+            crashReporter = get(),
+        )
+    }
 
     single<ReminderRepository> { ReminderRepositoryImpl(get(), get(), get()) }
     // Both platforms fire reminders through this one object. It lives in common code
@@ -417,6 +442,8 @@ fun coreModule(): org.koin.core.module.Module = module {
             get(), // projectDao
             get(), // tagDao
             get(), // agendaViewDao
+            get(), // attachmentDao
+            get(), // annotationDao
             get(), // attachmentStorage
             get(), // codec
             get(), // clock

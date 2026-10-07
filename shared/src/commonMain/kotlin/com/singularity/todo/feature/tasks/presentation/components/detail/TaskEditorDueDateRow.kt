@@ -48,8 +48,13 @@ fun TaskEditorDueDateRow(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.TASK_EDITOR_DUE_ROW)
-            .clickable(
-                onClick = onDueDateClick ?: {},
+            // No clickable() at all when the callback is null — see TaskEditorPriorityRow.
+            .then(
+                if (onDueDateClick != null) {
+                    Modifier.clickable { onDueDateClick() }
+                } else {
+                    Modifier
+                },
             )
             .padding(
                 horizontal = TaskSpacing.cardPaddingHorizontal,

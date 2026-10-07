@@ -117,6 +117,112 @@ class NoEmptyOnClickLambdaRuleTest {
         assertEquals(1, findingsIn(code).size, "an empty onClick is empty wherever it is passed")
     }
 
+    // ── The gate itself: a shape, not a list of names ────────────────────────────
+    //
+    // This is the positive control the old ten-name list did not have. With
+    // PARAM_NAMES, every one of these five assertions passed *vacuously* — the rule
+    // returned zero findings because it did not recognise the name, and a test that
+    // asserts "zero findings on a wired handler" looks identical whether the rule was
+    // right or blind. The five names below are the real unwired surfaces found by
+    // reading the code, which is why each one is pinned here by name.
+
+    @Test
+    fun `the gate accepts a handler name the old list did not carry`() {
+        // These are the five that shipped past PARAM_NAMES. If a future edit ever
+        // reintroduces a name list, this is the test that fails.
+        val missed = listOf(
+            "onAttachFile",
+            "onAiAction",
+            "onWriteNote",
+            "onAddChecklist",
+            "onUnarchive",
+        )
+        for (name in missed) {
+            assertTrue(
+                NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),
+                "$name was invisible to the rule and hid a real inert control",
+            )
+        }
+    }
+
+    @Test
+    fun `every name the old list carried is still accepted`() {
+        // The shape must be a superset of the list, or the change loses coverage.
+        val oldList = listOf(
+            "onClick", "onConfirm", "onDelete", "onDismiss", "onRetry",
+            "onSave", "onBack", "onToggle", "onEdit", "onCheckedChange",
+        )
+        for (name in oldList) {
+            assertTrue(
+                NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),
+                "$name regressed: the shape must cover everything the list did",
+            )
+        }
+    }
+
+    @Test
+    fun `a name that merely starts with on is not a handler`() {
+        // The negative control for the shape. `on` + lowercase is a word, not a
+        // callback: without the uppercase check, `once`/`only` would be flagged.
+        for (name in listOf("on", "once", "only", "onto", "onward", "ontology")) {
+            assertTrue(
+                !NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),
+                "$name is not an event handler",
+            )
+        }
+    }
+
+    @Test
+    fun `a non-handler parameter is not accepted by the gate`() {
+        for (name in listOf("contentDescription", "label", "value", "items", "enabled")) {
+            assertTrue(!NoEmptyOnClickLambdaPolicy.isHandlerParameter(name), "$name is not a handler")
+        }
+    }
+
+    @Test
+    fun `an unwired handler outside the old list is flagged end to end`() {
+        // The positive control through the rule, not only through the policy: the
+        // shape is what `visitCallExpression` asks. `onAttachFile` is the real one —
+        // it is the no-op lambda `TaskCreateScreen.kt` passed to `AttachmentsSheet`,
+        // and the reason attaching a file from the UI was impossible.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            @Composable
+            fun TaskCreateScreen() {
+                AttachmentsSheet(
+                    attachments = attachments,
+                    onAttachFile = { },
+                    onRemoveAttachment = { viewModel.remove(id) },
+                )
+            }
+        """
+        val findings = findingsIn(code)
+        assertTrue(
+            findings.any { it.message.contains("onAttachFile") },
+            "expected onAttachFile to be flagged, got $findings",
+        )
+        assertTrue(
+            findings.none { it.message.contains("onRemoveAttachment") },
+            "a wired neighbour must not be reported: $findings",
+        )
+    }
+
+    @Test
+    fun `the elvis shape is caught for a name outside the old list too`() {
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            fun helper() {
+                onAttachFile ?: { }
+            }
+        """
+        assertTrue(
+            findingsIn(code).any { it.message.contains("onAttachFile") },
+            "the elvis branch must not keep the old name gate",
+        )
+    }
+
     // ── Preview exemptions ────────────────────────────────────────────────────────
 
     @Test
@@ -252,6 +358,159 @@ class NoEmptyOnClickLambdaRuleTest {
             emptyList(),
             findingsIn(code).map { it.entity.signature },
             "previewOverrides should not be flagged: it exists only to feed previews",
+        )
+    }
+
+    @Test
+    fun `a shared noopClick handler is not flagged`() {
+        // The negative control for the *whole* preview migration. Widening the gate
+        // from ten names to a shape means every preview that passes `noopClick` — or
+        // that will, once `NoEmptyOnClickLambda` is fixed in production code — has to
+        // stay quiet. A named reference is not a lambda literal, so the rule must not
+        // see it at all.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            @Composable
+            fun TaskRow() {
+                IconButton(onClick = noopClick) { }
+            }
+        """
+        assertEquals(0, findingsIn(code).size, "noopClick is the sanctioned no-op reference")
+    }
+
+    @Test
+    fun `a preview over a handler outside the old list is still exempt`() {
+        // Widening the gate does not widen the *preview* exemption: a `@Preview`
+        // function may use any handler shape it likes.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            @Preview
+            @Composable
+            fun AttachmentsSheetPreview() {
+                AttachmentsSheet(onAttachFile = { }, onRemoveAttachment = { })
+            }
+        """
+        assertEquals(0, findingsIn(code).size, "@Preview exempts every handler shape")
+    }
+
+    @Test
+    fun `an empty onValueChange on a read-only field is not flagged`() {
+        // Material3 requires onValueChange even when the field cannot change. The
+        // handler is unreachable by construction, so this is the correct body and
+        // reporting it would train a reader to ignore the rule.
+        val code = """
+            package com.singularity.todo.feature.settings
+
+            @Composable
+            fun WorkdayRow(value: LocalTime, onClick: () -> Unit) {
+                OutlinedTextField(
+                    value = formatter(value),
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier.clickable { onClick() },
+                )
+            }
+        """
+        assertEquals(0, findingsIn(code).size, "a read-only field cannot change its value")
+    }
+
+    @Test
+    fun `an empty onValueChange on an editable field is still flagged`() {
+        // The negative control: without `readOnly = true` the very same call is a real
+        // defect — the user types and nothing happens.
+        val code = """
+            package com.singularity.todo.feature.settings
+
+            @Composable
+            fun WorkdayRow(value: LocalTime) {
+                OutlinedTextField(
+                    value = formatter(value),
+                    onValueChange = {},
+                )
+            }
+        """
+        assertTrue(
+            findingsIn(code).any { it.message.contains("onValueChange") },
+            "an editable field with an empty onValueChange swallows the user's typing",
+        )
+    }
+
+    @Test
+    fun `a fold label is not an event handler`() {
+        // The exception that keeps `fold { onSuccess = {}, onFailure = { … } }` out of
+        // the report. These names are chosen by `kotlin.Result.fold`, not by the caller,
+        // so "empty onSuccess" is a correct way to say "nothing to do on success".
+        for (name in listOf("onSuccess", "onFailure")) {
+            assertTrue(
+                !NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),
+                "$name is a Result.fold label, not a callback",
+            )
+        }
+        val code = """
+            package com.singularity.todo.feature.search
+
+            fun rename() {
+                repository.upsert(updated).fold(
+                    onSuccess = {},
+                    onFailure = { emitError(it) },
+                )
+            }
+        """
+        assertEquals(0, findingsIn(code).size, "an empty fold success branch is correct")
+    }
+
+    @Test
+    fun `the fold exception has not grown into an allow-list`() {
+        // A near-miss is still a handler. This is what stops the two-name exception
+        // above from becoming the new stale list it replaced.
+        for (name in listOf("onSucces", "onResult", "onFailureHandler", "onSuccessful")) {
+            assertTrue(
+                NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),
+                "$name is close to a fold label but is a real handler name",
+            )
+        }
+    }
+
+    @Test
+    fun `a preview function named for its role is exempt without the annotation`() {
+        // The loop that walks out to the enclosing declaration used to break at the
+        // function boundary *before* testing the name, so `SettingsScreenPreview` —
+        // which carries no @Preview — was reported. Three findings on a preview, all
+        // of them false, which is how a rule teaches people to ignore it.
+        val code = """
+            package com.singularity.todo.feature.settings
+
+            @Composable
+            fun SettingsScreenPreview(selectedTab: SettingsTab) {
+                SettingsContent(
+                    onSelectTab = {},
+                    onOpenAttachmentsFolder = {},
+                )
+            }
+        """
+        assertEquals(0, findingsIn(code).size, "a preview-named function is exempt")
+    }
+
+    @Test
+    fun `a production function is not exempt merely for being named previewly`() {
+        // The negative control for the fix above: the name check must not become a
+        // hole. A *production* function whose name contains "preview" is still checked.
+        val code = """
+            package com.singularity.todo.feature.settings
+
+            fun previewCountOfBrokenThings(): Int {
+                onSelectTab = {}
+                return 0
+            }
+        """
+        // The call is an assignment, not a named argument, so nothing is reported here;
+        // what this pins is that isPreviewNamed is the only thing doing the exempting
+        // and it is reached before the break, not after it.
+        assertTrue(
+            !NoEmptyOnClickLambdaPolicy.isPreviewNamed("SettingsContent"),
+            "an ordinary name is not exempt",
         )
     }
 

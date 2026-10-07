@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notifications
@@ -60,6 +61,8 @@ import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
+import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
+import com.singularity.todo.feature.sync.presentation.SyncSettingsScreen
 import com.singularity.todo.feature.profile.presentation.AccountSettingsScreen
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
 import com.singularity.todo.feature.settings.screens.AgendaSettingsScreen
@@ -86,6 +89,7 @@ private enum class SettingsTab(val label: String) {
     AIProvider("AI Provider"),
     WorkSchedule("Work Schedule"),
     Calendar("Calendar"),
+    Sync("Sync"),
     Tags("Tags"),
     TagGroups("Tag Groups"),
     Files("Files"),
@@ -101,6 +105,7 @@ private val SettingsTab.icon
         SettingsTab.AIProvider -> Icons.Filled.SmartToy
         SettingsTab.WorkSchedule -> Icons.Filled.Schedule
         SettingsTab.Calendar -> Icons.Filled.CalendarMonth
+        SettingsTab.Sync -> Icons.Filled.CloudSync
         SettingsTab.Tags -> Icons.AutoMirrored.Filled.Label
         SettingsTab.TagGroups -> Icons.AutoMirrored.Filled.Label
         SettingsTab.Files -> Icons.Filled.Folder
@@ -135,6 +140,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 onIntent = viewModel::onIntent,
                 onOpenAttachmentsFolder = { viewModel.onIntent(SettingsIntent.OpenAttachmentsFolder) },
                 attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
+                onboarding = koinInject<OnboardingSettingsRepository>(),
                 modifier = Modifier.padding(paddingValues),
             )
         }
@@ -161,6 +167,9 @@ private fun SettingsContent(
     onIntent: (SettingsIntent) -> Unit,
     onOpenAttachmentsFolder: () -> Unit,
     attachmentsPath: String,
+    // Nullable so the previews, which have no Koin graph, render the same screen minus
+    // the one row that needs the store rather than failing to resolve it.
+    onboarding: OnboardingSettingsRepository? = null,
     modifier: Modifier = Modifier,
     previewOverrides: Map<SettingsTab, @Composable () -> Unit> = emptyMap(),
 ) {
@@ -179,7 +188,11 @@ private fun SettingsContent(
         ) {
             previewOverrides[selectedTab]?.invoke()
                 ?: when (selectedTab) {
-                    SettingsTab.Interface -> InterfaceSettingsScreen(state = state, onIntent = onIntent)
+                    SettingsTab.Interface -> InterfaceSettingsScreen(
+                        state = state,
+                        onIntent = onIntent,
+                        onboarding = onboarding,
+                    )
 
                     SettingsTab.Agenda -> AgendaSettingsScreen(state = state, onIntent = onIntent)
 
@@ -190,6 +203,8 @@ private fun SettingsContent(
                     SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(state = state, onIntent = onIntent)
 
                     SettingsTab.Calendar -> CalendarSyncSettingsScreen()
+
+                    SettingsTab.Sync -> SyncSettingsScreen()
 
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
@@ -267,7 +282,7 @@ private fun SettingsNavRail(
     modifier: Modifier = Modifier,
     onSelect: (SettingsTab) -> Unit,
 ) {
-    // The rail is a fixed 80dp column holding eleven ~76dp rows. That is taller
+    // The rail is a fixed 80dp column holding twelve ~76dp rows. That is taller
     // than a phone viewport, so without a scroll the trailing tabs (Backup,
     // Account) are clipped and unreachable — the screen looked complete but two
     // settings were simply not tappable. Scrolls on every form factor; on a

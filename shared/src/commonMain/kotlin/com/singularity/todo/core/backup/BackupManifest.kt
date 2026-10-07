@@ -25,6 +25,14 @@ data class EntityCounts(
     val projects: Int = 0,
     val tags: Int = 0,
     val attachments: Int = 0,
+    /**
+     * Notes written against attachment text.
+     *
+     * Counted separately from [attachments] because their absence is silent: a restored
+     * archive used to import cleanly with the files back and every note gone, and nothing in
+     * the log said so. A count is what makes that visible.
+     */
+    val attachmentAnnotations: Int = 0,
     val taskTags: Int = 0,
     val taskDependencies: Int = 0,
     /** MR-1: saved agenda views. */

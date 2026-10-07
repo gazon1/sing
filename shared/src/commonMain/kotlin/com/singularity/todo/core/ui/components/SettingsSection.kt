@@ -153,24 +153,40 @@ fun SettingsRow(
  *   default, because the signature now advertises an addressable control that
  *   is not addressable. There is now exactly one call site that means the dark
  *   theme, and it names it.
+ *
+ * ## Why [onCheckedChange] is nullable
+ *
+ * A setting that exists but cannot be changed yet has to be *shown* rather than
+ * omitted, and the honest way to show it is one that cannot be tapped. Passing an
+ * empty lambda instead would render a switch that accepts a gesture and does
+ * nothing — the inert-control shape this project has been removing from feature by
+ * feature. A null handler drops the click target outright, so a row that cannot
+ * act does not look like it can.
+ *
+ * Note that [enabled] alone cannot express this: `enabled = true` with a null
+ * handler would paint a live-looking switch that ignores taps. The row is
+ * therefore enabled only when both are true, which is why `enabled` below is the
+ * conjunction rather than the parameter itself.
  */
 @Composable
 fun SettingsSwitchRow(
     title: String,
     subtitle: String? = null,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     testTag: String,
 ) {
+    // A row with no handler is inert regardless of what the caller asked for.
+    val interactive = enabled && onCheckedChange != null
     SettingsRow(
         title = title,
         subtitle = subtitle,
         modifier = modifier.testTag(testTag),
         // A disabled row drops its click handler entirely rather than ignoring the
         // callback, so the control is genuinely inert instead of merely refusing to act.
-        onClick = if (enabled) {
+        onClick = if (interactive) {
             { onCheckedChange(!checked) }
         } else {
             null
@@ -181,7 +197,7 @@ fun SettingsSwitchRow(
                 // Click handling lives on the row itself; leaving this non-null
                 // would fire onCheckedChange twice when tapping the switch directly.
                 onCheckedChange = null,
-                enabled = enabled,
+                enabled = interactive,
             )
         },
     )
@@ -199,11 +215,12 @@ fun SettingsValueRow(
     onClick: () -> Unit,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
+    testTag: String = TestTags.Settings.VALUE_ROW,
 ) {
     SettingsRow(
         title = title,
         subtitle = subtitle,
-        modifier = modifier,
+        modifier = modifier.testTag(testTag),
         onClick = onClick,
         trailing = {
             Text(
@@ -220,11 +237,17 @@ fun SettingsValueRow(
  * shown with a trailing chevron (e.g. "Language", "About").
  */
 @Composable
-fun SettingsActionRow(title: String, onClick: () -> Unit, subtitle: String? = null, modifier: Modifier = Modifier) {
+fun SettingsActionRow(
+    title: String,
+    onClick: () -> Unit,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    testTag: String = TestTags.Settings.ACTION_ROW,
+) {
     SettingsRow(
         title = title,
         subtitle = subtitle,
-        modifier = modifier,
+        modifier = modifier.testTag(testTag),
         onClick = onClick,
         trailing = {
             Icon(

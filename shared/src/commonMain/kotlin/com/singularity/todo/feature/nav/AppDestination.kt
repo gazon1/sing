@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.nav
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.platform.systemToday
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -139,6 +141,29 @@ sealed interface AppDestination : AppNavKey {
     }
 
     /**
+     * The in-app/external viewer for one attachment.
+     *
+     * A sub-route rather than a tab or a menu entry ([DestinationKind.isSubRoute]), so
+     * it pushes onto the current stack and Back returns to the task it came from.
+     *
+     * It carries only the attachment's identity. What is displayed is decided by
+     * `AttachmentViewerRoute.routeFor` from the attachment's own type — storing a
+     * "show an image" instruction here would put a display decision in navigation
+     * state, where it could disagree with the attachment after a sync changed its type.
+     *
+     * Declared on [AppDestination] rather than as its own sealed route interface
+     * because it is pushed onto the app-level stack, whose entry provider is typed to
+     * `AppDestination`. A separate route type would have to be added to that stack's
+     * type parameter, and a route nothing renders is precisely the defect this work set
+     * out to remove. It is still a leaf of the single sealed [AppNavKey] root, per
+     * ADR `2026-09-29-single-sealed-navkey-root`.
+     */
+    @Serializable
+    data class AttachmentViewer(val attachmentId: AttachmentId) : AppDestination {
+        override val title = "Attachment"
+    }
+
+    /**
      * Nested projects graph. Contains its own NavBackStack[ProjectsRoute].
      * Used for deep-links and future navigation flexibility.
      */
@@ -248,6 +273,7 @@ val AppDestination.icon: ImageVector
         AppDestination.Calendar -> Icons.Filled.CalendarMonth
         AppDestination.Notes -> Icons.Filled.Create
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
+        is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
         AppDestination.Search -> Icons.Filled.Search
         AppDestination.Archive -> Icons.Filled.Check
         AppDestination.Settings -> Icons.Filled.Settings

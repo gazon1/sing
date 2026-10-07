@@ -41,7 +41,16 @@ class DefaultDataContext(
     private val controller: SurfaceController,
     val registry: ComponentRegistry,
     val onAction: (SurfaceId, String, JsonObject?) -> Unit,
-    val onDataChange: (SurfaceId, UiPath, JsonElement) -> Unit,
+    /**
+     * Nullable, and `null` is what a read-only surface passes.
+     *
+     * It used to be non-null, so "this surface has no use for the notification" had to be
+     * written as `onDataChange = { _, _, _ -> }` — an empty lambda on a handler-shaped name,
+     * which is exactly the shape `NoEmptyOnClickLambda` exists to report, and exactly what a
+     * read-only surface legitimately needs. The KDoc has always said a read-only surface can
+     * ignore it; making the parameter nullable is what lets it say so.
+     */
+    private val onDataChange: ((SurfaceId, UiPath, JsonElement) -> Unit)?,
     val clock: Clock,
 ) {
     /** The whole surface map, for callers that need to know what exists rather than what changed. */
@@ -75,7 +84,7 @@ class DefaultDataContext(
      */
     fun write(path: UiPath, value: JsonElement) {
         controller.write(surfaceId, path, value)
-        onDataChange(surfaceId, path, value)
+        onDataChange?.invoke(surfaceId, path, value)
     }
 }
 
@@ -94,7 +103,7 @@ fun rememberDataContext(
     controller: SurfaceController,
     registry: ComponentRegistry,
     onAction: (SurfaceId, String, JsonObject?) -> Unit,
-    onDataChange: (SurfaceId, UiPath, JsonElement) -> Unit,
+    onDataChange: ((SurfaceId, UiPath, JsonElement) -> Unit)? = null,
     clock: Clock,
 ): DefaultDataContext = remember(surfaceId, controller, registry, onAction, onDataChange, clock) {
     DefaultDataContext(

@@ -9,7 +9,9 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
+import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.JvmFileOpener
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
@@ -101,6 +103,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }
+    single { get<AppDatabase>().annotationDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().projectReminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -166,6 +169,7 @@ actual fun platformModule(): Module = module {
     single<HostEnvironmentPort> { JvmHostEnvironment() }
 
     single<FileRevealer> { JvmFileRevealer() }
+    single<FileOpener> { JvmFileOpener() }
 
     single<FileSourceFactory> { JvmFileSourceFactory() }
 

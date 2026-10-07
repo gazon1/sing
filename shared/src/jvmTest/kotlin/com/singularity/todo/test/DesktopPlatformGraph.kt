@@ -22,7 +22,9 @@ import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
+import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
+import com.singularity.todo.core.files.JvmFileOpener
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileRevealer
@@ -117,6 +119,7 @@ internal fun desktopPlatformModule(): Module = module {
     single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }
+    single { get<AppDatabase>().annotationDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().projectReminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -168,6 +171,7 @@ internal fun desktopPlatformModule(): Module = module {
     single<FileSystem> { JvmFileSystem() }
     single<HostEnvironmentPort> { JvmHostEnvironment() }
     single<FileRevealer> { JvmFileRevealer() }
+    single<FileOpener> { JvmFileOpener() }
     single<FileSourceFactory> { JvmFileSourceFactory() }
     single<SharePort> { JvmSharePort() }
     single<FileSharePort> { JvmFileSharePort() }

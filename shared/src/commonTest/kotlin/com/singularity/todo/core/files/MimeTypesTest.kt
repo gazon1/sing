@@ -3,6 +3,7 @@ package com.singularity.todo.core.files
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @Tag("fast")
 class MimeTypesTest {
@@ -64,5 +65,27 @@ class MimeTypesTest {
     fun isArchiveReturnsTrueForArchiveMimeTypes() {
         assertEquals(true, MimeTypes.isArchive("application/zip"))
         assertEquals(true, MimeTypes.isArchive("application/x-7z-compressed"))
+    }
+
+    // ── The derived set the picker filters on ───────────────────────────────────
+
+    @Test
+    fun supportedExtensionsCarriesNoBlankEntry() {
+        // The table's `"" to "application/octet-stream"` row is a lookup fallback, not
+        // a file type. Leaking it into a picker filter asks FileKit to match files whose
+        // extension is nothing.
+        assertTrue(
+            MimeTypes.supportedExtensions.none { it.isBlank() },
+            "supportedExtensions must not contain a blank extension",
+        )
+    }
+
+    @Test
+    fun supportedExtensionsIsTheTableMinusTheFallbackRow() {
+        val fromTable = MimeTypes.supportedExtensions
+        for (ext in listOf("png", "jpg", "pdf", "docx", "txt", "csv", "zip", "mp4")) {
+            assertTrue(ext in fromTable, "$ext is in the table but not in supportedExtensions")
+        }
+        assertEquals(fromTable.size, fromTable.distinct().size, "supportedExtensions has duplicates")
     }
 }

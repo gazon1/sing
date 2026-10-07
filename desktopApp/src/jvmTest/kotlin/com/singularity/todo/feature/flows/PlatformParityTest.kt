@@ -5,6 +5,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
@@ -46,6 +47,9 @@ class PlatformParityTest {
         assertIsBoundTo<SecureStoragePort>(koin, "InMemorySecureStorage")
         assertIsBoundTo<FileSystem>(koin, "InMemoryFileSystem")
         assertIsBoundTo<FileRevealer>(koin, "FakeFileRevealer")
+        // Opening an attachment for real would hand a file to the desktop's file
+        // associations — process-global, and the point of this test is that it cannot.
+        assertIsBoundTo<FileOpener>(koin, "FakeFileOpener")
         assertIsBoundTo<FileSourceFactory>(koin, "InertFileSourceFactory")
         assertIsBoundTo<SharePort>(koin, "InertSharePort")
         assertIsBoundTo<BackupCodec>(koin, "UnusedBackupCodec")

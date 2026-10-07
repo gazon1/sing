@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
 
@@ -258,7 +259,7 @@ private fun PomodoroContentPreview(
                 tasks.forEach { task ->
                     FilterChip(
                         selected = pomodoroState.taskId == task.id.value,
-                        onClick = { },
+                        onClick = noopClick,
                         label = {
                             Text(
                                 task.title,
@@ -339,12 +340,12 @@ private fun PomodoroContentPreview(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { }) {
+            IconButton(onClick = noopClick) {
                 Icon(Icons.Filled.Stop, contentDescription = "Stop")
             }
 
             FilledIconButton(
-                onClick = { },
+                onClick = noopClick,
                 modifier = Modifier
                     .size(72.dp)
                     .testTag(
@@ -365,7 +366,7 @@ private fun PomodoroContentPreview(
                 )
             }
 
-            IconButton(onClick = { }) {
+            IconButton(onClick = noopClick) {
                 Icon(Icons.Filled.SkipNext, contentDescription = "Skip")
             }
         }

@@ -63,7 +63,9 @@ import kotlin.time.Instant
  * @param titleDraft Current title value.
  * @param onTitleChange Called when title text changes.
  * @param isCompleted Whether the task is completed (affects checkbox appearance).
- * @param onCheckToggle Called when the completion checkbox is toggled. Pass empty lambda in Create mode.
+ * @param onCheckToggle Called when the completion checkbox is toggled. `null` hides the
+ *   checkbox — Create mode has no task to complete yet, and a checkbox that does nothing
+ *   is worse than no checkbox.
  * @param descriptionDraft Current description value.
  * @param onDescriptionChange Called when description text changes.
  * @param priority Current priority value.
@@ -103,7 +105,7 @@ fun TaskEditorContent(
     titleDraft: String,
     onTitleChange: (String) -> Unit,
     isCompleted: Boolean,
-    onCheckToggle: () -> Unit,
+    onCheckToggle: (() -> Unit)?,
     descriptionDraft: String,
     onDescriptionChange: (String) -> Unit,
     priority: TaskPriority,
@@ -350,13 +352,16 @@ fun TaskEditorContent(
             onDescriptionChange = onDescriptionChange,
             priority = RowCallbacks(
                 onChange = onPrioritySelect,
-                onClick = onPriorityClick ?: {},
+                // Null passes through as null. `?: {}` turned "this row has no tap
+                // target" into "this row has a tap target that does nothing", and the
+                // row rendered a ripple either way.
+                onClick = onPriorityClick,
                 onClear = onPriorityClear,
             ),
             dueDate = DateRowCallbacks(
                 onChangeDate = onDueDateSelect,
                 onChangeTime = onDueTimeSelect,
-                onClick = onDueDateClick ?: {},
+                onClick = onDueDateClick,
                 onClear = onDueDateClear,
             ),
             startDate = startDateCallbacks,
@@ -496,7 +501,7 @@ private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, u
         titleDraft = "",
         onTitleChange = {},
         isCompleted = false,
-        onCheckToggle = {},
+        onCheckToggle = null,
         descriptionDraft = "",
         onDescriptionChange = {},
         priority = TaskPriority.None,
@@ -527,7 +532,7 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         titleDraft = "Buy groceries",
         onTitleChange = {},
         isCompleted = false,
-        onCheckToggle = {},
+        onCheckToggle = null,
         descriptionDraft = "Milk, eggs, bread",
         onDescriptionChange = {},
         priority = TaskPriority.High,
@@ -563,7 +568,7 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         titleDraft = "Review PR",
         onTitleChange = {},
         isCompleted = false,
-        onCheckToggle = {},
+        onCheckToggle = null,
         descriptionDraft = "",
         onDescriptionChange = {},
         priority = TaskPriority.Urgent,

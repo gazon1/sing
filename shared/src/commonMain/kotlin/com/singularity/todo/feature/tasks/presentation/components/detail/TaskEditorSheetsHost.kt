@@ -161,7 +161,7 @@ fun TaskEditorSheetsHost(
                 taskId = model.taskId,
                 attachments = model.attachments,
                 onAddUrl = { url, title -> callbacks.attachments?.onAddUrl?.invoke(url, title) },
-                onAttachFile = { callbacks.attachments?.onAttachFile?.invoke() },
+                onAttachFile = callbacks.attachments?.onAttachFile,
                 onDelete = { callbacks.attachments?.onDelete?.invoke(it) },
                 onDismiss = onSheetDismiss,
             )

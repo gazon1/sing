@@ -15,6 +15,8 @@ import com.singularity.todo.core.files.AndroidFileSourceFactory
 import com.singularity.todo.core.files.AndroidFileSharePort
 import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.AndroidSharePort
+import com.singularity.todo.core.files.AndroidFileOpener
+import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
@@ -120,6 +122,7 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().remoteConfigDao() }
     single { get<AppDatabase>().remoteConfigCacheDao() }
     single { get<AppDatabase>().attachmentDao() }
+    single { get<AppDatabase>().annotationDao() }
     single { get<AppDatabase>().reminderDao() }
     single { get<AppDatabase>().projectReminderDao() }
     single { get<AppDatabase>().checklistDao() }
@@ -204,6 +207,7 @@ actual fun platformModule(): Module = module {
     single<HostEnvironmentPort> { AndroidHostEnvironment(get()) }
 
     single<FileRevealer> { AndroidFileRevealer(get()) }
+    single<FileOpener> { AndroidFileOpener(get()) }
 
     single<SharePort> { AndroidSharePort(get()) }
 

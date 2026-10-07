@@ -20,9 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -106,21 +107,53 @@ fun TaskDetailChecklistSection(
 
 // ─── Attachments ─────────────────────────────────────────────────────────────
 
+/**
+ * The task's attachments, listed in full.
+ *
+ * This used to `take(5)` and say nothing: a task with seven attachments showed five,
+ * with no "+2 more", no scroll and no way to reach the rest. Silently dropping two
+ * rows is a different failure from showing a truncated list, so the cap is gone.
+ *
+ * The rows are [AttachmentTile] rather than bare `Text`. The tile was implemented,
+ * previewed and called by nothing outside its own file — it renders the thumbnail,
+ * the file size and a type-correct icon, none of which the text row did.
+ *
+ * @param onAttachFile opens the platform file picker. `null` hides the button — there is
+ *   no task to attach to while the task is still being created.
+ * @param onOpen navigates to the viewer for one attachment. `null` renders rows that
+ *   cannot be tapped, so no row advertises an interaction it does not have.
+ */
 @Composable
-fun TaskDetailAttachmentsSection(attachments: List<Attachment>, modifier: Modifier = Modifier) {
-    if (attachments.isEmpty()) return
+fun TaskDetailAttachmentsSection(
+    attachments: List<Attachment>,
+    onAttachFile: (() -> Unit)? = null,
+    onDelete: ((AttachmentId) -> Unit)? = null,
+    onOpen: ((AttachmentId) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    if (attachments.isEmpty() && onAttachFile == null) return
     ExtraSectionCard(
         icon = { Icon(Icons.Filled.AttachFile, contentDescription = null) },
         label = "Attachments (${attachments.size})",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                attachments.take(5).forEach { att ->
+                attachments.forEach { att ->
+                    AttachmentTile(
+                        attachment = att,
+                        onDelete = { onDelete?.invoke(att.id) },
+                        // A URL attachment has no file behind it, so it gets no open
+                        // affordance rather than a row that goes nowhere.
+                        onOpen = onOpen?.takeIf { !att.isUrl }?.let { open -> { open(att.id) } },
+                    )
+                }
+                if (onAttachFile != null) {
                     Text(
-                        text = att.displayTitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(vertical = 2.dp),
+                        text = "+ Add file",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clickable(onClick = onAttachFile),
                     )
                 }
             }

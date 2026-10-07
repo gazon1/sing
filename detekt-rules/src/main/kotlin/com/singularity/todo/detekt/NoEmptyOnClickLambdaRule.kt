@@ -29,7 +29,12 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
  * Three shapes are reported, all keyed on the *parameter* name:
  * - `onClick = {}` at a call site
  * - `onClick ?: { }` as an elvis fallback in a body
- * - (any call site passing an empty lambda to a `PARAM_NAMES` argument)
+ * - (any call site passing an empty lambda to a handler-shaped argument)
+ *
+ * "Handler-shaped" means `on` followed by an uppercase letter — see
+ * [NoEmptyOnClickLambdaPolicy.isHandlerParameter] for why this is a shape and not a
+ * list of ten names, which is what the rule used to carry and which five shipped
+ * unwired surfaces walked straight past.
  *
  * ## Allowed patterns (not flagged)
  * - `onClick = noopClick` — the shared no-op constant from `PreviewSamples`
@@ -52,21 +57,32 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         super.visitCallExpression(expression)
         if (isPreviewContext(expression)) return
 
-        // Drive off PARAM_NAMES, not a list of known callees. This used to be
+        // Drive off the parameter *shape*, not a list of known names. This used to be
         // gated on `fnName in EVENT_HANDLERS` — an 11-name allow-list of composables
         // — which meant the rule could only ever see the call sites somebody had
         // already thought to enumerate. Every `onClick = {}` passed to a composable
         // outside that list was invisible, and the rule reported 0 findings while
         // the production code contained them. The KDoc's promise is about the
         // *parameter* being an event handler, so the parameter is the gate.
-        for (paramName in PARAM_NAMES) {
-            val arg = expression.valueArguments.find { it.getArgumentName()?.text == paramName }
-            if (arg != null) {
-                val lambda = arg.getArgumentExpression() as? KtLambdaExpression
-                if (lambda != null && isEmptyLambda(lambda)) {
-                    val callee = expression.calleeExpression as? KtNameReferenceExpression
-                    reportFinding(lambda, paramName, callee?.text ?: "<expr>")
-                }
+        //
+        // The name-list version of that gate (`PARAM_NAMES`, ten entries) failed the
+        // same way one level down: `onAttachFile = {}`, `onAiAction = {}`,
+        // `onWriteNote = {}`, `onAddChecklist = {}` and `onUnarchive = {}` were all
+        // outside it, and each one was a real unwired surface found by reading the
+        // code and invisible to the rule. An allow-list of names is a list somebody
+        // has to remember to extend, so it is gone.
+        // A read-only field's onValueChange cannot fire, so an empty one is not a dead
+        // control — it is the only correct body. Material3 still requires the parameter,
+        // so a read-only OutlinedTextField has to write something.
+        val readOnlyField = isReadOnlyField(expression)
+        for (arg in expression.valueArguments) {
+            val paramName = arg.getArgumentName()?.text ?: continue
+            if (!NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)) continue
+            if (readOnlyField && paramName == "onValueChange") continue
+            val lambda = arg.getArgumentExpression() as? KtLambdaExpression ?: continue
+            if (isEmptyLambda(lambda)) {
+                val callee = expression.calleeExpression as? KtNameReferenceExpression
+                reportFinding(lambda, paramName, callee?.text ?: "<expr>")
             }
         }
     }
@@ -93,7 +109,7 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
 
         val receiver = expression.left as? KtNameReferenceExpression ?: return
         val paramName = receiver.text
-        if (paramName !in PARAM_NAMES) return
+        if (!NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)) return
 
         val fallback = expression.right as? KtLambdaExpression ?: return
         if (isEmptyLambda(fallback)) {
@@ -105,6 +121,24 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         val body = lambda.functionLiteral.bodyExpression ?: return true
         return body.statements.isEmpty()
     }
+
+    /**
+     * True when this call passes `readOnly = true` at the same site.
+     *
+     * A read-only text field cannot produce a value change, so an empty `onValueChange`
+     * beside it is unreachable rather than unwired — the field's value comes from a click
+     * that opens a dialog (`WorkScheduleSettingsScreen`), and the field only displays the
+     * result. Reporting it would be the rule complaining about the only body that is
+     * correct.
+     *
+     * Scoped to the *same call* on purpose: `readOnly` somewhere else in the file says
+     * nothing about this field.
+     */
+    private fun isReadOnlyField(expression: KtCallExpression): Boolean =
+        expression.valueArguments.any { arg ->
+            arg.getArgumentName()?.text == "readOnly" &&
+                arg.getArgumentExpression()?.text == "true"
+        }
 
     private fun isPreviewContext(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val file = element.containingKtFile
@@ -124,6 +158,16 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         while (current != null) {
             if (current is KtNamedFunction) {
                 if (current.annotationEntries.any { it.shortName?.asString() == "Preview" }) {
+                    return true
+                }
+                // The name check has to run here too, before the break. This loop used
+                // to stop at the function boundary, so a preview function that is named
+                // for its role — `SettingsScreenPreview`, `TaskRowPreview` — was exempt
+                // only when it also carried `@Preview`. SettingsScreen's
+                // `SettingsScreenPreview(selectedTab)` has no annotation and passes three
+                // empty handlers, so widening the name gate to the `on[A-Z]` shape made
+                // the rule report a preview as if it were production code.
+                if (NoEmptyOnClickLambdaPolicy.isPreviewNamed(current.name)) {
                     return true
                 }
                 // Stop at function boundary
@@ -156,24 +200,7 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         )
     }
 
-    companion object {
-        /** Parameter names that indicate an event handler. This is the rule's
-         *  only gate — see [visitCallExpression] for why the callee allow-list
-         *  that used to live here was removed. */
-        private val PARAM_NAMES = listOf(
-            "onClick",
-            "onConfirm",
-            "onDelete",
-            "onDismiss",
-            "onRetry",
-            "onSave",
-            "onBack",
-            "onToggle",
-            "onEdit",
-            "onCheckedChange",
-        )
     }
-}
 
 /**
  * The file-name/path half of [NoEmptyOnClickLambdaRule]'s preview exemption, as a pure
@@ -186,6 +213,47 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
  * regardless of the rule and so proved nothing.
  */
 internal object NoEmptyOnClickLambdaPolicy {
+
+    /**
+     * True when a parameter name reads as an event handler.
+     *
+     * This is the rule's whole gate, and it used to be a list of ten names —
+     * `onClick`, `onConfirm`, `onDelete`, `onDismiss`, `onRetry`, `onSave`,
+     * `onBack`, `onToggle`, `onEdit`, `onCheckedChange` — which meant the rule could
+     * only see handler names somebody had already thought to enumerate. Five real
+     * unwired surfaces shipped past it: `onAttachFile = {}` in `TaskCreateScreen`,
+     * `onAiAction = {}` in `NoteAiActionSheet`, `onWriteNote = {}`, `onAddChecklist = {}`
+     * and `onUnarchive = {}`. Each was a control a user could press that did nothing.
+     *
+     * The list is not a smaller version of the pattern; it is a stale snapshot of it.
+     * So the gate is the shape the project already uses for callbacks — `on` followed
+     * by an uppercase letter. That covers every name the old list had, and every one it
+     * had missed, and it covers names that do not exist yet.
+     *
+     * `on` alone is not enough, and neither is `once` or `only`: the uppercase fourth
+     * character is what separates a handler from a word that merely starts with `on`.
+     */
+    fun isHandlerParameter(paramName: String): Boolean =
+        paramName.length > 2 &&
+            paramName.startsWith("on") &&
+            paramName[2].isUpperCase() &&
+            paramName !in RESULT_FOLD_LABELS
+
+    /**
+     * `kotlin.Result.fold`'s two parameter names.
+     *
+     * They match the handler shape and are not handlers: `fold` names them, so no
+     * caller can choose them, and an empty `onSuccess` branch means "nothing to do on
+     * success", which is the whole reason to call `fold` instead of `map`/`getOrElse`.
+     * Flagging them trains a reader to ignore the rule — `SearchViewModel.rename`
+     * reported for exactly this.
+     *
+     * Every one of the 40+ `onSuccess =` / `onFailure =` sites in the repository is a
+     * `fold` label; none is a UI callback. `NoEmptyOnClickLambdaRuleTest` pins that the
+     * two names are not treated as handlers, so this exception cannot quietly grow into
+     * a general allow-list.
+     */
+    private val RESULT_FOLD_LABELS = setOf("onSuccess", "onFailure")
 
     /** Same list `NoDirectDispatchersPolicy` uses, kept in step deliberately. */
     private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")

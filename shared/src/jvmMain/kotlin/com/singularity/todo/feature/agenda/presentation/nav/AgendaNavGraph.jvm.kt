@@ -69,7 +69,11 @@ actual fun AgendaNavGraph(
                     onToggleComplete = { onIntent(AgendaIntent.TaskCheckClicked(taskUi.id)) },
                     onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(taskUi.id)) },
                     onToggleExpand = { onIntent(AgendaIntent.TaskExpandClicked(taskUi.id)) },
-                    onAiAction = { /* AI actions deferred — requires AgendaDeps extension */ },
+                    // null, not an empty lambda. TaskMenuBuilder enables the AI submenu from
+                    // `onAiAction != null`, so an empty body here turned "AI actions are
+                    // deferred" into a visible, enabled submenu whose five items did
+                    // nothing when picked. Android already leaves this null.
+                    onAiAction = null,
                     // Archive and Delete are the same write here (softDelete); both
                     // items stay because the list and the archive screen each name
                     // that write in the user's own vocabulary.

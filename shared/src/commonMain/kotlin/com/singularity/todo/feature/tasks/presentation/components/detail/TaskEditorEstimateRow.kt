@@ -45,8 +45,13 @@ fun TaskEditorEstimateRow(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.TASK_EDITOR_ESTIMATE_ROW)
-            .clickable(
-                onClick = onEstimateClick ?: {},
+            // No clickable() at all when the callback is null — see TaskEditorPriorityRow.
+            .then(
+                if (onEstimateClick != null) {
+                    Modifier.clickable { onEstimateClick() }
+                } else {
+                    Modifier
+                },
             )
             .padding(
                 horizontal = TaskSpacing.cardPaddingHorizontal,

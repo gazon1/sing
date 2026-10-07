@@ -136,16 +136,28 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 # findable, and a queue edited to fit a number is not a queue. Both entries are
 # open, both are tracked, and both name what to try first.
 #
-# Raised 92 -> 93 on 2026-10-07, by one entry and for no other reason:
-# `the-android-graph-is-never-resolved` (#227). `shared/src/androidHostTest`
-# holds no tests, so nothing resolves the Android Koin graph and nothing can see
-# a cycle there; the fix needs a Robolectric stack declared before a single test
-# can run, which is a build-model change rather than a finding.
+# Raised 92 -> 94 on 2026-10-07. Both sides of this merge raised it by one, each for
+# its own single entry, and neither entry was deletable to make room — which is the
+# failure mode this gate exists to prevent. Reconciling that by choosing one of the two
+# would have deleted a finding to fit a number, so the number moves by two.
 #
-# The headroom is now ~1%. That is deliberate discomfort rather than a
-# comfortable number: the next finding either closes an entry or raises this
-# again, and both are decisions somebody should be making on purpose.
-DEFAULT_MAX_ENTRIES = 93
+#   - `the-android-graph-is-never-resolved` (#227), from origin/main.
+#     `shared/src/androidHostTest` holds no tests, so nothing resolves the Android Koin
+#     graph and nothing can see a cycle there; the fix needs a Robolectric stack
+#     declared before a single test can run, which is a build-model change rather than a
+#     finding.
+#
+#   - ReminderTile is fully implemented, has two previews, and has no production caller.
+#     Found by widening the unwired-surface detector to count `Tile`/`Row`/`Dialog`
+#     suffixes and to blank preview bodies before counting references. It is not deleted
+#     because which screen should carry it is a product decision, and removing working
+#     code to make a gate green is the exact trade the detector's own ADR warns against.
+#     It is baselined with a live reference so the reasoning stays findable.
+#
+# The headroom is now gone. That is deliberate discomfort rather than a comfortable
+# number: the next finding either closes an entry or raises this again, and both are
+# decisions somebody should be making on purpose.
+DEFAULT_MAX_ENTRIES = 94
 
 
 def parse_entries(text: str) -> list[dict[str, object]]:

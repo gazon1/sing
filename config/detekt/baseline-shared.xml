@@ -114,8 +114,8 @@
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
     <ID>NoDirectClockSystem:AgendaViewModelTest.kt:AgendaViewModelTest$Clock.System</ID>
-    <ID>NoEmptyOnClickLambda:BackupScreen.kt:{}</ID>
-    <ID>NoEmptyOnClickLambda:PomodoroScreen.kt:{ }</ID>
+    <ID>NoMultipleSpaces:CoreDiModule.kt: </ID>
+
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>

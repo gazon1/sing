@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,18 +32,24 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
+import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.settings.SettingsUiState
+import kotlinx.coroutines.launch
 
 @Composable
 fun InterfaceSettingsScreen(
     state: SettingsUiState.Content,
     onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
+    onboarding: OnboardingSettingsRepository? = null,
 ) {
+    val scope = rememberCoroutineScope()
     Column(
         modifier = modifier
             .padding(16.dp)
@@ -68,6 +75,25 @@ fun InterfaceSettingsScreen(
             value = state.appearance.fontSizeScale,
             onValueChange = { onIntent(SettingsIntent.Appearance.UpdateFontSizeScale(it)) },
         )
+
+        // The tour shows itself once; this is the "show me again" from REQ-4, and it is
+        // what keeps "show once" from being a one-way door the user cannot undo.
+        //
+        // Rendered only when a store is supplied rather than defaulting to `koinInject()`:
+        // a default would run during previews, which have no Koin graph, and would take
+        // the whole preview down with a resolution error instead of degrading.
+        if (onboarding != null) {
+            SettingsSection(title = "Help") {
+                SettingsActionRow(
+                    title = "Show tips again",
+                    subtitle = "Replays the short tour of the agenda screen",
+                    onClick = {
+                        scope.launch { onboarding.resetSpotlight() }
+                    },
+                    testTag = TestTags.Onboarding.REPLAY_TUTORIAL_ROW,
+                )
+            }
+        }
     }
 }
 

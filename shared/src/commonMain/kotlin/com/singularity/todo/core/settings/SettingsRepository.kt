@@ -33,6 +33,7 @@ object SettingsNamespace {
     const val GREETING = "greeting"
     const val ACCOUNT = "account"
     const val AGENDA = "agenda"
+    const val ONBOARDING = "onboarding"
 
     fun key(ns: String, name: String): String = "$ns.$name"
 }
@@ -61,6 +62,7 @@ interface SettingsRepository : SettingsReader {
     val workSchedule: WorkScheduleSettingsRepository
     val greeting: GreetingSettingsRepository
     val defaultAgendaView: DefaultAgendaViewSettingsRepository
+    val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 
     // ── AI (flat — AiSettingsStore depends on these) ─────────────────────────
 
@@ -161,6 +163,8 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         DataStoreGreetingSettingsRepository(dataStore)
     override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
         DataStoreDefaultAgendaViewSettingsRepository(dataStore)
+    override val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository =
+        com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository(dataStore)
 
     // ── AI (flat — AiSettingsStore reads via SettingsReader) ───────────────
 

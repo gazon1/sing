@@ -1,7 +1,5 @@
 package com.singularity.todo.core.settings
 
-import com.singularity.todo.core.appearance.AppearanceContributor
-import com.singularity.todo.core.appearance.AppearanceSettingsContributor
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.notifications.NotificationsSettingsContributor
 import com.singularity.todo.core.notifications.NotificationsSettingsStore
@@ -18,14 +16,27 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Registers all settings contributors (Appearance, Notifications, WorkSchedule, Greeting,
- * DefaultAgendaView) as [single] instances for injection via `filterIsInstance<Contributor>()`.
+ * Registers the settings contributors that have no module of their own
+ * (Notifications, WorkSchedule, Greeting, DefaultAgendaView) as [single] instances for
+ * injection via `filterIsInstance<Contributor>()`.
  *
  * Add to [domainModule]: `add(settingsContributorsModule())`.
  */
 fun settingsContributorsModule(): Module = module {
-    // Appearance — AppearanceSettingsRepository is provided by appearanceSettingsModule()
-    single<AppearanceContributor> { AppearanceSettingsContributor(get()) }
+    // Appearance is deliberately absent: it is bound by `appearanceSettingsModule()`,
+    // which also provides the repository and store its contributor reads from. It used
+    // to be bound here as well, and both definitions were added to `domainModule()`, so
+    // the second silently replaced the first. Resolution still worked — both constructed
+    // the same class from the same dependencies — which is exactly why nothing caught
+    // it: `KoinGraphValidationTest` asks "does this resolve?", not "is this defined
+    // twice?", and the answer was yes in both cases.
+    //
+    // The failure mode of leaving it is the reverse of an obvious one. Deleting the
+    // binding that happens to win would be a no-op, and deleting the one that is
+    // shadowed looks like a cleanup until the other is removed too.
+    //
+    // Every other contributor below is bound only here, which is why this module exists
+    // and why the appearance block was the outlier rather than the rule.
 
     // Notifications
     single { NotificationsSettingsStore(get<SettingsRepository>().notifications) }

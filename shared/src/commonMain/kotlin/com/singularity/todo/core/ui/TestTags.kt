@@ -273,6 +273,12 @@ object TestTags {
         const val WORK_SCHEDULE_SATURDAY_SWITCH = "settings_work_schedule_saturday_switch"
         const val WORK_SCHEDULE_SUNDAY_SWITCH = "settings_work_schedule_sunday_switch"
 
+        /** Default tag for a [com.singularity.todo.core.ui.components.SettingsValueRow]. */
+        const val VALUE_ROW = "settings_value_row"
+
+        /** Default tag for a [com.singularity.todo.core.ui.components.SettingsActionRow]. */
+        const val ACTION_ROW = "settings_action_row"
+
         /**
          * Content-visible marker for a Settings tab's main content area.
          * Use after tapping `settings_tab_<slug>` to assert the tab rendered.
@@ -351,6 +357,35 @@ object TestTags {
         const val SYSTEM_UNAVAILABLE = "calendar_sync_system_unavailable"
         const val SYSTEM_ENABLE_SWITCH = "calendar_sync_system_enable_switch"
         const val SYSTEM_SYNC_NOW_BUTTON = "calendar_sync_system_sync_now_button"
+    }
+
+    // ─── Onboarding ──────────────────────────────────────────────────────────
+
+    object Onboarding {
+        /** The spotlight explanation card. */
+        const val SPOTLIGHT_CARD = "onboarding_spotlight_card"
+
+        /** "Next" / "Got it" on the spotlight card. */
+        const val SPOTLIGHT_NEXT = "onboarding_spotlight_next"
+
+        /** "Skip" on the spotlight card. */
+        const val SPOTLIGHT_SKIP = "onboarding_spotlight_skip"
+
+        /** Settings row that replays the tour on demand. */
+        const val REPLAY_TUTORIAL_ROW = "onboarding_replay_row"
+    }
+
+    // ─── Sync ───────────────────────────────────────────────────────────────
+
+    object Sync {
+        /** Tab slug for the sync settings tab, used with [Settings.content]. */
+        const val TAB_SLUG = "sync"
+
+        const val AUTO_SYNC_SWITCH = "sync_auto_sync_switch"
+        const val INTERVAL_ROW = "sync_interval_row"
+        const val ATTACHMENTS_SWITCH = "sync_attachments_switch"
+        const val TEST_CONNECTION_ROW = "sync_test_connection_row"
+        const val SYNC_NOW_ROW = "sync_now_row"
     }
 
     // ─── Dialog ──────────────────────────────────────────────────────────────

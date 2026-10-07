@@ -27,10 +27,19 @@ out of the one file every agent reads.
 | `SharePort` / `FileSharePort` | `JvmSharePort` / `JvmFileSharePort` | `AndroidSharePort` / `AndroidFileSharePort` |
 | `FileRevealer` | `JvmFileRevealer` | `AndroidFileRevealer` |
 | `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` |
+| `FileOpener` | `JvmFileOpener` (`java.awt.Desktop`) | `AndroidFileOpener` (`ACTION_VIEW` + `FileProvider`) |
 | `BackupCodec` | `JvmBackupCodec` (java.util.zip) | `AndroidBackupCodec` |
 | `TimeZoneProvider` | actual | actual |
 
 `AttachmentStorage` is a **class**, not an interface.
+
+`FileOpener` returns `OpenOutcome`, a sealed interface with `Opened` and `NoHandler`.
+It is deliberately not a `Boolean`: a boolean cannot be rendered, so a caller holding
+one has to invent a third answer for "it did nothing" — which is the silent return.
+Making `NoHandler` a value the caller must handle is what forces the explanation and
+the Share action to exist. Both implementations rethrow `CancellationException`.
+Registered in four places: `PlatformModule.android.kt`, `PlatformModule.jvm.kt`,
+`DesktopPlatformGraph.kt` and `TestPlatformModule.kt`.
 
 ## Time
 
@@ -54,3 +63,8 @@ flag.
 expect/actual NavGraphs: `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
 `SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph`, each
 with its paired `*EntryProvider`.
+
+`AppNavKey` is the single sealed root and must not grow parallel hierarchies (ADR
+`2026-09-29-single-sealed-navkey-root`). New screens are leaves of `AppDestination` —
+for example `AppDestination.AttachmentViewer(attachmentId)`, added to both
+`AndroidNavEntries.kt` and `JvmNavEntries.kt`.

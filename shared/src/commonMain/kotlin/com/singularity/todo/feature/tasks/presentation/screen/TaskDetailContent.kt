@@ -38,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.files.FilePickPurpose
+import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -136,6 +138,20 @@ fun TaskDetailContent(
                     val ui = s.ui
                     val extras = s.extras
 
+                    // The attach-file entry point. Declared here rather than inside the
+                    // attachments card so the launcher survives recomposition with the
+                    // same identity, and so the card stays a presentational component.
+                    val pickAttachment = rememberAppFilePicker(FilePickPurpose.Attachment) { picked ->
+                        if (picked != null) {
+                            coordinator.onIntent(
+                                TaskDetailIntent.Domain.AddFileAttachment(
+                                    sourcePath = picked.path,
+                                    mimeType = picked.mimeType,
+                                ),
+                            )
+                        }
+                    }
+
                     TaskEditorContent(
                         taskId = ui.task.id.value,
                         titleDraft = ui.titleDraft,
@@ -200,8 +216,9 @@ fun TaskDetailContent(
                                 }
                                 if (firstRun is FirstRun.Offer) {
                                     FirstRunSection(
-                                        onWriteNote = { /* scroll to body */ },
-                                        onAddChecklist = { /* expand checklist */ },
+                                        // Only Ask AI has a handler to give it. The
+                                        // other two chips are not rendered — see
+                                        // FirstRunSection's KDoc.
                                         onAskAi = { showAiSheet = true },
                                     )
                                 }
@@ -258,11 +275,16 @@ fun TaskDetailContent(
                                     onDelete = { coordinator.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
                                     onOpen = { navigator.openDetail(it.id) },
                                 )
-                                if (ui.attachments.isNotEmpty()) {
-                                    TaskDetailAttachmentsSection(
-                                        attachments = ui.attachments,
-                                    )
-                                }
+                                // Always shown, not only when there is something to show: this row is also
+                                // how the user attaches the first file.
+                                TaskDetailAttachmentsSection(
+                                    attachments = ui.attachments,
+                                    onAttachFile = { pickAttachment() },
+                                    onDelete = {
+                                        coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                    },
+                                    onOpen = { id -> navigator.openAttachment(id) },
+                                )
                                 if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
                                     LinkedBacklinksCard(
                                         linkedNotes = ui.linkedNotes,

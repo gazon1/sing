@@ -25,13 +25,24 @@ import androidx.compose.ui.unit.dp
 
 /**
  * First-run suggestion banner shown on newly created tasks that have no content yet.
- * Displays three action chips: Write note, Add checklist, Ask AI.
+ * Displays up to three action chips: Write note, Add checklist, Ask AI.
+ *
+ * Every handler is nullable and a chip with no handler is not rendered.
+ *
+ * `TaskDetailContent` passed `onWriteNote = { /* scroll to body */ }` and
+ * `onAddChecklist = { /* expand checklist */ }` — two visible chips on a card titled
+ * "Quick actions" that did nothing when pressed. The comments described work nobody
+ * had done. A chip that cannot act is not a suggestion, it is a broken promise, so the
+ * banner now shows only the actions this screen can actually perform.
+ *
+ * Wiring the other two needs scroll state the detail screen does not keep; it is
+ * tracked in the deferred backlog rather than shipped as a button that lies.
  */
 @Composable
 fun FirstRunSection(
-    onWriteNote: () -> Unit,
-    onAddChecklist: () -> Unit,
-    onAskAi: () -> Unit,
+    onWriteNote: (() -> Unit)? = null,
+    onAddChecklist: (() -> Unit)? = null,
+    onAskAi: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -53,24 +64,30 @@ fun FirstRunSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FirstRunChip(
-                    icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                    label = "Write note",
-                    onClick = onWriteNote,
-                    modifier = Modifier.weight(1f),
-                )
-                FirstRunChip(
-                    icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
-                    label = "Add checklist",
-                    onClick = onAddChecklist,
-                    modifier = Modifier.weight(1f),
-                )
-                FirstRunChip(
-                    icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
-                    label = "Ask AI",
-                    onClick = onAskAi,
-                    modifier = Modifier.weight(1f),
-                )
+                onWriteNote?.let { action ->
+                    FirstRunChip(
+                        icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                        label = "Write note",
+                        onClick = action,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                onAddChecklist?.let { action ->
+                    FirstRunChip(
+                        icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
+                        label = "Add checklist",
+                        onClick = action,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                onAskAi?.let { action ->
+                    FirstRunChip(
+                        icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                        label = "Ask AI",
+                        onClick = action,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
