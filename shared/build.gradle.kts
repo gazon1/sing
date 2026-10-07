@@ -706,12 +706,20 @@ detekt {
         "src/jvmMain/kotlin",
         "src/jvmTest/kotlin",
         "src/androidMain/kotlin",
-        // `androidHostTest` gained its first real test on 2026-10-07, the
-        // `AndroidSyncDiGraphResolutionTest` for #227. It previously held only a
-        // manifest, which is why it is absent here — detekt reports nothing about a
-        // directory it was never given, so a defect in it was invisible rather than
-        // absent. `DetektSourceSetsAreAllScannedTest` keeps the list honest: it fails
-        // on any source set that contains Kotlin and is not scanned.
+        // `androidHostTest` is declared and configured — `androidHostTestRuntimeOnly`
+        // pulls the JUnit Vintage engine — but holds no Kotlin sources yet; only a
+        // manifest and a `.gitkeep`. The Robolectric graph test for #227 is **not
+        // written**: `SyncDiGraphResolutionTest` lives in `jvmTest` and resolves the
+        // common DI module, so it never loads the Android platform modules, which is
+        // the half that has never been resolved by a test.
+        //
+        // It is listed here anyway because a source set that exists but is not scanned
+        // is worse than one that does not exist: detekt reports nothing about a path it
+        // was never given, so a defect in it would be invisible rather than absent.
+        // `DetektSourceSetsAreAllScannedTest` keeps the list honest — it fails on any
+        // source set that contains Kotlin and is not scanned, and on any listed path that
+        // does not exist at all.
+        //
         // No parentheses in these comments: `DetektSourceSetsAreAllScannedTest` extracts
         // this call's argument list with a regex that stops at the first closing paren
         // anywhere inside the call — including one written inside a comment — and would

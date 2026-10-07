@@ -1,0 +1,11 @@
+# Keeps `src/androidHostTest/kotlin` in version control.
+#
+# The source set is declared and configured — `androidHostTestRuntimeOnly` pulls the
+# JUnit Vintage engine, and detekt is pointed at this path — but it holds no Kotlin
+# sources yet. The Robolectric test for #227 is not written; `SyncDiGraphResolutionTest`
+# is a JVM test in `jvmTest`, not a Robolectric one, and does not exercise the Android
+# platform modules.
+#
+# Without this file the directory is absent from a fresh clone, detekt silently ignores
+# a path it cannot read, and `DetektSourceSetsAreAllScannedTest` fails — which is the
+# failure this file exists to make honest. Delete it together with the first real test.
