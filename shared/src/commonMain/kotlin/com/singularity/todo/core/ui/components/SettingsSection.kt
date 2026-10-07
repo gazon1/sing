@@ -141,6 +141,18 @@ fun SettingsRow(
  * so it doesn't independently handle the click (and double-fire the callback).
  * This also collapses row + switch into a single semantic node for
  * accessibility, rather than two separate ones.
+ *
+ * @param testTag **Required, with no default.** This parameter previously
+ *   defaulted to [TestTags.Settings.DARK_THEME_SWITCH], and 15 of the 16 call
+ *   sites omitted it — so every toggle in the app carried the *dark theme*
+ *   switch's tag. That is not a cosmetic naming problem: `onNodeWithTag` throws
+ *   on multiple matches, so any test that found the dark-theme switch was
+ *   relying on the other fifteen being absent, and a screen rendering two
+ *   untagged switches was untestable rather than merely untagged. A default
+ *   that is wrong for every caller who does not notice it is worse than no
+ *   default, because the signature now advertises an addressable control that
+ *   is not addressable. There is now exactly one call site that means the dark
+ *   theme, and it names it.
  */
 @Composable
 fun SettingsSwitchRow(
@@ -150,7 +162,7 @@ fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    testTag: String = TestTags.Settings.DARK_THEME_SWITCH,
+    testTag: String,
 ) {
     SettingsRow(
         title = title,
@@ -235,12 +247,14 @@ private fun SettingsSectionLightPreview() = PreviewThemed(darkTheme = false) {
         SettingsSwitchRow(
             title = "Dark theme",
             subtitle = "Use dark color scheme",
+            testTag = TestTags.Settings.DARK_THEME_SWITCH,
             checked = false,
             onCheckedChange = {},
         )
         SettingsSwitchRow(
             title = "Notifications",
             subtitle = "Show reminders",
+            testTag = TestTags.Settings.NOTIFICATIONS_ENABLED_SWITCH,
             checked = true,
             onCheckedChange = {},
         )
@@ -254,11 +268,13 @@ private fun SettingsSectionDarkPreview() = PreviewThemed(darkTheme = true) {
         SettingsSwitchRow(
             title = "Auto-sync",
             subtitle = "Sync data automatically",
+            testTag = "preview_auto_sync",
             checked = true,
             onCheckedChange = {},
         )
         SettingsSwitchRow(
             title = "Offline mode",
+            testTag = "preview_offline_mode",
             checked = false,
             onCheckedChange = {},
         )
@@ -271,7 +287,7 @@ private fun SettingsRowLightPreview() = PreviewThemed(darkTheme = false) {
     SettingsSection(title = "General") {
         SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
         SettingsActionRow(title = "About", onClick = noopClick)
-        SettingsSwitchRow(title = "Switch setting", checked = true, onCheckedChange = {})
+        SettingsSwitchRow(title = "Switch setting", checked = true, onCheckedChange = {}, testTag = "preview_switch")
     }
 }
 

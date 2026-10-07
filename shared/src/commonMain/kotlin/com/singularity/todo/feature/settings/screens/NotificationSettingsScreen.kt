@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
@@ -40,6 +41,7 @@ fun NotificationSettingsScreen(
         SettingsSection(title = "Notifications") {
             SettingsSwitchRow(
                 title = "Enable Notifications",
+                testTag = TestTags.Settings.NOTIFICATIONS_ENABLED_SWITCH,
                 checked = state.notifications.enabled,
                 onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateEnabled(it)) },
             )
@@ -49,11 +51,13 @@ fun NotificationSettingsScreen(
             SettingsSection(title = "Alerts") {
                 SettingsSwitchRow(
                     title = "Notification Sound",
+                    testTag = TestTags.Settings.NOTIFICATIONS_SOUND_SWITCH,
                     checked = state.notifications.sound,
                     onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateSound(it)) },
                 )
                 SettingsSwitchRow(
                     title = "Vibration",
+                    testTag = TestTags.Settings.NOTIFICATIONS_VIBRATION_SWITCH,
                     checked = state.notifications.vibration,
                     onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateVibration(it)) },
                 )

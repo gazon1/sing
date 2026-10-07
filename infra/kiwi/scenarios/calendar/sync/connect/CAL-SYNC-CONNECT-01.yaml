@@ -1,0 +1,24 @@
+# Scenario specification for CAL-SYNC-CONNECT-01.
+#
+# Linkage lives in code (`@DisplayName` in a user-flow test source set).
+# `area` is derived from the path; the id prefix CAL-SYNC-CONNECT is checked
+# against calendar/sync/connect.
+
+id: CAL-SYNC-CONNECT-01
+title: Connect a Google account and choose a calendar to sync into
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Settings → Calendar is open, the provider is set to Google Calendar, and no
+  Google account is connected yet.
+steps:
+  - Press "Connect Google account".
+  - Once the account is connected, choose one of the calendars it reported.
+expected: >-
+  The account section changes from an invitation to connect to a way to
+  disconnect, a "Sync now" control appears only after a calendar is chosen, and
+  choosing a calendar persists — reopening Settings still shows it selected.
+  Before a calendar is chosen the panel says what is missing rather than
+  offering a control that does nothing.

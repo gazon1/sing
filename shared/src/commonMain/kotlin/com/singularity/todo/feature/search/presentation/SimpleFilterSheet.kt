@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -176,11 +177,13 @@ fun SimpleFilterSheet(
             SettingsSection(title = "Other") {
                 SettingsSwitchRow(
                     title = "Has description",
+                    testTag = TestTags.SearchFilter.HAS_DESCRIPTION_SWITCH,
                     checked = localHasDescription == true,
                     onCheckedChange = { localHasDescription = if (it) true else null },
                 )
                 SettingsSwitchRow(
                     title = "Pinned",
+                    testTag = TestTags.SearchFilter.PINNED_SWITCH,
                     checked = localPinned == true,
                     onCheckedChange = { localPinned = if (it) true else null },
                 )

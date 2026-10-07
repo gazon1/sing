@@ -1,0 +1,24 @@
+# Scenario specification for CAL-SYNC-SYNCNOW-01.
+#
+# Linkage lives in code (`@DisplayName` in a user-flow test source set).
+# `area` is derived from the path; the id prefix CAL-SYNC-SYNCNOW is checked
+# against calendar/sync/syncnow.
+
+id: CAL-SYNC-SYNCNOW-01
+title: A manual Google pass reports what it actually did
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Settings → Calendar is open, Google is the selected provider, an account is
+  connected, and a writable calendar is chosen.
+steps:
+  - Press "Sync now" in the Google half.
+  - Let the pass finish.
+expected: >-
+  The control is disabled and reads as in progress while the pass runs, and
+  afterwards the panel reports the outcome of that pass: either a failure with
+  its reason, or the time the pass completed. A failed pass never leaves the
+  panel looking unchanged, and never advances the "last synced" time. The
+  system-calendar half's own status is not moved by a Google pass.

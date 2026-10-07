@@ -577,21 +577,41 @@ dependencies {
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
 
-    // androidHostTest — the Android/Robolectric-capable source set. It currently holds
-    // no test files of its own: its only content is AndroidManifest.xml, and the 762
-    // tests it executes come from commonTest. The Robolectric / JUnit4 stack that used
-    // to be declared here went away with the tests that needed it (ADR D2's
-    // AndroidPomodoroTimerTest no longer exists), and the comment about "the Koin graph
-    // test" referred to a test that is also gone.
+    // androidHostTest — the Android/Robolectric-capable source set. Until 2026-10-07 it
+    // held no test files of its own: its only content was AndroidManifest.xml, and every
+    // test it executed came from commonTest. That left `testAndroidHostTest` a green task
+    // that verified nothing about Android, while `PlatformModule.android.kt` — the half of
+    // the graph where the sync cycle shipped as a StackOverflowError at app start — was
+    // resolved by nothing at all (#227).
     //
-    // If you add a Robolectric test here, declare the stack again in this block:
-    // `libs.robolectric`, `libs.androidx.test.core`, `libs.androidx.testExt.junit`,
-    // `libs.compose.ui.test.junit4` (AndroidX, NOT the JetBrains multiplatform one —
-    // AndroidX is Robolectric-compatible, JetBrains is not), and
-    // `libs.junit.vintage.engine`, because Robolectric is a JUnit4 runner and the task
-    // uses the JUnit Platform. Without the Vintage engine those classes are silently
-    // skipped, and the Vintage engine does not map Jupiter's @Tag onto Platform tags —
-    // see ADR 2026-10-04-test-execution-integrity.
+    // The stack is declared for `AndroidSyncDiGraphResolutionTest`, which needs a real
+    // `Context` because `platformModule()` reads `get<Context>()` inside several `single`
+    // bodies. The exact set matters and each entry is load-bearing:
+    //
+    // - `robolectric` + `androidx-test-core` + `androidx-testExt-junit`: Robolectric and
+    //   the AndroidX JUnit4 runner. Robolectric supplies the shadowed Android runtime.
+    // - `junit-vintage-engine`: **required**, not optional. Robolectric is a JUnit4
+    //   runner and this task runs the JUnit Platform, so without the Vintage engine the
+    //   class is silently skipped and the task passes having run nothing — the exact
+    //   defect class ADR `2026-10-06-ci-single-gate-registry-and-leaf-split` records.
+    //   `check-test-runs.py --require` is what stops that from recurring silently.
+    //
+    //   Consequence, stated rather than discovered: the Vintage engine does not map
+    //   Jupiter's `@Tag` onto Platform tags (see `desktopApp/build.gradle.kts:49`, where the
+    //   same engine was removed for exactly this). So a test in THIS source set cannot be
+    //   tag-selected, and `AndroidSyncDiGraphResolutionTest` therefore carries no `@Tag`
+    //   and always runs — including under `-Ptest.tags=fast`. That is intentional: a
+    //   graph-resolution test that CI could silently skip is the failure mode this whole
+    //   block exists to prevent. `check-test-runs.py --require` is what must include it.
+    // - `compose-ui-test-junit4` (AndroidX, NOT the JetBrains multiplatform artifact —
+    //   AndroidX is Robolectric-compatible, JetBrains is not) is NOT declared: this test
+    //   composes no UI. Declaring it "for the future" would add a dependency that keeps
+    //   its own upgrades without a consumer, which `check-dependency-usage.py` would
+    //   then flag as unused.
+    add("androidHostTestImplementation", libs.robolectric)
+    add("androidHostTestImplementation", libs.androidx.test.core)
+    add("androidHostTestImplementation", libs.androidx.testExt.junit)
+    add("androidHostTestRuntimeOnly", libs.junit.vintage.engine)
 }
 
 // Room 3 KSP schema export

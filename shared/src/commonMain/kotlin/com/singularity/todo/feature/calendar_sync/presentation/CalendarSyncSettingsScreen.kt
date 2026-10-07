@@ -21,8 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
@@ -114,6 +116,11 @@ private fun ProviderSelector(selected: CalendarProvider, onSelect: (CalendarProv
                     onClick = { onSelect(provider) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = CalendarProvider.entries.size),
                     label = { Text(providerLabel(provider)) },
+                    // SegmentedButton exposes no testTag parameter, so the tag goes on
+                    // the label the user reads. Keyed by that label rather than by the
+                    // enum so a selector addresses what is on screen; a test asserting
+                    // "Google Calendar is offered" then also fails if the label is lost.
+                    modifier = Modifier.testTag(TestTags.CalendarSync.providerSegment(providerLabel(provider))),
                 )
             }
         }
@@ -197,6 +204,7 @@ private fun SystemCalendarControls(state: CalendarSyncUiState, onIntent: (Calend
         SettingsSwitchRow(
             title = "Enable Sync",
             subtitle = "One-way: tasks sync to your system calendar",
+            testTag = TestTags.CalendarSync.SYSTEM_ENABLE_SWITCH,
             checked = state.isEnabled,
             onCheckedChange = { onIntent(SetEnabled(it)) },
         )
@@ -264,7 +272,9 @@ private fun SystemStatusSections(state: CalendarSyncUiState, onIntent: (Calendar
         Button(
             onClick = { onIntent(SyncNow) },
             enabled = state.status !is CalendarSyncStatus.Syncing,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .testTag(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
+                .padding(top = 8.dp),
         ) {
             Text("Sync Now")
         }
@@ -346,7 +356,10 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
-            Button(onClick = { onIntent(SetGoogleConnected(true)) }) {
+            Button(
+                onClick = { onIntent(SetGoogleConnected(true)) },
+                modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON),
+            ) {
                 Text("Connect Google account")
             }
             return@SettingsSection
@@ -363,11 +376,16 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
                     "when the current permission expires. Reconnect then to keep syncing.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier
+                    .testTag(TestTags.CalendarSync.GOOGLE_RENEW_WARNING)
+                    .padding(bottom = 8.dp),
             )
         }
 
-        Button(onClick = { onIntent(SetGoogleConnected(false)) }) {
+        Button(
+            onClick = { onIntent(SetGoogleConnected(false)) },
+            modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_DISCONNECT_BUTTON),
+        ) {
             Text("Disconnect")
         }
     }
@@ -392,7 +410,9 @@ private fun GoogleCalendarPickerSection(state: CalendarSyncUiState, onIntent: (C
                 text = "Could not read your Google calendars: ${state.googleError}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier
+                    .testTag(TestTags.CalendarSync.GOOGLE_LIST_ERROR)
+                    .padding(vertical = 8.dp),
             )
 
             state.googleCalendars.isEmpty() -> Text(
@@ -407,6 +427,10 @@ private fun GoogleCalendarPickerSection(state: CalendarSyncUiState, onIntent: (C
                     selected = state.selectedGoogleCalendarId == calendar.id,
                     enabled = calendar.canWrite,
                     onClick = { onIntent(SelectGoogleCalendar(calendar.id)) },
+                    // Keyed by the Google id rather than the row order: the listing is
+                    // sorted by Google, so "the first row" is not a stable selector and
+                    // would silently retarget whenever the account's order changed.
+                    testTag = TestTags.CalendarSync.googleCalendarRow(calendar.id),
                 )
             }
         }
@@ -421,6 +445,7 @@ private fun GoogleImportSection(state: CalendarSyncUiState, onIntent: (CalendarS
             title = "Import events from Google",
             subtitle = "Events this app did not create are added as tasks you can edit, and " +
                 "edits flow back. Turning this off leaves your own tasks still syncing to Google.",
+            testTag = TestTags.CalendarSync.GOOGLE_IMPORT_SWITCH,
             checked = state.importFromGoogle,
             onCheckedChange = { onIntent(SetImportFromGoogle(it)) },
         )
@@ -434,7 +459,9 @@ private fun GoogleImportSection(state: CalendarSyncUiState, onIntent: (CalendarS
                 "to ${formatWindowBound(state.importWindow.future)}.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier
+                .testTag(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
+                .padding(top = 4.dp),
         )
     }
 }
@@ -456,6 +483,7 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
                 // Disabled while a pass runs, because the coordinator is re-entrant but a
                 // user pressing twice means two passes raced for the same cursor.
                 enabled = !state.googleSyncing,
+                modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_SYNC_NOW_BUTTON),
             ) {
                 Text(if (state.googleSyncing) "Syncing..." else "Sync Now")
             }
@@ -463,13 +491,19 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
             // The outcome of the last pass. A Google sync that stops working has to say
             // so: before this, a failed pass left the button exactly as it was, and the
             // only evidence was a calendar that had quietly stopped updating.
+            // One tag on whichever line is showing, rather than two: the pair is one
+            // piece of information ("what did the last pass do") in two mutually
+            // exclusive renderings. A test asserting the tag exists is asserting that
+            // the pass reported *something*, and reads the text to learn which.
             val error = state.googleSyncError
             if (error != null) {
                 Text(
                     text = "Sync failed: $error",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier
+                        .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
+                        .padding(top = 4.dp),
                 )
             } else {
                 state.googleLastSyncedAt?.let { at ->
@@ -477,7 +511,9 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
                         text = "Last synced ${formatGoogleSyncTime(at)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier
+                            .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
+                            .padding(top = 4.dp),
                     )
                 }
             }
@@ -490,7 +526,9 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 4.dp),
+                modifier = Modifier
+                    .testTag(TestTags.CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR)
+                    .padding(vertical = 4.dp),
             )
         }
     }
@@ -551,6 +589,7 @@ private fun UnavailableOnThisPlatform() {
             text = "System calendar sync needs Android. " +
                 "Your tasks are unaffected — they stay in the app.",
             style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(TestTags.CalendarSync.SYSTEM_UNAVAILABLE),
         )
     }
 }
@@ -569,11 +608,16 @@ private fun RadioRow(
     selected: Boolean,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    testTag: String? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
+            // Applied before `clickable` so the tag lands on the node that owns the
+            // click, matching how SettingsRow tags itself: one semantic node for the
+            // whole row rather than a tagged wrapper around an untagged clickable.
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

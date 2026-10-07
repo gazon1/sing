@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSection
@@ -76,11 +77,13 @@ fun WorkScheduleSettingsScreen(
         SettingsSection(title = "Working Days") {
             SettingsSwitchRow(
                 title = "Saturday",
+                testTag = TestTags.Settings.WORK_SCHEDULE_SATURDAY_SWITCH,
                 checked = state.workSchedule.weekendSat,
                 onCheckedChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWeekendSat(it)) },
             )
             SettingsSwitchRow(
                 title = "Sunday",
+                testTag = TestTags.Settings.WORK_SCHEDULE_SUNDAY_SWITCH,
                 checked = state.workSchedule.weekendSun,
                 onCheckedChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWeekendSun(it)) },
             )

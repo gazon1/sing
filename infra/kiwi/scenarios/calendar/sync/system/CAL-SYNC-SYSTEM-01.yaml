@@ -1,0 +1,32 @@
+# Scenario specification for CAL-SYNC-SYSTEM-01.
+#
+# Linkage lives in code (`@DisplayName` in a user-flow test source set).
+# `area` is derived from the path; the id prefix CAL-SYNC-SYSTEM is checked
+# against calendar/sync/system.
+
+id: CAL-SYNC-SYSTEM-01
+title: The system-calendar projection says so when the platform cannot do it
+area: feature.calendar
+priority: P2
+status: confirmed
+targets: [android, desktop]
+unreachable: [android]
+preconditions: >-
+  Settings → Calendar is open and the provider is the system calendar. On
+  desktop, or any platform with no calendar provider the app can reach.
+steps:
+  - Select the system calendar in the provider selector.
+expected: >-
+  The panel states that system calendar sync needs Android and that the user's
+  tasks are unaffected, rather than rendering an enable switch and an empty
+  calendar list over providers that were never asked. The Google half stays
+  reachable, because the two are alternatives and one being impossible must not
+  hide the other.
+
+# `android` is unreachable, and that asymmetry is deliberate rather than an
+# oversight. The scenario is *about* the failure branch, and on Android that
+# branch is reached only by denying the permission through a system dialog. A JVM
+# Compose test cannot present that dialog, and an Android instrumented test would
+# have to grant and then revoke it mid-flow — which is a platform-emulator
+# capability, not a UI assertion. Desktop reaches the branch by construction, so
+# that cell is claimable and is claimed by a carrier.

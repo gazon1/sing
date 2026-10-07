@@ -3783,3 +3783,130 @@ test — the `SyncDiGraphResolutionTest` equivalent over `PlatformModule.android
 `domainModule()`. If Robolectric cannot run on this host, that is the finding; record it
 rather than substituting a fake. Then put `testAndroidHostTest` into
 `check-test-runs.py --require`, which today would pass a source set that executes nothing.
+
+---
+
+## the-measurement-system-cannot-see-a-feature-that-declares-no-scenario
+
+**Status: OPEN — the calendar-sync instance is closed, the class is not**
+
+**Tracked as:** none yet; the class-level gap is the argument for a gate below.
+
+**Found in:** 2026-10-07, while writing the scenario specs the Google calendar-sync
+feature never had.
+
+**Situation, measured.** `infra/kiwi/traceability/` is a real measurement system: 26 specs,
+49 claimed cells, three blocking gates, a one-directional hole ratchet that failed at
+`holes: 2 -> 32` on the day it was written. The calendar-sync feature shipped **23
+unit-test classes, 8 OpenSpec requirements, and 0 scenario specs** — and therefore
+contributed **zero** cells to the matrix. It could not be reported as a gap, because a
+system that enumerates what has declared itself cannot report what has not.
+
+The matrix read `holes: 32` the whole time and looked exactly as healthy as it had the
+week before, on a different product.
+
+**Already ruled out.** Not a coverage shortfall: the unit tests are good and several guard
+invariants that would be expensive to lose (`RecurrenceRuleMapperTest` and
+`EventShadowCodecTest` on the byte-identical recurrence rule; `SyncDiffMergeTest` on the
+merge). Not a linkage problem either — the scanner found the new carriers first try, and
+`traceability validate` exits 0 with holes reported as information by design ("это не
+ошибка — это и есть смысл матрицы").
+
+The reason no carrier could exist was upstream of all that: **the panel had zero
+`testTags` in 592 lines**, and carriers are only recognised in `desktopApp/src/jvmTest` and
+`androidApp/src/androidTest` — `shared/commonTest` cannot carry one, which the 23 existing
+tests do. So the feature was not merely unmeasured, it was *unmeasurable*: there was no
+address to point a carrier at.
+
+**Why this stays open after the fix.** The calendar-sync instance is closed — 7 specs, 6
+desktop carriers, honest `unreachable` on `CAL-SYNC-RECUR-01`, and the floor raised
+32 -> 40 with the reason recorded in `traceability-ratchet.json`. What is not closed is
+the **class**: nothing requires a feature to declare a scenario, so the next feature can
+ship exactly the same way.
+
+**Try next, in this order.**
+
+1. **A gate that a new feature area declares at least one scenario**, failing when a
+   directory under `shared/src/commonMain/.../feature/<new>/` appears with no
+   `infra/kiwi/scenarios/<area>/`. This is the only step that closes the class. The hard
+   part is the exemption list: a feature that genuinely has no user-visible surface should
+   be deletable from the list by adding a name to a file, and that file needs its own
+   reviewer-visible justification — the same bargain the detekt baseline makes.
+2. **The metric that makes it visible without a gate**: `dark_areas` — feature areas with
+   production files and zero specs. It cannot fail anything on its own, but it appears in
+   the matrix output, so the absence is a *looked-at* number rather than an unasked one.
+3. **Reorder the ADR/scenario relationship.** `calendar-sync` got 8 requirements in
+   `openspec/specs/` and zero scenarios, and nothing connected the two. If a spec file
+   under `openspec/specs/<area>/spec.md` were the thing that demanded scenarios, the gap
+   would surface at the moment the requirement was written rather than at the audit.
+
+**Not to do:** raise the hole floor again to make the number smaller. 32 -> 40 was a
+*correct* increase: six new scenarios verified on desktop bought an honest accounting of
+twelve previously invisible cells. Diluting the number back would restore the exact
+condition the ratchet was written to detect.
+
+---
+
+## the-unwritten-property-detector-cannot-see-a-ksp-expression
+
+**Status: OPEN — blocked on an API boundary, re-verified 2026-10-07**
+
+**Tracking:** tracked here rather than as a GitHub issue because the work is a decision
+about a build dependency, not a product commitment — and because the next attempt is option 1
+in "Try next" below, which is self-contained: add `kotlin-compiler-embeddable`, map
+`KtExpression` onto the existing `UnwrittenPropertyAnalysis`, and see whether the gate's
+output is worth a `--require` floor. That is a single afternoon with a known failure mode
+(the full-callback surface is large and will need filtering), not a queue position.
+
+**Found in:** 2026-10-07, while wiring `tools/unwritten-properties/` to a real
+symbol processor. The pure analysis (`UnwrittenPropertyAnalysis.findNeverWritten`) and
+its 13 tests are done and passing; the KSP adapter is not, and the reason is structural
+rather than a missing dependency.
+
+**Already ruled out — measured, not inferred.** `KSExpression`, `KSCallExpression` and
+`KSPropertyAccessExpression` are **absent from every KSP jar in the local Gradle cache**,
+verified by listing the class entries of `symbol-processing-api-2.3.11.jar`,
+`symbol-processing-common-deps-2.3.11.jar` and every other `com.google.devtools.ksp`
+artifact present. What `symbol-processing-api` 2.3.11 ships is declarations only:
+
+```
+KSAnnotated KSAnnotation KSCallableReference KSClassDeclaration KSClassifierReference
+KSDeclaration KSDeclarationContainer KSFile KSFunction KSFunctionDeclaration
+KSModifierListOwner KSName KSNode KSPropertyDeclaration KSPropertyAccessor
+KSPropertyGetter KSPropertySetter KSReferenceElement KSType KSTypeAlias
+KSTypeArgument KSTypeParameter KSTypeReference KSValueArgument KSValueParameter
+KSVisitor KSVisitorVoid
+```
+
+**Why this is the boundary and not a gap.** Detecting a never-written property means
+finding *references* — a property is written by an assignment or an `apply { }`, both of
+which are expressions. KSP's supported API exposes the declaration tree, not the
+expression tree, so "is this property ever written" is not expressible in the supported
+surface. This is the same wall ADR `2026-10-07-reading-a-state-property-is-not-writing-one`
+names from the other side: that ADR proves detekt cannot answer the question because it
+visits one file at a time, and this entry says KSP cannot either, for a different reason.
+
+**Why it is still worth doing rather than deleting.** The question is real — ADR
+`2026-10-07-a-default-argument-that-is-wrong-for-every-caller` found 15 of 16 call sites
+carrying a wrong tag by exactly this reasoning, and a never-written `isSupported` field
+shipped once already. The detection has value; only the *route* is blocked.
+
+**Try next, in this order.**
+
+1. **Kotlin compiler analysis API directly** (`org.jetbrains.kotlin:kotlin-compiler-embeddable`,
+   `KtExpression`). It has the expression tree, so the analysis maps directly onto
+   `UnwrittenPropertyAnalysis`. Cost: an embeddable-compiler dependency and a processor
+   that is no longer KMP-shaped. Check `check-dependency-usage.py` before declaring it —
+   the gate will flag an artifact whose packages it cannot see used.
+2. **A detekt rule over one file at a time, plus the never-written list maintained by
+   review.** Honest, cheap, and it cannot be automated; it is strictly worse than option 1
+   and strictly better than nothing.
+3. **Leave it.** `tools/unwritten-properties/` stays a pure analysis with its tests, not
+   wired into `:shared`. This is the current state and it is defensible: the ADR
+   `2026-10-07-two-of-three-background-jobs-were-not-buildable-yet` records that a gate
+   failing the build on every real finding needs human review, and that was true of the
+   wiring independently of the API gap.
+
+**Not to do:** write the adapter against `KSPropertyDeclaration` only. That sees
+declarations, and a property is never *declared* again — it would report every property in
+the codebase as never-written, which is a green gate asserting something false.

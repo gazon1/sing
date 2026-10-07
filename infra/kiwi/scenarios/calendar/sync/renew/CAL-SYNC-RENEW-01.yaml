@@ -1,0 +1,27 @@
+# Scenario specification for CAL-SYNC-RENEW-01.
+#
+# Linkage lives in code (`@DisplayName` in a user-flow test source set).
+# `area` is derived from the path; the id prefix CAL-SYNC-RENEW is checked
+# against calendar/sync/renew.
+
+id: CAL-SYNC-RENEW-01
+title: A grant that cannot renew says so before sync silently stops
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Settings → Calendar is open with Google selected, and the profile holds a
+  credential whose grant carries no refresh token — the shape the hybrid OAuth
+  flow produces, because consent happens in KMPAuth while the durable credential
+  is owned here.
+steps:
+  - The screen loads the account.
+  - The user looks at the Google Account section.
+expected: >-
+  The screen warns that the connection cannot be renewed in the background and
+  that sync will stop when the current permission expires, and says to reconnect.
+  The warning appears while the account still looks connected in every other
+  respect — the disconnect control is present and nothing else reports a
+  problem — because that is the state a user cannot otherwise distinguish from
+  working sync.
