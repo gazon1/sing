@@ -69,18 +69,6 @@ data class CalendarSyncUiState(
      * nothing in it and no explanation.
      */
     val googleError: String? = null,
-    /**
-     * Whether this platform can sync to a system calendar at all.
-     *
-     * Defaults to `true`, and flips to `false` when [CalendarProviderPort.getAvailableCalendars]
-     * fails with an unsupported-platform error — which is what `NoopCalendarProvider` returns.
-     *
-     * Without this the screen lies. On Desktop, `setEnabled` wrote to a repository whose
-     * `observeEnabled()` is `flowOf(false)`: the switch was flipped optimistically, nothing
-     * corrected it, and the user was left looking at an enabled toggle that had never synced
-     * anything. A capability flag is the honest signal, and the failure result already carries it.
-     */
-    val isSupported: Boolean = true,
 ) {
     /** True when the user has connected Google and picked a calendar. */
     val googleReady: Boolean get() = googleConnected && selectedGoogleCalendarId != null
@@ -363,14 +351,19 @@ class CalendarSyncViewModel(
                     }
                 }
                 .onFailure {
+                    // Nothing is set to "unsupported" here, and deliberately: the platform
+                    // gate is `CalendarPermissionRequester.isSupported`, which the screen
+                    // reads and which knows the answer without making a call. Deciding it
+                    // from a call result means a transient failure — a revoked permission,
+                    // a sick content provider — reads as "this device cannot", and the one
+                    // panel that would have told the user apart is the one that goes dark.
+                    //
+                    // A failed read is not a capability verdict, and `hasPermissions`
+                    // already covers the permission case with a dialog to fix it.
                     updateState {
                         it.copy(
                             availableApps = apps,
                             isLoading = false,
-                            // The provider is the authority on whether this platform can sync at
-                            // all; its failure is the capability signal. Read it here so the UI
-                            // can say so instead of presenting controls that do nothing.
-                            isSupported = false,
                         )
                     }
                 }
