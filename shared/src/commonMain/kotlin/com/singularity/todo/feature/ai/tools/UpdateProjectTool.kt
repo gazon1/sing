@@ -37,7 +37,7 @@ class UpdateProjectTool(private val projectsRepository: ProjectsRepository, priv
             description = args.description ?: existing.description,
             updatedAt = clock.now(),
         )
-        projectsRepository.update(updated)
+        projectsRepository.update(updated).getOrThrow()
         return Json.encodeToString(
             UpdateProjectOutput.serializer(),
             UpdateProjectOutput(args.projectId, true),

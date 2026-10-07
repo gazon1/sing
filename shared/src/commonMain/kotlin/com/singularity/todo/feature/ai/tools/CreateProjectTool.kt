@@ -52,7 +52,7 @@ class CreateProjectTool(
             updatedAt = now,
             userId = UserId(userId),
         )
-        projectsRepository.create(project)
+        projectsRepository.create(project).getOrThrow()
         return Json.encodeToString(
             CreateProjectOutput.serializer(),
             CreateProjectOutput(projectId.value, project.name),

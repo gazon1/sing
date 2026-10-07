@@ -1171,6 +1171,14 @@ class FakeProjectsRepository(
 
     fun clear() = store.clear()
 
+    // ─── Configurable results (for failure-path tests) ────────────────────
+    // Same shape as FakeTaskRepository's block. Without these a test cannot
+    // exercise a caller against a failed write at all: `create` always
+    // succeeds, so "the caller handles failure" and "the caller was never given
+    // one" are the same observation.
+    var createOverride: Result<Project>? = null
+    var updateOverride: Result<Project>? = null
+
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
@@ -1195,14 +1203,20 @@ class FakeProjectsRepository(
         store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
     }
 
-    override suspend fun create(item: Project): Result<Project> = runCatchingCancellable {
-        store.upsert(item)
-        item
+    override suspend fun create(item: Project): Result<Project> {
+        createOverride?.let { return it }
+        return runCatchingCancellable {
+            store.upsert(item)
+            item
+        }
     }
 
-    override suspend fun update(item: Project): Result<Project> = runCatchingCancellable {
-        store.upsert(item)
-        item
+    override suspend fun update(item: Project): Result<Project> {
+        updateOverride?.let { return it }
+        return runCatchingCancellable {
+            store.upsert(item)
+            item
+        }
     }
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {
@@ -1317,6 +1331,12 @@ class FakeTagsRepository(
 
     fun clear() = store.clear()
 
+    // ─── Configurable results (for failure-path tests) ────────────────────
+    // Same shape as FakeTaskRepository's block, and for the same reason: a
+    // caller can only be checked against a failed write if one can be produced.
+    var createOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
+    var updateOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
+
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
@@ -1338,16 +1358,22 @@ class FakeTagsRepository(
 
     override suspend fun create(
         item: com.singularity.todo.feature.tags.Tag,
-    ): Result<com.singularity.todo.feature.tags.Tag> = runCatchingCancellable {
-        store.upsert(item)
-        item
+    ): Result<com.singularity.todo.feature.tags.Tag> {
+        createOverride?.let { return it }
+        return runCatchingCancellable {
+            store.upsert(item)
+            item
+        }
     }
 
     override suspend fun update(
         item: com.singularity.todo.feature.tags.Tag,
-    ): Result<com.singularity.todo.feature.tags.Tag> = runCatchingCancellable {
-        store.upsert(item)
-        item
+    ): Result<com.singularity.todo.feature.tags.Tag> {
+        updateOverride?.let { return it }
+        return runCatchingCancellable {
+            store.upsert(item)
+            item
+        }
     }
 
     /** Scoped to the current user, matching production's `watchByIdForUser`. */

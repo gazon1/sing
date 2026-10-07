@@ -59,7 +59,7 @@ class CreateTaskTool(
             updatedAt = now,
             userId = userId,
         )
-        taskRepository.create(task)
+        taskRepository.create(task).getOrThrow()
         return Json.encodeToString(
             CreateTaskOutput.serializer(),
             CreateTaskOutput(taskId.value, task.title, task.description),

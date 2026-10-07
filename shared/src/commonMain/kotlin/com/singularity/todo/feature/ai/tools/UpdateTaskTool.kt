@@ -70,7 +70,7 @@ class UpdateTaskTool(private val taskRepository: TaskRepository, private val clo
             someday = args.someday ?: existing.someday,
             updatedAt = clock.now(),
         )
-        taskRepository.update(updated)
+        taskRepository.update(updated).getOrThrow()
         return Json.encodeToString(
             UpdateTaskOutput.serializer(),
             UpdateTaskOutput(args.taskId, true),

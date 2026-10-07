@@ -48,7 +48,7 @@ class CreateTagTool(
             updatedAt = now,
             userId = UserId(userId),
         )
-        tagsRepository.create(tag)
+        tagsRepository.create(tag).getOrThrow()
         return Json.encodeToString(
             CreateTagOutput.serializer(),
             CreateTagOutput(tagId.value, tag.name),

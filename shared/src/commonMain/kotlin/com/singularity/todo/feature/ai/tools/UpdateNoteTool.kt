@@ -35,7 +35,7 @@ class UpdateNoteTool(private val notesRepository: NotesRepository, private val c
             bodyHtml = args.bodyHtml ?: existing.bodyHtml,
             updatedAt = clock.now(),
         )
-        notesRepository.update(updatedNote)
+        notesRepository.update(updatedNote).getOrThrow()
         return Json.encodeToString(
             UpdateNoteOutput.serializer(),
             UpdateNoteOutput(args.noteId, true),
