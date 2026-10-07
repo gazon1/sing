@@ -18,10 +18,16 @@ import org.koin.dsl.module
  */
 fun backgroundWorkModule(): Module = module {
     single { SyncPushJob(get<SyncRepository>()) }
+    single { PruneLlmUsageJob(get()) }
 
+    // `RoomUsageRecorder` rather than `LlmUsageDao`: the recorder owns the clock and the
+    // day arithmetic, and re-deriving the cutoff here would put a second copy of the
+    // retention rule in the file that decides when to run the job.
     single<BackgroundJobCatalog> {
-        ListBackgroundJobCatalog { listOf(get<SyncPushJob>()) }
+        ListBackgroundJobCatalog { listOf(get<SyncPushJob>(), get<PruneLlmUsageJob>()) }
     }
+
+    single { BackgroundWorkBootstrapper(get<BackgroundWorkScheduler>()) }
 }
 
 /**
