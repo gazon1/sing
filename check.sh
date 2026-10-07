@@ -169,7 +169,14 @@ echo -e "${GREEN}=== [12/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${N
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
-./gw :shared:detekt :desktopApp:detekt --quiet || {
+#
+# `:androidApp:detekt` and `:detekt-rules:detekt` were missing here while ci.yml
+# ran both. That is the defect Part I of check-gate-wiring.py was written for: the
+# local loop was green on two modules whose lint it had never executed, so a
+# violation in either passed `./check.sh` and failed CI. detekt-rules matters
+# most — it is the module holding the project's own custom rules, and a rule file
+# that does not lint is indistinguishable from one that has no findings.
+./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet || {
     echo -e "${RED}detekt reported violations — see config/detekt/ for the active rule set${NC}"
     exit 1
 }

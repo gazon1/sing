@@ -450,3 +450,223 @@ class PartETest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PartHTest(unittest.TestCase):
+    """A gate-shaped script nobody reaches reports success forever.
+
+    Parts A–G all begin from a gate somebody already decided to run, so a script
+    that exists, can fail, and is named nowhere is invisible to every one of them.
+    Each test here is a positive control: it constructs the situation and asserts
+    the detector reports it, because "found nothing" and "looked in the wrong
+    place" are otherwise the same result.
+    """
+
+    def _repo_with(self, files: dict[str, str]) -> pathlib.Path:
+        """Build a throwaway repo, point gw at it, restore on teardown."""
+        tmp = pathlib.Path(self.enterContext(_tmpdir()))
+        for rel, body in files.items():
+            p = tmp / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(body, encoding='utf-8')
+        original_root = gw.ROOT
+        original_surfaces = gw._REACH_SURFACES
+        gw.ROOT = tmp
+        gw._REACH_SURFACES = (
+            [tmp / 'check.sh', tmp / 'scripts/ci/static-gates.sh', tmp / 'justfile']
+            + sorted(tmp.glob('.just/**/*.just'))
+            + sorted(tmp.glob('.github/workflows/*.yml'))
+            + sorted(tmp.glob('.github/actions/*/action.yml'))
+        )
+        self.addCleanup(lambda: (setattr(gw, 'ROOT', original_root),
+                                 setattr(gw, '_REACH_SURFACES', original_surfaces)))
+        return tmp
+
+    def test_a_gate_named_by_no_surface_is_reported(self):
+        self._repo_with({
+            'scripts/check-orphan.py': '#!/usr/bin/env python3\n',
+            'scripts/ci/static-gates.sh': 'gate blocking "real" python3 scripts/check-real.py\n',
+            'scripts/check-real.py': '#!/usr/bin/env python3\n',
+        })
+        errors = gw.check_gate_reachability()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn('check-orphan.py', errors[0],
+                      'the message must name the unreachable script, or the reader '
+                      'has to go looking for it')
+
+    def test_the_real_repository_has_no_unreachable_gate(self):
+        self.assertEqual(gw.check_gate_reachability(), [],
+                         'every scripts/check* script must be reachable from '
+                         'check.sh, the registry, a just recipe, a workflow or a '
+                         'composite action')
+
+    def test_a_shim_delegated_gate_is_reachable(self):
+        # `check-skill-frontmatter.sh` execs the .py. Reading only surface text
+        # calls the .py an orphan, and then a future editor "fixes" a gate that
+        # was never broken.
+        self._repo_with({
+            'scripts/check-skill-frontmatter.sh':
+                '#!/usr/bin/env bash\nset -euo pipefail\nROOT="$PWD"\n'
+                'exec python3 "$ROOT/scripts/check_skill_frontmatter.py" "$@"\n',
+            'scripts/check_skill_frontmatter.py': '#!/usr/bin/env python3\n',
+            'scripts/ci/static-gates.sh':
+                'gate blocking "skill frontmatter" ./scripts/check-skill-frontmatter.sh\n',
+        })
+        self.assertEqual(gw.check_gate_reachability(), [])
+
+    def test_both_name_spellings_are_candidates(self):
+        # Two of the three gates whose name uses an underscore would be invisible
+        # to a hyphen-only pattern, which would then report a short list and call
+        # it complete.
+        self._repo_with({
+            'scripts/check_adr_status.py': '#!/usr/bin/env python3\n',
+            'scripts/check-skill-frontmatter.sh': '#!/usr/bin/env bash\n',
+        })
+        candidates = gw.gate_candidate_scripts()
+        self.assertIn('scripts/check_adr_status.py', candidates)
+        self.assertIn('scripts/check-skill-frontmatter.sh', candidates)
+
+    def test_a_gate_reachable_only_from_ci_is_reachable(self):
+        self._repo_with({
+            'scripts/check-flaky-tests.py': '#!/usr/bin/env python3\n',
+            '.github/workflows/ci.yml': 'jobs:\n  t:\n    steps:\n'
+                                        '      - run: python3 scripts/check-flaky-tests.py \\\n'
+                                        '          --current DIR\n',
+        })
+        self.assertEqual(gw.check_gate_reachability(), [],
+                         'a gate named only by a workflow is invoked — ci.yml is a '
+                         'gate surface, not an afterthought')
+
+    def test_a_gate_reachable_only_from_a_just_recipe_is_reachable(self):
+        self._repo_with({
+            'scripts/check-gate-honesty.py': '#!/usr/bin/env python3\n',
+            '.just/tests/mod.just': 'honest:\n    python3 scripts/check-gate-honesty.py {{args}}\n',
+        })
+        self.assertEqual(gw.check_gate_reachability(), [],
+                         '.just/**/*.just is nested; a non-recursive glob misses it '
+                         'and reports a reachable gate as an orphan')
+
+    def test_a_data_file_with_a_gate_like_name_is_not_a_candidate(self):
+        # `scripts/check-dead-settings-baseline.txt` is real and is read by gates.
+        self._repo_with({
+            'scripts/check-dead-settings-baseline.txt': 'key=value\n',
+            'scripts/ci/static-gates.sh': 'gate blocking "x" python3 scripts/check-x.py\n',
+            'scripts/check-x.py': '#!/usr/bin/env python3\n',
+        })
+        self.assertNotIn('scripts/check-dead-settings-baseline.txt',
+                         gw.gate_candidate_scripts())
+
+    def test_two_shims_delegating_to_each_other_terminate(self):
+        self._repo_with({
+            'scripts/check-a.py': '#!/usr/bin/env bash\nexec bash "$PWD/scripts/check-b.sh"\n',
+            'scripts/check-b.sh': '#!/usr/bin/env bash\nexec bash "$PWD/scripts/check-a.py"\n',
+            'scripts/ci/static-gates.sh': 'gate blocking "x" python3 scripts/check-a.py\n',
+        })
+        # The point is that it returns at all.
+        self.assertEqual(gw.check_gate_reachability(), [])
+
+
+class PartITest(unittest.TestCase):
+    """A Gradle task named by one surface only is a task the other never runs.
+
+    Part A asks whether a task is invoked *somewhere*, which CI alone satisfies —
+    that is how `./check.sh` is green on a module whose lint it never executed.
+    """
+
+    def setUp(self) -> None:
+        # Every test starts from an empty declaration table so that a synthetic
+        # repo is never judged by the real repository's asymmetries: `:pro:detekt`
+        # would be flagged ci-only in a fixture that simply does not mention it.
+        self._table = dict(gw.GRADLE_TASK_PARITY)
+        gw.GRADLE_TASK_PARITY.clear()
+        self.addCleanup(self._restore_table)
+
+    def _restore_table(self) -> None:
+        gw.GRADLE_TASK_PARITY.clear()
+        gw.GRADLE_TASK_PARITY.update(self._table)
+
+    def _surfaces(self, check_sh: str, ci_yml: str) -> None:
+        tmp = pathlib.Path(self.enterContext(_tmpdir()))
+        (tmp / '.github' / 'workflows').mkdir(parents=True)
+        (tmp / 'check.sh').write_text(check_sh, encoding='utf-8')
+        (tmp / '.github' / 'workflows' / 'ci.yml').write_text(ci_yml, encoding='utf-8')
+        original_root = gw.ROOT
+        gw.ROOT = tmp
+        self.addCleanup(setattr, gw, 'ROOT', original_root)
+
+    def test_a_task_named_only_by_ci_is_reported(self):
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task :androidApp:detekt\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':androidApp:detekt', errors[0])
+        self.assertIn('check.sh', errors[0],
+                      'the message must name the surface that has to add it')
+
+    def test_the_real_surfaces_are_in_parity(self):
+        self._restore_table()
+        self.assertEqual(gw.check_gradle_task_parity(), [])
+
+    def test_a_task_named_only_locally_is_reported(self):
+        self._surfaces(
+            './gw :common:task --quiet\n./gw :onlylocal:task\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':onlylocal:task', errors[0])
+        self.assertIn('ci.yml', errors[0])
+
+    def test_a_declared_asymmetry_is_not_a_finding(self):
+        gw.GRADLE_TASK_PARITY[':pro:detekt'] = ('ci', 'only exists under -PwithPro=true')
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task :pro:detekt\n',
+        )
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'an asymmetry with a stated reason is the arrangement; an '
+                         'undeclared one is a lie in a shell script')
+
+    def test_a_covered_task_must_still_be_named_locally(self):
+        gw.GRADLE_TASK_PARITY[':shared:jvmTest'] = ('covered', 'via koverReport')
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :common:task\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':shared:jvmTest', errors[0],
+                      'a covered row must not become a loophole: dropping the task '
+                      'from check.sh has to be reported, not tolerated')
+
+    def test_a_floor_declaration_is_not_an_invocation(self):
+        # `--require common:task` names a task as a floor to compare against and
+        # never runs it. It is spelled without the leading colon the Gradle CLI
+        # uses, so neither surface names a task and nothing is reported. Pinned
+        # deliberately: if this ever started counting, Part I would report
+        # :mcp-server:test as a local gap on the basis of a string that runs nothing.
+        self._surfaces(
+            '# no Gradle task is named on the local surface\n',
+            'jobs:\n  t:\n    steps:\n      - run: python3 scripts/check-test-runs.py '
+            '--require common:task\n',
+        )
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'a floor declaration is not an invocation')
+
+    def test_release_workflow_tasks_are_not_verification_tasks(self):
+        # release.yml assembles an unsigned APK and a deb to publish. Requiring
+        # check.sh to build a release artifact would put a shipping decision in
+        # the developer loop.
+        self._surfaces(
+            './gw :shared:detekt --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: ./gradlew :shared:detekt\n',
+        )
+        release = pathlib.Path(gw.ROOT) / '.github' / 'workflows' / 'release.yml'
+        release.write_text('jobs:\n  t:\n    steps:\n'
+                           '      - run: ./gradlew :androidApp:assembleRelease '
+                           ':desktopApp:packageDeb\n',
+                           encoding='utf-8')
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'release.yml is packaging, not verification')

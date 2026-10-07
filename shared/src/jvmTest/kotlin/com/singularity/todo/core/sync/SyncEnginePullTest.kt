@@ -400,21 +400,45 @@ class SyncEnginePullTest {
         assertEquals(listOf(0L, 10L), api.pullCalls.map { it.second })
     }
 
+    /**
+     * A write that did not happen stops the cycle, and the cursor stays put.
+     *
+     * This used to be `a conflict is counted but still advances the cursor`, and it
+     * registered a handler returning `ApplyOutcome.Conflict` by hand. That arm no longer
+     * exists — see [ApplyOutcomeArmsTest] for why it could only ever have been produced by
+     * a misclassification — and the hand-registered handler was the only thing keeping it
+     * alive: a test can construct an outcome the engine cannot reach, which makes an
+     * unreachable arm look reachable from the suite.
+     *
+     * The nearest reachable neighbour is `Failed`, which is what a write that did not happen
+     * now produces, and its cursor behaviour is the opposite of the old test's: the page
+     * stops there and the whole pull is reported as a failure rather than a partial page
+     * reported as success (#175). So the cursor must not move, and the caller has to be
+     * told.
+     */
     @Test
-    fun `a conflict is counted but still advances the cursor`() = runTest {
+    fun `a failed write stops the cycle with the cursor still where it was`() = runTest {
         val api = FakeSyncApiClient(pullEvents = listOf(taskEvent(10), taskEvent(20)))
         val auth = FakeSyncAuthRepository(signedIn())
         val state = FakeSyncStateRepository()
         val syncScope = scopeFor(auth)
         val engine = engine(api, this, stateRepository = state, auth = auth)
-        engine.registerHandler(DocType.Task) { ApplyOutcome.Conflict("newer remote value") }
+        engine.registerHandler(DocType.Task) { ApplyOutcome.Failed("the write did not happen") }
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
+        val pull = (outcome as SyncOutcome.Success).pull
 
-        assertEquals(2, pull.conflicts)
-        assertEquals(0, pull.dropped)
-        assertEquals(20L, state.lastLsn(syncScope), "a resolved conflict is not a reason to re-fetch")
+        assertEquals(
+            0L,
+            state.lastLsn(syncScope),
+            "the cursor must not move past an event whose row was never written — the " +
+                "server will not send it again, so moving here loses the change outright",
+        )
+        val error = pull.exceptionOrNull()
+        assertTrue(
+            error is AppError.Persistence && error.code == "sync.pull_stalled",
+            "a cycle that stopped early is not a cycle that finished: $error",
+        )
     }
 
     @Test
