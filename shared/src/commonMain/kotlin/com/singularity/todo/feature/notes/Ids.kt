@@ -67,10 +67,19 @@ enum class NoteKind {
  *
  * `@Serializable` is load-bearing, not decorative: [toJson] resolves
  * `serializer<Note>()`. Without the annotation the serializer lookup throws at
- * runtime, [com.singularity.todo.core.sync.SyncRepository.enqueue] swallows it via
- * `runCatchingResult`, and notes are **never** written to the sync outbox — a
- * silent total loss of note sync, not merely a missing field. The KSP-generated
- * serializer is also what makes the Koin/serialization plugin happy.
+ * runtime, and notes are **never** written to the sync outbox — a total loss of
+ * note sync, not merely a missing field. The KSP-generated serializer is also
+ * what makes the Koin/serialization plugin happy.
+ *
+ * The annotation is not the whole defence, and the annotation is not what makes
+ * the failure visible. `SyncEngine.enqueue` wraps the build-and-insert in
+ * `runCatchingResult` and 18 call sites discard the `Result`, so the throw was
+ * caught and returned to nobody: that is exactly how the missing annotation
+ * shipped a total note-sync outage with no error anywhere
+ * (`2026-09-27-write-layer-soundness.md`, MR-4). Since REQ-OS-028 `enqueue` logs
+ * and reports the failure itself under the `sync.enqueue_failed` issue key, so
+ * this class of defect now names itself instead of being silent. Removing the
+ * annotation would break sync again — and be visible when it did.
  */
 @Serializable
 data class Note(
