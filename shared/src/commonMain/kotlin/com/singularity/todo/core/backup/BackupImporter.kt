@@ -137,7 +137,11 @@ class BackupImporter(
             if (bytes != null) {
                 try {
                     val ext = att.mimeType?.substringAfterLast('/') ?: ""
-                    attachmentStorage.saveBytes(att.taskId, att.id, bytes, ext)
+                    // Unwrapped, because the try/catch below is written against a throwing
+                    // contract and `saveBytes` returns a Result. Without the unwrap a failed
+                    // write fell through to `restoredCount++` and the catch was never entered,
+                    // so the restore report counted an attachment that was not on disk.
+                    attachmentStorage.saveBytes(att.taskId, att.id, bytes, ext).getOrThrow()
                     restoredCount++
                 } catch (e: CancellationException) {
                     throw e

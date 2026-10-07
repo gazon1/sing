@@ -101,7 +101,14 @@ class DecomposeAndCreateTool(
             planSource = "empty"
         }
 
-        // 2) create each sub-task
+        // 2) create each sub-task.
+        //
+        // Unwrapped, and this is the eighth place the dropped-`Result` guard found after the
+        // other seven tools were fixed — and the worst of them, because this one creates in a
+        // loop. Without the unwrap a create that failed left its id in [subIds] anyway, so the
+        // model received a list of subtask ids naming tasks that were never written, and it
+        // builds its next action on that list. See openspec change
+        // `a-dropped-result-is-reported-where-it-happens`.
         val subIds = subTitles.map { title ->
             val subId = TaskId.generate()
             taskRepository.create(
@@ -122,7 +129,7 @@ class DecomposeAndCreateTool(
                     updatedAt = now,
                     userId = userId,
                 ),
-            )
+            ).getOrThrow()
             subId.value
         }
 
