@@ -140,8 +140,17 @@ list:
 new branch:
     #!/bin/bash
     set -euo pipefail
+    # Hand the parameter over as an environment variable, not as a word in the
+    # script. `create_worktree "{{branch}}"` would let a branch name containing a
+    # double quote close the string and append shell — verified, it executed an
+    # injected command. quote() must also be used *bare*: inside extra quotes the
+    # single quotes become literal and the value is still injectable.
+    export WT_BRANCH={{quote(branch)}}
+    export WT_ROOT_ARG={{quote(WT_ROOT)}}
+    export WT_PREFIX_ARG={{quote(WT_PREFIX)}}
+    export WT_BASE_ARG={{quote(WT_BASE)}}
     {{ CREATE }}
-    create_worktree "{{branch}}" "{{WT_ROOT}}" "{{WT_PREFIX}}" "{{WT_BASE}}"
+    create_worktree "$WT_BRANCH" "$WT_ROOT_ARG" "$WT_PREFIX_ARG" "$WT_BASE_ARG"
 
 [group('worktree')]
 [doc('Create a worktree and launch mcode inside it: just wt code backlog-02')]
@@ -149,12 +158,22 @@ new branch:
 code branch *args:
     #!/bin/bash
     set -euo pipefail
+    export WT_BRANCH={{quote(branch)}}
+    export WT_ROOT_ARG={{quote(WT_ROOT)}}
+    export WT_PREFIX_ARG={{quote(WT_PREFIX)}}
+    export WT_BASE_ARG={{quote(WT_BASE)}}
+    # Re-split for mcode. quote() collapses a variadic into ONE string, which
+    # would turn `--model fast` into a single argument; read -ra splits on
+    # whitespace instead and never re-interprets the content, so an injected
+    # `;` stays an ordinary character instead of a command separator.
+    export WT_ARGS={{quote(args)}}
+    read -ra WT_MCODE_ARGS <<< "$WT_ARGS"
     {{ CREATE }}
-    create_worktree "{{branch}}" "{{WT_ROOT}}" "{{WT_PREFIX}}" "{{WT_BASE}}"
+    create_worktree "$WT_BRANCH" "$WT_ROOT_ARG" "$WT_PREFIX_ARG" "$WT_BASE_ARG"
     {{ RESOLVE_NAME }}
-    resolve_name "{{branch}}" "{{WT_ROOT}}" "{{WT_PREFIX}}"
+    resolve_name "$WT_BRANCH" "$WT_ROOT_ARG" "$WT_PREFIX_ARG"
     {{ LAUNCH_MCODE }}
-    launch_mcode "$wt_dir" {{args}}
+    launch_mcode "$wt_dir" "${WT_MCODE_ARGS[@]+"${WT_MCODE_ARGS[@]}"}"
 
 [group('worktree')]
 [doc('Launch mcode in an existing worktree: just wt code-in backlog-02')]
@@ -162,7 +181,11 @@ code branch *args:
 code-in name *args:
     #!/bin/bash
     set -euo pipefail
-    wt_dir="{{WT_ROOT}}/{{name}}"
+    export WT_NAME={{quote(name)}}
+    export WT_ROOT_ARG={{quote(WT_ROOT)}}
+    export WT_ARGS={{quote(args)}}
+    read -ra WT_MCODE_ARGS <<< "$WT_ARGS"
+    wt_dir="$WT_ROOT_ARG/$WT_NAME"
     if [[ ! -d "$wt_dir" ]]; then
         echo "ERROR: no worktree at $wt_dir" >&2
         echo "Usage: just wt code-in <dir-name>" >&2
@@ -171,4 +194,4 @@ code-in name *args:
         exit 1
     fi
     {{ LAUNCH_MCODE }}
-    launch_mcode "$wt_dir" {{args}}
+    launch_mcode "$wt_dir" "${WT_MCODE_ARGS[@]+"${WT_MCODE_ARGS[@]}"}"
