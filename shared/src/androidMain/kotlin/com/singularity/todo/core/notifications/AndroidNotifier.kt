@@ -17,7 +17,10 @@ import androidx.core.content.ContextCompat
  *
  * @param context Android [Context] (application or activity scoped).
  */
-class AndroidNotifier(private val context: Context) {
+class AndroidNotifier(private val context: Context) : Notifier {
+
+    /** Android always has a notification manager; the only question is the user's grant. */
+    override val isSupported: Boolean = true
 
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -36,7 +39,7 @@ class AndroidNotifier(private val context: Context) {
      * @param viewId Optional SavedAgendaViewId deeplink target — carried as an extra in the
      *               launch PendingIntent and read by [MainActivity] to navigate to the correct view.
      */
-    fun post(tag: String, title: String, body: String, viewId: String?) {
+    override fun post(tag: String, title: String, body: String, viewId: String?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val denied = ContextCompat.checkSelfPermission(
                 context,

@@ -51,6 +51,8 @@ import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.core.notifications.JvmNotifier
+import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import org.koin.core.module.Module
@@ -206,9 +208,18 @@ actual fun platformModule(): Module = module {
         )
     }
 
-    // ─── Reminder Scheduler ────────────────────────────────────────────
+    // ─── Notifications ────────────────────────────────────────────────
+    // `JvmNotifier` probes `notify-send` once, lazily, so `isSupported` reflects the
+    // host rather than a constant. The scheduler's own capability is the conjunction of
+    // this and systemd's, so a headless box correctly reports no reminders.
+    single<Notifier> { JvmNotifier(get()) }
 
-    single<ReminderScheduler> { JvmReminderScheduler() }
+    // ─── Reminder Scheduler ────────────────────────────────────────────
+    // Arms one `systemd --user` transient timer per reminder. `ReminderRepository` is
+    // needed by `cancelByTask` to enumerate the task's reminders; there is no
+    // system-wide job list to enumerate, which is the containment property that
+    // outlived the deleted `at` backend.
+    single<ReminderScheduler> { JvmReminderScheduler(get(), get(), get()) }
 
     // ─── Sync Scheduler ─────────────────────────────────────────────────
 
