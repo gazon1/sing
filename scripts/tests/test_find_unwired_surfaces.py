@@ -25,6 +25,74 @@ _spec.loader.exec_module(_fus_module)
 import find_unwired_surfaces as fus
 
 
+class TestDeadSymbolClassifiesBySourceSet(unittest.TestCase):
+    """The classification the dead-symbol rule depends on, which used to be inlined.
+
+    `_precompute_dead_symbol` and `_check_dead_symbol` each carried their own copy of
+    `"/test/" in str(path) or "/jvmTest/" in str(path)` while `_is_test_source` — the
+    helper the other detectors use, and which already knew about `commonTest` — sat
+    further down the same file. Neither copy matched `commonTest`, because `/commonTest/`
+    contains no `/test/`. All 171 `commonTest` files were therefore counted as
+    **production**, every reference in them inflated the production count, and the rule
+    never fired for a symbol only `commonTest` touches.
+
+    That is how `setInheritedForProject` went unreported (#228): its only other reference
+    is an `override` in `TagGroupsViewModelTest`.
+
+    These controls name the behaviour, not the implementation — a second copy of the
+    decision is what the defect was, so the thing to pin is the answer, from the helper
+    every detector shares.
+    """
+
+    def test_common_test_is_a_test(self):
+        """The regression itself: `commonTest` is the source set the copies missed."""
+        self.assertTrue(
+            fus._is_test_source(pathlib.Path("shared/src/commonTest/kotlin/Foo.kt")),
+            "commonTest must be classified as a test source set",
+        )
+
+    def test_the_other_test_source_sets_are_tests(self):
+        for src in ("jvmTest", "androidTest", "androidHostTest", "test"):
+            self.assertTrue(
+                fus._is_test_source(pathlib.Path(f"shared/src/{src}/kotlin/Foo.kt")),
+                f"{src} must be classified as a test source set",
+            )
+
+    def test_production_source_sets_are_not_tests(self):
+        # jvmMain/androidMain are named in the helper's set on purpose: their paths
+        # must not be read as tests by any part of the rule.
+        for src in ("commonMain", "jvmMain", "androidMain"):
+            self.assertFalse(
+                fus._is_test_source(pathlib.Path(f"shared/src/{src}/kotlin/Foo.kt")),
+                f"{src} is a production source set",
+            )
+
+    def test_a_production_file_merely_named_like_a_test_is_production(self):
+        # The name fallback is `endswith("Test.kt")`, so `Contest.kt` and `Protests.kt`
+        # stay production. A substring rule would get this backwards.
+        for name in ("Foo.kt", "Contest.kt", "Protests.kt", "Latest.kt"):
+            self.assertFalse(
+                fus._is_test_source(
+                    pathlib.Path(f"shared/src/commonMain/kotlin/com/x/{name}")
+                ),
+                f"{name} is production and merely contains 'test'",
+            )
+
+    def test_the_fakes_directory_is_a_test_source(self):
+        # `test/fakes/` holds the doubles the dead-symbol rule talks *about*, and they
+        # are test code. Reading them as production would count each double's own
+        # declaration as a production caller of everything it overrides.
+        self.assertTrue(
+            fus._is_test_source(
+                pathlib.Path(
+                    "shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/"
+                    "FakeRepositories.kt"
+                )
+            ),
+            "test doubles are test sources wherever they live",
+        )
+
+
 class TestStripComments(unittest.TestCase):
     def test_removes_block_comment(self):
         self.assertEqual(fus.strip_comments("a/* b */c"), "ac")

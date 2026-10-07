@@ -81,15 +81,32 @@ The remaining item was replacing `NOT_SYNCED_WRITES`' method names with **synced
 that a column which becomes synced invalidates its exemption. A method name survives a
 refactoring that changes what the method is for; a column does not.
 
-It is not built because the set of synced columns does not exist in this repository.
-`sync_field_allowlist` is a server table, and `SyncDocumentWriter.supportedTypes` is a set of
-*entities*, not fields. So a column-based exemption needs a fact that only the live database
-holds — the same blocker as the open half of #221, and the honest response is to name it
-rather than to hardcode a column list that would be a fourth hand-maintained list in a class
-of document this repository has now produced three of.
+**The fact it was waiting for turned out to be in the repository**, not only in the live
+database: `supabase/migrations/2026-10-07-sync_schema.sql` seeds `sync_field_allowlist` with
+86 rows over 7 entity types, and that seed was verified against the live project on
+2026-10-07 — identical row for row. So nothing needs maintaining; the rule can read it where
+it already lives.
 
-When the live half of #221 lands, the floor it writes is exactly this list, and the exemption
-becomes derivable like the apply-handler set already is.
+Reading it produced two corrections rather than one implementation:
+
+1. **Both stated reasons were wrong.** `saveOutgoingLinks` was "internal links; no `DocType`
+   describes them" — true for `tasks.outgoing_links`, false for `note.outgoingLinks`, which
+   **is** in the allowlist and **is** enqueued by `NotesRepositoryImpl`. One method name over
+   two opposite answers. `setInheritedForProject` was "a flag denormalised from `parentId`";
+   it writes join-table rows and no project row at all.
+2. **Columns alone do not decide it.** `saveOutgoingLinks` writes `tasks.updated_at` too,
+   and `updatedAt` is in the allowlist for all 7 entity types. Its real justification is that
+   it is a **private helper whose callers enqueue** — which is the pipeline
+   `singularity-todo-write-pipeline` documents. So a correct rule needs a private-helper
+   clause in rule 1, not only a column lookup.
+
+`project.inheritedTagGroupIds` turned out to be **writable**, and the method exempt for it has
+no caller at all — see #228. That is the exemption hiding a question rather than answering
+one, which is what this whole exercise was for.
+
+Tracked as #229 with its acceptance criteria. It is not built here: shipping a rule whose
+exemption column check produces a known false positive would be worse than the list it
+replaces.
 
 ## A fourth rule, in its own file: is the scan set still the set that enqueues?
 

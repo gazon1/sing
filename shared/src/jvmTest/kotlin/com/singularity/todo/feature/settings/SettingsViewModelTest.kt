@@ -20,7 +20,7 @@ import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsStore
 import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.ai.AiSettingsContributor
-import com.singularity.todo.feature.ai.FakeTextGen
+import com.singularity.todo.test.fakes.FakeTextGen
 import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.test.fakes.FakeFileRevealer
 import com.singularity.todo.test.fakes.FakeFileSharePort

@@ -4,8 +4,8 @@ package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ids.SequenceIdGenerator
-import com.singularity.todo.feature.ai.FakeTextGen
+import com.singularity.todo.test.fakes.SequenceIdGenerator
+import com.singularity.todo.test.fakes.FakeTextGen
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor

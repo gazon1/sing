@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ids
 
+import com.singularity.todo.test.fakes.SequenceIdGenerator
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

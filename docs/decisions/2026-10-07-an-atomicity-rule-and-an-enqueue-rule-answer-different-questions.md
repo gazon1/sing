@@ -54,11 +54,16 @@ stale on reports green.** Three instances in one session is not a coincidence to
 documented, it is a shape to be designed against. Where a fact has a home, read it there.
 
 Two writes are left over and named individually, because they are genuinely not synced
-columns — `setInheritedForProject` writes a flag denormalised from `parentId` (which has its
-own method and its own enqueue), and `saveOutgoingLinks` writes internal links, which no
-`DocType` describes and which the server has no table for. Each carries its reason on the
-entry rather than in a comment above the list, because a reason separated from its entry is
-a reason nobody reads when the entry is questioned.
+columns — but both reasons were wrong, and reading the server's allowlist is what showed
+it. `setInheritedForProject` was described as "a flag denormalised from `parentId`"; it
+writes rows in the `inherited_tag_groups` join table and touches no project row. And
+`saveOutgoingLinks` was described as writing links "no `DocType` describes", which is
+true of `tasks.outgoing_links` and false of `note.outgoingLinks` — one method name over
+two opposite answers. Verified against the live project 2026-10-07: `outgoingLinks` is
+absent from the allowlist for `task` and present for `note`.
+
+Each carries its reason on the entry rather than in a comment above the list, because a
+reason separated from its entry is a reason nobody reads when the entry is questioned.
 
 ## Consequences
 

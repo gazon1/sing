@@ -412,14 +412,32 @@ _SKIP_INHERITANCE = frozenset({
 def _precompute_dead_symbol(
     code: dict[pathlib.Path, str],
 ) -> tuple[dict[str, int], dict[str, int]]:
-    """Returns (prod_ref_counts, test_ref_counts) for every top-level declaration."""
+    """Returns (prod_ref_counts, test_ref_counts) for every top-level declaration.
+
+    Both this and `_check_dead_symbol` classify with `_is_test_source`, defined below.
+
+    They used to inline `"/test/" in str(path) or "/jvmTest/" in str(path)`, which
+    reads as though it covers the test source sets and does not: `commonTest` contains
+    neither substring — `/commonTest/` has no `/test/` in it — so all 171 `commonTest`
+    files were counted as **production**. Every reference inside them inflated
+    `prod_refs`, and the dead-symbol rule only fires when production references are at or
+    below the declaration itself, so a symbol used exclusively by `commonTest` looked
+    used in production and was never reported.
+
+    That is how `TagGroupRepository.setInheritedForProject` survived #228: its only other
+    reference outside production code is an `override` in `TagGroupsViewModelTest`.
+
+    The function already existed and already handled `commonTest` — it is what the other
+    detectors use. The defect was two hand-rolled copies of a decision that had a helper,
+    and both copies were wrong.
+    """
     prod_refs: dict[str, int] = {}
     test_refs: dict[str, int] = {}
     prod_sources: dict[pathlib.Path, str] = {}
     test_sources: dict[pathlib.Path, str] = {}
 
     for path, text in code.items():
-        if "/test/" in str(path) or "/jvmTest/" in str(path):
+        if _is_test_source(path):
             test_sources[path] = text
         else:
             prod_sources[path] = text
@@ -459,7 +477,7 @@ def _check_dead_symbol(
     baseline = _load_baseline()
 
     prod_sources: dict[pathlib.Path, str] = {
-        p: t for p, t in code.items() if "/test/" not in str(p) and "/jvmTest/" not in str(p)
+        p: t for p, t in code.items() if not _is_test_source(p)
     }
 
     for path, text in prod_sources.items():

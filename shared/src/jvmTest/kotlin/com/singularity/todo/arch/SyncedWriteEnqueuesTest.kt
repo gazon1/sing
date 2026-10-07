@@ -37,12 +37,26 @@ import kotlin.test.fail
  *
  * ## What is left over
  *
- * Two writes are not apply handlers and still do not enqueue, because what they write is
- * not a synced column: `setInheritedForProject` writes a denormalised inheritance flag
- * that the cascade recomputes from `parentId`, and `saveOutgoingLinks` writes internal
- * links, which no `DocType` describes. They are listed with the reason attached, because
- * the alternative — a rule with no exceptions for them — would either be wrong about them
- * or drive the author to add a fake enqueue.
+ * Two writes are not apply handlers and still do not enqueue, each for a different
+ * reason and neither the one this file used to claim.
+ *
+ * `saveOutgoingLinks` writes `tasks.outgoing_links`, and `outgoingLinks` is **not** in the
+ * server's allowlist for `task` — checked against the live project on 2026-10-07. It *is*
+ * in the allowlist for `note`, which is why the old reason ("no `DocType` describes them")
+ * was only ever true of the task half of a pair that shares one method name, and why
+ * `NotesRepositoryImpl.setOutgoingLinks` does enqueue.
+ *
+ * `setInheritedForProject` writes rows in the `inherited_tag_groups` join table and touches
+ * no project row at all. The old reason called it "a denormalised flag recomputed from
+ * `parentId`"; it is neither denormalised onto the project nor recomputed from the parent.
+ *
+ * Both are exempt **by name**, which is the thing this round could not fix. The column the
+ * allowlist names is the fact that decides it, and reading it is what exposed that
+ * `project.inheritedTagGroupIds` *is* writable — so this exemption is currently hiding a
+ * question rather than answering one, while the method behind it has no caller at all
+ * (#228). Deriving the exemption from the column needs a private-helper rule as well,
+ * because `saveOutgoingLinks` writes `updated_at` too, which is synced for every entity.
+ * That is #229.
  *
  * ## What this does not prove
  *
@@ -269,18 +283,26 @@ class SyncedWriteEnqueuesTest {
         /**
          * Writes that are not synced columns.
          *
-         * `setInheritedForProject` writes a denormalised flag recomputed from `parentId`;
-         * the synced column is the parent itself, which has its own method and its own
-         * enqueue. `saveOutgoingLinks` writes internal links, which no `DocType` describes
-         * and which the server has no table for.
+         * `saveOutgoingLinks` writes `tasks.outgoing_links`; `outgoingLinks` is absent from
+         * the server allowlist for `task` and present for `note`, so the same method name
+         * covers two opposite answers and only the column tells them apart. The task
+         * `setOutgoingLinksForUser` writes `updated_at` too, which *is* synced — this one
+         * is exempt because its callers enqueue, not because its columns are clean.
+         *
+         * `setInheritedForProject` writes join-table rows and no project row. It is the
+         * weaker exemption of the two: `project.inheritedTagGroupIds` is writable on the
+         * server, so if this method is ever wired (#228) it has to enqueue the project,
+         * and this entry has to go with it.
          *
          * Named with the reason inline rather than in a comment above the list, because a
          * reason separated from its entry is a reason nobody reads when the entry is
          * questioned.
          */
         val NOT_SYNCED_WRITES = setOf(
-            "setInheritedForProject" to "denormalised from parentId, which has its own enqueue",
-            "saveOutgoingLinks" to "internal links; no DocType describes them",
+            "setInheritedForProject" to
+                "join-table rows only; no project row written (but inheritedTagGroupIds is writable — #228)",
+            "saveOutgoingLinks" to
+                "tasks.outgoing_links is not in the allowlist; the note column is, and that one enqueues",
         )
     }
 }

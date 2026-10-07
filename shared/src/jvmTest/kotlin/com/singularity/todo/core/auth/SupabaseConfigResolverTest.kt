@@ -1,6 +1,6 @@
 package com.singularity.todo.core.auth
 
-import com.singularity.todo.core.ids.SequenceIdGenerator
+import com.singularity.todo.test.fakes.SequenceIdGenerator
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test

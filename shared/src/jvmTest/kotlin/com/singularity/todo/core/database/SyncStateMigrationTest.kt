@@ -3,7 +3,7 @@ package com.singularity.todo.core.database
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
-import com.singularity.todo.core.ids.SequenceIdGenerator
+import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.core.sync.RoomSyncStateRepository
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncStateEntity
