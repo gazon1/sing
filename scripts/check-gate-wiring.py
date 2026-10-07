@@ -350,6 +350,25 @@ SCRIPT_GATES = [
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
     ),
     ScriptGate(
+        name="kiwi-inventory-ratchet",
+        cmd=[sys.executable, "scripts/check-kiwi-inventory-ratchet.py"],
+        # The floor file, not a source file. Lowering a ceiling is the gate working, and a
+        # control that raises one would be testing the opposite of the failure. The
+        # `measured` field is the better target: leaving it stale is exactly the state
+        # where the file describes a commit other than the one in the tree, and that is a
+        # silent drift the gate exists to name.
+        sabotage_path="config/docs/kiwi-inventory-ratchet.json",
+        sabotage=(
+            "import json\n"
+            "_d = json.loads(p.read_text())\n"
+            "_f = [f for f in _d['floors'] if f['metric'] == 'inventory']\n"
+            "assert len(_f) == 1, 'inventory floor not found — the control would be a no-op'\n"
+            "_f[0]['measured'] = _f[0]['measured'] - 1\n"
+            "p.write_text(json.dumps(_d, indent=2) + '\\n')"
+        ),
+        why="a floor file whose recorded measurement no longer matches the tree describes a different commit, and nothing else would say so",
+    ),
+    ScriptGate(
         name="room-schema-integrity",
         cmd=[sys.executable, "scripts/check-room-schema-integrity.py"],
         # The exact defect this gate was written after: `SyncColumns.server_version`

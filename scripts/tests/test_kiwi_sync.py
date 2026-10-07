@@ -326,77 +326,26 @@ class ScanRepositoryTest(unittest.TestCase):
         # что пути в TEST_ROOTS разошлись с реальностью. Верхняя граница тоже
         # осмысленна: её рост означал бы возврат отсева abstract-баз и хелперов.
         self.assertGreater(len(self.tests), 200)
-        # 360, not upstream's 350: this merge adds three classes —
-        # SyncWriteIsAtomicTest, SyncEngineTakesNoFeatureTypesTest and
-        # SyncDiGraphResolutionTest — so the counter moves 348 -> 351 on the merged
-        # tree, verified by scan_repository() with the same check the previous bumps
-        # used (paths unique). 360 leaves nine slots, fewer than the growth of the last
-        # merge, so the bound still asks the question rather than absorbing an overshoot.
-        # 370, not 360: the counter reached 360 exactly and the bound fired as
-        # `360 not less than 360`. Both classes that took it there are upstream's —
-        # SyncedWriteEnqueuesTest and SyncEngineEnqueueReportsFailureTest, one each
-        # from two separate merges — so the growth is real test classes, not the
-        # abstract-base and helper drift the upper bound exists to catch. Ten slots,
-        # more than the last two merges added together, so the bound still asks the
-        # question on the next merge instead of absorbing an overshoot.
-#
-# One correction to the older comment above this line, which asserted that all 342
-# names end in `Test`. That stopped being true and had stopped before this: the
-# property is checked where it can be, by deriving each skip from the file that earns
-# it rather than by asserting a list of names (`unjustified_skips`). What is left here
-# is only a tripwire against the filter regressing, and a tripwire re-derived on every
-# legitimate addition has a moving target. That is fine — as long as nobody reads it as
-# a coverage claim. It is not one.
-        self.assertLess(len(self.tests), 370)
-        # 260, а не 259: NoopSubscriptionProviderTest.kt объявляет класс
-        # PurchaseStateTest, и прежний отсев по «нет @Test у класса с именем
-        # файла» выбрасывал файл целиком, теряя настоящий тест.
+        # The upper ceiling lives in scripts/check-kiwi-inventory-ratchet.py, next to
+        # its own reason, rather than here. It was here until 2026-10-07, when two
+        # unrelated commits raised it by hand on the same day — abf88fc2 and 4733aec4 —
+        # each landing on the same value and each producing a merge conflict in this
+        # file. The number was fine; where it lived was the defect.
         #
-        # Верхняя граница поднята с 300 на 310, когда счётчик достиг ровно 300:
-        # платформенный гейт PlatformClaimWiringTest стал 300-м классом и упал на
-        # `300 not less than 300`. Граница намеренно двигается вместе с числом
-        # классов, но медленнее него — 310 это 7 запасных классов, а не «сколько
-        # бы ни понадобилось». Если упадёт снова, дело не в счётчике.
-        #
-        # Поднята с 320 на 340 при счётчике 336, 2026-10-07. Протокол тот же:
-        # проверено, что все 336 оканчиваются на `Test` и посторонних имён нет,
-        # то есть это настоящие классы, а не вернувшиеся abstract-базы. Рост дал
-        # чужой транш auth/sync — 25 классов в `arch`, 20 в `detekt`, 18 в
-        # `core.sync`. Запас 4 класса.
-        #
-        # Поднята с 310 на 320 при счётчике 313. Прежде чем поднимать, проверено,
-        # что это настоящие классы, а не вернувшиеся abstract-базы и хелперы —
-        # именно это ловит граница: все 313 оканчиваются на `Test`, посторонних
-        # имён нет. Счётчик вырос на 4 класса рекуррентности и селекторов и на
-        # часть синхронизации; ни один из них не хелпер.
-        #
-        # Поднята с 320 на 330 при счётчике 321: календарная синхронизация
-        # добавила около двадцати классов, и граница, двигаясь медленнее счётчика,
-        # обогнала его. Проверено тем же способом — все 321 оканчиваются на `Test`.
-        #
-        # Затем ещё трижды за один день, каждое «не в счётчике»: слитая синхронизация
-        # с календарём (`feature.calendar_sync`, 21 класс), правки notes/sync, и
-        # `feature.gate`. Счётчик дорос до 336 при границе 340 — `340 not less than
-        # 340` — поэтому граница поднята до 350, и снова по той же процедуре: все
-        # имена оканчиваются на `Test`, пути уникальны, `SKIPPED_NON_TESTS` не сдвинулся.
-        #
-        # Общий смысл, который стоит знать прежде чем поднимать снова: граница
-        # обгоняется при каждом слиянии ветки, и возвратившиеся хелперы выглядят
-        # ровно так же, как новые тесты. Поэтому проверка выше — обязательная часть,
-        # а число — бухгалтерия.
-        # добавила около двадцати классов, и граница, двигаясь медленнее
-        # счётчика, обогнала его. Проверено тем же способом — все 321
-        # оканчиваются на `Test`, посторонних имён нет.
-        #
-        # Поднята с 330 на 340 при счётчике 337: тот же набор, плюс тесты
-        # слоя GenUI и правки notes/sync. Снова проверено — 337 из 337
-        # оканчиваются на `Test`.
-        #
-        # Поднята с 340 на 350 при ровно 340: `340 not less than 340`. Граница
-        # обгоняет счётчик каждый раз, когда сливается ветка, поэтому поднимать
-        # её придётся ещё — и каждый раз стоит прогонять проверку выше, а не
-        # просто увеличивать число, потому что вернувшиеся хелперы выглядят
-        # ровно так же, как новые тесты.
+        # What this file used to assert next to the number, and no longer asserts
+        # anywhere: "all 342 names end in `Test`". That had already gone false. The
+        # property that replaced it — every skip is justified by the file that earns it —
+        # is `unjustified_skips` above, which is derived rather than listed.
+        self.assertTrue(
+            self.tests,
+            "the scanner returned nothing; the paths in TEST_ROOTS have moved and every "
+            "count here would pass for free",
+        )
+    # The bounds that used to sit here — `assertGreater(200)`, the upper ceiling, and
+    # the skip-list cap — are now in scripts/check-kiwi-inventory-ratchet.py with their
+    # own reason. Six rounds of "raised because the counter reached it" were recorded
+    # in this comment and are gone with it: the history is in git, and the live
+    # rationale is where someone editing the number will actually read it.
 
     def test_every_skipped_file_is_really_not_runnable(self):
         """The skip list is derived from the files, so it is checked against them.
