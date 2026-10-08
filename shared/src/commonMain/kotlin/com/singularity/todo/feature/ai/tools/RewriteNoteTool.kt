@@ -27,10 +27,15 @@ data class RewriteNoteInput(val title: String, val body: String, val tone: Strin
 data class RewriteNoteOutput(val title: String, val body: String)
 
 class RewriteNoteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
-    SimpleTool<RewriteNoteInput>(TypeToken.of(RewriteNoteInput::class.java), NAME, DESCRIPTION) {
+    SimpleTool<RewriteNoteInput>(TypeToken.of(RewriteNoteInput::class.java), NAME, DESCRIPTION),
+    TypedTool<RewriteNoteInput, RewriteNoteOutput> {
 
     private val logger = Logger.withTag("RewriteNote")
 
+    /**
+     * Agent path: returns JSON string (used by Koog executor + encodeResultToString).
+     * The double-encode is intentional — the agent needs a JSON string, not a deserialized object.
+     */
     override suspend fun execute(args: RewriteNoteInput): String {
         val toneLabel = args.tone
         val systemPrompt = when (args.tone) {
@@ -65,6 +70,42 @@ class RewriteNoteTool(private val promptExecutor: PromptExecutor, private val mo
                 RewriteNoteOutput.serializer(),
                 RewriteNoteOutput(args.title, args.body),
             )
+        }
+    }
+
+    /**
+     * Use-case path: returns the deserialized domain object directly.
+     * Eliminates the JSON → String → JSON round-trip of the agent path.
+     */
+    override suspend fun executeTyped(args: RewriteNoteInput): RewriteNoteOutput {
+        val toneLabel = args.tone
+        val systemPrompt = when (args.tone) {
+            "Tldr" -> """
+                You are an expert writing assistant. Rewrite the following note as a concise TLDR —
+                a short, punchy summary with the most important takeaways. Return a JSON object
+                with 'title' and 'body' fields.
+            """.trimIndent()
+
+            "Structured" -> """
+                You are an expert writing assistant. Rewrite the following note with clear structure —
+                headings, bullet points, and sections. Return a JSON object with 'title' and 'body' fields.
+            """.trimIndent()
+
+            else -> Prompts.rewriteNoteSystem + " Style: one concise paragraph."
+        }
+        val p = prompt(Prompt.Empty, KoogClock.System) {
+            system(systemPrompt)
+            user(Prompts.rewriteNoteUser(args.title, args.body, toneLabel))
+        }
+        val response = promptExecutor.execute(p, model, emptyList())
+        val text = extractText(response)
+        return try {
+            kotlinx.serialization.json.Json.decodeFromString<RewriteNoteOutput>(text)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.w(e) { "failed" }
+            RewriteNoteOutput(args.title, args.body)
         }
     }
 

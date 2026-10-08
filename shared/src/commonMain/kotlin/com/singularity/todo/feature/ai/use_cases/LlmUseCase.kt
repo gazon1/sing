@@ -30,6 +30,7 @@ import com.singularity.todo.feature.ai.tools.SummarizeNoteOutput
 import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
 import com.singularity.todo.feature.ai.tools.ImproveNoteInput
 import com.singularity.todo.feature.ai.tools.ImproveNoteOutput
+import com.singularity.todo.feature.ai.tools.TypedTool
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -96,13 +97,11 @@ class DecomposeTaskUseCase(tool: DecomposeTaskTool) :
         execute(DecomposeTaskInput(title, description)).map { it.subTasks }
 }
 
-class ImproveNoteUseCase(tool: SimpleTool<ImproveNoteInput>) :
-    LlmUseCase<ImproveNoteInput, ImproveNoteOutput>(
-        tool,
-        ImproveNoteOutput.serializer(),
-    ) {
+class ImproveNoteUseCase(private val tool: TypedTool<ImproveNoteInput, ImproveNoteOutput>) {
     suspend operator fun invoke(title: String, body: String): Result<ImproveNoteOutput> =
-        execute(ImproveNoteInput(title, body))
+        runCatchingCancellable {
+            tool.executeTyped(ImproveNoteInput(title, body))
+        }
 }
 
 class SummarizeNoteUseCase(tool: SummarizeNoteTool) :
@@ -123,13 +122,11 @@ class ExtractActionsUseCase(tool: ExtractActionsTool) :
         execute(ExtractActionsInput(title, body)).map { it.actions }
 }
 
-class RewriteNoteUseCase(tool: RewriteNoteTool) :
-    LlmUseCase<RewriteNoteInput, RewriteNoteOutput>(
-        tool,
-        RewriteNoteOutput.serializer(),
-    ) {
+class RewriteNoteUseCase(private val tool: TypedTool<RewriteNoteInput, RewriteNoteOutput>) {
     suspend operator fun invoke(title: String, body: String, tone: String = "OneLiner"): Result<RewriteNoteOutput> =
-        execute(RewriteNoteInput(title, body, tone))
+        runCatchingCancellable {
+            tool.executeTyped(RewriteNoteInput(title, body, tone))
+        }
 }
 
 class SuggestTagsUseCase(tool: SuggestTagsTool) :
