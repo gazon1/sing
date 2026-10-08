@@ -28,10 +28,8 @@ on:
     - cron: "0 3 * * *"
   push:
     branches: [main]
-    # Run on every push to main (smoke of instrumented tests)
-  push:
     tags: ["v*"]
-    # Full instrumented tests on version tags
+    # Run on every push to main (smoke), full on tags
   pull_request:
     types: [labeled]
     branches: [main]
