@@ -266,7 +266,7 @@ class AgendaViewModel(
 
     /** Push current selection state into [setState] so the screen re-renders. */
     private fun updateSelectionState() {
-        val current = state.value as? AgendaUiState.Loaded ?: return
+        val current = _state.value as? AgendaUiState.Loaded ?: return
         setState(
             current.copy(
                 isSelectionMode = _isSelectionMode.value,
@@ -321,7 +321,7 @@ class AgendaViewModel(
     }
 
     private fun findTaskTitle(taskId: TaskId): String {
-        val loaded = state.value as? AgendaUiState.Loaded ?: return "Task"
+        val loaded = _state.value as? AgendaUiState.Loaded ?: return "Task"
         for (section in loaded.sections) {
             for (row in section.tasks) {
                 if (row.task.id == taskId) return row.task.title.ifEmpty { "Task" }

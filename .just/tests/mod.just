@@ -183,7 +183,9 @@ detekt:
     # subject to them too — a `var` on a Rule instance had nothing checking it.
     # :androidApp is here because it was never linted at all: its source set
     # pointed at a directory that does not exist, and this recipe never named it.
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt
+    # :mcp-server is here because a module with a baseline is a module that can
+    # silently grow that baseline without anybody noticing — and mcp-server has one.
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
 
 [group('lint')]
 [doc('Prove the lint gate is measuring: plant a violation, assert it is reported')]
@@ -220,10 +222,10 @@ detekt-fix:
     # The fix pass ignores its exit code: detekt reports the findings it just corrected,
     # so a clean auto-correct still exits 1. The verification pass below is the
     # authoritative one and its exit code decides.
-    for module in :shared :desktopApp :detekt-rules :androidApp; do
+    for module in :shared :desktopApp :detekt-rules :androidApp :mcp-server; do
         ./gw "$module:detekt" --auto-correct --console=plain >/dev/null 2>&1 || true
     done
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt --console=plain
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt --console=plain
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
@@ -231,7 +233,7 @@ detekt-fix:
 detekt-baseline:
     #!/bin/bash
     set -euo pipefail
-    ./gw :shared:detektBaseline :desktopApp:detektBaseline :androidApp:detektBaseline
+    ./gw :shared:detektBaseline :desktopApp:detektBaseline :androidApp:detektBaseline :mcp-server:detektBaseline
 
 [group('lint')]
 [doc('Alias for detekt (lint = detekt in this project)')]

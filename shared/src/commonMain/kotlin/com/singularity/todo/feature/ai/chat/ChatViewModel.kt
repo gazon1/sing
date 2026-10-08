@@ -70,7 +70,7 @@ class ChatViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             is Intent.InputChanged -> updateState { it.copy(input = intent.text) }
-            Intent.Send -> send(state.value.input)
+            Intent.Send -> send(_state.value.input)
             Intent.DismissSurfaceError -> updateState { it.copy(surfaceError = null) }
             is Intent.SurfaceAction -> act(intent.name, intent.context)
         }
@@ -104,7 +104,7 @@ class ChatViewModel(
      *   actually said.
      */
     private fun turn(userText: String, prompt: String, showUserMessage: Boolean) = vmScope.launch {
-        if (state.value.isLoading) return@launch
+        if (_state.value.isLoading) return@launch
 
         val assistantId = newId()
         updateState { current ->

@@ -54,6 +54,7 @@ import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
  */
 class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
 
+    @Suppress("LoopWithTooManyJumpStatements") // two continues and one break are intentional gate logic
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
         if (isPreviewContext(expression)) return
@@ -229,8 +230,7 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
             ),
         )
     }
-
-    }
+}
 
 /**
  * The file-name/path half of [NoEmptyOnClickLambdaRule]'s preview exemption, as a pure

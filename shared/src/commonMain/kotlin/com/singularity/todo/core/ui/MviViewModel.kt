@@ -89,15 +89,21 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      */
     protected val vmScope: AutoCloseableCoroutineScope = scope
 
-    protected var state: MutableStateFlow<S> = MutableStateFlow(initialState)
-        protected get() = field
-        private set
+    /** Internal mutable state. Named _state by convention — use [stateFlow] to observe. */
+    @Suppress("VariableNaming") // _state is the canonical name for the mutable backing field
+    protected val _state: MutableStateFlow<S> = MutableStateFlow(initialState)
+
+    /**
+     * Public read access to the mutable state for subclasses and tests.
+     * Screens must use [stateFlow] — this is MutableStateFlow only for test convenience.
+     */
+    val state: MutableStateFlow<S> get() = _state
 
     /** Public read-only state. The single way a screen observes this ViewModel. */
-    val stateFlow: StateFlow<S> get() = state.asStateFlow()
+    val stateFlow: StateFlow<S> = _state.asStateFlow()
 
     /** Synchronous snapshot. Use inside reducers and intent handlers. */
-    protected val currentState: S get() = state.value
+    protected val currentState: S get() = _state.value
 
     /**
      * Updates state by applying [transform] to the current value.
@@ -106,7 +112,7 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * writes concurrently. For a value you have already computed, use [setState].
      */
     protected fun updateState(transform: (S) -> S) {
-        state.update(transform)
+        _state.update(transform)
     }
 
     /**
@@ -114,7 +120,7 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * @see updateState
      */
     protected fun setState(newState: S) {
-        state.value = newState
+        _state.value = newState
     }
 
     private val _events = EventBus<E>(extraEventCapacity)

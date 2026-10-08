@@ -72,8 +72,10 @@ Two further problems, independent of the semantics:
   `WHERE parent_task_id IS NOT NULL AND due_date IS NOT NULL` has no representation in
   `Migration`, so the migration would be hand-written and then fail
   `scripts/check-room-schema-integrity.py` until an exported schema JSON matched it.
-- If deterministic ids ever are wanted, `rec:` + parent + date produces ids that are *not* ULIDs and
-  sort arbitrarily in a column whose ids are otherwise lexicographically time-ordered.
+- If deterministic ids ever are wanted, `rec:` + parent + date produces ids that sort arbitrarily
+  in a column whose ids have **no ordering guarantee** (UUID v4, confirmed 2026-10-08; see
+  `2026-10-08-uuid-v4-not-v7.md`). The previous assumption of "lexicographically time-ordered"
+  was incorrect — UUID v4 is random, not time-ordered.
 
 ## Decision
 

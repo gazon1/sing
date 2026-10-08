@@ -173,7 +173,7 @@ Android-specific licences that do not appear in the shipped graph).
 ### Permissive — no action
 
 Kotlin 2.4, Compose Multiplatform 1.12, Room 3, Koin 4.2.2, Kermit 2.1, Koog 1.1.1,
-kotlinx-coroutines / serialization / datetime, Ktor, OkHttp, Okio, ULID, Coil 3,
+kotlinx-coroutines / serialization / datetime, Ktor, OkHttp, Okio, Coil 3,
 FileKit, multiplatform-markdown-renderer, Robolectric, Konsist, Turbine, Kotest.
 Apache-2.0 or MIT. `ai.koog:*` ships no `<licenses>` block in its POMs; Koog is
 Apache-2.0 per its repository, and it is the one dependency whose licence is asserted

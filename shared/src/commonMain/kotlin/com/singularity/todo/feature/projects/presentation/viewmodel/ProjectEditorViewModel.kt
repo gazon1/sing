@@ -87,7 +87,7 @@ class ProjectEditorViewModel(
     }
 
     private fun save() {
-        val current = state.value
+        val current = _state.value
         val validationError = ProjectsDomain.validateName(current.name)?.message
         if (validationError != null) {
             updateState { it.copy(errorMessage = validationError) }
