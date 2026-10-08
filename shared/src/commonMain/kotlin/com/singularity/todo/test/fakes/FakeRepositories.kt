@@ -727,7 +727,7 @@ open class FakeTaskRepository(
                 .toSet()
         }
 
-    override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> = dao.getBlockingTaskIdsForTask(taskId.value)
+    override fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>> = dao.getBlockingTaskIdsForTask(taskId.value)
         .map { ids ->
             ids.map { TaskId.fromString(it) }
                 .toSet()

@@ -19,6 +19,7 @@ import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -61,7 +62,7 @@ fun domainModule(): List<Module> = buildList {
                 ProfileAwareCurrentUser(get(), get(), createBackgroundScope(crashReportingFailureHandler(get())))
             }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-            viewModel { AccountSettingsViewModel(profileRepository = get(), crashReporter = get()) }
+            viewModelOf(::AccountSettingsViewModel)
 
             // The sync scope is the one place that needs both the session and the
             // profile, which is why it is bound here and not in coreModule(): sync

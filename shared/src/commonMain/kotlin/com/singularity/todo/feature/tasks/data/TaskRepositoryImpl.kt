@@ -186,7 +186,7 @@ class TaskRepositoryImpl(
             .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
     }
 
-    override fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
+    override fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
         taskDao.getBlockingTaskIdsForUser(taskId.value, uid.value)
             .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
     }
