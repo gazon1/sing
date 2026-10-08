@@ -14,6 +14,15 @@ sealed interface AgendaIntent : MviIntent {
     data class TaskDeleteClicked(val taskId: TaskId) : AgendaIntent
     data class TaskExpandClicked(val taskId: TaskId) : AgendaIntent
 
+    /**
+     * The user took the Undo affordance offered after a delete.
+     *
+     * This used to be a public `onUndoDeleteIntent()` method the screen called
+     * directly, which meant no intent handler existed for it and every test that
+     * drives the dispatcher skipped the path entirely.
+     */
+    data object UndoDeleteTapped : AgendaIntent
+
     /** User tapped '+' in a section header to create a task pre-filled from that section. */
     data class CreateInSection(val sectionId: String) : AgendaIntent
 

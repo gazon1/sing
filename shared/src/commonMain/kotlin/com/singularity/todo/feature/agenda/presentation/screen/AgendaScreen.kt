@@ -80,7 +80,7 @@ fun AgendaScreen(
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) {
-            vm.onUndoDeleteIntent()
+            vm.onIntent(AgendaIntent.UndoDeleteTapped)
         }
     }
 
@@ -93,6 +93,15 @@ fun AgendaScreen(
             is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
 
             is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
+
+            // A mutation that did not happen has to say so. These used to reach the
+            // crash reporter and stop there, which is how a failed delete could be
+            // announced as a successful one.
+            is AgendaUiEvent.ShowError -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short)
+                }
+            }
 
             is AgendaUiEvent.UndoDelete -> { /* handled by LaunchedEffect above */ }
 

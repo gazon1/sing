@@ -603,6 +603,25 @@ open class FakeTaskRepository(
     var setDependenciesOverride: Result<Unit>? = null
 
     /**
+     * Observers for `softDelete` / `restore`, for tests that must distinguish
+     * "the write was never attempted" from "the write ran and was a no-op".
+     *
+     * `restore` on a task that is not archived leaves `archivedAt` null either way,
+     * so the stored row cannot tell those two apart — only a call site can. Additive
+     * and null by default, so no existing test changes behaviour.
+     */
+    var softDeleteObserver: ((TaskId) -> Unit)? = null
+    var restoreObserver: ((TaskId) -> Unit)? = null
+
+    fun onSoftDelete(observer: (TaskId) -> Unit) {
+        softDeleteObserver = observer
+    }
+
+    fun onRestore(observer: (TaskId) -> Unit) {
+        restoreObserver = observer
+    }
+
+    /**
      * Seeds tasks by merging into existing state (adds or overwrites by id).
      *
      * ## The trap this does not warn you about
@@ -737,6 +756,7 @@ open class FakeTaskRepository(
 
     override suspend fun softDelete(id: TaskId): Result<Unit> {
         softDeleteOverride?.let { return it }
+        softDeleteObserver?.invoke(id)
         return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val deleted = task.copy(archivedAt = clock.now())
@@ -752,6 +772,7 @@ open class FakeTaskRepository(
 
     override suspend fun restore(id: TaskId): Result<Unit> {
         restoreOverride?.let { return it }
+        restoreObserver?.invoke(id)
         return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val restored = task.copy(archivedAt = null)

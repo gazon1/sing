@@ -25,6 +25,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 
 /**
  * ViewModel for the Agenda screen.
@@ -43,7 +46,7 @@ import kotlinx.coroutines.launch
  *        at runtime; future MRs will support switching definitions.
  * @param scope CoroutineScope for all coroutine work. Tests pass `this` (TestScope).
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
@@ -87,6 +90,26 @@ class AgendaViewModel(
 
     /** Cooldown job for clearing [_pendingDelete] after the undo window expires. */
     private var pendingDeleteJob: Job? = null
+
+    /**
+     * Identity of the pending-delete slot.
+     *
+     * The scope runs on `Dispatchers.Default` — a multi-threaded pool — so two
+     * deletes dispatched in quick succession genuinely interleave, and the first
+     * one's timer can still be live when the second claims the slot. Cancelling
+     * the job is best-effort there; comparing generations is not.
+     */
+    private val undoSlot = AtomicInt(0)
+
+    /**
+     * Order in which deletes were *requested*, as opposed to the order they finished.
+     *
+     * Separate from [undoSlot] on purpose. [undoSlot] identifies who owns the single
+     * undo affordance and is advanced only on success, so a failed delete cannot
+     * evict a recoverable one. This one is advanced at dispatch time, so a delete
+     * that finishes late knows it has been superseded and does not claim the slot.
+     */
+    private val deleteSequence = AtomicInt(0)
 
     init {
         scope.launch {
@@ -155,6 +178,10 @@ class AgendaViewModel(
 
             is AgendaIntent.TaskDeleteClicked -> with(intent) {
                 scope.launch { handleTaskDelete(intent.taskId) }
+            }
+
+            is AgendaIntent.UndoDeleteTapped -> {
+                scope.launch { handleUndoDeleteTapped() }
             }
 
             is AgendaIntent.TaskExpandClicked -> with(intent) {
@@ -278,46 +305,97 @@ class AgendaViewModel(
     // ── Undo-delete handlers ────────────────────────────────────────────────────
 
     /**
-     * Soft-deletes a task and emits [AgendaUiEvent.UndoDelete] so the UI can show a snackbar.
-     * The snackbar offers a 5-second undo window; if not tapped, the pending delete is cleared.
-     * If the user taps Undo, [onUndoDelete] calls [restore] to reverse the delete.
+     * Soft-deletes a task, then offers [AgendaUiEvent.UndoDelete] for as long as
+     * [_pendingDelete] holds the entry.
+     *
+     * ## What this used to do
+     *
+     * It announced a delete it never issued. `taskRepo.softDelete` appeared nowhere
+     * in this class, so tapping delete produced a snackbar saying `"X" deleted`
+     * while the task stayed live, kept its reminders, and could still be restored
+     * by an Undo that called `restore` against a row that was never archived.
+     * `AgendaDeps` carried `reminderScheduler` and `currentUser` documented as
+     * being for exactly this call, and neither was referenced.
+     *
+     * ## Order
+     *
+     * Reminders are cancelled **before** the delete, and a cancellation failure
+     * aborts the delete. The invariant that buys is one-directional: a reminder
+     * never outlives its task. `cancelByTask` returns `Unit` and hands back no
+     * `Reminder` spec, so the reverse cannot be compensated for — a delete that
+     * fails after a successful cancellation leaves the task without its reminder.
+     * That is the accepted trade; a lost reminder is recoverable, a zombie reminder
+     * for a deleted task is not.
      */
-    private suspend fun handleTaskDelete(taskId: TaskId) {
+    private fun handleTaskDelete(taskId: TaskId) {
         // Find the task title from the current state for the snackbar label.
         val taskTitle = findTaskTitle(taskId)
+        // Claim the *request* order up front. Two deletes dispatched in quick
+        // succession genuinely interleave on Dispatchers.Default, so the one that
+        // reaches the repository last is not necessarily the one the user asked for
+        // last — and the newer request is the one whose undo they are looking at.
+        val request = deleteSequence.incrementAndFetch()
 
-        // Cancel any existing undo window — a new delete supersedes it.
-        pendingDeleteJob?.cancel()
+        scope.launch {
+            try {
+                deps.reminderScheduler.cancelByTask(taskId, deps.currentUser.scopedUserId.value)
+            } catch (failure: Throwable) {
+                report(failure, CANCEL_REMINDERS_FAILED, "Could not delete — its reminder is still scheduled")
+                return@launch
+            }
 
-        // Store the pending delete and emit the event.
-        _pendingDelete.value = PendingDelete(taskId, taskTitle)
-        emit(AgendaUiEvent.UndoDelete(taskId, taskTitle))
+            val deleted = deps.taskRepo.softDelete(taskId)
+            if (deleted.isFailure) {
+                report(deleted.exceptionOrNull() ?: IllegalStateException("delete failed"), SOFT_DELETE_FAILED, "Delete failed")
+                return@launch
+            }
 
-        // Kick off the 5-second undo window.
-        pendingDeleteJob = scope.launch {
-            delay(UNDO_WINDOW_MS)
-            _pendingDelete.value = null
+            // Superseded while in flight: the task is genuinely deleted, but a newer
+            // request owns the single affordance and this one does not compete for it.
+            if (deleteSequence.load() != request) return@launch
+
+            // Claimed only now — a failed delete must not evict a good pending undo.
+            val generation = undoSlot.incrementAndFetch()
+            pendingDeleteJob?.cancel()
+            _pendingDelete.value = PendingDelete(taskId, taskTitle)
+            emit(AgendaUiEvent.UndoDelete(taskId, taskTitle))
+
+            pendingDeleteJob = scope.launch {
+                delay(UNDO_WINDOW_MS)
+                // Generation-scoped: a superseded timer can still be live when a newer
+                // delete claims the slot. `cancel()` is best-effort on that path —
+                // the timer may already have resumed — and this check is not.
+                if (undoSlot.load() == generation) _pendingDelete.value = null
+            }
         }
     }
 
     /**
-     * Restores the last soft-deleted task, cancelling the undo window.
-     * Called when the user taps "Undo" on the snackbar.
+     * Restores the item held by [_pendingDelete].
+     *
+     * The marker is cleared **only on success**, and the timer is left running
+     * until then. A failed reversal must leave the offer addressable: clearing the
+     * pending slot before knowing the write worked removes the only recovery path
+     * at the exact moment the user needs it, and dismisses the snackbar with it, so
+     * the failure becomes invisible. See `delete-safety-feedback` Phase 1 and #78.
+     *
+     * `restore` re-uses the original id, so a repeated attempt is safe rather than
+     * impossible — the timer bounds how long the offer stays up.
      */
-    private suspend fun onUndoDelete(taskId: TaskId) {
-        pendingDeleteJob?.cancel()
-        _pendingDelete.value = null
-        deps.taskRepo.restore(taskId)
-            .onFailure { crashReporter.report(it, RESTORE_FAILED) }
+    private fun handleUndoDeleteTapped() = scope.launch {
+        val pending = _pendingDelete.value ?: return@launch
+        deps.taskRepo.restore(pending.taskId)
+            .onSuccess {
+                pendingDeleteJob?.cancel()
+                _pendingDelete.value = null
+            }
+            .onFailure { report(it, RESTORE_FAILED, "Could not restore") }
     }
 
-    /**
-     * Call this from the UI when the user taps "Undo" on the snackbar.
-     * The UI layer holds the snackbar reference and invokes this method directly.
-     */
-    fun onUndoDeleteIntent() {
-        val pending = _pendingDelete.value ?: return
-        scope.launch { onUndoDelete(pending.taskId) }
+    /** Reports a failure to the crash reporter and to the user. */
+    private suspend fun report(error: Throwable, label: String, message: String) {
+        crashReporter.report(error, label)
+        emit(AgendaUiEvent.ShowError(message))
     }
 
     private fun findTaskTitle(taskId: TaskId): String {
@@ -368,6 +446,8 @@ class AgendaViewModel(
         // Machine-shaped grouping keys — these leave the device.
         private const val TOGGLE_COMPLETE_FAILED = "agenda.toggle_complete_failed"
         private const val TOGGLE_PINNED_FAILED = "agenda.toggle_pinned_failed"
+        private const val CANCEL_REMINDERS_FAILED = "agenda.cancel_reminders_failed"
+        private const val SOFT_DELETE_FAILED = "agenda.soft_delete_failed"
         private const val RESTORE_FAILED = "agenda.restore_failed"
         private const val BULK_DELETE_FAILED = "agenda.bulk_delete_failed"
         private const val BULK_COMPLETE_FAILED = "agenda.bulk_complete_failed"

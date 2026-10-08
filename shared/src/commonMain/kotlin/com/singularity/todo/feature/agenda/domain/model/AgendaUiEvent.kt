@@ -13,6 +13,16 @@ sealed interface AgendaUiEvent : MviEvent {
     data class ExpandTask(val taskId: TaskId) : AgendaUiEvent
 
     /**
+     * A mutation the user asked for did not happen, and they are told so.
+     *
+     * The agenda's mutations used to report to the crash reporter and stop there:
+     * the user tapped the delete affordance, saw a snackbar announcing a delete
+     * that had never been issued, and had no way to learn that. An event type with
+     * nowhere to go is why that was possible — see #132.
+     */
+    data class ShowError(val message: String) : AgendaUiEvent
+
+    /**
      * Navigate to the task create screen with pre-fill from [sectionId].
      * The prefill draft was already written to [com.singularity.todo.core.draft.DraftStore]
      * before this event is emitted.
