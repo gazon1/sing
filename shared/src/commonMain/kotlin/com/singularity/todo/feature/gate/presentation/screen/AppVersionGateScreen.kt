@@ -54,7 +54,7 @@ fun AppVersionGateScreen(
     content: @Composable () -> Unit,
 ) {
     val vm: AppVersionGateViewModel = koinViewModel()
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.stateFlow.collectAsStateWithLifecycle()
 
     AppVersionGateContent(
         state = state,

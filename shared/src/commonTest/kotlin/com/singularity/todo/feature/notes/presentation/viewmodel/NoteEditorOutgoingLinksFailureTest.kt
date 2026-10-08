@@ -174,14 +174,14 @@ class NoteEditorOutgoingLinksFailureTest {
         // on"). Letting the 500ms autosave debounce fire in between wipes the error, so a
         // control that waits past it is asserting nothing about the save at all.
         assertNotNull(
-            vm.state.value.error,
+            vm.stateFlow.value.error,
             "the note was saved but its links were not, so the backlinks feature silently " +
                 "did nothing — the comment above that line calls it the write path for " +
                 "exactly this, and the save reported success; link writes seen: " +
-                "${notesRepo.linkWrites}, state was ${vm.state.value}",
+                "${notesRepo.linkWrites}, state was ${vm.stateFlow.value}",
         )
         assertTrue(
-            vm.state.value.isDirty,
+            vm.stateFlow.value.isDirty,
             "the draft is still dirty: the user's work was not fully persisted, so " +
                 "clearing the flag would claim otherwise",
         )
@@ -204,14 +204,14 @@ class NoteEditorOutgoingLinksFailureTest {
         vm.onIntent(NotesEditorIntent.SaveNow)
         runCurrent()
 
-        assertNull(vm.state.value.error, "the write succeeded; an error here would be a false alarm")
+        assertNull(vm.stateFlow.value.error, "the write succeeded; an error here would be a false alarm")
         assertEquals(
             1,
             notesRepo.linkWrites,
             "and the links really were written exactly once",
         )
         assertTrue(
-            !vm.state.value.isDirty,
+            !vm.stateFlow.value.isDirty,
             "so the save really happened and the draft is clean",
         )
     }

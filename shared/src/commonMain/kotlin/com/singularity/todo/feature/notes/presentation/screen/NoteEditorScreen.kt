@@ -60,7 +60,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
-    val editorState by viewModel.state.collectAsStateWithLifecycle()
+    val editorState by viewModel.stateFlow.collectAsStateWithLifecycle()
 
     LaunchedEffect(route.noteId, route.taskId) {
         when {

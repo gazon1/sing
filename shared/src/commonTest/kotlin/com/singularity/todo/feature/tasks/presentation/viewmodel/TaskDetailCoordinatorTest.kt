@@ -46,7 +46,7 @@ class TaskDetailCoordinatorTest {
 
         // The coordinator subscribes immediately, so a missing row resolves to the
         // not-found error rather than staying in Loading forever.
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertTrue(
             state is TaskDetailUiState.Error || state == TaskDetailUiState.Loading,
             "expected a terminal or loading state, got $state",
@@ -60,8 +60,8 @@ class TaskDetailCoordinatorTest {
         val vm = coordinator(fakes, backgroundScope)
         runCurrent()
 
-        val loaded = vm.state.value as? TaskDetailUiState.Loaded
-        assertNotNull(loaded, "expected the task to have loaded, got ${vm.state.value}")
+        val loaded = vm.stateFlow.value as? TaskDetailUiState.Loaded
+        assertNotNull(loaded, "expected the task to have loaded, got ${vm.stateFlow.value}")
         assertEquals("Original", loaded.ui.task.title)
         // The draft is seeded from the loaded task, so the editor shows the stored title.
         assertEquals("Original", loaded.ui.titleDraft)
@@ -73,7 +73,7 @@ class TaskDetailCoordinatorTest {
         val vm = coordinator(fakes, backgroundScope)
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertTrue(state is TaskDetailUiState.Error || state == TaskDetailUiState.Loading)
     }
 
@@ -126,7 +126,7 @@ class TaskDetailCoordinatorTest {
         vm.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
         runCurrent()
 
-        val loaded = vm.state.value as? TaskDetailUiState.Loaded
+        val loaded = vm.stateFlow.value as? TaskDetailUiState.Loaded
         assertNotNull(loaded)
         assertEquals("Edited", loaded.ui.titleDraft)
     }

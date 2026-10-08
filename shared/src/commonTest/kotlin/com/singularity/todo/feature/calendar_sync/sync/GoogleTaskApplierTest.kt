@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
-import com.singularity.todo.core.ids.UlidIdGenerator
+import com.singularity.todo.core.ids.UuidIdGenerator
 import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendar_sync.domain.logic.EventShadowCodec
 import com.singularity.todo.feature.calendar_sync.domain.logic.FieldOutcome
@@ -68,7 +68,7 @@ class GoogleTaskApplierTest {
         importDao = db.calendarImportEventDao(),
         userId = userId,
         clock = clock,
-        idGenerator = UlidIdGenerator,
+        idGenerator = UuidIdGenerator,
         timeZone = { utc },
     )
 

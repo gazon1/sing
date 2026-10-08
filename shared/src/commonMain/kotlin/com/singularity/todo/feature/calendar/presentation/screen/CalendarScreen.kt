@@ -27,7 +27,7 @@ fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
     val vm: CalendarViewModel = koinViewModel {
         parametersOf(anchorDate.year, anchorDate.month, CalendarViewMode.MONTH)
     }
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.stateFlow.collectAsStateWithLifecycle()
 
     // Obtain navigator from the nav graph context
     val navigator = LocalCalendarNavigator.current

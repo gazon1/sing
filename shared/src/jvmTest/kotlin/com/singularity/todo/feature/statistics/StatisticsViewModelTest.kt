@@ -75,13 +75,13 @@ class StatisticsViewModelTest {
         repo.toggleComplete(TaskId.fromString("t1"))
 
         // Without active collection the state stays at initial loading=true.
-        assertTrue(vm.state.value.loading, "Without active collection, loading=true stays")
+        assertTrue(vm.stateFlow.value.loading, "Without active collection, loading=true stays")
     }
 
     @Test
     fun `state exposes StateFlow shape`() = runTest {
         val vm = createVm()
         advanceUntilIdle()
-        assertTrue(vm.state.value.loading)
+        assertTrue(vm.stateFlow.value.loading)
     }
 }

@@ -83,7 +83,7 @@ class AttachmentAnnotationViewModelTest {
         repo.seed(annotation(id))
 
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
 
@@ -102,7 +102,7 @@ class AttachmentAnnotationViewModelTest {
         repo.seed(annotation(id))
 
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded("a rewritten document")) }
@@ -123,7 +123,7 @@ class AttachmentAnnotationViewModelTest {
         repo.seed(annotation(AttachmentAnnotationId.generate()))
 
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded("XXalpha beta gamma")) }
@@ -138,7 +138,7 @@ class AttachmentAnnotationViewModelTest {
     @Test
     fun `the form opens prefilled with the range it was given`() = runTest {
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(FakeAttachmentAnnotationRepository(), vmScope)
         }
         ctx.act {
@@ -158,7 +158,7 @@ class AttachmentAnnotationViewModelTest {
     fun `submitting the form writes a note against the range`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act {
@@ -181,7 +181,7 @@ class AttachmentAnnotationViewModelTest {
         val id = AttachmentAnnotationId.generate()
         repo.seed(annotation(id))
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -201,7 +201,7 @@ class AttachmentAnnotationViewModelTest {
     fun `an offset past the end of the file is refused and the form keeps its contents`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -222,7 +222,7 @@ class AttachmentAnnotationViewModelTest {
     fun `non-numeric offsets are refused`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -241,7 +241,7 @@ class AttachmentAnnotationViewModelTest {
         val repo = FakeAttachmentAnnotationRepository()
         repo.failNextWrite = IllegalStateException("disk on fire")
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -279,7 +279,7 @@ class AttachmentAnnotationViewModelTest {
         val id = AttachmentAnnotationId.generate()
         repo.seed(annotation(id))
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -309,7 +309,7 @@ class AttachmentAnnotationViewModelTest {
         repo.seed(theirs)
 
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -325,7 +325,7 @@ class AttachmentAnnotationViewModelTest {
     fun `a note seeded after the panel opened still appears`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
         val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.state }) {
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
             newVm(repo, vmScope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }

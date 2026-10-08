@@ -74,7 +74,7 @@ fun TaskDetailContent(
     modifier: Modifier = Modifier,
     now: Instant,
 ) {
-    val state by coordinator.state.collectAsStateWithLifecycle()
+    val state by coordinator.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalTasksNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()

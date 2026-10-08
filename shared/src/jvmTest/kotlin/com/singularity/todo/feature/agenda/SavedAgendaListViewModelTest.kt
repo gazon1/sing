@@ -96,9 +96,9 @@ class SavedAgendaListViewModelTest {
     fun `starts in Loading then transitions to Loaded`() = runTest {
         val deps = makeDeps(views = listOf(makeView("v1", "My View")))
         val vm = createVm(deps)
-        assertEquals(SavedAgendaListState.Loading, vm.state.value)
+        assertEquals(SavedAgendaListState.Loading, vm.stateFlow.value)
         runCurrent()
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaListState.Loaded>(state)
         assertEquals(1, state.views.size)
         assertEquals("My View", state.views.first().name)
@@ -108,9 +108,9 @@ class SavedAgendaListViewModelTest {
     fun `starts in Loading with empty list`() = runTest {
         val deps = makeDeps(views = emptyList())
         val vm = createVm(deps)
-        assertEquals(SavedAgendaListState.Loading, vm.state.value)
+        assertEquals(SavedAgendaListState.Loading, vm.stateFlow.value)
         runCurrent()
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaListState.Loaded>(state)
         assertEquals(0, state.views.size)
     }
@@ -121,12 +121,12 @@ class SavedAgendaListViewModelTest {
         val deps = makeDeps(views = listOf(view))
         val vm = createVm(deps)
         runCurrent()
-        assertEquals(1, (vm.state.value as SavedAgendaListState.Loaded).views.size)
+        assertEquals(1, (vm.stateFlow.value as SavedAgendaListState.Loaded).views.size)
 
         vm.onIntent(SavedAgendaListIntent.Delete(view.id))
         runCurrent()
 
-        val state = vm.state.value as SavedAgendaListState.Loaded
+        val state = vm.stateFlow.value as SavedAgendaListState.Loaded
         assertEquals(0, state.views.size)
     }
 
@@ -158,7 +158,7 @@ class SavedAgendaListViewModelTest {
         vm.onIntent(SavedAgendaListIntent.CopyToProfile(view.id, workProfileId))
         runCurrent()
 
-        val state = vm.state.value as SavedAgendaListState.Loaded
+        val state = vm.stateFlow.value as SavedAgendaListState.Loaded
         // Should now have original + copy
         assertEquals(2, state.views.size)
         val copies = state.views.filter { it.name == "Work View" }

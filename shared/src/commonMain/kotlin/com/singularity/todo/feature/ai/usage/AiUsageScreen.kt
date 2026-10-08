@@ -31,7 +31,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun AiUsageScreen(modifier: Modifier = Modifier) {
     val viewModel: AiUsageViewModel = koinViewModel()
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
 
     if (state.isLoading) {
         LoadingIndicator(modifier = modifier)

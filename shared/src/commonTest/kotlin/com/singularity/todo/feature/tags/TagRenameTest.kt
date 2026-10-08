@@ -144,7 +144,7 @@ class TagRenameTest {
         h.vm.onIntent(TagsIntent.Rename(original.id, "after", original.color))
         advanceUntilIdle()
 
-        val state = assertIs<TagsUiState.Content>(h.vm.state.value)
+        val state = assertIs<TagsUiState.Content>(h.vm.stateFlow.value)
         assertEquals("after", state.tags.single().name)
         h.close()
     }

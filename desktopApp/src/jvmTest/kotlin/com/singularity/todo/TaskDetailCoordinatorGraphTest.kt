@@ -90,7 +90,7 @@ class TaskDetailCoordinatorGraphTest {
                 )
                 val seen = Collections.synchronizedList(mutableListOf<TaskDetailUiState>())
                 val loaded = withTimeoutOrNull(HANG_BUDGET) {
-                    coordinator.state
+                    coordinator.stateFlow
                         .onEach { seen += it }
                         .first { it is TaskDetailUiState.Loaded }
                         as TaskDetailUiState.Loaded

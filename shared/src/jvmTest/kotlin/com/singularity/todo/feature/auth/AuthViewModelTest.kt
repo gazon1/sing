@@ -111,8 +111,8 @@ class AuthViewModelTest {
     fun `with nothing configured the screen asks for the server first`() = runTest {
         val viewModel = viewModel()
 
-        awaitState { viewModel.state.value is AuthUiState.SignedOutWithNoServer }
-        assertIs<AuthUiState.SignedOutWithNoServer>(viewModel.state.value)
+        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+        assertIs<AuthUiState.SignedOutWithNoServer>(viewModel.stateFlow.value)
     }
 
     @Test
@@ -122,27 +122,27 @@ class AuthViewModelTest {
 
         val viewModel = viewModel()
 
-        awaitState { viewModel.state.value is AuthUiState.Idle }
-        assertIs<AuthUiState.Idle>(viewModel.state.value)
+        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+        assertIs<AuthUiState.Idle>(viewModel.stateFlow.value)
     }
 
     @Test
     fun `saving a configuration stores it and reveals the credential form`() = runTest {
         val viewModel = viewModel()
-        awaitState { viewModel.state.value is AuthUiState.SignedOutWithNoServer }
+        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
 
         viewModel.onIntent(AuthIntent.SaveServerConfig("https://p.supabase.co", "anon-key"))
         awaitState { storage.values.containsKey(SupabaseConfigResolver.KEY_ANON_KEY) }
 
         assertEquals("https://p.supabase.co", storage.values[SupabaseConfigResolver.KEY_URL])
         assertEquals("anon-key", storage.values[SupabaseConfigResolver.KEY_ANON_KEY])
-        awaitState { viewModel.state.value is AuthUiState.Idle }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
     }
 
     @Test
     fun `a half-typed configuration is refused and names what is missing`() = runTest {
         val viewModel = viewModel()
-        awaitState { viewModel.state.value is AuthUiState.SignedOutWithNoServer }
+        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
 
         viewModel.onIntent(AuthIntent.SaveServerConfig("https://p.supabase.co", "  "))
 
@@ -150,7 +150,7 @@ class AuthViewModelTest {
         // the first request fails, and that failure arrives as a network error that
         // points at the wrong thing entirely.
         assertTrue(storage.values.isEmpty(), "a half-configuration must not be stored")
-        assertEquals(AuthUiState.SignedOutWithNoServer, viewModel.state.value)
+        assertEquals(AuthUiState.SignedOutWithNoServer, viewModel.stateFlow.value)
     }
 
     // ── Seeding on first entry ──────────────────────────────────────────────
@@ -160,7 +160,7 @@ class AuthViewModelTest {
         val viewModel = viewModel()
 
         viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
-        awaitState { viewModel.state.value is AuthUiState.Success }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
 
         assertEquals(1, seedCalls)
     }
@@ -170,7 +170,7 @@ class AuthViewModelTest {
         val viewModel = viewModel()
 
         viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.state.value is AuthUiState.Success }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
 
         assertEquals(1, seedCalls)
     }
@@ -180,7 +180,7 @@ class AuthViewModelTest {
         val viewModel = viewModel(signIn = Result.failure(AppError.Unauthorized("nope")))
 
         viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
-        awaitState { viewModel.state.value is AuthUiState.Idle }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
 
         assertEquals(0, seedCalls, "uploading data on behalf of a sign-in that did not happen")
     }
@@ -191,8 +191,8 @@ class AuthViewModelTest {
 
         viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
 
-        awaitState { viewModel.state.value !is AuthUiState.Loading }
-        assertTrue(viewModel.state.value is AuthUiState.Idle)
+        awaitState { viewModel.stateFlow.value !is AuthUiState.Loading }
+        assertTrue(viewModel.stateFlow.value is AuthUiState.Idle)
     }
 
     @Test
@@ -223,7 +223,7 @@ class AuthViewModelTest {
         // The user is signed in. A seeding problem is a sync problem, and reporting
         // it as a failed sign-in would send them round the password loop again for
         // something that has already succeeded.
-        awaitState { viewModel.state.value is AuthUiState.Success }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
     }
 
     // ── REQ-UA-014 — a sign-up with no session is not a completed sign-in ────
@@ -233,9 +233,9 @@ class AuthViewModelTest {
         val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
 
         viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+        awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
 
-        assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.state.value)
+        assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.stateFlow.value)
     }
 
     @Test
@@ -259,7 +259,7 @@ class AuthViewModelTest {
             runCurrent()
 
             viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-            awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+            awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
             runCurrent()
 
             assertTrue(
@@ -282,7 +282,7 @@ class AuthViewModelTest {
         val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
 
         viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+        awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
 
         assertEquals(0, seedCalls)
     }
@@ -296,7 +296,7 @@ class AuthViewModelTest {
             runCurrent()
 
             viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-            awaitState { viewModel.state.value is AuthUiState.AwaitingEmailConfirmation }
+            awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
             runCurrent()
 
             val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
@@ -325,7 +325,7 @@ class AuthViewModelTest {
             runCurrent()
 
             viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-            awaitState { viewModel.state.value is AuthUiState.Success }
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
             runCurrent()
 
             assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
@@ -340,9 +340,9 @@ class AuthViewModelTest {
         val viewModel = viewModel(signUp = Result.failure(AppError.Unauthorized("nope")))
 
         viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.state.value is AuthUiState.Idle }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
 
-        assertIs<AuthUiState.Idle>(viewModel.state.value)
+        assertIs<AuthUiState.Idle>(viewModel.stateFlow.value)
     }
 
     // ── Signing out ──────────────────────────────────────────────────────

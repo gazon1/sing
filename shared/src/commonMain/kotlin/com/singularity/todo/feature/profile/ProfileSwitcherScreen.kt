@@ -69,7 +69,7 @@ private fun ProfileSwitcherContent(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
 

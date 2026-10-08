@@ -77,7 +77,6 @@ supabase = "3.8.0"
 okio = "3.10.0"
 
 # Utils
-ulid = "5.2.4"
 turbine = "1.2.0"
 # atomicfu — aligned via resolutionStrategy when transitive conflict occurs
 atomicfu = "0.23.1"
@@ -236,7 +235,6 @@ auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "su
 functions-kt = { module = "io.github.jan-tennert.supabase:functions-kt", version.ref = "supabase" }
 
 # Utils
-ulid = { module = "com.github.f4b6a3:ulid-creator", version.ref = "ulid" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 # Architecture tests (Konsist — source-level structural assertions, runs in :shared:jvmTest)

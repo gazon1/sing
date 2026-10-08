@@ -97,7 +97,7 @@ fun SavedAgendaScreen(mode: SavedAgendaScreenMode, modeHint: String, modifier: M
     val navigator = LocalAgendaNavigator.current
 
     val viewModel: SavedAgendaViewModel = koinViewModel { parametersOf(mode) }
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
 
     // In Results mode, render AgendaScreen directly — no edit chrome needed.
     if (state is SavedAgendaViewState.Results) {

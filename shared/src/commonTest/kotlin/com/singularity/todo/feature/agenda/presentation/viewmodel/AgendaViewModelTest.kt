@@ -115,7 +115,7 @@ class AgendaViewModelTest {
             runCurrent()
 
             val state = assertIs<AgendaUiState.Loaded>(
-                vm.state.value,
+                vm.stateFlow.value,
                 "VM stayed on Loading — the collected state is being discarded",
             )
             val titles = state.sections.flatMap { it.tasks }.map { it.task.title }
@@ -134,7 +134,7 @@ class AgendaViewModelTest {
 
             // An empty list must still resolve to Loaded — otherwise the screen
             // would spin forever before it could show its empty state.
-            val state = assertIs<AgendaUiState.Loaded>(vm.state.value)
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
             assertEquals(emptyList(), state.sections.flatMap { it.tasks })
         } finally {
             vmScope.close()
@@ -158,7 +158,7 @@ class AgendaViewModelTest {
             val vm = createVm(vmScope)
             runCurrent()
 
-            val state = assertIs<AgendaUiState.Loaded>(vm.state.value)
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
             assertTrue(
                 state.sections.any { section ->
                     section.tasks.any { it.task.id == undated.id }

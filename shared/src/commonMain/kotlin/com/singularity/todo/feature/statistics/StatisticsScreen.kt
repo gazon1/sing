@@ -50,7 +50,7 @@ private val TAB_TITLES = listOf("Tasks", "Time", "Health")
 
 @Composable
 fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Column(

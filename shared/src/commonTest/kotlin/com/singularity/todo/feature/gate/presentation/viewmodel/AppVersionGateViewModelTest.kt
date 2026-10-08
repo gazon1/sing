@@ -118,7 +118,7 @@ class AppVersionGateViewModelTest {
         val (vm, scope) = newVm(port)
         advanceUntilIdle()
 
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         scope.close()
     }
 
@@ -128,7 +128,7 @@ class AppVersionGateViewModelTest {
         val (vm, scope) = newVm(port)
         advanceUntilIdle()
 
-        val blocked = assertIs<AppVersionGateState.Blocked>(vm.state.value)
+        val blocked = assertIs<AppVersionGateState.Blocked>(vm.stateFlow.value)
         assertEquals(AppVersion("2.0.0", code = 20), blocked.minSupportedVersion)
         assertEquals(CURRENT, blocked.currentVersion)
         assertEquals(PLAY_STORE_URL, blocked.updateUrl, "the block screen must offer the store URL")
@@ -143,7 +143,7 @@ class AppVersionGateViewModelTest {
         val (vm, scope) = newVm(port)
         advanceUntilIdle()
 
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         scope.close()
     }
 
@@ -153,7 +153,7 @@ class AppVersionGateViewModelTest {
         val (vm, scope) = newVm(port)
         advanceUntilIdle()
 
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         scope.close()
     }
 
@@ -165,7 +165,7 @@ class AppVersionGateViewModelTest {
         val (vm, scope) = newVm(port, current = AppVersion("1.10.0", code = 10))
         advanceUntilIdle()
 
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         scope.close()
     }
 
@@ -174,14 +174,14 @@ class AppVersionGateViewModelTest {
         val port = StubRemoteConfigPort(snapshotWithMinimum(AppVersion("2.0.0", code = 20)))
         val (vm, scope) = newVm(port)
         advanceUntilIdle()
-        assertIs<AppVersionGateState.Blocked>(vm.state.value)
+        assertIs<AppVersionGateState.Blocked>(vm.stateFlow.value)
 
         // The user updates (or the config is rolled back) and taps "Check again".
         port.serve(snapshotWithMinimum(AppVersion("1.0.0", code = 10)))
         vm.onIntent(AppVersionGateIntent.CheckAgain)
         advanceUntilIdle()
 
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         assertEquals(1, (port as StubRemoteConfigPort).refreshCount, "CheckAgain must force a refresh")
         scope.close()
     }
@@ -197,12 +197,12 @@ class AppVersionGateViewModelTest {
         )
         val (vm, scope) = newVm(port)
         advanceUntilIdle()
-        assertIs<AppVersionGateState.Blocked>(vm.state.value)
+        assertIs<AppVersionGateState.Blocked>(vm.stateFlow.value)
 
         vm.onIntent(AppVersionGateIntent.CheckAgain)
         advanceUntilIdle()
 
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         scope.close()
     }
 
@@ -237,7 +237,7 @@ class AppVersionGateViewModelTest {
             reporter.breadcrumbs.single().contains(BYPASS_MARKER),
             "the record must say the gate was bypassed, got: ${reporter.breadcrumbs.single()}",
         )
-        assertIs<AppVersionGateState.Allowed>(vm.state.value)
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
         scope.close()
     }
 

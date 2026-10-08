@@ -102,7 +102,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         assertEquals(false, state.appearance.darkTheme)
         assertEquals("blue", state.appearance.accentColor)
         assertEquals(1f, state.appearance.fontSizeScale)
@@ -119,7 +119,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         assertEquals(false, state.appearance.darkTheme)
         assertEquals("blue", state.appearance.accentColor)
         assertEquals(1f, state.appearance.fontSizeScale)
@@ -139,7 +139,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         assertEquals(false, state.notifications.enabled)
     }
 
@@ -157,7 +157,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         assertEquals(600, state.workSchedule.dayStartMinutes)
     }
 
@@ -175,7 +175,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         assertEquals(10, state.greeting.morningEndHour)
     }
 
@@ -196,7 +196,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         assertEquals("ollama", state.ai.provider.id)
     }
 
@@ -213,7 +213,7 @@ class SettingsViewModelTest {
         // Let the VM's scope (backgroundScope) process the launched coroutines
         repeat(10) { advanceUntilIdle() }
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         val testResult = state.aiEphemeral.testResult
         assertIs<AiTestResult.Error>(testResult)
         assertEquals("API key not configured", testResult.message)
@@ -235,7 +235,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         val testResult = state.aiEphemeral.testResult
         assertIs<AiTestResult.Ok>(testResult)
     }
@@ -282,7 +282,7 @@ class SettingsViewModelTest {
 // because advanceUntilIdle() may return before background coroutines settle.
         advanceUntilIdle()
         runCurrent()
-        val state = vm.state.value as SettingsUiState.Content
+        val state = vm.stateFlow.value as SettingsUiState.Content
         val testResult = state.aiEphemeral.testResult
         assertIs<AiTestResult.Error>(testResult)
         assertEquals("kaboom", testResult.message)

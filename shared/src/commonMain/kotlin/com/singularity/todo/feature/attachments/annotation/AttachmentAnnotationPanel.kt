@@ -55,7 +55,7 @@ fun AttachmentAnnotationPanel(
     val viewModel: AttachmentAnnotationViewModel = koinViewModel {
         parametersOf(attachmentId)
     }
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val onIntent = IntentActions<AttachmentAnnotationIntent> { viewModel.onIntent(it) }
 
     // The panel needs the file to tell a stale note from a good one, and the viewer is the

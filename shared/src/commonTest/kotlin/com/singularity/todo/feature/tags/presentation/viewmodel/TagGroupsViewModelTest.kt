@@ -83,7 +83,7 @@ class TagGroupsViewModelTest {
         val vm = createVm()
         runCurrent()
 
-        assertIs<TagGroupsUiState.Empty>(vm.state.value)
+        assertIs<TagGroupsUiState.Empty>(vm.stateFlow.value)
     }
 
     @Test
@@ -94,7 +94,7 @@ class TagGroupsViewModelTest {
         val vm = createVm()
         runCurrent()
 
-        val state = assertIs<TagGroupsUiState.Content>(vm.state.value)
+        val state = assertIs<TagGroupsUiState.Content>(vm.stateFlow.value)
         assertEquals(listOf("g1", "g2"), state.groups.map { it.id.value })
     }
 
@@ -109,7 +109,7 @@ class TagGroupsViewModelTest {
         val vm = createVm()
         runCurrent()
 
-        val state = assertIs<TagGroupsUiState.Error>(vm.state.value)
+        val state = assertIs<TagGroupsUiState.Error>(vm.stateFlow.value)
         assertTrue(
             state.message.isNotBlank(),
             "Error must carry a user-presentable message, got \"${state.message}\"",

@@ -142,16 +142,16 @@ class ProjectDetailViewModelTest {
      * state now, not a standalone flow, so the `combine` has to emit `Content` first.
      */
     private fun ProjectDetailViewModel.hideCompleted(): Boolean =
-        (state.value as? ProjectDetailUiState.Content)?.hideCompleted
-            ?: error("expected Content, got ${state.value}")
+        (stateFlow.value as? ProjectDetailUiState.Content)?.hideCompleted
+            ?: error("expected Content, got ${stateFlow.value}")
 
     private fun ProjectDetailViewModel.hideBlocked(): Boolean =
-        (state.value as? ProjectDetailUiState.Content)?.hideBlocked
-            ?: error("expected Content, got ${state.value}")
+        (stateFlow.value as? ProjectDetailUiState.Content)?.hideBlocked
+            ?: error("expected Content, got ${stateFlow.value}")
 
     private fun ProjectDetailViewModel.visibleTitles(): List<String> =
-        (state.value as? ProjectDetailUiState.Content)?.ui?.tasks?.map { it.title }
-            ?: error("expected Content, got ${state.value}")
+        (stateFlow.value as? ProjectDetailUiState.Content)?.ui?.tasks?.map { it.title }
+            ?: error("expected Content, got ${stateFlow.value}")
 
     /** Seeds a task in p1, optionally depending on another task. */
     private fun seedTask(
@@ -194,7 +194,7 @@ class ProjectDetailViewModelTest {
         val vm = createVm(backgroundScope)
         advanceTimeBy(1_000)
         runCurrent()
-        assertTrue(vm.state.value is ProjectDetailUiState.Content)
+        assertTrue(vm.stateFlow.value is ProjectDetailUiState.Content)
 
         val newColor = 0xFFE91E63.toInt()
         vm.onIntent(ProjectDetailIntent.Domain.UpdateColor(newColor))
@@ -212,7 +212,7 @@ class ProjectDetailViewModelTest {
         val vm = createVm(backgroundScope)
         advanceTimeBy(1_000)
         runCurrent()
-        assertTrue(vm.state.value is ProjectDetailUiState.Content)
+        assertTrue(vm.stateFlow.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.ToggleArchive)
         advanceTimeBy(1_000)
@@ -229,7 +229,7 @@ class ProjectDetailViewModelTest {
         val vm = createVm(backgroundScope)
         advanceTimeBy(1_000)
         runCurrent()
-        assertTrue(vm.state.value is ProjectDetailUiState.Content)
+        assertTrue(vm.stateFlow.value is ProjectDetailUiState.Content)
 
         vm.onIntent(ProjectDetailIntent.Domain.Delete)
         advanceTimeBy(1_000)
@@ -246,7 +246,7 @@ class ProjectDetailViewModelTest {
         val vm = createVm(backgroundScope)
         advanceTimeBy(1_000)
         runCurrent()
-        assertTrue(vm.state.value is ProjectDetailUiState.Content)
+        assertTrue(vm.stateFlow.value is ProjectDetailUiState.Content)
         assertTrue(fakeTaskRepo.tasks.value.isEmpty())
 
         vm.onIntent(ProjectDetailIntent.Domain.CreateTask("New task"))
@@ -272,7 +272,7 @@ class ProjectDetailViewModelTest {
         val vm = createVm(backgroundScope, taskRepo = counting)
         advanceTimeBy(1_000)
         runCurrent()
-        assertTrue(vm.state.value is ProjectDetailUiState.Content)
+        assertTrue(vm.stateFlow.value is ProjectDetailUiState.Content)
 
         val afterSubscribe = counting.projectFilterSubscriptions
         assertTrue(afterSubscribe > 0, "the task stream was never subscribed")

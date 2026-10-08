@@ -61,7 +61,7 @@ import kotlin.time.Duration
 @Composable
 fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: CalendarSyncViewModel = koinViewModel()
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
 
     val permissionRequester = rememberCalendarPermissionRequester()
 

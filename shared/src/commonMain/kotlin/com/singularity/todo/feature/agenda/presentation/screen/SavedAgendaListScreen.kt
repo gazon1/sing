@@ -67,7 +67,7 @@ import kotlin.time.Instant
 fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     val navigator = LocalAgendaNavigator.current
     val viewModel: SavedAgendaListViewModel = koinViewModel()
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 

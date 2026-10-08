@@ -95,7 +95,7 @@ private sealed interface NotePreviewSheet {
 @Composable
 fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val sheets = rememberOverlayState<NotePreviewSheet>()
 
     LaunchedEffect(route.noteId) {
