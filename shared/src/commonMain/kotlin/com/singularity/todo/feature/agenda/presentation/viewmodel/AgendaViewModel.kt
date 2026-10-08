@@ -305,8 +305,14 @@ class AgendaViewModel(
     // ── Undo-delete handlers ────────────────────────────────────────────────────
 
     /**
-     * Soft-deletes a task, then offers [AgendaUiEvent.UndoDelete] for as long as
-     * [_pendingDelete] holds the entry.
+     * Soft-deletes a task, then offers an undo for as long as [_pendingDelete] holds
+     * the entry.
+     *
+     * The affordance *is* the marker, not an event: the screen renders it by
+     * watching [pendingDelete] and dismisses it when the marker clears. An
+     * `UndoDelete` event carrying the same id and title existed alongside it and was
+     * collected into an empty branch — two channels for one fact, one of them dead
+     * from the day it was written.
      *
      * ## What this used to do
      *
@@ -358,7 +364,6 @@ class AgendaViewModel(
             val generation = undoSlot.incrementAndFetch()
             pendingDeleteJob?.cancel()
             _pendingDelete.value = PendingDelete(taskId, taskTitle)
-            emit(AgendaUiEvent.UndoDelete(taskId, taskTitle))
 
             pendingDeleteJob = scope.launch {
                 delay(UNDO_WINDOW_MS)

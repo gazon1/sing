@@ -72,12 +72,31 @@ fun AgendaScreen(
     val scope = rememberCoroutineScope()
 
     // Show undo snackbar when a delete is pending.
+    //
+    // The ViewModel's window is the only clock. Material 3 offers no custom
+    // duration, so pairing `UNDO_WINDOW_MS` with Short or Long only ever gets the
+    // two approximately right — and either direction is a broken promise: an
+    // affordance that outlives the window offers an Undo that does nothing, and one
+    // that dies early denies an undo the user was still entitled to. So the snackbar
+    // is presented Indefinite and dismissed from here when the pending delete
+    // clears, which happens when the window expires *or* a reversal succeeds.
+    //
+    // This is also what keeps the retry affordance real: a failed reversal leaves
+    // the marker set, so the snackbar stays up.
     LaunchedEffect(pendingDelete) {
-        val pd = pendingDelete ?: return@LaunchedEffect
+        val pd = pendingDelete
+        if (pd == null) {
+            // No `SnackbarHostState.dismiss()` at this Material3 version — the
+            // handle is on the shown item. This resolves the pending
+            // `showSnackbar` as Dismissed, so expiry is never mistaken for the
+            // user taking the offer.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            return@LaunchedEffect
+        }
         val result = snackbarHostState.showSnackbar(
             message = "\"${pd.taskTitle}\" deleted",
             actionLabel = "Undo",
-            duration = SnackbarDuration.Short,
+            duration = SnackbarDuration.Indefinite,
         )
         if (result == SnackbarResult.ActionPerformed) {
             vm.onIntent(AgendaIntent.UndoDeleteTapped)
@@ -94,16 +113,11 @@ fun AgendaScreen(
 
             is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
 
-            // A mutation that did not happen has to say so. These used to reach the
-            // crash reporter and stop there, which is how a failed delete could be
-            // announced as a successful one.
             is AgendaUiEvent.ShowError -> {
                 scope.launch {
                     snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short)
                 }
             }
-
-            is AgendaUiEvent.UndoDelete -> { /* handled by LaunchedEffect above */ }
 
             is AgendaUiEvent.BulkOperationDone -> {
                 val message = if (event.error != null) {

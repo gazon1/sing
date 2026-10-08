@@ -283,10 +283,6 @@ class AgendaViewModelTest {
                 events.any { it is AgendaUiEvent.ShowError },
                 "the user must be told the delete failed: $events",
             )
-            assertFalse(
-                events.any { it is AgendaUiEvent.UndoDelete },
-                "no undo affordance may be offered for a delete that did not happen: $events",
-            )
         } finally {
             collector.cancel()
         }
