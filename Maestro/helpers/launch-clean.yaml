@@ -1,10 +1,10 @@
 # Launches the app from a clean state and waits for the shell to be interactive.
 #
-# Why the 8s budget: MainActivity cold start initialises Koin, Room, DataStore
-# migrations and the calendar sync orchestrator. On an emulator that can ANR —
-# see docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md. A shorter
-# timeout turns a slow start into a false failure; a longer one only delays a
-# real hang.
+# After clearState the DataStore is empty, so the Auth screen is shown first.
+# "Continue Offline" creates an in-memory anonymous session and lands on the
+# agenda. Without this step the nav tabs are never visible (the auth screen
+# renders instead). The 8s budget was calibrated to catch a blocking migration
+# on a slow emulator — see docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md.
 appId: com.singularity.todo
 name: launch-clean
 onFlowComplete:
@@ -15,6 +15,15 @@ onFlowComplete:
     clearState: true
     permissions:
       notifications: allow
+# Auth screen appears immediately after clearState. Tap "Continue Offline" to
+# create an anonymous session and reach the agenda.
+- extendedWaitUntil:
+    visible:
+      id: auth_continue_offline_button
+    timeout: 5000
+- tapOn:
+    id: auth_continue_offline_button
+# Now wait for the agenda shell to be interactive.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
