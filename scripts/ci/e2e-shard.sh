@@ -37,12 +37,17 @@ apk=$(ls apk/*.apk | head -n1)
 echo "installing $apk"
 adb install -r -t "$apk"
 
+# Explicit config path — Maestro looks for config.yaml in the workspace root,
+# but our config lives in Maestro/config.yaml relative to the repo root.
+MAESTRO_CONFIG=Maestro/config.yaml
+
 # One retry per flow; a flow that needs it is reported as flaky, not hidden.
 run_flow() {
   local name=$1 attempt
   shift
+  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG args=$*"
   for attempt in 1 2; do
-    if maestro test --format junit --output "$OUT/$name.xml" "$@"; then
+    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" "$@"; then
       if ((attempt > 1)); then
         echo "::warning title=Flaky flow::$name passed only on attempt $attempt"
       fi
@@ -58,11 +63,14 @@ if [[ $SUITE == smoke ]]; then
   # Run each smoke flow individually — Maestro CLI 2.10.0 does not reliably handle
   # multiple file paths in a single invocation (Top-level directories error).
   mapfile -t smoke_flows < <(find Maestro/flows/smoke/ -name '*.yaml' -type f | sort)
+  echo "DEBUG: smoke_flows count=${#smoke_flows[@]} files=${smoke_flows[*]}"
+  echo "DEBUG: $(ls -la Maestro/flows/smoke/)"
   if ((${#smoke_flows[@]} == 0)); then
     echo "::error::smoke suite: no flows found in Maestro/flows/smoke/"
     exit 1
   fi
   for f in "${smoke_flows[@]}"; do
+    echo "DEBUG: running flow file=$f"
     ran=$((ran + 1))
     run_flow "$(basename "$f" .yaml)" "$f" || failed=$((failed + 1))
   done
