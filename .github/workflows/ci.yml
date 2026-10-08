@@ -142,6 +142,11 @@ jobs:
           python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED"
           python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED"
 
+      # Detekt passed before this point — if DI/import files changed in a rebase,
+      # this catches a compile break that `jvmTest` (already green) might miss.
+      - name: Post-rebase DI compile
+        run: python3 scripts/check-rebase-compiles.py
+
       - name: Coverage floors
         run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
 

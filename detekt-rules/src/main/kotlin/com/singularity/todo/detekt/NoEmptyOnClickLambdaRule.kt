@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
 
 /**
  * Bans empty lambda placeholders passed as event handlers in composable calls,
@@ -88,15 +89,21 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
     }
 
     /**
-     * Flags the elvis-fallback shape: `onClick ?: { }`.
+     * Flags the elvis-fallback shape: `onClick ?: { }` and `obj?.onClick ?: { }`.
      *
      * The defect is the *pair*. A handler parameter that defaults to an empty
      * lambda is harmless on its own — `onClick()` just does nothing, and the
      * declaration reads as a normal optional default. It becomes a real bug when
-     * the body writes `onClick ?: { }`, because the elvis can never take its
-     * right-hand branch for a non-null parameter: the fallback is dead code that
-     * reads as if it were the only place the handler is implemented. This is the
-     * same shape `find-unwired-surfaces.py` calls `default-noop`.
+     * the body writes `onClick ?: { }` (or `obj?.onClick ?: { }`), because the
+     * elvis can never take its right-hand branch for a non-null parameter: the
+     * fallback is dead code that reads as if it were the only place the handler
+     * is implemented. This is the same shape `find-unwired-surfaces.py` calls
+     * `default-noop`.
+     *
+     * Two left-side shapes are handled:
+     * - Simple name: `callbacks.onClick ?: {}` — the name IS the parameter
+     * - Safe-call chain: `callbacks.priority?.onChange ?: {}` — the terminal
+     *   selector (`onChange`) is the parameter name
      *
      * Note this is deliberately NOT the same as flagging `onClick: () -> Unit = {}`
      * on its own — a test in this file pins that distinction, and a declaration
@@ -107,14 +114,37 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         if (isPreviewContext(expression)) return
         if (expression.operationToken != KtTokens.ELVIS) return
 
-        val receiver = expression.left as? KtNameReferenceExpression ?: return
-        val paramName = receiver.text
+        val paramName = expression.left?.let { extractHandlerName(it) } ?: return
         if (!NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)) return
 
         val fallback = expression.right as? KtLambdaExpression ?: return
         if (isEmptyLambda(fallback)) {
             reportFinding(fallback, paramName, "elvis fallback")
         }
+    }
+
+    /**
+     * Extracts the terminal identifier name from the left side of an elvis expression.
+     *
+     * Two shapes are handled:
+     * - `callbacks.onClick` → `KtNameReferenceExpression` → "onClick"
+     * - `callbacks.priority?.onChange` → `KtSafeQualifiedExpression` with terminal
+     *   selector `onChange` → "onChange"
+     *
+     * Safe-call chains are the missing case from the original rule: the left side
+     * of `callbacks.priority?.onChange ?: {}` is a `KtSafeQualifiedExpression`, not
+     * a `KtNameReferenceExpression`. The simple-reference check returned `null` for
+     * it, so `?.onChange ?: {}` was silently ignored by the rule. This is how
+     * `TaskEditorContent.kt` lines 436/440/442 survived the rule being added.
+     */
+    private fun extractHandlerName(left: org.jetbrains.kotlin.psi.KtExpression): String? {
+        // Simple name: callbacks.onClick
+        (left as? KtNameReferenceExpression)?.let { return it.text }
+
+        // Safe-call chain: callbacks.priority?.onChange
+        val safe = left as? KtSafeQualifiedExpression
+        val selector = safe?.selectorExpression as? KtNameReferenceExpression
+        return selector?.text
     }
 
     private fun isEmptyLambda(lambda: KtLambdaExpression): Boolean {

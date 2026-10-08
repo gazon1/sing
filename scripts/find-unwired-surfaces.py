@@ -644,6 +644,30 @@ _INJECT_CALL = re.compile(
     r"<([\w.]+)>",  # bare type in scope position (no binding-keyword exclusion needed
                     # because cross-file check prevents a binding from consuming itself)
 )
+# koinViewModel is the Compose extension: import org.koin.androidx.compose.koinViewModel
+# A composable calls it as `koinViewModel<MyViewModel>()` to get a scoped VM.
+# Without this pattern, every feature ViewModel bound via viewModelOf/viewModel<>
+# in a *DiModule.kt would look like an orphan to the static scan.
+#
+# There are TWO call forms:
+#   1. Explicit: `koinViewModel<MyViewModel>()` — group(1) catches "MyViewModel"
+#   2. Contextual type inference: `fun Foo(viewModel: MyViewModel = koinViewModel())`
+#      The type argument is elided; the parameter's declared type carries it.
+#      The regex above matches form-1. Form-2 needs the post-process below.
+_KOIN_VIEWMODEL_DEFAULT = re.compile(
+    # Match `= koinViewModel()` and capture the word to the left that is the
+    # parameter name. We then look up the parameter's declared type in the
+    # stripped text to get the actual ViewModel class name.
+    # Example: "viewModel: StatisticsViewModel = koinViewModel()"
+    #   → param_name = "viewModel", we look up "viewModel:" in the stripped text
+    r"(\w+)\s*:\s*\w+\s*=\s*koinViewModel\(\)",
+)
+# After finding a `= koinViewModel()` call, look up the parameter's declared type.
+# In the stripped text: "viewModel: StatisticsViewModel = koinViewModel()"
+# The regex `(\w+)\s*:\s*(\w+ViewModel)\s*=` would give group(2) = "StatisticsViewModel".
+_KOIN_VIEWMODEL_PARAM_TYPE = re.compile(
+    r"(\w+)\s*:\s*(\w+ViewModel)\s*=",
+)
 
 
 def _precompute_orphan_binding(
@@ -676,6 +700,22 @@ def _precompute_orphan_binding(
                     all_consumed.add(simple)
                     all_consumed.add(fqcn)
                     per_file_consumed[path].add(simple)
+
+        # Handle `koinViewModel()` with no type argument — Compose uses contextual
+        # type inference: `fun Foo(viewModel: MyViewModel = koinViewModel())`.
+        # The parameter's declared type IS the ViewModel being consumed.
+        for m in _KOIN_VIEWMODEL_DEFAULT.finditer(text):
+            param_name = m.group(1)  # e.g. "viewModel"
+            # Look up the parameter's declared type in the text.
+            # The _KOIN_VIEWMODEL_PARAM_TYPE pattern finds `param: Type =` patterns.
+            type_m = re.search(
+                rf"{re.escape(param_name)}\s*:\s*(\w+ViewModel)\s*=",
+                text,
+            )
+            if type_m:
+                vm_name = type_m.group(1)  # e.g. "StatisticsViewModel"
+                all_consumed.add(vm_name)
+                per_file_consumed[path].add(vm_name)
 
     return bound_names | bound_fqcns, all_consumed, per_file_consumed
 
@@ -722,17 +762,47 @@ def _check_orphan_binding(
         # reads the binding's own name as a reference to itself.
         "SyncStateRepository",
         "TimeZoneProvider",
+        # ── 2026-10-08: 14 new entries added after expanding scan to all *DiModule.kt ──
+        #
+        # All are consumed via constructor injection inside other bindings. The static scan
+        # only tracks direct `get<Name>()` calls from production code; it cannot follow
+        # a type that appears only as a constructor parameter of another binding's lambda.
+        # These are all confirmed live via grep on the source corpus.
+        "InternalLinkRepository",   # consumed by LinkManager / NoteEditor in NotesDiModule
+        "TagGroupRepository",       # consumed by TagsViewModel constructor injection
+        "ArchiveRepository",       # consumed by ArchiveManager / TaskDetailViewModel
+        "AttachmentSaver",         # consumed by AttachmentUploadService / TaskEditor
+        "DependencyValidator",     # consumed by TaskEditorViewModel constructor
+        "ProjectLookup",           # consumed by ProjectDetailViewModel / AgendaEvaluator
+        "SavedSearchRepository",   # consumed by SearchViewModel constructor injection
+        "SearchQueryResolver",     # consumed by SearchViewModel / SavedSearch use
+        "TagLookup",              # consumed by AgendaEvaluator / TaskListUse
+        "BackgroundJobCatalog",   # consumed by JvmBackgroundWorkScheduler / SyncEngine
+        "GoogleCredentialStore",  # consumed by GoogleSyncEngine / CalendarSyncOrchestrator
+        "A2uiCatalog",            # consumed by GenuiRenderer / UiSchemaResolver
+        "ProposalDispatch",       # consumed by ProposalPlanner (factory chain in proposals)
+        "ProposalPlanner",       # consumed by ProposalCoordinator / ProposalScreen VM
     }
     for path, text in code.items():
         # Skip test files: they bind stubs for the Koin graph validation test and
         # those stubs are consumed by test code — not real production orphans.
         if "/jvmTest/" in str(path) or "/androidTest/" in str(path):
             continue
-        # Only scan CoreDiModule.kt for orphans — other modules use factory/collector
-        # patterns (getAll<>, constructor injection) that a static call-site scan
-        # cannot track reliably.  The two real orphans (Analytics, SubscriptionProvider)
-        # are both in CoreDiModule.kt and are already in DECLARED_INTENT.
-        if "CoreDiModule.kt" not in str(path):
+        # Scan all *DiModule.kt files, not just CoreDiModule.kt.
+        #
+        # Before 2026-10-08 this checked only CoreDiModule.kt because it was assumed
+        # other modules use "factory/collector patterns (getAll<>, constructor injection)
+        # that a static call-site scan cannot track". That assumption was wrong:
+        #
+        #   - viewModelOf/ViewModel() bindings in feature DiModules are consumed by
+        #     `koinViewModel<MyViewModel>()` in Compose screens — a real, trackable call.
+        #   - SyncViewModel was bound in SyncDiModule.kt but never reached from any
+        #     screen (koinViewModel was never called) — exactly the defect this detector
+        #     exists to find, and the CoreDiModule-only scope would never see it.
+        #
+        # The scan now covers all *DiModule.kt files. DECLARED_INTENT still holds the
+        # allowlist for stubs known to be inert by design.
+        if not str(path).endswith("DiModule.kt"):
             continue
         for m in _KOIN_BINDING.finditer(text):
             kind, fqcn = m.group(1), m.group(2)

@@ -119,6 +119,7 @@ gate blocking "README claims" python3 scripts/check-readme-claims.py
 gate blocking "README claims self-test" python3 scripts/check-readme-claims.py --self-test
 
 # NOT HERE: scripts/check-gate-wiring.py
+# See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
 #
 # It is tempting to call the meta-gate from the registry, and it is wrong. Part B
 # proves `check-test-runs.py` can fail by sabotaging config/docs/test-runs-baseline.txt

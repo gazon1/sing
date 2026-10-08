@@ -352,9 +352,6 @@ fun TaskEditorContent(
             onDescriptionChange = onDescriptionChange,
             priority = RowCallbacks(
                 onChange = onPrioritySelect,
-                // Null passes through as null. `?: {}` turned "this row has no tap
-                // target" into "this row has a tap target that does nothing", and the
-                // row rendered a ripple either way.
                 onClick = onPriorityClick,
                 onClear = onPriorityClear,
             ),
@@ -433,13 +430,13 @@ fun TaskEditorContent(
         descriptionDraft = model.descriptionDraft,
         onDescriptionChange = callbacks.onDescriptionChange,
         priority = model.priority,
-        onPrioritySelect = callbacks.priority?.onChange ?: {},
-        onPriorityClear = callbacks.priority?.onClear,
+        onPrioritySelect = callbacks.priority.onChange,
+        onPriorityClear = callbacks.priority.onClear,
         dueDate = model.dueDate,
         dueTime = model.dueTime,
-        onDueDateSelect = callbacks.dueDate?.onChangeDate ?: {},
-        onDueDateClear = callbacks.dueDate?.onClear,
-        onDueTimeSelect = callbacks.dueDate?.onChangeTime ?: {},
+        onDueDateSelect = callbacks.dueDate.onChangeDate,
+        onDueDateClear = callbacks.dueDate.onClear,
+        onDueTimeSelect = callbacks.dueDate.onChangeTime,
         showDueDate = true,
         onPriorityClick = callbacks.priority?.onClick,
         onDueDateClick = callbacks.dueDate?.onClick,

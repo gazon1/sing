@@ -428,6 +428,19 @@ SCRIPT_GATES = [
              "header is the part a reader trusts; the live half of #221 needs credentials and stays "
              "manual, so this is the half that can be a gate",
     ),
+    ScriptGate(
+        name="rebase-compiles",
+        cmd=[sys.executable, "scripts/check-rebase-compiles.py"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
+        sabotage=(
+            "content = p.read_text()\n"
+            "p.write_text(content.replace(\n"
+            "    'import com.singularity.todo.core.sync.SyncSettingsPort',"
+            "    '# import com.singularity.todo.core.sync.SyncSettingsPort'))"
+        ),
+        why="an import removed from a DI module silently breaks every consumer; "
+             "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
+    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both
