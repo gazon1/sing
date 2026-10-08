@@ -55,18 +55,17 @@ run_flow() {
 failed=0 ran=0
 
 if [[ $SUITE == smoke ]]; then
-  ran=1
-  run_flow smoke --include-tags smoke Maestro/flows || failed=$((failed + 1))
-
-  # Scenario-tagged flows are read from the flows themselves, so the list cannot go
-  # stale. TASK-REC-01 is currently the only one, and running it is the reason this
-  # block exists: before 2026-10-05 the smoke job passed only `TAGS=smoke`, so the
-  # one flow a scenario could be joined to never executed in CI.
-  scenario_tags=$(grep -rhoE 'scenario:[A-Z0-9-]+' Maestro/flows | sort -u | paste -sd, - || true)
-  if [[ -n $scenario_tags ]]; then
-    ran=$((ran + 1))
-    run_flow scenarios --include-tags "$scenario_tags" Maestro/flows || failed=$((failed + 1))
+  # Run each smoke flow individually — Maestro CLI 2.10.0 does not reliably handle
+  # multiple file paths in a single invocation (Top-level directories error).
+  mapfile -t smoke_flows < <(find Maestro/flows/smoke/ -name '*.yaml' -type f | sort)
+  if ((${#smoke_flows[@]} == 0)); then
+    echo "::error::smoke suite: no flows found in Maestro/flows/smoke/"
+    exit 1
   fi
+  for f in "${smoke_flows[@]}"; do
+    ran=$((ran + 1))
+    run_flow "$(basename "$f" .yaml)" "$f" || failed=$((failed + 1))
+  done
 else
   # Round-robin slice of the sorted flow list.
   #
