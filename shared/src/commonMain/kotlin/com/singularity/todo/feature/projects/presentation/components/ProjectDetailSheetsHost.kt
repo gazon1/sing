@@ -1,12 +1,10 @@
 package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
-import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
+import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 
 /**
  * All sheets for [ProjectDetailContent].
@@ -15,6 +13,8 @@ import com.singularity.todo.feature.projects.presentation.model.ParentOption
  * @param activeSheet The currently active sheet, or null if none.
  * @param currentContent Used to derive current values for sheets.
  * @param parentOptions Passed to [ParentPickerSheet].
+ * @param tagGroups Passed to [InheritedTagGroupsSheet].
+ * @param inheritedTagGroupIds Passed to [InheritedTagGroupsSheet].
  * @param onSheetDismiss Called when any sheet is dismissed.
  */
 @Composable
@@ -22,6 +22,8 @@ fun ProjectDetailSheetsHost(
     activeSheet: ActiveSheet?,
     currentContent: CurrentProjectContent?,
     parentOptions: List<ParentOption>,
+    tagGroups: List<TagGroupOption>,
+    inheritedTagGroupIds: Set<TagGroupId>,
     onSheetDismiss: () -> Unit,
 ) {
     when (activeSheet) {
@@ -74,6 +76,16 @@ fun ProjectDetailSheetsHost(
             onDismiss = onSheetDismiss,
         )
 
+        is ActiveSheet.PickInheritedTagGroups -> InheritedTagGroupsSheet(
+            options = tagGroups,
+            currentIds = inheritedTagGroupIds,
+            onPick = { ids ->
+                currentContent?.actions?.onUpdateInheritedTagGroups(ids)
+                onSheetDismiss()
+            },
+            onDismiss = onSheetDismiss,
+        )
+
         is ActiveSheet.ConfirmDelete -> ConfirmDeleteSheet(
             projectName = currentContent?.name
                 ?: "",
@@ -108,28 +120,3 @@ fun ProjectDetailSheetsHost(
         )
     }
 }
-
-/**
- * Current project values a sheet needs to render itself, plus the [ProjectDetailActions]
- * dispatcher its `onPick`/`onConfirm` handlers call into.
- *
- * **Not a `data class`.** The previous shape held ten nullable callback fields; a generated
- * `equals` compares lambdas by identity, so two structurally identical instances could
- * never be equal and the class was only usable as an opaque token. Carrying the single
- * [actions] value class instead keeps the type honest — every sheet dispatches through the
- * same named helpers the rest of the screen uses, and no callback is optional.
- *
- * @see ProjectDetailActions
- */
-@Immutable
-class CurrentProjectContent(
-    val name: String,
-    val color: Int,
-    val icon: String?,
-    val parentId: ProjectId?,
-    val dueDate: kotlinx.datetime.LocalDate?,
-    val isArchived: Boolean,
-    val childProjects: List<Project>,
-    val reminderOffset: ReminderOffset?,
-    val actions: ProjectDetailActions,
-)

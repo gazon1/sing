@@ -3,6 +3,7 @@ package com.singularity.todo.feature.projects.presentation.components
 import androidx.compose.runtime.Stable
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -38,6 +39,7 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
         block(ProjectDetailIntent.Routing.OpenParentSheet(currentParentId))
     fun onOpenDueDateSheet() = block(ProjectDetailIntent.Routing.OpenDueDateSheet)
     fun onOpenChildrenSheet() = block(ProjectDetailIntent.Routing.OpenChildrenSheet)
+    fun onOpenInheritedTagGroupsSheet() = block(ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet)
     fun onOpenDeleteSheet() = block(ProjectDetailIntent.Routing.OpenDeleteSheet)
     fun onOpenArchiveSheet() = block(ProjectDetailIntent.Routing.OpenArchiveSheet)
     fun onOpenReminderSheet() = block(ProjectDetailIntent.Routing.OpenReminderSheet)
@@ -65,6 +67,9 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
     fun onUpdateIcon(icon: String?) = block(ProjectDetailIntent.Domain.UpdateIcon(icon))
 
     fun onUpdateParent(parentId: ProjectId?) = block(ProjectDetailIntent.Domain.UpdateParent(parentId))
+
+    fun onUpdateInheritedTagGroups(groupIds: Set<TagGroupId>) =
+        block(ProjectDetailIntent.Domain.UpdateInheritedTagGroups(groupIds))
 
     fun onUpdateDueDate(dueDate: kotlinx.datetime.LocalDate?) = block(ProjectDetailIntent.Domain.UpdateDueDate(dueDate))
 

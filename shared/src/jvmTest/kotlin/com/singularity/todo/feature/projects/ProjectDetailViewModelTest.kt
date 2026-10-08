@@ -25,6 +25,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectRemindersRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -89,6 +90,7 @@ class ProjectDetailViewModelTest {
     private val fakeProfileRepo = FakeProfileRepository()
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
     private val fakeProjectReminders = FakeProjectRemindersRepository()
+    private val fakeTagGroupRepo = FakeTagGroupRepository(fakeCurrentUser)
 
     private fun createVm(
         scope: CoroutineScope,
@@ -99,6 +101,7 @@ class ProjectDetailViewModelTest {
             projectId = ProjectId("p1"),
             projectRepo = fakeProjectsRepo,
             taskRepo = taskRepo,
+            tagGroupRepo = fakeTagGroupRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, FakeClock(TEST_NOW)),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW)),

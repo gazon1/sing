@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.state
 
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 
 /**
  * Единая точка входа для [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel].
@@ -26,6 +27,7 @@ sealed interface ProjectDetailIntent : MviIntent {
             Routing
         data object OpenDueDateSheet : Routing
         data object OpenChildrenSheet : Routing
+        data object OpenInheritedTagGroupsSheet : Routing
         data object OpenDeleteSheet : Routing
         data object OpenArchiveSheet : Routing
         data object OpenReminderSheet : Routing
@@ -70,6 +72,7 @@ sealed interface ProjectDetailIntent : MviIntent {
         data class UpdateColor(val color: Int) : Domain
         data class UpdateIcon(val icon: String?) : Domain
         data class UpdateParent(val parentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) : Domain
+        data class UpdateInheritedTagGroups(val groupIds: Set<TagGroupId>) : Domain
         data class UpdateDueDate(val dueDate: kotlinx.datetime.LocalDate?) : Domain
 
         // ── Lifecycle ─────────────────────────────────────────────────────

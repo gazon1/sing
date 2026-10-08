@@ -16,4 +16,5 @@ sealed interface ActiveSheet {
     data object AddAttachment : ActiveSheet
     data object PickDueDate : ActiveSheet
     data object ShowChildren : ActiveSheet
+    data object PickInheritedTagGroups : ActiveSheet
 }

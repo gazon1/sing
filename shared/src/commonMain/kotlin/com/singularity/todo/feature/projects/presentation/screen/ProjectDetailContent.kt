@@ -134,9 +134,13 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                             ReminderOffset.entries.firstOrNull { it.minutes == m }
                         },
                         actions = actions,
+                        tagGroups = c.tagGroups,
+                        inheritedTagGroupIds = c.ui.project.inheritedTagGroupIds,
                     )
                 },
                 parentOptions = content?.parentOptions.orEmpty(),
+                tagGroups = content?.tagGroups.orEmpty(),
+                inheritedTagGroupIds = content?.ui?.project?.inheritedTagGroupIds ?: emptySet(),
                 onSheetDismiss = { sheets.dismissSheet() },
             )
         }
@@ -176,6 +180,10 @@ private fun rememberProjectDetailActions(
             is ProjectDetailIntent.Routing.OpenDueDateSheet -> sheets.show(ActiveSheet.PickDueDate)
 
             is ProjectDetailIntent.Routing.OpenChildrenSheet -> sheets.show(ActiveSheet.ShowChildren)
+
+            is ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet -> sheets.show(
+                ActiveSheet.PickInheritedTagGroups,
+            )
 
             is ProjectDetailIntent.Routing.OpenDeleteSheet -> sheets.show(ActiveSheet.ConfirmDelete)
 

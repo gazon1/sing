@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -153,6 +154,14 @@ fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions, modi
                 onClick = actions::onOpenChildrenSheet,
                 label = { Text("${ui.childProjects.size} sub-projects") },
                 leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            )
+        }
+        if (ui.project.inheritedTagGroupIds.isNotEmpty()) {
+            FilterChip(
+                selected = false,
+                onClick = actions::onOpenInheritedTagGroupsSheet,
+                label = { Text("${ui.project.inheritedTagGroupIds.size} tag groups") },
+                leadingIcon = { Icon(Icons.Filled.Label, contentDescription = null, modifier = Modifier.size(16.dp)) },
             )
         }
     }
