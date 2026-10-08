@@ -152,7 +152,7 @@ fun NoteEditorScreenContent(
             )
         },
         bottomBar = {
-            session?.let { editorSession ->
+            session.let { editorSession ->
                 Column {
                     EditorToolbar(
                         richTextState = editorSession.richTextState,

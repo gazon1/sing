@@ -189,7 +189,7 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         buckets.takeLast(7).forEach { bucket ->
-            val day = LocalDate.parse(bucket.date).dayOfMonth.toString()
+            val day = LocalDate.parse(bucket.date).day.toString()
             Text(
                 text = day,
                 style = MaterialTheme.typography.labelSmall,
@@ -355,7 +355,7 @@ private fun InsightsStackedBarChart(buckets: List<DayInsightsBucket>, modifier: 
                 buckets.forEach { bucket ->
                     val date = LocalDate.parse(bucket.date)
                     Text(
-                        text = date.dayOfMonth.toString(),
+                        text = date.day.toString(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),

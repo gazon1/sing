@@ -2,6 +2,7 @@
 // Preview fixtures only: the timestamps are sample data for `@Preview`, not
 // behaviour. The rule is right about production code and has nothing to say
 // about a hard-coded `Instant` in a composable nobody ships.
+@file:OptIn(kotlinx.coroutines.FlowPreview::class)
 
 package com.singularity.todo.feature.notes.presentation.screen
 
@@ -76,6 +77,7 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock

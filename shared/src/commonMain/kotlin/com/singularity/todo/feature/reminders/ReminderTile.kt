@@ -34,7 +34,7 @@ fun ReminderTile(reminder: Reminder, onDelete: () -> Unit, modifier: Modifier = 
         val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
         val hour = local.hour.toString().padStart(2, '0')
         val minute = local.minute.toString().padStart(2, '0')
-        "$month ${local.dayOfMonth}, $hour:$minute"
+        "$month ${local.day}, $hour:$minute"
     }
     val offsetLabel = when {
         reminder.offsetMinutes == 0 -> "At due time"

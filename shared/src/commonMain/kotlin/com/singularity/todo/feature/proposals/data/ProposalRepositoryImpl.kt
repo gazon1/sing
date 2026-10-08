@@ -16,6 +16,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -35,6 +36,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * switch halfway through.
  */
 @Suppress("TooManyFunctions")
+@OptIn(ExperimentalCoroutinesApi::class)
 class ProposalRepositoryImpl(
     private val dao: ProposalDao,
     private val items: ProposalItemDao,

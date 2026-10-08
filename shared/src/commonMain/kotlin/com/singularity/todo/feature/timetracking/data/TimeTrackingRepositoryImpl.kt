@@ -9,6 +9,7 @@ import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -21,6 +22,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * Enforces single-open-entry invariant: [startEntry] fails if the user
  * already has a running entry.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class TimeTrackingRepositoryImpl(
     private val dao: TimeEntryDao,
     private val clock: Clock,

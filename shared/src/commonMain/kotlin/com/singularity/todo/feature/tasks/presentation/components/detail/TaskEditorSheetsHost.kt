@@ -40,7 +40,7 @@ fun TaskEditorSheetsHost(
         is TaskEditorSheet.Date -> DatePickerSheet(
             initialDate = model.dueDate,
             onDateSelected = { date ->
-                callbacks.dueDate?.onChangeDate?.invoke(date)
+                callbacks.dueDate.onChangeDate.invoke(date)
                 onSheetDismiss()
             },
             onDismiss = onSheetDismiss,
@@ -49,7 +49,7 @@ fun TaskEditorSheetsHost(
         is TaskEditorSheet.Time -> TimePickerSheet(
             initialTime = model.dueTime,
             onTimeSelected = { time ->
-                callbacks.dueDate?.onChangeTime?.invoke(time)
+                callbacks.dueDate.onChangeTime.invoke(time)
                 onSheetDismiss()
             },
             onDismiss = onSheetDismiss,
@@ -81,7 +81,7 @@ fun TaskEditorSheetsHost(
             TaskEditorPrioritySheet(
                 selected = model.priority,
                 onSelect = { p ->
-                    callbacks.priority?.onChange?.invoke(p)
+                    callbacks.priority.onChange.invoke(p)
                     onSheetDismiss()
                 },
             )

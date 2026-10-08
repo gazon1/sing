@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.savedstate.serialization.SavedStateConfiguration
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclassesOfSealed
@@ -37,6 +38,7 @@ import kotlinx.serialization.modules.subclassesOfSealed
  * `reified` and returns `NavBackStack<NavKey>`, so Android NavGraphs need an
  * `as NavBackStack<T>` cast. See `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md`.
  */
+@OptIn(ExperimentalSerializationApi::class)
 internal fun navSavedStateConfig(): SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 
@@ -41,6 +42,7 @@ import kotlinx.coroutines.launch
  * @param scope Application-scoped coroutine scope.
  * @param dirtyHashProvider Provider of the current state hash.
  */
+@OptIn(FlowPreview::class)
 class CalendarSyncOrchestrator(
     private val scheduler: CalendarSyncWorkScheduler,
     private val scope: CoroutineScope,
