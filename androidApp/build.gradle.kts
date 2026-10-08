@@ -10,6 +10,7 @@ plugins {
     // are in :pro (FSL-1.1-ALv2) — see pro/build.gradle.kts. Applying it here would
     // put proprietary code in an Apache-2.0 module. ADR 2026-10-05-provenance-audit §3.
     alias(libs.plugins.koin.compiler)
+    `maven-publish`
 }
 
 // Whether to build the source-available `pro` catalogue in. Default false, so a fresh
@@ -268,4 +269,19 @@ detekt {
         "src/debug/kotlin",
         "src/pro/kotlin",
     )
+}
+
+// Publish to GitHub Packages
+val releaseApk = file("${layout.buildDirectory.get().asFile}/outputs/apk/release/app-release.apk")
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            artifactId = "singularity-todo-android"
+            artifact(releaseApk)
+            pom {
+                name.set("Singularity Todo (Android)")
+                description.set("Todo application for Android")
+            }
+        }
+    }
 }

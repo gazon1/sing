@@ -111,6 +111,9 @@ robolectric = "4.17-beta-4"
 kotest-assertions = "5.9.1"
 konsist = "0.17.3"
 
+# Allure test reporting
+allure = "2.17.3"
+
 # Lint / Quality tools
 detekt = "2.0.0-alpha.6"
 kover = "0.9.9"
@@ -243,6 +246,9 @@ androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-te
 # Kotest assertions — multiplatform, works alongside kotlin.test.
 # Use only matchers (shouldBe, shouldNotThrowAny, shouldContain) — NOT full Kotest spec styles.
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest-assertions" }
+
+# Allure test reporting — JUnit 5 listener generates JSON results
+allure-kotlin-junit5 = { module = "io.qameta.allure:allure-junit5", version.ref = "allure" }
 
 # Okio — file I/O for FileLogWriter
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
