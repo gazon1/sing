@@ -650,6 +650,63 @@ dependencies {
     add("androidHostTestImplementation", libs.robolectric)
     add("androidHostTestImplementation", libs.androidx.test.core)
     add("androidHostTestImplementation", libs.androidx.testExt.junit)
+    // sqlite-bundled-jvm explicitly (not transitively from androidMain), so that
+    // the linux_x64 native ends up in androidHostTestRuntimeOnly for extraction below.
+    // Robolectric on Linux x86_64 needs this instead of sqlite-bundled-android.
+    add("androidHostTestRuntimeOnly", "androidx.sqlite:sqlite-bundled-jvm:${libs.versions.sqlite.get()}")
+}
+
+// ---------------------------------------------------------------------------
+// sqlite-bundled-jvm native extraction for Robolectric on Linux
+// ---------------------------------------------------------------------------
+// Robolectric on Linux x86_64 needs the native library from sqlite-bundled-jvm,
+// which ships `natives/linux_x64/libsqliteJni.so`.  The android target's
+// `sqlite-bundled` resolves to sqlite-bundled-android (ARM ABIs only), which
+// Robolectric cannot load on this host.  The task below extracts the linux_x64
+// native from the JVM artifact into build/sqlite-natives/linux_x64/ and the
+// test JVM is started with that directory on java.library.path.
+
+val sqliteNativesDir = layout.buildDirectory.dir("sqlite-natives/linux_x64")
+
+// sqlite-bundled-jvm ships `natives/linux_x64/libsqliteJni.so`.  Robolectric loads it
+// before any test code runs, so this is a process-level JVM argument, not a test system
+// property.  The task walks the jar inside the resolvable extract configuration and
+// extracts the one .so into build/sqlite-natives/linux_x64/ — a directory that is on
+// java.library.path when the test JVM starts.
+val extractSqliteNatives = tasks.register<Copy>("extractSqliteNatives") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    val sqliteJar = configurations
+        .named("sqliteBundledJvmExtractedFiles")
+        .get()
+        .files
+        .single { it.name.contains("sqlite-bundled-jvm") }
+    from(zipTree(sqliteJar).filter { entry ->
+        entry.name == "libsqliteJni.so"
+    })
+    into(sqliteNativesDir)
+}
+
+// A resolvable configuration that extends androidHostTestRuntimeOnly so that
+// extractSqliteNatives can iterate over its resolved files.  Without this, the
+// runtime-only configuration is declared `canBeResolved=false` by the Android
+// Gradle Plugin and cannot be used in a task's DOCl.
+val sqliteBundledJvmExtractedFiles = configurations.create("sqliteBundledJvmExtractedFiles") {
+    extendsFrom(configurations.getByName("androidHostTestRuntimeOnly"))
+    isTransitive = false
+}
+dependencies.add("sqliteBundledJvmExtractedFiles",
+    "androidx.sqlite:sqlite-bundled-jvm:${libs.versions.sqlite.get()}"
+)
+
+// The test JVM must start with the native library path pointing at the extracted
+// directory.  Robolectric loads it before any test code runs, so this is
+// jvmArgs (process start) rather than a test system property.  afterEvaluate is
+// required because withHostTest {} registers the task after the script evaluates.
+afterEvaluate {
+    tasks.named<Test>("testAndroidHostTest") {
+        jvmArgs("-Djava.library.path=${sqliteNativesDir.get().asFile.absolutePath}")
+        dependsOn(extractSqliteNatives)
+    }
 }
 
 // Room 3 KSP schema export

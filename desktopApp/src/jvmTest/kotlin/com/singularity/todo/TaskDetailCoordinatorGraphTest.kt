@@ -47,8 +47,16 @@ import kotlin.time.Duration.Companion.minutes
 class TaskDetailCoordinatorGraphTest {
 
     private companion object {
-        /** Hang detector, not a latency budget — see the comment at the wait. */
-        val HANG_BUDGET = 1.minutes
+        /**
+         * Hang detector, not a latency budget — see the comment at the wait.
+         *
+         * 5 minutes: large enough that a machine under full parallel compilation load
+         * still passes (before the fix this test failed ~1 run in 3 at 10s), while
+         * a genuine hang is caught within the same CI run that introduced it. A combine
+         * that dies before its first emission hangs forever; the budget only needs to
+         * exceed the worst-case real completion time, not approach it.
+         */
+        val HANG_BUDGET = 5.minutes
     }
 
     @Test
@@ -62,36 +70,24 @@ class TaskDetailCoordinatorGraphTest {
         }
         try {
             val koin = app.koin
-            // The VM's scope runs on real Dispatchers.Default (createBackgroundScope),
-            // so the wait must use real time — hence withContext(Default) inside runTest:
-            // a bare withTimeout here would sit on the test scheduler's VIRTUAL clock
-            // and expire instantly while the combine waits on real workers.
+            // The coordinator's scope runs on real Dispatchers.Default
+            // (createBackgroundScope), so withContext(Default) keeps the wait on real
+            // time while the coordinator's flows execute on real threads.  A bare
+            // withTimeout here would use the test scheduler's virtual clock and expire
+            // instantly while the combine waits on real workers.
+            //
+            // The budget is a HANG detector, not a speed assertion.  A combine that
+            // dies before its first emission hangs forever, so a generous bound still
+            // catches it — it just costs real seconds instead of virtual ones when
+            // the code is broken.  The test ran at 10 s budget and failed ~1 run in 3
+            // under full parallel compilation; 5 minutes makes it a coin-flip at
+            // nothing.
             withContext(Dispatchers.Default) {
                 seedTask(koin, id = "graph-test-task-0", title = "Buy milk")
                 val coordinator = TaskDetailCoordinator(
                     deps = graphDeps(koin),
                     taskId = TaskId("graph-test-task-0"),
                 )
-                // Waiting for Loaded (not "any terminal state") is the contract
-                // under test: a combine that dies before its first emission would
-                // leave Loading forever and time out here. Before the taskLoad
-                // partition, the combine ALSO flashed Error("Not found") on its
-                // first emission while taskFlow was still on its seeded null —
-                // this wait pins that the screen goes Loading → Loaded, never
-                // through Error, on the happy path.
-                //
-                // The budget is a HANG detector, not a speed assertion. It cannot
-                // be virtual time: the coordinator's scope runs on
-                // Dispatchers.Default and the graph supplies a real Room driver,
-                // so the emissions genuinely come from other threads — a
-                // runTest-virtual withTimeout would either expire instantly or
-                // advance a clock nobody is waiting on. Which means its size must
-                // not depend on how loaded the machine is: at 10s this test failed
-                // roughly one run in three while three instrumented modules
-                // compiled in parallel, and a coin-flip gate trains people to
-                // re-run instead of read. A combine that dies before its first
-                // emission hangs forever, so a generous bound still catches it —
-                // it just costs 60 seconds instead of 10 when the code is broken.
                 val seen = Collections.synchronizedList(mutableListOf<TaskDetailUiState>())
                 val loaded = withTimeoutOrNull(HANG_BUDGET) {
                     coordinator.state
