@@ -153,7 +153,7 @@ class PartFTest(unittest.TestCase):
 
     The derivation is the part worth pinning, because a derivation that matches
     a third of its input still produces a confident, short, complete-looking
-    list. Two versions of that happened while writing this: a `\./?` that
+    list. Two versions of that happened while writing this: a `./?` that
     required a literal dot and saw 3 of 18 gates, and no word boundary, which
     turned `Maestro/scripts/check-tags.sh` into a path that does not exist and
     then demanded a control for it.
