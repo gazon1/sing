@@ -56,27 +56,91 @@ interface TaskDao {
     )
     fun watchByDateRange(userId: String, from: String, to: String): Flow<List<TaskEntity>>
 
+    /**
+     * Returns tasks that carry [tagId] either directly or via any tag group
+     * inherited by their project.
+     *
+     * - direct: `task_tags` contains `(task_id, tag_id)`
+     * - inherited: the task's `project_id` is in `project_tag_groups`,
+     *   and the group contains a tag with `tags.id = tagId`
+     *
+     * Tags without a `group_id` are never inherited (they belong to no group).
+     */
     @Query(
-        "SELECT DISTINCT t.* FROM tasks t INNER JOIN task_tags tt ON t.id = tt.task_id WHERE t.user_id = :userId AND t.archived_at IS NULL AND tt.tag_id = :tagId ORDER BY t.due_date ASC, t.is_pinned DESC",
+        """
+        SELECT DISTINCT t.* FROM tasks t
+        WHERE t.user_id = :userId
+          AND t.archived_at IS NULL
+          AND (
+            EXISTS (SELECT 1 FROM task_tags WHERE task_id = t.id AND tag_id = :tagId)
+            OR (
+              t.project_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM project_tag_groups ptg
+                JOIN tags tg ON tg.group_id = ptg.tag_group_id
+                WHERE ptg.project_id = t.project_id AND tg.id = :tagId
+              )
+            )
+          )
+        ORDER BY t.due_date ASC, t.is_pinned DESC
+        """,
     )
     fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>>
 
     /**
-     * Returns tasks tagged with **any** of the given [tagIds].
+     * Returns tasks tagged with **any** of the given [tagIds], where "tagged"
+     * includes both direct assignment and inheritance via the task's project.
+     *
      * Uses Room's `IN (:list)` binding — pass `List<String>`, not `Set`.
      */
     @Query(
-        "SELECT DISTINCT t.* FROM tasks t INNER JOIN task_tags tt ON t.id = tt.task_id WHERE t.user_id = :userId AND t.archived_at IS NULL AND tt.tag_id IN (:tagIds) ORDER BY t.due_date ASC, t.is_pinned DESC",
+        """
+        SELECT DISTINCT t.* FROM tasks t
+        WHERE t.user_id = :userId
+          AND t.archived_at IS NULL
+          AND (
+            EXISTS (SELECT 1 FROM task_tags WHERE task_id = t.id AND tag_id IN (:tagIds))
+            OR (
+              t.project_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM project_tag_groups ptg
+                JOIN tags tg ON tg.group_id = ptg.tag_group_id
+                WHERE ptg.project_id = t.project_id AND tg.id IN (:tagIds)
+              )
+            )
+          )
+        ORDER BY t.due_date ASC, t.is_pinned DESC
+        """,
     )
     fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<TaskEntity>>
 
     /**
-     * Returns tasks tagged with **all** of the given [tagIds].
-     * Groups by task id and requires exactly [size] distinct tag matches (one row per tag per task via the INNER JOIN).
+     * Returns tasks that carry **all** of the given [tagIds], where "carries"
+     * means either directly tagged or inherited via the task's project.
+     *
+     * Semantics: for each filter tag there must exist at least one inherited
+     * group OR a direct assignment. A task with tags `{t1,t2}` that is in a
+     * project inheriting `{t2,t3}` matches `matchAll({t1,t3})` because t1 is
+     * direct and t3 is covered by the inherited group.
+     *
      * Uses Room's `IN (:list)` binding — pass `List<String>`, not `Set`.
      */
     @Query(
-        "SELECT t.* FROM tasks t INNER JOIN task_tags tt ON t.id = tt.task_id WHERE t.user_id = :userId AND t.archived_at IS NULL AND tt.tag_id IN (:tagIds) GROUP BY t.id HAVING COUNT(DISTINCT tt.tag_id) = :size ORDER BY t.due_date ASC, t.is_pinned DESC",
+        """
+        SELECT t.* FROM tasks t
+        WHERE t.user_id = :userId
+          AND t.archived_at IS NULL
+          AND (
+            SELECT COUNT(*) FROM (
+              SELECT tag_id FROM task_tags WHERE task_id = t.id AND tag_id IN (:tagIds)
+              UNION
+              SELECT tg.id FROM project_tag_groups ptg
+              JOIN tags tg ON tg.group_id = ptg.tag_group_id
+              WHERE ptg.project_id = t.project_id AND tg.id IN (:tagIds)
+            )
+          ) = :size
+        ORDER BY t.due_date ASC, t.is_pinned DESC
+        """,
     )
     fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<TaskEntity>>
 

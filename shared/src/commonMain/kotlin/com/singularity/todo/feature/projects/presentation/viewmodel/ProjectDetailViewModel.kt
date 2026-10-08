@@ -16,12 +16,14 @@ import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
+import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.reminders.ProjectReminder
 import com.singularity.todo.feature.reminders.ProjectReminderId
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -64,6 +66,7 @@ class ProjectDetailViewModel(
     private val projectId: ProjectId,
     private val projectRepo: ProjectsRepository,
     private val taskRepo: TaskRepository,
+    private val tagGroupRepo: TagGroupRepository,
     private val deleteProject: DeleteProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
     private val updateTask: UpdateTaskUseCase,
@@ -135,6 +138,12 @@ class ProjectDetailViewModel(
      * Sorted by dueDate ascending (nulls last), then updatedAt descending.
      */
     private val availableTasksFlow = MutableStateFlow<List<Task>>(emptyList())
+
+    /**
+     * Reactive list of tag-group picker options, derived from [_projectFlow] and
+     * [TagGroupRepository.observeAll]. Excludes soft-deleted groups.
+     */
+    private val tagGroupOptionsFlow = MutableStateFlow<List<TagGroupOption>>(emptyList())
 
     /**
      * The project's current reminder offset in minutes, or null when none is set.
@@ -224,6 +233,29 @@ class ProjectDetailViewModel(
                 .collect { availableTasksFlow.value = it }
         }
 
+        // Tag-group picker options
+        vmScope.launch {
+            combine(
+                _projectFlow,
+                tagGroupRepo.observeAll(),
+            ) { project, allGroups ->
+                if (project == null) {
+                    emptyList()
+                } else {
+                    allGroups
+                        .filter { it.deletedAt == null }
+                        .map { group ->
+                            TagGroupOption(
+                                id = group.id,
+                                name = group.name,
+                                color = group.color,
+                                isCurrent = group.id in project.inheritedTagGroupIds,
+                            )
+                        }
+                }
+            }.collect { tagGroupOptionsFlow.value = it }
+        }
+
         // Collect state. Two nested combines rather than one 7-argument combine:
         // kotlinx only ships typed `combine` overloads up to 5 flows, and a 7-flow
         // vararg call would collapse to `Array<Any?>`.
@@ -271,6 +303,7 @@ class ProjectDetailViewModel(
                             hideBlocked = visibility.hideBlocked,
                             parentOptions = emptyList(),
                             availableTasks = emptyList(),
+                            tagGroups = emptyList(),
                         )
                     }
                 }
@@ -280,9 +313,10 @@ class ProjectDetailViewModel(
                 parentOptionsFlow,
                 availableTasksFlow,
                 reminderOffsetFlow,
-            ) { state, parentOptions, availableTasks, reminderOffset ->
+                tagGroupOptionsFlow,
+            ) { state, parentOptions, availableTasks, reminderOffset, tagGroups ->
                 if (state is ProjectDetailUiState.Content) {
-                    state.copy(parentOptions = parentOptions, availableTasks = availableTasks)
+                    state.copy(parentOptions = parentOptions, availableTasks = availableTasks, tagGroups = tagGroups)
                 } else {
                     state
                 }
@@ -346,6 +380,10 @@ class ProjectDetailViewModel(
 
             is ProjectDetailIntent.Domain.UpdateParent -> {
                 mutate { copy(parentId = intent.parentId) }
+            }
+
+            is ProjectDetailIntent.Domain.UpdateInheritedTagGroups -> {
+                mutate { copy(inheritedTagGroupIds = intent.groupIds) }
             }
 
             is ProjectDetailIntent.Domain.UpdateDueDate -> {

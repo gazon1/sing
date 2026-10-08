@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
+import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.tasks.domain.model.Task
 
 @Immutable
@@ -31,5 +32,7 @@ sealed interface ProjectDetailUiState {
         val parentOptions: List<ParentOption>,
         /** Active tasks outside this project, for the "add existing task" picker. */
         val availableTasks: List<Task>,
+        /** All tag group options for the inherited-groups picker; excludes soft-deleted groups. */
+        val tagGroups: List<TagGroupOption>,
     ) : ProjectDetailUiState
 }
