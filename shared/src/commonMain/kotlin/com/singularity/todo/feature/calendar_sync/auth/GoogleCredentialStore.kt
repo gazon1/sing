@@ -130,7 +130,7 @@ class SecureStorageGoogleCredentialStore(
 
 /** Parses Google's token-endpoint response into a [GoogleCredentials]. */
 internal fun parseTokenResponse(body: String): GoogleCredentials? = runCatching {
-    val obj = Json.parseToJsonElement(body).jsonObject as JsonObject
+    val obj = Json.parseToJsonElement(body).jsonObject
     val access = obj["access_token"]?.asPrimitive() ?: return null
     // Google's `expires_in` is seconds; a response without it is malformed rather than
     // infinite, and treating it as "never expires" would hide a broken grant.

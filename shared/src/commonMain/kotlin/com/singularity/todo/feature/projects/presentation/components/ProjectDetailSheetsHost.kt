@@ -110,7 +110,7 @@ fun ProjectDetailSheetsHost(
         is ActiveSheet.PickReminder -> ReminderPickerSheet(
             currentOffset = currentContent?.reminderOffset,
             onSelect = { offset ->
-                currentContent?.actions?.onSetReminder(offset?.minutes)
+                currentContent?.actions?.onSetReminder(offset.minutes)
                 onSheetDismiss()
             },
             onDismiss = onSheetDismiss,

@@ -131,7 +131,7 @@ class FileLogWriter(
             if (writingFailure) return@onFailure
             writingFailure = true
             try {
-                co.touchlab.kermit.Logger.e(TAG) { "Failed to write log entry: ${e.message}" }
+                co.touchlab.kermit.Logger.e(e, tag = TAG) { "Failed to write log entry: ${e.message}" }
             } finally {
                 writingFailure = false
             }

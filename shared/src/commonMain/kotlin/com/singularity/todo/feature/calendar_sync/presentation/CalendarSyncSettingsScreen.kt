@@ -146,7 +146,7 @@ private fun formatGoogleSyncTime(at: kotlinx.datetime.Instant): String {
     val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
     val hour = local.hour.toString().padStart(2, '0')
     val minute = local.minute.toString().padStart(2, '0')
-    return "$month ${local.dayOfMonth}, ${local.year} $hour:$minute"
+    return "$month ${local.day}, ${local.year} $hour:$minute"
 }
 
 /**
@@ -308,7 +308,7 @@ private fun systemStatusText(status: CalendarSyncStatus): String = when (status)
             val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
             val hour = local.hour.toString().padStart(2, '0')
             val minute = local.minute.toString().padStart(2, '0')
-            "$month ${local.dayOfMonth}, ${local.year} $hour:$minute"
+            "$month ${local.day}, ${local.year} $hour:$minute"
         } ?: "Never"
         "Last synced: $date"
     }

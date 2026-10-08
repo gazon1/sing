@@ -76,7 +76,6 @@ class NoteAiController(
                 NoteAiAction.RewriteOneLiner -> RewriteTone.OneLiner.name
                 NoteAiAction.RewriteTldr -> RewriteTone.Tldr.name
                 NoteAiAction.RewriteStructured -> RewriteTone.Structured.name
-                else -> RewriteTone.OneLiner.name
             }
             fn(title, html, tone).fold(
                 onSuccess = { Result.success(it as Any) },

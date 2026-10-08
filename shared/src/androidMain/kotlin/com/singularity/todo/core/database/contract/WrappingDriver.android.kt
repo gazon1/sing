@@ -15,6 +15,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 actual val wrappingDriver: SQLiteDriver = object : SQLiteDriver {
     private val native = BundledSQLiteDriver()
 
+    @Suppress("NamedArgumentsMismatch") // SQLiteDriver.open declares path as 'fileName'
     override fun open(path: String): SQLiteConnection {
         val conn = native.open(path)
         PlatformPragmas.applyTo(conn)

@@ -260,7 +260,6 @@ private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifi
     when (result) {
         AiTestResult.Idle, AiTestResult.Testing -> {
             // No banner — the button itself shows progress.
-            Unit
         }
 
         is AiTestResult.Ok -> {

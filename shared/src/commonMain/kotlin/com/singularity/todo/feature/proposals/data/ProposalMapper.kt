@@ -40,7 +40,7 @@ private val payloadJson = Json { ignoreUnknownKeys = true }
 internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()): AiProposal = AiProposal(
     id = ProposalId(id),
     targetKind = targetKind,
-    targetId = targetId ?: error("ai_proposal $id has no target_id"),
+    targetId = targetId,
     userId = UserId(userId),
     source = enumOrDefault(source, ProposalSource.Detail),
     status = enumOrDefault(status, ProposalStatus.Pending),

@@ -56,7 +56,7 @@ fun backgroundFailureHandler(onFailure: (Throwable) -> Unit): CoroutineException
  */
 fun loggingBackgroundFailureHandler(): CoroutineExceptionHandler =
     backgroundFailureHandler { exception ->
-        Logger.e(TAG, exception) { "Unhandled background coroutine failure (no reporting port)" }
+        Logger.e(exception, tag = TAG) { "Unhandled background coroutine failure (no reporting port)" }
     }
 
 /**

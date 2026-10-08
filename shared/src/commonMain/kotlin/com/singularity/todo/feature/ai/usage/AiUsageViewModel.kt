@@ -11,6 +11,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -37,6 +38,7 @@ sealed interface AiUsageIntent : MviIntent
  *
  * @see AiUsageUiState
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AiUsageViewModel(
     private val usageRecorder: RoomUsageRecorder,
     profileRepository: ProfileRepository,

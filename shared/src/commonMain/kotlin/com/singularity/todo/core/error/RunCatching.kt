@@ -21,7 +21,7 @@ import kotlinx.coroutines.CancellationException
  */
 @OptIn(ExperimentalContracts::class)
 inline fun <T> runCatchingCancellable(block: () -> T): Result<T> {
-    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+    contract { callsInPlace(block, InvocationKind.AT_MOST_ONCE) }
     return try {
         Result.success(block())
     } catch (e: CancellationException) {

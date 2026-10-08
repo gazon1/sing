@@ -43,7 +43,7 @@ object CalendarEventMapper {
             val ldt = LocalDateTime(
                 year = effectiveDate.year,
                 month = effectiveDate.month,
-                dayOfMonth = effectiveDate.day,
+                day = effectiveDate.day,
                 hour = task.dueTime.hour,
                 minute = task.dueTime.minute,
                 second = 0,

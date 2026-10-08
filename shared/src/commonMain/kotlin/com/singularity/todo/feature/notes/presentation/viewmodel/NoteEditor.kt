@@ -357,7 +357,6 @@ internal class NoteEditor(
                     NoteAiAction.RewriteOneLiner -> "OneLiner"
                     NoteAiAction.RewriteTldr -> "Tldr"
                     NoteAiAction.RewriteStructured -> "Structured"
-                    else -> return@launch
                 }
                 val kind = ProposalItemKind.SetNoteField(NoteField.Body, improved.body)
                 kind to "Rewrite as $tone: ${improved.title}"
