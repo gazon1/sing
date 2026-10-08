@@ -10,8 +10,10 @@ import com.singularity.todo.core.error.runCatchingCancellable
  *
  * Bulk operations enforce atomicity: fail-fast if any ID doesn't exist,
  * before mutating anything. This lives here so VMs stay thin.
+ *
+ * @param repo The task repository to delegate to.
  */
-class TaskMutationsUseCase(private val repo: TaskRepository) {
+open class TaskMutationsUseCase(protected val repo: TaskRepository) {
 
     suspend fun bulkComplete(ids: List<TaskId>): Result<Unit> = runCatchingCancellable {
         // Atomic: fail-fast if any ID doesn't exist, before mutating anything.

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.model
 import androidx.compose.runtime.Immutable
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 
 /**
@@ -7,11 +8,18 @@ import kotlinx.datetime.LocalDate
  *
  * @param sections The evaluated and rendered sections with their tasks.
  * @param today The current date at the time of evaluation, used to label relative buckets.
+ * @param isSelectionMode true when the user is in multi-selection mode.
+ * @param selectedTaskIds The set of task IDs currently selected.
  */
 @Immutable
 sealed interface AgendaUiState {
     data object Loading : AgendaUiState
-    data class Loaded(val sections: List<RenderedSection>, val today: LocalDate) : AgendaUiState
+    data class Loaded(
+        val sections: List<RenderedSection>,
+        val today: LocalDate,
+        val isSelectionMode: Boolean = false,
+        val selectedTaskIds: Set<TaskId> = emptySet(),
+    ) : AgendaUiState
     data class Error(val message: String) : AgendaUiState
 }
 

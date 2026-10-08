@@ -5,6 +5,7 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 
 /**
  * Dependencies injected into [AgendaViewModel].
@@ -15,6 +16,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * @param draftStore User-scoped draft store for pre-filling task creation from section headers.
  * @param reminderScheduler For cancelling reminders when a task is deleted (undo delete).
  * @param currentUser For obtaining the scoped user id (for reminder cancellation).
+ * @param taskMutations Bulk operations (delete, complete) for multi-selection.
  */
 data class AgendaDeps(
     val taskRepo: TaskRepository,
@@ -28,4 +30,5 @@ data class AgendaDeps(
     val draftStore: DraftStore,
     val reminderScheduler: ReminderScheduler,
     val currentUser: ProfileAwareCurrentUser,
+    val taskMutations: TaskMutationsUseCase,
 )

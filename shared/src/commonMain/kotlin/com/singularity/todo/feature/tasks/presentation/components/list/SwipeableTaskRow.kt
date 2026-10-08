@@ -46,8 +46,11 @@ import androidx.compose.material3.MaterialTheme
  *    "ещё чуть-чуть и удалится"
  *  - **[backgroundShape]** задаёт форму фона — прямая для Flat-стиля,
  *    скруглённая для Card-стиля
+ *  - **[isSelectionMode] == true** блокирует свайп — в режиме выделения
+ *    свайп для удаления неуместен
  *
  * @param backgroundShape форма фона удаления — RoundedCornerShape(0.dp) для Flat, [TaskListShapes.CardRadius] для Card
+ * @param isSelectionMode true — свайп заблокирован (режим выделения)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +61,7 @@ fun SwipeableTaskRow(
     /** Modifier for secondary (right) click — applied to the content wrapper. */
     secondaryClickModifier: Modifier = Modifier,
     content: @Composable () -> Unit,
+    isSelectionMode: Boolean = false,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         positionalThreshold = { it * 0.4f },
@@ -102,6 +106,8 @@ fun SwipeableTaskRow(
         state = dismissState,
         modifier = modifier,
         enableDismissFromStartToEnd = false,
+        // Блокируем свайп в режиме выделения — он неуместен при мультивыборе
+        enableDismissFromEndToStart = !isSelectionMode,
         backgroundContent = {
             Box(
                 modifier = Modifier

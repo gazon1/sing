@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
@@ -86,10 +87,28 @@ fun AgendaScreen(
     CollectEvents(vm.events) { event ->
         when (event) {
             is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
+
             is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
+
             is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
+
             is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
+
             is AgendaUiEvent.UndoDelete -> { /* handled by LaunchedEffect above */ }
+
+            is AgendaUiEvent.BulkOperationDone -> {
+                val message = if (event.error != null) {
+                    "Failed to ${event.operation}: ${event.error}"
+                } else {
+                    "${event.count} task${if (event.count != 1) "s" else ""} ${event.operation}"
+                }
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = message,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            }
         }
     }
 
