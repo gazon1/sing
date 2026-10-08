@@ -529,6 +529,35 @@ class AgendaViewModelTest {
         )
     }
 
+    /**
+ * A selected task that stops being evaluated must not stay selected.
+ *
+ * Holding the id would let it ride along into a later bulk delete, sending an id
+ * for a task that is already gone.
+ */
+@Test
+    fun `a selected task that leaves the agenda is dropped from the selection`() = withVm { vm ->
+        fakeRepo.seed(task("t1", "Doomed"))
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
+        runCurrent()
+        assertEquals(setOf(TaskId("t1")), loadedSelection(vm))
+
+        fakeRepo.softDelete(TaskId("t1"))
+        runCurrent()
+
+        assertEquals(
+            emptySet(),
+            loadedSelection(vm),
+            "an id that is no longer in any section must not stay selected",
+        )
+        assertFalse(
+            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).isSelectionMode,
+            "selection mode exits when nothing remains selected",
+        )
+    }
+
     private fun loadedSelection(vm: AgendaViewModel): Set<TaskId> =
         assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).selectedTaskIds
 }

@@ -69,21 +69,23 @@ class AgendaViewModel(
      */
     val definition: AgendaDefinition = definition
 
-    // ── Selection state ───────────────────────────────────────────────────────────
-
-    /** Currently selected task IDs. Persists across agenda re-evaluations. */
-    private val _selectedTaskIds = MutableStateFlow<Set<TaskId>>(emptySet())
-    val selectedTaskIds = _selectedTaskIds.asStateFlow()
-
-    /** True when the user is in multi-selection mode. */
-    private val _isSelectionMode = MutableStateFlow(false)
-    val isSelectionMode = _isSelectionMode.asStateFlow()
+    // ── Selection state ──────────────────────────────────────────────────────────
+    //
+    // Selection has no fields of its own. It lives in `AgendaUiState.Loaded`,
+    // because that is what the screen renders, and it used to also live in a pair
+    // of `MutableStateFlow`s with `updateSelectionState()` copying between them —
+    // two writers for one value, bridged by hand, with nothing enforcing that a
+    // fourth handler remembered to call the bridge.
 
     // ── Undo-delete state ────────────────────────────────────────────────────────
 
     /**
-     * Tracks a soft-deleted task pending undo, so the snackbar can offer a 5-second window.
-     * Null when no delete is pending.
+     * The item a delete is holding open for undo, or null when none is.
+     *
+     * Public because the screen's snackbar is driven by it and dismissed when it
+     * clears — see `AgendaScreen`. This is the ADR's in-memory marker, not a second
+     * copy of state the screen renders: nothing else reads it, and the undo window
+     * is exactly as long as this is set.
      */
     private val _pendingDelete = MutableStateFlow<PendingDelete?>(null)
     val pendingDelete = _pendingDelete.asStateFlow()
@@ -116,19 +118,32 @@ class AgendaViewModel(
             todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
                     .map { tasks ->
-                        val sections = AgendaEvaluator.evaluate(tasks, definition, today)
-                        // Preserve selection state across re-evaluations.
                         AgendaUiState.Loaded(
-                            sections = sections,
+                            sections = AgendaEvaluator.evaluate(tasks, definition, today),
                             today = today,
-                            isSelectionMode = _isSelectionMode.value,
-                            selectedTaskIds = _selectedTaskIds.value,
                         )
                     }
             }
-                .collect { loaded -> setState(loaded) }
+                .collect { fresh ->
+                    // Reconciliation goes through `updateState`, which is CAS-backed,
+                    // because this collector and the selection handlers both write and
+                    // the scope is multi-threaded. Reading `_state.value` and then
+                    // `setState`-ing the result — which is what this used to do —
+                    // is a read-modify-write that can drop a concurrent selection.
+                    updateState { current ->
+                        val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+                        // A task that has left the agenda — completed or deleted
+                        // elsewhere — must not stay selected: the id would otherwise
+                        // ride along into a later bulk delete.
+                        val kept = previous.intersect(fresh.taskIds())
+                        fresh.copy(isSelectionMode = kept.isNotEmpty(), selectedTaskIds = kept)
+                    }
+                }
         }
     }
+
+    private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
+        sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }
 
     /** Title derived from the definition, for the Slot API. */
     val title: String get() = definition.title
@@ -147,7 +162,7 @@ class AgendaViewModel(
     override fun onIntent(intent: AgendaIntent) {
         when (intent) {
             is AgendaIntent.TaskClicked -> with(intent) {
-                if (_isSelectionMode.value) {
+                if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
                     scope.launch { handleToggleSelection(taskId) }
                 } else {
                     scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
@@ -162,7 +177,7 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.TaskLongClicked -> with(intent) {
-                if (_isSelectionMode.value) {
+                if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
                     // Already in selection mode — ignore long-press, click handles selection.
                 } else {
                     scope.launch { handleEnterSelectionMode(taskId) }
@@ -215,36 +230,46 @@ class AgendaViewModel(
     }
 
     // ── Selection handlers ──────────────────────────────────────────────────────
+    //
+    // Every one of these is a single `updateState`, so the selection has exactly one
+    // home and one writer path. They used to write a pair of `MutableStateFlow`s and
+    // then call `updateSelectionState()` to copy them into the state — so each handler
+    // had to remember the second step, and nothing enforced that a new one would.
 
-    /**
-     * Enter multi-selection mode, selecting [taskId].
-     * Called from long-press or explicit enter action.
-     */
-    private fun handleEnterSelectionMode(taskId: TaskId) {
-        _isSelectionMode.value = true
-        _selectedTaskIds.value = setOf(taskId)
-        updateSelectionState()
+    /** The ids currently selected, read from the single state. */
+    private fun selectedIds(): Set<TaskId> =
+        (currentState as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+
+    /** Enter multi-selection mode, selecting [taskId]. */
+    private fun handleEnterSelectionMode(taskId: TaskId) = updateState { current ->
+        (current as? AgendaUiState.Loaded)?.copy(
+            isSelectionMode = true,
+            selectedTaskIds = setOf(taskId),
+        ) ?: current
     }
 
     /**
      * Toggle [taskId] in the current selection.
-     * If it was the last selected task, exits selection mode.
+     *
+     * Deselecting the last task leaves selection mode, because the action row and
+     * the per-row checkbox are both driven by that flag.
      */
-    private fun handleToggleSelection(taskId: TaskId) {
-        val current = _selectedTaskIds.value
-        val updated = if (taskId in current) current - taskId else current + taskId
-        _selectedTaskIds.value = updated
-        if (updated.isEmpty()) {
-            _isSelectionMode.value = false
+    private fun handleToggleSelection(taskId: TaskId) = updateState { current ->
+        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+        val updated = if (taskId in loaded.selectedTaskIds) {
+            loaded.selectedTaskIds - taskId
+        } else {
+            loaded.selectedTaskIds + taskId
         }
-        updateSelectionState()
+        loaded.copy(isSelectionMode = updated.isNotEmpty(), selectedTaskIds = updated)
     }
 
     /** Exit selection mode, clearing all selected tasks. */
-    private fun handleExitSelectionMode() {
-        _isSelectionMode.value = false
-        _selectedTaskIds.value = emptySet()
-        updateSelectionState()
+    private fun handleExitSelectionMode() = updateState { current ->
+        (current as? AgendaUiState.Loaded)?.copy(
+            isSelectionMode = false,
+            selectedTaskIds = emptySet(),
+        ) ?: current
     }
 
     /**
@@ -252,7 +277,7 @@ class AgendaViewModel(
      * Exits selection mode on completion.
      */
     private suspend fun handleBulkDelete() {
-        val ids = _selectedTaskIds.value.toList()
+        val ids = selectedIds().toList()
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkDelete(ids)
@@ -274,7 +299,7 @@ class AgendaViewModel(
      * Exits selection mode on completion.
      */
     private suspend fun handleBulkComplete() {
-        val ids = _selectedTaskIds.value.toList()
+        val ids = selectedIds().toList()
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkComplete(ids)
@@ -288,17 +313,6 @@ class AgendaViewModel(
                 crashReporter.report(error, BULK_COMPLETE_FAILED)
                 emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
             },
-        )
-    }
-
-    /** Push current selection state into [setState] so the screen re-renders. */
-    private fun updateSelectionState() {
-        val current = _state.value as? AgendaUiState.Loaded ?: return
-        setState(
-            current.copy(
-                isSelectionMode = _isSelectionMode.value,
-                selectedTaskIds = _selectedTaskIds.value,
-            ),
         )
     }
 
