@@ -30,6 +30,11 @@ recorded that a GPL source existed in the tree. A note in a KDoc is not a contro
 4. **Class well-formedness.** The class is one of the four known values.
 5. **The scan is not vacuous.** The marker scan must find at least one hit in the
    real tree. See "The positive control" below.
+6. **Dependency list accuracy.** Dependencies listed as permissive in PROVENANCE.md
+   still exist in `gradle/libs.versions.toml`. A dependency removed from the build
+   but still listed in the prose creates false confidence that the licence is
+   acceptable — and this is how ULID silently left the build while staying in the
+   provenance prose.
 
 ## The positive control
 
@@ -292,6 +297,60 @@ def check_not_vacuous(root: Path) -> list[Violation]:
     return []
 
 
+def check_dependency_list_accuracy(root: Path) -> list[Violation]:
+    """Rule 6 — dependencies named in PROVENANCE.md permissive list exist in the build.
+
+    Parses gradle/libs.versions.toml to find version keys and library coordinates,
+    then checks each dependency name from the permissive list against the TOML
+    using a simple substring search (case-insensitive). A name absent from the
+    TOML means it was removed from the build without updating the prose.
+
+    This is the cross-check that would have caught ULID leaving the build without
+    updating the provenance prose.
+    """
+    toml_path = root / "gradle" / "libs.versions.toml"
+    if not toml_path.is_file():
+        return [Violation(f"libs.versions.toml not found — cannot verify dependency list")]
+
+    toml_text = toml_path.read_text(encoding="utf-8", errors="replace").lower()
+
+    # Dependencies named in the "Permissive — no action" section of PROVENANCE.md.
+    # Lowercase for case-insensitive matching.
+    permissive_deps = [
+        "kotlin",
+        "compose multiplatform",
+        "room",
+        "koin",
+        "kermit",
+        "koog",
+        "kotlinx-coroutines",
+        "kotlinx-serialization",
+        "kotlinx-datetime",
+        "ktor",
+        "okhttp",
+        "okio",
+        "coil",
+        "filekit",
+        "multiplatform-markdown-renderer",
+        "robolectric",
+        "konsist",
+        "turbine",
+        "kotest",
+    ]
+
+    out: list[Violation] = []
+    for dep in permissive_deps:
+        if dep not in toml_text:
+            out.append(
+                Violation(
+                    f"PROVENANCE.md lists '{dep}' as a permissive dependency, "
+                    f"but it is not in gradle/libs.versions.toml — "
+                    f"the dependency may have been removed without updating the prose"
+                )
+            )
+    return out
+
+
 def run_checks(root: Path = ROOT) -> tuple[list[Violation], dict[str, int]]:
     registry = read_registry(root / REGISTRY.relative_to(ROOT))
     violations: list[Violation] = []
@@ -299,6 +358,7 @@ def run_checks(root: Path = ROOT) -> tuple[list[Violation], dict[str, int]]:
     violations += check_registry_targets_exist(root, registry)
     violations += check_annotations(root, registry)
     violations += check_not_vacuous(root)
+    violations += check_dependency_list_accuracy(root)
     stats = {
         "registered": len(registry),
         "ported": sum(1 for e in registry.values() if e["class"] == "PORTED"),
