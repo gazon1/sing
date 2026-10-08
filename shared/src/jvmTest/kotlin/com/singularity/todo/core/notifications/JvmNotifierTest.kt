@@ -3,6 +3,7 @@ package com.singularity.todo.core.notifications
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -145,6 +146,14 @@ class JvmNotifierTest {
      */
     @Test
     fun `the real probe agrees with running the command directly`() {
+        // notify-send is not available in the CI environment — skip rather than fail.
+        val notifySendExists = ProcessBuilder("notify-send", "--version")
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+            .waitFor() == 0
+        assumeTrue(notifySendExists, "notify-send is not installed")
+
         val direct = ProcessBuilder("notify-send", "--version")
             .redirectOutput(ProcessBuilder.Redirect.DISCARD)
             .redirectError(ProcessBuilder.Redirect.DISCARD)
