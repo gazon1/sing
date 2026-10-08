@@ -7,12 +7,13 @@ name: Android device tests
 #
 # Not on every pull request, and that is a decision rather than an omission. An emulator adds
 # roughly ten minutes and is the flakiest part of any Android CI, so it runs on a schedule,
-# on tags, and on demand. The cheap surfaces (static, JVM tests, both android compile legs)
-# gate every PR and run in minutes.
+# on every push to main, on tags, and on demand. The cheap surfaces (static, JVM tests,
+# both android compile legs) gate every PR and run in minutes.
 #
-#   nightly cron  -> instrumented tests
-#   push v*       -> instrumented tests
-#   manual        -> instrumented tests
+#   push to main   -> instrumented tests
+#   nightly cron   -> instrumented tests
+#   push v*        -> instrumented tests
+#   manual         -> instrumented tests
 #   PR labelled `run-device-tests` -> instrumented tests
 #
 # Maestro flows live in e2e.yml and are deliberately not merged in here: they need a
@@ -26,7 +27,11 @@ on:
     # compete for GitHub's concurrent-job budget on the same runner pool.
     - cron: "0 3 * * *"
   push:
+    branches: [main]
+    # Run on every push to main (smoke of instrumented tests)
+  push:
     tags: ["v*"]
+    # Full instrumented tests on version tags
   pull_request:
     types: [labeled]
     branches: [main]

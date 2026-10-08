@@ -13,6 +13,7 @@ name: E2E (Maestro)
 
 on:
   schedule:
+    # Nightly full suite at 02:00 UTC
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
@@ -26,6 +27,9 @@ on:
     types: [labeled, synchronize]
   push:
     branches: [main]
+    # Smoke on every push to main, full suite only on schedule or tags
+  push:
+    tags: ["v*"]
 
 concurrency:
   group: e2e-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
