@@ -1,8 +1,8 @@
 [versions]
 # Kotlin / Build
 agp = "9.4.1"
-kotlin = "2.3.21"
-ksp = "2.3.11"
+kotlin = "2.4.10"
+ksp = "2.3.12"
 kotlin-serialization = "1.11.0"
 
 # Android SDK — "android" prefix avoided: library keys like androidx-android-* would shadow
@@ -112,7 +112,7 @@ kotest-assertions = "5.9.1"
 konsist = "0.17.3"
 
 # Lint / Quality tools
-detekt = "2.0.0-alpha.3"
+detekt = "2.0.0-alpha.6"
 kover = "0.9.9"
 
 # MCP server
@@ -285,6 +285,9 @@ ktor-io-jvm = { module = "io.ktor:ktor-io-jvm", version.ref = "ktor" }
 
 # Lint / Quality tools
 detekt-formatting = { module = "dev.detekt:detekt-rules-ktlint-wrapper", version.ref = "detekt" }
+detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
+detekt-test = { module = "dev.detekt:detekt-test", version.ref = "detekt" }
+detekt-test-utils = { module = "dev.detekt:detekt-test-utils", version.ref = "detekt" }
 
 [bundles]
 # Compose — all Compose libraries used together in every UI source set

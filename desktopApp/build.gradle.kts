@@ -5,8 +5,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.detekt)
-    // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
-    id("io.insert-koin.compiler.plugin") version "1.2.1"
+    alias(libs.plugins.koin.compiler)
 }
 
 val desktopAppVersion = "0.1.0"

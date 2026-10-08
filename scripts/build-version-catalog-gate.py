@@ -9,8 +9,8 @@ of step with the catalog's alignment rules, and the next dependency audit misses
 
 This gate detects that drift class — a literal that SHOULD be in the catalog
 but isn't — before it lands. It does NOT flag:
-  - Plugin version literals in plugins {} blocks (version refs are resolved from
-    the catalog already; the plugins {} block is the canonical place for them)
+  - Plugin version literals in plugins {} blocks that use `alias(libs.plugins.xxx)`
+    (version refs are resolved from the catalog; the plugins {} block is canonical)
   - Entries in gradle/libs.versions.toml itself (they ARE the catalog)
   - Files under /detekt-rules/ (builds its own plugin-classpath without the catalog)
   - Files under /buildSrc/ (convention plugins, same)
@@ -21,6 +21,10 @@ read the version catalog, so a settings-applied plugin carries its version inlin
 is a real drift risk with no compiler behind it, so the gate compares the literal against
 gradle/libs.versions.toml and fails when they disagree. The first case is Kover, which is
 applied at settings level to aggregate coverage across projects.
+
+B2 extension (2026-10-08): also checks gradle.properties version keys against the
+catalog, and checks plugin literals in root build.gradle.kts plugins {} against the
+catalog — the two remaining places where version literals can silently drift.
 
 Pattern: mirror scripts/find-unwired-surfaces.py — --quiet for CI, positive
 control that the scan covered ≥MIN_SCAN files (vacuous green is worse than red).
@@ -50,6 +54,24 @@ SETTINGS_PLUGIN_CATALOG_KEYS = {
 SETTINGS_PLUGIN_RE = re.compile(
     r'id\("(?P<id>[\w.\-]+)"\)\s+version\s+"(?P<version>[^"]+)"'
 )
+# B2: plugin literals in root build.gradle.kts plugins {} that are NOT alias().
+# Key = plugin id (exact string), value = catalog version key.
+ROOT_PLUGINS_CATALOG_KEYS = {
+    "io.insert-koin.compiler.plugin": "koin-compiler-plugin",
+}
+ROOT_PLUGINS_RE = re.compile(
+    r'id\("(?P<id>[\w.\-]+)"\)\s+version\s+"(?P<version>[^"]+)"'
+)
+# B2: gradle.properties version keys that mirror the catalog.
+# Key = property name (prefixed "version."), value = catalog version key.
+GRADLE_PROPS_CATALOG_KEYS = {
+    "version.kotlin": "kotlin",
+    "version.kotlinSerialization": "kotlin-serialization",
+    "version.kotlinxCollectionsImmutable": "kotlinxCollectionsImmutable",
+}
+GRADLE_PROPS_VERSION_RE = re.compile(
+    r"^(?P<key>[^#\s][^\s=]*)\s*=\s*[\"\']?(?P<value>[\w.\-]+)[\"\']?"
+)
 VERSION_ENTRY_RE = re.compile(r"^(?P<key>\S+)\s*=\s*\"(?P<value>[^\"]+)\"")
 
 
@@ -74,7 +96,7 @@ def _settings_plugin_drift(workspace: Path):
     """settings-applied plugin versions must equal their catalog entry."""
     settings = workspace / "settings.gradle.kts"
     if not settings.is_file():
-        return
+        return []
     versions = _catalog_versions(workspace)
     if not versions:
         print(
@@ -98,6 +120,73 @@ def _settings_plugin_drift(workspace: Path):
                 settings,
                 f"{plugin_id} version {m.group('version')} != libs.versions.toml "
                 f"{key} = \"{expected}\"",
+            ))
+    return out
+
+
+def _root_plugins_drift(workspace: Path):
+    """B2: root build.gradle.kts plugin literals must match catalog entries."""
+    root_gradle = workspace / "build.gradle.kts"
+    if not root_gradle.is_file():
+        return []
+    versions = _catalog_versions(workspace)
+    if not versions:
+        return [("build.gradle.kts", "no catalog versions to compare against")]
+
+    # Extract the plugins {} block
+    content = root_gradle.read_text(encoding="utf-8")
+    block_m = re.search(r"^plugins\s*\{(.*?)\n\}", content, re.MULTILINE | re.DOTALL)
+    if not block_m:
+        return []
+    block = block_m.group(1)
+
+    out: list[tuple[Path, str]] = []
+    for m in ROOT_PLUGINS_RE.finditer(block):
+        plugin_id = m.group("id")
+        key = ROOT_PLUGINS_CATALOG_KEYS.get(plugin_id)
+        if key is None:
+            continue
+        expected = versions.get(key)
+        if expected is None:
+            out.append((root_gradle, f"{plugin_id}: no `{key}` entry in the catalog"))
+        elif expected != m.group("version"):
+            out.append((
+                root_gradle,
+                f"{plugin_id} version {m.group('version')} != libs.versions.toml "
+                f"{key} = \"{expected}\"",
+            ))
+    return out
+
+
+def _gradle_properties_drift(workspace: Path):
+    """B2: gradle.properties version.* keys must equal their catalog entries."""
+    props = workspace / "gradle.properties"
+    if not props.is_file():
+        return []
+    versions = _catalog_versions(workspace)
+    if not versions:
+        return [("gradle.properties", "no catalog versions to compare against")]
+
+    content = props.read_text(encoding="utf-8")
+    out: list[tuple[Path, str]] = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = GRADLE_PROPS_VERSION_RE.match(line)
+        if not m:
+            continue
+        key = m.group("key")
+        catalog_key = GRADLE_PROPS_CATALOG_KEYS.get(key)
+        if catalog_key is None:
+            continue
+        expected = versions.get(catalog_key)
+        if expected is None:
+            out.append((props, f"{key}: no `{catalog_key}` entry in the catalog"))
+        elif expected != m.group("value"):
+            out.append((
+                props,
+                f"{key}={m.group('value')} != libs.versions.toml {catalog_key}=\"{expected}\"",
             ))
     return out
 
@@ -130,6 +219,8 @@ def main() -> int:
             violations.append((f, m.group(0)))
 
     violations.extend(_settings_plugin_drift(workspace))
+    violations.extend(_root_plugins_drift(workspace))
+    violations.extend(_gradle_properties_drift(workspace))
 
     if not violations:
         if not quiet:

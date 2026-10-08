@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
  * @param inheritedTagGroupIds Passed to [InheritedTagGroupsSheet].
  * @param onSheetDismiss Called when any sheet is dismissed.
  */
+@Suppress("LongMethod") // Composable pattern: large when is intentional; alpha.6 changed counting model
 @Composable
 fun ProjectDetailSheetsHost(
     activeSheet: ActiveSheet?,

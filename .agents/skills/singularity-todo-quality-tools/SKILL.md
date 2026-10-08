@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-quality-tools
-description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. Use whenever you need to check code quality, auto-fix formatting, generate coverage reports, or run the full check pipeline. Covers detekt 2.0.0-alpha.3 (Kotlin 2.3.21 compatible), ktlint bundled via detekt-rules-ktlint-wrapper, and kover 0.9.9 for coverage.
+description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. Use whenever you need to check code quality, auto-fix formatting, generate coverage reports, or run the full check pipeline. Covers detekt 2.0.0-alpha.6 (Kotlin 2.4.10 compatible), ktlint bundled via detekt-rules-ktlint-wrapper, and kover 0.9.9 for coverage.
 ---
 
 # Quality Tools — detekt, ktlint, kover
@@ -9,11 +9,11 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 
 | Tool | Version | Role |
 |---|---|---|
-| **detekt** | 2.0.0-alpha.3 | Static analysis: logic, complexity, naming, performance, exceptions |
+| **detekt** | 2.0.0-alpha.6 | Static analysis: logic, complexity, naming, performance, exceptions |
 | **ktlint** | via `detekt-rules-ktlint-wrapper` | Formatting, imports, whitespace — runs inside detekt |
 | **kover** | 0.9.9 | Code coverage for `shared` (all KMP source sets) + `desktopApp` |
 
-**Why detekt 2.x alpha?** — Stable 1.23.8 was compiled against Kotlin 2.0.21 and refuses to run under Kotlin 2.3.21. 2.0.0-alpha.3 explicitly targets Kotlin 2.3.21.
+**Why detekt 2.x alpha?** — Stable 1.23.8 was compiled against Kotlin 2.0.21 and refuses to run under Kotlin 2.4.10. 2.0.0-alpha.6 explicitly targets Kotlin 2.4.10 (2.0.0-alpha.3 was for Kotlin 2.3.21).
 
 ## Key conventions
 
@@ -333,7 +333,7 @@ error writing value of type 'ExistingNamedDomainObjectProvider'
 This is a known detekt 2.x + Gradle 9.x CC incompatibility. Use `--no-configuration-cache` flag or wait for a fix in a later detekt version.
 
 ### "detekt was compiled with Kotlin X but is currently running with Y"
-You are running the wrong detekt version. Stable 1.23.x supports Kotlin 2.0.x. For Kotlin 2.3.x use **detekt 2.0.0-alpha.3** (compiled against Kotlin 2.3.21).
+You are running the wrong detekt version. Stable 1.23.x supports Kotlin 2.0.x. For Kotlin 2.4.x use **detekt 2.0.0-alpha.6** (compiled against Kotlin 2.4.10).
 
 ### "Plugin not found" for detekt in submodule
 ```

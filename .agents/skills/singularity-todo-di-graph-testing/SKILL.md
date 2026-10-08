@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-di-graph-testing
-description: Validate Koin DI graph at compile time via koin-compiler-plugin 1.2.1. Use when adding new repositories, ViewModels, AI tools, or platform ports to the DI graph, or after any KOIN-D003 or KOIN-W003 error. Replaces the old runtime checkModules() approach.
+description: Validate Koin DI graph at compile time via koin-compiler-plugin. Use when adding new repositories, ViewModels, AI tools, or platform ports to the DI graph, or after any KOIN-D003 or KOIN-W003 error. Replaces the old runtime checkModules() approach. Version sourced from `koin-compiler-plugin` in libs.versions.toml; applied via `alias(libs.plugins.koin.compiler)`.
 ---
 
 # Singularity TODO — DI Graph Validation
@@ -15,7 +15,7 @@ time** as a KOIN-D003 error.
 ## How it works
 
 The [koin-compiler-plugin](https://insert-koin.io/docs/setup/compiler-plugin/)
-(`id("io.insert-koin.compiler.plugin") version "1.2.1"`) runs as a Kotlin compiler
+(applied via `alias(libs.plugins.koin.compiler)`, version from `koin-compiler-plugin` in libs.versions.toml) runs as a Kotlin compiler
 plugin (K2). At every build of an app module, it:
 
 1. Detects the `startKoin { modules(...) }` entry point.
@@ -140,8 +140,8 @@ This is exactly the class of bug the plugin is designed to catch.
 
 | File | Role |
 |---|---|
-| `gradle/libs.versions.toml` | `koin-compiler-plugin = "1.2.1"` |
-| `shared/build.gradle.kts` | `id("io.insert-koin.compiler.plugin") version "1.2.1"` |
+| `gradle/libs.versions.toml` | `koin-compiler-plugin = "1.2.1"` (aliased as `koin-compiler`) |
+| `shared/build.gradle.kts` | `alias(libs.plugins.koin.compiler)` |
 | `shared/src/commonMain/.../core/di/Modules.kt` | `domainModule()` |
 | `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Android bindings |
 | `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` | JVM bindings |

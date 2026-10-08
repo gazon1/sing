@@ -9,9 +9,8 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.detekt) apply false
-    // koinCompiler — applied directly (not via version catalog alias) because
-    // the plugin id "io.insert-koin.compiler.plugin" is incompatible with catalog accessor.
-    id("io.insert-koin.compiler.plugin").version("1.2.1") apply false
+    // koinCompiler — uses the catalog alias (koin-compiler-plugin is a plain version key)
+    alias(libs.plugins.koin.compiler) apply false
     // Kover is NOT listed here: it arrives on the classpath from the settings-level
     // `org.jetbrains.kotlinx.kover.aggregation` plugin (settings.gradle.kts) and is
     // applied to every project from there. Its version is kept in libs.versions.toml

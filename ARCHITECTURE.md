@@ -316,7 +316,7 @@ AI Gen: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `Decomp
 
 **Root `build.gradle.kts`** — глобальные pins:
 ```kotlin
-if (requested.group == "org.jetbrains.kotlin") useVersion("2.3.21")
+if (requested.group == "org.jetbrains.kotlin") useVersion("2.4.10")
 if (requested.name == "kotlinx-serialization-json") useVersion("1.11.0")
 ```
 
