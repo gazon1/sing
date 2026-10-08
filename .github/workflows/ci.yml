@@ -221,6 +221,18 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload Allure results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results
+          path: |
+            shared/build/allure-results/**/*
+            desktopApp/build/allure-results/**/*
+            mcp-server/build/allure-results/**/*
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload evidence (diagnostics, traceability, coverage)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

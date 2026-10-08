@@ -53,6 +53,8 @@ sourceSets {
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
             testImplementation(libs.kotlinx.coroutines.debug)
+            // Allure test reporting — generates JSON results for CI integration
+            implementation(libs.allure.kotlin.junit5)
         }
     }
 }
@@ -193,6 +195,9 @@ tasks.withType<Test>().configureEach {
         .single { it.name.contains("debug") && it.name.endsWith(".jar") }
         .absolutePath
     jvmArgs("-javaagent:$coroutinesDebugAgentPath")
+    // Allure test reporting — results written to build/allure-results/
+    val allureDir = layout.buildDirectory.dir("allure-results").map { it.asFile.absolutePath }
+    systemProperty("allure.results.directory", allureDir)
 }
 
 dependencies {
