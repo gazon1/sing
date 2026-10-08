@@ -43,13 +43,28 @@ permissions:
   contents: read
 
 jobs:
-  instrumented:
-    # Labelled runs only. A label on a PR that is not aimed at main is not this workflow's business.
+  # Emits the build matrix in one place. Currently a single "free" APK, but when
+  # Free/Pro product flavors exist this is where the matrix is expanded — a PR
+  # gets Free only (fast), main/nightly gets both.
+  plan:
     if: >-
       github.event_name != 'pull_request' ||
       (contains(github.event.pull_request.labels.*.name, 'run-device-tests') &&
        github.event.label.name == 'run-device-tests' &&
        github.event.pull_request.base.ref == 'main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      flavors: ${{ steps.p.outputs.flavors }}
+    steps:
+      - id: p
+        run: |
+          # When Free/Pro builds exist: for PR = free only, for main/nightly = both
+          flavors='["free"]'
+          echo "flavors=$flavors" >> "$GITHUB_OUTPUT"
+
+  instrumented:
+    needs: [plan]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -95,7 +110,7 @@ jobs:
           target: google_apis
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -prop persist.sys.locale=ru-RU
           disable-animations: false
           script: echo "AVD created"
 
@@ -113,6 +128,13 @@ jobs:
       # names an APK path, and a path that silently stops matching is a green run against
       # the wrong binary — which is the defect RUN_MAESTRO's SKIP_INSTALL comment in
       # check.sh describes.
+      #
+      # DIAGNOSTIC (PR0): `adb logcat -v threadtime` runs in the background for the
+      # duration of the script. When the tests finish (or the runner kills them),
+      # the trap fires and logcat is stopped — then the file is collected as an
+      # artifact. An ANR produces a stack trace in logcat even when the test process
+      # itself hangs and cannot write it to the test report. Once the root cause is
+      # identified this block is replaced with the fix.
       - name: Instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -122,9 +144,18 @@ jobs:
           force-avd-creation: false
           ram-size: 4096M
           heap-size: 512M
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -prop persist.sys.locale=ru-RU
           disable-animations: true
           script: |
+            LOGFILE="android-app-$(date +%s).logcat"
+            adb logcat -c
+            adb logcat -v threadtime > "$LOGFILE" &
+            LOGPID=$!
+            # Kill logcat when the script exits, whether tests pass, fail, or the
+            # runner kills the script block. The artifact upload happens after the
+            # script returns and the emulator is already gone at that point, so the
+            # trap here is the only way to stop the background process.
+            trap "kill $LOGPID 2>/dev/null || true" EXIT
             adb shell am wait-for-broadcast-idle
             # MainActivity's cold start is what these tests assert, so the surface is
             # unlocked before the runner launches it. Without this the first
@@ -144,6 +175,17 @@ jobs:
           path: |
             androidApp/build/reports/androidTests/
             androidApp/build/outputs/androidTest-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # DIAGNOSTIC (PR0): logcat collected in the Instrumented tests step above.
+      # Contains ANR stack traces and all app log output for the run.
+      - name: Upload ANR diagnostic logcat
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-anr-logcat-${{ github.run_id }}
+          path: android-app-*.logcat
           if-no-files-found: warn
           retention-days: 14
 

@@ -3,6 +3,7 @@ package com.singularity.todo.core.ui.components
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 
 /**
  * One settings row with a radio button on the right edge.
@@ -23,6 +24,7 @@ fun SettingsRadioRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    testTag: String = "",
 ) {
     SettingsRow(
         title = title,
@@ -31,6 +33,6 @@ fun SettingsRadioRow(
         trailing = {
             RadioButton(selected = selected, onClick = null)
         },
-        modifier = modifier,
+        modifier = if (testTag.isNotEmpty()) modifier.testTag(testTag) else modifier,
     )
 }

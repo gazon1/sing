@@ -17,14 +17,15 @@ tags:
     timeout: 8000
 - assertVisible: "Month"
 - tapOn:
-    text: "Month"
+    id: calendar_view_mode_month
 - extendedWaitUntil:
-    visible: "Week"
+    visible:
+      id: calendar_view_mode_week
     timeout: 8000
 - assertVisible: "Day"
 - assertVisible: "4 days"
 - tapOn:
-    text: "Week"
+    id: calendar_view_mode_week
 # The control now reports the selected mode. The header is asserted on the
 # control rather than the month title: Week shows a date range, not "Month".
 - extendedWaitUntil:

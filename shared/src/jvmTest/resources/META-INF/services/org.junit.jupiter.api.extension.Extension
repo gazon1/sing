@@ -1,2 +1,3 @@
 com.singularity.todo.test.FailureContextExtension
 com.singularity.todo.test.helpers.CoroutinesTimeoutExtension
+com.singularity.todo.test.helpers.TestFailureDetailsWriter

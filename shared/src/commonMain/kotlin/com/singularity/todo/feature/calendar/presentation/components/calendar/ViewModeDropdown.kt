@@ -21,9 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -58,7 +61,9 @@ fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) ->
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(palette.surface),
+            modifier = Modifier
+                .background(palette.surface)
+                .mapTestTagsAsResourceIds(),
         ) {
             CalendarViewMode.entries.forEach { mode ->
                 DropdownMenuItem(
@@ -73,6 +78,7 @@ fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) ->
                         onSelect(mode)
                         expanded = false
                     },
+                    modifier = Modifier.testTag(TestTags.calendarViewMode(mode.name.lowercase())),
                 )
             }
         }

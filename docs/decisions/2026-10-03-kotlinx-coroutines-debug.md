@@ -40,11 +40,11 @@ Not Android. Not production. Not commonMain.
 ## Artifacts on failure
 
 ```
-build/diagnostics/<TestClass>/attempt-N/
-    screenshot.png
-    db-state.txt
-    kermit.log
-    coroutines.txt   ← new
+build/diagnostics/<TestClass>/
+    failure-details.txt  ← exception type, message, full stacktrace, cause chain, thread state
+    coroutines.txt       ← coroutine snapshot (active coroutines, state, job, stack traces)
+    coroutines-timeout.txt  ← (only on timeout exceptions)
+    hs_err_pid<pid>.log  ← JVM-level error files from -XX:ErrorFile
 ```
 
 ## Important limitations
@@ -58,18 +58,20 @@ build/diagnostics/<TestClass>/attempt-N/
 
 ## Canonical investigation order
 
-1. FailureBundle (screenshot, db, kermit, coroutines.txt)
-2. Coroutine dump — look for application frames before kotlinx.coroutines internals
-3. Group repeated stack traces (evidence, not verdict — identical stacks may be normal)
-4. Check coroutine state: RUNNING, SUSPENDED, CREATED
-5. Compare the coroutine's dispatcher/scope with expected wiring
-6. For backgroundScope tests: consult TestScopeSemanticsTest rules before changing production code
-7. TestScheduler semantics (advanceUntilIdle vs runCurrent vs runTest virtual time)
-8. Production code
+1. `failure-details.txt` — exception type, message, full stacktrace, cause chain, thread info
+2. `coroutines.txt` — coroutine snapshot; look for application frames before kotlinx.coroutines internals
+3. `coroutines-timeout.txt` (if present) — additional context for timeout hangs
+4. Group repeated stack traces (evidence, not verdict — identical stacks may be normal)
+5. Check coroutine state: RUNNING, SUSPENDED, CREATED
+6. Compare the coroutine's dispatcher/scope with expected wiring
+7. For backgroundScope tests: consult TestScopeSemanticsTest rules before changing production code
+8. TestScheduler semantics (advanceUntilIdle vs runCurrent vs runTest virtual time)
+9. Production code
 
 ## Consequences
 
 ### Positive
+- Full exception details (type, message, stacktrace, cause chain) available in CI artifacts on failure
 - Coroutine state available in CI artifacts on failure
 - Silent coroutine death becomes diagnosable without manual DebugProbes invocation
 - Evidence for scheduler semantics issues (backgroundScope, debounce, todayFlow)
@@ -98,6 +100,7 @@ jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 - `CoroutineDiagnostics` is duplicated in desktopApp and shared (intentional — no shared test-fixtures module warranted); shared copy lacks tests.
 
 **Follow-ups (all implemented unless noted):**
+- ✅ `TestFailureDetailsWriter` added — writes `failure-details.txt` with exception type, message, full stacktrace, cause chain, thread name/state on every test failure (including non-AssertionError exceptions); complements `coroutines.txt`**
 - ✅ `ExtensionServiceRegistrationTest` added — architecture test verifying every extension in `META-INF/services` resolves to a real loadable class; prevents orphaned registration.
 - ✅ `CoroutinesTimeoutExtension` added — writes `coroutines-timeout.txt` when a timeout exception is thrown; closes the hard-hang gap. A global `@Timeout` or `CoroutinesTimeout` configuration is still needed to make this fire (see below).
 - OpenSpec CI gate (`|| true` + hardcoded `/home/max/.nvm` path) was fixed — now uses `npx @fission-ai/openspec` without swallow.

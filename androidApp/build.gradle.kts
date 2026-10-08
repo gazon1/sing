@@ -132,6 +132,28 @@ val googleClientId: String = run {
     }
 }
 
+val supabaseUrl: String = run {
+    val localProperties = rootProject.file("local.properties")
+    if (!localProperties.isFile) {
+        ""
+    } else {
+        val properties = Properties()
+        localProperties.inputStream().use(properties::load)
+        properties.getProperty("supabase.url", "").trim()
+    }
+}
+
+val supabaseAnonKey: String = run {
+    val localProperties = rootProject.file("local.properties")
+    if (!localProperties.isFile) {
+        ""
+    } else {
+        val properties = Properties()
+        localProperties.inputStream().use(properties::load)
+        properties.getProperty("supabase.anonKey", "").trim()
+    }
+}
+
 // Escaped for embedding in a generated Java string literal.
 //
 // A client id is `NNNNNNNNNN-abcdefghijklmnop.apps.googleusercontent.com`, which contains
@@ -169,6 +191,13 @@ android {
         // before this module's BuildConfig exists, so it cannot import the field.
         // `GOOGLE_CLIENT_ID` is the field name that lookup asks for.
         buildConfigField("String", "GOOGLE_CLIENT_ID", googleClientIdLiteral)
+
+        // Consumed reflectively by shared's `buildTimeSupabaseConfig()` — shared compiles
+        // before this module's BuildConfig exists, so it cannot import the field.
+        // `SUPABASE_URL` and `SUPABASE_ANON_KEY` are the field names that lookup asks for.
+        // The values come from local.properties (CI: injected, dev: personal project).
+        buildConfigField("String", "SUPABASE_URL", "\"" + supabaseUrl + "\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"" + supabaseAnonKey + "\"")
     }
     packaging {
         resources {

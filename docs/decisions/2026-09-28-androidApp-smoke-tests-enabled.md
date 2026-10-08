@@ -31,11 +31,11 @@ Phase 1–5 investigation (2026-09-28) analyzed the existing Android UI test inf
 
 1. **androidApp smoke tests: Espresso-based assertions, not Compose UI test API.** The BOM/compose-multiplatform API incompatibility is a known Gradle metadata limitation. The Espresso `ComposeView`-class assertion provides a minimal smoke gate.
 
-2. **`androidHostTest` is dead code until AGP fixes `AndroidUnitTest`.** The `testAndroidHostTest` task does not execute `androidHostTest` sources. Robolectric infrastructure is added correctly but unreachable. No further investment until AGP resolves this.
+2. **`androidHostTest` is dead code until AGP fixes `AndroidUnitTest`.** The `testAndroidHostTest` task does not execute `androidHostTest` sources — it executes `commonTest` sources instead. This is an AGP (Android Gradle Plugin) bug confirmed in AGP 8.x. `shared/src/androidHostTest/` contains `AndroidNotifierTest.kt` (4 Robolectric tests for POST_NOTIFICATIONS permission), which is structurally correct but never executed by the task. The `androidHostTest` configuration (in `shared/build.gradle.kts`) is valid and should not be removed. No further investment until AGP resolves the task type `AndroidUnitTest` source-set discovery.
 
 3. **`NoRealDelayInTestRule` catches both `delay()` and `Thread.sleep()`.** New violations in any test source will be caught by detekt as a build failure (`warningsAsErrors: true`).
 
-4. **ANR on MainActivity cold start — ADR-worthy follow-up.** The `koinInject<AppearanceSettingsRepository>()` in App composable needs investigation. Not fixed in this PR.
+4. **ANR on MainActivity cold start — ADR-worthy follow-up.** The `koinInject<AppearanceSettingsRepository>()` in App composable triggers initialization of `SettingsDataStoreMigration`, which calls `runBlockingForStartup()` synchronously during Koin DI setup. This blocks the main thread with disk I/O before the first Compose frame. Root cause is `PlatformModule.android.kt:190` → `SettingsDataStoreMigration.runBlockingForStartup()` → `runBlocking { run() }` → blocking DataStore reads/writes. Fixed in ADR `2026-10-05-android-startup-anr-datastore-migration.md`.
 
 5. **`just setup-hooks` broken (pre-existing).** `git config core.hooksPath` set to `.git/.githooks` which doesn't exist. Fixed in worktree with `git config core.hooksPath /path/to/main/.git/hooks`. Not fixed in main checkout.
 

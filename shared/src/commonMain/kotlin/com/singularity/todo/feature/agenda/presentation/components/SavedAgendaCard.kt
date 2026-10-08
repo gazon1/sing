@@ -89,6 +89,7 @@ fun SavedAgendaCard(
                     text = "⋮",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TestTags.SAVED_AGENDA_OVERFLOW_BUTTON),
                 )
                 DropdownMenu(
                     expanded = menuExpanded,
@@ -101,6 +102,7 @@ fun SavedAgendaCard(
                             onEdit()
                         },
                         leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                        modifier = Modifier.testTag(TestTags.SAVED_AGENDA_MENU_EDIT),
                     )
                     DropdownMenuItem(
                         text = { Text("Copy to profile") },
@@ -109,6 +111,7 @@ fun SavedAgendaCard(
                             onCopyToProfile()
                         },
                         leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                        modifier = Modifier.testTag(TestTags.SAVED_AGENDA_MENU_COPY_TO_PROFILE),
                     )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
@@ -123,6 +126,7 @@ fun SavedAgendaCard(
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         },
+                        modifier = Modifier.testTag(TestTags.SAVED_AGENDA_MENU_DELETE),
                     )
                 }
             }

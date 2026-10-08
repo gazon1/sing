@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsRadioRow
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -45,6 +46,7 @@ fun AgendaSettingsScreen(
                 subtitle = "Use the tab preset (Inbox, Today, etc.)",
                 selected = selectedId == null,
                 onClick = { onIntent(SettingsIntent.DefaultAgendaView.Update(null)) },
+                testTag = TestTags.agendaSelectorOption("none"),
             )
 
             // Each saved view as a radio option
@@ -54,6 +56,7 @@ fun AgendaSettingsScreen(
                     subtitle = null,
                     selected = selectedId == view.id,
                     onClick = { onIntent(SettingsIntent.DefaultAgendaView.Update(view.id)) },
+                    testTag = TestTags.agendaSelectorOption(view.id.raw),
                 )
             }
 

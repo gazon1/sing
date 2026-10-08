@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
@@ -134,6 +135,7 @@ private fun AccentColorPicker(selected: SingularityAccents, onSelect: (Singulari
                     accent = accent,
                     selected = accent == selected,
                     onClick = { onSelect(accent) },
+                    testTag = TestTags.Settings.accentSwatch(accent.name),
                 )
             }
         }
@@ -141,7 +143,12 @@ private fun AccentColorPicker(selected: SingularityAccents, onSelect: (Singulari
 }
 
 @Composable
-private fun AccentSwatch(accent: SingularityAccents, selected: Boolean, onClick: () -> Unit) {
+private fun AccentSwatch(
+    accent: SingularityAccents,
+    selected: Boolean,
+    onClick: () -> Unit,
+    testTag: String,
+) {
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -154,6 +161,7 @@ private fun AccentSwatch(accent: SingularityAccents, selected: Boolean, onClick:
                     Modifier
                 },
             )
+            .testTag(testTag)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -183,7 +191,9 @@ private fun FontSizeSlider(value: Float, onValueChange: (Float) -> Unit) {
             onValueChange = onValueChange,
             valueRange = 0.75f..1.5f,
             steps = 5,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.Settings.FONT_SIZE_SLIDER),
         )
         // Live preview sample
         Text(
