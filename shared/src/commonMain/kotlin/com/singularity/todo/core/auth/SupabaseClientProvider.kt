@@ -35,7 +35,7 @@ import kotlinx.coroutines.sync.withLock
  * rather than dropping the reference: an HTTP client that is merely unreferenced
  * keeps its pool and its scope alive until the process ends.
  */
-class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, private val store: SecureStorage) {
+open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, private val store: SecureStorage) {
     private val lock = Mutex()
     private var cachedConfig: SupabaseConfig? = null
     private var cachedClient: SupabaseClient? = null
@@ -48,7 +48,7 @@ class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, priva
      * because another screen can change it; the *client* is what is expensive, so
      * that is what the cache holds.
      */
-    suspend fun client(): SupabaseClient? = lock.withLock {
+    open suspend fun client(): SupabaseClient? = lock.withLock {
         val config = resolver.resolve(store) ?: return@withLock null
         cachedClient?.takeIf { cachedConfig == config } ?: build(config)
     }
@@ -60,7 +60,7 @@ class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, priva
      * this may still be completing against it, and closing it mid-flight would
      * cancel the very call that produced the configuration.
      */
-    suspend fun configure(config: SupabaseConfig) {
+    open suspend fun configure(config: SupabaseConfig) {
         lock.withLock {
             resolver.store(store, config)
             cachedConfig = config
@@ -69,7 +69,7 @@ class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, priva
     }
 
     /** Forgets the configuration and closes the client that was using it. */
-    suspend fun forget() {
+    open suspend fun forget() {
         val doomed = lock.withLock {
             resolver.clear(store)
             cachedConfig = null

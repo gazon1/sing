@@ -107,7 +107,11 @@ jobs:
           supabase.anonKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiIOiJwbGFjZWhvbGRlciIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjQwMTAxMDAwLCJleHAiOjE5NTU2NzUwMDB9.placeholder
           EOF
 
-      - run: ./gradlew :androidApp:assembleDebug
+      # -PTEST_AUTH_BYPASS=true: the test stubs module overrides AuthRepository and
+      # SupabaseClientProvider so the app starts directly into the agenda screen with a
+      # fake signed-in session. No Supabase server or network call is needed, which is
+      # exactly what a smoke test that clears the app state requires.
+      - run: ./gradlew :androidApp:assembleDebug -PTEST_AUTH_BYPASS=true
 
       - uses: actions/upload-artifact@v7
         with:

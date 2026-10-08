@@ -96,8 +96,18 @@ open class SingularityApp : Application() {
      * is the whole reason the extension point lives here rather than as a hard
      * reference to `proObservabilityModule()`: a direct call would not compile without
      * `:pro` on the classpath, and the free build has to stand alone.
+     *
+     * When `TEST_AUTH_BYPASS` is set, this also loads [com.singularity.todo.test.stubs.testAuthModule],
+     * which overrides `AuthRepository`, `AuthGateway`, and `SupabaseClientProvider` with
+     * in-memory stubs that produce a signed-in session immediately — no Supabase server
+     * or network call is needed. This is for E2E smoke tests only.
      */
-    open fun extraKoinModules(): List<Module> = emptyList()
+    open fun extraKoinModules(): List<Module> {
+        if (BuildConfig.TEST_AUTH_BYPASS) {
+            return listOf(com.singularity.todo.test.stubs.testAuthModule())
+        }
+        return emptyList()
+    }
 
     override fun onCreate() {
         super.onCreate()

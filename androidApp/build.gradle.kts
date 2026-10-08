@@ -154,6 +154,17 @@ val supabaseAnonKey: String = run {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Test auth bypass
+//
+// When true, the app bypasses the auth screen using in-memory stubs.
+// For E2E smoke tests only; never set in production builds.
+// ---------------------------------------------------------------------------
+val testAuthBypass: Boolean = providers.gradleProperty("TEST_AUTH_BYPASS")
+    .orElse("false")
+    .map { it.toBoolean() }
+    .get()
+
 // Escaped for embedding in a generated Java string literal.
 //
 // A client id is `NNNNNNNNNN-abcdefghijklmnop.apps.googleusercontent.com`, which contains
@@ -198,6 +209,11 @@ android {
         // The values come from local.properties (CI: injected, dev: personal project).
         buildConfigField("String", "SUPABASE_URL", "\"" + supabaseUrl + "\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"" + supabaseAnonKey + "\"")
+
+        // When true, SingularityApp loads test stubs that bypass Supabase auth entirely.
+        // The app starts with a fake signed-in session, no network calls are made, and the
+        // auth screen is never shown. For E2E smoke tests only; never set in production.
+        buildConfigField("boolean", "TEST_AUTH_BYPASS", testAuthBypass.toString())
     }
     packaging {
         resources {
