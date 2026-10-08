@@ -19,7 +19,11 @@
       longer the whole story.
 - [ ] Record the 18 call sites as unchanged in the proposal, so a later reader
       does not read their silence as an oversight rather than as the decision.
-- [ ] Close the backlog entry `enqueue-failure-is-silent`.
+- [x] Closed. There is no backlog entry `enqueue-failure-is-silent`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
 - [ ] Out of scope, recorded rather than silently dropped: `proposals.refreshStatus`
       (3), `ProfileBootstrapper` (1), `CreateTaskFromDraft` (2),
       `NoteEditor.setOutgoingLinks` (1), and the dropped-`Result` gate itself.

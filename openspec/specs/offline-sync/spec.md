@@ -307,3 +307,206 @@ interval could pass without one ever completing.
 #### Scenario: Two collectors are never live at once
 - The active scope moves while the previous scope's settings are still being observed
 - The observation of the previous scope is cancelled rather than left running
+
+### Requirement: REQ-OS-020
+
+A change received from the server SHALL be reported as applied only when it was applied.
+An event whose payload is absent, or is not a document, SHALL NOT be reported as
+applied, and the download position SHALL move past it so the rest of the account's
+changes continue to arrive.
+
+The position moving past it is deliberate. A payload that is absent will be absent again
+on the next delivery, so waiting cannot help, and a position that waits would end the
+account's sync permanently over one unusable row.
+
+#### Scenario: An event with no payload is not applied
+- The server delivers a change that carries no document
+- The change is not written to this device
+- It is reported as dropped, with the reason, rather than as applied
+
+#### Scenario: The position moves past an unusable change
+- An event arrives with no payload, followed by further changes this device can apply
+- The further changes are applied
+- The device is not left waiting on the unusable one forever
+
+#### Scenario: An unusable change does not fail the whole cycle
+- A cycle delivers one unusable change and otherwise completes
+- The cycle reports completion
+- The unusable change is still counted as dropped
+
+#### Scenario: A payload that is not a document is treated the same
+- The server delivers a change whose payload is not an object
+- It is reported as dropped and not applied
+
+---
+
+### Requirement: REQ-OS-021
+
+A delete that did not happen SHALL NOT be reported as applied, and the download position
+SHALL NOT move past it, because that event is the only one that would ever remove the
+row.
+
+#### Scenario: A failed delete leaves the position where it was
+- The server delivers a delete and this device fails to carry it out
+- The position stays before the delete
+- The delete is delivered again on the next cycle
+
+#### Scenario: A failed delete is not counted as applied
+- A delete did not happen
+- The cycle's counts do not include it as applied
+
+---
+
+### Requirement: REQ-OS-022
+
+A cycle that stopped before finishing SHALL be reported as a failure, and SHALL NOT
+report a successful time, so that a device which is stuck is not shown as synchronised.
+
+#### Scenario: A stopped cycle is a failure
+- A change this device cannot apply is reached and the cycle stops there
+- The cycle reports a failure naming the position it is stuck at
+- The engine does not report itself idle
+
+#### Scenario: The position is still the last one that was applied
+- A cycle stops early
+- The stored position is the last change that was actually applied
+- Nothing after the stopping point is consumed
+
+#### Scenario: A cycle that finishes is still a success
+- Every change in the page was dealt with
+- The cycle reports completion and a successful time
+
+#### Scenario: A failure to apply is not confused with a skipped change
+- One change could not be applied but a retry might succeed
+- A different change can never be applied and is stepped over
+- The two are reported differently, because only the first is worth retrying
+
+---
+
+### Requirement: REQ-OS-023
+
+A document type this device uploads SHALL be one it can also apply from a received
+change. A type that is uploaded without a way to apply it SHALL NOT be uploaded, because
+an unappliable change stops the receiving account's download position for everything, not
+only for that type.
+
+#### Scenario: Every uploaded type has a way to apply it
+- The set of types this device can upload
+- Each one has a handler that can apply a received change of that type
+
+#### Scenario: A type that cannot be applied is not uploaded
+- A type exists that a received change could not be applied as
+- This device does not upload it, so no other device receives one
+
+### Requirement: REQ-OS-025
+
+A change sent to the server SHALL state the version of the row it was built against, and
+that SHALL be the version the server last reported for the row. A change built against a
+version the server has not reported SHALL state that the server has never seen the row.
+
+The second half is why the first matters. A change that claims a version the server has
+already moved past is a change the server refuses, and a refused change is one the user
+does not get to keep.
+
+#### Scenario: The first change for a row says the server has not seen it
+- A row has never been uploaded
+- The change sent for it states no version
+- The server answers it as the first change for that row
+
+#### Scenario: A later change states the version the server reported
+- The server reported a version for a row
+- A later change to that row is built on the same version
+- The version sent is the one the server reported, not a local copy of it
+
+#### Scenario: A change made after an answer uses that answer
+- A change was sent and the server answered with a version
+- The user edits the same row again
+- The next change is built on the version from the answer
+
+#### Scenario: A response that reports no version does not erase one already known
+- The client holds a version for a row
+- A later response reports no version
+- The stored version is unchanged, and the next change still states it
+
+#### Scenario: A superseded answer does not set the version
+- Two changes for the same row are in flight and the newer one supersedes the older
+- The older one's answer arrives
+- Neither the row's state nor its version is settled from that answer
+
+### Requirement: REQ-OS-024
+
+A rejected change SHALL be retried only when a second identical attempt could receive a
+different answer. A refusal that is a property of the request rather than of the moment
+SHALL NOT be retried, and the local change SHALL be kept where the user can see it.
+
+#### Scenario: A missing row is not waited for
+- The server refuses a change because the row it targets is not there
+- The change is not retried
+- It is moved where the user can see it, rather than being retried for hours
+
+#### Scenario: A change that is too large is not retried
+- The server refuses a change because it exceeds a limit
+- The change is not retried
+- Its size does not shrink by waiting, so a retry could not succeed
+
+#### Scenario: A state the client no longer expected is not retried
+- The server refuses a change because its state moved on
+- The change is not retried, and a fresh diff is what would resolve it
+
+#### Scenario: A clock behind the server's is not retried
+- The server refuses a change because a newer one arrived first
+- The change is not retried
+
+#### Scenario: A refusal the server states deliberately is not retried
+- The server refuses a change it will not accept, naming why
+- The change is not retried
+
+#### Scenario: A refused change is never silently discarded
+- The server refuses a change and it is not retried
+- The change is not lost, and the user can find it and act on it
+
+### Requirement: REQ-OS-015
+
+A download cycle SHALL keep reading until the feed reports that it has no more, so that a
+backlog larger than one page is applied in one cycle. A cycle SHALL report how many
+changes it received in total, across every page it read.
+
+#### Scenario: A backlog larger than one page is applied in one cycle
+- More changes are waiting than fit in a single page
+- The cycle applies all of them
+- The stored position is the end of the last page, not the end of the first
+
+#### Scenario: A backlog that fits one page does not cost an extra request
+- The whole backlog fits in a single page
+- The cycle asks once
+- A short page is taken as the end of the feed
+
+#### Scenario: A page that comes back full is followed by one more request
+- A page arrives with exactly as many changes as were asked for
+- The cycle asks once more from just after the last change it read
+- An empty answer ends the cycle
+
+#### Scenario: The total received counts every page
+- The cycle read three pages
+- The reported number of changes received is the sum of the three
+
+---
+
+### Requirement: REQ-OS-016
+
+A cycle SHALL stop rather than ask again for a page it has already read. A feed that
+answers with nothing past the position asked from SHALL end the cycle, and the cycle
+SHALL still report what it read.
+
+The position stored SHALL be the last change that was dealt with, so a cycle that stops
+early leaves the rest of the feed for the next one and nothing is lost.
+
+#### Scenario: A feed that will not advance ends the cycle
+- The server answers with changes at or before the position asked from
+- The cycle stops instead of asking again for the same page
+- What it did read is still reported, and the cycle is not reported as a failure
+
+#### Scenario: A cycle that stopped early stores the last change it dealt with
+- The cycle stopped part way through what it had read
+- The stored position is the last change that was dealt with
+- Everything after it is read again next cycle, and nothing is skipped

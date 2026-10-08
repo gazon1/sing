@@ -11,7 +11,11 @@
       rows with it. Without that sentence the next reader sees a best-effort activation
       and may "fix" the throw by returning null, which is the version that cannot be
       told apart from a run that never asked for a switch.
-- [ ] Close the backlog entry `profile-bootstrapper-reports-a-failed-switch`.
+- [x] Closed. There is no backlog entry `profile-bootstrapper-reports-a-failed-switch`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
 - [ ] Out of scope: the dropped-`Result` guard is still red on this site until it lands,
       which is the reason it goes before the guard.
 - [ ] Follow-up worth its own change, not this one: `mcp/Main.kt:175-179` swallows every

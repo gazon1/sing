@@ -96,6 +96,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -852,6 +853,18 @@ open class FakeTaskRepository(
                 }
         }
 }
+
+// ─── TaskMutationsUseCase ────────────────────────────────────────────────────
+
+/**
+ * In-memory fake of [com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase].
+ * Delegates directly to the provided [TaskRepository], mirroring the production logic
+ * but with an in-memory store.
+ *
+ * @param repo The repository to delegate to. Pass a [FakeTaskRepository] for fully
+ *        in-memory testing of the bulk operations.
+ */
+open class FakeTaskMutationsUseCase(repo: TaskRepository) : TaskMutationsUseCase(repo)
 
 // ─── ChecklistRepository ─────────────────────────────────────────────────────
 

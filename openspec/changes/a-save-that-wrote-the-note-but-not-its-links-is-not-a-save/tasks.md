@@ -9,7 +9,11 @@
 - [x] Record in the code comment that outgoing links are not synced, so the next reader
       does not re-classify this as a sync defect. The dropped-`Result` audit did, and
       `SyncedWriteEnqueuesTest` is the counter-evidence.
-- [ ] Close the backlog entry `note-editor-drops-outgoing-links`.
+- [x] Closed. There is no backlog entry `note-editor-drops-outgoing-links`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
 - [ ] Out of scope, deliberately: the other dropped writes this audit found are their
       own defects — `ProfileBootstrapper` (returns a profile id that was never
       activated), 9 settings writes in `CalendarSyncViewModel` / `SyncViewModel`, and

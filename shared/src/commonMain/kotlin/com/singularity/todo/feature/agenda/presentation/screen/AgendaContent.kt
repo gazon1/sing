@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,9 +12,11 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -50,6 +51,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
@@ -116,36 +118,69 @@ fun AgendaContent(
         contextMenuOffset = null
     }
 
+    val isSelectionMode = state is AgendaUiState.Loaded && state.isSelectionMode
+    val selectedTaskIds = (state as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+    val selectedCount = selectedTaskIds.size
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                actions = {
-                    if (onSavedViewsClick != null) {
-                        IconButton(
-                            onClick = onSavedViewsClick,
-                            modifier = Modifier
-                                .testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-                                .spotlightAnchorIfRegistered(SpotlightAnchorId.SavedViews, spotlightRegistry),
-                        ) {
-                            Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
-                        }
-                    }
-                    if (onSaveCurrentClick != null) {
-                        IconButton(
-                            onClick = onSaveCurrentClick,
-                            modifier = Modifier
-                                .testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
-                                .spotlightAnchorIfRegistered(SpotlightAnchorId.SaveCurrent, spotlightRegistry),
-                        ) {
-                            Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            Column {
+                if (isSelectionMode) {
+                    // Selection mode: count + exit + delete
+                    TopAppBar(
+                        title = { Text("$selectedCount selected") },
+                        navigationIcon = {
+                            IconButton(onClick = { onIntent(AgendaIntent.ExitSelectionMode) }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Exit selection",
+                                )
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { onIntent(AgendaIntent.DeleteSelected) }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete selected",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    )
+                } else {
+                    TopAppBar(
+                        title = { Text(title) },
+                        actions = {
+                            if (onSavedViewsClick != null) {
+                                IconButton(
+                                    onClick = onSavedViewsClick,
+                                    modifier = Modifier
+                                        .testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+                                        .spotlightAnchorIfRegistered(SpotlightAnchorId.SavedViews, spotlightRegistry),
+                                ) {
+                                    Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
+                                }
+                            }
+                            if (onSaveCurrentClick != null) {
+                                IconButton(
+                                    onClick = onSaveCurrentClick,
+                                    modifier = Modifier
+                                        .testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
+                                        .spotlightAnchorIfRegistered(SpotlightAnchorId.SaveCurrent, spotlightRegistry),
+                                ) {
+                                    Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    )
+                }
+            }
         },
         modifier = modifier,
     ) { paddingValues ->
@@ -193,6 +228,8 @@ fun AgendaContent(
                     AgendaList(
                         sections = state.sections,
                         today = state.today,
+                        isSelectionMode = isSelectionMode,
+                        selectedTaskIds = selectedTaskIds,
                         onIntent = onIntent,
                         onOpenContextMenu = ::openContextMenu,
                         listState = listState,
@@ -204,9 +241,10 @@ fun AgendaContent(
     }
 
     // Render the task context menu — JVM popup (right-click) or Android sheet (long-press).
+    // Do NOT show context menu while in selection mode.
     val task = contextMenuTask
     val offset = contextMenuOffset
-    if (task != null && offset != null) {
+    if (task != null && offset != null && !isSelectionMode) {
         contextMenuHost(task, offset, ::dismissContextMenu, onIntent)
     }
 }
@@ -215,6 +253,8 @@ fun AgendaContent(
 private fun AgendaList(
     sections: List<RenderedSection>,
     today: LocalDate,
+    isSelectionMode: Boolean,
+    selectedTaskIds: Set<TaskId>,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     listState: LazyListState,
@@ -246,6 +286,8 @@ private fun AgendaList(
                 AgendaTaskRow(
                     rowItem = rowItem,
                     today = today,
+                    isSelectionMode = isSelectionMode,
+                    selectedTaskIds = selectedTaskIds,
                     onIntent = onIntent,
                     onOpenContextMenu = onOpenContextMenu,
                 )
@@ -290,10 +332,13 @@ private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Un
 private fun AgendaTaskRow(
     rowItem: AgendaRowItem,
     today: LocalDate,
+    isSelectionMode: Boolean,
+    selectedTaskIds: Set<TaskId>,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
 ) {
     val task = rowItem.task
+    val isSelected = task.id in selectedTaskIds
     val isOverdue = TaskComputed.isOverdue(task, today)
     val taskUi = TaskUi(
         id = task.id,
@@ -307,28 +352,45 @@ private fun AgendaTaskRow(
         priority = task.priority,
         isCompleted = task.completedAt != null,
         isOverdue = isOverdue,
-        isSelected = false,
+        isSelected = isSelected,
         dependsOn = task.dependsOn,
         isBlocked = rowItem.isBlocked,
     )
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
     // Passed via secondaryClickModifier so SwipeToDismissBox doesn't intercept the event.
-    val rightClickModifier = Modifier.onSecondaryClick { offset ->
-        onOpenContextMenu(taskUi, offset)
+    // Disabled in selection mode: context menu is suppressed during selection.
+    val rightClickModifier = if (!isSelectionMode) {
+        Modifier.onSecondaryClick { offset ->
+            onOpenContextMenu(taskUi, offset)
+        }
+    } else {
+        Modifier
     }
 
     SwipeableTaskRow(
         onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
         secondaryClickModifier = rightClickModifier,
+        isSelectionMode = isSelectionMode,
         content = {
             TaskRowFlat(
                 task = taskUi,
                 onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
-                onClick = { onIntent(AgendaIntent.TaskClicked(task.id)) },
-                // Long-press opens the context menu on touch devices; the offset is
-                // meaningless for a bottom sheet, so the renderer anchors it to the row.
-                onLongClick = { onOpenContextMenu(taskUi, DpOffset.Zero) },
+                // Click: in selection mode toggles selection; otherwise navigates.
+                onClick = {
+                    if (isSelectionMode) {
+                        onIntent(AgendaIntent.ToggleSelection(task.id))
+                    } else {
+                        onIntent(AgendaIntent.TaskClicked(task.id))
+                    }
+                },
+                // Long-press: in selection mode is ignored (click handles selection);
+                // otherwise opens context menu.
+                onLongClick = if (!isSelectionMode) {
+                    { onOpenContextMenu(taskUi, DpOffset.Zero) }
+                } else {
+                    null
+                },
                 showDivider = true,
             )
         },
@@ -445,6 +507,36 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
         onIntent = {},
         onSavedViewsClick = {},
         onSaveCurrentClick = {},
+    )
+}
+
+@Preview
+@Composable
+private fun AgendaContentSelectionModePreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    val today = PreviewSamples.today
+
+    val task1 = PreviewSamples.task(id = "t1", title = "Task 1", dueDate = today)
+    val task2 = PreviewSamples.task(id = "t2", title = "Task 2", dueDate = today)
+
+    AgendaContent(
+        state = AgendaUiState.Loaded(
+            sections = listOf(
+                RenderedSection(
+                    id = "today",
+                    name = "Today",
+                    tasks = listOf(
+                        AgendaRowItem(task = task1, isBlocked = false),
+                        AgendaRowItem(task = task2, isBlocked = false),
+                    ),
+                    badge = null,
+                ),
+            ),
+            today = today,
+            isSelectionMode = true,
+            selectedTaskIds = setOf(TaskId.fromString("t1")),
+        ),
+        title = "Agenda",
+        onIntent = {},
     )
 }
 

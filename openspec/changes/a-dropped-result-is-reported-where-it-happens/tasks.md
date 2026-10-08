@@ -19,10 +19,19 @@
 - [x] Write the three blind spots into the rule rather than leaving them for a reader:
       an inferred receiver type, reflection, and a failure dropped in a loop where the
       value is used.
-- [ ] Close the backlog entry `dropped-result-guard`.
-- [ ] Derive `selfReportingMethods()` instead of writing it down. Both obvious
-      implementations were measured and both are wrong — see the proposal. Needs
-      statement-level extraction; do not ship a hand list that looks derived.
+- [x] Closed. There is no backlog entry `dropped-result-guard`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
+- [x] Derive `selfReportingMethods()` instead of writing it down. Done in `cfa529cf`, and the
+      derivation found more than the list ever could: the hand list was keyed by name, so it
+      exempted `SyncRepositoryImpl.enqueue` — which reports nothing — and would have kept
+      exempting it after it swallowed the failure. Backwards from the report call, closed over
+      `override` and over single-line delegation, and restricted to methods that *capture* their
+      own failure rather than construct `Result.failure`. The two forward-looking derivations
+      recorded below as wrong are wrong for the reason given: the reporting `.also { }` sits
+      outside the `runCatching` lambda.
 - [ ] A rule for the third blind spot: a failure dropped where the value is used —
       `map { … repo.create(x) … }` keeping the id and dropping the failure. Two real
       defects had that shape (`DecomposeAndCreateTool`, `BackupImporter`) and neither was

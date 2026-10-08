@@ -66,6 +66,18 @@ class AgendaViewModel(
      */
     val definition: AgendaDefinition = definition
 
+    // ── Selection state ───────────────────────────────────────────────────────────
+
+    /** Currently selected task IDs. Persists across agenda re-evaluations. */
+    private val _selectedTaskIds = MutableStateFlow<Set<TaskId>>(emptySet())
+    val selectedTaskIds = _selectedTaskIds.asStateFlow()
+
+    /** True when the user is in multi-selection mode. */
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode = _isSelectionMode.asStateFlow()
+
+    // ── Undo-delete state ────────────────────────────────────────────────────────
+
     /**
      * Tracks a soft-deleted task pending undo, so the snackbar can offer a 5-second window.
      * Null when no delete is pending.
@@ -82,9 +94,12 @@ class AgendaViewModel(
                 deps.taskRepo.observeByFilter(TaskFilter.All)
                     .map { tasks ->
                         val sections = AgendaEvaluator.evaluate(tasks, definition, today)
+                        // Preserve selection state across re-evaluations.
                         AgendaUiState.Loaded(
                             sections = sections,
                             today = today,
+                            isSelectionMode = _isSelectionMode.value,
+                            selectedTaskIds = _selectedTaskIds.value,
                         )
                     }
             }
@@ -105,10 +120,15 @@ class AgendaViewModel(
      * reliability fix. A *thrown* failure on these paths — including from [emit] on a closed
      * event channel — reaches `BackgroundFailureHandler` via the scope instead.
      */
+    @Suppress("CyclomaticComplexMethod") // 14 intents is intentional; extract when this grows further
     override fun onIntent(intent: AgendaIntent) {
         when (intent) {
             is AgendaIntent.TaskClicked -> with(intent) {
-                scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
+                if (_isSelectionMode.value) {
+                    scope.launch { handleToggleSelection(taskId) }
+                } else {
+                    scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
+                }
             }
 
             is AgendaIntent.TaskCheckClicked -> with(intent) {
@@ -119,7 +139,11 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.TaskLongClicked -> with(intent) {
-                scope.launch { emit(AgendaUiEvent.ShowTaskContextMenu(taskId)) }
+                if (_isSelectionMode.value) {
+                    // Already in selection mode — ignore long-press, click handles selection.
+                } else {
+                    scope.launch { handleEnterSelectionMode(taskId) }
+                }
             }
 
             is AgendaIntent.TaskPinClicked -> with(intent) {
@@ -140,8 +164,118 @@ class AgendaViewModel(
             is AgendaIntent.CreateInSection -> with(intent) {
                 scope.launch { handleCreateInSection(intent.sectionId) }
             }
+
+            is AgendaIntent.EnterSelectionMode -> with(intent) {
+                scope.launch { handleEnterSelectionMode(intent.taskId) }
+            }
+
+            is AgendaIntent.ToggleSelection -> with(intent) {
+                scope.launch { handleToggleSelection(intent.taskId) }
+            }
+
+            is AgendaIntent.ExitSelectionMode -> with(intent) {
+                handleExitSelectionMode()
+            }
+
+            is AgendaIntent.DeleteSelected -> with(intent) {
+                scope.launch { handleBulkDelete() }
+            }
+
+            is AgendaIntent.CompleteSelected -> with(intent) {
+                scope.launch { handleBulkComplete() }
+            }
         }
     }
+
+    // ── Selection handlers ──────────────────────────────────────────────────────
+
+    /**
+     * Enter multi-selection mode, selecting [taskId].
+     * Called from long-press or explicit enter action.
+     */
+    private fun handleEnterSelectionMode(taskId: TaskId) {
+        _isSelectionMode.value = true
+        _selectedTaskIds.value = setOf(taskId)
+        updateSelectionState()
+    }
+
+    /**
+     * Toggle [taskId] in the current selection.
+     * If it was the last selected task, exits selection mode.
+     */
+    private fun handleToggleSelection(taskId: TaskId) {
+        val current = _selectedTaskIds.value
+        val updated = if (taskId in current) current - taskId else current + taskId
+        _selectedTaskIds.value = updated
+        if (updated.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+        updateSelectionState()
+    }
+
+    /** Exit selection mode, clearing all selected tasks. */
+    private fun handleExitSelectionMode() {
+        _isSelectionMode.value = false
+        _selectedTaskIds.value = emptySet()
+        updateSelectionState()
+    }
+
+    /**
+     * Delete all selected tasks via [TaskMutationsUseCase.bulkDelete].
+     * Exits selection mode on completion.
+     */
+    private suspend fun handleBulkDelete() {
+        val ids = _selectedTaskIds.value.toList()
+        if (ids.isEmpty()) return
+
+        val result = deps.taskMutations.bulkDelete(ids)
+        handleExitSelectionMode()
+
+        result.fold(
+            onSuccess = {
+                emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "deleted"))
+            },
+            onFailure = { error ->
+                crashReporter.report(error, BULK_DELETE_FAILED)
+                emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "deleted", error = error.message))
+            },
+        )
+    }
+
+    /**
+     * Complete all selected tasks via [TaskMutationsUseCase.bulkComplete].
+     * Exits selection mode on completion.
+     */
+    private suspend fun handleBulkComplete() {
+        val ids = _selectedTaskIds.value.toList()
+        if (ids.isEmpty()) return
+
+        val result = deps.taskMutations.bulkComplete(ids)
+        handleExitSelectionMode()
+
+        result.fold(
+            onSuccess = {
+                emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "completed"))
+            },
+            onFailure = { error ->
+                crashReporter.report(error, BULK_COMPLETE_FAILED)
+                emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
+            },
+        )
+    }
+
+    /** Push current selection state into [setState] so the screen re-renders. */
+    private fun updateSelectionState() {
+        val current = state.value as? AgendaUiState.Loaded ?: return
+        setState(
+            current.copy(
+                isSelectionMode = _isSelectionMode.value,
+                selectedTaskIds = _selectedTaskIds.value,
+            ),
+        )
+    }
+
+    // ── Undo-delete handlers ────────────────────────────────────────────────────
 
     /**
      * Soft-deletes a task and emits [AgendaUiEvent.UndoDelete] so the UI can show a snackbar.
@@ -235,6 +369,8 @@ class AgendaViewModel(
         private const val TOGGLE_COMPLETE_FAILED = "agenda.toggle_complete_failed"
         private const val TOGGLE_PINNED_FAILED = "agenda.toggle_pinned_failed"
         private const val RESTORE_FAILED = "agenda.restore_failed"
+        private const val BULK_DELETE_FAILED = "agenda.bulk_delete_failed"
+        private const val BULK_COMPLETE_FAILED = "agenda.bulk_complete_failed"
     }
 }
 

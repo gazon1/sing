@@ -1,7 +1,6 @@
 package com.singularity.todo.arch
 
 import org.junit.jupiter.api.Tag
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -30,15 +29,15 @@ import kotlin.test.fail
  * `SyncDocumentWriter.upsert` — so the exemption set is read from that file rather than
  * maintained beside it.
  *
- * That is the same decision `SyncWriteIsAtomicTest` makes for the receiver name, and for
- * the same reason: a hand-written list of method names goes stale silently, and the tree
- * it goes stale on still reports green. Two lists drifting apart in one session is enough
- * evidence; the third is derived instead.
+ * That is the same decision `SyncWriteIsAtomicTest` makes for the receiver name, and for the
+ * same reason: a hand-written list of method names goes stale silently, and the tree it goes
+ * stale on still reports green. Two lists drifting apart in one session is enough evidence;
+ * the third is derived instead.
  *
  * ## What is left over
  *
- * Two writes are not apply handlers and still do not enqueue, each for a different
- * reason and neither the one this file used to claim.
+ * Two writes are not apply handlers and still do not enqueue, each for a different reason
+ * and neither the one this file used to claim.
  *
  * `saveOutgoingLinks` writes `tasks.outgoing_links`, and `outgoingLinks` is **not** in the
  * server's allowlist for `task` — checked against the live project on 2026-10-07. It *is*
@@ -60,11 +59,11 @@ import kotlin.test.fail
  *
  * ## What this does not prove
  *
- * It is a lexical rule over method bodies: it sees DAO calls whose names start with a
- * write verb and an `enqueue` somewhere in the same method. A write performed by a helper
- * with a non-obvious name, or a field that becomes synced later without the method
- * changing, will pass. It is a ratchet against losing an enqueue in a refactor, not a
- * proof that every synced field is propagated.
+ * It is a lexical rule over method bodies: it sees DAO calls whose names start with a write
+ * verb and an `enqueue` somewhere in the same method. A write performed by a helper with a
+ * non-obvious name, or a field that becomes synced later without the method changing, will
+ * pass. It is a ratchet against losing an enqueue in a refactor, not a proof that every
+ * synced field is propagated.
  */
 @Tag("fast")
 class SyncedWriteEnqueuesTest {
@@ -79,10 +78,10 @@ class SyncedWriteEnqueuesTest {
                 "missing patch. The path or the pattern has moved.",
         )
 
-        val offenders = repositoryFiles().flatMap { file ->
+        val offenders = repoImplFiles().flatMap { file ->
             val source = file.readText()
             if (!hasSyncDependency(source)) return@flatMap emptyList()
-            methods(source)
+            SourceScan.methods(source)
                 .filter { WRITES_ROW_IN_BODY.containsMatchIn(it.body) }
                 .filter { it.name !in applyHandlers }
                 .filter { method -> NOT_SYNCED_WRITES.none { it.first == method.name } }
@@ -122,14 +121,11 @@ class SyncedWriteEnqueuesTest {
         // The order is checked, not just the presence. `GUARD_BEFORE_WRITE` matches the two
         // as a sequence, because a guard *after* the write is a cross-user write that has
         // already happened, and a presence check cannot tell the two apart.
-        val offenders = repositoryFiles().flatMap { file ->
+        val applyHandlers = applyHandlerNames()
+        val offenders = repoImplFiles().flatMap { file ->
             val source = file.readText()
             if (!hasSyncDependency(source)) return@flatMap emptyList()
-            // The apply handlers write unscoped with no guard, and correctly so: the row is
-            // being written *because* the server sent it, and the owner comes from the
-            // document. Exempt for the same reason as everywhere else — derived, not listed.
-            val applyHandlers = applyHandlerNames()
-            methods(source)
+            SourceScan.methods(source)
                 .filterNot { it.name in applyHandlers }
                 .filter { method -> UNSCOPED_WRITE.containsMatchIn(method.body) }
                 .filterNot { method -> GUARD_BEFORE_WRITE.containsMatchIn(method.body) }
@@ -162,10 +158,10 @@ class SyncedWriteEnqueuesTest {
         // enqueues the group and its released members.
         val applyHandlers = applyHandlerNames()
         val notSynced = NOT_SYNCED_WRITES.map { it.first }.toSet()
-        val offenders = repositoryFiles().flatMap { file ->
+        val offenders = repoImplFiles().flatMap { file ->
             val source = file.readText()
             if (!hasSyncDependency(source)) return@flatMap emptyList()
-            methods(source)
+            SourceScan.methods(source)
                 .filterNot { it.name in applyHandlers || it.name in notSynced }
                 .map { it to WRITES_ROW_IN_BODY.findAll(it.body).count() }
                 .filter { (_, writes) -> writes > 1 }
@@ -208,45 +204,24 @@ class SyncedWriteEnqueuesTest {
         assertEquals2(setOf("upsert"), derived, "only repo.upsert( is a remote apply")
     }
 
-    // ── derivation ────────────────────────────────────────────────────────────────
+    // ── source helpers (SourceScan.eliminated to eliminate) ──────────────────────
 
-    private fun applyHandlerNames(): Set<String> = applyHandlerNamesIn(writerSource())
+    private fun repoImplFiles() =
+        SourceScan.productionFiles().filter { it.name.endsWith("RepositoryImpl.kt") }
+
+    private fun applyHandlerNames(): Set<String> {
+        val root = SourceScan.commonMainRoot()
+        val file = root.resolve("core/sync/SyncDocumentWriter.kt")
+        assertTrue(file.isFile, "SyncDocumentWriter.kt is not where this test expects it: ${file.path}")
+        return applyHandlerNamesIn(SourceScan.stripComments(file.readText()))
+    }
 
     /** Method names invoked as `<repo>.upsert(` inside the writer's dispatch. */
     private fun applyHandlerNamesIn(source: String): Set<String> =
         APPLY_CALL.findAll(source).map { it.groupValues[1] }.toSet()
 
-    private fun writerSource(): String {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see the jvmTest task config")
-        val file = File(root, "com/singularity/todo/core/sync/SyncDocumentWriter.kt")
-        assertTrue(file.isFile, "SyncDocumentWriter.kt is not where this test expects it: ${file.path}")
-        return file.readText()
-    }
-
-    private fun repositoryFiles(): List<File> {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see the jvmTest task config")
-        return File(root, "com/singularity/todo/feature")
-            .walkTopDown()
-            .filter { it.isFile && it.name.endsWith("RepositoryImpl.kt") }
-            .toList()
-    }
-
     private fun hasSyncDependency(source: String): Boolean =
         Regex("""private val \w+\s*:\s*SyncRepository""").containsMatchIn(source)
-
-    /** A `fun name(...)` block, with the line it starts on so a finding can be jumped to. */
-    private data class Method(val name: String, val line: Int, val body: String)
-
-    private fun methods(source: String): List<Method> {
-        val declaration = Regex("""(?m)^[ \t]*(?:override |private |internal |suspend )*fun (\w+)\s*\(""")
-        val starts = declaration.findAll(source).map { it.range.first to it.groupValues[1] }.toList()
-        return starts.mapIndexed { index, (offset, name) ->
-            val end = starts.getOrNull(index + 1)?.first ?: source.length
-            Method(name, source.take(offset).count { it == '\n' } + 1, source.substring(offset, end))
-        }
-    }
 
     private fun assertEquals2(expected: Set<String>, actual: Set<String>, message: String) {
         if (expected != actual) {

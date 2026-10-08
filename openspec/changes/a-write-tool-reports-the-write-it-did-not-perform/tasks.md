@@ -17,8 +17,11 @@
 - [ ] Note in the KDoc of at least `CreateNoteTool` why the unwrap is there, so
       the next author adding an eighth write tool sees the convention at the
       site rather than only in this change.
-- [ ] Close the backlog entry `ai-tools-drop-a-failed-write`, and reference this
-      change from it.
+- [x] Closed. There is no backlog entry `ai-tools-drop-a-failed-write`: it does not appear in
+      `docs/decisions/deferred-backlog.md`, and `git log -S` finds the slug only in
+      the commit that wrote it here. The finding came from the 2026-10-07 sweep, not
+      from a backlog row — so there is nothing to close, and writing an entry now in
+      order to close it next would be theatre. This change is the whole of the record.
 - [ ] Out of scope, recorded rather than silently dropped: the remaining 25
       dropped-`Result` sites the audit found (18 `syncRepository.enqueue`, 3
       `proposals.refreshStatus`, `ProfileBootstrapper`, 2 in

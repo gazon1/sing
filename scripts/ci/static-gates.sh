@@ -138,6 +138,12 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 gate advisory "ADR frontmatter drift" adr_dry_run
 gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
 
+# Advisory — exit plan recorded in the script's "Known instances" section.
+# It is red today: `log-export-surface` and `add-log-export` both ADD REQ-LE-001..004, one
+# requirement written twice in two folders. That pair is reconciled on its own; when it is,
+# this becomes blocking and the `advisory` word goes with it.
+gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
+
 # --- report ------------------------------------------------------------------
 echo
 echo "gates: ${#PASSED[@]} passed, ${#FAILED[@]} failed, ${#WARNED[@]} advisory-failed"

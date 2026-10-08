@@ -16,6 +16,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeTaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -71,6 +72,7 @@ class AgendaViewModelTest {
 
     private val fakeRepo = FakeTaskRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
+    private val fakeTaskMutations = FakeTaskMutationsUseCase(fakeRepo)
     private val fakeReminderScheduler = object : ReminderScheduler {
         override val isSupported: Boolean = true
         override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
@@ -98,6 +100,7 @@ class AgendaViewModelTest {
             draftStore = FakeDraftStore(),
             reminderScheduler = fakeReminderScheduler,
             currentUser = fakeCurrentUser,
+            taskMutations = fakeTaskMutations,
         ),
         definition = AgendaPresets.Inbox,
         scope = scope,
@@ -200,6 +203,7 @@ class AgendaViewModelTest {
                     draftStore = draftStore,
                     reminderScheduler = fakeReminderScheduler,
                     currentUser = fakeCurrentUser,
+                    taskMutations = fakeTaskMutations,
                 ),
                 definition = AgendaPresets.Today,
                 scope = vmScope,

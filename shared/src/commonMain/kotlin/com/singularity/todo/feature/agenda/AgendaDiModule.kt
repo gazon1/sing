@@ -17,6 +17,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
@@ -57,6 +58,7 @@ fun agendaModule(): Module = module {
                 draftStore = get<DraftStore>(),
                 reminderScheduler = get<ReminderScheduler>(),
                 currentUser = get<ProfileAwareCurrentUser>(),
+                taskMutations = get<TaskMutationsUseCase>(),
             ),
             definition = definition,
             crashReporter = get(),

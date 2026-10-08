@@ -5,7 +5,7 @@
 ## What
 
 A download cycle reads pages until the feed says it has no more, rather than issuing one
-request and treating the answer as the whole feed. Requirements REQ-OS-026, REQ-OS-027.
+request and treating the answer as the whole feed. Requirements REQ-OS-015, REQ-OS-016.
 
 ## Why
 

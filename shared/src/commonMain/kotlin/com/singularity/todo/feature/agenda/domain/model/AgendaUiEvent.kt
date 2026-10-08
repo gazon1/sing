@@ -27,4 +27,13 @@ sealed interface AgendaUiEvent : MviEvent {
      * @param taskTitle Short label for the snackbar.
      */
     data class UndoDelete(val taskId: TaskId, val taskTitle: String) : AgendaUiEvent
+
+    /**
+     * A bulk operation (delete or complete) finished.
+     *
+     * @param count How many tasks were affected.
+     * @param operation Human-readable label: "deleted" or "completed".
+     * @param error null on success; error message string on failure.
+     */
+    data class BulkOperationDone(val count: Int, val operation: String, val error: String? = null) : AgendaUiEvent
 }

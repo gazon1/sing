@@ -18,7 +18,10 @@ import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.presentation.NotesIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -42,6 +45,7 @@ import kotlinx.datetime.plus
  * @see NotesUiState
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+@Suppress("TooManyFunctions") // 16 functions: undo path adds 4 internal helpers
 class NotesListViewModel(
     private val repo: NotesRepository,
     // `todayFlow` requires both now (#91). Defaulted rather than required: daily
@@ -59,9 +63,21 @@ class NotesListViewModel(
         scope = scope,
     ) {
 
+    /**
+     * Local reference for use in suspend contexts where the parent class's
+     * private `crashReporter` is not accessible.
+     */
+    private val crashReporter: CrashReportingPort = crashReporter
+
     private companion object {
         /** Keystrokes settle for this long before a repository query runs. */
         const val SEARCH_DEBOUNCE_MS = 200L
+
+        /** 5-second undo window, matching the snackbar duration. */
+        const val UNDO_WINDOW_MS = 5_000L
+
+        private const val DELETE_FAILED = "notes.delete_failed"
+        private const val RESTORE_FAILED = "notes.restore_failed"
     }
 
     // [filter] and [sortOrder] are inputs to the collector below, not public surface:
@@ -90,6 +106,16 @@ class NotesListViewModel(
 
     private val _selectedIds = MutableStateFlow<Set<NoteId>>(emptySet())
     private val _isSelectionMode = MutableStateFlow(false)
+
+    /**
+     * Tracks a soft-deleted note pending undo, so the snackbar can offer a 5-second window.
+     * Null when no delete is pending.
+     */
+    private val _pendingDelete = MutableStateFlow<PendingDelete?>(null)
+    val pendingDelete = _pendingDelete.asStateFlow()
+
+    /** Cooldown job for clearing [_pendingDelete] after the undo window expires. */
+    private var pendingDeleteJob: Job? = null
 
     init {
         scope.launch {
@@ -147,7 +173,7 @@ class NotesListViewModel(
 
     override fun onIntent(intent: NotesIntent) {
         when (intent) {
-            is NotesIntent.Delete -> delete(intent.id)
+            is NotesIntent.Delete -> handleDelete(intent.id)
             is NotesIntent.TogglePin -> togglePin(intent.id)
             is NotesIntent.Archive -> archive(intent.id)
             is NotesIntent.Unarchive -> unarchive(intent.id)
@@ -159,7 +185,8 @@ class NotesListViewModel(
             NotesIntent.ExitSelection -> exitSelectionMode()
             NotesIntent.DeleteSelected -> deleteSelected()
             is NotesIntent.CreateNote -> createNoteWithTitle(intent.title)
-            is NotesIntent.DeleteNote -> delete(intent.id)
+            is NotesIntent.DeleteNote -> handleDelete(intent.id)
+            is NotesIntent.UndoDelete -> onUndoDeleteIntent()
         }
     }
 
@@ -267,20 +294,71 @@ class NotesListViewModel(
         }
     }
 
-    // ─── Delete ───────────────────────────────────────────────────────────
+    // ─── Delete / Undo ──────────────────────────────────────────────────
 
     /**
-     * Deletes one note.
+     * Soft-deletes a note and emits [NotesUiEvent.UndoDelete] so the UI can show a snackbar.
+     * The snackbar offers a 5-second undo window; if not tapped, [pendingDeleteJob]
+     * calls [repo.delete]. If the user taps Undo, [onUndoDelete] calls [repo.restore].
      *
-     * Pin, archive and unarchive above all route through [emitError], and this one did
-     * not — so a note that failed to delete disappeared from the list the user was
-     * looking at, and the one screen that would have told them the delete did not happen
-     * was never asked. A delete is the mutation a user is least likely to retry on their
-     * own, which is exactly why it must not fail quietly.
+     * The note disappears from the list optimistically — [repo.delete] is called only
+     * after the undo window expires. This matches the behaviour of [AgendaViewModel]
+     * for task deletion.
      */
-    private fun delete(id: NoteId) {
-        emitError("Delete failed", { msg -> NotesUiEvent.Error("Delete failed: $msg") }) {
-            repo.delete(id)
+    private fun handleDelete(noteId: NoteId) {
+        val noteTitle = findNoteTitle(noteId)
+
+        // Cancel any existing undo window — a new delete supersedes it.
+        pendingDeleteJob?.cancel()
+
+        // Store the pending delete and emit the event.
+        _pendingDelete.value = PendingDelete(noteId, noteTitle)
+        scope.launch { emit(NotesUiEvent.UndoDelete(noteId, noteTitle)) }
+
+        // Kick off the 5-second undo window. When it expires, commit the delete.
+        pendingDeleteJob = scope.launch {
+            delay(UNDO_WINDOW_MS)
+            _pendingDelete.value = null
+            repo.delete(noteId)
+                .onFailure { crashReporter.report(it, DELETE_FAILED) }
         }
     }
+
+    /**
+     * Restores the last soft-deleted note, cancelling the undo window.
+     * Called when the user taps "Undo" on the snackbar.
+     */
+    private suspend fun onUndoDelete(noteId: NoteId) {
+        pendingDeleteJob?.cancel()
+        _pendingDelete.value = null
+        repo.restore(noteId)
+            .onFailure { crashReporter.report(it, RESTORE_FAILED) }
+    }
+
+    /**
+     * Call this from the UI when the user taps "Undo" on the snackbar.
+     * The UI layer holds the snackbar reference and invokes this method directly.
+     */
+    fun onUndoDeleteIntent() {
+        val pending = _pendingDelete.value ?: return
+        scope.launch { onUndoDelete(pending.noteId) }
+    }
+
+    private fun findNoteTitle(noteId: NoteId): String {
+        val current = currentState as? NotesUiState.Content ?: return "Note"
+        val note = current.list.pinned
+            .plus(current.list.unpinned)
+            .plus(current.list.templates)
+            .plus(current.list.dailyNotes)
+            .firstOrNull { it.id == noteId }
+        return note?.title?.ifEmpty { "Note" } ?: "Note"
+    }
 }
+
+/**
+ * A note that has been soft-deleted and is pending an undo window.
+ *
+ * @param noteId The deleted note id.
+ * @param title  Short label for the snackbar.
+ */
+data class PendingDelete(val noteId: NoteId, val title: String)

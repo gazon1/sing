@@ -22,4 +22,10 @@ sealed interface NotesIntent : MviIntent {
     data object DeleteSelected : NotesIntent
     data class CreateNote(val title: String) : NotesIntent
     data class DeleteNote(val id: NoteId) : NotesIntent
+
+    /**
+     * Restores a note that was soft-deleted and is still within the 5-second undo window.
+     * Called by the UI when the user taps "Undo" on the snackbar.
+     */
+    data class UndoDelete(val id: NoteId) : NotesIntent
 }

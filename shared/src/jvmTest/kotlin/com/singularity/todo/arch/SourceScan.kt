@@ -91,6 +91,69 @@ internal object SourceScan {
     }
 
     /**
+     * The `{ … }` body of a function whose parameter list ends at [afterParenIndex].
+     *
+     * Unlike [bodyOf], this handles Kotlin functions with default parameters correctly:
+     * `fun foo(x: Int = default()) { body }` — the `{` is not immediately after `)`.
+     * Returns the text inside the braces (without the braces themselves), or null.
+     */
+    fun methodBody(source: String, afterParenIndex: Int): String? {
+        var i = afterParenIndex + 1
+        while (i < source.length && source[i].isWhitespace()) i++
+        return bodyOf(source, i)
+    }
+
+    /**
+     * Every function declaration in [source] with its stripped body.
+     *
+     * Declarations are found by scanning [source]; the body is extracted from [stripComments]
+     * so regexes run against it are comment-safe. Line numbers are 1-based.
+     */
+    fun methods(source: String): List<Method> {
+        val stripped = stripComments(source)
+        val declaration = Regex("""(?m)^[ \t]*(?:override |private |internal |suspend )*fun (\w+)\s*\(""")
+        val starts = declaration.findAll(stripped).map { it.range.first to it.groupValues[1] }.toList()
+        return starts.mapIndexed { index, (strippedOffset, name) ->
+            val body = methodBodyFromStripped(stripped, strippedOffset) ?: ""
+            val line = stripped.offsetToLine(strippedOffset)
+            Method(name, line, body)
+        }
+    }
+
+    /**
+     * A `fun name(...)` block extracted from [source], with the line it starts on so a finding
+     * can be jumped to. Line numbers are 1-based.
+     */
+    data class Method(val name: String, val line: Int, val body: String)
+
+    // ── private helpers ─────────────────────────────────────────────────────────
+
+    /**
+     * The body of the function that starts at [funOffset] in [stripped], which must point to
+     * the `fun` keyword. Scans forward to the `(` after the name, then to the `{`, then
+     * extracts up to the matching `}`.
+     *
+     * Returns the text inside the braces, or null if the braces do not balance.
+     */
+    private fun methodBodyFromStripped(stripped: String, funOffset: Int): String? {
+        var i = funOffset
+        // Skip "fun <name>(" — the first '(' after "fun"
+        while (i < stripped.length && stripped[i] != '(') i++
+        if (i >= stripped.length) return null
+        val closeParen = closingParen(stripped, i)
+        if (closeParen < 0) return null
+        // Find the opening brace
+        var j = closeParen + 1
+        while (j < stripped.length && stripped[j].isWhitespace()) j++
+        if (j >= stripped.length || stripped[j] != '{') return null
+        // Extract body using bodyOf on the stripped source
+        return bodyOf(stripped, j)
+    }
+
+    private fun String.offsetToLine(offset: Int): Int =
+        if (offset <= 0) 1 else substring(0, offset).count { it == '\n' } + 1
+
+    /**
      * Blanks comments, preserving line numbers and in-line offsets.
      *
      * Newlines survive so a finding still points at the right line; every other character
