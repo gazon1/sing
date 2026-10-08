@@ -1,9 +1,9 @@
 package com.singularity.todo.core.notifications
 
+import com.singularity.todo.core.process.Subprocess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -143,25 +143,17 @@ class JvmNotifierTest {
      *
      * Computed independently rather than by calling the same helper, so agreement is
      * evidence and not a tautology.
+     *
+     * No `assumeTrue` skip — both branches of the assertion are `false == false`
+     * or `true == true` regardless of whether `notify-send` is installed, so the
+     * assertion is informative on any host without ever skipping.
      */
     @Test
     fun `the real probe agrees with running the command directly`() {
-        // notify-send is not available in the CI environment — skip rather than fail.
-        val notifySendExists = ProcessBuilder("notify-send", "--version")
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-            .waitFor() == 0
-        assumeTrue(notifySendExists, "notify-send is not installed")
-
-        val direct = ProcessBuilder("notify-send", "--version")
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-            .waitFor()
+        val direct = Subprocess.runQuietly(listOf("notify-send", "--version")) == 0
 
         assertEquals(
-            direct == 0,
+            direct,
             JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported,
             "the probe must report exactly what the command returns",
         )
