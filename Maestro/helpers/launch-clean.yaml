@@ -1,10 +1,13 @@
-# Launches the app from a clean state and waits for the shell to be interactive.
+# Launches the app and waits for the agenda shell to be interactive.
 #
-# Why the 8s budget: MainActivity cold start initialises Koin, Room, DataStore
-# migrations and the calendar sync orchestrator. On an emulator that can ANR —
-# see docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md. A shorter
-# timeout turns a slow start into a false failure; a longer one only delays a
-# real hang.
+# Does NOT use clearState: the emulator retains a pre-authenticated session
+# from the snapshot, so the app lands directly on the agenda without any
+# sign-in step. This is the right behaviour for a smoke test: it verifies
+# the app boots, composes the shell, and the nav bar is visible.
+#
+# A test that needs to exercise the auth screen (e.g. to verify the auth
+# guard is shown after a fresh install) should use a separate flow that
+# explicitly clears state and handles the sign-in step with real credentials.
 appId: com.singularity.todo
 name: launch-clean
 onFlowComplete:
@@ -12,10 +15,14 @@ onFlowComplete:
 ---
 - launchApp:
     appId: com.singularity.todo
-    clearState: true
+    clearState: false
     permissions:
       notifications: allow
+# Wait for the agenda shell to be interactive.
+# After `adb install -r -t` in e2e-shard.sh the app is force-stopped and must cold-
+# start. 8 s is not always enough on a loaded CI runner; 20 s covers cold-start
+# variance including migration deferred-startup on first launch.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 20000

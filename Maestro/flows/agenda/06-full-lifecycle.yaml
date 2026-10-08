@@ -60,11 +60,14 @@ tags:
     timeout: 8000
 
 # ── 4. Overflow menu → Edit → rename → Save ─────────────────────────────
-- tapOn: "⋮"
+- tapOn:
+    id: saved_agenda_overflow_button
 - extendedWaitUntil:
-    visible: "Edit"
+    visible:
+      id: saved_agenda_menu_edit
     timeout: 8000
-- tapOn: "Edit"
+- tapOn:
+    id: saved_agenda_menu_edit
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input
@@ -89,11 +92,14 @@ tags:
     timeout: 8000
 
 # ── 5. Overflow menu → Delete (immediate, no confirm on the list) ───────
-- tapOn: "⋮"
+- tapOn:
+    id: saved_agenda_overflow_button
 - extendedWaitUntil:
-    visible: "Delete"
+    visible:
+      id: saved_agenda_menu_delete
     timeout: 8000
-- tapOn: "Delete"
+- tapOn:
+    id: saved_agenda_menu_delete
 - extendedWaitUntil:
     visible: "No saved views yet"
     timeout: 8000

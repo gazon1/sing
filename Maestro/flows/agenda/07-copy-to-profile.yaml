@@ -41,11 +41,14 @@ tags:
     timeout: 8000
 
 # ── 2. Overflow menu → Copy to profile → pick "Personal" ────────────────
-- tapOn: "⋮"
+- tapOn:
+    id: saved_agenda_overflow_button
 - extendedWaitUntil:
-    visible: "Copy to profile"
+    visible:
+      id: saved_agenda_menu_copy_to_profile
     timeout: 8000
-- tapOn: "Copy to profile"
+- tapOn:
+    id: saved_agenda_menu_copy_to_profile
 - extendedWaitUntil:
     visible: "Copy to profile"
     timeout: 8000

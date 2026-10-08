@@ -8,8 +8,10 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 
 /**
  * One-shot migration from the legacy flat-key DataStore to the new split + namespaced format.
@@ -82,14 +84,18 @@ class SettingsDataStoreMigration(
     }
 
     /**
-     * Runs the migration synchronously (blocking). Named `runBlockingForStartup`
-     * (not `runBlocking`) so the detekt rule doesn't flag call sites of this
-     * legitimate bridge as raw `runBlocking` usage.
-     * Call from a `runBlocking` context or from `koinBridge { }` in a Koin factory.
-     * Returns `true` if migration ran, `false` if it was already done.
+     * Non-blocking version: launches the migration on [Dispatchers.IO] inside [scope].
+     *
+     * Use this instead of [runBlockingForStartup] when a coroutine scope is available
+     * (e.g. in a Koin `single {}` factory). The migration runs asynchronously and
+     * does not block the calling thread.
+     *
+     * @param scope Coroutine scope to launch the migration in. Use
+     *   `CoroutineScope(Dispatchers.IO)` for a pure-background migration.
      */
-    @Suppress("NoRunBlocking") // one-shot DataStore migration at DI startup — no coroutine context yet
-    fun runBlockingForStartup(): Boolean = runBlocking { run() }
+    fun runDeferred(scope: CoroutineScope): Unit {
+        scope.launch(Dispatchers.IO) { run() }
+    }
 
     /**
      * Suspend entry-point that accepts DataStores as parameters.

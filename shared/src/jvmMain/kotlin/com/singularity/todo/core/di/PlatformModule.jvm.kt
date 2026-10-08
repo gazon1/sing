@@ -62,6 +62,7 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.RoomUnitOfWork
 import com.singularity.todo.core.database.UnitOfWork
@@ -136,8 +137,9 @@ actual fun platformModule(): Module = module {
 
     // One-shot migration: v0 flat-key settings → v1 split + namespaced.
     // Idempotent: skips if state.preferences_pb already has settings_schema_version.
-    koinBridge {
-        SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).run()
+    // Non-blocking: runs on Dispatchers.IO, does not stall Koin startup scope.
+    CoroutineScope(Dispatchers.IO).let { bgScope ->
+        SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).runDeferred(bgScope)
     }
 
     // Named DataStore bindings — used by SettingsRepository and migration.

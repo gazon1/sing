@@ -50,11 +50,14 @@ tags:
 # Open it in the editor. Tapping the card body opens the *results* screen, not
 # the editor — Edit lives in the card's overflow menu (SavedAgendaCard.kt), and
 # Delete is only offered from edit mode, which is what the second half needs.
-- tapOn: "⋮"
+- tapOn:
+    id: saved_agenda_overflow_button
 - extendedWaitUntil:
-    visible: "Edit"
+    visible:
+      id: saved_agenda_menu_edit
     timeout: 8000
-- tapOn: "Edit"
+- tapOn:
+    id: saved_agenda_menu_edit
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input

@@ -64,6 +64,8 @@ import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -177,6 +179,8 @@ actual fun platformModule(): Module = module {
 
     // One-shot migration: v0 flat-key settings → v1 split + namespaced.
     // Bound as a single so we can access `get<SecureStoragePort>()` inside Koin scope.
+    // Both migrations are I/O-bound (DataStore + SecureStorage file ops) and must NOT
+    // block the main thread — they run on Dispatchers.IO instead of runBlocking.
     single {
         val secureStorage = get<SecureStoragePort>()
         val legacyDs = get<DataStore<Preferences>>(qualifier = named("settings"))
@@ -187,8 +191,10 @@ actual fun platformModule(): Module = module {
             userSettingsDataStore = userSettingsDs,
             stateDataStore = stateDs,
         )
-        migration.runBlockingForStartup()
-        koinBridge { AiApiKeyMigration.run(legacyDs, secureStorage) }
+        // Run both migrations in parallel on Dispatchers.IO — neither blocks the main thread.
+        val bgScope = CoroutineScope(Dispatchers.IO)
+        migration.runDeferred(bgScope)
+        bgScope.launch { AiApiKeyMigration.run(legacyDs, secureStorage) }
         Unit
     }
 

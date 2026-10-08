@@ -25,7 +25,7 @@ tags:
 - assertVisible: "Dark Theme"
 - assertVisible: "Accent Color"
 - tapOn:
-    text: "Dark Theme"
+    id: settings_dark_theme_switch
 # Still interactive, and the rest of the tab is intact.
 - assertVisible: "Font Size"
 - tapOn:

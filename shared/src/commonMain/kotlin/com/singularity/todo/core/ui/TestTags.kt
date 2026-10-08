@@ -177,6 +177,18 @@ object TestTags {
      */
     const val AGENDA_TAG_MATCH_ALL = "agenda_tag_match_all"
 
+    /** Overflow menu button (⋮) on a saved-agenda card. */
+    const val SAVED_AGENDA_OVERFLOW_BUTTON = "saved_agenda_overflow_button"
+
+    /** "Edit" in a saved-agenda card overflow menu. */
+    const val SAVED_AGENDA_MENU_EDIT = "saved_agenda_menu_edit"
+
+    /** "Copy to profile" in a saved-agenda card overflow menu. */
+    const val SAVED_AGENDA_MENU_COPY_TO_PROFILE = "saved_agenda_menu_copy_to_profile"
+
+    /** "Delete" in a saved-agenda card overflow menu. */
+    const val SAVED_AGENDA_MENU_DELETE = "saved_agenda_menu_delete"
+
     /** Dynamic tag of the form `saved_agenda_card_<slug>`. */
     fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
 
@@ -207,6 +219,15 @@ object TestTags {
 
     /** Dynamic tag of the form `pomodoro_task_chip_<slug>`. */
     fun pomodoroTaskChip(title: String) = "pomodoro_task_chip_${slug(title)}"
+
+    // ─── Calendar view mode tabs (Month / Day / 4 days) ───────────────────
+
+    /**
+     * Calendar view-mode selector tabs in the agenda screen's top bar.
+     * Use: `TestTags.calendarViewMode("month")`, `TestTags.calendarViewMode("day")`,
+     * `TestTags.calendarViewMode("4_days")`.
+     */
+    fun calendarViewMode(mode: String) = "calendar_view_mode_${slug(mode)}"
 
     // ─── Tags ───────────────────────────────────────────────────────────────
     const val TAGS_LIST = "tags_list"
@@ -259,6 +280,12 @@ object TestTags {
     object Settings {
         /** The Dark Theme toggle row's outer Row (clickable, semantic Role.Switch). */
         const val DARK_THEME_SWITCH = "settings_dark_theme_switch"
+
+        /** The accent-color swatch picker — one per [SingularityAccents]. */
+        fun accentSwatch(accentName: String) = "settings_accent_swatch_${slug(accentName)}"
+
+        /** Font-size slider in the interface settings screen. */
+        const val FONT_SIZE_SLIDER = "settings_font_size_slider"
 
         /** Master switch for notifications at all. */
         const val NOTIFICATIONS_ENABLED_SWITCH = "settings_notifications_enabled_switch"

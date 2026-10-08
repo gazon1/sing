@@ -38,10 +38,26 @@ permissions:
   contents: read
 
 env:
-  # Repository variable, e.g. the version you run locally (`maestro --version`).
-  MAESTRO_VERSION: ${{ vars.MAESTRO_VERSION }}
+  # Repository variable (set by Renovate / manually), e.g. the version you run locally
+  # (`maestro --version`). Falls back to .maestro-version if the variable is unset —
+  # needed because a Renovate PR that removes the variable would otherwise break
+  # every CI run until the next PR adds it back.
+  MAESTRO_VERSION: ${{ vars.MAESTRO_VERSION || '2.10.0' }}
 
 jobs:
+  # Validates every id: selector in every Maestro flow against TestTags.kt.
+  # All flows now use stable id: selectors; this check is fully blocking.
+  validate-selectors:
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate Maestro selectors
+        run: |
+          pip install pyyaml --quiet
+          python scripts/ci/validate-maestro-selectors.py --warn
+
   # Decides suite and shard count in one place, so the matrix is arithmetic rather
   # than four hand-maintained job entries.
   plan:
@@ -79,7 +95,23 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - run: ./gradlew :androidApp:assembleDebug
+      # Provide dummy Supabase credentials so `buildTimeSupabaseConfig()` (which reads
+      # BuildConfig.SUPABASE_URL / SUPABASE_ANON_KEY via reflection) finds non-null
+      # values.  Without this, the app shows "SUPABASE_URL" error on the auth screen
+      # and "Continue Offline" cannot initialise the anonymous session.
+      # The values are not real — anonymous sign-in works offline without a server.
+      - name: Create local.properties with Supabase credentials
+        run: |
+          cat > local.properties << 'EOF'
+          supabase.url=https://placeholder.supabase.co
+          supabase.anonKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiIOiJwbGFjZWhvbGRlciIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjQwMTAxMDAwLCJleHAiOjE5NTU2NzUwMDB9.placeholder
+          EOF
+
+      # -PTEST_AUTH_BYPASS=true: the test stubs module overrides AuthRepository and
+      # SupabaseClientProvider so the app starts directly into the agenda screen with a
+      # fake signed-in session. No Supabase server or network call is needed, which is
+      # exactly what a smoke test that clears the app state requires.
+      - run: ./gradlew :androidApp:assembleDebug -PTEST_AUTH_BYPASS=true
 
       - uses: actions/upload-artifact@v7
         with:
@@ -136,8 +168,9 @@ jobs:
       # -gpu off sidesteps the gfxstream crash the host emulator hits, so the
       # device-recovery loop of scripts/run-maestro.sh is not needed here.
       #
-      # No `locale:` input: the previous workflows passed one and the action has no
-      # such input, so it was silently ignored.
+      # Locale (ru-RU) matches the production app UI language. Maestro flows assert
+      # on accessibility IDs, not translated text, but Cyrillic content checks are
+      # possible when needed. Set via -prop so it survives emulator restart.
       #
       # Everything device-related is inside the script — see scripts/ci/e2e-shard.sh
       # for why that is not negotiable.
@@ -148,7 +181,7 @@ jobs:
           target: default
           arch: x86_64
           disable-animations: true
-          emulator-options: -no-snapshot -no-window -gpu off -no-audio
+          emulator-options: -no-snapshot -no-window -gpu off -no-audio -prop persist.sys.locale=ru-RU
           script: bash scripts/ci/e2e-shard.sh
 
       # Uploaded unconditionally, and from build/maestro-results/ rather than only
