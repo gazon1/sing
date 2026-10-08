@@ -136,7 +136,7 @@ class FakeAppDatabase : AppDatabase() {
     @Suppress("BackingPropertyNaming")
     private val _proposalItems = MutableStateFlow<Map<String, ProposalItemEntity>>(emptyMap())
 
-    override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies)
+    override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies, _tags, _projectTagGroups)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
     override fun tagDao(): TagDao = FakeTagDao(_tags)
@@ -343,6 +343,8 @@ private class FakeTaskDao(
     private val store: MutableStateFlow<Map<String, TaskEntity>>,
     private val crossRefs: MutableStateFlow<List<TaskTagCrossRef>>,
     private val depRefs: MutableStateFlow<List<TaskDependencyCrossRef>>,
+    private val tags: MutableStateFlow<Map<String, TagEntity>>,
+    private val projectTagGroups: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
 ) : TaskDao {
 
     override fun watchActive(userId: String): Flow<List<TaskEntity>> = store.map {
@@ -394,29 +396,53 @@ private class FakeTaskDao(
     }
 
     override fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>> =
-        kotlinx.coroutines.flow.combine(store, crossRefs) { tasks, refs ->
-            val taskIds = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()
+        kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
+            val directlyTagged = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()
+            val inheritedViaProject = ptgRefs
+                .filter { ptg -> tagsMap.values.any { t -> t.groupId == ptg.tagGroupId && t.id == tagId } }
+                .mapNotNull { ptg -> tasks.values.find { t -> t.projectId == ptg.projectId }?.id }
+                .toSet()
+            val allIds = directlyTagged + inheritedViaProject
             tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.id in taskIds
+                t.userId == userId && t.archivedAt == null && t.id in allIds
             }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
     override fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<TaskEntity>> =
-        kotlinx.coroutines.flow.combine(store, crossRefs) { tasks, refs ->
-            val taskIds = refs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
+        kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
+            val directlyTagged = refs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
+            val inheritedViaProject = ptgRefs
+                .filter { ptg -> tagsMap.values.any { t -> t.groupId == ptg.tagGroupId && t.id in tagIds } }
+                .mapNotNull { ptg -> tasks.values.find { t -> t.projectId == ptg.projectId }?.id }
+                .toSet()
+            val allIds = directlyTagged + inheritedViaProject
             tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.id in taskIds
+                t.userId == userId && t.archivedAt == null && t.id in allIds
             }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
     override fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<TaskEntity>> =
-        kotlinx.coroutines.flow.combine(store, crossRefs) { tasks, refs ->
-            val matchingTaskIds = refs.filter { it.tagId in tagIds }
-                .groupBy { it.taskId }
-                .filterValues { group -> group.map { it.tagId }.toSet() == tagIds.toSet() }
-                .keys
+        kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
+            // Build per-task set of tags: direct + inherited via the task's project
+            val taskTagSets = mutableMapOf<String, MutableSet<String>>()
+            for (t in tasks.values) {
+                if (t.archivedAt != null || t.userId != userId) continue
+                val direct = refs.filter { it.taskId == t.id && it.tagId in tagIds }.map { it.tagId }.toMutableSet()
+                val inherited = mutableSetOf<String>()
+                t.projectId?.let { pid ->
+                    val inheritedGroupIds = ptgRefs.filter { it.projectId == pid }.map { it.tagGroupId }.toSet()
+                    tagsMap.values
+                        .filter { it.groupId in inheritedGroupIds && it.id in tagIds }
+                        .forEach { inherited.add(it.id) }
+                }
+                taskTagSets[t.id] = (direct + inherited).toMutableSet()
+            }
+            val matchingIds = taskTagSets.entries
+                .filter { it.value.size == tagIds.toSet().size && tagIds.all { id -> id in it.value } }
+                .map { it.key }
+                .toSet()
             tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.id in matchingTaskIds
+                t.userId == userId && t.archivedAt == null && t.id in matchingIds
             }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
