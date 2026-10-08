@@ -13,10 +13,9 @@ plugins {
     alias(libs.plugins.ksp)
     // Room 3 KSP plugin (schema export)
     alias(libs.plugins.room3)
-    // Koin Compiler Plugin 1.2 — validates classic DSL (single { ... }) at compile time.
+    // Koin Compiler Plugin — validates classic DSL (single { ... }) at compile time.
     // No @Single/@Factory annotations needed; koin-annotations 4.x is incompatible (see AGENTS.md).
-    // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
-    id("io.insert-koin.compiler.plugin") version "1.2.1"
+    alias(libs.plugins.koin.compiler)
     alias(libs.plugins.detekt)
 }
 

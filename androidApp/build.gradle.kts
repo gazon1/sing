@@ -9,8 +9,7 @@ plugins {
     // NOTE: `alias(libs.plugins.tracer)` used to be here. The vendor plugin and SDK
     // are in :pro (FSL-1.1-ALv2) — see pro/build.gradle.kts. Applying it here would
     // put proprietary code in an Apache-2.0 module. ADR 2026-10-05-provenance-audit §3.
-    // Applied via id() — version catalog accessor fails for hyphenated plugin IDs.
-    id("io.insert-koin.compiler.plugin") version "1.2.1"
+    alias(libs.plugins.koin.compiler)
 }
 
 // Whether to build the source-available `pro` catalogue in. Default false, so a fresh

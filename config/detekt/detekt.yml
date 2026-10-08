@@ -1,5 +1,5 @@
 # detekt configuration for Singularity Todo KMP project
-# Version: detekt 2.0.0-alpha.3
+# Version: detekt 2.0.0-alpha.6
 # Scope: shared (commonMain + androidMain + jvmMain + tests) + desktopApp
 #
 # Design: ktlint owns formatting (via detekt-rules-ktlint-wrapper plugin).

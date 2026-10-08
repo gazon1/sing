@@ -68,10 +68,7 @@ class BackgroundScopeIsolationTest {
      * that breaks with `backgroundScope`.
      */
     @Suppress("ClassSignature", "NoUnreportedFailurePath")
-    private class TestViewModel(
-        private val source: StateFlow<String>,
-        scope: AutoCloseableCoroutineScope,
-    ) {
+    private class TestViewModel(private val source: StateFlow<String>, scope: AutoCloseableCoroutineScope) {
         private val _state = MutableStateFlow("initial")
         val state: StateFlow<String> = _state
 

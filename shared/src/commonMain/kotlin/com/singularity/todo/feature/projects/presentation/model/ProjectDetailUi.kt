@@ -2,7 +2,6 @@ package com.singularity.todo.feature.projects.presentation.model
 
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.Task
 
@@ -26,12 +25,7 @@ data class ParentOption(
  * @param color ARGB color for the group badge.
  * @param isCurrent True if this group is currently inherited by the displayed project.
  */
-data class TagGroupOption(
-    val id: TagGroupId,
-    val name: String,
-    val color: Int,
-    val isCurrent: Boolean,
-)
+data class TagGroupOption(val id: TagGroupId, val name: String, val color: Int, val isCurrent: Boolean)
 
 /**
  * Combined read model for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
