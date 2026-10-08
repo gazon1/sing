@@ -104,8 +104,8 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>>
 
     /**
-     * Returns the set of task IDs that depend on [taskId] (it blocks them).
-     * The reverse direction of the dependency graph.
+     * Returns the set of task IDs that are blocked by [taskId] — i.e., the tasks
+     * that depend on [taskId]. The reverse direction of the dependency graph.
      */
-    fun observeBlockingBy(taskId: TaskId): Flow<Set<TaskId>>
+    fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>>
 }
