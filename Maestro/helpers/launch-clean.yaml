@@ -19,7 +19,10 @@ onFlowComplete:
     permissions:
       notifications: allow
 # Wait for the agenda shell to be interactive.
+# After `adb install -r -t` in e2e-shard.sh the app is force-stopped and must cold-
+# start. 8 s is not always enough on a loaded CI runner; 20 s covers cold-start
+# variance including migration deferred-startup on first launch.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 20000

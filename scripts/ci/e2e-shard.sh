@@ -37,6 +37,12 @@ apk=$(ls apk/*.apk | head -n1)
 echo "installing $apk"
 adb install -r -t "$apk"
 
+# After a reinstall the package manager needs a moment, and the app will cold-
+# start on the next launch. A short sleep lets the system settle before Maestro
+# fires its first launchApp, avoiding a race where the Maestro CLI tries to
+# instrument an app that is not yet fully started.
+sleep 3
+
 # Explicit config path — Maestro looks for config.yaml in the workspace root,
 # but our config lives in Maestro/config.yaml relative to the repo root.
 MAESTRO_CONFIG=Maestro/config.yaml
