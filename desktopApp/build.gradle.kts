@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.detekt)
     alias(libs.plugins.koin.compiler)
+    `maven-publish`
 }
 
 val desktopAppVersion = "0.1.0"
@@ -53,6 +54,8 @@ sourceSets {
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
             testImplementation(libs.kotlinx.coroutines.debug)
+            // Allure test reporting — generates JSON results for CI integration
+            implementation(libs.allure.kotlin.junit5)
         }
     }
 }
@@ -100,12 +103,37 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "singularity-todo"
             packageVersion = "0.1.0"
 
             modules("jdk.unsupported")
             includeAllModules = false
+        }
+    }
+}
+
+// Publish Linux packages to GitHub Packages
+val debFile = file("${layout.buildDirectory.get().asFile}/compose/releases/linux-amd64/deb/singularity-todo_0.1.0_amd64.deb")
+val rpmFile = file("${layout.buildDirectory.get().asFile}/compose/releases/linux-amd64/rpm/singularity-todo-0.1.0.x86_64.rpm")
+
+publishing {
+    publications {
+        create<MavenPublication>("linuxDeb") {
+            artifactId = "singularity-todo-linux-deb"
+            artifact(debFile)
+            pom {
+                name.set("Singularity Todo (Linux Deb)")
+                description.set("Todo application for Linux (Debian/Ubuntu)")
+            }
+        }
+        create<MavenPublication>("linuxRpm") {
+            artifactId = "singularity-todo-linux-rpm"
+            artifact(rpmFile)
+            pom {
+                name.set("Singularity Todo (Linux Rpm)")
+                description.set("Todo application for Linux (Fedora/RHEL)")
+            }
         }
     }
 }
@@ -193,6 +221,9 @@ tasks.withType<Test>().configureEach {
         .single { it.name.contains("debug") && it.name.endsWith(".jar") }
         .absolutePath
     jvmArgs("-javaagent:$coroutinesDebugAgentPath")
+    // Allure test reporting — results written to build/allure-results/
+    val allureDir = layout.buildDirectory.dir("allure-results").map { it.asFile.absolutePath }
+    systemProperty("allure.results.directory", allureDir)
 }
 
 dependencies {

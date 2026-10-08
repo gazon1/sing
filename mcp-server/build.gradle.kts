@@ -44,6 +44,8 @@ dependencies {
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(kotlin("reflect"))
+    // Allure test reporting — generates JSON results for CI integration
+    testImplementation(libs.allure.kotlin.junit5)
 
     // detektPlugins(libs.detekt.formatting) — removed: mcp-server uses detekt-minimal.yml
     // which does not include ktlint config. Formatting is handled by shared + desktopApp.
@@ -81,6 +83,9 @@ tasks.withType<Test>().configureEach {
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
     )
+    // Allure test reporting — results written to build/allure-results/
+    val allureDir = layout.buildDirectory.dir("allure-results").map { it.asFile.absolutePath }
+    systemProperty("allure.results.directory", allureDir)
 }
 
 // Produce a fat JAR with all runtime deps merged
