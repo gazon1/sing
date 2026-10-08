@@ -180,6 +180,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # the only job that can write to the repository
+      packages: write # for GitHub Packages publishing
     steps:
       # TODO(verify): major must match the upload-artifact used by the jobs above.
       - uses: actions/download-artifact@v7
@@ -190,6 +191,21 @@ jobs:
 
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt
+
+      # Publish to GitHub Packages
+      - name: Publish Android APK to GitHub Packages
+        run: ./gradlew :androidApp:publishReleasePublicationToGitHubPackagesRepository
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Linux packages to GitHub Packages
+        run: |
+          ./gradlew :desktopApp:publishLinuxDebPublicationToGitHubPackagesRepository
+          ./gradlew :desktopApp:publishLinuxRpmPublicationToGitHubPackagesRepository
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --draft so a human reads the notes first. TODO: actions/attest-build-provenance.
       - name: Create draft release
