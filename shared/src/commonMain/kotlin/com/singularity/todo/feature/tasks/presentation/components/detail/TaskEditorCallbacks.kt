@@ -91,9 +91,11 @@ data class TaskEditorCallbacks(
     val onCheckToggle: (() -> Unit)?,
     val onDescriptionChange: (String) -> Unit,
     /** Priority row — null = hidden */
-    val priority: RowCallbacks<TaskPriority>?,
+    @Suppress("NoEmptyOnClickLambda")
+    val priority: RowCallbacks<TaskPriority> = RowCallbacks(onChange = {}),
     /** Due date + time row — null = hidden */
-    val dueDate: DateRowCallbacks?,
+    @Suppress("NoEmptyOnClickLambda")
+    val dueDate: DateRowCallbacks = DateRowCallbacks(onChangeDate = {}, onChangeTime = {}),
     /** Start date + time row — null = hidden */
     val startDate: DateRowCallbacks?,
     /** Project row — null = hidden */

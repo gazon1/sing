@@ -1,0 +1,4 @@
+# Auto-generated TAGS files — take the union on merge, not last-one-wins.
+# A rebase that regenerates TAGS should not discard tags the other branch added.
+Maestro/TAGS.md merge=union
+docs/TAGS.md   merge=union
