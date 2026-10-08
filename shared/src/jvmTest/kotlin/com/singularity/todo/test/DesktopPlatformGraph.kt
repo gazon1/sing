@@ -69,9 +69,16 @@ import java.io.File
 /**
  * A test-local mirror of `platformModule()` for the JVM.
  *
- * Not a copy for its own sake: the real one opens the user's database and DataStore, which cannot
- * be done twice in a process — the second graph throws "multiple DataStores active for the same
- * file". A graph test needs the bindings, not the storage, so it supplies its own.
+ * **This module uses a temporary directory, never the developer's real `$HOME`.**
+ * The database, DataStore, backups, and logs paths all resolve under a JVM-managed
+ * temp directory that is wiped between runs. This avoids:
+ * - `wipeIfNotRoomManaged` deleting the developer's real database
+ * - DataStore creating state in the developer's home directory
+ * - Any side effect from running the graph construction on the real data tree
+ *
+ * The temp directory is created once per call and registered with `deleteOnExit()`,
+ * so it survives for the lifetime of the JVM process (safe for tests that call this
+ * multiple times within the same process).
  *
  * Shared rather than duplicated because a mirror is exactly the thing that drifts: one test's copy
  * gains a binding the other never sees, and the graph that then looks healthy is one nobody runs.
@@ -84,6 +91,11 @@ import java.io.File
 // for a graph whose completeness is harder to see.
 @Suppress("LongMethod")
 internal fun desktopPlatformModule(): Module = module {
+    // Temp root for this graph instance — never touches the developer's real $HOME.
+    val tempDir = java.nio.file.Files.createTempDirectory("sing-test-").toFile()
+    tempDir.deleteOnExit()
+    val tempHome = tempDir.absolutePath
+
     // Mirrors `single<CrashReportingPort> { JvmCrashReportingPort() }` from the real
     // PlatformModule.jvm.kt. It became load-bearing when the calendar-sync bindings started
     // composing their own failure handler from the injected port rather than reading a
@@ -95,9 +107,8 @@ internal fun desktopPlatformModule(): Module = module {
 
     // ─── Room Database ──────────────────────────────────────────────
     single<AppDatabase> {
-        val dbPath = System.getProperty("user.home") +
-            "/.singularity-todo/singularity-todo.db"
-        File(dbPath).parentFile?.mkdirs()
+        val dbPath = "$tempHome/singularity-todo.db"
+        java.io.File(dbPath).parentFile?.mkdirs()
         wipeIfNotRoomManaged(dbPath)
         AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
@@ -141,10 +152,9 @@ internal fun desktopPlatformModule(): Module = module {
     single { get<AppDatabase>().projectInheritedTagGroupDao() }
 
     // ─── DataStore ─────────────────────────────────────────────────
-    val userHome = System.getProperty("user.home")
     val userSettingsDs: DataStore<Preferences> =
         androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-            File(userHome, ".singularity-todo/user_settings.preferences_pb")
+            java.io.File(tempHome, "user_settings.preferences_pb")
         }
     single<DataStore<Preferences>> { userSettingsDs }
 
@@ -154,7 +164,7 @@ internal fun desktopPlatformModule(): Module = module {
     // mirror lacks.
     single<DataStore<Preferences>>(qualifier = named("calendar_sync")) {
         androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-            File(userHome, ".singularity-todo/calendar_sync.preferences_pb")
+            java.io.File(tempHome, "calendar_sync.preferences_pb")
         }
     }
 
@@ -176,8 +186,8 @@ internal fun desktopPlatformModule(): Module = module {
     single<SharePort> { JvmSharePort() }
     single<FileSharePort> { JvmFileSharePort() }
     single<BackupCodec> { JvmBackupCodec() }
-    single<String> { "$userHome/.singularity-todo/backups" }
-    single<String> { "$userHome/.singularity-todo/logs" }
+    single<String> { "$tempHome/backups" }
+    single<String> { "$tempHome/logs" }
     single { LogBundleExporter(get(), get(), get()) }
 
     // ─── Pomodoro ──────────────────────────────────────────────────
