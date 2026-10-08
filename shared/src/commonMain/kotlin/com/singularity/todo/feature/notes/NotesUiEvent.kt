@@ -34,4 +34,14 @@ sealed interface NotesUiEvent : MviEvent {
      * in [NoteEditorScreen]. One-shot signal with no replay.
      */
     data object SavedPulse : NotesUiEvent
+
+    /**
+     * A note was soft-deleted and the UI should show a 5-second undo snackbar.
+     * The snackbar is driven by [com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel.pendingDelete];
+     * this event is consumed by [CollectEvents] and does not trigger UI directly.
+     *
+     * @param noteId The deleted note id.
+     * @param title  Short label for the snackbar message.
+     */
+    data class UndoDelete(val noteId: NoteId, val title: String) : NotesUiEvent
 }

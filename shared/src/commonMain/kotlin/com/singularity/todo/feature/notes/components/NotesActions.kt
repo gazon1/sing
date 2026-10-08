@@ -38,6 +38,9 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
     fun onExitSelection() = dispatch(NotesIntent.ExitSelection)
     fun onDeleteSelected() = dispatch(NotesIntent.DeleteSelected)
 
+    /** Restores a soft-deleted note that is still within the undo window. */
+    fun onUndoDelete(id: NoteId) = dispatch(NotesIntent.UndoDelete(id))
+
     companion object {
         /** No-op actions — previews/tests only. Internal so external callers must wire real dispatchers. */
         internal val Empty = NotesActions {}

@@ -39,6 +39,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -50,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.theme.NoteSwipeColors
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
@@ -89,49 +95,49 @@ import org.koin.compose.viewmodel.koinViewModel
 fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
 
     val actions = remember(viewModel) {
         NotesActions(viewModel::onIntent)
     }
 
-    // filter/sortOrder live on NotesListState — read them from the one state
-    // snapshot instead of collecting a duplicate copy from the ViewModel.
-    val listState = (state as? NotesUiState.Content)?.list
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    // A created note is opened on the id the repository returned. The ViewModel cannot
-    // hand one back synchronously — the write is launched — and a locally generated id
-    // names a note that does not exist. See `NotesUiEvent.NavigateToEditor`.
-    // The `else` is not the #212 shape, and deliberately so. This screen consumes a
-    // union of events it does not own, so ignoring the ones it has no reaction to
-    // is correct — unlike a dispatcher whose `else` was swallowing an intent
-    // addressed to it. Audited 2026-10-06 because the pattern search that found
-    // #212 pointed here too. The comment sits above the `when` rather than between
-    // the branches: a comment between them makes that branch read as multiline,
-    // which detekt's BlankLineBetweenWhenConditions then demands a blank line for.
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            // Not the #212 shape, and deliberately so. This screen consumes a union
-            // of events it does not own, so ignoring the ones it has no reaction to
-            // is correct — unlike a dispatcher whose `else` was swallowing an intent
-            // addressed to it. Audited 2026-10-06 because the pattern search that
-            // found #212 pointed here too. The comment sits above the `when` rather
-            // than inside it because `BlankLineBetweenWhenConditions` reads a branch
-            // comment as a branch that needs separating from the one above it.
-            when (event) {
-                is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
-                else -> Unit
-            }
+    // Show undo snackbar when a delete is pending.
+    LaunchedEffect(pendingDelete) {
+        val pd = pendingDelete ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = "\"${pd.title}\" deleted",
+            actionLabel = "Undo",
+            duration = SnackbarDuration.Short,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            viewModel.onUndoDeleteIntent()
         }
     }
 
-    NotesScreenContent(
-        state = state,
-        currentFilter = listState?.filter ?: NoteFilter.All,
-        currentSortOrder = listState?.sortOrder ?: NoteSortOrder.UpdatedDesc,
-        navigator = navigator,
-        onCreateNote = { title -> viewModel.createNoteWithTitle(title) },
-        actions = actions,
-    )
+    CollectEvents(viewModel.events) { event ->
+        when (event) {
+            is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
+            is NotesUiEvent.UndoDelete -> { /* handled by LaunchedEffect above */ }
+            else -> Unit
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        NotesScreenContent(
+            state = state,
+            currentFilter = (state as? NotesUiState.Content)?.list?.filter ?: NoteFilter.All,
+            currentSortOrder = (state as? NotesUiState.Content)?.list?.sortOrder ?: NoteSortOrder.UpdatedDesc,
+            navigator = navigator,
+            onCreateNote = { title -> viewModel.createNoteWithTitle(title) },
+            actions = actions,
+            modifier = Modifier.padding(paddingValues),
+        )
+    }
 }
 
 // ─── Content ────────────────────────────────────────────────────────────────
@@ -150,12 +156,12 @@ fun NotesScreenContent(
     actions: NotesActions = NotesActions.Empty,
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
-    val content = state as? NotesUiState.Content
-    val listState = content?.list
+    val listState = (state as? NotesUiState.Content)?.list
     val isSelectionMode = listState?.isSelectionMode == true
     val selectedCount = listState?.selectedIds?.size ?: 0
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             Column {
                 if (isSelectionMode) {

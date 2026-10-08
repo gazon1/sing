@@ -14,4 +14,5 @@ fun NotesUiEvent.toNotification(): Notification = when (this) {
     is NotesUiEvent.NavigateToEditor -> Notification.None
     NotesUiEvent.NavigateBack -> Notification.None
     NotesUiEvent.SavedPulse -> Notification.None
+    is NotesUiEvent.UndoDelete -> Notification.None
 }

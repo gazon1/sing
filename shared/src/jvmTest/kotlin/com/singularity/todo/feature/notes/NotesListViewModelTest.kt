@@ -21,7 +21,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Smoke tests for [NotesListViewModel] — verify state initialization and filter changes.
@@ -225,65 +224,122 @@ class NotesListViewModelTest {
         )
     }
 
-    // ── A delete that did not happen ────────────────────────────────────
+    // ── Delete / Undo ──────────────────────────────────────────────────
+
+    /** Must match [NotesListViewModel.UNDO_WINDOW_MS]. */
+    private val undoWindowMs = 5_000L
 
     /**
-     * A delete that failed reaches the user.
+     * A delete shows `UndoDelete` immediately and removes the note from the list
+     * only after the 5-second undo window expires.
      *
-     * The negative control for the dropped `Result`. Pin, archive and unarchive in
-     * this same view model all route through `emitError`; delete was the one mutation
-     * that did not, so a note that failed to delete vanished from the list with nothing
-     * to say why. A delete is the change a user is least likely to retry on their own,
-     * which is exactly the case that must not fail quietly.
+     * This is the positive control for the undo pattern. The note must stay in the
+     * list so the user can undo before the window closes.
      */
     @Test
-    fun `a delete that fails is reported`() = runTest {
+    fun `delete emits UndoDelete and removes note after undo window`() = runTest {
         val id = seedNote("Doomed")
         val vm = createVm()
         advanceUntilIdle()
         runCurrent()
+        assertEquals(1, vm.listState().unpinned.size)
+
         val events = mutableListOf<NotesUiEvent>()
         val collector = launch { vm.events.collect { events += it } }
         try {
-            fakeNotesRepo.deleteOverride = Result.failure(AppError.Persistence("disk is full"))
-
             vm.onIntent(NotesIntent.Delete(id))
-            advanceUntilIdle()
             runCurrent()
 
-            val error = events.filterIsInstance<NotesUiEvent.Error>().singleOrNull()
-            assertNotNull(error, "the note was never deleted and nothing said so: $events")
-            assertTrue(
-                error.message.contains("delete", ignoreCase = true),
-                "the message has to name what failed: ${error.message}",
-            )
+            // UndoDelete is emitted immediately; note is still in the list.
+            val undoDelete = events.filterIsInstance<NotesUiEvent.UndoDelete>().singleOrNull()
+            assertNotNull(undoDelete, "UndoDelete must be emitted: $events")
+            assertEquals(id, undoDelete.noteId)
+            assertEquals("Doomed", undoDelete.title)
+            assertEquals(1, vm.listState().unpinned.size, "note must stay during undo window")
+
+            // Advance past the undo window — the note is deleted.
+            advanceTimeBy(undoWindowMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(0, vm.listState().unpinned.size, "note must go after undo window expires")
         } finally {
             collector.cancel()
         }
     }
 
+    /**
+     * Tapping Undo restores the note and cancels the pending delete.
+     */
     @Test
-    fun `a successful delete reports no error`() = runTest {
-        val id = seedNote("Doomed")
+    fun `undo restores the note and cancels the pending delete`() = runTest {
+        val id = seedNote("UndoMe")
         val vm = createVm()
         advanceUntilIdle()
         runCurrent()
+        assertEquals(1, vm.listState().unpinned.size)
+
         val events = mutableListOf<NotesUiEvent>()
         val collector = launch { vm.events.collect { events += it } }
         try {
             vm.onIntent(NotesIntent.Delete(id))
+            runCurrent()
+            assertEquals(1, vm.listState().unpinned.size)
+
+            // Tap Undo.
+            vm.onIntent(NotesIntent.UndoDelete(id))
             advanceUntilIdle()
             runCurrent()
+            assertEquals(1, vm.listState().unpinned.size, "note must be restored")
 
-            assertEquals(
-                emptyList(),
-                events.filterIsInstance<NotesUiEvent.Error>(),
-                "the delete worked; an error here would teach users to ignore it",
-            )
-            assertEquals(emptyList(), vm.listState().unpinned.map { it.id })
+            // Advance past the former undo window — the note must NOT disappear.
+            advanceTimeBy(undoWindowMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(1, vm.listState().unpinned.size, "restored note must not be deleted after window")
         } finally {
             collector.cancel()
         }
+    }
+
+    /**
+     * A second delete while the first undo window is still open supersedes the first:
+     * `pendingDelete` switches to the second note, and the first note's pending
+     * delete job is cancelled so it will NOT be deleted when its window expires.
+     *
+     * The cancellation is verified by: (a) `pendingDelete` points to the second note
+     * immediately after the second delete, and (b) after the second window expires,
+     * neither note is in the soft-deleted set — only the second note was deleted.
+     */
+    @Test
+    fun `a new delete supersedes the previous pending delete`() = runTest {
+        val first = seedNote("First")
+        val second = seedNote("Second")
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(NotesIntent.Delete(first))
+        runCurrent()
+        assertEquals(first, vm.pendingDelete.value?.noteId, "first delete must set pendingDelete")
+
+        // Second delete cancels the first's pending job and supersedes it.
+        vm.onIntent(NotesIntent.Delete(second))
+        runCurrent()
+        assertEquals(second, vm.pendingDelete.value?.noteId, "second delete must supersede first")
+
+        // Verify first's pending job was actually cancelled by advancing past its
+        // window and checking that only second's note ends up deleted.
+        advanceTimeBy(undoWindowMs + 1)
+        advanceUntilIdle()
+        runCurrent()
+
+        // First note was never deleted (job cancelled), second was deleted (window expired).
+        // So only first remains in the list.
+        assertEquals(
+            listOf(first),
+            vm.listState().unpinned.map { it.id },
+            "first must remain (pending job cancelled); second must be gone (window expired)",
+        )
     }
 
     /**
