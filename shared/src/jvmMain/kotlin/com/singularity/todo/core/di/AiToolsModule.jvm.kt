@@ -50,8 +50,6 @@ import com.singularity.todo.feature.ai.tools.UpdateTaskTool
 import com.singularity.todo.feature.ai.tools.WeeklyPlanTool
 import com.singularity.todo.feature.ai.tools.WriteAdrTool
 import com.singularity.todo.feature.ai.usage.AiUsageViewModel
-import com.singularity.todo.feature.ai.use_cases.ClusterNotesUseCase
-import com.singularity.todo.feature.ai.use_cases.ClusterTasksUseCase
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
@@ -61,7 +59,6 @@ import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
-import com.singularity.todo.feature.ai.use_cases.SmartRewriteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
 import com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase
 import com.singularity.todo.feature.genui.transport.BaseGenuiTransport
@@ -144,13 +141,10 @@ actual fun aiToolsModule(): Module = module {
     // ─── AI Use Cases ───
 
     factoryOf(::RefineTaskUseCase)
-    factoryOf(::SmartRewriteUseCase)
     factoryOf(::GenerateDescriptionUseCase)
     factoryOf(::DecomposeTaskUseCase)
     factoryOf(::GenerateChecklistUseCase)
     factoryOf(::PickTimeUseCase)
-    factoryOf(::ClusterTasksUseCase)
-    factoryOf(::ClusterNotesUseCase)
     factory { ImproveNoteUseCase(tool = get<ImproveNoteTool>()) }
     factoryOf(::SummarizeNoteUseCase)
     factoryOf(::ExtractActionsUseCase)

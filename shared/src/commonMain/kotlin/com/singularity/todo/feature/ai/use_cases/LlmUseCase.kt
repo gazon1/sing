@@ -1,12 +1,6 @@
 package com.singularity.todo.feature.ai.use_cases
 
 import ai.koog.agents.core.tools.SimpleTool
-import com.singularity.todo.feature.ai.tools.ClusterNotesInput
-import com.singularity.todo.feature.ai.tools.ClusterNotesOutput
-import com.singularity.todo.feature.ai.tools.ClusterNotesTool
-import com.singularity.todo.feature.ai.tools.ClusterTasksInput
-import com.singularity.todo.feature.ai.tools.ClusterTasksOutput
-import com.singularity.todo.feature.ai.tools.ClusterTasksTool
 import com.singularity.todo.feature.ai.tools.DecomposeTaskInput
 import com.singularity.todo.feature.ai.tools.DecomposeTaskOutput
 import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
@@ -28,15 +22,14 @@ import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.RewriteNoteInput
 import com.singularity.todo.feature.ai.tools.RewriteNoteOutput
 import com.singularity.todo.feature.ai.tools.RewriteNoteTool
-import com.singularity.todo.feature.ai.tools.SmartRewriteInput
-import com.singularity.todo.feature.ai.tools.SmartRewriteOutput
-import com.singularity.todo.feature.ai.tools.SmartRewriteTool
 import com.singularity.todo.feature.ai.tools.SuggestTagsInput
 import com.singularity.todo.feature.ai.tools.SuggestTagsOutput
 import com.singularity.todo.feature.ai.tools.SuggestTagsTool
 import com.singularity.todo.feature.ai.tools.SummarizeNoteInput
 import com.singularity.todo.feature.ai.tools.SummarizeNoteOutput
 import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
+import com.singularity.todo.feature.ai.tools.ImproveNoteInput
+import com.singularity.todo.feature.ai.tools.ImproveNoteOutput
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -67,15 +60,6 @@ class RefineTaskUseCase(tool: RefineTaskTool) :
         execute(RefineTaskInput(currentTitle, description)).map { it.newTitle }
 }
 
-class SmartRewriteUseCase(tool: SmartRewriteTool) :
-    LlmUseCase<SmartRewriteInput, SmartRewriteOutput>(
-        tool,
-        SmartRewriteOutput.serializer(),
-    ) {
-    suspend operator fun invoke(rawIdea: String): Result<String> =
-        execute(SmartRewriteInput(rawIdea)).map { it.newTitle }
-}
-
 class GenerateDescriptionUseCase(tool: GenerateDescriptionTool) :
     LlmUseCase<GenerateDescriptionInput, GenerateDescriptionOutput>(
         tool,
@@ -103,24 +87,6 @@ class PickTimeUseCase(tool: PickTimeTool) :
         execute(PickTimeInput(title, description)).map { it.suggestedTime }
 }
 
-class ClusterTasksUseCase(tool: ClusterTasksTool) :
-    LlmUseCase<ClusterTasksInput, ClusterTasksOutput>(
-        tool,
-        ClusterTasksOutput.serializer(),
-    ) {
-    suspend operator fun invoke(tasks: List<String>): Result<Map<String, List<String>>> =
-        execute(ClusterTasksInput(tasks)).map { it.clusters }
-}
-
-class ClusterNotesUseCase(tool: ClusterNotesTool) :
-    LlmUseCase<ClusterNotesInput, ClusterNotesOutput>(
-        tool,
-        ClusterNotesOutput.serializer(),
-    ) {
-    suspend operator fun invoke(notes: List<String>): Result<Map<String, List<String>>> =
-        execute(ClusterNotesInput(notes)).map { it.clusters }
-}
-
 class DecomposeTaskUseCase(tool: DecomposeTaskTool) :
     LlmUseCase<DecomposeTaskInput, DecomposeTaskOutput>(
         tool,
@@ -130,16 +96,13 @@ class DecomposeTaskUseCase(tool: DecomposeTaskTool) :
         execute(DecomposeTaskInput(title, description)).map { it.subTasks }
 }
 
-class ImproveNoteUseCase(tool: SimpleTool<com.singularity.todo.feature.ai.tools.ImproveNoteInput>) :
-    LlmUseCase<com.singularity.todo.feature.ai.tools.ImproveNoteInput, com.singularity.todo.feature.ai.tools.ImproveNoteOutput>(
+class ImproveNoteUseCase(tool: SimpleTool<ImproveNoteInput>) :
+    LlmUseCase<ImproveNoteInput, ImproveNoteOutput>(
         tool,
-        com.singularity.todo.feature.ai.tools.ImproveNoteOutput.serializer(),
+        ImproveNoteOutput.serializer(),
     ) {
-    suspend operator fun invoke(
-        title: String,
-        body: String,
-    ): Result<com.singularity.todo.feature.ai.tools.ImproveNoteOutput> =
-        execute(com.singularity.todo.feature.ai.tools.ImproveNoteInput(title, body))
+    suspend operator fun invoke(title: String, body: String): Result<ImproveNoteOutput> =
+        execute(ImproveNoteInput(title, body))
 }
 
 class SummarizeNoteUseCase(tool: SummarizeNoteTool) :
