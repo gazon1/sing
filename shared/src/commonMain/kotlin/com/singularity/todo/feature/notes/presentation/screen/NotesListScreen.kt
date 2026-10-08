@@ -94,7 +94,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koinViewModel()) {
     val navigator = LocalNotesNavigator.current
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
 
     val actions = remember(viewModel) {

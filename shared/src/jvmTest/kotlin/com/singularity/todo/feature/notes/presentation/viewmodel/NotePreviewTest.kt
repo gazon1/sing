@@ -58,7 +58,7 @@ class NotePreviewTest {
     @Test
     fun initial_state_is_Loading() = runTest {
         val vm = createVm(scope = this)
-        assertIs<NotePreviewState.Loading>(vm.state.value)
+        assertIs<NotePreviewState.Loading>(vm.stateFlow.value)
     }
 
     @Test
@@ -71,7 +71,7 @@ class NotePreviewTest {
         advanceTimeBy(1_000)
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<NotePreviewState.Loaded>(state)
         assertEquals(testNote.id, state.note.id)
         assertEquals("Test Note", state.note.title)
@@ -94,7 +94,7 @@ class NotePreviewTest {
         advanceTimeBy(1_000)
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<NotePreviewState.Loaded>(state)
         assertEquals("Updated Title", state.note.title)
     }
@@ -112,7 +112,7 @@ class NotePreviewTest {
         runCurrent()
 
         // Should not throw — second load cancelled the first
-        assertIs<NotePreviewState.Loaded>(vm.state.value)
+        assertIs<NotePreviewState.Loaded>(vm.stateFlow.value)
     }
 
     @Test
@@ -145,6 +145,6 @@ class NotePreviewTest {
         runCurrent()
 
         // No error, state unchanged
-        assertIs<NotePreviewState.Loading>(vm.state.value)
+        assertIs<NotePreviewState.Loading>(vm.stateFlow.value)
     }
 }

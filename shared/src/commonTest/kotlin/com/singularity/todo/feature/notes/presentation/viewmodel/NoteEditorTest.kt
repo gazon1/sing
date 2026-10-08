@@ -121,7 +121,7 @@ class NoteEditorTest {
         advanceTimeBy(1_000)
         runCurrent()
 
-        val state = vm.state.value.draft
+        val state = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(state)
         assertEquals(testNote.id.value, state.id)
         assertEquals("Test Note", state.title)
@@ -146,7 +146,7 @@ class NoteEditorTest {
         runCurrent()
         advanceTimeBy(400L) // debounce not reached yet
 
-        val dirtyState = vm.state.value.draft
+        val dirtyState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(dirtyState)
         assertTrue(dirtyState.isDirty)
 
@@ -156,7 +156,7 @@ class NoteEditorTest {
         advanceTimeBy(1_000)
         runCurrent()
 
-        val savedState = vm.state.value.draft
+        val savedState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(savedState)
         assertFalse(savedState.isDirty)
         assertEquals("<p>Updated content</p>", savedState.html)
@@ -177,7 +177,7 @@ class NoteEditorTest {
         runCurrent()
         advanceTimeBy(400L) // debounce not reached yet
 
-        val dirtyState = vm.state.value.draft
+        val dirtyState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(dirtyState)
         assertTrue(dirtyState.isDirty)
 
@@ -185,7 +185,7 @@ class NoteEditorTest {
         advanceTimeBy(600L)
         runCurrent()
 
-        val cleanState = vm.state.value.draft
+        val cleanState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(cleanState)
         assertFalse(cleanState.isDirty)
     }
@@ -207,7 +207,7 @@ class NoteEditorTest {
         runCurrent()
 
         // Dirty is true, but autosave hasn't fired yet (debounce not elapsed)
-        val dirtyState = vm.state.value.draft
+        val dirtyState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(dirtyState)
         assertTrue(dirtyState.isDirty)
 
@@ -218,7 +218,7 @@ class NoteEditorTest {
         runCurrent()
 
         // Still dirty — debounce was reset by the second edit
-        val stillDirtyState = vm.state.value.draft
+        val stillDirtyState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(stillDirtyState)
         assertTrue(stillDirtyState.isDirty)
 
@@ -227,7 +227,7 @@ class NoteEditorTest {
         runCurrent()
 
         // Autosave fired — dirty cleared
-        val cleanState = vm.state.value.draft
+        val cleanState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(cleanState)
         assertFalse(cleanState.isDirty)
     }
@@ -244,7 +244,7 @@ class NoteEditorTest {
         runCurrent()
 
         // isNew is true, note is not yet in the repo
-        val state = vm.state.value.draft
+        val state = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(state)
         assertTrue(state.isNew)
         assertEquals(newId, state.id)
@@ -260,7 +260,7 @@ class NoteEditorTest {
         assertEquals("<p>Content</p>", notesRepo.notes[newId]?.bodyHtml)
 
         // After save, isNew is cleared
-        val savedState = vm.state.value.draft
+        val savedState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(savedState)
         assertFalse(savedState.isNew)
     }
@@ -280,7 +280,7 @@ class NoteEditorTest {
         runCurrent()
         advanceTimeBy(100L) // well under debounce
 
-        val dirtyState = vm.state.value.draft
+        val dirtyState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(dirtyState)
         assertTrue(dirtyState.isDirty)
 
@@ -289,7 +289,7 @@ class NoteEditorTest {
         vm.closeEditor()
         runCurrent()
 
-        val restoredState = vm.state.value.draft
+        val restoredState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(restoredState)
         assertEquals("<p>Hello world</p>", restoredState.html)
         assertFalse(restoredState.isDirty)

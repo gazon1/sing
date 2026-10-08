@@ -41,7 +41,7 @@ class NotesListViewModelTest {
 
     /** Reads the one state snapshot the screen actually renders. */
     private fun NotesListViewModel.listState() =
-        (state.value as? NotesUiState.Content)?.list ?: error("expected Content, got ${state.value}")
+        (stateFlow.value as? NotesUiState.Content)?.list ?: error("expected Content, got ${stateFlow.value}")
 
     /**
      * Creates a plain note through the repository, so it carries the same user id

@@ -105,7 +105,7 @@ class DraftMviViewModelTest {
         )
         advanceTimeBy(20L)
         runCurrent()
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertEquals("", state.draft.title)
         assertFalse(state.isSaveEnabled)
         assertFalse(state.isDirty)
@@ -126,7 +126,7 @@ class DraftMviViewModelTest {
         advanceTimeBy(20L)
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertEquals("Hello", state.draft.title)
         assertTrue(state.isSaveEnabled)
         assertTrue(state.isDirty)
@@ -145,12 +145,12 @@ class DraftMviViewModelTest {
         vm.updateDraft { it.copy(title = "") }
         advanceTimeBy(20L)
         runCurrent()
-        assertNotNull(vm.state.value.error)
+        assertNotNull(vm.stateFlow.value.error)
 
         vm.updateDraft { it.copy(title = "Hello") }
         advanceTimeBy(20L)
         runCurrent()
-        assertNull(vm.state.value.error)
+        assertNull(vm.stateFlow.value.error)
     }
 
     @Test
@@ -162,8 +162,8 @@ class DraftMviViewModelTest {
         advanceTimeBy(20L)
         runCurrent()
 
-        assertEquals("restored", vm.state.value.draft.title)
-        assertFalse(vm.state.value.isDirty)
+        assertEquals("restored", vm.stateFlow.value.draft.title)
+        assertFalse(vm.stateFlow.value.isDirty)
     }
 
     @Test
@@ -175,7 +175,7 @@ class DraftMviViewModelTest {
         advanceTimeBy(20L)
         runCurrent()
 
-        assertEquals("initial", vm.state.value.draft.title)
+        assertEquals("initial", vm.stateFlow.value.draft.title)
     }
 
     @Test
@@ -188,7 +188,7 @@ class DraftMviViewModelTest {
         )
         advanceTimeBy(20L)
         runCurrent()
-        assertTrue(vm.state.value.isSaveEnabled)
+        assertTrue(vm.stateFlow.value.isSaveEnabled)
 
         vm.save()
         advanceTimeBy(50L)
@@ -234,8 +234,8 @@ class DraftMviViewModelTest {
         advanceTimeBy(50L)
         runCurrent()
 
-        assertNotNull(vm.state.value.error)
-        assertFalse(vm.state.value.isSaving)
+        assertNotNull(vm.stateFlow.value.error)
+        assertFalse(vm.stateFlow.value.isSaving)
     }
 
     /**
@@ -266,10 +266,10 @@ class DraftMviViewModelTest {
         // The failure has to be visible. Before the fix this was null and the
         // coroutine was simply gone.
         assertNotNull(
-            vm.state.value.error,
+            vm.stateFlow.value.error,
             "a thrown persist() must surface an error instead of vanishing",
         )
-        assertFalse(vm.state.value.isSaving, "the save button must be re-enabled")
+        assertFalse(vm.stateFlow.value.isSaving, "the save button must be re-enabled")
     }
 
     @Test
@@ -285,8 +285,8 @@ class DraftMviViewModelTest {
         advanceTimeBy(50L)
         runCurrent()
 
-        assertNotNull(vm.state.value.error)
-        assertFalse(vm.state.value.isSaving)
+        assertNotNull(vm.stateFlow.value.error)
+        assertFalse(vm.stateFlow.value.isSaving)
     }
 
     @Test
@@ -302,8 +302,8 @@ class DraftMviViewModelTest {
         advanceTimeBy(20L)
         runCurrent()
 
-        assertEquals("Title required", vm.state.value.error)
-        assertFalse(vm.state.value.isSaving)
+        assertEquals("Title required", vm.stateFlow.value.error)
+        assertFalse(vm.stateFlow.value.isSaving)
     }
 
     @Test
@@ -317,17 +317,17 @@ class DraftMviViewModelTest {
         vm.updateDraft { it.copy(title = "edited") }
         advanceTimeBy(20L)
         runCurrent()
-        assertEquals("edited", vm.state.value.draft.title)
-        assertTrue(vm.state.value.isDirty)
+        assertEquals("edited", vm.stateFlow.value.draft.title)
+        assertTrue(vm.stateFlow.value.isDirty)
 
         vm.discard()
         advanceTimeBy(20L)
         runCurrent()
 
-        assertEquals("original", vm.state.value.draft.title)
-        assertFalse(vm.state.value.isDirty)
-        assertFalse(vm.state.value.isSaving)
-        assertNull(vm.state.value.error)
+        assertEquals("original", vm.stateFlow.value.draft.title)
+        assertFalse(vm.stateFlow.value.isDirty)
+        assertFalse(vm.stateFlow.value.isSaving)
+        assertNull(vm.stateFlow.value.error)
     }
 
     @Test
@@ -346,8 +346,8 @@ class DraftMviViewModelTest {
         advanceTimeBy(20L)
         runCurrent()
 
-        assertEquals("second", vm.state.value.draft.title)
-        assertFalse(vm.state.value.isDirty)
+        assertEquals("second", vm.stateFlow.value.draft.title)
+        assertFalse(vm.stateFlow.value.isDirty)
     }
 
     @Test
@@ -363,7 +363,7 @@ class DraftMviViewModelTest {
         advanceTimeBy(20L)
         runCurrent()
 
-        assertFalse(vm.state.value.isDirty)
+        assertFalse(vm.stateFlow.value.isDirty)
     }
 
     @Test
@@ -378,13 +378,13 @@ class DraftMviViewModelTest {
         vm.updateDraft { it.copy(title = "") }
         advanceTimeBy(20L)
         runCurrent()
-        assertNotNull(vm.state.value.error)
+        assertNotNull(vm.stateFlow.value.error)
 
         vm.dismissError()
         advanceTimeBy(20L)
         runCurrent()
 
-        assertNull(vm.state.value.error)
+        assertNull(vm.stateFlow.value.error)
     }
 
     @Test

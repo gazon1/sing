@@ -248,7 +248,7 @@ class CalendarSyncViewModelGoogleTest {
      */
     private fun TestScope.ready(vm: CalendarSyncViewModel) {
         vm.onIntent(CalendarSyncIntent.SetGoogleConnected(true))
-        awaitState { vm.state.value.googleReady }
+        awaitState { vm.stateFlow.value.googleReady }
     }
 
     /** The routing defect: the Google intent must reach the *Google* pass. */
@@ -266,7 +266,7 @@ class CalendarSyncViewModelGoogleTest {
             ready(vm)
 
             vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.state.value.googleLastSyncedAt != null }
+            awaitState { vm.stateFlow.value.googleLastSyncedAt != null }
 
             assertEquals(1, runs, "the Google intent must reach the Google engine")
         } finally {
@@ -282,10 +282,10 @@ class CalendarSyncViewModelGoogleTest {
             ready(vm)
 
             vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.state.value.googleLastSyncedAt != null }
+            awaitState { vm.stateFlow.value.googleLastSyncedAt != null }
 
-            assertNotNull(vm.state.value.googleLastSyncedAt)
-            assertNull(vm.state.value.googleSyncError, "a pass that worked has nothing to report")
+            assertNotNull(vm.stateFlow.value.googleLastSyncedAt)
+            assertNull(vm.stateFlow.value.googleSyncError, "a pass that worked has nothing to report")
         } finally {
             vmScope.close()
         }
@@ -305,11 +305,11 @@ class CalendarSyncViewModelGoogleTest {
             ready(vm)
 
             vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.state.value.googleSyncError != null }
+            awaitState { vm.stateFlow.value.googleSyncError != null }
 
-            assertEquals("Google returned 503", vm.state.value.googleSyncError)
+            assertEquals("Google returned 503", vm.stateFlow.value.googleSyncError)
             assertNull(
-                vm.state.value.googleLastSyncedAt,
+                vm.stateFlow.value.googleLastSyncedAt,
                 "a failed pass must not move the success clock",
             )
         } finally {
@@ -346,10 +346,10 @@ class CalendarSyncViewModelGoogleTest {
             store.revoke()
 
             vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.state.value.googleSyncError != null }
+            awaitState { vm.stateFlow.value.googleSyncError != null }
 
-            assertEquals("no Google account connected", vm.state.value.googleSyncError)
-            assertNull(vm.state.value.googleLastSyncedAt)
+            assertEquals("no Google account connected", vm.stateFlow.value.googleSyncError)
+            assertNull(vm.stateFlow.value.googleLastSyncedAt)
         } finally {
             vmScope.close()
         }
@@ -377,12 +377,12 @@ class CalendarSyncViewModelGoogleTest {
         try {
             assertEquals(
                 configured,
-                vm.state.value.importWindow,
+                vm.stateFlow.value.importWindow,
                 "the screen must render the window the pass is configured with",
             )
             assertNotEquals(
                 ImportWindow.DEFAULT,
-                vm.state.value.importWindow,
+                vm.stateFlow.value.importWindow,
                 "this test is only meaningful while the two differ",
             )
         } finally {

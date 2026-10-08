@@ -74,7 +74,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val reply = vm.state.value.messages.last()
+        val reply = vm.stateFlow.value.messages.last()
         assertTrue(reply.content.isNotBlank(), "The answer still has its words")
         assertTrue(reply.surfaceId != null, "And the screen it drew")
     }
@@ -86,7 +86,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val reply = vm.state.value.messages.last()
+        val reply = vm.stateFlow.value.messages.last()
         assertEquals("Three things are due today.", reply.content)
         assertTrue(reply.surfaceId == null, "No screen was asked for, none is invented")
     }
@@ -101,7 +101,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val withSurfaces = vm.state.value.messages.filter { it.surfaceId != null }
+        val withSurfaces = vm.stateFlow.value.messages.filter { it.surfaceId != null }
         assertEquals(2, withSurfaces.size)
         assertTrue(withSurfaces[0].surfaceId != withSurfaces[1].surfaceId, "One screen per answer")
     }
@@ -122,7 +122,7 @@ class ChatViewModelTest {
         assertTrue("show my tasks" in followUp, "In the context of the conversation: $followUp")
 
         // The press is not something the user typed, so it does not become their message.
-        val userMessages = vm.state.value.messages.filter { it.role == ChatRole.User }
+        val userMessages = vm.stateFlow.value.messages.filter { it.role == ChatRole.User }
         assertEquals(1, userMessages.size, "A protocol event is not a thing the user said")
     }
 
@@ -155,7 +155,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val messages = vm.state.value.messages
+        val messages = vm.stateFlow.value.messages
         assertEquals(2, messages.size)
         assertEquals(ChatRole.User, messages[0].role)
         assertEquals("Hello", messages[0].content)
@@ -169,9 +169,9 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        val assistant = vm.state.value.messages.last { it.role == ChatRole.Assistant }
+        val assistant = vm.stateFlow.value.messages.last { it.role == ChatRole.Assistant }
         assertEquals("alpha beta gamma", assistant.content)
-        assertFalse(vm.state.value.isLoading)
+        assertFalse(vm.stateFlow.value.isLoading)
     }
 
     @Test
@@ -181,7 +181,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
-        assertTrue(vm.state.value.messages.isEmpty())
+        assertTrue(vm.stateFlow.value.messages.isEmpty())
     }
 
     @Test

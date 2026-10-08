@@ -139,7 +139,6 @@ kotlin {
             implementation(libs.coil.core)
 
             // Utils
-            implementation(libs.ulid)
 
             // Supabase
             implementation(libs.auth.kt)

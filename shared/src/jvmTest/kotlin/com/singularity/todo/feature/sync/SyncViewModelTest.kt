@@ -113,8 +113,8 @@ class SyncViewModelTest {
         // Call AcknowledgeError — it should clear both fields unconditionally.
         vm.onIntent(SyncIntent.AcknowledgeError)
 
-        assertNull(vm.state.value.errorMessage)
-        assertNull(vm.state.value.connectionTestResult)
+        assertNull(vm.stateFlow.value.errorMessage)
+        assertNull(vm.stateFlow.value.connectionTestResult)
         vmScope.job?.cancel()
     }
 
@@ -131,8 +131,8 @@ class SyncViewModelTest {
         advanceTimeBy(1_000)
         runCurrent()
 
-        assertFalse(vm.state.value.isTestingConnection)
-        assertEquals(ConnectionTestResult.Success, vm.state.value.connectionTestResult)
+        assertFalse(vm.stateFlow.value.isTestingConnection)
+        assertEquals(ConnectionTestResult.Success, vm.stateFlow.value.connectionTestResult)
         vmScope.job?.cancel()
     }
 
@@ -152,8 +152,8 @@ class SyncViewModelTest {
         advanceTimeBy(1_000)
         runCurrent()
 
-        assertFalse(vm.state.value.isTestingConnection)
-        val result = vm.state.value.connectionTestResult
+        assertFalse(vm.stateFlow.value.isTestingConnection)
+        val result = vm.stateFlow.value.connectionTestResult
         assertTrue(result is ConnectionTestResult.Failure)
         assertEquals("Invalid token", result.error.message)
         vmScope.job?.cancel()
@@ -178,9 +178,9 @@ class SyncViewModelTest {
         )
         val (vm, vmScope) = createVm(stateRepository = state, scope = this)
 
-        assertFalse(vm.state.value.autoSyncEnabled)
-        assertEquals(15, vm.state.value.intervalMinutes)
-        assertEquals(999L, vm.state.value.lastSyncedAt)
+        assertFalse(vm.stateFlow.value.autoSyncEnabled)
+        assertEquals(15, vm.stateFlow.value.intervalMinutes)
+        assertEquals(999L, vm.stateFlow.value.lastSyncedAt)
         vmScope.job?.cancel()
     }
 
@@ -191,13 +191,13 @@ class SyncViewModelTest {
         state.seed(scopeB, SyncState(autoSyncEnabled = true, scheduledInterval = 45.minutes))
         val provider = FakeSyncScopeProvider(scopeA)
         val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
-        assertEquals(15, vm.state.value.intervalMinutes)
+        assertEquals(15, vm.stateFlow.value.intervalMinutes)
 
         provider.set(scopeB)
         runCurrent()
 
-        assertEquals(45, vm.state.value.intervalMinutes)
-        assertTrue(vm.state.value.autoSyncEnabled)
+        assertEquals(45, vm.stateFlow.value.intervalMinutes)
+        assertTrue(vm.stateFlow.value.autoSyncEnabled)
         vmScope.job?.cancel()
     }
 
@@ -254,7 +254,7 @@ class SyncViewModelTest {
         runCurrent()
 
         assertTrue(
-            vm.state.value.attachmentsSyncEnabled,
+            vm.stateFlow.value.attachmentsSyncEnabled,
             "the screen must show the preference belonging to the scope it is editing",
         )
 
@@ -264,7 +264,7 @@ class SyncViewModelTest {
         runCurrent()
 
         assertFalse(
-            vm.state.value.attachmentsSyncEnabled,
+            vm.stateFlow.value.attachmentsSyncEnabled,
             "the previous profile's preference must not follow the user to the next tab",
         )
         vmScope.job?.cancel()
@@ -276,7 +276,7 @@ class SyncViewModelTest {
         val (vm, vmScope) = createVm(stateRepository = state, scope = this)
 
         assertFalse(
-            vm.state.value.attachmentsSyncEnabled,
+            vm.stateFlow.value.attachmentsSyncEnabled,
             "an untouched scope must not appear to have asked for attachment sync",
         )
         vmScope.job?.cancel()

@@ -75,7 +75,7 @@ class ProjectsViewModelTest {
     @Test
     fun `initial state is Loading`() = runTest {
         val vm = createVm()
-        assertIs<ProjectsUiState.Loading>(vm.state.value)
+        assertIs<ProjectsUiState.Loading>(vm.stateFlow.value)
     }
 
     // ─── search ────────────────────────────────────────────────────────────
@@ -88,17 +88,17 @@ class ProjectsViewModelTest {
         val vm = createVm()
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals("", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
+        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery)
 
         vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals("Work", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
+        assertEquals("Work", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery)
 
         vm.onIntent(ProjectsIntent.SetSearchQuery(""))
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals("", (vm.state.value as? ProjectsUiState.Content)?.searchQuery)
+        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery)
     }
 
     @Test
@@ -107,17 +107,17 @@ class ProjectsViewModelTest {
         seedProject("p1", "Project")
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals(ProjectSortOrder.Name, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
+        assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
 
         vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals(ProjectSortOrder.Color, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
+        assertEquals(ProjectSortOrder.Color, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
 
         vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Name))
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals(ProjectSortOrder.Name, (vm.state.value as? ProjectsUiState.Content)?.sortOrder)
+        assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
     }
 
     // ─── delete (via use-case, not state) ──────────────────────────────────

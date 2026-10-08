@@ -101,7 +101,7 @@ class CalendarViewModelTest {
     @Test
     fun `initial state is Loading`() = runTest {
         val vm = createVm(scope = backgroundScope)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     // ─── intent handlers (smoke tests — no crash) ─────────────────────────
@@ -110,21 +110,21 @@ class CalendarViewModelTest {
     fun `ViewModeChanged does not crash`() = runTest {
         val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.ViewModeChanged(CalendarViewMode.WEEK))
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
     fun `GoNext does not crash for MONTH mode`() = runTest {
         val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.GoNext)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
     fun `GoPrevious does not crash for MONTH mode`() = runTest {
         val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.GoPrevious)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
@@ -132,7 +132,7 @@ class CalendarViewModelTest {
         val dayAnchor = LocalDate(2026, Month.SEPTEMBER, 16)
         val vm = createVm(scope = backgroundScope, initialDate = dayAnchor, initialMode = CalendarViewMode.DAY)
         vm.onIntent(CalendarIntent.GoNext)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
@@ -140,21 +140,21 @@ class CalendarViewModelTest {
         val otherDate = LocalDate(2025, Month.JANUARY, 1)
         val vm = createVm(scope = backgroundScope, initialDate = otherDate, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.GoToday)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
     fun `DayClicked does not crash in MONTH mode`() = runTest {
         val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
     fun `DayClicked does not crash in DAY mode`() = runTest {
         val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.DAY)
         vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
@@ -162,7 +162,7 @@ class CalendarViewModelTest {
         val vm = createVm(scope = backgroundScope)
         vm.onIntent(CalendarIntent.ToggleMiniCalendar)
         vm.onIntent(CalendarIntent.ToggleMiniCalendar)
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     @Test
@@ -170,7 +170,7 @@ class CalendarViewModelTest {
         val vm = createVm(scope = backgroundScope)
         vm.onIntent(CalendarIntent.ToggleMiniCalendar) // open first
         vm.onIntent(CalendarIntent.DismissMiniCalendar) // then dismiss
-        assertIs<CalendarUiState.Loading>(vm.state.value)
+        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
     }
 
     // ─── TaskClicked emits NavigateToTask event ──────────────────────────────

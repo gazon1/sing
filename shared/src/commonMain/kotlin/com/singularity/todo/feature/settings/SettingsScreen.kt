@@ -116,7 +116,7 @@ private val SettingsTab.icon
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SettingsViewModel = koinViewModel()
-    val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val uiState by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -208,7 +208,7 @@ private fun SettingsContent(
 
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
-                        val tagsState by tagsVm.state.collectAsStateWithLifecycle()
+                        val tagsState by tagsVm.stateFlow.collectAsStateWithLifecycle()
                         TagsScreen(
                             state = tagsState,
                             onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
@@ -219,7 +219,7 @@ private fun SettingsContent(
 
                     SettingsTab.TagGroups -> {
                         val tagGroupsVm: TagGroupsViewModel = koinViewModel()
-                        val tagGroupsState by tagGroupsVm.state.collectAsStateWithLifecycle()
+                        val tagGroupsState by tagGroupsVm.stateFlow.collectAsStateWithLifecycle()
                         TagGroupsScreen(
                             state = tagGroupsState,
                             onDelete = { id -> tagGroupsVm.onIntent(TagGroupsIntent.Delete(id)) },
@@ -244,7 +244,7 @@ private fun SettingsContent(
 @Composable
 private fun BackupScreenWrapper(onBack: () -> Unit) {
     val backupVm: BackupViewModel = koinViewModel()
-    val backupState by backupVm.state.collectAsStateWithLifecycle()
+    val backupState by backupVm.stateFlow.collectAsStateWithLifecycle()
 
     // The restore / settings-import flows need the *path* the user picked, not just the
     // fact that they picked. `rememberAppFilePicker` hands the path straight to the

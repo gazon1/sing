@@ -35,7 +35,7 @@ import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.ids.UlidIdGenerator
+import com.singularity.todo.core.ids.UuidIdGenerator
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.observability.crashReportingFailureHandler
@@ -423,7 +423,7 @@ fun coreModule(): org.koin.core.module.Module = module {
 
     // ─── IDs / Clock ────────────────────────────────────────────────────
 
-    single<IdGenerator> { UlidIdGenerator }
+    single<IdGenerator> { UuidIdGenerator }
 
     single<TimeZoneProvider> { com.singularity.todo.core.platform.systemTimeZone }
 

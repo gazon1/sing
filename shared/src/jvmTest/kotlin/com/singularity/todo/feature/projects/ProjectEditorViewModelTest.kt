@@ -52,14 +52,14 @@ class ProjectEditorViewModelTest {
     @Test
     fun `initial state has empty name for new project`() = runTest {
         val vm = createVm(backgroundScope)
-        assertEquals("", vm.state.value.name)
+        assertEquals("", vm.stateFlow.value.name)
     }
 
     @Test
     fun `NameChanged updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
-        assertEquals("My project", vm.state.value.name)
+        assertEquals("My project", vm.stateFlow.value.name)
     }
 
     // ─── W4: the editor must not keep a private copy of the name rule ──────────
@@ -70,7 +70,7 @@ class ProjectEditorViewModelTest {
         vm.onIntent(ProjectEditorIntent.NameChanged("a".repeat(ProjectsDomain.MAX_NAME_LENGTH)))
         vm.onIntent(ProjectEditorIntent.Save)
 
-        assertEquals(null, vm.state.value.errorMessage)
+        assertEquals(null, vm.stateFlow.value.errorMessage)
         assertEquals(1, fakeProjectsRepo.observeAll().first().size)
     }
 
@@ -80,7 +80,7 @@ class ProjectEditorViewModelTest {
         vm.onIntent(ProjectEditorIntent.NameChanged("a".repeat(ProjectsDomain.MAX_NAME_LENGTH + 1)))
         vm.onIntent(ProjectEditorIntent.Save)
 
-        assertNotNull(vm.state.value.errorMessage)
+        assertNotNull(vm.stateFlow.value.errorMessage)
         assertTrue(fakeProjectsRepo.observeAll().first().isEmpty())
     }
 
@@ -95,7 +95,7 @@ class ProjectEditorViewModelTest {
         vm.onIntent(ProjectEditorIntent.NameChanged(name))
         vm.onIntent(ProjectEditorIntent.Save)
 
-        assertEquals(null, vm.state.value.errorMessage)
+        assertEquals(null, vm.stateFlow.value.errorMessage)
         assertEquals(1, fakeProjectsRepo.observeAll().first().size)
     }
 
@@ -108,6 +108,6 @@ class ProjectEditorViewModelTest {
         vm.onIntent(ProjectEditorIntent.NameChanged(name))
         vm.onIntent(ProjectEditorIntent.Save)
 
-        assertEquals(domainError?.message, vm.state.value.errorMessage)
+        assertEquals(domainError?.message, vm.stateFlow.value.errorMessage)
     }
 }

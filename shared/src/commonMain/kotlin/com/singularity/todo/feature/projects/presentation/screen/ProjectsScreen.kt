@@ -53,7 +53,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun ProjectsScreen() {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectsViewModel = koinViewModel()
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val content = state as? ProjectsUiState.Content
     val searchQuery = content?.searchQuery.orEmpty()
     val sortOrder = content?.sortOrder ?: ProjectSortOrder.Name

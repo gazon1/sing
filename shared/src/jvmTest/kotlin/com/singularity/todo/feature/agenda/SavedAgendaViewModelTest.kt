@@ -132,7 +132,7 @@ class SavedAgendaViewModelTest {
         val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
         advanceUntilIdle()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertEquals("My View", state.draft.name)
         assertEquals("My View", state.draft.originalName)
@@ -148,7 +148,7 @@ class SavedAgendaViewModelTest {
         val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
         advanceUntilIdle()
 
-        assertIs<SavedAgendaViewState.NotFound>(vm.state.value)
+        assertIs<SavedAgendaViewState.NotFound>(vm.stateFlow.value)
     }
 
     @Test
@@ -170,7 +170,7 @@ class SavedAgendaViewModelTest {
 
         vm.onIntent(SavedAgendaIntent.NameChanged("Modified"))
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertEquals("Modified", state.draft.name)
         assertEquals("Original", state.draft.originalName)
@@ -199,7 +199,7 @@ class SavedAgendaViewModelTest {
         )
         vm.onIntent(SavedAgendaIntent.SectionsReordered(reordered))
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertTrue(state.draft.isDirty)
     }
@@ -276,7 +276,7 @@ class SavedAgendaViewModelTest {
         // every draft intent republishes state through emitEditingState.
         vm.onIntent(SavedAgendaIntent.NameChanged("Modified again"))
 
-        val inFlight = vm.state.value
+        val inFlight = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(inFlight)
         assertTrue(
             inFlight.isSaving,
@@ -330,7 +330,7 @@ class SavedAgendaViewModelTest {
         val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
         advanceUntilIdle()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertNull(state.view)
         assertEquals("Fresh View", state.draft.name)
@@ -348,7 +348,7 @@ class SavedAgendaViewModelTest {
 
         vm.onIntent(SavedAgendaIntent.NameChanged("Custom Name"))
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertEquals("Custom Name", state.draft.name)
         assertTrue(state.draft.isDirty)
@@ -390,7 +390,7 @@ class SavedAgendaViewModelTest {
         val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
         advanceUntilIdle()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(state)
         // After seeding: initialized=true, name=Test, isDirty=false → canSave=false
         assertFalse(state.canSave, "canSave should be false when not dirty")

@@ -42,7 +42,7 @@ import com.singularity.todo.core.ui.preview.noopClick
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> Unit = {}) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalAppNavigator.current
 
     Scaffold(

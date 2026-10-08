@@ -13,7 +13,7 @@ import kotlin.test.fail
  *
  * Usage (inside [kotlinx.coroutines.test.runTest]):
  * ```
- * awaitState { vm.state.value is SettingsUiState.Content }
+ * awaitState { vm.stateFlow.value is SettingsUiState.Content }
  * awaitState(timeoutMs = 3_000L) { vm.isReady }
  * ```
  *

@@ -216,10 +216,10 @@ class CalendarSyncViewModelCapabilityTest {
             vm.onIntent(CalendarSyncIntent.LoadCalendars)
             // Await the outcome, not isLoading: it starts false, so a predicate on it
             // passes before the launch has even set it true.
-            awaitState { !vm.state.value.isLoading && vm.state.value.availableApps.isEmpty() }
+            awaitState { !vm.stateFlow.value.isLoading && vm.stateFlow.value.availableApps.isEmpty() }
 
             assertFalse(
-                vm.state.value.isLoading,
+                vm.stateFlow.value.isLoading,
                 "a provider that failed must still finish loading; a stranded flag " +
                     "leaves the screen spinning forever",
             )
@@ -235,11 +235,11 @@ class CalendarSyncViewModelCapabilityTest {
             vm.onIntent(CalendarSyncIntent.LoadCalendars)
             // Same reason: wait for the calendars to land, not for a flag that is
             // momentarily false both before and after the load.
-            awaitState { vm.state.value.availableCalendars.isNotEmpty() }
+            awaitState { vm.stateFlow.value.availableCalendars.isNotEmpty() }
 
             assertEquals(
                 mapOf("work" to "Work"),
-                vm.state.value.availableCalendars,
+                vm.stateFlow.value.availableCalendars,
             )
         } finally {
             vmScope.close()

@@ -63,7 +63,7 @@ fun AgendaScreen(
     val vm: AgendaViewModel = koinViewModel {
         parametersOf(definition)
     }
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by vm.pendingDelete.collectAsStateWithLifecycle()
 
     val navigator = LocalAgendaNavigator.current

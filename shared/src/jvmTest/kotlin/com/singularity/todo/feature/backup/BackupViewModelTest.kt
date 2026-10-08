@@ -101,7 +101,7 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
         testScheduler.runCurrent()
-        assertEquals(1, vm.state.value.backups.size)
+        assertEquals(1, vm.stateFlow.value.backups.size)
     }
 
     // ─── createBackup ─────────────────────────────────────────────────────────
@@ -138,9 +138,9 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        assertNotNull(vm.state.value.lastBackup)
-        assertEquals(2048L, vm.state.value.lastBackup?.byteSize)
-        assertEquals(8, vm.state.value.lastBackup?.entityCount) // 5+2+1
+        assertNotNull(vm.stateFlow.value.lastBackup)
+        assertEquals(2048L, vm.stateFlow.value.lastBackup?.byteSize)
+        assertEquals(8, vm.stateFlow.value.lastBackup?.entityCount) // 5+2+1
     }
 
     @Test
@@ -221,7 +221,7 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastDeletedId)
-        assertEquals(0, vm.state.value.backups.size)
+        assertEquals(0, vm.stateFlow.value.backups.size)
     }
 
     // ─── push ─────────────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
 
         assertEquals("""{"version":1}""", imported, "the picked file's contents must reach the importer")
-        assertEquals(false, vm.state.value.isWorking, "the working flag must clear when the import lands")
+        assertEquals(false, vm.stateFlow.value.isWorking, "the working flag must clear when the import lands")
     }
 
     @Test
@@ -298,6 +298,6 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        assertEquals(false, vm.state.value.isWorking, "a failed read must not leave the screen stuck on 'working'")
+        assertEquals(false, vm.stateFlow.value.isWorking, "a failed read must not leave the screen stuck on 'working'")
     }
 }

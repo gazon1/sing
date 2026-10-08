@@ -53,7 +53,7 @@ private val INTERVAL_CHOICES = listOf(15, 30, 60, 180, 360)
 @Composable
 fun SyncSettingsScreen(modifier: Modifier = Modifier) {
     val viewModel: SyncViewModel = koinViewModel()
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     SyncSettingsContent(state = state, onIntent = viewModel::onIntent, modifier = modifier)
 }
 

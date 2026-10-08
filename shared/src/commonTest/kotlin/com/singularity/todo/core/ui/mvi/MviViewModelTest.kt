@@ -112,7 +112,7 @@ class MviViewModelTest {
     @Test
     fun `initial state is correct`() = runTest {
         val vm = VmUnderTest(this)
-        assertTrue(vm.state.value is TestState.Idle)
+        assertTrue(vm.stateFlow.value is TestState.Idle)
     }
 
     @Test
@@ -122,7 +122,7 @@ class MviViewModelTest {
         vm.onIntent(TestIntent.Start)
         advanceUntilIdle()
 
-        assertTrue(vm.state.value is TestState.Working)
+        assertTrue(vm.stateFlow.value is TestState.Working)
     }
 
     @Test
@@ -132,17 +132,17 @@ class MviViewModelTest {
         // Try to update Working state when in Idle — should stay Idle
         vm.onIntent(TestIntent.UpdateProgress(50))
         advanceUntilIdle()
-        assertTrue(vm.state.value is TestState.Idle, "state should stay Idle since we weren't in Working")
+        assertTrue(vm.stateFlow.value is TestState.Idle, "state should stay Idle since we weren't in Working")
 
         // Now enter Working
         vm.onIntent(TestIntent.Start)
         advanceUntilIdle()
-        assertTrue(vm.state.value is TestState.Working)
+        assertTrue(vm.stateFlow.value is TestState.Working)
 
         // Now update progress
         vm.onIntent(TestIntent.UpdateProgress(42))
         advanceUntilIdle()
-        assertEquals(42, (vm.state.value as TestState.Working).progress)
+        assertEquals(42, (vm.stateFlow.value as TestState.Working).progress)
     }
 
     @Test
@@ -165,11 +165,11 @@ class MviViewModelTest {
 
         vm.onIntent(TestIntent.Start)
         advanceUntilIdle()
-        assertTrue(vm.state.value is TestState.Working)
+        assertTrue(vm.stateFlow.value is TestState.Working)
 
         vm.onIntent(TestIntent.Reset)
         advanceUntilIdle()
-        assertTrue(vm.state.value is TestState.Idle)
+        assertTrue(vm.stateFlow.value is TestState.Idle)
     }
 
     @Test
@@ -179,7 +179,7 @@ class MviViewModelTest {
         vm.onIntent(TestIntent.FailingToState)
         advanceUntilIdle()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertTrue(state is TestState.Error, "expected Error, got $state")
         // errorLabel is a FALLBACK, not a prefix: the throwable's own message wins.
         assertEquals("inner", state.message)
@@ -192,7 +192,7 @@ class MviViewModelTest {
         vm.onIntent(TestIntent.FailingWithAppError)
         advanceUntilIdle()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertTrue(state is TestState.Error, "expected Error, got $state")
         assertEquals("domain says no", state.message)
     }
@@ -204,7 +204,7 @@ class MviViewModelTest {
         vm.onIntent(TestIntent.ThrowingToState)
         advanceUntilIdle()
 
-        val state = vm.state.value
+        val state = vm.stateFlow.value
         assertTrue(state is TestState.Error, "expected Error, got $state")
         assertEquals("thrown inner", state.message)
     }
@@ -233,7 +233,7 @@ class MviViewModelTest {
         vm.onIntent(TestIntent.Succeeding)
         advanceUntilIdle()
 
-        assertTrue(vm.state.value is TestState.Idle)
+        assertTrue(vm.stateFlow.value is TestState.Idle)
     }
 
     @Test

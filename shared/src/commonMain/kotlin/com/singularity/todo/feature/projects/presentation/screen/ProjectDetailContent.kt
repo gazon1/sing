@@ -40,7 +40,7 @@ import kotlin.time.Clock
 @Composable
 fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val clock: Clock = viewModel.clock
     val sheets = rememberOverlayState<ActiveSheet>()

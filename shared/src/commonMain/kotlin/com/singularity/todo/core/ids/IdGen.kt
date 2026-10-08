@@ -1,13 +1,13 @@
 package com.singularity.todo.core.ids
 
-import com.github.f4b6a3.ulid.UlidCreator
+import kotlin.uuid.Uuid
 
 /**
- * Generates a sortable unique id (ULID).
+ * Generates a unique id using [Uuid.random].
  *
- * ULIDs are 26-char Crockford base32 strings, lexicographically sortable by
- * creation time. Drop-in replacement for `java.util.UUID.randomUUID().toString()`.
+ * UUIDs are 36-char hex strings with dashes. Drop-in replacement for
+ * `java.util.UUID.randomUUID().toString()`.
  *
  * Pure commonMain — no platform deps.
  */
-fun nextId(): String = UlidCreator.getUlid().toString()
+fun nextId(): String = Uuid.random().toString()

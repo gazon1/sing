@@ -57,7 +57,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
     val now: Instant = clock.now()
     val navigator = LocalTasksNavigator.current
 
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.stateFlow.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showDiscard by remember { mutableStateOf(false) }

@@ -9,14 +9,14 @@ import kotlin.test.assertEquals
 class IdGeneratorTest {
 
     @Test
-    fun `UlidIdGenerator returns 26-character ULID string`() {
-        val id = UlidIdGenerator.next()
-        assertEquals(26, id.length)
+    fun `UuidIdGenerator returns 36-character UUID string`() {
+        val id = UuidIdGenerator.next()
+        assertEquals(36, id.length)
     }
 
     @Test
-    fun `UlidIdGenerator returns unique ids across calls`() {
-        val ids = (1..100).map { UlidIdGenerator.next() }.toSet()
+    fun `UuidIdGenerator returns unique ids across calls`() {
+        val ids = (1..100).map { UuidIdGenerator.next() }.toSet()
         assertEquals(100, ids.size)
     }
 
