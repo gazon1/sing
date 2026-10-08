@@ -181,6 +181,7 @@ def main() -> int:
         else [
             ROOT / "config" / "detekt" / "baseline-shared.xml",
             ROOT / "config" / "detekt" / "baseline-desktopApp.xml",
+            ROOT / "mcp-server" / "detekt-baseline.xml",
         ]
     )
     config_path = ROOT / args.config

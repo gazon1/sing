@@ -11,7 +11,7 @@
 # Generate baseline: just detekt-baseline
 #
 # Rules disabled here are either (a) covered by ktlint or (b) too noisy for a
-# 560-file codebase on day 1. Revisit after baselines are clean.
+# codebase at scale. Revisit after baselines are clean.
 
 config:
   validation: true
@@ -471,8 +471,8 @@ ktlint:
 
 # ---------------------------------------------------------------------------
 # custom rule sets (via :detekt-rules plugin / ServiceLoader)
-# All new rules start in warn-only mode; promoted to error in MR-4.
-# NOTE: Rule-specific config (severity, active) added in MR-4 after baseline.
+# Custom rules run as errors (promoted from warn-only in MR-4 / PR #31).
+# Rule-specific config (severity, active) added in MR-4 after baseline.
 # ---------------------------------------------------------------------------
 mvi-viewmodel:
   MviViewModelExt:
