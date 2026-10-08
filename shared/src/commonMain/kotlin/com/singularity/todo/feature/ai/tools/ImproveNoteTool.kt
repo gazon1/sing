@@ -19,11 +19,18 @@ data class ImproveNoteInput(val title: String, val body: String)
 @Serializable
 data class ImproveNoteOutput(val title: String, val body: String)
 
-class ImproveNoteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
-    SimpleTool<ImproveNoteInput>(TypeToken.of(ImproveNoteInput::class.java), NAME, DESCRIPTION) {
+class ImproveNoteTool(
+    private val promptExecutor: PromptExecutor,
+    private val model: LLModel,
+) : SimpleTool<ImproveNoteInput>(TypeToken.of(ImproveNoteInput::class.java), NAME, DESCRIPTION),
+    TypedTool<ImproveNoteInput, ImproveNoteOutput> {
 
     private val logger = Logger.withTag("ImproveNote")
 
+    /**
+     * Agent path: returns JSON string (used by Koog executor + encodeResultToString).
+     * The double-encode is intentional — the agent needs a JSON string, not a deserialized object.
+     */
     override suspend fun execute(args: ImproveNoteInput): String {
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(
@@ -46,6 +53,29 @@ class ImproveNoteTool(private val promptExecutor: PromptExecutor, private val mo
                 ImproveNoteOutput.serializer(),
                 ImproveNoteOutput(args.title, args.body),
             )
+        }
+    }
+
+    /**
+     * Use-case path: returns the deserialized domain object directly.
+     * Eliminates the JSON → String → JSON round-trip of the agent path.
+     */
+    override suspend fun executeTyped(args: ImproveNoteInput): ImproveNoteOutput {
+        val p = prompt(Prompt.Empty, KoogClock.System) {
+            system(
+                "You are an expert writing assistant. Improve the following note for clarity, conciseness, and readability. Return a JSON object with 'title' (improved title, max 80 chars) and 'body' (improved content, markdown supported). Preserve the original intent.",
+            )
+            user("Title: ${args.title}\n\nBody:\n${args.body}")
+        }
+        val response = promptExecutor.execute(p, model, emptyList())
+        val text = extractText(response)
+        return try {
+            kotlinx.serialization.json.Json.decodeFromString<ImproveNoteOutput>(text)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.w(e) { "failed" }
+            ImproveNoteOutput(args.title, args.body)
         }
     }
 

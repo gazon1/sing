@@ -18,7 +18,6 @@ import com.singularity.todo.feature.proposals.proposalModule
 import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
