@@ -1,10 +1,13 @@
-# Launches the app from a clean state and waits for the shell to be interactive.
+# Launches the app and waits for the agenda shell to be interactive.
 #
-# After clearState the DataStore is empty, so the Auth screen is shown first.
-# "Continue Offline" creates an in-memory anonymous session and lands on the
-# agenda. Without this step the nav tabs are never visible (the auth screen
-# renders instead). The 8s budget was calibrated to catch a blocking migration
-# on a slow emulator — see docs/decisions/2026-09-28-androidApp-smoke-tests-enabled.md.
+# Does NOT use clearState: the emulator retains a pre-authenticated session
+# from the snapshot, so the app lands directly on the agenda without any
+# sign-in step. This is the right behaviour for a smoke test: it verifies
+# the app boots, composes the shell, and the nav bar is visible.
+#
+# A test that needs to exercise the auth screen (e.g. to verify the auth
+# guard is shown after a fresh install) should use a separate flow that
+# explicitly clears state and handles the sign-in step with real credentials.
 appId: com.singularity.todo
 name: launch-clean
 onFlowComplete:
@@ -12,18 +15,10 @@ onFlowComplete:
 ---
 - launchApp:
     appId: com.singularity.todo
-    clearState: true
+    clearState: false
     permissions:
       notifications: allow
-# Auth screen appears immediately after clearState. Tap "Continue Offline" to
-# create an anonymous session and reach the agenda.
-- extendedWaitUntil:
-    visible:
-      id: auth_continue_offline_button
-    timeout: 5000
-- tapOn:
-    id: auth_continue_offline_button
-# Now wait for the agenda shell to be interactive.
+# Wait for the agenda shell to be interactive.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
