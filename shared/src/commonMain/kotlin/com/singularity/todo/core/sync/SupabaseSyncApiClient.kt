@@ -41,6 +41,9 @@ import kotlinx.serialization.json.jsonObject
  */
 class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
 
+    // Test hook: a real client has no use for pendingRef, so null is correct.
+    override var pendingRef: MutableList<SyncOutboxEntity>? = null
+
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
         val body = callRpc("sync_batch_apply") { function ->
             rpc.call(function, buildJsonObject { put("p_patches", request.buildPatches()) })

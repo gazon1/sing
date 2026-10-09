@@ -76,13 +76,13 @@ internal class SyncCoordinator(
      * Requests a sync cycle and suspends until a cycle started after this call has
      * completed.
      *
-     * @return that cycle's outcome, or [SyncOutcome.Skipped] if the coordinator was
+     * @return that cycle's outcome, or [SyncOutcome.NothingToDo] if the coordinator was
      *   closed while waiting.
      */
     suspend fun request(): SyncOutcome {
         val seen = completedCycles.value
         if (!triggers.trySend(Unit).isSuccess) {
-            return SyncOutcome.Skipped("Sync coordinator is closed")
+            return SyncOutcome.NothingToDo
         }
         return awaitCycleAfter(seen)
     }
@@ -102,9 +102,9 @@ internal class SyncCoordinator(
     private suspend fun awaitCycleAfter(seen: Long): SyncOutcome {
         val completed = completedCycles.first { it > seen }
         if (completed == Long.MAX_VALUE) {
-            return SyncOutcome.Skipped("Sync coordinator is closed")
+            return SyncOutcome.NothingToDo
         }
-        return lastOutcome.value ?: SyncOutcome.Skipped("Sync cycle produced no outcome")
+        return lastOutcome.value ?: SyncOutcome.NothingToDo
     }
 
     /**
@@ -114,7 +114,7 @@ internal class SyncCoordinator(
      * wait for a cycle that never arrives — a silent permanent stop of all sync,
      * which is what happens to the delay loop when a cycle throws.
      *
-     * The outcome is [SyncOutcome.Failed], not a [SyncOutcome.Success] with the same
+     * The outcome is [SyncOutcome.CouldNotStart], not a [SyncOutcome.Completed] with the same
      * error in both phases. The exception came from somewhere inside the cycle and
      * this function cannot know where, so the only honest claim is that the cycle did
      * not complete; claiming a push and a pull both failed asserted that work had run
@@ -127,6 +127,6 @@ internal class SyncCoordinator(
         throw e
     } catch (e: Exception) {
         log.e(e) { "Sync cycle threw; continuing" }
-        SyncOutcome.Failed(e.toAppError())
+        SyncOutcome.CouldNotStart(e.toAppError())
     }
 }

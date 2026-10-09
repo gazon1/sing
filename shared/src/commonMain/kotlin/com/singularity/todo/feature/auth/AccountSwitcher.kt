@@ -163,15 +163,16 @@ class AccountSwitcher(
     private fun switchDeliveryFailure(outcome: SyncOutcome): AppError? = when (outcome) {
         // The cycle never ran — a local read failed. Nothing was sent, so nothing may
         // be erased.
-        is SyncOutcome.Failed -> outcome.error
+        is SyncOutcome.CouldNotStart -> outcome.error
 
-        // No cycle ran and none will: the coordinator is closed. Also nothing sent.
-        is SyncOutcome.Skipped -> AppError.Unknown(
-            "Sync is not running, so the queued changes were not sent: ${outcome.reason}",
+        // No cycle ran and none will: no active sync scope or the coordinator is closed.
+        // Also nothing sent.
+        is SyncOutcome.NothingToDo -> AppError.Unknown(
+            "Sync is not running, so the queued changes were not sent",
             code = "auth.switch_delivery_skipped",
         )
 
-        is SyncOutcome.Success -> {
+        is SyncOutcome.Completed -> {
             val push = outcome.push.getOrElse {
                 return AppError.Network(
                     "The queued changes could not be sent before switching accounts",

@@ -11,6 +11,7 @@
 | `IntentMethodName` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans an intent handler named anything but `onIntent`, so the MVI entry point has one name. | `RuleFiresSmokeTest (shared)` | yes |
 | `MviViewModelExt` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a ViewModel managing its own `MutableStateFlow` instead of the base's single state source. | `RuleFiresSmokeTest (shared)` | yes |
 | `NoCombineSideEffect` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | Bans side effects inside `combine(...) { ... | `NoCombineSideEffectRuleTest` | yes |
+| `NoCoroutineLaunchInInit` | `NoCoroutineLaunchInInit.kt` | `no-init-coroutine-launch` | Bans `scope.launch { ... | `RuleFiresSmokeTest (shared)` | yes |
 | `NoDirectClockSystem` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | Bans direct references to `Clock.System` in commonMain production code. | `NoDirectClockSystemRuleTest` | yes |
 | `NoDirectDispatchers` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | Bans direct references to `Dispatchers.IO`, `Dispatchers.Default` and | `NoDirectDispatchersRuleTest` | yes |
 | `NoDivergentScopeAndReporter` | `NoDivergentScopeAndReporterRule.kt` | `no-unreported-failure-path` | A component whose two failure paths are chosen independently can send them to two different | `NoDivergentScopeAndReporterRuleTest` | yes |
@@ -34,6 +35,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**26 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**27 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

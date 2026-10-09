@@ -64,9 +64,18 @@ internal class SyncBootstrapper(
     ): ApplyOutcome {
         if (event.protocolVersion > SyncProtocol.CURRENT_PROTOCOL_VERSION) {
             log.w {
-                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: protocol version ${event.protocolVersion} > ${SyncProtocol.CURRENT_PROTOCOL_VERSION}, skipping"
+                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: " +
+                    "protocol version ${event.protocolVersion} > ${SyncProtocol.CURRENT_PROTOCOL_VERSION}; " +
+                    "event is not applied — a newer client wrote it and this device cannot decode it"
             }
-            return ApplyOutcome.Applied
+            // Return Skipped (not Applied): the bytes will be identical on every later delivery,
+            // so waiting cannot help, and a client that cannot decode the schema may not apply the
+            // event correctly even if it has a newer protocol wire format. The cursor advances
+            // so this device does not stall on one undecodable event, but the event is counted
+            // as dropped so monitoring can see that it was skipped rather than processed.
+            return ApplyOutcome.Skipped(
+                "protocol version ${event.protocolVersion} is newer than ${SyncProtocol.CURRENT_PROTOCOL_VERSION}",
+            )
         }
         return try {
             when (event.eventType) {

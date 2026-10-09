@@ -108,7 +108,7 @@ fun jsonObject(vararg pairs: Pair<String, String>): JsonObject = buildJsonObject
  * every call, so any test asserting cursor behaviour passed against a fake that had
  * no cursor to begin with — the assertion was about the fake, not the engine.
  */
-class FakeSyncApiClient(
+open class FakeSyncApiClient(
     private val pushResponse: BatchPushResponse = BatchPushResponse(emptyList()),
     private val pullEvents: List<SyncEvent> = emptyList(),
     /**
@@ -152,6 +152,13 @@ class FakeSyncApiClient(
      * between testing a state machine and testing one of its states.
      */
     val pushResponses = ArrayDeque<BatchPushResponse>()
+
+    /**
+     * A mutable reference to the pending list, set by [PushPhase.push] before calling
+     * [batchPush]. Tests can mutate it inside [onPushInFlight] to simulate the D1
+     * race where a row is removed between plan-building and response-processing.
+     */
+    override var pendingRef: MutableList<SyncOutboxEntity>? = null
 
     /**
      * Runs with the request *in flight*, before the response is formed.
