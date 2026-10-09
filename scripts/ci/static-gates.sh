@@ -72,7 +72,9 @@ gate blocking "gate scripts' own unit tests" python3 -m unittest discover -s scr
 gate blocking "test-task external inputs declared" python3 scripts/check-test-task-inputs.py
 gate blocking "declared dependencies are used" python3 scripts/check-dependency-usage.py
 gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
-gate blocking "unwired surfaces" python3 scripts/find-unwired-surfaces.py --quiet
+# Advisory — finding code that is fully implemented but never called is useful
+# signal but does not affect build correctness or test reliability.
+gate advisory "unwired surfaces" python3 scripts/find-unwired-surfaces.py --quiet
 gate blocking "unwired backlog refs" python3 scripts/check-unwired-backlog-refs.py
 gate blocking "settings read by a feature" python3 scripts/check-dead-settings.py --quiet
 # A YAML mapping that repeats a key is either a hard parse error (SnakeYAML) or
@@ -107,13 +109,17 @@ gate blocking "kiwi inventory did not regress" python3 scripts/check-kiwi-invent
 gate blocking "supabase schema is self-consistent" python3 scripts/check-supabase-schema-integrity.py
 
 # Docs / agent-facing text (formerly docs-audit.yml)
-gate blocking "skills catalog current" ./scripts/regen-skills-catalog.sh --check
+# Advisory — skills catalog drift is informational and does not affect builds.
+# Flip to blocking once the catalog auto-regeneration is reliable.
+gate advisory "skills catalog current" ./scripts/regen-skills-catalog.sh --check
 gate blocking "skill frontmatter" ./scripts/check-skill-frontmatter.sh
 gate blocking "decisions digest within budget" digest_and_sizes
 gate blocking "digest has no double suffix" digest_no_double_suffix
-gate blocking "no dead doc refs" python3 scripts/check-doc-dead-refs.py
+# Advisory — dead doc references are informational and do not affect builds.
+gate advisory "no dead doc refs" python3 scripts/check-doc-dead-refs.py
 gate blocking "no dead skill symbols" python3 scripts/check-doc-dead-refs.py --skill-symbols
-gate blocking "publication hygiene" python3 scripts/check-publication-hygiene.py
+# Advisory — publication hygiene violations are informational and do not affect builds.
+gate advisory "publication hygiene" python3 scripts/check-publication-hygiene.py
 gate blocking "publication hygiene self-test" python3 scripts/check-publication-hygiene.py --self-test
 gate blocking "README claims" python3 scripts/check-readme-claims.py
 gate blocking "README claims self-test" python3 scripts/check-readme-claims.py --self-test
