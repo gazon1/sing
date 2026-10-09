@@ -449,15 +449,16 @@ class SyncPhaseReporterTest {
     }
 
     @Test
-    fun `toResult maps NotRun to failure with IllegalStateException`() {
+    fun `toResult maps NotRun to success with zero summary`() {
         val phaseResult: PhaseResult<PushSummary> = PhaseResult.NotRun
 
         val result = phaseResult.toResult()
 
-        assertTrue(result.isFailure)
-        val thrown = result.exceptionOrNull()
-        assertIs<IllegalStateException>(thrown)
-        assertEquals("Phase did not run", thrown.message)
+        assertTrue(result.isSuccess)
+        val summary = result.getOrThrow()
+        assertEquals(0, summary.processed)
+        assertEquals(0, summary.succeeded)
+        assertEquals(0, summary.failed)
     }
 
     @Test

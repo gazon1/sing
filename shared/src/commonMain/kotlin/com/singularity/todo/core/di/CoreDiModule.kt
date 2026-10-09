@@ -289,6 +289,11 @@ fun coreModule(): org.koin.core.module.Module = module {
     // SyncEngineState holder that the engine exposes. All three share the same
     // MutableStateFlows and the same SyncPhaseReporter, keeping phase-ending
     // rules in one place.
+    //
+    // #177 fix: SyncBootstrapper is created AFTER the engine, and is given the engine
+    // as a constructor parameter. Its init {} runs during this call and registers all
+    // pull handlers. Previously it was a standalone single {} that nobody retrieved, so
+    // Koin never instantiated it and zero handlers were registered in production.
     single {
         val state = SyncEngineState(
             log = Logger.withTag("SyncEngine"),
@@ -309,10 +314,8 @@ fun coreModule(): org.koin.core.module.Module = module {
             retryPolicy = get(),
             scope = get(),
         )
-        // PullPhase.getHandlers is a lambda that is only invoked inside pull(),
-        // after SyncEngine is fully constructed. get<SyncEngine>() is safe here
-        // because Koin resolves dependencies in dependency-order within a single
-        // get() call chain, and the lambda is not invoked during construction.
+        // getHandlers lambda uses get<SyncEngine>() — Koin resolves engine as a singleton,
+        // so this returns the same instance. The lambda is not invoked during construction.
         val pullPhase = PullPhase(
             api = get(),
             authRepository = get(),
@@ -343,7 +346,16 @@ fun coreModule(): org.koin.core.module.Module = module {
             state = state,
             pushPhase = pushPhase,
             pullPhase = pullPhase,
+            bootstrapper = null,
         )
+    }
+
+    // Force bootstrapper instantiation so its init {} runs and registers handlers.
+    // The engine single {} has executed above, so get<SyncEngine>() returns the cached engine.
+    // Koin resolves get() at call-time, not definition-time.
+    single { get<SyncEngine>() }
+    single {
+        SyncBootstrapper(engine = get<SyncEngine>(), writer = get())
     }
 
     // Backoff policy for rejected patches. One instance so the outbox, the push path
@@ -418,16 +430,6 @@ fun coreModule(): org.koin.core.module.Module = module {
             tagRepo = get(),
             tagGroupRepo = get(),
             timeTrackingRepo = get(),
-        )
-    }
-
-    // SyncBootstrapper: registers pull handlers for all DocTypes.
-    // Must be instantiated AFTER all feature repositories (Task, Note, Project, Tag, TagGroup).
-    // The init {} block performs the registration.
-    single {
-        SyncBootstrapper(
-            engine = get(),
-            writer = get(),
         )
     }
 

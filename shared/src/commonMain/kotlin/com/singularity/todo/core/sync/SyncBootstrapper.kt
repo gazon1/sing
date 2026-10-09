@@ -14,13 +14,19 @@ import kotlinx.coroutines.CancellationException
  * [CoreDiModule]), so we just need the repositories to create the handlers.
  */
 internal class SyncBootstrapper(
-    private val engine: SyncEngine,
+    /**
+     * The sync engine. Nullable to allow a no-op placeholder to be passed during
+     * [SyncEngine] construction — the real bootstrapper is created in a separate
+     * Koin singleton, after the engine exists, via `get<SyncEngine>()`.
+     * Subclasses must call [registerHandlers] once the engine is set.
+     */
+    private val engine: SyncEngine?,
     private val writer: SyncDocumentWriter,
     private val log: Logger = Logger.withTag("SyncBootstrapper"),
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     init {
-        registerHandlers()
+        if (engine != null) registerHandlers()
     }
 
     private fun registerHandlers() {
@@ -37,7 +43,7 @@ internal class SyncBootstrapper(
         // time-entry event is Unappliable, the cursor is held back, and every cycle
         // re-receives the same event and stalls identically.
         writer.supportedTypes.forEach { type ->
-            engine.registerHandler(type) { event ->
+            engine?.registerHandler(type) { event ->
                 handleEvent(event) { data: kotlinx.serialization.json.JsonObject ->
                     writer.upsert(type, data)
                 }
