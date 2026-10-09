@@ -30,8 +30,10 @@ import kotlin.time.Duration
  * A fake rather than a Room database because these tests are about the engine's
  * decisions, not about SQL, and a real database would put a process boundary — and
  * a `slow` tag — in the middle of every assertion.
+ *
+ * Open so tests can create throwing subclasses for error-path coverage.
  */
-class FakeSyncOutboxDao : SyncOutboxDao {
+open class FakeSyncOutboxDao : SyncOutboxDao {
     val rows = mutableListOf<SyncOutboxEntity>()
 
     override fun watchPending(): Flow<List<SyncOutboxEntity>> = MutableStateFlow(snapshot())
