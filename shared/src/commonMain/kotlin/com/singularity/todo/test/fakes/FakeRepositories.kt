@@ -1548,13 +1548,13 @@ class FakeTagsRepository(
     override suspend fun delete(id: TagId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
-        // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
-        // looked trashed since 1970 — anything comparing the timestamp saw a
-        // different value than production produces.
-        store.upsert(existing.copy(deletedAt = clock.now()))
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
+            // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
+            // looked trashed since 1970 — anything comparing the timestamp saw a
+            // different value than production produces.
+            store.upsert(existing.copy(deletedAt = clock.now()))
         }
     }
 

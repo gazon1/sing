@@ -261,7 +261,8 @@ class NotesListViewModelTest {
             // Persistence and rendering are separate claims: the write is committed
             // immediately, and the list follows once that change reaches its state.
             assertEquals(
-                0, vm.listState().unpinned.size,
+                0,
+                vm.listState().unpinned.size,
                 "a delete that has been committed must not still be listed",
             )
 
