@@ -66,7 +66,7 @@ open class SettingsExporter(private val contributors: Set<SettingsContributor<*,
         val snapshot = SettingsSnapshot(
             schemaVersion = SettingsSnapshot.CURRENT_VERSION,
             appearance = AppearanceSnapshot(
-                darkTheme = appearance.darkTheme,
+                themeMode = appearance.themeMode.toStorageString(),
                 accentColor = appearance.accentColor,
                 fontSizeScale = appearance.fontSizeScale,
             ),

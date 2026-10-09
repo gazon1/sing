@@ -9,6 +9,7 @@ import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentType
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -53,7 +54,7 @@ internal fun PreviewThemed(
     useSurface: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    SingularityTheme(darkTheme = darkTheme, accent = accent) {
+    SingularityTheme(themeMode = if (darkTheme) ThemeMode.Dark else ThemeMode.Light, accent = accent) {
         if (useSurface) {
             Surface(color = MaterialTheme.colorScheme.background) { content() }
         } else {

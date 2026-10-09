@@ -26,15 +26,26 @@ data class SettingsSnapshot(
     val defaultAgendaView: DefaultAgendaViewSnapshot,
 ) {
     companion object {
-        const val CURRENT_VERSION = 1
+        const val CURRENT_VERSION = 2
     }
 }
 
 @Serializable
 data class AppearanceSnapshot(
-    val darkTheme: Boolean = false,
+    /**
+     * Theme mode as a storage string: "system", "light", "dark".
+     * When empty and [darkThemeForMigration] is present, the v1 migration applies.
+     * Sentinel `__UNSET__` means "v2 format with System default — no migration needed".
+     */
+    val themeMode: String = "__UNSET__",
     val accentColor: String = "blue",
     val fontSizeScale: Float = 1f,
+    /**
+     * Retained for v1 → v2 JSON migration. When [themeMode] is `__UNSET__`
+     * (v2 format) this field is absent (defaults to false). When v1 JSON is
+     * deserialized, this carries the old boolean value and triggers migration.
+     */
+    val darkThemeForMigration: Boolean = false,
 )
 
 @Serializable

@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
+import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.theme.SingularityAccents
@@ -42,7 +43,7 @@ private const val RELEASES_URL = "https://github.com/singularity-todo/singularit
 @Composable
 actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
     val appearance: AppearanceSettingsRepository = koinInject()
-    val darkTheme by appearance.darkTheme.collectAsState(initial = false)
+    val themeMode by appearance.themeMode.collectAsState(initial = ThemeMode.System)
     val accentName by appearance.accentColor.collectAsState(initial = "blue")
     val accent = SingularityAccents.fromString(accentName)
     val fontSizeScale by appearance.fontSizeScale.collectAsState(initial = 1f)
@@ -55,7 +56,7 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
         modifier = Modifier,
         content = {
             AppContent(
-                darkTheme = darkTheme,
+                themeMode = themeMode,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
             )
@@ -71,7 +72,7 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
 }
 
 @Composable
-private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeScale: Float) {
+private fun AppContent(themeMode: ThemeMode, accent: SingularityAccents, fontSizeScale: Float) {
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {
@@ -82,7 +83,7 @@ private fun AppContent(darkTheme: Boolean, accent: SingularityAccents, fontSizeS
         )
     }
 
-    SingularityTheme(darkTheme = darkTheme, accent = accent, fontSizeScale = fontSizeScale) {
+    SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
             // One provider for the whole tree, so shared components can pulse haptics without

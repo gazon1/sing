@@ -15,6 +15,7 @@ import com.singularity.todo.core.schedule.WorkScheduleSettingsContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsStore
 import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsStore
@@ -103,7 +104,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         runCurrent()
         val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(false, state.appearance.darkTheme)
+        assertEquals(ThemeMode.System, state.appearance.themeMode)
         assertEquals("blue", state.appearance.accentColor)
         assertEquals(1f, state.appearance.fontSizeScale)
         assertEquals(true, state.notifications.enabled)
@@ -120,7 +121,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         runCurrent()
         val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(false, state.appearance.darkTheme)
+        assertEquals(ThemeMode.System, state.appearance.themeMode)
         assertEquals("blue", state.appearance.accentColor)
         assertEquals(1f, state.appearance.fontSizeScale)
     }

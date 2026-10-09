@@ -23,8 +23,6 @@ object SettingsDefaults {
     // ── Appearance ────────────────────────────────────────────────────────
 
     object Appearance {
-        const val DARK_THEME: Boolean = false
-
         // Not const: depends on enum entry property access at runtime.
         const val ACCENT_COLOR: String = "blue"
         const val FONT_SIZE_SCALE: Float = 1f

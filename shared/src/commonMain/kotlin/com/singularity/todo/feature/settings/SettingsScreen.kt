@@ -71,9 +71,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
-import com.singularity.todo.feature.tags.TagsIntent
 import com.singularity.todo.feature.tags.TagsScreen
-import com.singularity.todo.feature.tags.TagsUiState
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
@@ -119,8 +117,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val uiState by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
     val snackbarHostState = remember { SnackbarHostState() }
-    // Hoisted state for the tags undo-snackbar countdown bar.
-    var tagsCountdownProgress by remember { mutableStateOf<Float?>(null) }
 
     // Show snackbar on error, then dismiss it
     LaunchedEffect((uiState as? SettingsUiState.Content)?.errorMessage) {
@@ -131,12 +127,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     }
 
     Scaffold(
-        snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = tagsCountdownProgress) },
+        snackbarHost = { TaggedSnackbarHost(snackbarHostState) },
         modifier = modifier,
     ) { paddingValues ->
         when (val state = uiState) {
             else -> SettingsContent(
-                snackbarHostState = snackbarHostState,
                 state = state,
                 selectedTab = selectedTab,
                 onSelectTab = { selectedTab = it },
@@ -145,7 +140,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 attachmentsPath = koinInject<FileRevealer>().attachmentsBasePath(),
                 onboarding = koinInject<OnboardingSettingsRepository>(),
                 modifier = Modifier.padding(paddingValues),
-                onTagsCountdownProgress = { tagsCountdownProgress = it },
             )
         }
     }
@@ -165,7 +159,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun SettingsContent(
-    snackbarHostState: SnackbarHostState,
     state: SettingsUiState.Content,
     selectedTab: SettingsTab,
     onSelectTab: (SettingsTab) -> Unit,
@@ -177,7 +170,6 @@ private fun SettingsContent(
     onboarding: OnboardingSettingsRepository? = null,
     modifier: Modifier = Modifier,
     previewOverrides: Map<SettingsTab, @Composable () -> Unit> = emptyMap(),
-    onTagsCountdownProgress: (Float?) -> Unit = {},
 ) {
     Row(modifier = modifier.fillMaxSize()) {
         SettingsNavRail(
@@ -214,33 +206,7 @@ private fun SettingsContent(
 
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
-                        val tagsState by tagsVm.stateFlow.collectAsStateWithLifecycle()
-                        val tagsPendingDelete by tagsVm.pendingDelete.collectAsStateWithLifecycle()
-                        val tagsCountdownProgress by tagsVm.countdownProgress.collectAsStateWithLifecycle()
-
-                        // Sync countdown progress up to SettingsScreen so the Scaffold's
-                        // TaggedSnackbarHost can show the progress bar.
-                        LaunchedEffect(tagsCountdownProgress) {
-                            onTagsCountdownProgress(tagsCountdownProgress)
-                        }
-
-                        LaunchedEffect(tagsPendingDelete?.tagId) {
-                            val pending = tagsPendingDelete ?: return@LaunchedEffect
-                            val result = snackbarHostState.showSnackbar(
-                                message = "\"${pending.title}\" deleted",
-                                actionLabel = "Undo",
-                            )
-                            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                                tagsVm.onIntent(TagsIntent.UndoDeleteTapped)
-                            }
-                        }
-
-                        TagsScreen(
-                            state = tagsState,
-                            onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
-                            onDelete = { id -> tagsVm.onIntent(TagsIntent.Delete(id)) },
-                            onRename = { id, name, color -> tagsVm.onIntent(TagsIntent.Rename(id, name, color)) },
-                        )
+                        TagsScreen(viewModel = tagsVm)
                     }
 
                     SettingsTab.TagGroups -> {
@@ -384,12 +350,22 @@ private fun AiStatusBadge(aiTestResult: AiTestResult, modifier: Modifier = Modif
 
 private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
     SettingsTab.Tags to {
-        TagsScreen(
-            state = TagsUiState.Empty,
-            onCreate = { _, _ -> },
-            onDelete = {},
-            onRename = { _, _, _ -> },
+        val fakeTagsRepo = com.singularity.todo.test.fakes.FakeTagsRepository()
+        val fakeCreateTag = com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase(
+            fakeTagsRepo,
+            com.singularity.todo.test.fakes.FakeClock(),
         )
+        val fakeUpdateTag = com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase(
+            fakeTagsRepo,
+            com.singularity.todo.test.fakes.FakeClock(),
+        )
+        val vm = TagsViewModel(
+            tagRepo = fakeTagsRepo,
+            createTag = fakeCreateTag,
+            updateTag = fakeUpdateTag,
+            currentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(),
+        )
+        TagsScreen(viewModel = vm)
     },
     SettingsTab.TagGroups to {
         TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})
@@ -406,7 +382,6 @@ private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
 @Composable
 private fun SettingsScreenPreview(selectedTab: SettingsTab) {
     SettingsContent(
-        snackbarHostState = SnackbarHostState(),
         state = SettingsUiState.Content(),
         selectedTab = selectedTab,
         onSelectTab = {},

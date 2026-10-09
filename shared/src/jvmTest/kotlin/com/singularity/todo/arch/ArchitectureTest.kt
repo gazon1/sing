@@ -395,12 +395,13 @@ class ArchitectureTest {
 
     @Test
     fun `only the theme itself reads isSystemInDarkTheme`() {
-        // The app's dark mode is a user setting (SettingsBundle.Appearance.darkTheme,
-        // default false), not a system read-through, and there is no "follow system"
-        // tri-state. A subtree that re-derives it from the OS silently desynchronises
-        // from the palette actually in effect — this shipped: the calendar screen
-        // painted its hand-authored navy dark palette onto a light app whenever the
-        // system was dark and the user had left the default setting alone.
+        // The app's dark mode is a user setting (ThemeMode tri-state, default System).
+        // SingularityTheme is the single resolution point: it reads isSystemInDarkTheme()
+        // only when ThemeMode.System is active, and provides the resolved boolean via
+        // LocalIsDarkTheme. A subtree that re-derives it from the OS silently desyncs
+        // from the palette actually in effect — this shipped: the calendar screen painted
+        // its hand-authored navy dark palette onto a light app whenever the system was
+        // dark and the user had left the default setting alone.
         //
         // Theme-aware code reads LocalIsDarkTheme, provided by SingularityTheme from
         // the same value it used to build the color scheme. See ADR
