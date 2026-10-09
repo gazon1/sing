@@ -31,3 +31,10 @@ runs:
       with:
         cache-read-only: ${{ github.ref != 'refs/heads/main' }}
         cache-encryption-key: ${{ inputs.cache-encryption-key }}
+        # Exclude transforms and instrumented jars — they are content-addressed and
+        # accumulate as new entries when dependencies change, reaching ~1.5 GB each.
+        # Excluding them saves ~7 GB. Dependencies (modules-2) and wrapper are kept.
+        gradle-home-cache-excludes: |
+          caches/transforms-*
+          caches/jars-*
+          caches/instrumented-jars-*

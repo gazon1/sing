@@ -1,0 +1,38 @@
+name: Clean up PR caches
+
+# Cleans up GitHub Actions cache entries when a PR is closed.
+# Cache entries are associated with the merge ref (refs/pull/N/merge),
+# not the head branch. This prevents orphaned PR caches from accumulating.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  delete-pr-cache:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Delete this PR's merge-ref cache entries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Cache is associated with the merge ref, not the head branch
+          ids=$(gh cache list \
+            --ref "refs/pull/${{ github.event.pull_request.number }}/merge" \
+            --limit 100 \
+            --json id --jq '.[].id')
+
+          for id in $ids; do
+            echo "Deleting cache $id"
+            gh cache delete "$id" || echo "Cache $id already gone"
+          done
+
+          if [ -z "$ids" ]; then
+            echo "No caches found for this PR"
+          fi
