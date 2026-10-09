@@ -643,22 +643,19 @@ SABOTAGE_ONLY_GATES = [
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
         sabotage_requires_clean_tree=True,
     ),
-    ScriptGate(
-        name="kiwi-gaps",
-        # The gate calls the Kiwi stand and compares against the baseline. Without
-        # --if-present the registered invocation (check.sh / ci.yml) would fail
-        # whenever the stand is down, which is the correct behaviour — a gate that
-        # cannot reach its data source must fail, not skip. The --if-present flag
-        # is not in this cmd, so the sabotage proof runs the gate as it should be
-        # run: with Kiwi as the source of truth. kiwi_required=True makes the
-        # harness skip this control when the stand is down rather than reporting
-        # "already fails on a clean tree" for an infrastructure reason.
-        cmd=[sys.executable, "scripts/check-kiwi-gaps.py"],
-        sabotage_path="config/docs/kiwi-gaps-baseline.txt",
-        sabotage="p.write_text(p.read_text().replace('Automated — mcp-server 1', 'Automated — mcp-server 0'))",
-        why="a plan whose never-run cases rise above its floor means the plan is not being run",
-        kiwi_required=True,
-    ),
+    # REMOVED — kiwi-gaps gate deleted 2026-10-09.
+    # Kiwi is not currently used; the gate is kept in static-gates.sh with --if-present
+    # so it skips when the stand is down. Removing it from the sabotage registry
+    # eliminates the false "already fails on a clean tree" report from the harness.
+    # Restore by copying the block back from git history if Kiwi is re-adopted.
+    # ScriptGate(
+    #     name="kiwi-gaps",
+    #     cmd=[sys.executable, "scripts/check-kiwi-gaps.py"],
+    #     sabotage_path="config/docs/kiwi-gaps-baseline.txt",
+    #     sabotage="p.write_text(p.read_text().replace('Automated — mcp-server 1', 'Automated — mcp-server 0'))",
+    #     why="a plan whose never-run cases rise above its floor means the plan is not being run",
+    #     kiwi_required=True,
+    # ),
     ScriptGate(
         name="adr-references",
         cmd=[sys.executable, "scripts/check-adr-references.py"],
