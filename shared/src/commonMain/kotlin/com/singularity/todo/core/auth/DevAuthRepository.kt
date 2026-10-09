@@ -20,15 +20,15 @@ import kotlinx.coroutines.flow.asStateFlow
  * val repo = DevAuthRepository.anonymous()
  *
  * // Signed-in session
- * val repo = DevAuthRepository.signedIn(email = "test@test.com")
+ * val repo = DevAuthRepository.signedIn(email = "alice@example.com")
  *
  * // Signed-in with custom userId
- * val repo = DevAuthRepository.signedIn(email = "test@test.com", userId = UserId.generate())
+ * val repo = DevAuthRepository.signedIn(email = "alice@example.com", userId = UserId.generate())
  * ```
  *
  * Transition sessions in tests via [configureSession]:
  * ```
- * repo.configureSession(Session.SignedIn(UserId.fromString("user-1"), "a@b.com", "tok", "ref"))
+ * repo.configureSession(Session.SignedIn(UserId.fromString("user-1"), "alice@example.com", "tok", "ref"))
  * ```
  *
  * Inspect call history:
