@@ -148,11 +148,13 @@ Impact is low (writes are always atomic), but the warning helps diagnose sync sk
 
 ---
 
-## Finding 11 — Zero unit tests for sync components (TEST) — [#259](https://github.com/gazon1/sing/issues/259)
+## ✅ Fixed — Finding 11: Zero unit tests for sync components (TEST) — [#259](https://github.com/gazon1/sing/issues/259)
 
-Eight core sync components have 0% test coverage: `SyncEngine`, `SyncCoordinator`, `PushPhase`, `PullPhase`, `SyncBootstrapper`, `SyncRunner`, `SyncEngineState`, `HandlerRegistry`. The D1/D2 fixes and the channel coalescing in `SyncCoordinator` have no automated verification.
+**Commit:** `56b59257` (part of #259)
 
-Priority order for tests: `HandlerRegistry` → `SyncEngineState` → `SyncCoordinator` → `PushPhase` → `PullPhase` → `SyncEngine`.
+Eight core sync components had 0% test coverage: `SyncEngine`, `SyncCoordinator`, `PushPhase`, `PullPhase`, `SyncBootstrapper`, `SyncRunner`, `SyncEngineState`, `HandlerRegistry`. Tests were added in the zero-coverage PR.
+
+Priority order followed: `HandlerRegistry` → `SyncEngineState` → `SyncCoordinator` → `PushPhase` → `PullPhase` → `SyncEngine`.
 
 
 
@@ -209,5 +211,5 @@ The bootstrapper is nullable (`SyncBootstrapper?`) and null-safe in `registerHan
 | 8 | deferred | [#258](https://github.com/gazon1/sing/issues/258) | low | ARCH | Extract `SyncEntityRegistry` port |
 | 9 | deferred | [#260](https://github.com/gazon1/sing/issues/260) | low | ARCH | SyncEngine singleton lifecycle |
 | 10 | deferred | [#261](https://github.com/gazon1/sing/issues/261) | low | ARCH | Move `SyncScopeProvider` to `core/profile` |
-| 11 | deferred | [#262](https://github.com/gazon1/sing/issues/262) | very low | DEBT | Log warning on `SyncPrefs` DataStore init failure |
-| 12 | deferred | [#259](https://github.com/gazon1/sing/issues/259) | high | TEST | Add unit tests for sync components |
+| 10 | ✅ fixed | [#262](https://github.com/gazon1/sing/issues/262) | very low | DEBT | Log warning on `SyncPrefs` DataStore init failure |
+| 11 | ✅ fixed | [#259](https://github.com/gazon1/sing/issues/259) | high | TEST | Add unit tests for sync components |
