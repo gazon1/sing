@@ -2,6 +2,8 @@ package com.singularity.todo.core.ui
 
 import androidx.compose.runtime.Stable
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedSendChannelException
@@ -22,6 +24,10 @@ import kotlin.concurrent.atomics.incrementAndFetch
  * For multi-subscriber broadcast scenarios, collect a shared flow directly.
  *
  * @param capacity Buffer capacity. Defaults to [Channel.BUFFERED].
+ * @param crashReporter Called when an event is dropped after close. Defaults to
+ *   [NoOpCrashReportingPort] so tests are silent without a global to reset; supply a
+ *   [com.singularity.todo.test.fakes.RecordingCrashReportingPort] to assert no report
+ *   was made.
  * @see MviEvent
  */
 @Stable
@@ -32,7 +38,10 @@ import kotlin.concurrent.atomics.incrementAndFetch
 // target without `java.util.concurrent`; `incrementAndFetch` is the stdlib's spelling of
 // `incrementAndGet`.
 @OptIn(ExperimentalAtomicApi::class)
-class EventBus<E : MviEvent>(capacity: Int = Channel.BUFFERED) {
+class EventBus<E : MviEvent>(
+    capacity: Int = Channel.BUFFERED,
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+) {
     private val _channel = Channel<E>(capacity)
     val flow: Flow<E> = _channel.receiveAsFlow()
 
@@ -78,8 +87,12 @@ class EventBus<E : MviEvent>(capacity: Int = Channel.BUFFERED) {
         } catch (closed: ClosedSendChannelException) {
             val dropped = droppedAfterCloseCount.incrementAndFetch()
             // `closed` is logged rather than ignored so the line says *why* the event went
-            // missing, not just that it did.
+            // missing, not just that it did.  The reporter is also called: a drop is a handled
+            // failure, and a reporter that is never called cannot distinguish "no drop happened"
+            // from "drop was silently absorbed" — which is the exact regression this test
+            // guards against.
             log.d(closed) { "EventBus closed, dropped event #$dropped" }
+            crashReporter.report(closed, "EventBus.dropped")
         }
     }
 
