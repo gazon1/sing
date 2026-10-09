@@ -792,7 +792,7 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 
 `CalendarFlowTest` так уже падал: «passed on September 30th, failed on October 1st».
 
-**Status: OPEN.** Фиксируется в MR-2 (тест-инфраструктура): добавить `fakeClock: FakeClock? = null` параметр в `runDesktopAppTest`, подключать через `overrides = module { single<Clock> { fakeClock } }` (Koin last-wins). Закрыть backlog-пункт `no-direct-clock-system-kdoc-claims-tests-are-exempt`.
+**Status: CLOSED (2026-10-09).** `runDesktopAppTest` уже принимает `clock: Clock?` параметр и подключает в Koin через last-wins (DesktopAppHarness.kt §clock). `CalendarFlowTest` уже передаёт `clock = CLOCK` (FakeClock с фиксированным 2026-09-16) на каждый вызов. Дефект не требовал кода — он уже был реализован, и issue #108 закрыта как уже решённая.
 
 ---
 
