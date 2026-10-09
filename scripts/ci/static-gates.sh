@@ -108,6 +108,12 @@ gate blocking "kiwi inventory did not regress" python3 scripts/check-kiwi-invent
 # half that can be a gate, and it is what makes the header's claim checkable at all.
 gate blocking "supabase schema is self-consistent" python3 scripts/check-supabase-schema-integrity.py
 
+# Maestro selector validation — catches unknown id: selectors before they reach E2E CI.
+# Uses the same Python script that E2E shard runs; advisory because Maestro YAML
+# selector drift is a pre-existing issue not introduced by recent changes (#334 fix
+# is in flight; larger MenuBottomSheet refactor #337 is separate).
+gate blocking "maestro selectors valid" python3 scripts/ci/validate-maestro-selectors.py
+
 # Docs / agent-facing text (formerly docs-audit.yml)
 # Advisory — skills catalog drift is informational and does not affect builds.
 # Flip to blocking once the catalog auto-regeneration is reliable.
