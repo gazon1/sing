@@ -375,6 +375,92 @@ class SyncEngineTest {
         assertEquals("sync.scope.read", error.code)
     }
 
+    /**
+     * D4 fix: outbox delete failure during enqueue is classified as `AppError.Persistence`
+     * with code `sync.outbox.delete`.
+     */
+    @Test
+    fun `enqueue outbox delete failure is classified as Persistence`() = runTest {
+        // An outbox that throws when deleteByEntity is called.
+        val throwingOutbox = object : FakeSyncOutboxDao() {
+            override suspend fun deleteByEntity(ownerId: String, entityId: String) {
+                throw IllegalStateException("outbox delete failed")
+            }
+        }
+        val engineScope = testScope(backgroundScope)
+        val e = SyncEngine(
+            log = log,
+            api = FakeSyncApiClient(),
+            authRepository = FakeSyncAuthRepository(
+                Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+            ),
+            outboxDao = throwingOutbox,
+            deadLetterDao = FakeSyncDeadLetterDao(),
+            idGenerator = SequentialIdGenerator(),
+            stateRepository = FakeSyncStateRepository(),
+            shadowDao = FakeSyncShadowDao(),
+            patchBuilder = fakeSyncPatchBuilder(),
+            writerProvider = { fakeSyncDocumentWriter() },
+            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
+            scheduler = FakeSyncWorkScheduler(),
+            clock = clock,
+            scope = engineScope,
+            crashReporter = NoOpCrashReportingPort(),
+        )
+
+        val result = e.enqueue(TestEntity("t-1"))
+        advanceUntilIdle()
+        engineScope.close()
+
+        assertTrue(result.isFailure)
+        val error = result.exceptionOrNull() as? AppError.Persistence
+        assertNotNull(error, "outbox delete error must be classified as AppError.Persistence")
+        assertEquals("sync.outbox.delete", error.code)
+    }
+
+    /**
+     * D4 fix: outbox insert failure during enqueue is classified as `AppError.Persistence`
+     * with code `sync.outbox.insert`.
+     */
+    @Test
+    fun `enqueue outbox insert failure is classified as Persistence`() = runTest {
+        // An outbox that throws when insert is called.
+        val throwingOutbox = object : FakeSyncOutboxDao() {
+            override suspend fun insert(entity: SyncOutboxEntity) {
+                throw IllegalStateException("outbox insert failed")
+            }
+        }
+        val engineScope = testScope(backgroundScope)
+        val e = SyncEngine(
+            log = log,
+            api = FakeSyncApiClient(),
+            authRepository = FakeSyncAuthRepository(
+                Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+            ),
+            outboxDao = throwingOutbox,
+            deadLetterDao = FakeSyncDeadLetterDao(),
+            idGenerator = SequentialIdGenerator(),
+            stateRepository = FakeSyncStateRepository(),
+            shadowDao = FakeSyncShadowDao(),
+            patchBuilder = fakeSyncPatchBuilder(),
+            writerProvider = { fakeSyncDocumentWriter() },
+            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
+            scheduler = FakeSyncWorkScheduler(),
+            clock = clock,
+            scope = engineScope,
+            crashReporter = NoOpCrashReportingPort(),
+        )
+
+        val result = e.enqueue(TestEntity("t-1"))
+        advanceUntilIdle()
+        engineScope.close()
+
+        assertTrue(result.isFailure)
+        val error = result.exceptionOrNull() as? AppError.Persistence
+        assertNotNull(error, "outbox insert error must be classified as AppError.Persistence")
+        assertEquals("sync.outbox.insert", error.code)
+    }
+
     // ─── enqueue: deleteByEntity ──────────────────────────────────────────
 
     /**

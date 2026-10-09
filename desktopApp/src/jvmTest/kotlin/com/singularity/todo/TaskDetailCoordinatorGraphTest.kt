@@ -1,7 +1,9 @@
 package com.singularity.todo
 
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -10,20 +12,15 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.testPlatformModule
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.Dispatchers
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
 import org.junit.jupiter.api.Tag
-import java.util.Collections
 import kotlin.test.Test
-import kotlin.test.assertNotNull
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.minutes
 
 /**
  * Pins the contract the flow tests exposed the hard way: a [TaskDetailCoordinator]
@@ -40,25 +37,16 @@ import kotlin.time.Duration.Companion.minutes
  *
  * This test constructs the coordinator through the same modules the desktop flow
  * harness uses (`domainModule()` + `testPlatformModule()`) and asserts the state
- * reaches a terminal state in real time. It also fails on the `Error` path with the
- * actual message, so a broken dependency surfaces here instead of as a hang.
+ * reaches a terminal state using virtual time. The coordinator's `scope` parameter
+ * is injected with the test scope so all coroutines run on the test's virtual
+ * scheduler — `advanceUntilIdle()` completes all work instantaneously regardless
+ * of host load. A genuine hang (coroutine that dies before its first emission)
+ * is caught immediately: the state never reaches `Loaded` and the assertion fails.
  */
 @Tag("fast")
 class TaskDetailCoordinatorGraphTest {
 
-    private companion object {
-        /**
-         * Hang detector, not a latency budget — see the comment at the wait.
-         *
-         * 5 minutes: large enough that a machine under full parallel compilation load
-         * still passes (before the fix this test failed ~1 run in 3 at 10s), while
-         * a genuine hang is caught within the same CI run that introduced it. A combine
-         * that dies before its first emission hangs forever; the budget only needs to
-         * exceed the worst-case real completion time, not approach it.
-         */
-        val HANG_BUDGET = 5.minutes
-    }
-
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun coordinator_built_from_di_graph_leaves_loading() = runTest {
         val app = koinApplication {
@@ -70,38 +58,20 @@ class TaskDetailCoordinatorGraphTest {
         }
         try {
             val koin = app.koin
-            // The coordinator's scope runs on real Dispatchers.Default
-            // (createBackgroundScope), so withContext(Default) keeps the wait on real
-            // time while the coordinator's flows execute on real threads.  A bare
-            // withTimeout here would use the test scheduler's virtual clock and expire
-            // instantly while the combine waits on real workers.
-            //
-            // The budget is a HANG detector, not a speed assertion.  A combine that
-            // dies before its first emission hangs forever, so a generous bound still
-            // catches it — it just costs real seconds instead of virtual ones when
-            // the code is broken.  The test ran at 10 s budget and failed ~1 run in 3
-            // under full parallel compilation; 5 minutes makes it a coin-flip at
-            // nothing.
-            withContext(Dispatchers.Default) {
-                seedTask(koin, id = "graph-test-task-0", title = "Buy milk")
-                val coordinator = TaskDetailCoordinator(
-                    deps = graphDeps(koin),
-                    taskId = TaskId("graph-test-task-0"),
-                )
-                val seen = Collections.synchronizedList(mutableListOf<TaskDetailUiState>())
-                val loaded = withTimeoutOrNull(HANG_BUDGET) {
-                    coordinator.stateFlow
-                        .onEach { seen += it }
-                        .first { it is TaskDetailUiState.Loaded }
-                        as TaskDetailUiState.Loaded
-                }
-                assertNotNull(
-                    loaded,
-                    "coordinator never reached Loaded within $HANG_BUDGET; " +
-                        "states observed: ${seen.joinToString(" -> ")}",
-                )
-                assertTrue(loaded.extras is TaskDetailExtras.Ready)
-            }
+            // Pass the TestScope to the coordinator so all its coroutines run on
+            // the test's virtual scheduler. advanceUntilIdle() then completes all
+            // pending work instantaneously — no wall-clock budget needed.
+            seedTask(koin, id = "graph-test-task-0", title = "Buy milk")
+            val coordinator = TaskDetailCoordinator(
+                deps = graphDeps(koin),
+                taskId = TaskId("graph-test-task-0"),
+                crashReporter = NoOpCrashReportingPort(),
+                scope = testScope(this.backgroundScope),
+            )
+            advanceUntilIdle()
+            val state = coordinator.state.value
+            assertIs<TaskDetailUiState.Loaded>(state)
+            assertTrue(state.extras is TaskDetailExtras.Ready)
         } finally {
             app.close()
         }

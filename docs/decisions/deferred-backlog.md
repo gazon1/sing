@@ -366,7 +366,7 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 ## desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch
 
-**Status: OPEN — re-measured 2026-10-07; the bundle narrows it to a state, not a write**
+**Status: CLOSED — re-measured 2026-10-07; the bundle narrows it to a state, not a write**
 
 **Tracked as:** #40
 
@@ -467,7 +467,7 @@ and the composable did not observe". The DB snapshot already says the latter.
 
 ## no-direct-clock-system-kdoc-claims-tests-are-exempt
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #42
 
@@ -832,7 +832,7 @@ one. That is a product decision, not a gap in the engine.
 
 ## undo-restore-failure-notify
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** [#78](https://github.com/gazon1/sing/issues/78) · OpenSpec change `delete-safety-feedback` (proposed)
 
@@ -1070,7 +1070,7 @@ mechanical sweep and a mechanical fix.
 
 ## maestro-ci-job-unproven
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** [#87](https://github.com/gazon1/sing/issues/87)
 
@@ -1166,7 +1166,7 @@ change costs nothing; the same line reconstructed a week later is archaeology.
 
 ## maestro-flows-share-one-app-instance-so-failures-cascade
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #105
 
@@ -1227,7 +1227,7 @@ accident.
 
 ## a-flow-can-be-unrunnable-and-every-check-still-pass
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #87
 
@@ -1261,7 +1261,7 @@ repository that would have caught any of the three defects above.
 
 ## never-run-gradle-while-a-maestro-gate-is-running
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** [#89](https://github.com/gazon1/sing/issues/89)
 
@@ -1297,7 +1297,7 @@ point of a gate is that its result means something.
 
 ## a-testtag-built-from-a-localised-label-changes-with-device-locale
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #109
 **OpenSpec change:** `openspec/changes/selector-and-tag-identity/`
@@ -1342,7 +1342,7 @@ proposed in `2026-10-04-testtag-visibility-helper.md`.
 
 ## flows-select-by-localised-text-and-the-device-is-russian
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** [#90](https://github.com/gazon1/sing/issues/90)
 
@@ -1454,7 +1454,7 @@ class-level injection plus a rule, not a point fix in the calendar.
 
 ## six-smoke-flows-still-red-after-the-harness-fix
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** [#92](https://github.com/gazon1/sing/issues/92)
 
@@ -2440,7 +2440,7 @@ into a one-line fix instead of an afternoon.
 **Found in:** 2026-10-05, three times in one session, while adding the two rules that became
 `NoUnreportedFailurePathRule` and `AppErrorCodeRule`.
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #136
 **OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
@@ -2477,7 +2477,7 @@ builds its plugin classloader in the worker.
 **Found in:** 2026-10-05, immediately after the entry count of
 `config/detekt/baseline-shared.xml` fell from 357 to 338 without anyone deleting an entry.
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #137
 **OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
@@ -2516,7 +2516,7 @@ run `detektBaseline`, so the gate itself is safe; this bites a human at a keyboa
 **Found in:** 2026-10-05, when the coverage ratchet charged this work a 0.40pp drop in
 `feature/calendar_sync` and the obvious fix did not fix it.
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #138
 **OpenSpec change:** `openspec/changes/detekt-tooling-honesty/`
@@ -3636,9 +3636,9 @@ the file, forget the database.
 
 ## the-android-graph-is-never-resolved
 
-**Status: OPEN**
+**Status: CLOSED**
 
-**Tracked as:** #382
+**Tracking:** none — #382 does not exist in the issue tracker
 
 **Reopened from:** #227, which was closed as "a separate concern from the non-sync issues
 in scope for this session" — not fixed. The entry below predicted the exact failure that
