@@ -110,7 +110,6 @@ class SyncViewModel(
      * subject has nowhere to go, and deferring it would apply it later to a
      * different profile than the one the user was looking at.
      */
-    @Volatile
     private var currentScope: SyncScope? = null
 
     /**
@@ -167,7 +166,7 @@ class SyncViewModel(
                 .collect { pair ->
                     val active = pair?.first
                     val settings = pair?.second
-                    currentScope = active
+                    syncMutex.withLock { currentScope = active }
                     if (settings == null) {
                         updateState { SyncState(status = it.status) }
                     } else {
@@ -231,9 +230,12 @@ class SyncViewModel(
     }
 
     private fun setAutoSync(enabled: Boolean) {
-        val target = currentScope ?: return
+        // Capture enabled state before entering the async block so the optimistic UI
+        // update stays in the caller's thread. currentScope is read under the mutex.
+        val capturedEnabled = enabled
         vmScope.launch {
-            stateRepository.setAutoSyncEnabled(target, enabled)
+            val target = syncMutex.withLock { currentScope } ?: return@launch
+            stateRepository.setAutoSyncEnabled(target, capturedEnabled)
         }
         updateState { it.copy(autoSyncEnabled = enabled) }
         if (enabled) {
@@ -244,9 +246,10 @@ class SyncViewModel(
     }
 
     private fun setInterval(minutes: Int) {
-        val target = currentScope ?: return
+        val capturedMinutes = minutes
         vmScope.launch {
-            stateRepository.setScheduledInterval(target, minutes.minutes)
+            val target = syncMutex.withLock { currentScope } ?: return@launch
+            stateRepository.setScheduledInterval(target, capturedMinutes.minutes)
         }
         updateState { it.copy(intervalMinutes = minutes) }
         if (currentState.autoSyncEnabled) {
