@@ -33,23 +33,26 @@ from typing import Set, List, Tuple
 # slug() — must match the algorithm in TestTags.kt
 # ---------------------------------------------------------------------------
 def slug(s: str) -> str:
-    """Lowercase + replace runs of non-alphanumeric with underscore."""
+    """Lowercase + replace runs of non-alphanumeric with underscore; trim separators at both ends."""
     result = []
+    pending_sep = False
     for ch in s.strip():
         if ch.isalnum():
+            if pending_sep and result:
+                result.append('_')
             result.append(ch.lower())
+            pending_sep = False
         else:
-            result.append('_')
-    # Collapse consecutive underscores
-    collapsed = []
-    for ch in result:
-        if ch == '_' and (not collapsed or collapsed[-1] == '_'):
-            continue
-        collapsed.append(ch)
-    # Strip trailing underscores
-    while collapsed and collapsed[-1] == '_':
-        collapsed.pop()
-    return ''.join(collapsed)
+            pending_sep = True
+    # Strip trailing non-alphanumeric
+    while result and not result[-1].isalnum():
+        result.pop()
+    # Strip leading non-alphanumeric
+    while result and not result[0].isalnum():
+        result.pop(0)
+    if not result:
+        return "untitled"
+    return ''.join(result)
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +118,7 @@ STATIC_IDS: Set[str] = {
     "saved_agenda_add_section_confirm",
     "saved_agenda_create_fab",
     "saved_agenda_delete_button",
+    "saved_agenda_empty_title",
     "saved_agenda_list_back",
     "saved_agenda_menu_copy_to_profile",
     "saved_agenda_menu_delete",
@@ -271,6 +275,8 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # savedAgendaCard(...) — used in flows
     "saved_agenda_card_work",
     "saved_agenda_card_personal",
+    "saved_agenda_card_journey_view",
+    "saved_agenda_card_journey_renamed",
     # agendaSection(...) — section headers used in flows
     "agenda_section_today",
     "agenda_section_no_date",
@@ -285,6 +291,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "dialog_title_priority",
     "dialog_title_discard",
     "dialog_title_delete",
+    "dialog_title_delete_view",
     "dialog_title_archive",
     # Note items — desktop/seed
     "note_item_by_title_meeting_notes",

@@ -150,7 +150,7 @@ After running automated checks, verify manually:
 - [ ] `sealed UiState` with Loading/Content/Error in each ViewModel
 - [ ] No `runBlocking` in ViewModel constructors
 - [ ] `Either<AppError, T>` or `Result<T>` used for error returns (not exceptions)
-- [ ] `just lint` reports 0 new violations (run `just detekt-fix` to auto-fix first)
+- [ ] `just lint` reports 0 new violations (fix manually; auto-fix is broken — see ADR 2026-10-09)
 
 ### Repository auth-safety (Phase 12a — added 2026-09-24)
 - [ ] All new DAO mutations include `userId: String` in WHERE clause AND return `Int`
