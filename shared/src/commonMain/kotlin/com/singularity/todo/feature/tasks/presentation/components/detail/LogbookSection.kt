@@ -56,6 +56,7 @@ fun LogbookSection(
     onOpenNote: (NoteId) -> Unit,
     onAddNote: (TaskId) -> Unit,
     currentTaskId: TaskId,
+    now: kotlin.time.Instant,
     modifier: Modifier = Modifier,
 ) {
     if (entries.isEmpty()) {
@@ -68,6 +69,7 @@ fun LogbookSection(
             entries = entries,
             onOpenNote = onOpenNote,
             onAddNote = { onAddNote(currentTaskId) },
+            now = now,
             modifier = modifier,
         )
     }
@@ -119,8 +121,15 @@ private fun LogbookLoadedCard(
     entries: List<LogbookEntry>,
     onOpenNote: (NoteId) -> Unit,
     onAddNote: () -> Unit,
+    now: kotlin.time.Instant,
     modifier: Modifier = Modifier,
 ) {
+    // Compute today/yesterday once from the injected clock (#91) so the "Today" /
+    // "Yesterday" labels are stable and testable rather than derived from the host clock.
+    val nowMs = now.toEpochMilliseconds()
+    val today = LocalDate.fromEpochDays((nowMs / 86_400_000).toInt())
+    val yesterday = LocalDate.fromEpochDays(today.toEpochDays() - 1)
+
     val grouped = remember(entries) {
         entries.groupBy { entry ->
             val instant = when (entry) {
@@ -177,7 +186,7 @@ private fun LogbookLoadedCard(
             // Grouped entries
             grouped.forEach { (date: LocalDate, dayEntries: List<LogbookEntry>) ->
                 Text(
-                    text = formatDayLabel(date),
+                    text = formatDayLabel(date, today, yesterday),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
@@ -251,15 +260,12 @@ private fun LogbookTimeEntryRow(
 /**
  * Formats a [LocalDate] as a human-readable day label.
  * "Today", "Yesterday", or "Jan 1" for other days.
+ * @param today Derived from the injected clock (#91) — stable within a composition.
+ * @param yesterday Derived from the injected clock (#91) — stable within a composition.
  */
-private fun formatDayLabel(date: LocalDate): String {
-    val nowMs = kotlin.time.Clock.System.now()
-        .toEpochMilliseconds()
-    val today = LocalDate.fromEpochDays((nowMs / 86_400_000).toInt())
-    val yesterday = LocalDate.fromEpochDays(today.toEpochDays() - 1)
-    return when (date) {
+private fun formatDayLabel(date: LocalDate, today: LocalDate, yesterday: LocalDate): String =
+    when (date) {
         today -> "Today"
         yesterday -> "Yesterday"
         else -> "${monthAbbreviation(date.month)} ${date.day}"
     }
-}
