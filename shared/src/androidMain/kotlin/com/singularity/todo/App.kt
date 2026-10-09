@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
+import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
@@ -48,7 +49,7 @@ private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
 @Composable
 actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
     val appearance: AppearanceSettingsRepository = koinInject()
-    val darkTheme by appearance.darkTheme.collectAsState(initial = false)
+    val themeMode by appearance.themeMode.collectAsState(initial = ThemeMode.System)
     val accentName by appearance.accentColor.collectAsState(initial = "blue")
     val accent = SingularityAccents.fromString(accentName)
     val fontSizeScale by appearance.fontSizeScale.collectAsState(initial = 1f)
@@ -74,7 +75,7 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
             AppContent(
                 deeplinkViewId = deeplinkViewId,
                 deeplinkTaskId = deeplinkTaskId,
-                darkTheme = darkTheme,
+                themeMode = themeMode,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
             )
@@ -93,7 +94,7 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
 private fun AppContent(
     deeplinkViewId: String?,
     deeplinkTaskId: String?,
-    darkTheme: Boolean,
+    themeMode: ThemeMode,
     accent: SingularityAccents,
     fontSizeScale: Float,
 ) {
@@ -125,7 +126,7 @@ private fun AppContent(
         }
     }
 
-    SingularityTheme(darkTheme = darkTheme, accent = accent, fontSizeScale = fontSizeScale) {
+    SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
             // One provider for the whole tree, so shared components can pulse haptics without

@@ -24,9 +24,9 @@ sealed interface SettingsSection {
 
     // ── Appearance ────────────────────────────────────────────────────────────
 
-    /** Appearance: dark theme, accent color, font scale. */
+    /** Appearance: theme mode, accent color, font scale. */
     data class Appearance(
-        val darkTheme: Boolean = SettingsDefaults.Appearance.DARK_THEME,
+        val themeMode: ThemeMode = ThemeMode.System,
         val accentColor: String = SettingsDefaults.Appearance.ACCENT_COLOR,
         val fontSizeScale: Float = SettingsDefaults.Appearance.FONT_SIZE_SCALE,
     ) : SettingsSection
@@ -134,7 +134,7 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
     // ── Appearance ────────────────────────────────────────────────────────────
 
     sealed interface Appearance : SettingsIntent {
-        data class UpdateDarkTheme(val value: Boolean) : Appearance
+        data class UpdateThemeMode(val value: ThemeMode) : Appearance
         data class UpdateAccentColor(val value: String) : Appearance
         data class UpdateFontSizeScale(val value: Float) : Appearance
     }

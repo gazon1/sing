@@ -58,3 +58,11 @@ os-validate:
     else
         npx --yes @fission-ai/openspec@1.14.0 validate --all --json --strict
     fi
+
+[group('scripts')]
+[doc('Fetch GitHub issues into config/docs/issues-snapshot.json (needs network)')]
+[working-directory(justfile_directory())]
+issues-refresh:
+    #!/bin/bash
+    set -euo pipefail
+    python3 scripts/refresh-issues-snapshot.py

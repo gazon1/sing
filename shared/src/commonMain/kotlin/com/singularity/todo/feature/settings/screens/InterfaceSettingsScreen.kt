@@ -17,8 +17,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,13 +34,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.settings.ThemeMode
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.settings.SettingsUiState
@@ -57,12 +61,9 @@ fun InterfaceSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Theme") {
-            SettingsSwitchRow(
-                title = "Dark Theme",
-                subtitle = "Use dark color scheme",
-                testTag = TestTags.Settings.DARK_THEME_SWITCH,
-                checked = state.appearance.darkTheme,
-                onCheckedChange = { onIntent(SettingsIntent.Appearance.UpdateDarkTheme(it)) },
+            ThemeModeSelector(
+                selected = state.appearance.themeMode,
+                onSelect = { onIntent(SettingsIntent.Appearance.UpdateThemeMode(it)) },
             )
         }
 
@@ -206,6 +207,29 @@ private fun FontSizeSlider(value: Float, onValueChange: (Float) -> Unit) {
     }
 }
 
+/** Three-way segmented button for theme mode selection (System / Light / Dark). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeModeSelector(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
+    val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        modes.forEachIndexed { index, mode ->
+            SegmentedButton(
+                selected = selected == mode,
+                onClick = { onSelect(mode) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                label = { Text(themeModeLabel(mode)) },
+            )
+        }
+    }
+}
+
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.System -> "System"
+    ThemeMode.Light -> "Light"
+    ThemeMode.Dark -> "Dark"
+}
+
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
@@ -214,7 +238,7 @@ private fun InterfaceSettingsScreenLightPreview() = PreviewThemed(darkTheme = fa
     InterfaceSettingsScreen(
         state = SettingsUiState.Content(
             appearance = SettingsSection.Appearance(
-                darkTheme = false,
+                themeMode = ThemeMode.Light,
                 accentColor = SingularityAccents.Blue.name.lowercase(),
                 fontSizeScale = 1.0f,
             ),
@@ -229,7 +253,7 @@ private fun InterfaceSettingsScreenDarkPreview() = PreviewThemed(darkTheme = tru
     InterfaceSettingsScreen(
         state = SettingsUiState.Content(
             appearance = SettingsSection.Appearance(
-                darkTheme = true,
+                themeMode = ThemeMode.Dark,
                 accentColor = SingularityAccents.Purple.name.lowercase(),
                 fontSizeScale = 1.25f,
             ),

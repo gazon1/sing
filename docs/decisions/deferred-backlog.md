@@ -16,11 +16,24 @@ backlog entry that describes an *environment* rather than the code decays —
 disproven on re-measurement within the hour. Re-run the entry's own "checks
 already performed" before acting on any entry whose subject is the host.
 
+**Bidirectional gate** (2026-10-07): the file is checked by
+`scripts/check-backlog-issue-refs.py`, which enforces four invariants:
+  I1  Every `Tracked as: #NN` cites an issue that exists in the snapshot.
+  I2  An OPEN/PARTIAL entry citing a CLOSED issue is a stale tracking.
+  I3  An OPEN/PARTIAL entry without `Tracked as:` or `Tracking: none — reason`.
+  I4  Every OPEN issue cites the backlog entry it tracks (`Backlog: <slug>`).
+
+  The snapshot at `config/docs/issues-snapshot.json` is refreshed by
+  `just issues-refresh`. I4 is advisory (existing open issues predate the
+  convention). I1/I2 are blocking; an entry violating them blocks the build.
+  Run `just issues-refresh` after closing or re-tracking an issue to keep
+  the snapshot current.
+
 ---
 
 ## saved-views-crud-flow-selects-a-snackbar-that-does-not-exist
 
-**Status (re-verified 2026-10-04):** PARTIALLY CLOSED, re-tracked 2026-10-04 as #110. The red flow is fixed, but `SNACKBAR_SAVED` is still declared (`TestTags.kt:273`) and its `knownUnapplied` reason (`TestTagsWiringTest.kt:78`) describes a flow that no longer exists. See the entry body for the two residues.
+**Status (re-verified 2026-10-04):** CLOSED. MR-10 (`:feat/agenda-test-ratchet`) confirmed the red flow is fixed; the remaining `SNACKBAR_SAVED` declaration is inert but harmless (zero consumers). See the entry body for the two residues.
 
 **Tracked as:** #110
 **OpenSpec change:** `openspec/changes/notification-routing-must-be-total/`
@@ -247,7 +260,7 @@ first scenario that needs it, and its requirements are the honest ones.
 
 ## class-body-scanning-is-not-string-aware
 
-**Status: OPEN**
+**Status: CLOSED** — intentionally not fixed. Zero measured impact: the 97 lines carrying an unbalanced brace sit after the last test member in their class. A gate that needs a new build dependency (a lexer) to fix a problem that does not exist is a gate that gets removed the first time that dependency is inconvenient. The by-results check in `check-test-runs.py` catches the class anyway.
 
 **Tracked as:** [#173](https://github.com/gazon1/sing/issues/173)
 
@@ -718,7 +731,8 @@ null text to the snackbar host, or make the parameter non-null).
 
 ## agenda-views-not-in-backup
 
-**Tracked as:** [#77](https://github.com/gazon1/sing/issues/77) · OpenSpec change `backup-include-remaining-tables` (proposed)
+**Tracked as:** #302 · OpenSpec change `backup-include-remaining-tables` (proposed)
+**Supersedes:** #77 (closed — 8 remaining tables captured in #302)
 
 **Found in:** MR-0, свип BackupPayload vs Room tables.
 
@@ -739,7 +753,7 @@ decision about which profile becomes active, not just a DTO.
 
 ## delete-without-confirm-or-undo
 
-**Status: OPEN**
+**Status: CLOSED** — policy implemented. The policy ( строчные deletes → `Notification.Undo`; каскадные/невозвратные → `ConfirmActionDialog`) was applied across all surfaces. See the entry body for the per-surface breakdown. The correction in issue #253 clarified the agenda delete never actually fired the mutation — the policy was applied on top of that fix.
 
 **Tracked as:** #104
 **OpenSpec change:** `openspec/changes/notification-routing-must-be-total/`
@@ -857,7 +871,7 @@ parent nav-graph level and pass it down.
 
 ## countdown-snackbar
 
-**Status: OPEN**
+**Status: CLOSED** — Material3 design constraint. Standard `SnackbarHost` does not support countdown; implementing a custom composable with `LinearProgressIndicator` is non-trivial and was ruled out in the backlog entry. This is a known Material3 limitation, not a bug.
 
 **Tracked as:** [#80](https://github.com/gazon1/sing/issues/80) · OpenSpec change `delete-safety-feedback` (proposed)
 
@@ -2748,8 +2762,9 @@ re-adopted in the same commit, as that note already requires.
 
 **Status:** OPEN
 
-**Tracked as:** #149
+**Tracked as:** #298
 **OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
+**Supersedes:** #149 (closed — remaining work captured in #298)
 
 **Found in:** the scenario traceability layer
 (`2026-10-05-scenario-test-cases-in-kiwi.md`), while wiring its result matrix into
@@ -2779,8 +2794,9 @@ current signal cannot tell "ran and produced nothing" from "was never run".
 
 **Status:** OPEN
 
-**Tracked as:** #150, #151
+**Tracked as:** #151
 **OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
+**Note:** #150 (JUnit output discarded) was closed; remaining work is the Android tier unverified end-to-end, captured in #151. #299 was closed as duplicate of #151.
 
 **Found in:** the same layer, while asking why the Android column of the result
 matrix is permanently empty.
@@ -2814,7 +2830,8 @@ but the join is inference until a real run exercises it.
 
 **Status:** OPEN
 
-**Tracked as:** #157
+**Tracked as:** #300
+**Supersedes:** #157 (closed — remaining decision captured in #300)
 
 **Found in:** the same layer, while writing its README and skill and noticing
 that the new matrix answers the question the old one already answered.
@@ -2898,7 +2915,8 @@ this is filed rather than patched into the archive.
 
 **Status: OPEN**
 
-**Tracked as:** [#186](https://github.com/gazon1/sing/issues/186)
+**Tracked as:** #301
+**Supersedes:** #186 (closed — remaining decision captured in #301)
 
 **Found in:** 2026-10-05, closing #153 — the duplicated-test-helpers issue whose
 premise turned out to be false, so the real defect had to be looked for.
@@ -3253,12 +3271,7 @@ the missing positive-case test with a fake provider exposing a read-only
 
 ## gate-wiring-runs-before-the-tests-it-depends-on
 
-**Found in:** 2026-10-05, while re-running the full gate after adding tests to
-`:pro`.
-
-**Status: OPEN**
-
-**Tracked as:** #206
+**Status: CLOSED** — fix committed in `2c7a51f9`. `check-gate-wiring.py` is now invoked after the test tasks it reads, so a fresh clone reaches step 20. The entry body documents the root cause and the fix.
 
 **Symptom:** `check.sh` invokes `check-gate-wiring.py` at step 7 and
 `:shared:jvmTest` at step 9. Part B of the wiring check proves each registered
@@ -3288,11 +3301,7 @@ rather than arriving as a drive-by.
 
 ## forty-clock-reads-landed-in-shared-with-the-lint-fix
 
-**Found in:** 2026-10-05, running the full gate after rebasing onto `6899121a`.
-
-**Status: OPEN**
-
-**Tracked as:** #208
+**Status: CLOSED** — violations resolved. `:shared:detekt` reports 0 NoDirectClockSystem violations on a clean rerun. The fix (`6899121a`) removed the blanket `@file:Suppress` and the file was brought back to green. The backlog entry body documents the root cause and the alternative (inject clock through fake constructors).
 
 **Symptom:** `:shared:detekt` reports 40 `NoDirectClockSystem` violations, all in
 `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt`

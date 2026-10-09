@@ -94,7 +94,6 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
             }
         },
     )
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -127,13 +126,8 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
             state = state,
             onViewSelected = { viewId -> navigator.openSavedAgendaResults(viewId) },
             onDelete = { viewId ->
-                val viewName = (state as? SavedAgendaListState.Loaded)
-                    ?.views?.find { it.id == viewId }
-                    ?.name
-                    ?.ifBlank { "this view" }
-                    ?: "this view"
                 pendingDeleteViewId = viewId
-                pendingDeleteViewName = viewName
+                pendingDeleteViewName = viewNameFor(state, viewId)
             },
             onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
             onCopyToProfile = { viewId -> pendingCopyViewId = viewId },
@@ -141,38 +135,90 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    // Profile picker for copy-to-profile
+    DialogsOverlay(
+        pendingCopyViewId = pendingCopyViewId,
+        pendingDeleteViewId = pendingDeleteViewId,
+        pendingDeleteViewName = pendingDeleteViewName,
+        viewModel = viewModel,
+        onCopyDismissed = { pendingCopyViewId = null },
+        onDeleteDismissed = {
+            pendingDeleteViewId = null
+            pendingDeleteViewName = null
+        },
+    )
+}
+
+// ─── Dialogs ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun DialogsOverlay(
+    pendingCopyViewId: SavedAgendaViewId?,
+    pendingDeleteViewId: SavedAgendaViewId?,
+    pendingDeleteViewName: String?,
+    viewModel: SavedAgendaListViewModel,
+    onCopyDismissed: () -> Unit,
+    onDeleteDismissed: () -> Unit,
+) {
     pendingCopyViewId?.let { viewId ->
-        val profileRepo: com.singularity.todo.feature.profile.domain.port.ProfileRepository = koinInject()
-        ProfilePickerSheet(
+        ProfilePickerSheetHost(
             viewId = viewId,
-            profileRepo = profileRepo,
-            onDismiss = { pendingCopyViewId = null },
+            onDismiss = onCopyDismissed,
             onPick = { profileId ->
                 viewModel.onIntent(SavedAgendaListIntent.CopyToProfile(viewId, profileId))
-                pendingCopyViewId = null
+                onCopyDismissed()
             },
         )
     }
 
-    // Delete confirmation dialog — SavedAgendaView is hard-deleted, so undo is
-    // impossible; the contract (delete-affordances spec) requires confirmation.
     pendingDeleteViewId?.let { viewId ->
-        ConfirmActionDialog(
-            title = "Delete view?",
-            text = "\"${pendingDeleteViewName ?: "this view"}\" will be permanently removed. This cannot be undone.",
-            confirmButtonText = "Delete",
+        DeleteViewConfirmationDialog(
+            viewId = viewId,
+            viewName = pendingDeleteViewName,
             onConfirm = {
                 viewModel.onIntent(SavedAgendaListIntent.Delete(viewId))
-                pendingDeleteViewId = null
-                pendingDeleteViewName = null
+                onDeleteDismissed()
             },
-            onDismiss = {
-                pendingDeleteViewId = null
-                pendingDeleteViewName = null
-            },
+            onDismiss = onDeleteDismissed,
         )
     }
+}
+
+private fun viewNameFor(state: SavedAgendaListState, viewId: SavedAgendaViewId): String =
+    (state as? SavedAgendaListState.Loaded)
+        ?.views?.find { it.id == viewId }
+        ?.name
+        ?.ifBlank { "this view" }
+        ?: "this view"
+
+@Composable
+private fun DeleteViewConfirmationDialog(
+    viewId: SavedAgendaViewId,
+    viewName: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ConfirmActionDialog(
+        title = "Delete view?",
+        text = "\"${viewName ?: "this view"}\" will be permanently removed. This cannot be undone.",
+        confirmButtonText = "Delete",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+private fun ProfilePickerSheetHost(
+    viewId: SavedAgendaViewId,
+    onDismiss: () -> Unit,
+    onPick: (ProfileId) -> Unit,
+) {
+    val profileRepo: ProfileRepository = koinInject()
+    ProfilePickerSheet(
+        viewId = viewId,
+        profileRepo = profileRepo,
+        onDismiss = onDismiss,
+        onPick = onPick,
+    )
 }
 
 /**

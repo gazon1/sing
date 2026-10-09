@@ -71,9 +71,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
-import com.singularity.todo.feature.tags.TagsIntent
 import com.singularity.todo.feature.tags.TagsScreen
-import com.singularity.todo.feature.tags.TagsUiState
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
@@ -214,32 +212,8 @@ private fun SettingsContent(
 
                     SettingsTab.Tags -> {
                         val tagsVm: TagsViewModel = koinViewModel()
-                        val tagsState by tagsVm.stateFlow.collectAsStateWithLifecycle()
-                        val tagsPendingDelete by tagsVm.pendingDelete.collectAsStateWithLifecycle()
-                        val tagsCountdownProgress by tagsVm.countdownProgress.collectAsStateWithLifecycle()
-
-                        // Sync countdown progress up to SettingsScreen so the Scaffold's
-                        // TaggedSnackbarHost can show the progress bar.
-                        LaunchedEffect(tagsCountdownProgress) {
-                            onTagsCountdownProgress(tagsCountdownProgress)
-                        }
-
-                        LaunchedEffect(tagsPendingDelete?.tagId) {
-                            val pending = tagsPendingDelete ?: return@LaunchedEffect
-                            val result = snackbarHostState.showSnackbar(
-                                message = "\"${pending.title}\" deleted",
-                                actionLabel = "Undo",
-                            )
-                            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                                tagsVm.onIntent(TagsIntent.UndoDeleteTapped)
-                            }
-                        }
-
                         TagsScreen(
-                            state = tagsState,
-                            onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
-                            onDelete = { id -> tagsVm.onIntent(TagsIntent.Delete(id)) },
-                            onRename = { id, name, color -> tagsVm.onIntent(TagsIntent.Rename(id, name, color)) },
+                            viewModel = tagsVm,
                         )
                     }
 
@@ -384,12 +358,22 @@ private fun AiStatusBadge(aiTestResult: AiTestResult, modifier: Modifier = Modif
 
 private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> = mapOf(
     SettingsTab.Tags to {
-        TagsScreen(
-            state = TagsUiState.Empty,
-            onCreate = { _, _ -> },
-            onDelete = {},
-            onRename = { _, _, _ -> },
+        val fakeTagsRepo = com.singularity.todo.test.fakes.FakeTagsRepository()
+        val fakeCreateTag = com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase(
+            fakeTagsRepo,
+            com.singularity.todo.test.fakes.FakeClock(),
         )
+        val fakeUpdateTag = com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase(
+            fakeTagsRepo,
+            com.singularity.todo.test.fakes.FakeClock(),
+        )
+        val vm = TagsViewModel(
+            tagRepo = fakeTagsRepo,
+            createTag = fakeCreateTag,
+            updateTag = fakeUpdateTag,
+            currentUser = com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser(),
+        )
+        TagsScreen(viewModel = vm)
     },
     SettingsTab.TagGroups to {
         TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})

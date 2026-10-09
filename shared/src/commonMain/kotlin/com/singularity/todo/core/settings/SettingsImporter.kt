@@ -58,7 +58,19 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         runCatchingCancellable {
             val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Appearance, SettingsIntent.Appearance>>()
                 .firstOrNull()
-            contributor?.process(SettingsIntent.Appearance.UpdateDarkTheme(snapshot.appearance.darkTheme))
+            // REQ-THEME-010 migration: v1 snapshots carry `darkThemeForMigration=true/false`
+            // and `themeMode="__UNSET__"`. When `darkThemeForMigration` is true, migrate
+            // to the corresponding mode. Otherwise parse `themeMode` directly.
+            val resolvedMode = when {
+                snapshot.appearance.themeMode == "__UNSET__" &&
+                    snapshot.appearance.darkThemeForMigration -> ThemeMode.Dark
+
+                snapshot.appearance.themeMode == "__UNSET__" &&
+                    !snapshot.appearance.darkThemeForMigration -> ThemeMode.Light
+
+                else -> ThemeMode.fromStorageString(snapshot.appearance.themeMode)
+            }
+            contributor?.process(SettingsIntent.Appearance.UpdateThemeMode(resolvedMode))
             contributor?.process(SettingsIntent.Appearance.UpdateAccentColor(snapshot.appearance.accentColor))
             contributor?.process(SettingsIntent.Appearance.UpdateFontSizeScale(snapshot.appearance.fontSizeScale))
         }.onFailure { e ->

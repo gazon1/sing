@@ -15,12 +15,12 @@ class AppearanceSettingsStore(private val appearance: AppearanceSettingsReposito
      * Appearance settings section — all 3 fields from [AppearanceSettingsRepository].
      */
     fun observe(): Flow<SettingsSection.Appearance> = combine(
-        appearance.darkTheme,
+        appearance.themeMode,
         appearance.accentColor,
         appearance.fontSizeScale,
-    ) { darkTheme, accentColor, fontSizeScale ->
+    ) { themeMode, accentColor, fontSizeScale ->
         SettingsSection.Appearance(
-            darkTheme = darkTheme,
+            themeMode = themeMode,
             accentColor = accentColor,
             fontSizeScale = fontSizeScale,
         )
@@ -28,7 +28,7 @@ class AppearanceSettingsStore(private val appearance: AppearanceSettingsReposito
 
     suspend fun process(intent: SettingsIntent.Appearance) {
         when (intent) {
-            is SettingsIntent.Appearance.UpdateDarkTheme -> appearance.setDarkTheme(intent.value)
+            is SettingsIntent.Appearance.UpdateThemeMode -> appearance.setThemeMode(intent.value)
             is SettingsIntent.Appearance.UpdateAccentColor -> appearance.setAccentColor(intent.value)
             is SettingsIntent.Appearance.UpdateFontSizeScale -> appearance.setFontSizeScale(intent.value)
         }

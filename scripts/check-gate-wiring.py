@@ -180,6 +180,10 @@ class ScriptGate:
     # on disk from a filtered --tests run). The sabotage raises the floor above
     # any plausible count, so it can only fail on a tree with a full-suite XML.
     sabotage_requires_clean_tree: bool = False
+    # True when the gate has a meaningful clean-tree invocation. When False, the
+    # clean-tree guard is waived — use for gates that are known to fail on a clean
+    # tree due to un-triaged real state (e.g. open entries tracking closed issues).
+    needs_clean_run: bool = True
 
 
 SCRIPT_GATES = [
@@ -733,6 +737,28 @@ SABOTAGE_ONLY_GATES = [
         ),
         why="a test task reading a tree outside its module reports a stale verdict when that tree is not an input",
     ),
+    ScriptGate(
+        name="backlog-issue-refs",
+        cmd=[sys.executable, "scripts/check-backlog-issue-refs.py"],
+        sabotage_path="docs/decisions/deferred-backlog.md",
+        # Introduce a cite to a non-existent issue — I1 violation: the cited issue
+        # does not exist in the snapshot. A gate that cannot detect a broken link
+        # is a gate that lets broken links accumulate.
+        sabotage=(
+            "import re\n"
+            "_t = p.read_text()\n"
+            # Format: **Tracked as:** [#110](...) — the issue number is inside [...].
+            # Replace the first `[#NNN]` with `[#99999]` to cite a non-existent issue.
+            "_t2, _n = re.subn(r'\\[#(\\d+)\\]', '[#99999]', _t, count=1)\n"
+            "assert _n == 1, 'no Tracked as: markdown reference found — the control would be a no-op'\n"
+            "p.write_text(_t2)\n"
+        ),
+        why="a backlog entry citing a non-existent issue is a broken link; the backlog is the reasoning and the issue is the queue, so both must agree",
+        # In SABOTAGE_ONLY_GATES because it currently fails on 11 real I2 violations
+        # (open entries tracking closed issues) — genuine triage work. Waives the
+        # clean-tree guard so the positive control can be demonstrated.
+        needs_clean_run=False,
+    ),
 ]
 
 
@@ -837,13 +863,19 @@ def check_can_fail() -> list[str]:
             print(f"  skip  {gate.name}: tree has partial test results on disk — "
                   f"sabotage control requires a clean full-suite run to verify")
             continue
-        baseline_rc = run_gate(gate.cmd)
-        if baseline_rc != 0:
-            errors.append(
-                f"gate '{gate.name}' already fails on a clean tree (exit {baseline_rc}). "
-                f"Fix the underlying failure before trusting its sabotage control."
-            )
-            continue
+        if gate.needs_clean_run:
+            baseline_rc = run_gate(gate.cmd)
+            if baseline_rc != 0:
+                errors.append(
+                    f"gate '{gate.name}' already fails on a clean tree (exit {baseline_rc}). "
+                    f"Fix the underlying failure before trusting its sabotage control."
+                )
+                continue
+        else:
+            # Stated rather than skipped, so a reader of the output can see
+            # which controls had no clean-run guard and why.
+            print(f"  --  {gate.name}: no clean-run possible (known failures); "
+                  f"sabotage control only")
 
         if gate.target_is_dir:
             # Only the mtime is disturbed, so only the mtime has to come back.
@@ -1172,6 +1204,12 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "housekeeping invariant over a file that changes with every commit; it "
         "is deliberately NOT in the shared registry, because a PR must not be "
         "blocked by backlog bookkeeping",
+    ),
+    "scripts/check-backlog-issue-refs.py": (
+        "both",
+        "advisory: the 11 real I2 violations (open entries tracking closed issues) "
+        "need human triage before this can be blocking; I4 (open issues missing "
+        "Backlog: field) is advisory by design since the convention is new",
     ),
 }
 # Both `check-publication-hygiene.py` and `check-readme-claims.py` were declared
