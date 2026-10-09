@@ -79,6 +79,9 @@ alias tcheck-evals := tests::tcheck-evals
 # ----- OpenSpec -----
 alias os-validate := scripts::os-validate
 
+# ----- Backlog↔issues -----
+alias issues-refresh := scripts::issues-refresh
+
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage
 alias cr       := tests::coverage-ratchet
