@@ -16,12 +16,12 @@ tags:
 # signal that it is open and interactive.
 - extendedWaitUntil:
     visible:
-      id: menu_profile_sync
+      id: menu_settings
     timeout: 5000
 
 # Account section
 - assertVisible:
-    id: menu_profile_sync
+    id: menu_settings
 - assertVisible:
     id: menu_profiles
 
@@ -32,7 +32,7 @@ tags:
 # Destinations section — the lower items are below the fold on a 1080x2400 screen
 - scrollUntilVisible:
     element:
-      id: menu_ai_chat
+      id: menu_aichat
     direction: DOWN
     timeout: 8000
 - assertVisible:
@@ -40,7 +40,7 @@ tags:
 - assertVisible:
     id: menu_notes
 - assertVisible:
-    id: menu_ai_chat
+    id: menu_aichat
 - scrollUntilVisible:
     element:
       id: menu_settings

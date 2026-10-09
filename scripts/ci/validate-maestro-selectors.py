@@ -287,7 +287,6 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # menuItem(...) — menu sheet items
     "menu_archive",
     "menu_profiles",
-    "menu_profile_sync",
     "menu_settings",
     # taskItem(...) — from seed flows
     "task_item_buy_milk",
