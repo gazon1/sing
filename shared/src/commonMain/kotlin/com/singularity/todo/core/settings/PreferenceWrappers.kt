@@ -134,10 +134,10 @@ class EnumPref<T : Enum<T>> internal constructor(
         get() = dataStore.data
             .catchDataStoreIoError()
             .map { prefs ->
-            prefs[key]?.let { name ->
-                entries.firstOrNull { it.name == name }
-            } ?: default
-        }
+                prefs[key]?.let { name ->
+                    entries.firstOrNull { it.name == name }
+                } ?: default
+            }
 
     suspend fun set(value: T) {
         dataStore.edit { it[key] = value.name }

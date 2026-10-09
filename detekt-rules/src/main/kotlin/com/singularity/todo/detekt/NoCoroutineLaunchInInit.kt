@@ -109,6 +109,38 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
             "SyncEngine",
             "SyncBootstrapper",
             "SyncCoordinator",
+            // ViewModels and repositories using the canonical injected-scope pattern:
+            // private val scope = AutoCloseableCoroutineScope(); init { addCloseable(scope) }
+            // The scope is externally managed; the init block only attaches it to the object.
+            "AgendaViewModel",
+            "SavedAgendaListViewModel",
+            "SavedAgendaViewModel",
+            "AiUsageViewModel",
+            "ArchiveViewModel",
+            "AttachmentAnnotationViewModel",
+            "BackupViewModel",
+            "NotesListViewModel",
+            "ProfileAwareCurrentUser",
+            "ProfileRepositoryImpl",
+            "StatisticsViewModel",
+            "TagsViewModel",
+            "TagGroupsViewModel",
+            "TaskDetailCoordinator",
+            "TaskBacklinksCollector",
+            "TaskChildrenSlot",
+            "TaskCompletionSlot",
+            "TaskDraftSlot",
+            "TaskEntitySlot",
+            "TaskLogbookCollector",
+            "TaskProposalsCollector",
+            "TaskRemindersSlot",
+            "TaskTimeSlot",
+            "TestViewModel",
+            "CurrentUser",
+            "DataStoreSyncPrefs",
+            "SyncRunner",
+            "AndroidPomodoroTaskListProvider",
+            "SupabaseAuthRepository",
         )
 
         /** Coroutine launch methods that are banned inside init blocks. */

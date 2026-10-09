@@ -51,9 +51,33 @@ class SyncApiClientFakesTest {
     @Test
     fun `ScriptedSyncApiClient — getEventsSince filters by serverLsn`() = runTest {
         val events = listOf(
-            SyncEvent(serverLsn = 1, entityId = "e1", entityType = DocType.Task, eventType = SyncEventType.CREATED, data = null, createdAt = 1, profileId = ""),
-            SyncEvent(serverLsn = 5, entityId = "e2", entityType = DocType.Note, eventType = SyncEventType.UPDATED, data = null, createdAt = 5, profileId = ""),
-            SyncEvent(serverLsn = 10, entityId = "e3", entityType = DocType.Project, eventType = SyncEventType.DELETED, data = null, createdAt = 10, profileId = ""),
+            SyncEvent(
+                serverLsn = 1,
+                entityId = "e1",
+                entityType = DocType.Task,
+                eventType = SyncEventType.CREATED,
+                data = null,
+                createdAt = 1,
+                profileId = "",
+            ),
+            SyncEvent(
+                serverLsn = 5,
+                entityId = "e2",
+                entityType = DocType.Note,
+                eventType = SyncEventType.UPDATED,
+                data = null,
+                createdAt = 5,
+                profileId = "",
+            ),
+            SyncEvent(
+                serverLsn = 10,
+                entityId = "e3",
+                entityType = DocType.Project,
+                eventType = SyncEventType.DELETED,
+                data = null,
+                createdAt = 10,
+                profileId = "",
+            ),
         )
         val api = ScriptedSyncApiClient(pullEvents = events)
 
@@ -67,7 +91,15 @@ class SyncApiClientFakesTest {
     @Test
     fun `ScriptedSyncApiClient — ignoreSinceLsn ignores cursor`() = runTest {
         val events = listOf(
-            SyncEvent(serverLsn = 1, entityId = "e1", entityType = DocType.Task, eventType = SyncEventType.CREATED, data = null, createdAt = 1, profileId = ""),
+            SyncEvent(
+                serverLsn = 1,
+                entityId = "e1",
+                entityType = DocType.Task,
+                eventType = SyncEventType.CREATED,
+                data = null,
+                createdAt = 1,
+                profileId = "",
+            ),
         )
         val api = ScriptedSyncApiClient(pullEvents = events, ignoreSinceLsn = true)
 
@@ -133,11 +165,21 @@ class SyncApiClientFakesTest {
     fun `RecordingSyncApiClient — returns configured response and events`() = runTest {
         val response = BatchPushResponse(listOf(patchResult("recorded")))
         val events = listOf(
-            SyncEvent(serverLsn = 3, entityId = "e1", entityType = DocType.Tag, eventType = SyncEventType.CREATED, data = null, createdAt = 3, profileId = "")
+            SyncEvent(
+                serverLsn = 3,
+                entityId = "e1",
+                entityType = DocType.Tag,
+                eventType = SyncEventType.CREATED,
+                data = null,
+                createdAt = 3,
+                profileId = "",
+            ),
         )
         val api = RecordingSyncApiClient(pushResponse = response, pullEvents = events)
 
-        val pushResult = api.batchPush(BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()))
+        val pushResult = api.batchPush(
+            BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()),
+        )
         val pullResult = api.getEventsSince(sinceLsn = 0)
 
         assertEquals("recorded", pushResult.results.single().patchId)
@@ -149,10 +191,14 @@ class SyncApiClientFakesTest {
 
     @Test
     fun `InterceptableSyncApiClient — delegates to underlying client`() = runTest {
-        val inner = ScriptedSyncApiClient(defaultPushResponse = BatchPushResponse(listOf(patchResult("inner"))))
+        val inner = ScriptedSyncApiClient(
+            defaultPushResponse = BatchPushResponse(listOf(patchResult("inner"))),
+        )
         val api = InterceptableSyncApiClient(inner)
 
-        val r = api.batchPush(BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()))
+        val r = api.batchPush(
+            BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()),
+        )
 
         assertEquals("inner", r.results.single().patchId)
     }
@@ -166,7 +212,9 @@ class SyncApiClientFakesTest {
 
         var caught: Throwable? = null
         try {
-            api.batchPush(BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()))
+            api.batchPush(
+                BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()),
+            )
         } catch (e: Throwable) {
             caught = e
         }
@@ -181,7 +229,9 @@ class SyncApiClientFakesTest {
 
         api.onPushInFlight = { req -> captured.add(req) }
 
-        api.batchPush(BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()))
+        api.batchPush(
+            BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()),
+        )
 
         assertEquals(1, captured.size)
     }
@@ -189,14 +239,16 @@ class SyncApiClientFakesTest {
     @Test
     fun `InterceptableSyncApiClient — onBeforeResponseLoop fires after delegate returns`() = runTest {
         val inner = ScriptedSyncApiClient(
-            defaultPushResponse = BatchPushResponse(listOf(patchResult("p1")))
+            defaultPushResponse = BatchPushResponse(listOf(patchResult("p1"))),
         )
         val api = InterceptableSyncApiClient(inner)
         val capturedResponse = mutableListOf<BatchPushResponse>()
 
         api.onBeforeResponseLoop = { _, response -> capturedResponse.add(response) }
 
-        api.batchPush(BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()))
+        api.batchPush(
+            BatchPushRequest(deviceId = "d", profileId = "p", patches = emptyList()),
+        )
 
         assertEquals(1, capturedResponse.size)
         assertEquals("p1", capturedResponse[0].results.single().patchId)
