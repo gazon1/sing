@@ -50,6 +50,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRu
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailAttachmentsSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailChecklistSection
@@ -177,19 +178,33 @@ fun TaskDetailContent(
                         },
                         onDueTimeSelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
                         showDueDate = true,
-                        onPriorityClick = null,
+                        onPriorityClick = { sheets.show(TaskEditorSheet.Priority) },
                         onDueDateClick = { sheets.show(TaskEditorSheet.Date) },
                         startDate = null,
                         startTime = null,
                         startDateCallbacks = null,
-                        project = null,
-                        projectCallbacks = null,
+                        project = ui.project?.id,
+                        projectCallbacks = RowCallbacks(
+                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },
+                            onClick = { sheets.show(TaskEditorSheet.Project) },
+                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(null)) },
+                        ),
                         tags = ui.tags.map { it.id },
-                        tagsCallbacks = null,
+                        tagsCallbacks = RowCallbacks(
+                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(it)) },
+                            onClick = { sheets.show(TaskEditorSheet.Tags) },
+                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(emptyList())) },
+                        ),
                         recurrence = ui.task.recurrence,
-                        recurrenceCallbacks = null,
+                        recurrenceCallbacks = RowCallbacks(
+                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetRecurrence(it)) },
+                            onClick = { sheets.show(TaskEditorSheet.Recurrence) },
+                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetRecurrence(null)) },
+                        ),
                         isPinned = ui.task.isPinned,
-                        pinCallbacks = null,
+                        pinCallbacks = ToggleCallbacks(
+                            onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.TogglePinned) },
+                        ),
                         dependsOn = ui.dependsOn,
                         availableTasks = ui.availableTasks,
                         // Was absent on the desktop path while the Android-only
@@ -198,7 +213,7 @@ fun TaskDetailContent(
                         estimateMinutes = ui.task.estimateMinutes,
                         estimateCallbacks = RowCallbacks(
                             onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(it)) },
-                            onClick = null,
+                            onClick = { sheets.show(TaskEditorSheet.Estimate) },
                             onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
                         ),
                         extraSections = {
