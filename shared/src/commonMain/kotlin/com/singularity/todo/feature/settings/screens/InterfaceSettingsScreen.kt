@@ -219,6 +219,7 @@ private fun ThemeModeSelector(selected: ThemeMode, onSelect: (ThemeMode) -> Unit
                 onClick = { onSelect(mode) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                 label = { Text(themeModeLabel(mode)) },
+                modifier = Modifier.testTag(TestTags.Settings.themeModeButton(mode.name)),
             )
         }
     }

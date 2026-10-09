@@ -16,13 +16,22 @@ package com.singularity.todo.core.settings
  */
 sealed class ThemeMode {
     /** Follow the operating system's light/dark setting. */
-    data object System : ThemeMode()
+    data object System : ThemeMode() {
+        override val name: String = "System"
+    }
 
     /** Always use the light palette. */
-    data object Light : ThemeMode()
+    data object Light : ThemeMode() {
+        override val name: String = "Light"
+    }
 
     /** Always use the dark palette. */
-    data object Dark : ThemeMode()
+    data object Dark : ThemeMode() {
+        override val name: String = "Dark"
+    }
+
+    /** Stable identifier for testTag and similar non-translated references. */
+    abstract val name: String
 
     /**
      * Serialises to the storage string.

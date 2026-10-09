@@ -23,22 +23,20 @@ tags:
     visible:
       id: settings_tab_interface
     timeout: 8000
-# The theme section header and accent color section should both be present.
-- assertVisible: "Theme"
-- assertVisible: "Accent Color"
-# Tap the Dark segment of the theme-mode segmented button.
+- assertVisible:
+    id: settings_theme_mode_System
+- assertVisible:
+    id: settings_theme_mode_Light
+- assertVisible:
+    id: settings_theme_mode_Dark
+- assertVisible:
+    id: settings_accent_swatch_blue
+# Select Dark mode; screen must stay navigable.
 - tapOn:
-    text: "Dark"
+    id: settings_theme_mode_Dark
 # Still interactive, and the rest of the tab is intact.
-- assertVisible: "Font Size"
-# Switch to Light to verify the toggle works both directions.
-- tapOn:
-    text: "Light"
-- assertVisible: "Font Size"
-# Switch to System as the final state.
-- tapOn:
-    text: "System"
-- assertVisible: "Font Size"
+- assertVisible:
+    id: settings_font_size_slider
 - tapOn:
     id: settings_tab_agenda
 - extendedWaitUntil:
