@@ -167,7 +167,7 @@ class UiAutomationSelectorTest {
 
     private companion object {
         /**
-         * `MenuBottomSheet.kt:74` — `TestTags.menuItem(item.label)`.
+         * `MenuBottomSheet.kt:80` — `NavigationDrawerItem`'s `modifier.testTag(TestTags.menuItem(item.label))`.
          *
          * Kept as an exception rather than "fixed", and the reason is that the fix
          * was tried and reverted: the labels come from `MenuSections`, hardcoded
@@ -178,11 +178,13 @@ class UiAutomationSelectorTest {
          * label *is* the stable key here, and the localisation risk it carries
          * is theoretical, whereas the breakage of changing it was immediate.
          *
-         * If these labels are ever translated, this entry becomes a real bug and
-         * the right fix is to give `MenuSection`/`MenuItem` an explicit stable id
-         * and update the flows in the same change.
+         * The exception covers ALL hardcoded menu labels (Account/Search/Destinations
+         * sections) because they all go through the same `TestTags.menuItem(item.label)`
+         * call. If any of these labels are ever externalised for localisation, this
+         * exception becomes a real bug: update the label, update the Maestro YAML in
+         * the same change, and remove this exception.
          */
-        val LABEL_ALLOWED = setOf("MenuBottomSheet.kt:74", "MenuBottomSheet.kt:80")
+        val LABEL_ALLOWED = setOf("MenuBottomSheet.kt:80")
 
         val BLOCK_COMMENT = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
         val LINE_COMMENT = Regex("""//[^\n]*""")

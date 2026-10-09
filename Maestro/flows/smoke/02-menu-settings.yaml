@@ -31,4 +31,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 5000
+    timeout: 10000
