@@ -941,6 +941,16 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
         }
     }
 
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        return if (entity != null && entity.userId == userId && entity.deletedAt != null) {
+            mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
+            1
+        } else {
+            0
+        }
+    }
+
     override suspend fun listAllForUser(userId: String): List<TagEntity> =
         store.value.values.filter { it.userId == userId }
 

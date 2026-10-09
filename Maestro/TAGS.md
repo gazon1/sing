@@ -202,7 +202,6 @@ non-alphanumeric characters with `_`.
 | `CHAT_NOTIFICATION_HOST` | `chat_notification_host` | |
 | `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
 | `SNACKBAR_ACTION` | `snackbar_action` | |
-| `SNACKBAR_SAVED` | `snackbar_saved` | |
 
 ### Backup
 | Constant | Value | Where |

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
@@ -16,6 +15,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.core.ui.onboarding.SpotlightOverlay
 import com.singularity.todo.core.ui.onboarding.rememberSpotlightTour
@@ -66,6 +66,7 @@ fun AgendaScreen(
     }
     val state by vm.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by vm.pendingDelete.collectAsStateWithLifecycle()
+    val countdownProgress by vm.countdownProgress.collectAsStateWithLifecycle()
 
     val navigator = LocalAgendaNavigator.current
     val seedStore: SavedAgendaSeedStore = koinInject()
@@ -113,7 +114,7 @@ fun AgendaScreen(
     val tour = rememberSpotlightTour()
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = countdownProgress) },
         modifier = modifier,
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {

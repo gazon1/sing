@@ -21,7 +21,6 @@ import com.singularity.todo.feature.ai.tools.RefineTaskOutput
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.RewriteNoteInput
 import com.singularity.todo.feature.ai.tools.RewriteNoteOutput
-import com.singularity.todo.feature.ai.tools.RewriteNoteTool
 import com.singularity.todo.feature.ai.tools.SuggestTagsInput
 import com.singularity.todo.feature.ai.tools.SuggestTagsOutput
 import com.singularity.todo.feature.ai.tools.SuggestTagsTool

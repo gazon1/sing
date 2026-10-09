@@ -1499,6 +1499,7 @@ class FakeTagsRepository(
     var createOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
     var updateOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
     var deleteOverride: Result<Unit>? = null
+    var restoreOverride: Result<Unit>? = null
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
@@ -1555,6 +1556,16 @@ class FakeTagsRepository(
             // looked trashed since 1970 — anything comparing the timestamp saw a
             // different value than production produces.
             store.upsert(existing.copy(deletedAt = clock.now()))
+        }
+    }
+
+    override suspend fun restore(id: TagId): Result<Unit> {
+        restoreOverride?.let { return it }
+        return runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid && it.deletedAt != null }
+                ?: throw NoSuchElementException("Tag $id not found, not owned by current user, or not deleted")
+            store.upsert(existing.copy(deletedAt = null))
         }
     }
 

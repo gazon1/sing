@@ -19,10 +19,8 @@ data class ImproveNoteInput(val title: String, val body: String)
 @Serializable
 data class ImproveNoteOutput(val title: String, val body: String)
 
-class ImproveNoteTool(
-    private val promptExecutor: PromptExecutor,
-    private val model: LLModel,
-) : SimpleTool<ImproveNoteInput>(TypeToken.of(ImproveNoteInput::class.java), NAME, DESCRIPTION),
+class ImproveNoteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
+    SimpleTool<ImproveNoteInput>(TypeToken.of(ImproveNoteInput::class.java), NAME, DESCRIPTION),
     TypedTool<ImproveNoteInput, ImproveNoteOutput> {
 
     private val logger = Logger.withTag("ImproveNote")

@@ -1,5 +1,11 @@
 package com.singularity.todo.core.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarHost
@@ -7,8 +13,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 
@@ -33,19 +42,51 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
  *
  * Everything else about the snackbar is Material3's own — this only re-frames
  * the action slot so a modifier can reach it.
+ *
+ * ## Countdown variant
+ *
+ * When [countdownProgress] is not null, a [LinearProgressIndicator] is shown
+ * below the snackbar surface to visualise the remaining undo window. The
+ * indicator animates smoothly between values.
  */
 @Composable
-fun TaggedSnackbarHost(hostState: SnackbarHostState, modifier: Modifier = Modifier) {
+fun TaggedSnackbarHost(
+    hostState: SnackbarHostState,
+    modifier: Modifier = Modifier,
+    countdownProgress: Float? = null,
+) {
     SnackbarHost(
         hostState = hostState,
         modifier = modifier,
     ) { data ->
-        TaggedSnackbar(data)
+        TaggedSnackbar(data, countdownProgress)
     }
 }
 
 @Composable
-private fun TaggedSnackbar(data: SnackbarData) {
+private fun TaggedSnackbar(data: SnackbarData, countdownProgress: Float?) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = countdownProgress ?: 1f,
+        label = "undo_countdown",
+    )
+
+    Box {
+        SnackbarWithAction(data)
+        if (countdownProgress != null) {
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier
+                    .width(300.dp)
+                    .height(3.dp)
+                    .padding(horizontal = 16.dp)
+                    .align(Alignment.BottomCenter),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SnackbarWithAction(data: SnackbarData) {
     val actionLabel = data.visuals.actionLabel
     if (actionLabel == null) {
         Snackbar(modifier = Modifier.mapTestTagsAsResourceIds()) {
@@ -54,8 +95,6 @@ private fun TaggedSnackbar(data: SnackbarData) {
         return
     }
     Snackbar(
-        // A snackbar is transient UI in its own layer; the app-root
-        // testTagsAsResourceId does not necessarily reach it either.
         modifier = Modifier.mapTestTagsAsResourceIds(),
         action = {
             TextButton(

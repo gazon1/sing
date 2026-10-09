@@ -92,6 +92,36 @@ sealed interface SelectorTemplate {
         }
     }
 
+    /**
+     * Tasks whose title matches the given regular expression (case-insensitive).
+     * [pattern] is set by the UI after the user types it; [resolve] ignores [chosenIds]
+     * because this template has no multi-select option list.
+     */
+    data class ByRegexp(val pattern: String = "") : SelectorTemplate {
+        override val label: String = "By text pattern"
+        override val requiresParameters: Boolean = false
+        override fun resolve(chosenIds: Set<String>): Selector? {
+            val p = pattern.takeIf { it.isNotBlank() } ?: return null
+            return Selector.Regexp(p)
+        }
+    }
+
+    /**
+     * Tasks with dueDate in the inclusive date range [from]..[to].
+     * Both dates are set by the UI via [copy]; [resolve] ignores [chosenIds]
+     * because this template has no multi-select option list.
+     */
+    data class ByDateRange(val from: kotlinx.datetime.LocalDate? = null, val to: kotlinx.datetime.LocalDate? = null) :
+        SelectorTemplate {
+        override val label: String = "By date range"
+        override val requiresParameters: Boolean = false
+        override fun resolve(chosenIds: Set<String>): Selector? {
+            val f = from ?: return null
+            val t = to ?: return null
+            return Selector.DateRange(f, t)
+        }
+    }
+
     companion object {
         /**
          * The catalogue the editor offers, fixed types first.
@@ -111,6 +141,8 @@ sealed interface SelectorTemplate {
             ByProjects,
             ByPriority(),
             ByStatus,
+            ByRegexp(),
+            ByDateRange(),
         )
     }
 }

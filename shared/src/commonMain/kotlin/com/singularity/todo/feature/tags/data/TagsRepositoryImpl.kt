@@ -95,6 +95,19 @@ class TagsRepositoryImpl(
     override fun observeTag(id: TagId): Flow<Tag?> = currentUser.observeForCurrentUser { uid ->
         tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
     }
+
+    // ── SoftDeletable ───────────────────────────────────────────────────────────
+
+    override suspend fun restore(id: TagId): Result<Unit> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = tagDao.restoreForUser(id.value, ts, uid.value)
+            require(rows > 0) { "Tag $id not found, not owned by user, or not deleted" }
+            val row = tagDao.getByIdForUser(id.value, uid.value)
+            if (row != null) syncRepository.enqueue(row.toTag())
+        }
+    }
 }
 
 /** Not private: [TagGroupRepositoryImpl] re-pushes released members on group delete. */

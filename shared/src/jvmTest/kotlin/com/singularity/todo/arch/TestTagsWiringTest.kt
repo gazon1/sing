@@ -75,10 +75,6 @@ class TestTagsWiringTest {
             "the pin/unpin overflow rows are rendered through " +
             "TestTags.taskAction(action), so these constants have no call site yet",
         "EditorOverflow.UNPIN" to "same as EditorOverflow.PIN",
-        "SNACKBAR_SAVED" to
-            "referenced by Maestro/flows/agenda/03-saved-views-crud.yaml, which " +
-            "waits on a snackbar the screen never shows — see " +
-            "deferred-backlog.md#saved-views-crud-flow-selects-a-snackbar-that-does-not-exist",
     )
 
     @Test
