@@ -397,7 +397,7 @@
   },
   {
     "number": 96,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "check.sh fails on a source set it never runs, using another commit's results",
     "backlog_slug": ""
   },
@@ -631,7 +631,7 @@
   },
   {
     "number": 141,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "EventBusAfterCloseTest never asserts a discarded event stays out of the report channel",
     "backlog_slug": ""
   },
@@ -829,7 +829,7 @@
   },
   {
     "number": 174,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "An archived gate-repair left the very step it was fixing unable to run",
     "backlog_slug": "an-archived-gate-repair-left-the-step-it-was-fixing-broken"
   },
@@ -1129,7 +1129,7 @@
   },
   {
     "number": 235,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Replace ULID dependency with Kotlin 2.4 native UUID API",
     "backlog_slug": ""
   },
@@ -1483,7 +1483,7 @@
   },
   {
     "number": 321,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "check-backlog-issue-refs.py has no positive control (static-gate fails)",
     "backlog_slug": ""
   },
@@ -1495,7 +1495,7 @@
   },
   {
     "number": 323,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "kiwi inventory floor file has stale measurement (397→403)",
     "backlog_slug": ""
   },
