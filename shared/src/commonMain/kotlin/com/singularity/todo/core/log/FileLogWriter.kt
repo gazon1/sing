@@ -25,7 +25,6 @@ import okio.FileSystem
 import okio.Path
 import okio.buffer
 import okio.utf8Size
-import kotlin.concurrent.Volatile
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -69,14 +68,18 @@ class FileLogWriter(
     private var written: Long
     private var sink: BufferedSink
 
-    @Volatile
+    /**
+     * Set from outside the [scope] to request drain-before-close.
+     * Visibility is guaranteed by the single-threaded dispatcher ([Dispatchers.IO.limitedParallelism(1)):
+     * all writes and reads of this field occur on that one thread, so no cross-thread visibility problem exists.
+     */
     private var shuttingDown = false
 
     /**
      * Re-entrancy guard for the write-failure path, which logs through Kermit and
      * therefore re-enters [log] on the single worker thread. See [write].
+     * Visibility guaranteed by single-threaded dispatcher — see [shuttingDown].
      */
-    @Volatile
     private var writingFailure = false
 
     init {
