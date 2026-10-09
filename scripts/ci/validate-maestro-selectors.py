@@ -238,6 +238,42 @@ STATIC_IDS: Set[str] = {
 }
 
 # ---------------------------------------------------------------------------
+# Known finite input spaces for TestTags dynamic functions.
+#
+# Documents all inputs whose output is deterministic and enumerable.
+# Each entry is: (function_name_in_TestTags, input_string, expected_id_prefix).
+# The validator uses this only to warn about DYNAMIC_EXPANSIONS entries that
+# are NOT used in any flow — which suggests a stale or removed feature.
+#
+# Functions with unbounded inputs (e.g. taskItem(title), noteItemByTitle(title))
+# are not listed here; their outputs are validated solely by being present in
+# DYNAMIC_EXPANSIONS. When adding a new finite-space dynamic function, add its
+# known inputs here so they are tracked and the validator can catch removals.
+#
+# Format per entry: (TestTags_function_name, input_display, id_prefix_for_check)
+# ---------------------------------------------------------------------------
+FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
+    # navTab — 7 bottom nav tabs (prefix: nav_tab_)
+    ("navTab", "Today", "nav_tab_"),
+    ("navTab", "Inbox", "nav_tab_"),
+    ("navTab", "Upcoming", "nav_tab_"),
+    ("navTab", "Plans", "nav_tab_"),
+    ("navTab", "Pomodoro", "nav_tab_"),
+    ("navTab", "Calendar", "nav_tab_"),
+    # themeModeButton — 3 ThemeMode values (prefix: theme_mode_button_)
+    ("themeModeButton", "System", "theme_mode_button_"),
+    ("themeModeButton", "Light", "theme_mode_button_"),
+    ("themeModeButton", "Dark", "theme_mode_button_"),
+    # noteFilterChip — filter names from NoteFilter enum
+    ("noteFilterChip", "All", "note_filter_chip_"),
+    ("noteFilterChip", "Archived", "note_filter_chip_"),
+    ("noteFilterChip", "Pinned", "note_filter_chip_"),
+    # noteAction — action names from NoteAction enum
+    ("noteAction", "Edit", "note_action_"),
+    ("noteAction", "Delete", "note_action_"),
+]
+
+# ---------------------------------------------------------------------------
 # Dynamic ID expansions — known inputs for TestTags dynamic functions
 # ---------------------------------------------------------------------------
 DYNAMIC_EXPANSIONS: Set[str] = {
@@ -431,20 +467,42 @@ def main() -> int:
     warnings: List[str] = []
     flows_checked = 0
 
+    # Collect all IDs actually used in flows (excluding helpers which use ${VAR} templates)
+    ids_used_in_flows: Set[str] = set()
     for flow_path in sorted(flows_root.rglob("*.yaml")):
-        # Skip helpers — they use ${VAR} templates intentionally
         if "helpers" in flow_path.parts:
             continue
         flows_checked += 1
         for id_val, line_no, _ in collect_ids_from_file(flow_path):
-            # Skip template variables — they are resolved at runtime by Maestro
             if TEMPLATE_VAR_PATTERN.match(id_val):
                 continue
+            ids_used_in_flows.add(id_val)
             if id_val not in all_valid_ids:
                 location = f"{flow_path}"
                 if line_no:
                     location += f":{line_no}"
                 errors.append(f"  {location}: unknown id: {id_val!r}")
+
+    # Warn about DYNAMIC_EXPANSIONS entries that are never used in any flow.
+    # This catches stale entries from removed features or renamed flows.
+    # Skip taskItem/taskCheckbox entries — those are seeded by helpers and their
+    # exact titles are not guaranteed to appear in entry-point flows.
+    stale_dynamic: List[str] = []
+    for de_id in sorted(DYNAMIC_EXPANSIONS):
+        if de_id not in ids_used_in_flows:
+            # Skip seed-task entries — they are invoked via helpers, not directly.
+            if de_id.startswith("task_item_") or de_id.startswith("task_checkbox_"):
+                continue
+            # Skip pomodoroTaskChip seed entries.
+            if de_id.startswith("pomodoro_task_chip_"):
+                continue
+            stale_dynamic.append(de_id)
+
+    if stale_dynamic:
+        warnings.append(f"  DYNAMIC_EXPANSIONS has {len(stale_dynamic)} entry/entries not used in any flow (possible stale):")
+        for sid in stale_dynamic:
+            warnings.append(f"    - {sid}")
+        warnings.append("  Remove stale entries from DYNAMIC_EXPANSIONS when the corresponding feature is removed.")
 
     # Sort errors by file for stable output
     errors.sort()
