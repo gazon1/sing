@@ -1,7 +1,7 @@
 {
   "measurement": "scripts/check-kiwi-inventory-ratchet.py imports infra/kiwi/sync.py by path (the same module scripts/tests/test_kiwi_sync.py loads) and calls scan_repository(), so the number the gate reads is the number the test suite counts — two readers of one scanner, not two scanners",
   "measured_at": "2026-10-09",
-  "commit": "40952fd1",
+  "commit": "e6a708d2",
   "corpus": {
     "test_roots": 7,
     "inventory": 405,
