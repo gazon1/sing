@@ -818,3 +818,19 @@ dependencies {
 // and the report is produced once for the whole build. A per-project report
 // would measure only this project's own test tasks — which is exactly the gap
 // that made every Compose flow test in desktopApp invisible to the number.
+
+// ---------------------------------------------------------------------------
+// generateSyncFieldAllowlistSql — generates allowlist seed from SyncContract
+// ---------------------------------------------------------------------------
+
+tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
+    description = "Generates sync_field_allowlist INSERT seed SQL from SyncContract.FIELD_ALLOWLIST"
+    group = "sync"
+    inputs.file(rootProject.file("shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt"))
+    outputs.file(rootProject.file("supabase/migrations/sync_field_allowlist_seed.sql"))
+    doLast {
+        providers.exec {
+            commandLine("python3", rootProject.file("infra/gen_sync_allowlist_sql.py").absolutePath, rootProject.projectDir.absolutePath)
+        }
+    }
+}
