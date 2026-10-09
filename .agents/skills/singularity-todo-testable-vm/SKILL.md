@@ -301,7 +301,9 @@ val state: StateFlow<X> = combine(flow1, flow2) { a, b -> compute(a, b) }
     .stateIn(scope, SharingStarted.WhileSubscribed(5000), Initial)
 ```
 
-**When `stateIn` IS appropriate:** pure read-through VMs where the entire state is derived from a single repo flow (e.g., `AgendaViewModel`). Tests will need Turbine — but document the testability tradeoff.
+**When `stateIn` IS appropriate:** pure read-through VMs where the entire state is derived from a single repo flow and there is no local state to write. Tests will need Turbine — but document the testability tradeoff.
+
+It is *not* appropriate for a VM that owns any state of its own, however read-through its inputs look. `AgendaViewModel` was long cited here as the exemption — its sections *are* derived from a repository, but it also holds selection and a pending delete. Those need `updateState`, which `stateIn` cannot express.
 
 ### ❌ Side effects inside `combine`
 
@@ -396,7 +398,7 @@ class DraftState(initial: Draft = Draft.empty()) {
 |---|---|
 | **`MviViewModel<S, I, E>`** | Default for all VMs with intents and/or events |
 | **`DraftState` extracted class** | VM has editable form state with `isDirty` tracking |
-| **`combine + stateIn(WhileSubscribed)`** | Pure read-through VM (no init, no intents) — e.g., `AgendaViewModel`. Tests will need Turbine. |
+| **`combine + stateIn(WhileSubscribed)`** | Pure read-through VM that owns no state of its own — no local selection, drafts, or transient markers. Tests will need Turbine. |
 | **Dedicated collector for upstream cache** | VM needs to read from repo AND mutate local state (e.g., `TaskDetailViewModel`, `ProjectDetailViewModel`) |
 
 ---
@@ -417,7 +419,7 @@ All VMs in the project extend `MviViewModel` as of 2026-09-25:
 | `ProjectsViewModel` | `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` | Full MviViewModel migration |
 | `NoteEditor` | `feature/notes/presentation/viewmodel/NoteEditor.kt` | MviViewModel migration (класс называется `NoteEditor`) |
 | `NotePreview` | `feature/notes/presentation/viewmodel/NotePreview.kt` | MviViewModel migration (класс `NotePreview`) |
-| `AgendaViewModel` | `feature/agenda/presentation/viewmodel/AgendaViewModel.kt` | Pure read-through → `stateIn(WhileSubscribed)` — legitimate exception |
+| `AgendaViewModel` | `feature/agenda/presentation/viewmodel/AgendaViewModel.kt` | Full MviViewModel: sections derived from the repository, but selection and the pending delete are its own, so every handler is a single `updateState` |
 
 ---
 
