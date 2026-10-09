@@ -41,6 +41,9 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
     /** Restores a soft-deleted note that is still within the undo window. */
     fun onUndoDelete(id: NoteId) = dispatch(NotesIntent.UndoDelete(id))
 
+    /** Create a note with [title] and navigate to it. */
+    fun onCreateNote(title: String) = dispatch(NotesIntent.CreateNote(title))
+
     companion object {
         /** No-op actions — previews/tests only. Internal so external callers must wire real dispatchers. */
         internal val Empty = NotesActions {}

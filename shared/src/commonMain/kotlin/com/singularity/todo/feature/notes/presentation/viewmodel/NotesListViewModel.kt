@@ -186,7 +186,7 @@ class NotesListViewModel(
             NotesIntent.DeleteSelected -> deleteSelected()
             is NotesIntent.CreateNote -> createNoteWithTitle(intent.title)
             is NotesIntent.DeleteNote -> handleDelete(intent.id)
-            is NotesIntent.UndoDelete -> onUndoDeleteIntent()
+            is NotesIntent.UndoDelete -> scope.launch { handleUndoDeleteTapped() }
         }
     }
 
@@ -239,23 +239,44 @@ class NotesListViewModel(
     }
 
     // ─── Multi-select ──────────────────────────────────────────────────────
+    //
+    // These write the state directly. They used to write only the two
+    // `MutableStateFlow`s and rely on the `combine` in `init` to copy them into
+    // `NotesListState` — which it only does when one of the source lists emits.
+    // With every list idle a selection never reached the state the screen reads,
+    // so the checkboxes stayed unchecked; a test now pins that.
+
+    /** The one place selection is written into the state the screen renders. */
+    private fun updateSelection(selected: Set<NoteId>) = updateState { current ->
+        val content = current as? NotesUiState.Content ?: return@updateState current
+        content.copy(
+            list = content.list.copy(
+                selectedIds = selected,
+                isSelectionMode = selected.isNotEmpty(),
+            ),
+        )
+    }
 
     private fun enterSelectionMode(id: NoteId) {
         _isSelectionMode.value = true
         _selectedIds.value = setOf(id)
+        updateSelection(setOf(id))
     }
 
     private fun exitSelectionMode() {
         _isSelectionMode.value = false
         _selectedIds.value = emptySet()
+        updateSelection(emptySet())
     }
 
     private fun toggleSelection(id: NoteId) {
         val current = _selectedIds.value
-        _selectedIds.value = if (id in current) current - id else current + id
-        if (_selectedIds.value.isEmpty()) {
+        val updated = if (id in current) current - id else current + id
+        _selectedIds.value = updated
+        if (updated.isEmpty()) {
             _isSelectionMode.value = false
         }
+        updateSelection(updated)
     }
 
     /**
@@ -297,51 +318,67 @@ class NotesListViewModel(
     // ─── Delete / Undo ──────────────────────────────────────────────────
 
     /**
-     * Soft-deletes a note and emits [NotesUiEvent.UndoDelete] so the UI can show a snackbar.
-     * The snackbar offers a 5-second undo window; if not tapped, [pendingDeleteJob]
-     * calls [repo.delete]. If the user taps Undo, [onUndoDelete] calls [repo.restore].
+     * Soft-deletes a note, then offers [NotesUiEvent.UndoDelete] for as long as
+     * [_pendingDelete] holds the entry.
      *
-     * The note disappears from the list optimistically — [repo.delete] is called only
-     * after the undo window expires. This matches the behaviour of [AgendaViewModel]
-     * for task deletion.
+     * ## What this used to do
+     *
+     * It deferred the write until the undo window expired. So tapping delete left
+     * the note sitting in the list for five seconds — the KDoc's claim that "the
+     * note disappears from the list optimistically" was false, because
+     * [_pendingDelete] is never read when the list state is built — and then the
+     * note vanished on its own. Tapping Undo instead called [repo.restore] against
+     * a note that had never been deleted, cancelling the job that would have
+     * deleted it: a write with no meaning, against a live row.
+     *
+     * That deferred shape also contradicted `docs/decisions/2026-09-08-task-restore-undo`,
+     * which has the delete already performed, and claimed here to match
+     * `AgendaViewModel` — which never deleted anything at all. Both have since been
+     * fixed; this one is now the behaviour the comment claimed to describe.
      */
     private fun handleDelete(noteId: NoteId) {
         val noteTitle = findNoteTitle(noteId)
 
-        // Cancel any existing undo window — a new delete supersedes it.
-        pendingDeleteJob?.cancel()
+        scope.launch {
+            val deleted = repo.delete(noteId)
+            if (deleted.isFailure) {
+                val error = deleted.exceptionOrNull() ?: IllegalStateException("delete failed")
+                crashReporter.report(error, DELETE_FAILED)
+                emit(NotesUiEvent.Error("Delete failed"))
+                return@launch
+            }
 
-        // Store the pending delete and emit the event.
-        _pendingDelete.value = PendingDelete(noteId, noteTitle)
-        scope.launch { emit(NotesUiEvent.UndoDelete(noteId, noteTitle)) }
+            // Claimed only now, so a failed delete never evicts a recoverable undo.
+            pendingDeleteJob?.cancel()
+            _pendingDelete.value = PendingDelete(noteId, noteTitle)
+            emit(NotesUiEvent.UndoDelete(noteId, noteTitle))
 
-        // Kick off the 5-second undo window. When it expires, commit the delete.
-        pendingDeleteJob = scope.launch {
-            delay(UNDO_WINDOW_MS)
-            _pendingDelete.value = null
-            repo.delete(noteId)
-                .onFailure { crashReporter.report(it, DELETE_FAILED) }
+            pendingDeleteJob = scope.launch {
+                delay(UNDO_WINDOW_MS)
+                _pendingDelete.value = null
+            }
         }
     }
 
     /**
-     * Restores the last soft-deleted note, cancelling the undo window.
-     * Called when the user taps "Undo" on the snackbar.
+     * Restores the note held by [_pendingDelete].
+     *
+     * The marker is cleared **only on success** and the timer is left running: a
+     * failed reversal must leave the offer addressable, because clearing the
+     * pending slot before knowing the write worked removes the only recovery path
+     * at the moment the user needs it. See `delete-safety-feedback` Phase 1 and #78.
      */
-    private suspend fun onUndoDelete(noteId: NoteId) {
-        pendingDeleteJob?.cancel()
-        _pendingDelete.value = null
-        repo.restore(noteId)
-            .onFailure { crashReporter.report(it, RESTORE_FAILED) }
-    }
-
-    /**
-     * Call this from the UI when the user taps "Undo" on the snackbar.
-     * The UI layer holds the snackbar reference and invokes this method directly.
-     */
-    fun onUndoDeleteIntent() {
+    private suspend fun handleUndoDeleteTapped() {
         val pending = _pendingDelete.value ?: return
-        scope.launch { onUndoDelete(pending.noteId) }
+        repo.restore(pending.noteId)
+            .onSuccess {
+                pendingDeleteJob?.cancel()
+                _pendingDelete.value = null
+            }
+            .onFailure {
+                crashReporter.report(it, RESTORE_FAILED)
+                emit(NotesUiEvent.Error("Could not restore"))
+            }
     }
 
     private fun findNoteTitle(noteId: NoteId): String {
