@@ -66,6 +66,7 @@ comments:
       - '**/androidTest/**'
   UndocumentedPublicFunction:
     active: false
+    active: true
     excludes:
       - '**/test/**'
       - '**/commonTest/**'
