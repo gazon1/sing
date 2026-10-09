@@ -83,8 +83,19 @@ class NullableStringPref internal constructor(
     private val dataStore: DataStore<Preferences>,
     val key: Preferences.Key<String>,
 ) {
+    /**
+     * Emits `null` on I/O error, matching the behaviour of the four typed wrappers
+     * ([BooleanPref], [IntPref], [StringPref], [FloatPref]) — all of which emit their
+     * default on DataStore corruption rather than propagating the exception.
+     *
+     * A settings screen should survive a corrupt store: `null` here means "not set",
+     * which is indistinguishable from a user who has not set a value, and which
+     * the settings UI already handles as an empty field.
+     */
     val flow: Flow<String?>
-        get() = dataStore.data.map { it[key] }
+        get() = dataStore.data
+            .catchDataStoreIoError()
+            .map { it[key] }
 
     suspend fun set(value: String?) {
         dataStore.edit {
@@ -111,8 +122,18 @@ class EnumPref<T : Enum<T>> internal constructor(
     private val default: T,
     private val entries: EnumEntries<T>,
 ) {
+    /**
+     * Emits [default] on I/O error, matching the behaviour of the four typed wrappers
+     * ([BooleanPref], [IntPref], [StringPref], [FloatPref]) — all of which emit their
+     * default on DataStore corruption rather than propagating the exception.
+     *
+     * A settings screen should survive a corrupt store: the enum default is the same
+     * value the UI initialises to, and the user can still interact with the settings.
+     */
     val flow: Flow<T>
-        get() = dataStore.data.map { prefs ->
+        get() = dataStore.data
+            .catchDataStoreIoError()
+            .map { prefs ->
             prefs[key]?.let { name ->
                 entries.firstOrNull { it.name == name }
             } ?: default
