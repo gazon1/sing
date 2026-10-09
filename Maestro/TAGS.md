@@ -95,7 +95,11 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | |
 | `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | |
 | `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | |
+| `SAVED_AGENDA_MENU_COPY_TO_PROFILE` | `saved_agenda_menu_copy_to_profile` | |
+| `SAVED_AGENDA_MENU_DELETE` | `saved_agenda_menu_delete` | |
+| `SAVED_AGENDA_MENU_EDIT` | `saved_agenda_menu_edit` | |
 | `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
+| `SAVED_AGENDA_OVERFLOW_BUTTON` | `saved_agenda_overflow_button` | |
 | `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | |
 
 ### Pomodoro
@@ -147,6 +151,7 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `Settings.ACTION_ROW` | `settings_action_row` | |
 | `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
+| `Settings.FONT_SIZE_SLIDER` | `settings_font_size_slider` | |
 | `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
@@ -246,6 +251,7 @@ use the expanded string directly).
 | Function | Input example | Expanded id | Used for |
 |---|---|---|---|
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
+| `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in Settings |
 | `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
 | `menuItem("Settings")` | `"Settings"` | `menu_settings` | Menu bottom sheet items |
@@ -263,6 +269,7 @@ use the expanded string directly).
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
+| `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
 <!-- GENERATED:END -->

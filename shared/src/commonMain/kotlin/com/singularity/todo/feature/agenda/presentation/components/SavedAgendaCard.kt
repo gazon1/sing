@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -94,6 +95,9 @@ fun SavedAgendaCard(
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
+                    // The menu renders into its own window, so the app-root
+                    // testTagsAsResourceId does not reach the menu items.
+                    modifier = Modifier.mapTestTagsAsResourceIds(),
                 ) {
                     DropdownMenuItem(
                         text = { Text("Edit") },

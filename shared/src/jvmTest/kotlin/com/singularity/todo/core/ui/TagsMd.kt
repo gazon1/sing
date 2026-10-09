@@ -72,6 +72,7 @@ object TagsMd {
         "Dialog",
         "Profile",
         "AI",
+        "Calendar",
         "Calendar sync",
         "Search filters",
     )
@@ -199,6 +200,12 @@ object TagsMd {
     @Suppress("CyclomaticComplexMethod")
     private fun dynamicMeta(fnName: String, prefix: String): DynamicMeta = when (fnName) {
         "navTab" -> DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
+
+        "calendarViewMode" -> DynamicMeta(fnName, "Calendar", "month", "Calendar view-mode tabs (month / day / 4_days)")
+
+
+
+        "Settings.accentSwatch" -> DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in Settings")
 
         "CalendarSync.providerSegment" ->
             DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
