@@ -179,7 +179,7 @@ data class SyncEvent(
 
 object SyncProtocol {
     /** Current protocol version. Events with protocolVersion > CURRENT are dropped. */
-    const val CURRENT_PROTOCOL_VERSION = 1
+    const val CURRENT_PROTOCOL_VERSION = SyncContract.CURRENT_PROTOCOL_VERSION
 
     // ── The server's error vocabulary ────────────────────────────────────────
     //
