@@ -89,6 +89,7 @@ non-alphanumeric characters with `_`.
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
 | `AGENDA_TAG_MATCH_ALL` | `agenda_tag_match_all` | |
