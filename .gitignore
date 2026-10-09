@@ -121,3 +121,6 @@ __pycache__/
 # Auto-generated decision digest (regenerated via post-checkout / post-merge hooks)
 docs/decisions/DIGEST.md
 .safety-patches/
+
+# Local env with secrets (API tokens, etc.)
+.env
