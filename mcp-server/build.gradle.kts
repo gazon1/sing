@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.detekt)
+    // Koin Compiler Plugin — validates classic DSL at compile time for this entry point.
+    // Without this, AiToolsModule's get<Logger>() dependency on coreLoggingModule() is
+    // validated only at runtime (McpServerEndToEndTest failure, fixed in #254).
+    alias(libs.plugins.koin.compiler)
     application
 }
 

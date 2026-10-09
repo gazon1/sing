@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 
@@ -64,6 +65,9 @@ fun ProjectDetailTopBar(
                 DropdownMenu(
                     expanded = overflowMenuOpen,
                     onDismissRequest = { overflowMenuOpen = false },
+                    // Renders in its own popup window — mapTestTagsAsResourceIds required
+                    // so Maestro id: selectors can find items inside the menu.
+                    modifier = Modifier.mapTestTagsAsResourceIds(),
                 ) {
                     DropdownMenuItem(
                         text = { Text(if (isArchived) "Unarchive" else "Archive") },

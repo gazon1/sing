@@ -14,9 +14,13 @@
 #      the shard loop needs a `for`.
 #
 # Env: SUITE=smoke|full  SHARD=1..N  SHARDS=N  (set by e2e.yml)
+#   POST_INSTALL_WAIT  — seconds to wait after adb install before launching Maestro (default: 3)
+#   MAESTRO_TIMEOUT    — per-flow timeout in ms passed to maestro test --timeout (default: 60000)
 set -euo pipefail
 
 : "${SUITE:?SUITE must be set by the workflow}" "${SHARD:?SHARD must be set}" "${SHARDS:?SHARDS must be set}"
+: "${POST_INSTALL_WAIT:=3}"
+: "${MAESTRO_TIMEOUT:=60000}"
 
 # Where `traceability results` looks for Maestro JUnit when it is given `--maestro`,
 # and where the uploaded artifact is read from.
@@ -38,10 +42,10 @@ echo "installing $apk"
 adb install -r -t "$apk"
 
 # After a reinstall the package manager needs a moment, and the app will cold-
-# start on the next launch. A short sleep lets the system settle before Maestro
+# start on the next launch. POST_INSTALL_WAIT lets the system settle before Maestro
 # fires its first launchApp, avoiding a race where the Maestro CLI tries to
 # instrument an app that is not yet fully started.
-sleep 3
+sleep "$POST_INSTALL_WAIT"
 
 # Explicit config path — Maestro looks for config.yaml in the workspace root,
 # but our config lives in Maestro/config.yaml relative to the repo root.
@@ -51,9 +55,9 @@ MAESTRO_CONFIG=Maestro/config.yaml
 run_flow() {
   local name=$1 attempt
   shift
-  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG args=$*"
+  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG POST_INSTALL_WAIT=$POST_INSTALL_WAIT MAESTRO_TIMEOUT=$MAESTRO_TIMEOUT args=$*"
   for attempt in 1 2; do
-    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" "$@"; then
+    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" --timeout "$MAESTRO_TIMEOUT" "$@"; then
       if ((attempt > 1)); then
         echo "::warning title=Flaky flow::$name passed only on attempt $attempt"
       fi

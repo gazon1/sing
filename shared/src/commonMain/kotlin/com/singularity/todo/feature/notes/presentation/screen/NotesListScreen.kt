@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -298,6 +299,9 @@ private fun SortDropdownMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        // Renders in its own popup window — mapTestTagsAsResourceIds required
+        // so Maestro id: selectors can find items inside the menu.
+        modifier = Modifier.mapTestTagsAsResourceIds(),
     ) {
         NoteSortOrder.entries.forEach { order ->
             DropdownMenuItem(

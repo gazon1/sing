@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
@@ -250,6 +251,9 @@ fun EditorToolbar(
         DropdownMenu(
             expanded = overflowExpanded,
             onDismissRequest = { overflowExpanded = false },
+            // Renders in its own popup window — mapTestTagsAsResourceIds required
+            // so Maestro id: selectors can find items inside the menu.
+            modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
             overflowButtons.forEach { button ->
                 val isActive = richTextState.isActive(button.action)
