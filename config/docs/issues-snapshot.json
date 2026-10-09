@@ -445,7 +445,7 @@
   },
   {
     "number": 105,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "DebugSeedActivity takes the first matching deep-link key, so ?task=X&profile=Y seeds into the wrong profile",
     "backlog_slug": "maestro-flows-share-one-app-instance-so-failures-cascade"
   },
@@ -1636,5 +1636,47 @@
     "state": "CLOSED",
     "title": "[arch] UiAutomationSelectorTest: SavedAgendaScreen AlertDialog missing mapTestTagsAsResourceIds",
     "backlog_slug": ""
+  },
+  {
+    "number": 355,
+    "state": "OPEN",
+    "title": "Sweep Maestro flows: convert locale-fragile text selectors to stable IDs",
+    "labels": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ],
+    "backlog_slug": "flows-select-by-localised-text"
+  },
+  {
+    "number": 356,
+    "state": "OPEN",
+    "title": "#165: DataStore preference wrappers — two absorb errors, two propagate",
+    "labels": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ],
+    "backlog_slug": "165"
+  },
+  {
+    "number": 357,
+    "state": "OPEN",
+    "title": "#219: MainActivity ANR on emulator cold start — verify if still reproduces",
+    "labels": [
+      {
+        "name": "bug"
+      },
+      {
+        "name": "ready-for-agent"
+      }
+    ],
+    "backlog_slug": "mainactivity-anr-makes-every-instrumented-test-fail"
   }
 ]
