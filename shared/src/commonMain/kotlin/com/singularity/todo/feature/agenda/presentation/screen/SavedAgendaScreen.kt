@@ -422,9 +422,13 @@ private fun RegexpInputSheet(
                     label = { Text("Pattern") },
                     placeholder = { Text("e.g. meeting|review") },
                     singleLine = true,
+                    // AlertDialog is its own Android window — the app-root
+                    // testTagsAsResourceId never reaches it. Without this the tag
+                    // is invisible to Maestro and the flow has to select by label.
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag(TestTags.AGENDA_REGEX_PATTERN_INPUT),
+                        .testTag(TestTags.AGENDA_REGEX_PATTERN_INPUT)
+                        .mapTestTagsAsResourceIds(),
                 )
             }
         },
