@@ -1,8 +1,9 @@
-# Settings > Interface: toggling the dark theme does not break the screen.
+# Settings > Interface: toggling the theme mode does not break the screen.
 #
-# The theme is visual, and neither the a11y tree nor Maestro exposes a switch
-# state for it, so the assertion is that the screen survives the toggle and
-# stays navigable — which is what would catch a crash on theme change.
+# After #210 the theme selector is a three-way segmented button (System / Light / Dark).
+# The theme is visual, and neither the a11y tree nor Maestro exposes the selected segment
+# state, so the assertion is that the screen survives the toggle and stays navigable —
+# which is what would catch a crash on theme change.
 appId: com.singularity.todo
 name: settings-theme-toggle
 tags:
@@ -22,11 +23,21 @@ tags:
     visible:
       id: settings_tab_interface
     timeout: 8000
-- assertVisible: "Dark Theme"
+# The theme section header and accent color section should both be present.
+- assertVisible: "Theme"
 - assertVisible: "Accent Color"
+# Tap the Dark segment of the theme-mode segmented button.
 - tapOn:
-    id: settings_dark_theme_switch
+    text: "Dark"
 # Still interactive, and the rest of the tab is intact.
+- assertVisible: "Font Size"
+# Switch to Light to verify the toggle works both directions.
+- tapOn:
+    text: "Light"
+- assertVisible: "Font Size"
+# Switch to System as the final state.
+- tapOn:
+    text: "System"
 - assertVisible: "Font Size"
 - tapOn:
     id: settings_tab_agenda

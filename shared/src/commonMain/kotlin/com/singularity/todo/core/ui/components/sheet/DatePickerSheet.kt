@@ -45,7 +45,7 @@ fun DatePickerSheet(initialDate: LocalDate?, onDateSelected: (LocalDate?) -> Uni
         ) {
             // Constrain height so the VLazyColumn inside DatePicker scrolls internally
             // and the action buttons remain visible in the bottom sheet.
-            Box(modifier = Modifier.heightIn(max = 500.dp)) {
+            Box(modifier = Modifier.heightIn(max = 600.dp)) {
                 DatePicker(state = datePickerState)
             }
         }

@@ -7,6 +7,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
+import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
@@ -19,9 +20,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -91,21 +91,14 @@ class AgendaViewModel(
     private val _pendingDelete = MutableStateFlow<PendingDelete?>(null)
     val pendingDelete = _pendingDelete.asStateFlow()
 
-    /**
-     * Countdown progress for the undo snackbar's progress bar, in [0, 1].
-     *
-     * Starts at `1f` when a delete is pending and counts down to `0f` as the
-     * [UNDO_WINDOW_MS] window expires. Null when no delete is pending.
-     *
-     * The ViewModel updates this every 100 ms so the snackbar's progress bar
-     * animates smoothly. A failed reversal leaves the offer standing, so the
-     * progress holds at its last value until the snackbar is dismissed.
-     */
-    private val _countdownProgress = MutableStateFlow<Float?>(null)
-    val countdownProgress = _countdownProgress.asStateFlow()
-
-    /** Cooldown job for clearing [_pendingDelete] after the undo window expires. */
-    private var pendingDeleteJob: Job? = null
+    /** Drives the undo snackbar countdown. Uses [UNDO_WINDOW_MS] and tick counting for virtual-time test compatibility. */
+    private val countdown = CountdownStateMachine(
+        scope = scope,
+        windowMs = UNDO_WINDOW_MS,
+        onExpired = { _pendingDelete.value = null },
+    )
+    /** Exposes countdown progress to the screen's snackbar progress bar. */
+    val countdownProgress: StateFlow<Float?> = countdown.progress
 
     /**
      * Identity of the pending-delete slot.
@@ -397,28 +390,8 @@ class AgendaViewModel(
 
             // Claimed only now — a failed delete must not evict a good pending undo.
             val generation = undoSlot.incrementAndFetch()
-            pendingDeleteJob?.cancel()
             _pendingDelete.value = PendingDelete(taskId, taskTitle)
-
-            pendingDeleteJob = scope.launch {
-                _countdownProgress.value = 1f
-                // Emit countdown progress every 100 ms for a smooth progress bar.
-                // Counting ticks (not real time) makes it work with runTest's virtual clock.
-                val totalTicks = (UNDO_WINDOW_MS / 100).toInt()
-                var tick = 0
-                while (tick < totalTicks) {
-                    delay(100)
-                    tick++
-                    _countdownProgress.value = 1f - (tick.toFloat() / totalTicks)
-                }
-                // Generation-scoped: a superseded timer can still be live when a newer
-                // delete claims the slot. `cancel()` is best-effort on that path —
-                // the timer may already have resumed — and this check is not.
-                if (undoSlot.load() == generation) {
-                    _pendingDelete.value = null
-                    _countdownProgress.value = null
-                }
-            }
+            countdown.start { undoSlot.load() == generation }
         }
     }
 
@@ -438,9 +411,8 @@ class AgendaViewModel(
         val pending = _pendingDelete.value ?: return@launch
         deps.taskRepo.restore(pending.taskId)
             .onSuccess {
-                pendingDeleteJob?.cancel()
+                countdown.cancel()
                 _pendingDelete.value = null
-                _countdownProgress.value = null
             }
             .onFailure { report(it, RESTORE_FAILED, "Could not restore") }
     }

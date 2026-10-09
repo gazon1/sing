@@ -7,15 +7,15 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -117,15 +117,14 @@ class TagsViewModel(
     private val _pendingDelete = MutableStateFlow<PendingTagDelete?>(null)
     val pendingDelete = _pendingDelete.asStateFlow()
 
-    /**
-     * Countdown progress for the undo snackbar's progress bar, in [0, 1].
-     * Null when no delete is pending.
-     */
-    private val _countdownProgress = MutableStateFlow<Float?>(null)
-    val countdownProgress = _countdownProgress.asStateFlow()
-
-    /** Cooldown job for clearing the undo window. */
-    private var pendingDeleteJob: Job? = null
+    /** Drives the undo snackbar countdown. Uses [UNDO_WINDOW_MS] and tick counting for virtual-time test compatibility. */
+    private val countdown = CountdownStateMachine(
+        scope = scope,
+        windowMs = UNDO_WINDOW_MS,
+        onExpired = { _pendingDelete.value = null },
+    )
+    /** Exposes countdown progress to the screen's snackbar progress bar. */
+    val countdownProgress: StateFlow<Float?> = countdown.progress
 
     init {
         scope.launch {
@@ -171,23 +170,9 @@ class TagsViewModel(
             return
         }
 
-        pendingDeleteJob?.cancel()
         _pendingDelete.value = PendingTagDelete(id, tagTitle)
         emit(TagsUiEvent.UndoDelete(id, tagTitle))
-
-        pendingDeleteJob = scope.launch {
-            _countdownProgress.value = 1f
-            val start = System.currentTimeMillis()
-            while (true) {
-                delay(100)
-                val elapsed = System.currentTimeMillis() - start
-                val remaining = (1f - (elapsed.toFloat() / UNDO_WINDOW_MS)).coerceAtLeast(0f)
-                _countdownProgress.value = remaining
-                if (remaining <= 0f) break
-            }
-            _pendingDelete.value = null
-            _countdownProgress.value = null
-        }
+        countdown.start { _pendingDelete.value?.tagId == id }
     }
 
     /**
@@ -198,9 +183,8 @@ class TagsViewModel(
         val pending = _pendingDelete.value ?: return
         tagRepo.restore(pending.tagId)
             .onSuccess {
-                pendingDeleteJob?.cancel()
+                countdown.cancel()
                 _pendingDelete.value = null
-                _countdownProgress.value = null
             }
             .onFailure {
                 crashReporter.report(it, RESTORE_FAILED)
