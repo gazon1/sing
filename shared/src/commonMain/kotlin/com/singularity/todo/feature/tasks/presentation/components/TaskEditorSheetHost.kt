@@ -23,7 +23,9 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
 
 /**
@@ -34,6 +36,9 @@ import androidx.compose.ui.unit.dp
  * @param onClose    Called when the × button or sheet is dismissed.
  * @param onConfirm  Optional; when non-null a ✓ button appears on the right.
  *                   When null, only the × button is shown.
+ * @param testTagConfirm Optional testTag for the confirm (✓) button. When non-null,
+ *                   the button is tagged so Maestro flows can tap it by id instead
+ *                   of by locale-sensitive label text.
  * @param sheetState Optional; share a sheet state to control dismiss externally.
  * @param content     Sheet body content.
  */
@@ -43,6 +48,7 @@ fun TaskEditorSheetHost(
     title: String,
     onClose: () -> Unit,
     onConfirm: (() -> Unit)? = null,
+    testTagConfirm: String? = null,
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -74,7 +80,12 @@ fun TaskEditorSheetHost(
                     modifier = Modifier.weight(1f),
                 )
                 if (onConfirm != null) {
-                    IconButton(onClick = onConfirm) {
+                    IconButton(
+                        onClick = onConfirm,
+                        modifier = testTagConfirm?.let {
+                            Modifier.testTag(it).mapTestTagsAsResourceIds()
+                        } ?: Modifier,
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.Check,
                             contentDescription = "Done",

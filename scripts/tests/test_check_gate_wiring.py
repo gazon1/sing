@@ -171,7 +171,6 @@ class PartFTest(unittest.TestCase):
         self.assertIn('scripts/check-coverage.py', registered)
         self.assertIn('scripts/check-flaky-tests.py', registered)
         # just-recipe-only gates
-        self.assertIn('scripts/check-kiwi-gaps.py', registered)
         self.assertIn('scripts/check-coverage-measurement.py', registered)
 
     def test_a_python3_invocation_without_a_dot_slash_is_registered(self):

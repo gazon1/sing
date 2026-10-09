@@ -19,10 +19,10 @@ name: start-focus-task
     timeout: 5000
 # Select the Focus chip if visible
 - scrollUntilVisible:
-    text: "Focus"
+    text: "Focus task"
     scrollDirection: DOWN
 - tapOn:
-    text: "Focus"
+    text: "Focus task"
 # Wait for focus mode label
 - extendedWaitUntil:
     visible:

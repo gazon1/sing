@@ -247,6 +247,9 @@ private class FakeProfilesRepo(profiles: List<Profile>) : ProfileRepository {
         _activeProfileId.value = id
     }
 
+    override suspend fun findByName(name: String): Profile? =
+        store.value.values.find { it.name.equals(name, ignoreCase = true) }
+
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // no-op for tests
     }

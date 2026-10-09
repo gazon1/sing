@@ -1,23 +1,5 @@
 [
   {
-    "number": 25,
-    "state": "OPEN",
-    "title": "JVM coroutine diagnostics: kotlinx-coroutines-debug integration",
-    "backlog_slug": ""
-  },
-  {
-    "number": 26,
-    "state": "CLOSED",
-    "title": "Agenda Views: батч-фиксы + полная тест-пирамида",
-    "backlog_slug": ""
-  },
-  {
-    "number": 27,
-    "state": "CLOSED",
-    "title": "[GATE] Desktop: save → back → blank screen (desktop-nav-goBack-blank-screen)",
-    "backlog_slug": ""
-  },
-  {
     "number": 28,
     "state": "OPEN",
     "title": "Navigation as policy: unified open/close + typed ids",
@@ -85,7 +67,7 @@
   },
   {
     "number": 40,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "ProjectsFlowTest: one NPE in five runs, never reproduced",
     "backlog_slug": "desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch"
   },
@@ -97,7 +79,7 @@
   },
   {
     "number": 42,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "NoDirectClockSystem: KDoc claims test sources are exempt — they are not",
     "backlog_slug": "no-direct-clock-system-kdoc-claims-tests-are-exempt"
   },
@@ -145,13 +127,13 @@
   },
   {
     "number": 50,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "backup/01-round-trip.yaml asserts a dated task is in Inbox (No Date) — flow bug, not app bug",
     "backlog_slug": ""
   },
   {
     "number": 51,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A test can be @Tag'd and still never run — TestTagCoverageTest checks the tag, not the engine",
     "backlog_slug": ""
   },
@@ -283,13 +265,13 @@
   },
   {
     "number": 75,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "RoomTaskRepositoryContractTest fails 14 of 14 — the fake passes the same 14, and the suite has never run",
     "backlog_slug": ""
   },
   {
     "number": 76,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A baseline higher than the number of tests in the sources is unreachable by construction",
     "backlog_slug": ""
   },
@@ -301,7 +283,7 @@
   },
   {
     "number": 78,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A failing undo-restore is silent: pending slot already cleared, snackbar gone, task lost",
     "backlog_slug": "undo-restore-failure-notify"
   },
@@ -355,7 +337,7 @@
   },
   {
     "number": 87,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The maestro-smoke CI job has never executed — and the smoke set is not locale-stable enough to be a blocking gate yet",
     "backlog_slug": "a-flow-can-be-unrunnable-and-every-check-still-pass"
   },
@@ -367,13 +349,13 @@
   },
   {
     "number": 89,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A Maestro gate and a Gradle build cannot share the device — a concurrent install uninstalls the app mid-run and reports 16 false failures",
     "backlog_slug": "never-run-gradle-while-a-maestro-gate-is-running"
   },
   {
     "number": 90,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sweep Maestro flows that select by localised text — the device is Russian and a translated selector fails silently",
     "backlog_slug": "flows-select-by-localised-text-and-the-device-is-russian"
   },
@@ -385,7 +367,7 @@
   },
   {
     "number": 92,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Six smoke flows are still red, five of them undiagnosed — run them one at a time and read each log",
     "backlog_slug": "six-smoke-flows-still-red-after-the-harness-fix"
   },
@@ -427,7 +409,7 @@
   },
   {
     "number": 101,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Activating 18 detekt rules surfaces 22 findings in code that landed on main after they were last run",
     "backlog_slug": ""
   },
@@ -469,7 +451,7 @@
   },
   {
     "number": 109,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Context-menu test tags are derived from the displayed label, so a localised UI produces a localised tag",
     "backlog_slug": "a-testtag-built-from-a-localised-label-changes-with-device-locale"
   },
@@ -601,19 +583,19 @@
   },
   {
     "number": 136,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A stale detekt rule classpath makes :shared:detekt report green with no custom rules running",
     "backlog_slug": "a-stale-detekt-classpath-makes-the-gate-green-with-no-custom-rules-running"
   },
   {
     "number": 137,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": ":shared:detektBaseline runs without the custom rule set, so regenerating deletes every custom-rule entry",
     "backlog_slug": "detektbaseline-drops-every-custom-rule-entry"
   },
   {
     "number": 138,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A Koin definition body stays at 0% covered even when the definition is resolved for real",
     "backlog_slug": "a-koin-definition-body-stays-uncovered-after-being-resolved"
   },
@@ -637,7 +619,7 @@
   },
   {
     "number": 142,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A full just gate run to step 4 is unverified, so the recipe's own composition is untested",
     "backlog_slug": ""
   },
@@ -769,13 +751,13 @@
   },
   {
     "number": 164,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Two allowlists are kept in step by a comment, and the comment names a function that was renamed",
     "backlog_slug": ""
   },
   {
     "number": 165,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Two of four preference wrappers let a corrupt DataStore through, and the other two absorb it",
     "backlog_slug": ""
   },
@@ -787,7 +769,7 @@
   },
   {
     "number": 167,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Leaked-password protection is off on the Supabase project, and no gate in this repo can see it",
     "backlog_slug": ""
   },
@@ -877,7 +859,7 @@
   },
   {
     "number": 182,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "An anonymous session is never persisted and sync is off for it, so an anonymous user loses their owner on every cold start",
     "backlog_slug": ""
   },
@@ -889,7 +871,7 @@
   },
   {
     "number": 184,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The server integration test prints its results instead of checking them, and the schema it tests is not in version control",
     "backlog_slug": ""
   },
@@ -1099,7 +1081,7 @@
   },
   {
     "number": 227,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The Android Koin graph is never resolved, and androidHostTest runs no tests at all",
     "backlog_slug": "the-android-graph-is-never-resolved"
   },
@@ -1111,7 +1093,7 @@
   },
   {
     "number": 229,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "NOT_SYNCED_WRITES' reasons are both wrong, and a column-based exemption needs call-graph, not columns alone",
     "backlog_slug": ""
   },
@@ -1195,19 +1177,19 @@
   },
   {
     "number": 256,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncOutcome.Completed слишком permissive — Result внутри Completed",
     "backlog_slug": ""
   },
   {
     "number": 257,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncEngineState.phases exposed как internal val — нарушена инкапсуляция",
     "backlog_slug": ""
   },
   {
     "number": 258,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] core→feature зависимость: SyncBootstrapper и SeedPlanner зависят от feature-репозиториев",
     "backlog_slug": ""
   },
@@ -1219,13 +1201,13 @@
   },
   {
     "number": 260,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncEngine singleton Koin single{} не закрывается — lifecycle gap",
     "backlog_slug": ""
   },
   {
     "number": 261,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncScopeProvider интерфейс в core/sync, реализация в feature/profile",
     "backlog_slug": ""
   },
@@ -1489,7 +1471,7 @@
   },
   {
     "number": 322,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] UiAutomationSelectorTest LABEL_ALLOWED masks two real localization risks",
     "backlog_slug": ""
   },
@@ -1507,19 +1489,19 @@
   },
   {
     "number": 326,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[test] Migrate existing sync tests to new Scripted/Recording/Interceptable clients",
     "backlog_slug": ""
   },
   {
     "number": 327,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] menu_notes/calendar/etc — Maestro flows depend on hardcoded English MenuSection labels",
     "backlog_slug": ""
   },
   {
     "number": 328,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] Verify all sync tests pass after #292 + #296 merge",
     "backlog_slug": ""
   },
@@ -1573,7 +1555,7 @@
   },
   {
     "number": 337,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] menu_notes/calendar/etc depend on hardcoded English MenuSection labels",
     "backlog_slug": ""
   },
@@ -1585,31 +1567,31 @@
   },
   {
     "number": 340,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] OkHttpClient recreated per SyncRpc — no connection pooling, no failover",
     "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-okhttp-pooling\\`"
   },
   {
     "number": 341,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[auth] No coalescing for concurrent refresh attempts",
     "backlog_slug": "\\`docs/decisions/deferred-backlog.md#auth-refresh-coalescing\\`"
   },
   {
     "number": 342,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncScopeProvider interface in core/sync, implementation in feature/profile",
     "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-scope-provider-arch\\`"
   },
   {
     "number": 343,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncEngine Koin singleton never closed — lifecycle gap",
     "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-engine-lifecycle\\`"
   },
   {
     "number": 344,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[mcp] Collapse 37 MCP tools into start + run + SDK",
     "backlog_slug": "\\`docs/decisions/deferred-backlog.md#mcp-start-run-sdk\\`"
   },
@@ -1638,45 +1620,183 @@
     "backlog_slug": ""
   },
   {
-    "number": 355,
+    "number": 350,
     "state": "OPEN",
+    "title": "[mcp] MCP server start()+run()+SDK phases in Main.kt",
+    "backlog_slug": ""
+  },
+  {
+    "number": 351,
+    "state": "OPEN",
+    "title": "[mcp] McpToolCatalog: compute ToolAnnotations directly, remove TOOL_ANNOTATIONS duplicate",
+    "backlog_slug": ""
+  },
+  {
+    "number": 352,
+    "state": "OPEN",
+    "title": "[test] Pre-existing arch test failures: TestTagCoverageTest, UiAutomationSelectorTest, TestTagsCatalogJvmTest",
+    "backlog_slug": ""
+  },
+  {
+    "number": 353,
+    "state": "CLOSED",
+    "title": "[sync] feature/sync-sql-generator not merged into main",
+    "backlog_slug": ""
+  },
+  {
+    "number": 355,
+    "state": "CLOSED",
     "title": "Sweep Maestro flows: convert locale-fragile text selectors to stable IDs",
-    "labels": [
-      {
-        "name": "bug"
-      },
-      {
-        "name": "ready-for-agent"
-      }
-    ],
-    "backlog_slug": "flows-select-by-localised-text"
+    "backlog_slug": ""
   },
   {
     "number": 356,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "#165: DataStore preference wrappers — two absorb errors, two propagate",
-    "labels": [
-      {
-        "name": "bug"
-      },
-      {
-        "name": "ready-for-agent"
-      }
-    ],
-    "backlog_slug": "165"
+    "backlog_slug": ""
   },
   {
     "number": 357,
     "state": "OPEN",
     "title": "#219: MainActivity ANR on emulator cold start — verify if still reproduces",
-    "labels": [
-      {
-        "name": "bug"
-      },
-      {
-        "name": "ready-for-agent"
-      }
-    ],
-    "backlog_slug": "mainactivity-anr-makes-every-instrumented-test-fail"
+    "backlog_slug": ""
+  },
+  {
+    "number": 359,
+    "state": "OPEN",
+    "title": "[maestro] backup/01-round-trip.yaml asserts dated task in Inbox (No Date) — flow bug",
+    "backlog_slug": ""
+  },
+  {
+    "number": 360,
+    "state": "OPEN",
+    "title": "ProjectsFlowTest: one NPE in five runs, never reproduced — flaky test",
+    "backlog_slug": "projectsflowtest-npe"
+  },
+  {
+    "number": 361,
+    "state": "OPEN",
+    "title": "NoDirectClockSystem: KDoc claims test sources are exempt — they are not",
+    "backlog_slug": "nodirectclocksystem-kdoc-wrong"
+  },
+  {
+    "number": 362,
+    "state": "OPEN",
+    "title": "TestTagCoverageTest checks the tag, not the test engine — tagged tests can still never run",
+    "backlog_slug": "testtagcoveragetest-only-checks-annotation"
+  },
+  {
+    "number": 363,
+    "state": "OPEN",
+    "title": "maestro-smoke CI job has never executed — smoke set is not locale-stable enough to be a blocking gate",
+    "backlog_slug": "maestro-smoke-never-run"
+  },
+  {
+    "number": 364,
+    "state": "OPEN",
+    "title": "A Maestro gate and a Gradle build cannot share the device — concurrent install un-installs app mid-run, 16 false failures",
+    "backlog_slug": "maestro-gradle-device-conflict"
+  },
+  {
+    "number": 365,
+    "state": "OPEN",
+    "title": "Six smoke flows are still red, five of them undiagnosed — need one-at-a-time run with per-flow logs",
+    "backlog_slug": "six-smoke-flows-red"
+  },
+  {
+    "number": 366,
+    "state": "OPEN",
+    "title": "run-maestro.sh with SKIP_INSTALL=1 can test a stale APK — device recovery silently un-installs the build under test",
+    "backlog_slug": "skip-install-stale-apk"
+  },
+  {
+    "number": 367,
+    "state": "OPEN",
+    "title": "A failing undo-restore is silent: pending slot already cleared, snackbar gone, task lost",
+    "backlog_slug": "silent-undo-restore-failure"
+  },
+  {
+    "number": 368,
+    "state": "OPEN",
+    "title": "A baseline higher than the number of tests in the sources is unreachable by construction — detekt baseline integrity gap",
+    "backlog_slug": "baseline-unreachable"
+  },
+  {
+    "number": 369,
+    "state": "OPEN",
+    "title": "The background.coroutine_failed group needs a dashboard check before anyone retires the key",
+    "backlog_slug": "coroutine-failed-dashboard"
+  },
+  {
+    "number": 370,
+    "state": "OPEN",
+    "title": "A Koin definition body stays at 0% covered even when the definition is resolved for real",
+    "backlog_slug": "koin-definition-coverage-zero"
+  },
+  {
+    "number": 371,
+    "state": "OPEN",
+    "title": "detekt baseline runs without the custom rule set — regenerating deletes every custom-rule entry",
+    "backlog_slug": "detekt-baseline-no-custom-rules"
+  },
+  {
+    "number": 372,
+    "state": "OPEN",
+    "title": "A stale detekt rule classpath makes :shared:detekt report green with no custom rules running",
+    "backlog_slug": "stale-detekt-classpath"
+  },
+  {
+    "number": 373,
+    "state": "OPEN",
+    "title": "Activating 18 detekt rules surfaces 22 findings in code that landed on main after they were last run",
+    "backlog_slug": "detekt-rules-deactivated"
+  },
+  {
+    "number": 374,
+    "state": "OPEN",
+    "title": "The full just gate run to step 4 is unverified — the recipe composition itself is untested",
+    "backlog_slug": "just-gate-untested"
+  },
+  {
+    "number": 375,
+    "state": "OPEN",
+    "title": "check-yaml-duplicate-keys self-test fails — duplicate key detection is broken",
+    "backlog_slug": "check-yaml-dup-keys-self-test-fails"
+  },
+  {
+    "number": 376,
+    "state": "OPEN",
+    "title": "Allowlist ceiling mismatch: 11 shipped entries but ceiling is 13",
+    "backlog_slug": "allowlist-ceiling-mismatch"
+  },
+  {
+    "number": 377,
+    "state": "OPEN",
+    "title": "check-sync-allowlist-regenerated.py gate has no positive control",
+    "backlog_slug": "sync-allowlist-regen-no-control"
+  },
+  {
+    "number": 378,
+    "state": "OPEN",
+    "title": "Leaked-password protection is off on Supabase project — no gate in this repo can detect it",
+    "backlog_slug": "supabase-leaked-password-protection"
+  },
+  {
+    "number": 379,
+    "state": "OPEN",
+    "title": "[maestro] Clean up 23 stale DYNAMIC_EXPANSIONS entries in validate-maestro-selectors.py",
+    "backlog_slug": ""
+  },
+  {
+    "number": 380,
+    "state": "OPEN",
+    "title": "[style] Fix Indentation finding in PreferenceWrappers.kt line ~171",
+    "backlog_slug": ""
+  },
+  {
+    "number": 381,
+    "state": "OPEN",
+    "title": "[adr] Fix deferred-backlog.md tracking CLOSED issue #105",
+    "backlog_slug": ""
   }
 ]

@@ -256,6 +256,16 @@ SCRIPT_GATES = [
         why="the budget must be able to fail; `--warn-only || status=1` could not",
     ),
     ScriptGate(
+        name="sync-allowlist-regenerated",
+        cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt",
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'\"aiSuppressedTagIds\",', '\"aiSuppressedTagIds\",\\n        \"sabotage_probe_field\",'))"
+        ),
+        why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
+    ),
+    ScriptGate(
         name="doc-dead-refs",
         cmd=[sys.executable, "scripts/check-doc-dead-refs.py"],
         # README.md, not PROGRESS.md: the dead-ref detector classifies a reference as
@@ -609,6 +619,10 @@ GATE_EXEMPTIONS: dict[str, str] = {
         "rather than a gate needing one. Its control is scripts/tests/"
         "test_check_gate_honesty.py, including "
         "`test_a_probe_that_does_not_fire_is_a_failure_not_a_pass`."
+    ),
+    "scripts/check-kiwi-gaps.py": (
+        "the Kiwi TCMS stand is currently unused; the recipe is commented out "
+        "in .just/kiwi/mod.just. An exempted gate that nobody runs cannot fail."
     ),
 }
 

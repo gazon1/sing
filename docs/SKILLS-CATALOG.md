@@ -33,7 +33,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-desktop-compose-ui-tests` | 346 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 489 | How to write and register custom detekt rules in the Singularity Todo project. |
-| `singularity-todo-detekt-workflow` | 112 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules (PassThroughUseCase, NoStateIn, NoRunBlocking, NoViewModelScopeInProduction, NoRealDelayInTest, KDoc enforcement). |
+| `singularity-todo-detekt-workflow` | 82 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
 | `singularity-todo-domain-logic-pattern` | 203 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
@@ -70,7 +70,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-openspec-workflow` | 142 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
-| `singularity-todo-quality-tools` | 465 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
+| `singularity-todo-quality-tools` | 466 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
 | `singularity-todo-relational-counts` | 216 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 346 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |

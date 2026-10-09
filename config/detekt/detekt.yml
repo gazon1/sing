@@ -263,13 +263,13 @@ potential-bugs:
   UnsafeCast:
     active: true
   ElseCaseInsteadOfExhaustiveWhen:
-    active: false          # was DuplicateCaseInWhenExpression in 1.x
+    active: true          # was DuplicateCaseInWhenExpression in 1.x
   EqualsAlwaysReturnsTrueOrFalse:
     active: true
   CastNullableToNonNullableType:
-    active: false
+    active: true
   Deprecation:
-    active: false
+    active: true
 
 # ---------------------------------------------------------------------------
 # style
