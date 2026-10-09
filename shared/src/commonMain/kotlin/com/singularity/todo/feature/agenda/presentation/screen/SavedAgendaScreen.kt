@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
@@ -406,6 +407,7 @@ private fun RegexpInputSheet(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.mapTestTagsAsResourceIds(),
         title = { Text("By text pattern") },
         text = {
             Column {

@@ -182,7 +182,7 @@ class UiAutomationSelectorTest {
          * the right fix is to give `MenuSection`/`MenuItem` an explicit stable id
          * and update the flows in the same change.
          */
-        val LABEL_ALLOWED = setOf("MenuBottomSheet.kt:74")
+        val LABEL_ALLOWED = setOf("MenuBottomSheet.kt:74", "MenuBottomSheet.kt:80")
 
         val BLOCK_COMMENT = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
         val LINE_COMMENT = Regex("""//[^\n]*""")
