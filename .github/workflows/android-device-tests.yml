@@ -36,7 +36,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: android-device-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  group: emulator-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
