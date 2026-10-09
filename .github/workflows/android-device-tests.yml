@@ -91,17 +91,21 @@ jobs:
       # time, so the snapshot is cached. Keyed on the image, not the run id — keying on
       # run_id stores a fresh copy every run and evicts the previous one, which is the
       # defect ADR 2026-10-04-configuration-cache-hardening records for the Gradle cache.
-      - name: Cache the AVD
-        uses: actions/cache@v4
+      #
+      # Split into restore (always) + save (main + cache miss only). Using combined
+      # actions/cache@v4 with `if:` would skip restore on PRs, making every PR get a
+      # cold AVD. restore/save split ensures PRs still get the warm cache from main.
+      - name: Restore the AVD cache
         id: avd-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64
+          key: android-avd-api36-google_apis-x86_64-v1
 
-      # Skipped on a cache hit. force-avd-creation is false so the cached snapshot is
-      # reused rather than rebuilt, and a cache miss here is a few minutes, not a failure.
+      # Skipped on a cache hit. On cache miss, create the AVD from scratch — runners
+      # are ephemeral so force-avd-creation: true is needed to actually create it.
       - name: Create the AVD
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
@@ -109,10 +113,22 @@ jobs:
           api-level: 36
           target: google_apis
           arch: x86_64
-          force-avd-creation: false
+          force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -prop persist.sys.locale=ru-RU
           disable-animations: false
           script: echo "AVD created"
+
+      # Save only on main AND only if cache was a miss (AVD was just created).
+      # Never saves from PRs — they get warm restore from main but don't write back.
+      - name: Save the AVD cache
+        uses: actions/cache/save@v4
+        if: github.ref == 'refs/heads/main' && steps.avd-cache.outputs.cache-hit != 'true'
+        id: avd-cache-save
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: android-avd-api36-google_apis-x86_64-v1
 
       # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target). An
       # emulator below the app's targetSdk is a test of something nobody ships.
