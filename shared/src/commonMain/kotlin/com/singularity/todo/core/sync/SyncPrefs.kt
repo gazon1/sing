@@ -33,6 +33,7 @@ class DataStoreSyncPrefs(
      * could not assert what the screen shows without tolerating a real clock.
      */
     private val clock: Clock,
+    private val log: co.touchlab.kermit.Logger = co.touchlab.kermit.Logger.withTag("DataStoreSyncPrefs"),
 ) : SyncPrefs {
 
     private object Keys {
@@ -75,6 +76,10 @@ class DataStoreSyncPrefs(
                 _scheduledInterval.value = (prefs[Keys.SCHEDULED_INTERVAL] ?: 30).minutes
                 _lastSuccessfulSyncAt.value = prefs[Keys.LAST_SUCCESSFUL_SYNC_AT]
                 _lastLsn.value = prefs[Keys.LAST_LSN] ?: 0L
+            }.onFailure { e ->
+                // #262: a corrupted DataStore file on first read silently leaves sync running
+                // with defaults. Log the error so operators can see it happened.
+                log.w(e) { "SyncPrefs init read failed; using defaults. ${e.message}" }
             }
         }
     }
