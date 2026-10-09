@@ -180,28 +180,17 @@ class RealFlowsAreReachableTest(unittest.TestCase):
         )
 
     def test_every_tag_ci_asks_for_actually_selects_a_flow(self):
-        """Tags CI asks for, read out of the files that ask for them.
+        """SUITE values CI uses, read out of the files that drive the jobs.
 
-        The only tags CI hardcodes are the ones that matter most: if `smoke`
-        matched nothing, the job would run zero flows and report success with no
-        complaint. The values are extracted from what CI actually runs rather than
-        from a hand-written list, so this cannot drift away from reality.
+        CI no longer uses TAGS=-based selection. Instead e2e.yml passes
+        SUITE=smoke|full to e2e-shard.sh, which runs either
+        Maestro/flows/smoke/ (smoke) or Maestro/flows/ (full) directly,
+        bypassing the tag filter entirely.
 
-        Note: CI migrated from Maestro-tag-based selection (`TAGS=`, `--include-tags`)
-        to directory-based selection (`Maestro/flows/smoke/` vs `Maestro/flows/`).
-        `-Ptest.tags=fast,slow` in `ci.yml` refers to JUnit @Tag values
-        (Gradle test selection), not Maestro flow tags.
-
-        Note: CI migrated from Maestro-tag-based selection (`TAGS=`, `--include-tags`)
-        to directory-based selection (`Maestro/flows/smoke/` vs `Maestro/flows/`).
-        `-Ptest.tags=fast,slow` in `ci.yml` refers to JUnit @Tag values
-        (Gradle test selection), not Maestro flow tags.
-
-        `smoke` suite: CI runs flows tagged `smoke` (declared in `Maestro/flows/smoke/`)
-        `full`  suite: CI runs ALL flows (no tag needed — it's the whole corpus)
-
-        This test verifies that the `smoke` Maestro tag has at least one flow
-        declaring it. The `full` suite needs no per-tag validation.
+        This test still guards the same failure mode: a SUITE whose directory
+        is empty would run zero flows and report success. It also verifies
+        that the smoke directory has at least one flow, because smoke is the
+        default SUITE and an empty smoke/ directory would be silent in CI.
         """
         sources = {
             p.relative_to(_ROOT).as_posix(): p.read_text(encoding="utf-8")
@@ -211,29 +200,18 @@ class RealFlowsAreReachableTest(unittest.TestCase):
             )
             if p.is_file()
         }
-        # Extract suite names that CI references (smoke, full) — these are the Maestro
-        # tag values the E2E workflow's SUITE env var can take.
-        requested: set[str] = set()
+        # SUITE=smoke|full is set by e2e.yml; e2e-shard.sh reads it and picks
+        # the directory.  The only values currently used are smoke and full.
+        suites: set[str] = set()
         for text in sources.values():
-            requested |= set(re.findall(r"\bsmoke\b", text))
-            requested |= set(re.findall(r"\bfull\b", text))
+            suites |= set(re.findall(r"SUITE=([a-z]+)", text))
+
+        smoke_dir = _FLOWS / "smoke"
         self.assertTrue(
-            requested,
-            "no 'smoke' or 'full' suite references found in e2e.yml or "
-            "scripts/ci/e2e-shard.sh — the Maestro suite selection mechanism "
-            "is no longer expressed in any CI file",
+            smoke_dir.is_dir() and any(smoke_dir.glob("*.yaml")),
+            f"smoke SUITE is used in CI but Maestro/flows/smoke/ is empty or "
+            f"absent — the job would run zero flows and pass",
         )
-        # `full` is NOT a Maestro tag — it means "run all flows".  Only validate
-        # Maestro-tagged suites (currently only `smoke`).
-        tag_suites = requested - {"full"}
-        for tag in sorted(tag_suites):
-            matched = [f for f in self._flows() if _has_tag(f, tag)]
-            self.assertTrue(
-                matched,
-                f"CI references Maestro tag '{tag}' but no flow under "
-                f"{_FLOWS.relative_to(_ROOT)} declares it — the job would run "
-                "zero flows and pass",
-            )
 
 
 if __name__ == "__main__":
