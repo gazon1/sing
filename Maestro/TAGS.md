@@ -70,6 +70,7 @@ non-alphanumeric characters with `_`.
 | `TASKS_LIST` | `tasks_list` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
+| `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
@@ -94,6 +95,7 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_ADD_SECTION_CONFIRM` | `saved_agenda_add_section_confirm` | |
 | `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | |
 | `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | |
+| `SAVED_AGENDA_EMPTY_TITLE` | `saved_agenda_empty_title` | |
 | `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | |
 | `SAVED_AGENDA_MENU_COPY_TO_PROFILE` | `saved_agenda_menu_copy_to_profile` | |
 | `SAVED_AGENDA_MENU_DELETE` | `saved_agenda_menu_delete` | |

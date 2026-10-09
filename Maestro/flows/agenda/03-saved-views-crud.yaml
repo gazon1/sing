@@ -67,7 +67,8 @@ tags:
 - tapOn:
     id: saved_agenda_delete_button
 - extendedWaitUntil:
-    visible: "Delete view?"
+    visible:
+      id: dialog_title_delete_view_
     timeout: 8000
 - tapOn:
     id: dialog_confirm

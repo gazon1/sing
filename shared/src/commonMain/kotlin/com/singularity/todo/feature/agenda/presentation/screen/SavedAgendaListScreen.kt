@@ -169,6 +169,7 @@ fun SavedAgendaListContent(
                     title = "No saved views yet",
                     subtitle = "Create one from the agenda tab",
                     modifier = modifier.fillMaxSize(),
+                    testTag = TestTags.SAVED_AGENDA_EMPTY_TITLE,
                 )
             } else {
                 LazyColumn(

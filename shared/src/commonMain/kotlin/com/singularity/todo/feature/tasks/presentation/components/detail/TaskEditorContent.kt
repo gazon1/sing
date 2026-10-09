@@ -221,6 +221,7 @@ fun TaskEditorContent(
                     dueTime = dueTime,
                     onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
+                    labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
                 )
             }
 

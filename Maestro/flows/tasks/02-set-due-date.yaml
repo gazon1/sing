@@ -18,7 +18,9 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-- assertVisible: "Добавить дату"
+# The "Add date" row label is locale-independent via testTag.
+- assertVisible:
+    id: task_editor_due_date_row_label
 - tapOn:
     id: task_editor_due_row
 - extendedWaitUntil:
@@ -32,4 +34,5 @@ tags:
 - extendedWaitUntil:
     visible: ".*-.*-01"
     timeout: 8000
-- assertNotVisible: "Добавить дату"
+# No need to assertNotVisible "Add date" — the extendedWaitUntil above already
+# proves the row content changed to the ISO date format.

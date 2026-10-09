@@ -40,7 +40,12 @@ fun ConfirmActionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = {
+            Text(
+                text = title,
+                modifier = Modifier.testTag(TestTags.Dialog.title(title)),
+            )
+        },
         text = { Text(text) },
         confirmButton = {
             TextButton(

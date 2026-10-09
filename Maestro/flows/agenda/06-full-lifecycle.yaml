@@ -21,7 +21,8 @@ tags:
 - tapOn:
     id: agenda_saved_views_button
 - extendedWaitUntil:
-    visible: "No saved views yet"
+    visible:
+      id: saved_agenda_empty_title
     timeout: 8000
 
 # ── 2. FAB → name → Save → back on the list with a card ─────────────────
@@ -44,11 +45,13 @@ tags:
       id: saved_agenda_name_input
     timeout: 8000
 - extendedWaitUntil:
-    visible: "Journey View"
+    visible:
+      id: saved_agenda_card_journey_view
     timeout: 8000
 
 # ── 3. Card → Results (view name is the Results top-bar title) ──────────
-- tapOn: "Journey View"
+- tapOn:
+    id: saved_agenda_card_journey_view
 - extendedWaitUntil:
     visible:
       id: top_bar_back_button
@@ -56,7 +59,8 @@ tags:
 - tapOn:
     id: top_bar_back_button
 - extendedWaitUntil:
-    visible: "Journey View"
+    visible:
+      id: saved_agenda_card_journey_view
     timeout: 8000
 
 # ── 4. Overflow menu → Edit → rename → Save ─────────────────────────────
@@ -88,7 +92,8 @@ tags:
       id: saved_agenda_name_input
     timeout: 8000
 - extendedWaitUntil:
-    visible: "Journey Renamed"
+    visible:
+      id: saved_agenda_card_journey_renamed
     timeout: 8000
 
 # ── 5. Overflow menu → Delete (immediate, no confirm on the list) ───────
@@ -101,6 +106,8 @@ tags:
 - tapOn:
     id: saved_agenda_menu_delete
 - extendedWaitUntil:
-    visible: "No saved views yet"
+    visible:
+      id: saved_agenda_empty_title
     timeout: 8000
-- assertNotVisible: "Journey Renamed"
+- assertNotVisible:
+    id: saved_agenda_card_journey_renamed

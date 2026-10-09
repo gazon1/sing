@@ -43,6 +43,7 @@ fun TaskEditorDueDateRow(
     onDueDateClick: (() -> Unit)?,
     onDueDateClear: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    labelTestTag: String? = null,
 ) {
     Row(
         modifier = modifier
@@ -78,7 +79,11 @@ fun TaskEditorDueDateRow(
             color = if (dueDate != null) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
             fontWeight = if (dueDate != null) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (labelTestTag != null) Modifier.testTag(labelTestTag) else Modifier,
+                ),
         )
         if (dueDate != null && onDueDateClear != null) {
             IconButton(onClick = onDueDateClear) {

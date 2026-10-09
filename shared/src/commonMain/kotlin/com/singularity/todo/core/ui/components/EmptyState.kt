@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -33,6 +34,7 @@ typealias EmptyStateActions = @Composable ColumnScope.() -> Unit
  *   renders no action and no extra spacing below the subtitle. Placed below the
  *   subtitle with [Spacer] spacing when non-null.
  * @param modifier Standard Compose modifier.
+ * @param testTag  Optional test tag applied to the title text for UI automation.
  */
 @Composable
 fun EmptyState(
@@ -40,13 +42,20 @@ fun EmptyState(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     actions: EmptyStateActions? = null,
+    testTag: String? = null,
 ) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.then(
+                    if (testTag != null) Modifier.testTag(testTag) else Modifier,
+                ),
+            )
             subtitle?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
