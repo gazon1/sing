@@ -277,6 +277,10 @@ jobs:
 
       - name: Assemble / lint / test
         run: ./gradlew --continue ${{ matrix.flags }} ${{ matrix.tasks }}
+        env:
+          # AppTracer tokens — only meaningful for pro, ignored (plugin disabled) for free.
+          TRACER_APP_TOKEN: ${{ secrets.TRACER_APP_TOKEN }}
+          TRACER_PLUGIN_TOKEN: ${{ secrets.TRACER_PLUGIN_TOKEN }}
 
       - name: Upload debug APK (sideloadable PR build)
         if: matrix.variant == 'free'
