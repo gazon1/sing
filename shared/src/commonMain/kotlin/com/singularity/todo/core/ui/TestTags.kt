@@ -302,6 +302,9 @@ object TestTags {
         /** Font-size slider in the interface settings screen. */
         const val FONT_SIZE_SLIDER = "settings_font_size_slider"
 
+        /** Theme-mode segmented button (System / Light / Dark) in interface settings. */
+        fun themeModeButton(modeName: String) = "settings_theme_mode_${slug(modeName)}"
+
         /** Master switch for notifications at all. */
         const val NOTIFICATIONS_ENABLED_SWITCH = "settings_notifications_enabled_switch"
 
