@@ -66,11 +66,10 @@ class SlugTest {
     }
 
     @Test
-    fun `menu items are keyed by label so labels stay unique`() {
-        // "Profile & sync" and "Settings" share a destination; keying the tag by
-        // the destination title would collapse them into one duplicate tag.
-        assertEquals("menu_profile_sync", TestTags.menuItem("Profile & sync"))
-        assertEquals("menu_settings", TestTags.menuItem("Settings"))
+    fun `menu items use stable id directly`() {
+        // The id is now explicitly set per item, not derived from the label.
+        assertEquals("menu_profile_sync", TestTags.menuItem("menu_profile_sync"))
+        assertEquals("menu_settings", TestTags.menuItem("menu_settings"))
     }
 
     @Test

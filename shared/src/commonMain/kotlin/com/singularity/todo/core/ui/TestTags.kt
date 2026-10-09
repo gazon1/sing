@@ -68,8 +68,21 @@ object TestTags {
     /** Dynamic tag of the form `nav_tab_<slug>`. */
     fun navTab(title: String) = "nav_tab_${slug(title)}"
 
-    /** Dynamic: menu_<slug> — keyed by the *label* the user sees, not the destination. */
-    fun menuItem(label: String) = "menu_${slug(label)}"
+    /** Dynamic: menu_<slug> — keyed by stable menu-item id. */
+    fun menuItem(id: String) = id
+
+    // ─── Menu bottom sheet items ───────────────────────────────────────────────
+    // Stable ids for MenuBottomSheet items. These are not derived from labels
+    // (that was the bug — label-based tags break on non-English locales).
+    // Each id must appear in a Maestro flow or in LEGACY_RAW in check-tags.sh.
+    const val MENU_SETTINGS = "menu_settings"
+    const val MENU_PROFILES = "menu_profiles"
+    const val MENU_QUICK_SEARCH = "menu_quick_search"
+    const val MENU_STATISTICS = "menu_statistics"
+    const val MENU_NOTES = "menu_notes"
+    const val MENU_AI_CHAT = "menu_aichat"
+    const val MENU_SEARCH = "menu_search"
+    const val MENU_ARCHIVE = "menu_archive"
 
     // ─── Tasks ───────────────────────────────────────────────────────────────
     const val TASKS_LIST = "tasks_list"

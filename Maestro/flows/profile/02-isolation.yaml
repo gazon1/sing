@@ -25,7 +25,7 @@ tags:
     id: nav_menu_button
 - extendedWaitUntil:
     visible:
-      id: menu_profile_sync
+      id: menu_settings
     timeout: 5000
 - scrollUntilVisible:
     element:
@@ -63,7 +63,7 @@ tags:
     id: nav_menu_button
 - extendedWaitUntil:
     visible:
-      id: menu_profile_sync
+      id: menu_settings
     timeout: 5000
 - scrollUntilVisible:
     element:
@@ -99,7 +99,7 @@ tags:
     id: nav_menu_button
 - extendedWaitUntil:
     visible:
-      id: menu_profile_sync
+      id: menu_settings
     timeout: 5000
 - scrollUntilVisible:
     element:

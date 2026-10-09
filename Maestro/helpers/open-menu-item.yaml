@@ -5,7 +5,7 @@
 #     ITEM_ID: "menu_archive"
 #     DEST_ID: "archive_list"
 #
-# ITEM_ID  — the testTag of the menu item to tap (e.g. menu_archive, menu_settings)
+# ITEM_ID  — the stable id of the menu item (e.g. menu_archive, menu_settings, menu_notes)
 # DEST_ID  — the testTag of the screen/element that appears after tapping
 #
 # This helper assumes the menu sheet is already open. Use after openLink or menu tap.

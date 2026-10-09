@@ -77,7 +77,7 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .mapTestTagsAsResourceIds()
-                            .testTag(TestTags.menuItem(item.label)),
+                            .testTag(item.id),
                     )
                 }
                 HorizontalDivider()
@@ -106,6 +106,7 @@ private fun SectionHeader(title: String) {
 private data class MenuSection(val title: String, val items: List<MenuItem>)
 
 private data class MenuItem(
+    val id: String,
     val label: String,
     val destination: AppDestination,
     val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
@@ -123,8 +124,13 @@ private val MenuSections: List<MenuSection> = listOf(
     MenuSection(
         title = "Account",
         items = listOf(
-            MenuItem(label = "Profile & sync", destination = AppDestination.Settings),
             MenuItem(
+                id = TestTags.MENU_SETTINGS,
+                label = "Profile & sync",
+                destination = AppDestination.Settings,
+            ),
+            MenuItem(
+                id = TestTags.MENU_PROFILES,
                 label = AppDestination.ProfileSwitcher.title,
                 destination = AppDestination.ProfileSwitcher,
                 icon = AppDestination.ProfileSwitcher.icon,
@@ -134,13 +140,46 @@ private val MenuSections: List<MenuSection> = listOf(
     MenuSection(
         title = "Search",
         items = listOf(
-            MenuItem(label = "Quick search", destination = AppDestination.Search),
+            MenuItem(
+                id = TestTags.MENU_QUICK_SEARCH,
+                label = "Quick search",
+                destination = AppDestination.Search,
+            ),
         ),
     ),
     MenuSection(
         title = "Destinations",
-        items = DestinationKind.menuEntries.map { dest ->
-            MenuItem(label = dest.title, destination = dest, icon = dest.icon)
-        },
+        items = listOf(
+            MenuItem(
+                id = TestTags.MENU_STATISTICS,
+                label = AppDestination.Statistics.title,
+                destination = AppDestination.Statistics,
+                icon = AppDestination.Statistics.icon,
+            ),
+            MenuItem(
+                id = TestTags.MENU_NOTES,
+                label = AppDestination.Notes.title,
+                destination = AppDestination.Notes,
+                icon = AppDestination.Notes.icon,
+            ),
+            MenuItem(
+                id = TestTags.MENU_AI_CHAT,
+                label = AppDestination.AiChat.title,
+                destination = AppDestination.AiChat,
+                icon = AppDestination.AiChat.icon,
+            ),
+            MenuItem(
+                id = TestTags.MENU_SEARCH,
+                label = AppDestination.Search.title,
+                destination = AppDestination.Search,
+                icon = AppDestination.Search.icon,
+            ),
+            MenuItem(
+                id = TestTags.MENU_ARCHIVE,
+                label = AppDestination.Archive.title,
+                destination = AppDestination.Archive,
+                icon = AppDestination.Archive.icon,
+            ),
+        ),
     ),
 )
