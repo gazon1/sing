@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -94,6 +95,10 @@ fun SavedAgendaCard(
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
+                    // The menu renders in its own popup window; the app-root
+                    // testTagsAsResourceId never reaches it, so the mapping is
+                    // re-asserted here or every row tag stays invisible to UI automation.
+                    modifier = Modifier.mapTestTagsAsResourceIds(),
                 ) {
                     DropdownMenuItem(
                         text = { Text("Edit") },

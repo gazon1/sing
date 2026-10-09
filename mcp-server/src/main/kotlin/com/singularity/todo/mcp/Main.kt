@@ -2,6 +2,7 @@ package com.singularity.todo.mcp
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -94,7 +95,7 @@ fun main(args: Array<String>): Unit = runBlocking {
  */
 private fun bootstrapKoin(profileId: String?): Boolean = try {
     startKoin {
-        modules(listOf(platformModule()) + domainModule())
+        modules(listOf(platformModule(), coreLoggingModule()) + domainModule())
     }
     true
 } catch (e: Throwable) {

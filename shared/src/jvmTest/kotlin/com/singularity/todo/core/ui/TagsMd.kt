@@ -72,6 +72,7 @@ object TagsMd {
         "Dialog",
         "Profile",
         "AI",
+        "Calendar",
         "Calendar sync",
         "Search filters",
     )
@@ -200,6 +201,10 @@ object TagsMd {
     private fun dynamicMeta(fnName: String, prefix: String): DynamicMeta = when (fnName) {
         "navTab" -> DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
 
+        "calendarViewMode" -> DynamicMeta(fnName, "Calendar", "month", "Calendar view mode tabs (month / day / 4_days)")
+
+        "calendarDay" -> DynamicMeta(fnName, "Calendar", "2026-10-09", "Calendar day cells in month view")
+
         "CalendarSync.providerSegment" ->
             DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
 
@@ -209,6 +214,8 @@ object TagsMd {
         "settingsTab" -> DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
 
         "Settings.content" -> DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area")
+
+        "Settings.accentSwatch" -> DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in appearance settings")
 
         "menuItem" -> DynamicMeta(fnName, "Menu", "Settings", "Menu bottom sheet items")
 
