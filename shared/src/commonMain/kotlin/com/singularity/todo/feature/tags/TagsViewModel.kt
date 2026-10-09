@@ -102,9 +102,12 @@ class TagsViewModel(
 
     /**
      * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
-     * Exposed as a method reference for Compose UI callbacks (see [SettingsScreen]).
+     *
+     * Private since [TagsIntent.Delete] routes here: `SettingsScreen` used to take
+     * this as a method reference while `onCreate` and `onRename` went through the
+     * dispatcher, so the intent handler existed and nothing ever reached it.
      */
-    fun delete(id: TagId) = emitError("Delete failed", TagsUiEvent::ShowError) {
+    private fun delete(id: TagId) = emitError("Delete failed", TagsUiEvent::ShowError) {
         tagRepo.delete(id)
     }
 

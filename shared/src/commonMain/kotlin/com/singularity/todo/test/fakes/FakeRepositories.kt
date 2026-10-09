@@ -1498,6 +1498,7 @@ class FakeTagsRepository(
     // caller can only be checked against a failed write if one can be produced.
     var createOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
     var updateOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
+    var deleteOverride: Result<Unit>? = null
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
@@ -1544,7 +1545,9 @@ class FakeTagsRepository(
             store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
         }
 
-    override suspend fun delete(id: TagId): Result<Unit> = runCatchingCancellable {
+    override suspend fun delete(id: TagId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store[id.value]?.takeIf { it.userId == uid }
             ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
@@ -1552,6 +1555,7 @@ class FakeTagsRepository(
         // looked trashed since 1970 — anything comparing the timestamp saw a
         // different value than production produces.
         store.upsert(existing.copy(deletedAt = clock.now()))
+        }
     }
 
     override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {
