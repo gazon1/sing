@@ -298,7 +298,7 @@ internal class SyncEngine(
         idGenerator = idGenerator,
         scopeProvider = scopeProvider,
         patchBuilder = patchBuilder,
-        clock = clock,
+        monoNow = { clock.now().toEpochMilliseconds() },
         phases = state.phases,
         writerProvider = writerProvider,
         retryPolicy = retryPolicy,

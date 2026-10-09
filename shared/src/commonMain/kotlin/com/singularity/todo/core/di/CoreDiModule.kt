@@ -42,6 +42,7 @@ import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.platform.monoClockMillis
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
@@ -308,7 +309,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             idGenerator = get(),
             scopeProvider = get(),
             patchBuilder = get(),
-            clock = get(),
+            monoNow = { monoClockMillis },
             phases = state.phases,
             writerProvider = { get<SyncDocumentWriter>() },
             retryPolicy = get(),

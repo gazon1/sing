@@ -11,10 +11,10 @@ import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.platform.monoClockMillis
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.jsonObject
-import kotlin.time.Clock
 
 /**
  * Push phase of the sync cycle.
@@ -44,7 +44,7 @@ internal class PushPhase(
     private val idGenerator: IdGenerator,
     private val scopeProvider: SyncScopeProvider,
     private val patchBuilder: SyncPatchBuilder,
-    private val clock: Clock,
+    private val monoNow: () -> Long,
     private val phases: SyncPhaseReporter,
     private val writerProvider: () -> SyncDocumentWriter,
     private val retryPolicy: PatchRetryPolicy,
@@ -52,8 +52,8 @@ internal class PushPhase(
 ) {
     private val log = Logger.withTag("PushPhase")
 
-    /** One reading of the injected clock, in the unit this class stores. */
-    private fun now(): Long = clock.now().toEpochMilliseconds()
+    /** One reading of the monotonic clock. */
+    private fun now(): Long = monoNow()
 
     /**
      * Pushes all pending patches to the server.

@@ -107,6 +107,8 @@ gate blocking "kiwi inventory did not regress" python3 scripts/check-kiwi-invent
 # Server schema. The live half of #221 needs credentials and stays manual; this is the
 # half that can be a gate, and it is what makes the header's claim checkable at all.
 gate blocking "supabase schema is self-consistent" python3 scripts/check-supabase-schema-integrity.py
+# sync_field_allowlist_seed.sql must be regenerated whenever SyncContract.FIELD_ALLOWLIST changes.
+gate blocking "sync allowlist seed matches contract" python3 scripts/check-sync-allowlist-regenerated.py
 
 # Maestro selector validation — catches unknown id: selectors before they reach E2E CI.
 # Uses the same Python script that E2E shard runs; advisory because Maestro YAML
