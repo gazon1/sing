@@ -2882,32 +2882,13 @@ reachability rule.
 
 ## an-archived-gate-repair-left-the-step-it-was-fixing-broken
 
-**Status: OPEN**
+**Status: CLOSED (2026-10-09)**
 
-**Tracked as:** [#174](https://github.com/gazon1/sing/issues/174)
+**Tracked as:** [#174](https://github.com/gazon1/sing/issues/174) — closed
 
-**Found in:** 2026-10-05, merging 11 upstream commits and running the gate afterwards.
-
-**Symptom.** `local-gate-repair` was archived on 2026-10-05 as complete. It was about
-`just gate` being unable to complete: `coverage-ratchet` invoked a task that did not exist, so
-the gate died at **step 3/4** before reaching the flows. That call was fixed and the gate now
-reaches step 4 — and step 4 dies with `justfile does not contain recipe 'gate-maestro'`.
-
-**Why it is the same class as #58 and #137.** A change archived as done is a claim that the
-defect it names is gone. Here the claim and the gate disagree, and the only reason to notice is
-to run the gate. The archived `tasks.md` lists the `just cr` fix and the two-module detekt list;
-it never mentions the fourth step, so the gap was not introduced by the archive — the archive
-simply inherited it. **The step after the one that was fixed was never in the list.**
-
-**Already ruled out.** Not a resolution gap: the recipe `gate-maestro` exists, in this module,
-and `just --list` shows it. The `gate` recipe calls it by bare name, and a bare name does not
-resolve across a module boundary in `just` — the same property that made `just cr` fail, fixed
-in this change and missed here.
-
-**Try next.** One line, and then the change that was already archived has actually landed.
-Whether an archived change can be reopened, or whether the fix belongs in a new change, is a
-question about the archive's policy — it does not belong in an archived file, and it is why
-this is filed rather than patched into the archive.
+**Resolution.** The fix was already applied in `7789ebfb`: `.just/tests/mod.just` line 161
+uses `just tests::gate-maestro agenda` (qualified name, not bare name). The backlog entry
+was written before the fix landed. No new commit needed.
 
 ---
 
