@@ -12,10 +12,12 @@ tags:
   - smoke
 ---
 # 1. Seed a task while online.
+# Note: no due= — the task must be undated so it genuinely belongs in Inbox.
+# A task with due=today would appear in the Today/agenda view, not Inbox (No Date).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BackupRoundTripTask&due=today"
+      QUERY: "task=BackupRoundTripTask"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
