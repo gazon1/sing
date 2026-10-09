@@ -102,7 +102,9 @@ gate blocking "file-level suppressions explain themselves" python3 scripts/check
 gate blocking "scenario specs valid" traceability validate
 gate blocking "coverage matrix current" traceability coverage --check
 gate blocking "coverage holes did not grow" python3 scripts/check-traceability-ratchet.py
-gate blocking "kiwi inventory did not regress" python3 scripts/check-kiwi-inventory-ratchet.py
+# Advisory — Kiwi TCMS stand is currently unused (recipe commented out in .just/kiwi/mod.just).
+# Demoted to advisory: owner gazon1, issue to be filed, review after reactivation.
+gate advisory "kiwi inventory did not regress" python3 scripts/check-kiwi-inventory-ratchet.py
 
 # Server schema. The live half of #221 needs credentials and stays manual; this is the
 # half that can be a gate, and it is what makes the header's claim checkable at all.

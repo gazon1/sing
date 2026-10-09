@@ -1,9 +1,9 @@
 name: CI
 
-# Branch protection requires ONE check: "CI gate". There are no path filters on
-# purpose — a required check that is skipped by a filter stays "pending" forever,
-# and a widened filter list is a list that goes stale (pro/**, infra/** and the
-# root build files were already missing from the one that was there).
+# Branch protection is NOT enabled on main. The `CI gate` job name is the only
+# intended required check, but there is no branch protection rule enforcing it.
+# Adding protection is a one-line GitHub API call once main is reliably green:
+#   gh api repos/{owner}/{repo}/branches/main/protection -X PUT -F required_status_checks='{"contexts":["CI gate"]}'
 #
 # ubuntu-24.04 is pinned deliberately; history and the exit plan live in
 # docs/decisions/2026-10-05-ci-action-versions-and-runner-image-pin.md.

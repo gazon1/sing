@@ -207,6 +207,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # Advisory: E2E smoke instability is tracked in https://github.com/gazon1/sing/issues/TBD
+      # Owner: gazon1. Review after emulator/gfxstream environment is stabilised.
+      - name: Post advisory warning on failure
+        if: failure()
+        run: |
+          echo "::warning::E2E smoke failed. This is an advisory gate — it does not block release.
+         ::warning::See https://github.com/gazon1/sing/issues/TBD (owner: gazon1, review: TBD)"
+
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.
   nightly-alert:

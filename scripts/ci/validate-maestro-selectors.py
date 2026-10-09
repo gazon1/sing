@@ -367,7 +367,6 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # Menu items (menuItem function — slug of the label)
     "menu_notes",
     "menu_search",
-    "menu_ai_chat",
     "menu_statistics",
     # Task actions (taskAction function)
     "task_action_archive",
