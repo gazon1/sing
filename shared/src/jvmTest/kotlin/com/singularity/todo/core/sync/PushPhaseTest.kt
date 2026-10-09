@@ -162,22 +162,15 @@ class PushPhaseTest {
         val shadow = FakeSyncShadowDao()
 
         // Simulate the D1 race: between planPush() and the response loop, a local edit
-        // coalesced p2's row away. We use onPushInFlight (fires inside batchPush,
-        // after the plan is built) to remove p2 from the pending list before the
-        // response loop runs.  Because patches is now derived from the mutated
-        // pending, p2 is not in patches → superseded.
-        val api = object : FakeSyncApiClient() {
-            private var intercepted = false
-            override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
-                if (!intercepted) {
-                    intercepted = true
-                    // pendingRef is set by PushPhase.push() before calling batchPush.
-                    // Removing p2 here mutates the same list that patches is derived from.
-                    pendingRef?.removeIf { it.patchId == "p2" }
-                }
-                return super.batchPush(request)
-            }
-        }
+        // coalesced p2's row away. onBeforeResponseLoop fires after batchPush returns,
+        // before the response loop processes results. Removing p2 from the mutable copy
+        // means p2 is not in patches → superseded.
+        val api = FakeSyncApiClient()
+
+        // The seam: mutate the mutable pending copy after batchPush returns.
+        // A real client could use this for logging or metrics; the test uses it to
+        // reproduce the D1 race by removing a row that was already coalesced away.
+        api.onBeforeResponseLoop = { pending, _ -> pending.removeIf { it.patchId == "p2" } }
 
         val (p, phaseScope) = phase(api, outbox = outbox, deadLetter = dead, shadow = shadow)
 

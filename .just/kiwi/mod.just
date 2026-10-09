@@ -114,7 +114,7 @@ prune keep="20" apply="":
 floor:
     #!/bin/bash
     set -euo pipefail
-    ./scripts/check-kiwi-gaps.py
+    ./scripts/check-kiwi-gaps.py --if-present
 
 # ==============================================================================
 # 🔗 TRACEABILITY — сценарии пользовательского поведения (infra/kiwi/traceability)

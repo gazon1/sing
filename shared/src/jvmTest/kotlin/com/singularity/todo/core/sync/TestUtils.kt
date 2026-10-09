@@ -154,11 +154,20 @@ open class FakeSyncApiClient(
     val pushResponses = ArrayDeque<BatchPushResponse>()
 
     /**
-     * A mutable reference to the pending list, set by [PushPhase.push] before calling
-     * [batchPush]. Tests can mutate it inside [onPushInFlight] to simulate the D1
-     * race where a row is removed between plan-building and response-processing.
+     * Runs after [batchPush] returns, before the response loop processes results.
+     *
+     * The seam for mutations that occur while a request is on the wire — a local edit
+     * that coalesced a pending row (D1 race), a sign-out, a profile switch. Receives
+     * a mutable copy of the pending list and the server response. Mutations applied
+     * here are visible to the response loop.
+     *
+     * Replace with a lambda that mutates [MutableList.removeIf] or [MutableList.add]
+     * to simulate the race. The default is a no-op.
      */
-    override var pendingRef: MutableList<SyncOutboxEntity>? = null
+    override var onBeforeResponseLoop: (
+        pending: MutableList<SyncOutboxEntity>,
+        response: BatchPushResponse,
+    ) -> Unit = { _, _ -> }
 
     /**
      * Runs with the request *in flight*, before the response is formed.
