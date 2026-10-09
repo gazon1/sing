@@ -56,7 +56,7 @@ jobs:
       - name: Validate Maestro selectors
         run: |
           pip install pyyaml --quiet
-          python scripts/ci/validate-maestro-selectors.py --warn
+          python scripts/ci/validate-maestro-selectors.py
 
   # Decides suite and shard count in one place, so the matrix is arithmetic rather
   # than four hand-maintained job entries.
