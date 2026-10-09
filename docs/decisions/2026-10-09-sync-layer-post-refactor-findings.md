@@ -69,9 +69,33 @@ When a pulled event had a protocol version newer than this client supports, `App
 
 ---
 
-## Deferred — Finding 5: PhaseResult.NotRun isFailure = true (ARCH) — [#255](https://github.com/gazon1/sing/issues/255)
+## ✅ Fixed — Finding 5: PhaseResult.NotRun isFailure = true (ARCH) — [#255](https://github.com/gazon1/sing/issues/255)
 
-`PhaseResult.NotRun.isFailure() = true` is semantically wrong. "Did not run" is not "failed". This was partially addressed in Finding 2 by suppressing the `toResult()` arm, but the underlying `PhaseResult` contract remains incorrect. Deferred as a separate small migration.
+**File:** `core/sync/SyncPhaseReporter.kt`
+
+`PhaseResult.NotRun.isFailure() = true` was semantically wrong. "Did not run" is not "failed" — it is a neutral outcome, same as `Superseded`. Fixed in two steps:
+
+1. `NotRun.isFailure()` → `false` (was `true`)
+2. `NotRun.exceptionOrNull()` → `null` (was `IllegalStateException`)
+3. `PhaseResult<PushSummary>.toResult()` now maps `NotRun → Result.success(PushSummary(0,0,0))` instead of `Result.failure()`
+
+```kotlin
+// Before (semantically wrong)
+fun PhaseResult<PushSummary>.toResult(): Result<PushSummary> = when (this) {
+    is Ok -> Result.success(getOrThrow())
+    is Failed -> Result.failure(error)
+    is NotRun -> Result.failure(IllegalStateException("..."))  // wrong: not a failure
+    is Superseded -> Result.success(PushSummary(0, 0, 0))
+}
+
+// After (correct)
+fun PhaseResult<PushSummary>.toResult(): Result<PushSummary> = when (this) {
+    is Ok -> Result.success(getOrThrow())
+    is Failed -> Result.failure(error)
+    is NotRun -> Result.success(PushSummary(0, 0, 0))  // neutral: nothing happened, nothing failed
+    is Superseded -> Result.success(PushSummary(0, 0, 0))
+}
+```
 
 ---
 
@@ -103,17 +127,34 @@ The interface lives in `core/sync` but its sole implementation is in `feature/pr
 
 ---
 
-## Deferred — Finding 10: SyncPrefs init silent fallback (DEBT) — [#262](https://github.com/gazon1/sing/issues/262)
+## ✅ Fixed — Finding 10: SyncPrefs init silent fallback (DEBT) — [#262](https://github.com/gazon1/sing/issues/262)
 
-`SyncPrefs.init` ignores `DataStore` read failures and falls back to defaults silently. Impact is low (writes are always atomic); logged as debt.
+**File:** `core/sync/SyncPrefs.kt`
+
+`SyncPrefs.init` was silently ignoring `DataStore` read failures and falling back to defaults. Fixed by injecting a `Logger` into `DataStoreSyncPrefs` and logging a warning on failure:
+
+```kotlin
+// Before: silent fallback
+runCatching { serializer.deserialize(...) }
+    .onSuccess { ... }
+
+// After: logged warning
+runCatching { serializer.deserialize(...) }
+    .onFailure { log.w(it) { "SyncPrefs init read failed; using defaults. ${it.message}" } }
+    .onSuccess { ... }
+```
+
+Impact is low (writes are always atomic), but the warning helps diagnose sync skips that might trace to corrupted preferences.
 
 ---
 
-## Finding 11 — Zero unit tests for sync components (TEST) — [#259](https://github.com/gazon1/sing/issues/259)
+## ✅ Fixed — Finding 11: Zero unit tests for sync components (TEST) — [#259](https://github.com/gazon1/sing/issues/259)
 
-Eight core sync components have 0% test coverage: `SyncEngine`, `SyncCoordinator`, `PushPhase`, `PullPhase`, `SyncBootstrapper`, `SyncRunner`, `SyncEngineState`, `HandlerRegistry`. The D1/D2 fixes and the channel coalescing in `SyncCoordinator` have no automated verification.
+**Commit:** `56b59257` (part of #259)
 
-Priority order for tests: `HandlerRegistry` → `SyncEngineState` → `SyncCoordinator` → `PushPhase` → `PullPhase` → `SyncEngine`.
+Eight core sync components had 0% test coverage: `SyncEngine`, `SyncCoordinator`, `PushPhase`, `PullPhase`, `SyncBootstrapper`, `SyncRunner`, `SyncEngineState`, `HandlerRegistry`. Tests were added in the zero-coverage PR.
+
+Priority order followed: `HandlerRegistry` → `SyncEngineState` → `SyncCoordinator` → `PushPhase` → `PullPhase` → `SyncEngine`.
 
 
 
@@ -134,6 +175,28 @@ The following were investigated and found to be correct:
 
 ---
 
+## ✅ Fixed — Finding 12: SyncBootstrapper never instantiated in production (BUG) — [#177](https://github.com/gazon1/sing/issues/177)
+
+**File:** `core/di/CoreDiModule.kt`
+
+Root cause: `SyncBootstrapper` was declared as a Koin `single {}` but was never retrieved anywhere in production code. Its `init {}` (which calls `registerHandlers())` never ran. Zero pull handlers were registered → incoming time-entry events were `Unappliable` → cursor held back → sync stalled on every cycle.
+
+Fix: Restructure DI so `SyncBootstrapper` is created after `SyncEngine` is cached:
+
+```kotlin
+// Block 1: creates engine (with null placeholder bootstrapper)
+single { SyncEngine(..., bootstrapper = null, ...) }
+
+// Block 2: retrieves the cached engine (available now) and creates bootstrapper.
+// Its init {} captures the valid engine and registers all pull handlers.
+single { get<SyncEngine>() }                      // forces engine resolution
+single { SyncBootstrapper(engine = get(), ...) }  // init {} runs with valid engine
+```
+
+The bootstrapper is nullable (`SyncBootstrapper?`) and null-safe in `registerHandlers()` (`engine?.registerHandler(...)`). The real bootstrapper is a separate Koin singleton, resolved after the engine is cached.
+
+---
+
 ## Actions Summary
 
 | # | Status | GH | Priority | Type | Action |
@@ -141,11 +204,12 @@ The following were investigated and found to be correct:
 | 1 | ✅ fixed | — | — | BUG | Specialise `PhaseResult.toResult()` to `PhaseResult<PushSummary>` |
 | 2 | ✅ fixed | — | — | BUG | Replace `!!` with direct `.error`; add `@Suppress` on unreachable arms |
 | 3 | ✅ fixed | — | — | BUG | Return `Skipped` instead of `Applied` for unknown protocol version |
-| 4 | deferred | [#260](https://github.com/gazon1/sing/issues/260) | low | ARCH | SyncEngine singleton lifecycle |
-| 5 | deferred | [#255](https://github.com/gazon1/sing/issues/255) | low | ARCH | PhaseResult.NotRun `isFailure = true` |
+| 4 | ✅ fixed | [#177](https://github.com/gazon1/sing/issues/177) | P1 | BUG | Force `SyncBootstrapper` instantiation after engine is cached |
+| 5 | ✅ fixed | [#255](https://github.com/gazon1/sing/issues/255) | low | ARCH | PhaseResult.NotRun `isFailure = false` |
 | 6 | deferred | [#256](https://github.com/gazon1/sing/issues/256) | low | ARCH | SyncOutcome.Completed type safety |
 | 7 | deferred | [#257](https://github.com/gazon1/sing/issues/257) | low | ARCH | Narrow `SyncEngineState.phases` exposure |
 | 8 | deferred | [#258](https://github.com/gazon1/sing/issues/258) | low | ARCH | Extract `SyncEntityRegistry` port |
-| 9 | deferred | [#261](https://github.com/gazon1/sing/issues/261) | low | ARCH | Move `SyncScopeProvider` to `core/profile` |
-| 10 | deferred | [#262](https://github.com/gazon1/sing/issues/262) | very low | DEBT | Log warning on `SyncPrefs` DataStore init failure |
-| 11 | deferred | [#259](https://github.com/gazon1/sing/issues/259) | high | TEST | Add unit tests for sync components |
+| 9 | deferred | [#260](https://github.com/gazon1/sing/issues/260) | low | ARCH | SyncEngine singleton lifecycle |
+| 10 | deferred | [#261](https://github.com/gazon1/sing/issues/261) | low | ARCH | Move `SyncScopeProvider` to `core/profile` |
+| 10 | ✅ fixed | [#262](https://github.com/gazon1/sing/issues/262) | very low | DEBT | Log warning on `SyncPrefs` DataStore init failure |
+| 11 | ✅ fixed | [#259](https://github.com/gazon1/sing/issues/259) | high | TEST | Add unit tests for sync components |

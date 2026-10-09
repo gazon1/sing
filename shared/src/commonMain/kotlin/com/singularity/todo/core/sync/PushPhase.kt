@@ -94,14 +94,15 @@ internal class PushPhase(
         val activeScope = ready.scope
 
         return try {
-            // Give the API a mutable reference to pending so a test can intercept
-            // and mutate it between plan-building and response-processing (模拟 D1 竞态).
-            api.pendingRef = pending
+            // A mutable copy for the response-processing loop. The plan is immutable;
+            // mutations here (via onBeforeResponseLoop) affect only this local copy.
+            val mPending = pending.toMutableList()
             val response = api.batchPush(ready.request)
-
-            // `patches` is derived from `pending` AFTER batchPush returns so that any
-            // mutations made by onPushInFlight (inside batchPush) are reflected here.
-            val patches = pending.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
+            // onBeforeResponseLoop: the seam for in-flight mutations. A local edit
+            // that coalesced a pending row fires here — after the server confirmed the
+            // patch but before this device processes the response. The D1 race.
+            api.onBeforeResponseLoop(mPending, response)
+            val patches = mPending.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
 
             // REQ-UA-018: is the account that authorised this request still the one
             // signed in? Compared by account, not by session.
@@ -221,7 +222,7 @@ internal class PushPhase(
                 val patches = pending.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
                 PushPlan.Ready(
                     scope = activeScope!!,
-                    pending = pending.toMutableList(),
+                    pending = pending,
                     patches = patches,
                     request = BatchPushRequest(
                         deviceId = idGenerator.next(),
@@ -379,7 +380,7 @@ private sealed class PushPlan {
      */
     data class Ready(
         val scope: SyncScope,
-        val pending: MutableList<SyncOutboxEntity>,
+        val pending: List<SyncOutboxEntity>,
         val patches: List<DeltaPatch>,
         val request: BatchPushRequest,
     ) : PushPlan() {

@@ -226,9 +226,9 @@ sealed interface PhaseResult<out T> {
 
     /** The phase did not run (signed out or no active scope). */
     data object NotRun : PhaseResult<Nothing> {
-        override fun isSuccess() = false
-        override fun isFailure() = true
-        override fun exceptionOrNull(): Throwable? = IllegalStateException("Phase did not run")
+        override fun isSuccess() = true  // "did not run" is not a failure
+        override fun isFailure() = false
+        override fun exceptionOrNull(): Throwable? = null
         override fun getOrNull(): Nothing? = null
         override fun getOrThrow(): Nothing = throw IllegalStateException("Phase did not run")
     }
@@ -260,6 +260,6 @@ sealed interface PhaseResult<out T> {
 internal fun PhaseResult<PushSummary>.toResult(): Result<PushSummary> = when (this) {
     is PhaseResult.Ok -> Result.success(value)
     is PhaseResult.Failed -> Result.failure(error)
-    is PhaseResult.NotRun -> Result.failure(IllegalStateException("Phase did not run"))
+    is PhaseResult.NotRun -> Result.success(PushSummary(0, 0, 0))
     is PhaseResult.Superseded -> Result.success(PushSummary(0, 0, 0, superseded = 0))
 }

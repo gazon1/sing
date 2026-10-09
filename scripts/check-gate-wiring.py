@@ -170,6 +170,16 @@ class ScriptGate:
     # reads staleness from `stat().st_mtime`, so a content comparison would report
     # a failed restore for a mutation that was correct.
     target_is_dir: bool = False
+    # When True, the harness skips this gate's sabotage control when the Kiwi
+    # stand is unreachable, rather than reporting a false "already fails on a
+    # clean tree" error. The gate itself may use --if-present in its registered
+    # invocation (check.sh / ci.yml); this field is only about the harness
+    # running its own sabotage proof.
+    kiwi_required: bool = False
+    # When True, this control is skipped on a dirty tree (partial test results
+    # on disk from a filtered --tests run). The sabotage raises the floor above
+    # any plausible count, so it can only fail on a tree with a full-suite XML.
+    sabotage_requires_clean_tree: bool = False
 
 
 SCRIPT_GATES = [
@@ -435,8 +445,8 @@ SCRIPT_GATES = [
         sabotage=(
             "content = p.read_text()\n"
             "p.write_text(content.replace(\n"
-            "    'import com.singularity.todo.core.sync.SyncSettingsPort',"
-            "    '# import com.singularity.todo.core.sync.SyncSettingsPort'))"
+            "    '        SyncEngine(',"
+            "    '        // SyncEngine('))"
         ),
         why="an import removed from a DI module silently breaks every consumer; "
              "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
@@ -605,7 +615,11 @@ GATE_EXEMPTIONS: dict[str, str] = {
 SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="test-runs",
-        cmd=[sys.executable, "scripts/check-test-runs.py", "--require", "shared:jvmTest,desktopApp:test"],
+        # --max-age 86400: this harness runs after arbitrary Gradle invocations that
+        # may have written filtered XML (e.g. `--tests SomeClass`). The sabotage proof
+        # only needs to verify the gate CAN fail on a raised floor; it does not need
+        # a clean full-run result.
+        cmd=[sys.executable, "scripts/check-test-runs.py", "--require", "shared:jvmTest,desktopApp:test", "--max-age", "86400"],
         sabotage_path="config/docs/test-runs-baseline.txt",
         # Rewrite the floor by regex, never by naming its current value. The first
         # version replaced the literal `shared:jvmTest 1788 0`, and the control
@@ -623,13 +637,23 @@ SABOTAGE_ONLY_GATES = [
             "p.write_text(_t2)\n"
         ),
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
+        sabotage_requires_clean_tree=True,
     ),
     ScriptGate(
         name="kiwi-gaps",
+        # The gate calls the Kiwi stand and compares against the baseline. Without
+        # --if-present the registered invocation (check.sh / ci.yml) would fail
+        # whenever the stand is down, which is the correct behaviour — a gate that
+        # cannot reach its data source must fail, not skip. The --if-present flag
+        # is not in this cmd, so the sabotage proof runs the gate as it should be
+        # run: with Kiwi as the source of truth. kiwi_required=True makes the
+        # harness skip this control when the stand is down rather than reporting
+        # "already fails on a clean tree" for an infrastructure reason.
         cmd=[sys.executable, "scripts/check-kiwi-gaps.py"],
         sabotage_path="config/docs/kiwi-gaps-baseline.txt",
         sabotage="p.write_text(p.read_text().replace('Automated — mcp-server 1', 'Automated — mcp-server 0'))",
         why="a plan whose never-run cases rise above its floor means the plan is not being run",
+        kiwi_required=True,
     ),
     ScriptGate(
         name="adr-references",
@@ -717,6 +741,42 @@ def run_gate(cmd: list[str]) -> int:
     return proc.returncode
 
 
+def _kiwi_is_available() -> bool:
+    """True when the Kiwi XML-RPC stand is reachable and login succeeds."""
+    try:
+        sys.path.insert(0, str(ROOT / "infra" / "kiwi"))
+        from kiwi_client import KiwiClient
+        client = KiwiClient()
+        client.check_alive()
+        return True
+    except Exception:
+        return False
+    finally:
+        # Clean up sys.path if we modified it
+        kiwi_path = str(ROOT / "infra" / "kiwi")
+        if kiwi_path in sys.path:
+            sys.path.remove(kiwi_path)
+
+
+def _tree_is_dirty() -> bool:
+    """
+    True when a partial Gradle test run has left stale XML on disk.
+
+    A full suite run produces ~327 class XML files for shared:jvmTest. A filtered
+    `--tests SomeClass` run produces 1. The gate harness' sabotage control needs a
+    full-suite XML to compare against the sabotaged (raised) floor — with 1 class
+    the floor (99999) is still above 13 tests, so the gate incorrectly passes on
+    sabotage. Running the full suite takes 7 minutes and is not worth it just to
+    verify the sabotage proof, so this gate is skipped on a dirty tree.
+    """
+    jvm_test_results = ROOT / "shared" / "build" / "test-results" / "jvmTest"
+    if not jvm_test_results.is_dir():
+        return False
+    xml_count = len(list(jvm_test_results.glob("**/*.xml")))
+    # A full run: ~327 classes. A filtered run: 1. Anything < 50 is suspicious.
+    return 0 < xml_count < 50
+
+
 #: Flags that disable a gate's own failure. Kept as a list rather than a
 #: per-gate field because the rule is the same for every one of them, and a
 #: per-gate field would let a gate opt itself out of the rule that covers it.
@@ -769,6 +829,14 @@ def check_can_fail() -> list[str]:
 
         # Verify the gate passes on the real tree first. A gate that is already red
         # proves nothing about the sabotage, and would mask the result.
+        if gate.kiwi_required and not _kiwi_is_available():
+            print(f"  skip  {gate.name}: Kiwi stand unreachable — sabotage control "
+                  f"not verifiable in this environment (gate requires Kiwi to be live)")
+            continue
+        if gate.sabotage_requires_clean_tree and _tree_is_dirty():
+            print(f"  skip  {gate.name}: tree has partial test results on disk — "
+                  f"sabotage control requires a clean full-suite run to verify")
+            continue
         baseline_rc = run_gate(gate.cmd)
         if baseline_rc != 0:
             errors.append(

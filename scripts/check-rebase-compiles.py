@@ -39,9 +39,11 @@ DI_SENSITIVE_PATTERNS = [
 ]
 
 # Gradle tasks to run for a targeted compile check.
-# :shared:compileKotlin covers the commonMain and jvmMain compile surface.
+# KMP produces per-target tasks; bare `:shared:compileKotlin` is ambiguous.
+# `:shared:compileKotlinJvm` covers commonMain + jvmMain; `:desktopApp:compileKotlin`
+# covers the desktop Compose entry.
 GRADLE_TASKS = [
-    ":shared:compileKotlin",
+    ":shared:compileKotlinJvm",
     ":desktopApp:compileKotlin",
 ]
 
@@ -73,13 +75,32 @@ def changed_files_since_upstream() -> list[str]:
        the diff between our HEAD and the upstream's new position is what
        we need to check.
 
-    Returns an empty list if no upstream is configured or if git fails.
+    Returns every DI-sensitive file in the tree when no upstream is
+    configured — the compile check still runs, it just covers the full
+    DI surface rather than the rebase delta. A gate that skips when it
+    cannot prove it needs to run is a gate that cannot fail on a
+    clean-tree sabotage, which is exactly the defect it was written to
+    catch.
     """
     # Check if we have an upstream
     rc, upstream = run(["git", "rev-parse", "--abbrev-ref", "HEAD@{upstream}"])
     if rc != 0:
-        # Not on a tracked branch — nothing to check
-        return []
+        # Not on a tracked branch — collect all DI-sensitive files as
+        # a coarse but safe approximation: we cannot know what changed,
+        # so we check everything.
+        import fnmatch
+        di_files = []
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for dirpath, _dirnames, filenames in os.walk(root):
+            for fn in filenames:
+                if fn.endswith(".kt"):
+                    full = os.path.join(dirpath, fn)
+                    rel = os.path.relpath(full, root)
+                    for pat in DI_SENSITIVE_PATTERNS:
+                        if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(rel, "*/" + pat):
+                            di_files.append(rel)
+                            break
+        return di_files
 
     # Get the diff against upstream — files that are new/changed vs upstream
     # This is exactly what changed in the rebase.
