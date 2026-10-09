@@ -1001,6 +1001,13 @@ interface ProfileDao {
     @Query("SELECT name FROM profiles")
     suspend fun allNames(): List<String>
 
+    /**
+     * Case-insensitive lookup by name. Used by [DebugSeedActivity][com.singularity.todo.debug.DebugSeedActivity]
+     * to resolve `profile=<name>` deep-link parameters before seeding other entities.
+     */
+    @Query("SELECT * FROM profiles WHERE lower(name) = lower(:name) LIMIT 1")
+    suspend fun findByName(name: String): ProfileEntity?
+
     @Upsert
     suspend fun upsert(profile: ProfileEntity)
 

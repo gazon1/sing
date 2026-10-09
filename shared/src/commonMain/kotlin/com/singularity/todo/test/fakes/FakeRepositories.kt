@@ -2221,6 +2221,9 @@ class FakeProfileRepository : ProfileRepository {
         }
     }
 
+    override suspend fun findByName(name: String): Profile? =
+        _profiles.value.find { it.name.equals(name, ignoreCase = true) }
+
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // In-memory fake: just append any missing extras; default already present
         // by the initial value of [_profiles].

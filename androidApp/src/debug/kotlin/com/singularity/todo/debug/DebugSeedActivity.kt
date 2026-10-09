@@ -90,6 +90,34 @@ class DebugSeedActivity :
         // Ensure default profile exists so repositories are functional.
         profileRepo.ensureDefaults()
 
+        // Switch to the target profile BEFORE seeding any entity.
+        // This updates activeProfileId, which in turn updates
+        // ProfileAwareCurrentUser.scopedUserId — used by createNoteWithTitle.
+        if (params.containsKey("profile")) {
+            val profileName = params["profile"]!!
+            val existing = profileRepo.findByName(profileName)
+            if (existing != null) {
+                profileRepo.switchTo(existing.id)
+            } else {
+                val now = Clock.System.now()
+                val newProfile = Profile(
+                    id = ProfileId.generate(),
+                    name = profileName,
+                    emoji = "🔹",
+                    colorIdx = 0,
+                    isDefault = false,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+                profileRepo.create(newProfile)
+                profileRepo.switchTo(newProfile.id)
+            }
+        }
+
+        // Use the scoped userId for all entity writes. When profile= was given,
+        // switchTo above updated activeProfileId so currentUser.current returns
+        // the correct scoped id. When no profile= was given, this is the current
+        // profile's scoped userId.
         val userId = currentUser.current
 
         when {
@@ -120,6 +148,9 @@ class DebugSeedActivity :
 
             params.containsKey("note") -> {
                 val title = params["note"]!!
+                // createNoteWithTitle reads currentUser.scopedUserId internally.
+                // Since we called switchTo above when profile= was given,
+                // scopedUserId is already correct for the target profile.
                 notesRepo.createNoteWithTitle(title)
             }
 
@@ -141,22 +172,7 @@ class DebugSeedActivity :
             }
 
             params.containsKey("profile") -> {
-                val name = params["profile"]!!
-                profileRepo.ensureDefaults()
-                val now = Clock.System.now()
-
-                val profile = Profile(
-                    id = ProfileId.generate(),
-                    name = name,
-                    emoji = "🔹",
-                    colorIdx = 0,
-                    isDefault = false,
-                    createdAt = now,
-                    updatedAt = now,
-                )
-
-                profileRepo.create(profile)
-                profileRepo.switchTo(profile.id)
+                // Profile creation and switch already handled above.
             }
         }
     }

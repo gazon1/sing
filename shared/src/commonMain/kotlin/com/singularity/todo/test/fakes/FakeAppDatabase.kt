@@ -1775,6 +1775,9 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
 
     override suspend fun allNames(): List<String> = store.value.keys.toList()
 
+    override suspend fun findByName(name: String): ProfileEntity? =
+        store.value.values.find { it.name.equals(name, ignoreCase = true) }
+
     override suspend fun upsert(profile: ProfileEntity) {
         store.update { it + (profile.id to profile) }
     }
