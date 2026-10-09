@@ -42,11 +42,34 @@ adb install -r -t "$apk"
 # times out (at which point Maestro's own extendedWaitUntil in launch-clean.yaml
 # takes over as a secondary guard). This replaces the hardcoded `sleep 3`.
 wait_for_app_ready() {
-  local deadline=$((SECONDS + 30))
+  local deadline=$((SECONDS + 90))
   echo "probing for app readiness (appId=$1)..."
+  # Clear stale crash logs before probing so we can detect fresh crashes reliably.
+  adb shell logcat -c 2>/dev/null || true
   until adb shell "dumpsys activity top 2>/dev/null" | grep -q "cmp=$1"; do
+    # Periodically check that the app process is still alive (not OOM-killed).
+    if (( (SECONDS % 10) == 5 )); then
+      local proc_count
+      proc_count=$(adb shell "ps -A 2>/dev/null" | grep -c "com.singularity.todo" || true)
+      if [[ "$proc_count" -eq 0 ]]; then
+        echo "WARNING: com.singularity.todo process not found in ps — app may have been killed"
+        local crash_line
+        crash_line=$(adb shell "logcat -d 2>/dev/null" | grep -iE "FATAL|crash|ANR|java\.lang\.RuntimeException" | grep -v "Thread" | tail -n 5 || true)
+        if [[ -n "$crash_line" ]]; then
+          echo "Crash/ANR evidence from logcat:"
+          echo "$crash_line"
+        fi
+      fi
+    fi
     if (( SECONDS > deadline )); then
-      echo "WARNING: app readiness probe timed out after 30s — proceeding anyway (Maestro extendedWaitUntil is the secondary guard)"
+      # Before proceeding, dump any crash evidence so we know if the app died.
+      local crash_line
+      crash_line=$(adb shell "logcat -d 2>/dev/null" | grep -iE "FATAL|crash|ANR|java\.lang\.RuntimeException" | grep -v "Thread" | tail -n 5 || true)
+      if [[ -n "$crash_line" ]]; then
+        echo "WARNING: app readiness timed out; logcat suggests crash:"
+        echo "$crash_line"
+      fi
+      echo "WARNING: app readiness probe timed out after 90s — proceeding anyway (Maestro extendedWaitUntil is the secondary guard)"
       return 0
     fi
     sleep 1
