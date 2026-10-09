@@ -317,7 +317,7 @@ class SyncBootstrapperDispatchTest {
         // finished. The cursor assertion lives in `SyncEnginePullTest`; what matters
         // here is that the caller is told, rather than seeing a summary that says one
         // event arrived and nothing was wrong.
-        val pull = (outcome as SyncOutcome.Success).pull
+        val pull = (outcome as SyncOutcome.Completed).pull
         val error = assertIs<AppError.Persistence>(pull.exceptionOrNull())
         assertEquals("sync.pull_stalled", error.code)
         assertIs<SyncEngineStatus.Failure>(engine.status.value, "a stalled pull must not leave the engine idle")

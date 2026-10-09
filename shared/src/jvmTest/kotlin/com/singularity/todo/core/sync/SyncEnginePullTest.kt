@@ -156,7 +156,7 @@ class SyncEnginePullTest {
         val engine = engine(api, this, stateRepository = state, auth = auth)
         engine.registerHandler(DocType.Task, recordApplied(applied))
 
-        val pull = (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+        val pull = (engine.syncOnce() as SyncOutcome.Completed).pull.getOrThrow()
 
         assertEquals(250, applied.size, "the cycle must not stop at the end of the first page")
         assertEquals(250, pull.received)
@@ -174,7 +174,7 @@ class SyncEnginePullTest {
         val engine = engine(api, this, stateRepository = FakeSyncStateRepository(), auth = auth)
         engine.registerHandler(DocType.Task, recordApplied(mutableListOf()))
 
-        (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+        (engine.syncOnce() as SyncOutcome.Completed).pull.getOrThrow()
 
         assertEquals(1, api.pullCalls.size, "a short page is the end of the feed; asking again is waste")
     }
@@ -188,7 +188,7 @@ class SyncEnginePullTest {
         val engine = engine(api, this, stateRepository = FakeSyncStateRepository(), auth = auth)
         engine.registerHandler(DocType.Task, recordApplied(mutableListOf()))
 
-        (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+        (engine.syncOnce() as SyncOutcome.Completed).pull.getOrThrow()
 
         // A full page is not proof that more exists, and it is not proof that it does
         // not. The only way to know is to ask, and the empty answer is the proof.
@@ -216,7 +216,7 @@ class SyncEnginePullTest {
         val outcome = engine.syncOnce()
 
         assertTrue(
-            (outcome as SyncOutcome.Success).pull.isSuccess,
+            (outcome as SyncOutcome.Completed).pull.isSuccess,
             "a feed that will not advance is the server's problem to report, not a " +
                 "reason to fail the user's cycle: $outcome",
         )
@@ -240,7 +240,7 @@ class SyncEnginePullTest {
         val engine = engine(api, this, stateRepository = state, auth = auth)
         engine.registerHandler(DocType.Task, recordHonestApplication(applied))
 
-        val pull = (engine.syncOnce() as SyncOutcome.Success).pull.getOrThrow()
+        val pull = (engine.syncOnce() as SyncOutcome.Completed).pull.getOrThrow()
 
         // 30, not 20: an unusable event must not block the feed, or one bad row ends
         // this account's sync for good. Reaching 30 is the assertion — it says the event
@@ -266,7 +266,7 @@ class SyncEnginePullTest {
         val outcome = engine.syncOnce()
 
         assertTrue(
-            (outcome as SyncOutcome.Success).pull.isSuccess,
+            (outcome as SyncOutcome.Completed).pull.isSuccess,
             "an unusable payload is skipped, not treated as a failure: $outcome",
         )
         assertIs<SyncEngineStatus.Idle>(engine.status.value)
@@ -292,7 +292,7 @@ class SyncEnginePullTest {
         val engine = engine(api, this, stateRepository = state, auth = auth)
         engine.registerHandler(DocType.Task) { ApplyOutcome.Failed("the delete did not happen") }
 
-        val pull = (engine.syncOnce() as SyncOutcome.Success).pull
+        val pull = (engine.syncOnce() as SyncOutcome.Completed).pull
 
         assertEquals(0L, state.lastLsn(syncScope), "a delete that did not happen must be delivered again")
         assertEquals("sync.pull_stalled", assertIs<AppError.Persistence>(pull.exceptionOrNull()).code)
@@ -326,7 +326,7 @@ class SyncEnginePullTest {
         // The cycle now reports the stall instead of a partial page as a success. It
         // used to return `Success` here and stamp "last synced", which is what made a
         // permanently stalled account look healthy.
-        val pull = (outcome as SyncOutcome.Success).pull
+        val pull = (outcome as SyncOutcome.Completed).pull
         val error = assertIs<AppError.Persistence>(pull.exceptionOrNull())
         assertEquals("sync.pull_stalled", error.code)
         assertTrue(
@@ -370,7 +370,7 @@ class SyncEnginePullTest {
         engine.registerHandler(DocType.Task, recordApplied(applied))
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
+        val pull = (outcome as SyncOutcome.Completed).pull.getOrThrow()
 
         assertEquals(listOf(10L, 20L), applied)
         assertEquals(20L, state.lastLsn(syncScope))
@@ -426,7 +426,7 @@ class SyncEnginePullTest {
         engine.registerHandler(DocType.Task) { ApplyOutcome.Failed("the write did not happen") }
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull
+        val pull = (outcome as SyncOutcome.Completed).pull
 
         assertEquals(
             0L,
@@ -455,7 +455,7 @@ class SyncEnginePullTest {
         // Skipped, not Success-with-zero-events. The two are indistinguishable in a
         // summary and completely different to a caller: the first means "there was
         // nothing to sync", the second means "sync ran and found nothing new".
-        assertTrue(outcome is SyncOutcome.Skipped, "without a scope there is nothing to cycle")
+        assertTrue(outcome is SyncOutcome.NothingToDo, "without a scope there is nothing to cycle")
         assertTrue(api.pullCalls.isEmpty(), "a scopeless client must not hit the server")
     }
 
@@ -473,7 +473,7 @@ class SyncEnginePullTest {
         )
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
+        val pull = (outcome as SyncOutcome.Completed).pull.getOrThrow()
 
         assertEquals(0, pull.received)
         assertTrue(api.pullCalls.isEmpty(), "a signed-out client must not hit the server")
@@ -503,7 +503,7 @@ class SyncEnginePullTest {
         engine.registerHandler(DocType.Task, recordApplied(applied))
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull.getOrThrow()
+        val pull = (outcome as SyncOutcome.Completed).pull.getOrThrow()
 
         assertEquals(listOf(20L), applied, "only this profile's event may be applied")
         assertEquals(20L, state.lastLsn(syncScope), "the cursor must move past the other profile's event")
@@ -536,7 +536,7 @@ class SyncEnginePullTest {
         val engine = engine(api, this)
 
         val outcome = engine.syncOnce()
-        val pull = (outcome as SyncOutcome.Success).pull
+        val pull = (outcome as SyncOutcome.Completed).pull
 
         assertTrue(pull.isFailure, "a failed pull must not report success")
     }

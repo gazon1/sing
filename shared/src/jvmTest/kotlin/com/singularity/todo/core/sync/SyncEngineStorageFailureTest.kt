@@ -335,7 +335,7 @@ class SyncEngineStorageFailureTest {
 
         val outcome = sut.syncOnce()
 
-        val failed = assertIs<SyncOutcome.Failed>(outcome)
+        val failed = assertIs<SyncOutcome.CouldNotStart>(outcome)
         assertIs<AppError.Persistence>(failed.error)
         assertTrue(api.pushCalls.isEmpty(), "no patch should have been attempted")
         assertTrue(api.pullCalls.isEmpty(), "no pull should have been attempted")

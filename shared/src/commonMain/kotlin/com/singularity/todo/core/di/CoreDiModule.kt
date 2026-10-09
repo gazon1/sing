@@ -71,10 +71,13 @@ import com.singularity.todo.core.sync.SyncCoordinator
 import com.singularity.todo.core.sync.SyncDocumentWriter
 import com.singularity.todo.core.sync.SyncPatchBuilder
 import com.singularity.todo.core.sync.SyncEngine
+import com.singularity.todo.core.sync.SyncEngineState
 import com.singularity.todo.core.sync.SyncPrefs
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncRepositoryImpl
 import com.singularity.todo.core.sync.SyncRunner
+import com.singularity.todo.core.sync.PushPhase
+import com.singularity.todo.core.sync.PullPhase
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
@@ -283,7 +286,45 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Takes the per-scope state repository (for LSN tracking), the scope provider
     // (whose (owner, profile) the cycle applies to), the shadow store (the base a
     // diff is taken against) and SyncWorkScheduler (for auth-session init).
+    //
+    // PushPhase and PullPhase are constructed here so they receive the same
+    // SyncEngineState holder that the engine exposes. All three share the same
+    // MutableStateFlows and the same SyncPhaseReporter, keeping phase-ending
+    // rules in one place.
     single {
+        val state = SyncEngineState(
+            log = Logger.withTag("SyncEngine"),
+            crashReporter = get(),
+        )
+        val pushPhase = PushPhase(
+            api = get(),
+            authRepository = get(),
+            outboxDao = get(),
+            deadLetterDao = get(),
+            shadowDao = get(),
+            idGenerator = get(),
+            scopeProvider = get(),
+            patchBuilder = get(),
+            clock = get(),
+            phases = state.phases,
+            writerProvider = { get<SyncDocumentWriter>() },
+            retryPolicy = get(),
+            scope = get(),
+        )
+        // PullPhase.getHandlers is a lambda that is only invoked inside pull(),
+        // after SyncEngine is fully constructed. get<SyncEngine>() is safe here
+        // because Koin resolves dependencies in dependency-order within a single
+        // get() call chain, and the lambda is not invoked during construction.
+        val pullPhase = PullPhase(
+            api = get(),
+            authRepository = get(),
+            stateRepository = get(),
+            clock = get(),
+            scopeProvider = get(),
+            phases = state.phases,
+            getHandlers = { get<SyncEngine>().handlers },
+            scope = get(),
+        )
         SyncEngine(
             log = Logger.withTag("SyncEngine"),
             api = get(),
@@ -301,6 +342,9 @@ fun coreModule(): org.koin.core.module.Module = module {
             clock = get(),
             scope = get(),
             crashReporter = get(),
+            state = state,
+            pushPhase = pushPhase,
+            pullPhase = pullPhase,
         )
     }
 

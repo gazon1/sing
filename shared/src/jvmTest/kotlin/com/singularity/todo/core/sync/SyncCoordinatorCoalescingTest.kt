@@ -34,7 +34,7 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class SyncCoordinatorCoalescingTest {
 
-    private val success = SyncOutcome.Success(
+    private val success = SyncOutcome.Completed(
         push = Result.success(PushSummary(1, 1, 0)),
         pull = Result.success(PullSummary(1, 1, 0)),
     )
@@ -51,7 +51,7 @@ class SyncCoordinatorCoalescingTest {
             concurrent++
             maxConcurrent = maxOf(maxConcurrent, concurrent)
             try {
-                return SyncOutcome.Success(
+                return SyncOutcome.Completed(
                     push = Result.success(PushSummary(started, started, 0)),
                     pull = Result.success(PullSummary(started, started, 0)),
                 )
@@ -117,7 +117,7 @@ class SyncCoordinatorCoalescingTest {
 
         // The point of the redesign: a request absorbed into a running cycle is
         // answered with that cycle's result, not with "someone else is running".
-        results.forEach { assertIs<SyncOutcome.Success>(it) }
+        results.forEach { assertIs<SyncOutcome.Completed>(it) }
     }
 
     @Test
@@ -148,8 +148,8 @@ class SyncCoordinatorCoalescingTest {
         advanceUntilIdle()
 
         assertEquals(2, started)
-        assertIs<SyncOutcome.Success>(first.await())
-        assertIs<SyncOutcome.Success>(second.await())
+        assertIs<SyncOutcome.Completed>(first.await())
+        assertIs<SyncOutcome.Completed>(second.await())
     }
 
     @Test
@@ -168,12 +168,12 @@ class SyncCoordinatorCoalescingTest {
         // not say which phase reached it, so the old shape claimed a push *and* a pull
         // failed — asserting work that may never have started. This test used to pin
         // that claim; what it is actually about is that the coordinator survives.
-        val failed = assertIs<SyncOutcome.Failed>(first)
+        val failed = assertIs<SyncOutcome.CouldNotStart>(first)
         assertEquals("boom", failed.error.message)
 
         advanceUntilIdle()
         val second = coordinator.request()
-        assertIs<SyncOutcome.Success>(second)
+        assertIs<SyncOutcome.Completed>(second)
         assertEquals(2, started, "the second request never ran a cycle")
     }
 
@@ -195,7 +195,7 @@ class SyncCoordinatorCoalescingTest {
 
         val outcome = coordinator.request()
 
-        val failed = assertIs<SyncOutcome.Failed>(outcome)
+        val failed = assertIs<SyncOutcome.CouldNotStart>(outcome)
         assertIs<IllegalStateException>(failed.error.cause)
         assertEquals("database is closed", failed.error.original().message)
     }
@@ -219,6 +219,6 @@ class SyncCoordinatorCoalescingTest {
         advanceUntilIdle()
 
         // Without the release, this suspends forever.
-        assertIs<SyncOutcome.Skipped>(waiter.await())
+        assertIs<SyncOutcome.NothingToDo>(waiter.await())
     }
 }

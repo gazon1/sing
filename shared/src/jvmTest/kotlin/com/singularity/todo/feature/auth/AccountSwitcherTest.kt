@@ -79,7 +79,7 @@ class AccountSwitcherTest {
     )
 
     private fun deliveredCycle(push: Result<PushSummary> = Result.success(PushSummary(2, 2, 0))) =
-        SyncOutcome.Success(push, Result.success(PullSummary(0, 0, 0)))
+        SyncOutcome.Completed(push, Result.success(PullSummary(0, 0, 0)))
 
     @Test
     fun `the departing account's data is erased and the new one is signed in`() = runTest {
@@ -130,7 +130,7 @@ class AccountSwitcherTest {
         // `Skipped` means the coordinator had no work to give, so nothing was sent —
         // which is not the same as "everything arrived".
         val sync = FakeSyncRepository().apply {
-            syncOnceResult = Result.success(SyncOutcome.Skipped("the coordinator is closed"))
+            syncOnceResult = Result.success(SyncOutcome.NothingToDo)
         }
 
         val result = switcher(auth, sync, db).switchTo(email, password)

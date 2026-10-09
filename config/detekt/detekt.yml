@@ -611,4 +611,11 @@ app-error-code:
       - '**/commonTest/**'
       - '**/jvmTest/**'
       - '**/androidHostTest/**'
-      - '**/androidTest/**' 
+      - '**/androidTest/**'
+
+# Added during sync-engine refactor (Stage 9). Bans scope.launch { } and scope.async { }
+# inside init blocks. The three grandfathered classes (SyncEngine, SyncBootstrapper,
+# SyncCoordinator) are listed in the rule's EXEMPTED_CLASSES companion object.
+no-init-coroutine-launch:
+  NoCoroutineLaunchInInit:
+    active: true 

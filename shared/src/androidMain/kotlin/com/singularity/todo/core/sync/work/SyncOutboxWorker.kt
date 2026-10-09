@@ -44,7 +44,7 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
 
     override suspend fun doWork(): Result = try {
         when (val outcome = syncRepository.syncOnce()) {
-            is SyncOutcome.Success -> {
+            is SyncOutcome.Completed -> {
                 val push = outcome.push.getOrNull()
                 log.d {
                     "Sync cycle: push processed=${push?.processed}, " +
@@ -57,15 +57,15 @@ class SyncOutboxWorker(context: Context, params: WorkerParameters) :
                 }
             }
 
-            is SyncOutcome.Skipped -> {
-                // Absorbed into another cycle, or the coordinator is closed.
-                // Retrying is right for the former; for the latter a retry would
-                // spin, and the runAttemptCount cap stops it.
-                log.d { "Sync cycle skipped: ${outcome.reason}" }
+            is SyncOutcome.NothingToDo -> {
+                // No active sync scope or the coordinator is closed. Retrying is right for
+                // the former; for the latter a retry would spin, and the runAttemptCount
+                // cap stops it.
+                log.d { "Sync cycle: nothing to do" }
                 retryOrFail()
             }
 
-            is SyncOutcome.Failed -> {
+            is SyncOutcome.CouldNotStart -> {
                 // The cycle could not start — in practice a local read failed, so the
                 // patches are still queued and nothing has been lost. That is the same
                 // situation as the catch arm below: a transient condition with the

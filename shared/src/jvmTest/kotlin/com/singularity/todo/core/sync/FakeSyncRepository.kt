@@ -33,7 +33,7 @@ open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRe
     var syncOnceYields = false
 
     var syncOnceResult: Result<SyncOutcome> = Result.success(
-        SyncOutcome.Success(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0))),
+        SyncOutcome.Completed(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0))),
     )
     val syncOnceOutcome get() = syncOnceResult.getOrThrow()
 
