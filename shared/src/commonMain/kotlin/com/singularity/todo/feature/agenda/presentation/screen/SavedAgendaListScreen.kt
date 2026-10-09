@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -72,6 +73,8 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     var pendingCopyViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
+    var pendingDeleteViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
+    var pendingDeleteViewName by remember { mutableStateOf<String?>(null) }
 
     NotificationHost<SavedAgendaListEvent>(
         events = viewModel.events,
@@ -123,7 +126,15 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         SavedAgendaListContent(
             state = state,
             onViewSelected = { viewId -> navigator.openSavedAgendaResults(viewId) },
-            onDelete = { viewId -> viewModel.onIntent(SavedAgendaListIntent.Delete(viewId)) },
+            onDelete = { viewId ->
+                val viewName = (state as? SavedAgendaListState.Loaded)
+                    ?.views?.find { it.id == viewId }
+                    ?.name
+                    ?.ifBlank { "this view" }
+                    ?: "this view"
+                pendingDeleteViewId = viewId
+                pendingDeleteViewName = viewName
+            },
             onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
             onCopyToProfile = { viewId -> pendingCopyViewId = viewId },
             modifier = Modifier.padding(paddingValues),
@@ -140,6 +151,25 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
             onPick = { profileId ->
                 viewModel.onIntent(SavedAgendaListIntent.CopyToProfile(viewId, profileId))
                 pendingCopyViewId = null
+            },
+        )
+    }
+
+    // Delete confirmation dialog — SavedAgendaView is hard-deleted, so undo is
+    // impossible; the contract (delete-affordances spec) requires confirmation.
+    pendingDeleteViewId?.let { viewId ->
+        ConfirmActionDialog(
+            title = "Delete view?",
+            text = "\"${pendingDeleteViewName ?: "this view"}\" will be permanently removed. This cannot be undone.",
+            confirmButtonText = "Delete",
+            onConfirm = {
+                viewModel.onIntent(SavedAgendaListIntent.Delete(viewId))
+                pendingDeleteViewId = null
+                pendingDeleteViewName = null
+            },
+            onDismiss = {
+                pendingDeleteViewId = null
+                pendingDeleteViewName = null
             },
         )
     }

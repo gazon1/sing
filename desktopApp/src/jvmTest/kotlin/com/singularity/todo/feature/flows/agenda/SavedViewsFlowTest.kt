@@ -187,10 +187,11 @@ class SavedViewsFlowTest {
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
         awaitTag(TestTags.savedAgendaCard("to_delete")).assertIsDisplayed()
 
-        // Open menu → Delete. List-level delete is immediate (no confirm dialog;
-        // the confirmation exists only in Edit mode) per SavedAgendaListScreen.
+        // Open menu → Delete → confirm. Confirmation is required for hard-delete
+        // (SavedAgendaView has no soft-delete/restore), per delete-affordances spec.
         clickText("⋮")
         onAllNodes(hasText("Delete") and hasClickAction()).onFirst().performClick()
+        awaitTag(TestTags.Dialog.CONFIRM).performClick()
 
         // Card is gone from the list
         awaitTagGone(TestTags.savedAgendaCard("to_delete"))

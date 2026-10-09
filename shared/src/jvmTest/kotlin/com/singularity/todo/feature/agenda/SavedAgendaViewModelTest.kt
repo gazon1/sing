@@ -17,14 +17,17 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDra
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEvent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
@@ -314,6 +317,39 @@ class SavedAgendaViewModelTest {
 
         val saved = fakeRepo.getById(viewId.raw)
         assertNull(saved)
+    }
+
+    @Test
+    fun deleteEmitsDeleteSuccessSoScreenCanPop() = runTest {
+        val viewId = SavedAgendaViewId.generate()
+        fakeRepo.upsertSync(
+            SavedAgendaView(
+                id = viewId,
+                userId = UserId("test-user"),
+                name = "To Delete",
+                sectionsJson = """{"title":"To Delete","sections":[]}""",
+                createdAt = SAVED_AGENDA_NOW,
+                updatedAt = SAVED_AGENDA_NOW,
+            ),
+        )
+
+        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
+        advanceUntilIdle()
+
+        val events = mutableListOf<SavedAgendaEvent>()
+        backgroundScope.launch { vm.events.collect { events += it } }
+
+        vm.onIntent(SavedAgendaIntent.Delete)
+        // catchTo launches its block via vmScope.launch (async). advanceUntilIdle() drives
+        // the test scheduler but does not block on vmScope. runCurrent() pumps the shared
+        // test scheduler so the launched coroutine completes before we assert.
+        advanceUntilIdle()
+        runCurrent()
+
+        assertTrue(
+            events.any { it is SavedAgendaEvent.DeleteSuccess },
+            "DeleteSuccess must be emitted so the screen can pop back to the list",
+        )
     }
 
     // ─── Create mode ─────────────────────────────────────────────────────────────
