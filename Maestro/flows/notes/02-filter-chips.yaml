@@ -56,21 +56,21 @@ tags:
     id: note_item_by_title_beta
 # Pinned: neither is pinned.
 - tapOn:
-    text: "Pinned"
+    id: note_filter_chip_pinned
 - extendedWaitUntil:
     notVisible:
       id: note_item_by_title_alpha
     timeout: 5000
 # Archived: neither is archived.
 - tapOn:
-    text: "Archived"
+    id: note_filter_chip_archived
 - extendedWaitUntil:
     notVisible:
       id: note_item_by_title_alpha
     timeout: 5000
 # Back to All restores them.
 - tapOn:
-    text: "All"
+    id: note_filter_chip_all
 - extendedWaitUntil:
     visible:
       id: note_item_by_title_alpha

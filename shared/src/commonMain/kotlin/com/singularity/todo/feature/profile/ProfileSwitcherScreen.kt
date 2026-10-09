@@ -279,6 +279,7 @@ private fun CreateProfileDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.mapTestTagsAsResourceIds(),
         title = { Text("New Profile") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

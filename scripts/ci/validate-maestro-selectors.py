@@ -142,10 +142,15 @@ STATIC_IDS: Set[str] = {
     "notes_backlinks_button",
     "notes_list",
     "notes_quick_add_input",
+    "note_action_delete",
+    "note_action_edit",
     "note_editor_body",
     "note_editor_notification_host",
     "note_editor_save",
     "note_editor_title_input",
+    "note_filter_chip_all",
+    "note_filter_chip_archived",
+    "note_filter_chip_pinned",
     # Search
     "search_input",
     # Projects

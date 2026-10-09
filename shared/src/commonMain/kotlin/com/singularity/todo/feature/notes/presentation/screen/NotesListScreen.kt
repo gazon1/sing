@@ -286,6 +286,7 @@ private fun FilterChipRow(currentFilter: NoteFilter, onFilterChange: (NoteFilter
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
+                modifier = Modifier.testTag(TestTags.noteFilterChip(filter.name)),
             )
         }
     }
