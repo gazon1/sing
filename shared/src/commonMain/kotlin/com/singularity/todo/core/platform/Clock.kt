@@ -69,7 +69,7 @@ fun todayAt(clock: Clock, zone: TimeZone): LocalDate =
 
 /** Today's [LocalDate] in [zone], read from the system clock. */
 // NoDirectClockSystemRule exemption: this is the intentional single call site.
-// If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
+// If you move this function, update isAllowedPath() in NoDirectClockSystemRule.kt.
 internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
 
 /** The local wall-clock time at [instant] in [zone]. */
@@ -88,7 +88,7 @@ fun localTimeAt(instant: Instant, zone: TimeZone = TimeZone.currentSystemDefault
  * asserting it is the test's job rather than the production object's.
  *
  * NoDirectClockSystemRule exemption: this is the intentional single call site.
- * If you move this function, update isAllowedFile() in NoDirectClockSystemRule.kt.
+ * If you move this function, update isAllowedPath() in NoDirectClockSystemRule.kt.
  */
 fun nowInSystemZone(): LocalDateTime = localTimeAt(Clock.System.now())
 

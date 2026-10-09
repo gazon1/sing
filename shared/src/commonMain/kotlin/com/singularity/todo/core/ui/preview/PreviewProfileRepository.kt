@@ -42,6 +42,9 @@ internal object PreviewProfileRepository : ProfileRepository {
         return Result.success(Unit)
     }
 
+    override suspend fun findByName(name: String): Profile? =
+        allProfiles.find { it.name.equals(name, ignoreCase = true) }
+
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // no-op for previews
     }

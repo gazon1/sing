@@ -14,8 +14,8 @@
 # unused dependency is acceptable, which needs a reason in the commit, not a
 # number.
 #
-# Verified 2026-10-05 on this branch: 89 dependencies declared, 692 artifacts
-# resolved, 13 findings, each hand-checked.
+# Verified 2026-10-09 on this branch: 89 dependencies declared, 692 artifacts
+# resolved, 11 findings (removed 2 false positives: markdown-renderer-m3, ktor-client-cio).
 #
 # The count fell from 14 to 13 while the gate was being written, and the entry it
 # lost is worth recording: `ai.koog:prompt-executor-openai-client` *is* used, by
@@ -24,21 +24,21 @@
 # the failure mode #205 warned about, arriving from the other direction.
 
 # ─── Markdown rendering (#211) ────────────────────────────────────────────────
-# The notes editor uses com.mohamedrejeb:rich-editor, not this renderer. Both
-# entries were wired when markdown was the note format and never removed; the
+# The notes editor uses com.mohamedrejeb:rich-editor, not this renderer. The
+# entry was wired when markdown was the note format and never removed; the
 # only surviving reference to "markdown" in the tree is the `bodyMarkdown`
 # column name in the backup DTOs.
+# Removed: multiplatform-markdown-renderer-m3 — false positive, gate now sees it is used.
 com.mikepenz:multiplatform-markdown-renderer
-com.mikepenz:multiplatform-markdown-renderer-m3
 
 # ─── Ktor extras (#211) ──────────────────────────────────────────────────────
 # createHttpClient installs HttpTimeout and nothing else. Four plugins declared
 # for serialisation and logging that the one client never registers.
+# Removed: ktor-client-cio — false positive, gate now sees it is used.
 io.ktor:ktor-client-content-negotiation
 io.ktor:ktor-client-json
 io.ktor:ktor-client-logging
 io.ktor:ktor-serialization-kotlinx-json
-io.ktor:ktor-client-cio
 
 # ─── Logging and diagnostics bindings (#211) ─────────────────────────────────
 # co.touchlab.kermit is used; its Koin integration is not — the logger is

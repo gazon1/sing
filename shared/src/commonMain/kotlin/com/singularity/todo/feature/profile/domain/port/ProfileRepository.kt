@@ -24,6 +24,12 @@ interface ProfileRepository : GenericUserScopedRepository<Profile, ProfileId> {
     suspend fun switchTo(id: ProfileId): Result<Unit>
 
     /**
+     * Case-insensitive lookup by name.
+     * Returns `null` if no profile with that name exists.
+     */
+    suspend fun findByName(name: String): Profile?
+
+    /**
      * Idempotent first-run seed. If the profiles table is empty, inserts the
      * default 'Personal' profile (and on CLI/MCP hosts also the 'AI Agent'
      * profile used by `--profile=ai-agent`). Safe to call repeatedly.

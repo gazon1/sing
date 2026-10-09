@@ -113,6 +113,9 @@ class ProfileRepositoryImpl(
         dataStore.edit { it[ACTIVE_PROFILE_ID] = id.value }
     }
 
+    override suspend fun findByName(name: String): Profile? =
+        profileDao.findByName(name)?.toDomain()
+
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // Idempotent: if a default profile already exists, leave it.
         if (profileDao.getDefault() == null) {

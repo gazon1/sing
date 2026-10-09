@@ -91,6 +91,17 @@ object TestTags {
     /** Root container of the long-press context-menu sheet on a task row. */
     const val TASK_CONTEXT_MENU_SHEET = "task_context_menu_sheet"
 
+    /**
+     * Stable action IDs for the [TaskContextMenuSheet] long-press action rows.
+     * These are constant regardless of the task's current state (completed/pinned),
+     * unlike [taskAction] which derives from the displayed label and changes when
+     * the label does ("Mark as completed" → "Mark as uncompleted").
+     */
+    const val TASK_CONTEXT_MENU_OPEN = "task_action_open"
+    const val TASK_CONTEXT_MENU_COMPLETE = "task_action_mark_as_completed"
+    const val TASK_CONTEXT_MENU_PIN = "task_action_pin"
+    const val TASK_CONTEXT_MENU_ARCHIVE = "task_action_archive"
+
     /** Dynamic tag of the form `task_item_<slug>`. */
     fun taskItem(title: String) = "task_item_${slug(title)}"
 

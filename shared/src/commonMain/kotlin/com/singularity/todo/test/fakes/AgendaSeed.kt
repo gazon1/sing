@@ -413,6 +413,9 @@ object AgendaSeed {
                     return Result.success(Unit)
                 }
 
+                override suspend fun findByName(name: String): Profile? =
+                    profileStore.value.values.find { it.name.equals(name, ignoreCase = true) }
+
                 override suspend fun ensureDefaults(
                     extraProfiles: List<Triple<String, String, Int>>,
                 ) {

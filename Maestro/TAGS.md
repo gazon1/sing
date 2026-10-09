@@ -68,6 +68,10 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
 | `TASKS_FAB` | `tasks_fab` | |
 | `TASKS_LIST` | `tasks_list` | |
+| `TASK_CONTEXT_MENU_ARCHIVE` | `task_action_archive` | |
+| `TASK_CONTEXT_MENU_COMPLETE` | `task_action_mark_as_completed` | |
+| `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
+| `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
@@ -89,6 +93,7 @@ non-alphanumeric characters with `_`.
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
 | `AGENDA_TAG_MATCH_ALL` | `agenda_tag_match_all` | |
