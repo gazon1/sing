@@ -111,8 +111,8 @@
 # convention is already used by `Maestro/TAGS.md`.
 #
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
-shared:jvmTest 2545 0
-shared:testAndroidHostTest 1614 0
+shared:jvmTest 2780 0
 desktopApp:test 33 0
 mcp-server:test 7 0
+shared:testAndroidHostTest 1614 0
 # GENERATED:END

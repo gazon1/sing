@@ -24,11 +24,21 @@ import kotlinx.serialization.json.JsonObject
  */
 interface SyncApiClient {
     /**
-     * A mutable reference to the pending list, set by [PushPhase.push] before calling
-     * [batchPush]. Tests can mutate it inside [onPushInFlight] to simulate the D1
-     * race where a row is removed between plan-building and response-processing.
+     * Called after [batchPush] returns, before [PushPhase.push] processes the response.
+     *
+     * The seam for mutations that can occur while a request is on the wire: a local
+     * edit that coalesces a pending row, a sign-out, a profile switch. The callback
+     * receives the pending list (which is a mutable copy; the plan is unaffected) and
+     * the server response. Mutations applied to the list here are visible when
+     * [PushPhase.push] computes the per-entity patch list for outcome processing.
+     *
+     * Production clients may use this for logging, metrics, or optimistic UI updates.
+     * The default implementation does nothing.
      */
-    var pendingRef: MutableList<SyncOutboxEntity>?
+    var onBeforeResponseLoop: (
+        pending: MutableList<SyncOutboxEntity>,
+        response: BatchPushResponse,
+    ) -> Unit
 
     suspend fun batchPush(request: BatchPushRequest): BatchPushResponse
 
