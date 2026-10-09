@@ -89,7 +89,6 @@ private val KNOWN_UNCOVERED = setOf(
     "AuthViewModel",
     "CalendarSyncViewModel",
     "ProfileSwitcherViewModel",
-    "SearchViewModel",
 )
 
 @Tag("fast")
