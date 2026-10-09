@@ -655,6 +655,11 @@ def main() -> int:
                 f"(+{skipped - max_skipped}) — a @Disabled class or a failing "
                 f"assumption guard is removing coverage silently"
             )
+        # For non-required sets, do not compare against the floor — the results may be
+        # from a previous job's run and the floor reflects a different configuration.
+        # Only staleness is meaningful for them (checked above at the `actual is None` branch).
+        if label not in required:
+            continue
 
     if not args.quiet:
         for label in sorted(observed):
