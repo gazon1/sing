@@ -43,7 +43,9 @@ fun ConfirmActionDialog(
         title = {
             Text(
                 text = title,
-                modifier = Modifier.testTag(TestTags.Dialog.title(title)),
+                modifier = Modifier
+                    .testTag(TestTags.Dialog.title(title))
+                    .mapTestTagsAsResourceIds(),
             )
         },
         text = { Text(text) },

@@ -42,6 +42,7 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
@@ -63,6 +64,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
@@ -83,6 +85,7 @@ fun TaskDetailContent(
     // reachable from two different sections far apart in the list, and an enum
     // would mean every call site names a state it does not own.
     var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
+    val sheets = rememberDialogState<TaskEditorSheet>()
 
     LaunchedEffect(coordinator.events) {
         coordinator.events.collect { event ->
@@ -175,7 +178,7 @@ fun TaskDetailContent(
                         onDueTimeSelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
                         showDueDate = true,
                         onPriorityClick = null,
-                        onDueDateClick = null,
+                        onDueDateClick = { sheets.show(TaskEditorSheet.Date) },
                         startDate = null,
                         startTime = null,
                         startDateCallbacks = null,
@@ -315,6 +318,7 @@ fun TaskDetailContent(
                         onBack = { navigator.back() },
                         onAiClick = { showAiSheet = true },
                         now = now,
+                        sheets = sheets,
                     )
 
                     if (showAiSheet) {

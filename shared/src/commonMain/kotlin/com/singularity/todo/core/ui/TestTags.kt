@@ -591,5 +591,12 @@ internal fun slug(input: String): String = buildString {
             pendingSeparator = true
         }
     }
+    // Trim leading and trailing separators (runs of non-alphanumeric chars at either end).
+    while (isNotEmpty() && last().let { !it.isLetterOrDigit() }) {
+        deleteCharAt(lastIndex)
+    }
+    while (isNotEmpty() && first().let { !it.isLetterOrDigit() }) {
+        deleteCharAt(0)
+    }
     if (isEmpty()) append("untitled")
 }

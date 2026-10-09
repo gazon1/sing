@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,7 @@ fun TaskEditorDueDateRow(
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.TASK_EDITOR_DUE_ROW)
+            .mapTestTagsAsResourceIds()
             // No clickable() at all when the callback is null — see TaskEditorPriorityRow.
             .then(
                 if (onDueDateClick != null) {
@@ -74,16 +76,14 @@ fun TaskEditorDueDateRow(
             modifier = Modifier.size(TaskSpacing.iconSize),
         )
         Spacer(Modifier.width(TaskSpacing.lg))
+        val labelModifier =
+            if (labelTestTag != null) Modifier.testTag(labelTestTag) else Modifier
         Text(
             text = dueDateRowLabel(dueDate, dueTime),
             color = if (dueDate != null) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
             fontWeight = if (dueDate != null) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier
-                .weight(1f)
-                .then(
-                    if (labelTestTag != null) Modifier.testTag(labelTestTag) else Modifier,
-                ),
+            modifier = Modifier.weight(1f).then(labelModifier),
         )
         if (dueDate != null && onDueDateClear != null) {
             IconButton(onClick = onDueDateClear) {
