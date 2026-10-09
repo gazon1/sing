@@ -38,7 +38,6 @@ import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
-import kotlin.test.assertNotNull
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -530,12 +529,12 @@ class AgendaViewModelTest {
     }
 
     /**
- * A selected task that stops being evaluated must not stay selected.
- *
- * Holding the id would let it ride along into a later bulk delete, sending an id
- * for a task that is already gone.
- */
-@Test
+     * A selected task that stops being evaluated must not stay selected.
+     *
+     * Holding the id would let it ride along into a later bulk delete, sending an id
+     * for a task that is already gone.
+     */
+    @Test
     fun `a selected task that leaves the agenda is dropped from the selection`() = withVm { vm ->
         fakeRepo.seed(task("t1", "Doomed"))
         runCurrent()

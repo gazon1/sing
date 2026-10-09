@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -357,16 +358,23 @@ class AgendaViewModel(
         val request = deleteSequence.incrementAndFetch()
 
         scope.launch {
-            try {
+            // `runCatchingCancellable` rather than a try/catch: cancellation must still
+            // propagate, and it hands back a Result, which is what the rest of this
+            // function already speaks.
+            runCatchingCancellable {
                 deps.reminderScheduler.cancelByTask(taskId, deps.currentUser.scopedUserId.value)
-            } catch (failure: Throwable) {
-                report(failure, CANCEL_REMINDERS_FAILED, "Could not delete — its reminder is still scheduled")
+            }.onFailure {
+                report(it, CANCEL_REMINDERS_FAILED, "Could not delete — its reminder is still scheduled")
                 return@launch
             }
 
             val deleted = deps.taskRepo.softDelete(taskId)
             if (deleted.isFailure) {
-                report(deleted.exceptionOrNull() ?: IllegalStateException("delete failed"), SOFT_DELETE_FAILED, "Delete failed")
+                report(
+                    deleted.exceptionOrNull() ?: IllegalStateException("delete failed"),
+                    SOFT_DELETE_FAILED,
+                    "Delete failed",
+                )
                 return@launch
             }
 
