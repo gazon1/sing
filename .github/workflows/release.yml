@@ -76,11 +76,11 @@ jobs:
           min="${min#0}" && min="${min:-0}"
           patch="${patch#0}" && patch="${patch:-0}"
 
-          # versionCode scheme: major*1_000_000 + minor*1_000 + patch
+          # versionCode scheme: major*1000000 + minor*1000 + patch
           # Assert bounds: minor < 1000, patch < 1000
           [[ $min -lt 1000 ]] || { echo "::error::minor=$min must be < 1000"; exit 1; }
           [[ $patch -lt 1000 ]] || { echo "::error::patch=$patch must be < 1000"; exit 1; }
-          version_code=$(( maj * 1_000_000 + min * 1_000 + patch ))
+          version_code=$(( maj * 1000000 + min * 1000 + patch ))
 
           {
             echo "version=$v"
