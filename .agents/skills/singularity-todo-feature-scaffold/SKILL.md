@@ -339,7 +339,7 @@ Before merging:
 - [ ] ViewModels take `scope: CoroutineScope` in primary constructor
 - [ ] Repositories do NOT own private `CoroutineScope`
 - [ ] `just lint` — 0 new detekt violations
-- [ ] `just detekt-fix` — ktlint formatting
+- [ ] `just detekt-fix` — report violations (auto-fix is broken; fix manually)
 
 ## Anti-patterns
 

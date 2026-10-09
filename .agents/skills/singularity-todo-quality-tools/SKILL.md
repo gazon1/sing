@@ -27,14 +27,15 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 
 ```bash
 just lint            # run detekt analysis (shared + desktopApp) — enforcing
-just detekt-fix      # auto-fix detekt rules + ktlint formatting (in-place) ✅ USE THIS BEFORE COMMIT
-just detekt-baseline # regenerate baseline files (after large auto-fix pass)
+just detekt-fix      # report detekt + ktlint violations (--auto-correct is broken; see ADR 2026-10-09)
+just detekt-baseline # regenerate baseline files (manual-fix pass)
 just coverage        # aggregated kover XML → build/reports/kover/
 just coverage-html   # aggregated kover HTML → build/reports/kover/html/
 just tcheck          # full pipeline: tests + assembleDebug + lint
 ```
 
-> **Critical:** `detekt-fix` requires `--auto-correct` flag. Without it, ktlint only reports violations without fixing them. The recipe was fixed in PR 1.4 to include this flag — older branches may not have it.
+> **⚠️ Auto-fix is broken:** `--auto-correct` is inert in detekt 2.0.0-alpha.6 (Gradle plugin).
+> `just detekt-fix` reports violations only — fix them manually. See ADR 2026-10-09.
 
 ## Direct Gradle commands
 

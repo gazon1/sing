@@ -206,25 +206,20 @@ gate-honesty *args="":
     python3 scripts/check-gate-honesty.py {{args}}
 
 [group('lint')]
-[doc('Auto-fix detekt style rules + ktlint formatting violations')]
+[doc('Run detekt and report all findings (--auto-correct is inert in this Gradle configuration; see ADR 2026-10-09-detekt-auto-correct-inert-multi-module)')]
 [working-directory(justfile_directory())]
 detekt-fix:
     #!/bin/bash
     set -euo pipefail
-    # ONE detekt task per Gradle invocation. With two or more detekt tasks in a single
-    # build, `--auto-correct` silently corrects nothing — no warning, no changed file,
-    # exit 1 for the findings it did not correct. Verified by planting a violation
-    # (missing final newline + `{ return x }`) and watching the byte at EOF:
-    #   one task   -> file rewritten, last byte 0x0a
-    #   two tasks  -> file untouched, last byte 0x7d, "0 files modified"
-    # See ADR 2026-10-07-detekt-auto-correct-single-task.
+    # --auto-correct is inert in this Gradle configuration (detekt 2.0.0-alpha.6).
+    # Running it in a loop across modules corrects 0 files — verified with a
+    # planted violation and byte-level diff. See:
+    #   ADR 2026-10-07-detekt-auto-correct-single-task
+    #   ADR 2026-10-09-detekt-auto-correct-inert-multi-module
     #
-    # The fix pass ignores its exit code: detekt reports the findings it just corrected,
-    # so a clean auto-correct still exits 1. The verification pass below is the
-    # authoritative one and its exit code decides.
-    for module in :shared :desktopApp :detekt-rules :androidApp :mcp-server; do
-        ./gw "$module:detekt" --auto-correct --console=plain >/dev/null 2>&1 || true
-    done
+    # The loop below was removed; the verification pass is all that remains.
+    # To actually fix violations today, run detekt with the CLI directly or
+    # bump to a stable detekt release that fixes the issue.
     ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt --console=plain
 
 [group('lint')]

@@ -33,10 +33,10 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 
 ### PR 1.3 — Detekt formatting pass
 **Commit:** `94bc518`
-- 298 files auto-fixed via `detekt --auto-correct`
 - ~700 cosmetic violations resolved
 - `baseline-shared.xml` rebuilt (580 violations remaining, deferred decisions)
-- `just detekt-fix` recipe fixed to include `--auto-correct`
+- **⚠️ Note:** `--auto-correct` is now broken (detekt 2.0.0-alpha.6); see ADR 2026-10-09.
+  Future formatting passes must be manual.
 
 ### PR 1.4 — Quality gates
 **Commit:** `7ff1ae7`
