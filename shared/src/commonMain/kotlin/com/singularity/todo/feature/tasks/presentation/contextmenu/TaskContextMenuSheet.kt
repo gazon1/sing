@@ -29,8 +29,8 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
  * same domain intents the desktop menu dispatches. When more builder items gain
  * writes, add them here in the same order as the builder.
  *
- * Rows carry `task_action_<slug>` tags (see [TestTags.taskAction]) so UI
- * automation can address actions without reading visible text.
+ * Rows carry stable `task_action_<action>` tags (see [TestTags.TASK_CONTEXT_MENU_OPEN]
+ * and friends) so UI automation can address actions without reading visible text.
  *
  * @param task        the task the menu is open for; label text follows its state
  * @param onOpen      open the task detail
@@ -72,32 +72,39 @@ fun TaskContextMenuSheet(
 
             HorizontalDivider()
 
-            SheetRow(label = "Open", onClick = onOpen, onDismiss = onDismiss)
+            SheetRow(label = "Open", actionId = TestTags.TASK_CONTEXT_MENU_OPEN, onClick = onOpen, onDismiss = onDismiss)
             SheetRow(
                 label = if (task.isCompleted) "Mark as uncompleted" else "Mark as completed",
+                actionId = TestTags.TASK_CONTEXT_MENU_COMPLETE,
                 onClick = onToggleComplete,
                 onDismiss = onDismiss,
             )
             SheetRow(
                 label = if (task.isPinned) "Unpin" else "Pin",
+                actionId = TestTags.TASK_CONTEXT_MENU_PIN,
                 onClick = onTogglePin,
                 onDismiss = onDismiss,
             )
 
             HorizontalDivider()
 
-            SheetRow(label = "Archive", onClick = onArchive, onDismiss = onDismiss)
+            SheetRow(label = "Archive", actionId = TestTags.TASK_CONTEXT_MENU_ARCHIVE, onClick = onArchive, onDismiss = onDismiss)
         }
     }
 }
 
 @Composable
-private fun SheetRow(label: String, onClick: () -> Unit, onDismiss: () -> Unit) {
+private fun SheetRow(
+    label: String,
+    actionId: String,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     ListItem(
         headlineContent = { Text(label) },
         modifier = Modifier
             .fillMaxWidth()
-            .testTag(TestTags.taskAction(label))
+            .testTag(actionId)
             .clickable {
                 onClick()
                 onDismiss()
