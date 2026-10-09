@@ -173,7 +173,7 @@ class AgendaViewModel(
             is AgendaIntent.TaskCheckClicked -> with(intent) {
                 scope.launch {
                     deps.taskRepo.toggleComplete(taskId)
-                        .onFailure { crashReporter.report(it, TOGGLE_COMPLETE_FAILED) }
+                        .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
                 }
             }
 
@@ -188,7 +188,7 @@ class AgendaViewModel(
             is AgendaIntent.TaskPinClicked -> with(intent) {
                 scope.launch {
                     deps.taskRepo.togglePinned(taskId)
-                        .onFailure { crashReporter.report(it, TOGGLE_PINNED_FAILED) }
+                        .onFailure { report(it, TOGGLE_PINNED_FAILED, "Could not update task") }
                 }
             }
 

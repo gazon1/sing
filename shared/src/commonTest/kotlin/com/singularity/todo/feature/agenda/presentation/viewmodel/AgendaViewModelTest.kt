@@ -557,6 +557,48 @@ class AgendaViewModelTest {
         )
     }
 
+    @Test
+    fun `a failed toggleComplete reports the failure`() = withVm { vm ->
+        fakeRepo.seed(task("t1", "Doomed"))
+        runCurrent()
+
+        val events = mutableListOf<AgendaUiEvent>()
+        val collector = launch { vm.events.collect { events += it } }
+        try {
+            fakeRepo.toggleCompleteOverride = Result.failure(IllegalStateException("disk full"))
+            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+            runCurrent()
+
+            assertTrue(
+                events.any { it is AgendaUiEvent.ShowError },
+                "the user must be told the toggle failed: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed togglePinned reports the failure`() = withVm { vm ->
+        fakeRepo.seed(task("t1", "Doomed"))
+        runCurrent()
+
+        val events = mutableListOf<AgendaUiEvent>()
+        val collector = launch { vm.events.collect { events += it } }
+        try {
+            fakeRepo.togglePinnedOverride = Result.failure(IllegalStateException("disk full"))
+            vm.onIntent(AgendaIntent.TaskPinClicked(TaskId("t1")))
+            runCurrent()
+
+            assertTrue(
+                events.any { it is AgendaUiEvent.ShowError },
+                "the user must be told the toggle failed: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
     private fun loadedSelection(vm: AgendaViewModel): Set<TaskId> =
         assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).selectedTaskIds
 }
