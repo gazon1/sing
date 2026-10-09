@@ -114,6 +114,9 @@ object TestTags {
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
     const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
 
+    /** Confirm (✓) button in task-editor sheet hosts (recurrence picker, etc.). */
+    const val SHEET_CONFIRM = "sheet_confirm"
+
     /** Due-date row in the task editor attribute list. */
     const val TASK_EDITOR_DUE_ROW = "task_editor_due_row"
 
@@ -248,6 +251,13 @@ object TestTags {
          * (Desktop). Distinguishes "no tasks here" from "this platform has no Inbox".
          */
         const val TASKS_UNSUPPORTED = "pomodoro_tasks_unsupported"
+
+        /**
+         * The static "Focus" mode chip — always labelled "Focus" regardless of which
+         * task is focused. Use this for tapping the Focus chip by id in Maestro flows,
+         * instead of the locale-sensitive `text: "Focus"`.
+         */
+        const val FOCUS_CHIP = "pomodoro_focus_chip"
     }
 
     /** Dynamic tag of the form `pomodoro_task_chip_<slug>`. */

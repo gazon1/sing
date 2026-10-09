@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.components.sheet.TimePickerSheet
 import com.singularity.todo.feature.attachments.components.AttachmentsSheet
@@ -121,6 +122,7 @@ fun TaskEditorSheetsHost(
         is TaskEditorSheet.Recurrence -> TaskEditorSheetHost(
             title = "Repeat",
             onClose = onSheetDismiss,
+            testTagConfirm = TestTags.SHEET_CONFIRM,
         ) {
             RecurrencePickerSheet(
                 currentSpec = model.recurrence,

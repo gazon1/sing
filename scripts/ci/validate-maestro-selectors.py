@@ -73,6 +73,7 @@ STATIC_IDS: Set[str] = {
     "auth_sign_in_button",
     "auth_toggle_mode_button",
     # Navigation
+    "menu_aichat",
     "menu_sheet",
     "nav_menu_button",
     "top_bar_back_button",
@@ -128,6 +129,7 @@ STATIC_IDS: Set[str] = {
     "saved_agenda_save_button",
     # Pomodoro
     "pomodoro_cycle_label",
+    "pomodoro_focus_chip",
     "pomodoro_pause_button",
     "pomodoro_phase_label",
     "pomodoro_play_button",
@@ -200,6 +202,7 @@ STATIC_IDS: Set[str] = {
     # Dialog
     "dialog_confirm",
     "dialog_date_picker_cancel",
+    "sheet_confirm",
     "dialog_date_picker_clear",
     "dialog_date_picker_ok",
     "dialog_dismiss",

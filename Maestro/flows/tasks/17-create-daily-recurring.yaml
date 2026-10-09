@@ -54,7 +54,7 @@ tags:
 - tapOn:
     id: recurrence_option_daily
 - tapOn:
-    text: Done
+    id: sheet_confirm
 - extendedWaitUntil:
     notVisible:
       id: recurrence_option_daily
