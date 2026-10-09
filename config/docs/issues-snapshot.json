@@ -1,5 +1,47 @@
 [
   {
+    "number": 28,
+    "state": "OPEN",
+    "title": "Navigation as policy: unified open/close + typed ids",
+    "backlog_slug": ""
+  },
+  {
+    "number": 29,
+    "state": "CLOSED",
+    "title": "CC hardening: mcp-server fat-jar, CI posture, stale-test-classes",
+    "backlog_slug": ""
+  },
+  {
+    "number": 30,
+    "state": "OPEN",
+    "title": "Migration31To32 backfills after task_id is dropped — all pre-v32 DBs stuck on upgrade",
+    "backlog_slug": ""
+  },
+  {
+    "number": 32,
+    "state": "CLOSED",
+    "title": "detekt-rules: 4 failing tests, and no job runs the 56-test suite",
+    "backlog_slug": ""
+  },
+  {
+    "number": 33,
+    "state": "OPEN",
+    "title": "Coverage: 40 packages at 0% (measured), starting with settings/screens and search/presentation",
+    "backlog_slug": ""
+  },
+  {
+    "number": 34,
+    "state": "OPEN",
+    "title": "detekt baseline: 413 suppressions, no ratchet — stop the ceiling from rising",
+    "backlog_slug": ""
+  },
+  {
+    "number": 35,
+    "state": "OPEN",
+    "title": "write-pipeline: 7 requirements have no assertion, 5 name the wrong test",
+    "backlog_slug": "baseline-write-pipeline-verification-was-asserted-not-checked"
+  },
+  {
     "number": 36,
     "state": "OPEN",
     "title": "Bulk task operations have no UI: TaskMutationsUseCase is unwired",
@@ -1021,7 +1063,7 @@
   },
   {
     "number": 219,
-    "state": "CLOSED",
+    "state": "OPEN",
     "title": "MainActivity ANRs on emulator cold start, failing every instrumented test",
     "backlog_slug": "mainactivity-anr-makes-every-instrumented-test-fail"
   },
@@ -1615,13 +1657,13 @@
   },
   {
     "number": 357,
-    "state": "CLOSED",
+    "state": "OPEN",
     "title": "#219: MainActivity ANR on emulator cold start — verify if still reproduces",
     "backlog_slug": ""
   },
   {
     "number": 359,
-    "state": "CLOSED",
+    "state": "OPEN",
     "title": "[maestro] backup/01-round-trip.yaml asserts dated task in Inbox (No Date) — flow bug",
     "backlog_slug": ""
   },
@@ -1651,7 +1693,7 @@
   },
   {
     "number": 364,
-    "state": "CLOSED",
+    "state": "OPEN",
     "title": "A Maestro gate and a Gradle build cannot share the device — concurrent install un-installs app mid-run, 16 false failures",
     "backlog_slug": "maestro-gradle-device-conflict"
   },
@@ -1755,48 +1797,6 @@
     "number": 381,
     "state": "OPEN",
     "title": "[adr] Fix deferred-backlog.md tracking CLOSED issue #105",
-    "backlog_slug": ""
-  },
-  {
-    "number": 382,
-    "state": "OPEN",
-    "title": "Cold start StackOverflowError in coreModule — the Android Koin graph is resolved by no test",
-    "backlog_slug": ""
-  },
-  {
-    "number": 383,
-    "state": "OPEN",
-    "title": "AppTracer plugin generates no build UUID — the SDK never initializes, so all four critical paths in #134 stay unreachable",
-    "backlog_slug": ""
-  },
-  {
-    "number": 384,
-    "state": "OPEN",
-    "title": "connectedDebugAndroidTest reports BUILD SUCCESSFUL with 0 tests while the instrumented process crashed",
-    "backlog_slug": ""
-  },
-  {
-    "number": 385,
-    "state": "OPEN",
-    "title": "android-device-tests.yml hard-codes flavors=[free], so no Android CI job ever builds the pro variant",
-    "backlog_slug": ""
-  },
-  {
-    "number": 387,
-    "state": "OPEN",
-    "title": "Whether a build uploads to AppTracer is decided by token presence, not build type — release from a dev machine uploads too",
-    "backlog_slug": ""
-  },
-  {
-    "number": 388,
-    "state": "CLOSED",
-    "title": "shared:jvmTest does not compile on main — FakeProfilesRepo is missing ProfileRepository.findByName",
-    "backlog_slug": ""
-  },
-  {
-    "number": 391,
-    "state": "OPEN",
-    "title": "Invalid AES key length: 48 bytes — GRADLE_ENCRYPTION_KEY breaks every Gradle job in all four workflows",
     "backlog_slug": ""
   }
 ]

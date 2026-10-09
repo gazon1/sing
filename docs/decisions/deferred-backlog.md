@@ -3637,7 +3637,13 @@ the file, forget the database.
 
 **Status: OPEN**
 
-**Tracked as:** #227
+**Tracked as:** #382
+
+**Reopened from:** #227, which was closed as "a separate concern from the non-sync issues
+in scope for this session" — not fixed. The entry below predicted the exact failure that
+has now happened: `KoinGraphValidationTest.all singletons resolve without missing bindings`
+fails on `gazon1/main` with `StackOverflowError`, and the Android app dies at cold start
+with the same signature. Re-tracking rather than opening a third record.
 
 **Found in:** 2026-10-07, while restoring the desktop graph's resolution test.
 
