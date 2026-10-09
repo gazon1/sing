@@ -1,3 +1,6 @@
+# Gradle configuration cache artifacts (appear as shared/map(map(...)))
+shared/map/
+
 # Gradle / Kotlin Multiplatform
 .gradle/
 # Private Gradle user home created by ./gw (or direnv/.envrc). It holds the
