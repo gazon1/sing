@@ -463,7 +463,7 @@
   },
   {
     "number": 108,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CalendarFlowTest asserts month and week boundaries against the real system clock",
     "backlog_slug": "fake-clock-unused-in-desktop-harness"
   },
@@ -511,7 +511,7 @@
   },
   {
     "number": 121,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "just detekt-fix does not fix anything: three mechanisms tried, none correct a single finding",
     "backlog_slug": ""
   },
@@ -739,7 +739,7 @@
   },
   {
     "number": 159,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Five JVM-only annotations sit in commonMain where the new gate cannot see them",
     "backlog_slug": ""
   },
@@ -1141,7 +1141,7 @@
   },
   {
     "number": 240,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Maestro selector gaps: add testTag modifiers to composables",
     "backlog_slug": ""
   },
@@ -1153,19 +1153,19 @@
   },
   {
     "number": 242,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Make Maestro selector validator blocking in e2e.yml",
     "backlog_slug": ""
   },
   {
     "number": 243,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Fix ANR: move SettingsDataStoreMigration out of main thread",
     "backlog_slug": ""
   },
   {
     "number": 244,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Maestro locale-fragile text: selectors: add testTags + replace with id:",
     "backlog_slug": ""
   },
@@ -1177,7 +1177,7 @@
   },
   {
     "number": 246,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "MviViewModel: cache stateFlow (fixes collector restart per recomposition) and record the UUID v4/v7 decision",
     "backlog_slug": ""
   },
@@ -1303,13 +1303,13 @@
   },
   {
     "number": 276,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Nightly Maestro failed (2026-10-09)",
     "backlog_slug": ""
   },
   {
     "number": 278,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[#adr] Extract CountdownStateMachine to deduplicate undo countdown across VMs",
     "backlog_slug": ""
   },
@@ -1327,49 +1327,49 @@
   },
   {
     "number": 282,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[a11y] TaskEditorDueDateRow: text children invisible to Android accessibility tree",
     "backlog_slug": ""
   },
   {
     "number": 283,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[ui] DatePickerSheet 500dp height clips calendar — swipe workaround fragile",
     "backlog_slug": ""
   },
   {
     "number": 284,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[tech-debt] Audit koinBridge runBlocking call sites in Koin factories",
     "backlog_slug": ""
   },
   {
     "number": 285,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[tasks] Audit null callbacks in TaskDetailContent: priority/estimate/project/tags rows not tappable",
     "backlog_slug": ""
   },
   {
     "number": 287,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Investigate: e2e Maestro flows failing on main (menu_notes not visible)",
     "backlog_slug": ""
   },
   {
     "number": 289,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] Update 01-theme-toggle.yaml for tri-state theme selector",
     "backlog_slug": ""
   },
   {
     "number": 292,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] FakeSyncApiClient God Object — split recording/scripting/interception",
     "backlog_slug": ""
   },
   {
     "number": 294,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SyncContract.kt — single declarative source for sync protocol contract",
     "backlog_slug": ""
   },
@@ -1381,7 +1381,7 @@
   },
   {
     "number": 296,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[sync] SQL generator — generate server schema from SyncContract",
     "backlog_slug": ""
   },
@@ -1414,5 +1414,227 @@
     "state": "OPEN",
     "title": "[backup] add 8 missing tables to backup payload: reminders, checklist_items, tag_groups, etc.",
     "backlog_slug": "agenda-views-not-in-backup"
+  },
+  {
+    "number": 304,
+    "state": "CLOSED",
+    "title": "core/sync: SQL generator from SyncContract.FIELD_ALLOWLIST #296",
+    "backlog_slug": ""
+  },
+  {
+    "number": 305,
+    "state": "CLOSED",
+    "title": "test: split FakeSyncApiClient into Scripted / Recording / Interceptable #292",
+    "backlog_slug": ""
+  },
+  {
+    "number": 306,
+    "state": "CLOSED",
+    "title": "[AT Tree] menu_notes drawer items not visible to UIAutomator",
+    "backlog_slug": ""
+  },
+  {
+    "number": 307,
+    "state": "CLOSED",
+    "title": "[Material3] DatePicker day cells lack testTag for Maestro UI testing",
+    "backlog_slug": ""
+  },
+  {
+    "number": 309,
+    "state": "CLOSED",
+    "title": "[maestro] 4 flows still have locale-fragile text: selectors (chrome UI text)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 312,
+    "state": "OPEN",
+    "title": "ci: verify gradle-home-cache-excludes prevents transforms caching",
+    "backlog_slug": ""
+  },
+  {
+    "number": 313,
+    "state": "OPEN",
+    "title": "ci: evaluate setup-gradle@v6 with cache-provider: enhanced",
+    "backlog_slug": ""
+  },
+  {
+    "number": 314,
+    "state": "OPEN",
+    "title": "ci: add restore-keys fallback to AVD cache",
+    "backlog_slug": ""
+  },
+  {
+    "number": 315,
+    "state": "OPEN",
+    "title": "ci: gradle-home entries accumulate from multiple jobs on main",
+    "backlog_slug": ""
+  },
+  {
+    "number": 317,
+    "state": "CLOSED",
+    "title": "ci: make informational static gates advisory",
+    "backlog_slug": ""
+  },
+  {
+    "number": 319,
+    "state": "CLOSED",
+    "title": "ci: gate scripts' own unit tests fails in CI worktree context",
+    "backlog_slug": ""
+  },
+  {
+    "number": 321,
+    "state": "OPEN",
+    "title": "check-backlog-issue-refs.py has no positive control (static-gate fails)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 322,
+    "state": "OPEN",
+    "title": "[maestro] UiAutomationSelectorTest LABEL_ALLOWED masks two real localization risks",
+    "backlog_slug": ""
+  },
+  {
+    "number": 323,
+    "state": "OPEN",
+    "title": "kiwi inventory floor file has stale measurement (397→403)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 324,
+    "state": "OPEN",
+    "title": "[qa] Maestro selector validator doesn't verify dynamic tag function output",
+    "backlog_slug": ""
+  },
+  {
+    "number": 326,
+    "state": "OPEN",
+    "title": "[test] Migrate existing sync tests to new Scripted/Recording/Interceptable clients",
+    "backlog_slug": ""
+  },
+  {
+    "number": 327,
+    "state": "OPEN",
+    "title": "[maestro] menu_notes/calendar/etc — Maestro flows depend on hardcoded English MenuSection labels",
+    "backlog_slug": ""
+  },
+  {
+    "number": 328,
+    "state": "OPEN",
+    "title": "[sync] Verify all sync tests pass after #292 + #296 merge",
+    "backlog_slug": ""
+  },
+  {
+    "number": 329,
+    "state": "OPEN",
+    "title": "[maestro] locale-fragile text selectors in theme-toggle and settings flows — caused multiple wasted rebase cycles",
+    "backlog_slug": ""
+  },
+  {
+    "number": 330,
+    "state": "CLOSED",
+    "title": "[sync] Generate sync_field_allowlist INSERT seed from SyncContract.FIELD_ALLOWLIST",
+    "backlog_slug": ""
+  },
+  {
+    "number": 331,
+    "state": "CLOSED",
+    "title": "[mcp] Create McpToolCatalog as single registry of all 37 tools",
+    "backlog_slug": ""
+  },
+  {
+    "number": 332,
+    "state": "CLOSED",
+    "title": "[ci] Add Backlog: field to all open issues (promote gate to blocking)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 333,
+    "state": "CLOSED",
+    "title": "[sync] Replace Clock.System with monotonic clock for PatchRetryPolicy backoff",
+    "backlog_slug": ""
+  },
+  {
+    "number": 334,
+    "state": "CLOSED",
+    "title": "[maestro] nav_tab_today selector fails on every CI E2E run (pre-existing)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 335,
+    "state": "CLOSED",
+    "title": "[UiAutomationSelectorTest] LABEL_ALLOWED masks 2 localization risks in MenuBottomSheet",
+    "backlog_slug": ""
+  },
+  {
+    "number": 336,
+    "state": "CLOSED",
+    "title": "[maestro] Validator does not verify output of dynamic testTag functions",
+    "backlog_slug": ""
+  },
+  {
+    "number": 337,
+    "state": "OPEN",
+    "title": "[maestro] menu_notes/calendar/etc depend on hardcoded English MenuSection labels",
+    "backlog_slug": ""
+  },
+  {
+    "number": 338,
+    "state": "CLOSED",
+    "title": "[CI] Smoke suite not run on Maestro-affecting PRs; conflicts detected post-merge",
+    "backlog_slug": ""
+  },
+  {
+    "number": 340,
+    "state": "OPEN",
+    "title": "[sync] OkHttpClient recreated per SyncRpc — no connection pooling, no failover",
+    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-okhttp-pooling\\`"
+  },
+  {
+    "number": 341,
+    "state": "OPEN",
+    "title": "[auth] No coalescing for concurrent refresh attempts",
+    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#auth-refresh-coalescing\\`"
+  },
+  {
+    "number": 342,
+    "state": "OPEN",
+    "title": "[sync] SyncScopeProvider interface in core/sync, implementation in feature/profile",
+    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-scope-provider-arch\\`"
+  },
+  {
+    "number": 343,
+    "state": "OPEN",
+    "title": "[sync] SyncEngine Koin singleton never closed — lifecycle gap",
+    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-engine-lifecycle\\`"
+  },
+  {
+    "number": 344,
+    "state": "OPEN",
+    "title": "[mcp] Collapse 37 MCP tools into start + run + SDK",
+    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#mcp-start-run-sdk\\`"
+  },
+  {
+    "number": 345,
+    "state": "CLOSED",
+    "title": "[arch] UiAutomationSelectorTest: SavedAgendaScreen AlertDialog at line 401 missing mapTestTagsAsResourceIds",
+    "backlog_slug": ""
+  },
+  {
+    "number": 346,
+    "state": "CLOSED",
+    "title": "[tech-debt] Kotlin 2.4: migrate from @JvmField to explicit backing fields",
+    "backlog_slug": ""
+  },
+  {
+    "number": 347,
+    "state": "CLOSED",
+    "title": "[tech-debt] Migrate from ULID to UUID v4",
+    "backlog_slug": ""
+  },
+  {
+    "number": 348,
+    "state": "CLOSED",
+    "title": "[arch] UiAutomationSelectorTest: SavedAgendaScreen AlertDialog missing mapTestTagsAsResourceIds",
+    "backlog_slug": ""
   }
 ]
