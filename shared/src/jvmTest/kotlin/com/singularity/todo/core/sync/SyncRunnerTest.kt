@@ -251,7 +251,7 @@ class SyncRunnerTest {
             coordinator = SyncCoordinator(
                 // Never runs: nothing in this file asks for a cycle. The runner
                 // refuses one while signed out, and these tests are about scheduling.
-                runCycle = { SyncOutcome.Skipped("not exercised here") },
+                runCycle = { SyncOutcome.NothingToDo },
                 scope = scope,
             ),
             periodicTrigger = trigger,

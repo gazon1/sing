@@ -603,6 +603,25 @@ open class FakeTaskRepository(
     var setDependenciesOverride: Result<Unit>? = null
 
     /**
+     * Observers for `softDelete` / `restore`, for tests that must distinguish
+     * "the write was never attempted" from "the write ran and was a no-op".
+     *
+     * `restore` on a task that is not archived leaves `archivedAt` null either way,
+     * so the stored row cannot tell those two apart — only a call site can. Additive
+     * and null by default, so no existing test changes behaviour.
+     */
+    var softDeleteObserver: ((TaskId) -> Unit)? = null
+    var restoreObserver: ((TaskId) -> Unit)? = null
+
+    fun onSoftDelete(observer: (TaskId) -> Unit) {
+        softDeleteObserver = observer
+    }
+
+    fun onRestore(observer: (TaskId) -> Unit) {
+        restoreObserver = observer
+    }
+
+    /**
      * Seeds tasks by merging into existing state (adds or overwrites by id).
      *
      * ## The trap this does not warn you about
@@ -737,6 +756,7 @@ open class FakeTaskRepository(
 
     override suspend fun softDelete(id: TaskId): Result<Unit> {
         softDeleteOverride?.let { return it }
+        softDeleteObserver?.invoke(id)
         return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val deleted = task.copy(archivedAt = clock.now())
@@ -752,6 +772,7 @@ open class FakeTaskRepository(
 
     override suspend fun restore(id: TaskId): Result<Unit> {
         restoreOverride?.let { return it }
+        restoreObserver?.invoke(id)
         return runCatchingCancellable {
             store[id.value]?.let { task ->
                 val restored = task.copy(archivedAt = null)
@@ -1477,6 +1498,8 @@ class FakeTagsRepository(
     // caller can only be checked against a failed write if one can be produced.
     var createOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
     var updateOverride: Result<com.singularity.todo.feature.tags.Tag>? = null
+    var deleteOverride: Result<Unit>? = null
+    var restoreOverride: Result<Unit>? = null
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
@@ -1523,14 +1546,27 @@ class FakeTagsRepository(
             store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
         }
 
-    override suspend fun delete(id: TagId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
-        // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
-        // looked trashed since 1970 — anything comparing the timestamp saw a
-        // different value than production produces.
-        store.upsert(existing.copy(deletedAt = clock.now()))
+    override suspend fun delete(id: TagId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Tag $id not found or not owned by current user")
+            // Previously stamped deletedAt = epoch(0) rather than "now", so the tag
+            // looked trashed since 1970 — anything comparing the timestamp saw a
+            // different value than production produces.
+            store.upsert(existing.copy(deletedAt = clock.now()))
+        }
+    }
+
+    override suspend fun restore(id: TagId): Result<Unit> {
+        restoreOverride?.let { return it }
+        return runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid && it.deletedAt != null }
+                ?: throw NoSuchElementException("Tag $id not found, not owned by current user, or not deleted")
+            store.upsert(existing.copy(deletedAt = null))
+        }
     }
 
     override suspend fun upsert(tag: com.singularity.todo.feature.tags.Tag): com.singularity.todo.feature.tags.Tag {

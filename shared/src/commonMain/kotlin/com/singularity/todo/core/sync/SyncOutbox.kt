@@ -149,13 +149,13 @@ interface SyncOutboxDao {
  * The first attempt is retried after [baseDelay], not immediately. Retrying a
  * rejected patch straight away is how one bad row becomes a hot loop.
  */
-class PatchRetryPolicy(
+open class PatchRetryPolicy(
     private val baseDelayMs: Long = 30_000L,
     private val maxDelayMs: Long = 60 * 60 * 1000L,
     val maxAttempts: Int = 10,
 ) {
     /** Delay before attempt number [attempts] (1-based: the first failure is 1). */
-    fun delayFor(attempts: Int): Long {
+    open fun delayFor(attempts: Int): Long {
         require(attempts >= 1) { "attempts must be at least 1, was $attempts" }
         val shift = (attempts - 1).coerceAtMost(MAX_SHIFT)
         val delay = baseDelayMs shl shift
@@ -163,7 +163,7 @@ class PatchRetryPolicy(
     }
 
     /** Whether a patch that has failed [attempts] times has run out of retries. */
-    fun isExhausted(attempts: Int): Boolean = attempts >= maxAttempts
+    open fun isExhausted(attempts: Int): Boolean = attempts >= maxAttempts
 
     private companion object {
         /** 2^30 ms is about 12 days; beyond that the shift is pointless. */

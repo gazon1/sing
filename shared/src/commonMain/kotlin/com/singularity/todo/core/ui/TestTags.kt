@@ -180,6 +180,9 @@ object TestTags {
      */
     const val AGENDA_TAG_MATCH_ALL = "agenda_tag_match_all"
 
+    /** The free-text pattern input in the ByRegexp section template picker. */
+    const val AGENDA_REGEX_PATTERN_INPUT = "agenda_regex_pattern_input"
+
     /** Overflow menu button (⋮) on a saved-agenda card. */
     const val SAVED_AGENDA_OVERFLOW_BUTTON = "saved_agenda_overflow_button"
 
@@ -509,9 +512,6 @@ object TestTags {
     fun taskAction(action: String) = "task_action_${slug(action)}"
 
     // ─── Snackbar / transient UI ───────────────────────────────────────────
-
-    /** The "Saved" [ResultDialog] shown after a save in editors and the saved-agenda screen. */
-    const val SNACKBAR_SAVED = "snackbar_saved"
 
     /**
      * The action button of a transient snackbar ("Undo", and whatever a feature

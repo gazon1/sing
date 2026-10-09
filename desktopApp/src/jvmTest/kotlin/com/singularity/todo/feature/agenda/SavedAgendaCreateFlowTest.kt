@@ -5,6 +5,7 @@ package com.singularity.todo.feature.agenda
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clearAndTypeIntoTag
@@ -12,6 +13,7 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Tag
+import kotlin.time.Instant
 import kotlin.test.Test
 
 /**
@@ -34,6 +36,7 @@ class SavedAgendaCreateFlowTest {
 
     @Test
     fun `saving a new agenda view leaves the editor and persists the view`() = runDesktopAppTest(
+        clock = CLOCK,
         checkA11y = true,
     ) { koin ->
         waitForIdle()
@@ -58,5 +61,11 @@ class SavedAgendaCreateFlowTest {
         assert("Saved By Test" in savedNames) {
             "the created view must be persisted for the current user, got: $savedNames"
         }
+    }
+
+    private companion object {
+        /** Mid-month, so no assertion in this file straddles a day boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
     }
 }

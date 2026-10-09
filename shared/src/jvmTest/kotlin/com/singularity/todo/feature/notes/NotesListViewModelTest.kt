@@ -20,7 +20,10 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Smoke tests for [NotesListViewModel] — verify state initialization and filter changes.
@@ -237,7 +240,7 @@ class NotesListViewModelTest {
      * list so the user can undo before the window closes.
      */
     @Test
-    fun `delete emits UndoDelete and removes note after undo window`() = runTest {
+    fun `delete commits at the repository and offers undo`() = runTest {
         val id = seedNote("Doomed")
         val vm = createVm()
         advanceUntilIdle()
@@ -250,18 +253,26 @@ class NotesListViewModelTest {
             vm.onIntent(NotesIntent.Delete(id))
             runCurrent()
 
-            // UndoDelete is emitted immediately; note is still in the list.
             val undoDelete = events.filterIsInstance<NotesUiEvent.UndoDelete>().singleOrNull()
             assertNotNull(undoDelete, "UndoDelete must be emitted: $events")
             assertEquals(id, undoDelete.noteId)
             assertEquals("Doomed", undoDelete.title)
-            assertEquals(1, vm.listState().unpinned.size, "note must stay during undo window")
 
-            // Advance past the undo window — the note is deleted.
+            // Persistence and rendering are separate claims: the write is committed
+            // immediately, and the list follows once that change reaches its state.
+            assertEquals(
+                0,
+                vm.listState().unpinned.size,
+                "a delete that has been committed must not still be listed",
+            )
+
+            // And the window closing changes nothing about the write — it only ends
+            // the offer.
             advanceTimeBy(undoWindowMs + 1)
             advanceUntilIdle()
             runCurrent()
-            assertEquals(0, vm.listState().unpinned.size, "note must go after undo window expires")
+            assertNull(vm.pendingDelete.value, "the undo window must close on its own")
+            assertEquals(0, vm.listState().unpinned.size)
         } finally {
             collector.cancel()
         }
@@ -271,44 +282,43 @@ class NotesListViewModelTest {
      * Tapping Undo restores the note and cancels the pending delete.
      */
     @Test
-    fun `undo restores the note and cancels the pending delete`() = runTest {
+    fun `undo restores a note that was really deleted`() = runTest {
         val id = seedNote("UndoMe")
         val vm = createVm()
         advanceUntilIdle()
         runCurrent()
         assertEquals(1, vm.listState().unpinned.size)
 
-        val events = mutableListOf<NotesUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
         try {
             vm.onIntent(NotesIntent.Delete(id))
             runCurrent()
-            assertEquals(1, vm.listState().unpinned.size)
+            assertEquals(0, vm.listState().unpinned.size, "the delete is committed, not deferred")
 
-            // Tap Undo.
+            // Tap Undo — now there is a real deleted row to restore.
             vm.onIntent(NotesIntent.UndoDelete(id))
             advanceUntilIdle()
             runCurrent()
             assertEquals(1, vm.listState().unpinned.size, "note must be restored")
+            assertNull(vm.pendingDelete.value, "a successful reversal closes the offer")
 
-            // Advance past the former undo window — the note must NOT disappear.
+            // Advance past the former undo window — the restored note must survive it.
             advanceTimeBy(undoWindowMs + 1)
             advanceUntilIdle()
             runCurrent()
             assertEquals(1, vm.listState().unpinned.size, "restored note must not be deleted after window")
         } finally {
-            collector.cancel()
+            Unit
         }
     }
 
     /**
-     * A second delete while the first undo window is still open supersedes the first:
-     * `pendingDelete` switches to the second note, and the first note's pending
-     * delete job is cancelled so it will NOT be deleted when its window expires.
+     * A second delete supersedes the first: the single undo affordance moves to the
+     * newer note, and the first stays deleted — it was already written.
      *
-     * The cancellation is verified by: (a) `pendingDelete` points to the second note
-     * immediately after the second delete, and (b) after the second window expires,
-     * neither note is in the soft-deleted set — only the second note was deleted.
+     * Under the old deferred shape this was the interesting case, because the first
+     * note had *not* been written yet and cancelling its job was what spared it. With
+     * the write committed at delete time, supersession is about which note the user
+     * can still undo, not about which one gets deleted.
      */
     @Test
     fun `a new delete supersedes the previous pending delete`() = runTest {
@@ -322,23 +332,26 @@ class NotesListViewModelTest {
         runCurrent()
         assertEquals(first, vm.pendingDelete.value?.noteId, "first delete must set pendingDelete")
 
-        // Second delete cancels the first's pending job and supersedes it.
         vm.onIntent(NotesIntent.Delete(second))
         runCurrent()
         assertEquals(second, vm.pendingDelete.value?.noteId, "second delete must supersede first")
 
-        // Verify first's pending job was actually cancelled by advancing past its
-        // window and checking that only second's note ends up deleted.
-        advanceTimeBy(undoWindowMs + 1)
+        // Both writes are committed, so the list is empty — supersession is about
+        // which note can still be undone, not about which one gets deleted.
+        assertEquals(
+            emptyList(),
+            vm.listState().unpinned.map { it.id },
+            "each delete commits its own write",
+        )
+
+        // Undo applies to the newer delete only.
+        vm.onIntent(NotesIntent.UndoDelete(second))
         advanceUntilIdle()
         runCurrent()
-
-        // First note was never deleted (job cancelled), second was deleted (window expired).
-        // So only first remains in the list.
         assertEquals(
-            listOf(first),
+            listOf(second),
             vm.listState().unpinned.map { it.id },
-            "first must remain (pending job cancelled); second must be gone (window expired)",
+            "undo restores the newer delete; the superseded one stays deleted",
         )
     }
 
@@ -379,5 +392,54 @@ class NotesListViewModelTest {
         } finally {
             collector.cancel()
         }
+    }
+
+    /**
+     * Diagnostic: does selecting a note reach the state the screen renders?
+     *
+     * The selection handlers write only `_isSelectionMode` / `_selectedIds`; the
+     * state's copies are filled by the `combine` in `init`. Nothing copies them
+     * back, so with every source list idle a selection may never reach
+     * `NotesListState` — and the screen reads `listState?.selectedIds`, so the
+     * checkboxes would not light up.
+     *
+     * This is written as a question, not an assertion of a known defect: if it
+     * passes, the suspected bug is disproved and the bridge is left alone.
+     */
+    @Test
+    fun `selection reaches the rendered state while the source lists are idle`() = runTest {
+        val id = seedNote("Selectable")
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(NotesIntent.EnterSelection(id))
+        runCurrent()
+
+        val content = assertIs<NotesUiState.Content>(vm.stateFlow.value)
+        assertEquals(
+            setOf(id),
+            content.list.selectedIds,
+            "a selection must be visible in the state the screen renders",
+        )
+        assertTrue(content.list.isSelectionMode)
+    }
+
+    /** Leaving selection mode must clear the rendered state too. */
+    @Test
+    fun `exiting selection mode clears the rendered state`() = runTest {
+        val id = seedNote("Selectable")
+        val vm = createVm()
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(NotesIntent.EnterSelection(id))
+        runCurrent()
+        vm.onIntent(NotesIntent.ExitSelection)
+        runCurrent()
+
+        val content = assertIs<NotesUiState.Content>(vm.stateFlow.value)
+        assertEquals(emptySet(), content.list.selectedIds)
+        assertFalse(content.list.isSelectionMode)
     }
 }

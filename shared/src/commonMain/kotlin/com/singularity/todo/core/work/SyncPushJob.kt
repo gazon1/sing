@@ -27,7 +27,7 @@ class SyncPushJob(private val syncRepository: SyncRepository) : BackgroundJob {
         val outcome = syncRepository.syncOnce()
         log(outcome)
         return when (outcome) {
-            is SyncOutcome.Success -> {
+            is SyncOutcome.Completed -> {
                 if (outcome.push.isFailure || outcome.pull.isFailure) {
                     // A partial failure is still a failure: one half of the cycle did not
                     // land, and reporting success would let the caller stand down.
@@ -41,18 +41,18 @@ class SyncPushJob(private val syncRepository: SyncRepository) : BackgroundJob {
                 }
             }
 
-            // Skipped means the coordinator coalesced this into another cycle, or it is
-            // closed. The outcome is informational; the scheduler decides what to do next.
-            is SyncOutcome.Skipped -> JobOutcome.Skipped(outcome.reason)
+            // NothingToDo means no active sync scope (signed out or no profile), or the
+            // coordinator was closed. The work is intact; the scheduler decides what to do.
+            is SyncOutcome.NothingToDo -> JobOutcome.Skipped("nothing to do")
 
             // The cycle could not start — in practice a local read failed, so the patches
             // are still queued and nothing has been lost. The work is intact, not lost.
-            is SyncOutcome.Failed -> JobOutcome.Failed(outcome.error)
+            is SyncOutcome.CouldNotStart -> JobOutcome.Failed(outcome.error)
         }
     }
 
     private fun log(outcome: SyncOutcome) {
-        if (outcome is SyncOutcome.Success) {
+        if (outcome is SyncOutcome.Completed) {
             val push = outcome.push.getOrNull()
             logger.d {
                 "sync cycle: processed=${push?.processed}, " +

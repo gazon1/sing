@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
@@ -16,12 +15,14 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.core.ui.onboarding.SpotlightOverlay
 import com.singularity.todo.core.ui.onboarding.rememberSpotlightTour
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
+import com.singularity.todo.feature.agenda.presentation.viewmodel.PendingDelete
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
@@ -65,24 +66,18 @@ fun AgendaScreen(
     }
     val state by vm.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by vm.pendingDelete.collectAsStateWithLifecycle()
+    val countdownProgress by vm.countdownProgress.collectAsStateWithLifecycle()
 
     val navigator = LocalAgendaNavigator.current
     val seedStore: SavedAgendaSeedStore = koinInject()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Show undo snackbar when a delete is pending.
-    LaunchedEffect(pendingDelete) {
-        val pd = pendingDelete ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = "\"${pd.taskTitle}\" deleted",
-            actionLabel = "Undo",
-            duration = SnackbarDuration.Short,
-        )
-        if (result == SnackbarResult.ActionPerformed) {
-            vm.onUndoDeleteIntent()
-        }
-    }
+    UndoSnackbar(
+        pendingDelete = pendingDelete,
+        snackbarHostState = snackbarHostState,
+        onUndo = { vm.onIntent(AgendaIntent.UndoDeleteTapped) },
+    )
 
     CollectEvents(vm.events) { event ->
         when (event) {
@@ -94,7 +89,11 @@ fun AgendaScreen(
 
             is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
 
-            is AgendaUiEvent.UndoDelete -> { /* handled by LaunchedEffect above */ }
+            is AgendaUiEvent.ShowError -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short)
+                }
+            }
 
             is AgendaUiEvent.BulkOperationDone -> {
                 val message = if (event.error != null) {
@@ -103,10 +102,7 @@ fun AgendaScreen(
                     "${event.count} task${if (event.count != 1) "s" else ""} ${event.operation}"
                 }
                 scope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = message,
-                        duration = SnackbarDuration.Short,
-                    )
+                    snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
                 }
             }
         }
@@ -118,7 +114,7 @@ fun AgendaScreen(
     val tour = rememberSpotlightTour()
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = countdownProgress) },
         modifier = modifier,
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
@@ -150,5 +146,44 @@ fun AgendaScreen(
                 )
             }
         }
+    }
+}
+
+/**
+ * Shows the undo affordance while a delete is pending, and takes it down when the
+ * pending delete clears.
+ *
+ * The ViewModel's window is the only clock here. Material 3 offers no custom
+ * duration, so pairing `UNDO_WINDOW_MS` with `Short` or `Long` only ever gets the
+ * two approximately right — and either direction is a broken promise: an affordance
+ * that outlives the window offers an Undo that silently does nothing, and one that
+ * dies early denies an undo the user was still entitled to. So the snackbar is
+ * presented `Indefinite` and dismissed from here when the marker clears, which
+ * happens when the window expires *or* a reversal succeeds.
+ *
+ * That is also what keeps the retry affordance real: a failed reversal leaves the
+ * marker set, so the snackbar stays up and the user can try again.
+ */
+@Composable
+private fun UndoSnackbar(
+    pendingDelete: PendingDelete?,
+    snackbarHostState: SnackbarHostState,
+    onUndo: () -> Unit,
+) {
+    LaunchedEffect(pendingDelete) {
+        val pending = pendingDelete
+        if (pending == null) {
+            // No `SnackbarHostState.dismiss()` at this Material3 version — the handle
+            // is on the shown item. This resolves the pending `showSnackbar` as
+            // Dismissed, so expiry is never mistaken for the user taking the offer.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            return@LaunchedEffect
+        }
+        val result = snackbarHostState.showSnackbar(
+            message = "\"${pending.taskTitle}\" deleted",
+            actionLabel = "Undo",
+            duration = SnackbarDuration.Indefinite,
+        )
+        if (result == SnackbarResult.ActionPerformed) onUndo()
     }
 }

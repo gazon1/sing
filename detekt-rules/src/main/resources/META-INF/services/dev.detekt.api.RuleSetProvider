@@ -17,3 +17,4 @@ com.singularity.todo.detekt.NoSwallowedCancellationProvider
 com.singularity.todo.detekt.NoRunCatchingInSuspendProvider
 com.singularity.todo.detekt.NoDivergentScopeAndReporterProvider
 com.singularity.todo.detekt.AppErrorCodeProvider
+com.singularity.todo.detekt.NoCoroutineLaunchInInitProvider

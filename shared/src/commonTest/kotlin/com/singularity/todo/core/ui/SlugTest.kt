@@ -131,11 +131,6 @@ class SlugTest {
     }
 
     @Test
-    fun `snackbar saved tag is a constant`() {
-        assertEquals("snackbar_saved", TestTags.SNACKBAR_SAVED)
-    }
-
-    @Test
     fun `task editor row tags are constants`() {
         assertEquals("task_editor_due_row", TestTags.TASK_EDITOR_DUE_ROW)
         assertEquals("task_editor_priority_row", TestTags.TASK_EDITOR_PRIORITY_ROW)

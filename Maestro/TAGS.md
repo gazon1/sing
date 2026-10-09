@@ -204,7 +204,6 @@ non-alphanumeric characters with `_`.
 | `CHAT_NOTIFICATION_HOST` | `chat_notification_host` | |
 | `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
 | `SNACKBAR_ACTION` | `snackbar_action` | |
-| `SNACKBAR_SAVED` | `snackbar_saved` | |
 
 ### Backup
 | Constant | Value | Where |
@@ -254,6 +253,7 @@ use the expanded string directly).
 |---|---|---|---|
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
 | `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in appearance settings |
+| `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in Settings |
 | `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
 | `menuItem("Settings")` | `"Settings"` | `menu_settings` | Menu bottom sheet items |
@@ -272,6 +272,7 @@ use the expanded string directly).
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view mode tabs (month / day / 4_days) |
+| `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
 <!-- GENERATED:END -->

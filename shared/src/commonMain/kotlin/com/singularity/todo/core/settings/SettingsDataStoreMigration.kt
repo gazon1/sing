@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -77,6 +78,9 @@ class SettingsDataStoreMigration(
     private val legacyDataStore: DataStore<Preferences>,
     private val userSettingsDataStore: DataStore<Preferences>,
     private val stateDataStore: DataStore<Preferences>,
+    // Default is intentional: satisfies callers that don't pass one; platforms inject via constructor.
+    @Suppress("NoDirectDispatchers")
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     companion object {
         val SCHEMA_VERSION_KEY = intPreferencesKey("settings_schema_version")
@@ -93,8 +97,8 @@ class SettingsDataStoreMigration(
      * @param scope Coroutine scope to launch the migration in. Use
      *   `CoroutineScope(Dispatchers.IO)` for a pure-background migration.
      */
-    fun runDeferred(scope: CoroutineScope): Unit {
-        scope.launch(Dispatchers.IO) { run() }
+    fun runDeferred(scope: CoroutineScope) {
+        scope.launch(ioDispatcher) { run() }
     }
 
     /**

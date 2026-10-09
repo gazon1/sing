@@ -356,6 +356,102 @@ class RuleFiresSmokeTest {
             "ProhibitUserIdInObserve",
         )
     }
+
+    // ── NoCoroutineLaunchInInit ─────────────────────────────────────────────────
+
+    @Test
+    fun `NoCoroutineLaunchInInit fires on scope launch inside init`() {
+        assertFires(
+            NoCoroutineLaunchInInit(TestConfig()),
+            """
+            package com.example
+
+            class MyService {
+                init {
+                    scope.launch { doSomething() }
+                }
+            }
+            """,
+            "NoCoroutineLaunchInInit",
+        )
+    }
+
+    @Test
+    fun `NoCoroutineLaunchInInit fires on scope async inside init`() {
+        assertFires(
+            NoCoroutineLaunchInInit(TestConfig()),
+            """
+            package com.example
+
+            class MyService {
+                init {
+                    scope.async { compute() }
+                }
+            }
+            """,
+            "NoCoroutineLaunchInInit (async)",
+        )
+    }
+
+    @Test
+    fun `NoCoroutineLaunchInInit exempts SyncEngine`() {
+        val found = findings(
+            NoCoroutineLaunchInInit(TestConfig()),
+            """
+            package com.example
+
+            class SyncEngine {
+                init {
+                    scope.launch { push() }
+                }
+            }
+            """,
+        )
+        assertTrue(
+            found.isEmpty(),
+            "SyncEngine is grandfathered but got findings: $found",
+        )
+    }
+
+    @Test
+    fun `NoCoroutineLaunchInInit exempts SyncBootstrapper`() {
+        val found = findings(
+            NoCoroutineLaunchInInit(TestConfig()),
+            """
+            package com.example
+
+            class SyncBootstrapper {
+                init {
+                    scope.launch { bootstrap() }
+                }
+            }
+            """,
+        )
+        assertTrue(
+            found.isEmpty(),
+            "SyncBootstrapper is grandfathered but got findings: $found",
+        )
+    }
+
+    @Test
+    fun `NoCoroutineLaunchInInit exempts SyncCoordinator`() {
+        val found = findings(
+            NoCoroutineLaunchInInit(TestConfig()),
+            """
+            package com.example
+
+            class SyncCoordinator {
+                init {
+                    scope.launch { coordinate() }
+                }
+            }
+            """,
+        )
+        assertTrue(
+            found.isEmpty(),
+            "SyncCoordinator is grandfathered but got findings: $found",
+        )
+    }
 }
 
 // ── The four MviViewModel rules that had no test at all ──────────────────────────

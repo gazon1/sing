@@ -130,6 +130,10 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
      * with the sealed hierarchy — and `signOut` is already taken by [AuthRepository],
      * where it means "ask the provider too", which is the opposite of what these tests
      * want. One setter, and the test says which session it means.
+     *
+     * The assignment to `sessions.value` also notifies [currentSession]'s collectors —
+     * which is what makes `SyncEngine.syncOnce`'s `authRepository.currentSession.value`
+     * read reflect the new session immediately.
      */
     fun set(session: Session) {
         sessions.value = session
@@ -196,7 +200,7 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
  * pass its own tests. A test that reads `lastLsn` without naming a scope is asking
  * the question the interface refuses to answer.
  */
-class FakeSyncStateRepository : SyncStateRepository {
+open class FakeSyncStateRepository : SyncStateRepository {
 
     private val states = MutableStateFlow<Map<SyncScope, SyncState>>(emptyMap())
 
@@ -249,12 +253,25 @@ class FakeSyncStateRepository : SyncStateRepository {
  * [SyncScopeProvider] a test can point at a scope — and, importantly, a test can
  * point at `null`, which is the state that has no coverage without it.
  */
-class FakeSyncScopeProvider(scope: SyncScope? = null) : SyncScopeProvider {
+open class FakeSyncScopeProvider(scope: SyncScope? = null) : SyncScopeProvider {
     private val scopes = MutableStateFlow(scope)
     override val current: Flow<SyncScope?> = scopes
 
     fun set(scope: SyncScope?) {
         scopes.value = scope
+    }
+}
+
+/**
+ * A [SyncScopeProvider] that throws when [current] is collected.
+ *
+ * Used to simulate a scope read failure in tests of error paths.
+ */
+class ThrowingSyncScopeProvider(
+    private val cause: Throwable = IllegalStateException("scope unavailable"),
+) : SyncScopeProvider {
+    override val current: Flow<SyncScope?> = kotlinx.coroutines.flow.flow {
+        throw cause
     }
 }
 

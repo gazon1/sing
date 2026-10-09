@@ -23,6 +23,13 @@ import kotlinx.serialization.json.JsonObject
  * the thing being removed.
  */
 interface SyncApiClient {
+    /**
+     * A mutable reference to the pending list, set by [PushPhase.push] before calling
+     * [batchPush]. Tests can mutate it inside [onPushInFlight] to simulate the D1
+     * race where a row is removed between plan-building and response-processing.
+     */
+    var pendingRef: MutableList<SyncOutboxEntity>?
+
     suspend fun batchPush(request: BatchPushRequest): BatchPushResponse
 
     /**
