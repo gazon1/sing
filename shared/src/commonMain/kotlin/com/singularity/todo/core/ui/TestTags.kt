@@ -93,6 +93,9 @@ object TestTags {
     /** Due-date row in the task editor attribute list. */
     const val TASK_EDITOR_DUE_ROW = "task_editor_due_row"
 
+    /** Label text inside the due-date row (shown when no date is set: "Add due date"). */
+    const val TASK_EDITOR_DUE_DATE_ROW_LABEL = "task_editor_due_date_row_label"
+
     /** Priority row in the task editor attribute list. */
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
@@ -191,6 +194,9 @@ object TestTags {
 
     /** "Delete" in a saved-agenda card overflow menu. */
     const val SAVED_AGENDA_MENU_DELETE = "saved_agenda_menu_delete"
+
+    /** Empty-state title of the saved agenda list ("No saved views yet"). */
+    const val SAVED_AGENDA_EMPTY_TITLE = "saved_agenda_empty_title"
 
     /** Dynamic tag of the form `saved_agenda_card_<slug>`. */
     fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
@@ -584,6 +590,13 @@ internal fun slug(input: String): String = buildString {
         } else {
             pendingSeparator = true
         }
+    }
+    // Trim leading and trailing separators (runs of non-alphanumeric chars at either end).
+    while (isNotEmpty() && last().let { !it.isLetterOrDigit() }) {
+        deleteCharAt(lastIndex)
+    }
+    while (isNotEmpty() && first().let { !it.isLetterOrDigit() }) {
+        deleteCharAt(0)
     }
     if (isEmpty()) append("untitled")
 }

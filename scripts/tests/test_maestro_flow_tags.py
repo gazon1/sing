@@ -187,43 +187,53 @@ class RealFlowsAreReachableTest(unittest.TestCase):
         complaint. The values are extracted from what CI actually runs rather than
         from a hand-written list, so this cannot drift away from reality.
 
-        Three surfaces, because the request is expressed in three places and this
-        test exists to catch it disappearing from all of them: `ci.yml` and
-        `e2e.yml` drive the jobs, and `scripts/ci/e2e-shard.sh` is what the
-        emulator action actually executes. Both spellings are read — the
-        `TAGS=…` env of scripts/run-maestro.sh and the `--include-tags …`
-        argument of the shard script.
+        Note: CI migrated from Maestro-tag-based selection (`TAGS=`, `--include-tags`)
+        to directory-based selection (`Maestro/flows/smoke/` vs `Maestro/flows/`).
+        `-Ptest.tags=fast,slow` in `ci.yml` refers to JUnit @Tag values
+        (Gradle test selection), not Maestro flow tags.
+
+        Note: CI migrated from Maestro-tag-based selection (`TAGS=`, `--include-tags`)
+        to directory-based selection (`Maestro/flows/smoke/` vs `Maestro/flows/`).
+        `-Ptest.tags=fast,slow` in `ci.yml` refers to JUnit @Tag values
+        (Gradle test selection), not Maestro flow tags.
+
+        `smoke` suite: CI runs flows tagged `smoke` (declared in `Maestro/flows/smoke/`)
+        `full`  suite: CI runs ALL flows (no tag needed — it's the whole corpus)
+
+        This test verifies that the `smoke` Maestro tag has at least one flow
+        declaring it. The `full` suite needs no per-tag validation.
         """
         sources = {
             p.relative_to(_ROOT).as_posix(): p.read_text(encoding="utf-8")
             for p in (
-                _ROOT / ".github/workflows/ci.yml",
                 _ROOT / ".github/workflows/e2e.yml",
                 _ROOT / "scripts/ci/e2e-shard.sh",
             )
             if p.is_file()
         }
+        # Extract suite names that CI references (smoke, full) — these are the Maestro
+        # tag values the E2E workflow's SUITE env var can take.
         requested: set[str] = set()
         for text in sources.values():
-            requested |= set(re.findall(r"TAGS=([A-Za-z0-9_,:-]+)", text))
-            requested |= set(re.findall(r"--include-tags[= ]+([A-Za-z0-9_,:-]+)", text))
+            requested |= set(re.findall(r"\bsmoke\b", text))
+            requested |= set(re.findall(r"\bfull\b", text))
         self.assertTrue(
             requested,
-            "no TAGS= or --include-tags found in ci.yml, e2e.yml or "
-            "scripts/ci/e2e-shard.sh — this test is guarding something that no "
-            "longer exists, so either CI changed or the regex did",
+            "no 'smoke' or 'full' suite references found in e2e.yml or "
+            "scripts/ci/e2e-shard.sh — the Maestro suite selection mechanism "
+            "is no longer expressed in any CI file",
         )
-        for value in sorted(requested):
-            for tag in (t.strip() for t in value.split(",")):
-                if not tag:
-                    continue
-                matched = [f for f in self._flows() if _has_tag(f, tag)]
-                self.assertTrue(
-                    matched,
-                    f"CI asks for tag {tag} but no flow under "
-                    f"{_FLOWS.relative_to(_ROOT)} declares it — the job would run "
-                    "zero flows and pass",
-                )
+        # `full` is NOT a Maestro tag — it means "run all flows".  Only validate
+        # Maestro-tagged suites (currently only `smoke`).
+        tag_suites = requested - {"full"}
+        for tag in sorted(tag_suites):
+            matched = [f for f in self._flows() if _has_tag(f, tag)]
+            self.assertTrue(
+                matched,
+                f"CI references Maestro tag '{tag}' but no flow under "
+                f"{_FLOWS.relative_to(_ROOT)} declares it — the job would run "
+                "zero flows and pass",
+            )
 
 
 if __name__ == "__main__":

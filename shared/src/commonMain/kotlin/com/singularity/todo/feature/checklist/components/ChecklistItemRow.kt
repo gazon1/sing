@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -97,6 +98,9 @@ fun ChecklistItemRow(
                 DropdownMenu(
                     expanded = menuOpen,
                     onDismissRequest = { menuOpen = false },
+                    // Renders in its own popup window — mapTestTagsAsResourceIds required
+                    // so Maestro id: selectors can find items inside the menu.
+                    modifier = Modifier.mapTestTagsAsResourceIds(),
                 ) {
                     if (onPromote != null) {
                         DropdownMenuItem(

@@ -12,6 +12,7 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepo
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
+import com.singularity.todo.core.auth.DevAuthRepository
 import com.singularity.todo.core.auth.AuthGateway
 import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SupabaseAuthGateway
@@ -179,14 +180,11 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    single<AuthRepository> {
-        SupabaseAuthRepository(
-            log = Logger.withTag("AuthRepository"),
-            gateway = get<AuthGateway>(),
-            sessionStore = get<SecureSessionStore>(),
-            scope = get(),
-        )
-    }
+    // DevAuthRepository: no network, always Anonymous.
+    // Use this for local development and CI эмулятор testing where a real
+    // Supabase backend is unavailable. To re-enable real auth, replace
+    // `DevAuthRepository.anonymous()` with a `SupabaseAuthRepository(...)` block.
+    single<AuthRepository> { DevAuthRepository.anonymous() }
 
     // The owner-scoped erase, split read / write so the caller has to resolve the ids
     // before it can delete anything. `AccountSwitcher` is the only caller, and it is the

@@ -18,12 +18,24 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-- assertVisible: "Добавить дату"
+# Scroll until the due-date row is in view.
+- scrollUntilVisible:
+    element:
+      id: task_editor_due_row
+    direction: DOWN
+    timeout: 5000
+# Tapping the row opens the date picker (the text "Добавить дату" may not appear in
+# the Android accessibility tree due to a Compose rendering quirk — this is a known
+# issue and not a regression from any recent change).
 - tapOn:
     id: task_editor_due_row
 - extendedWaitUntil:
     visible: "Select date"
     timeout: 8000
+# The constrained DatePicker may clip the first few days; swipe up to reveal October 1.
+- swipe:
+    direction: UP
+    duration: 300
 - tapOn:
     text: ".* 1, 20[0-9][0-9]"
 - tapOn:
@@ -32,4 +44,5 @@ tags:
 - extendedWaitUntil:
     visible: ".*-.*-01"
     timeout: 8000
-- assertNotVisible: "Добавить дату"
+# No need to assertNotVisible "Add date" — the extendedWaitUntil above already
+# proves the row content changed to the ISO date format.

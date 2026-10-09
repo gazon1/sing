@@ -30,7 +30,6 @@ fun BottomSheetHost(
         onDismissRequest = dismissWithAnimation,
         sheetState = sheetState,
         modifier = modifier,
-        // safeDrawing по умолчанию, но можно явно:
         contentWindowInsets = { WindowInsets.safeDrawing },
     ) {
         content()

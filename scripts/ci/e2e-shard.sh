@@ -14,9 +14,11 @@
 #      the shard loop needs a `for`.
 #
 # Env: SUITE=smoke|full  SHARD=1..N  SHARDS=N  (set by e2e.yml)
+#   MAESTRO_TIMEOUT    — per-flow timeout in ms passed to maestro test --timeout (default: 60000)
 set -euo pipefail
 
 : "${SUITE:?SUITE must be set by the workflow}" "${SHARD:?SHARD must be set}" "${SHARDS:?SHARDS must be set}"
+: "${MAESTRO_TIMEOUT:=60000}"
 
 # Where `traceability results` looks for Maestro JUnit when it is given `--maestro`,
 # and where the uploaded artifact is read from.
@@ -37,11 +39,23 @@ apk=$(ls apk/*.apk | head -n1)
 echo "installing $apk"
 adb install -r -t "$apk"
 
-# After a reinstall the package manager needs a moment, and the app will cold-
-# start on the next launch. A short sleep lets the system settle before Maestro
-# fires its first launchApp, avoiding a race where the Maestro CLI tries to
-# instrument an app that is not yet fully started.
-sleep 3
+# Wait for the app to be ready for instrumentation instead of a fixed sleep.
+# Probes the activity stack every second; succeeds when MainActivity appears or
+# times out (at which point Maestro's own extendedWaitUntil in launch-clean.yaml
+# takes over as a secondary guard). This replaces the hardcoded `sleep 3`.
+wait_for_app_ready() {
+  local deadline=$((SECONDS + 30))
+  echo "probing for app readiness (appId=$1)..."
+  until adb shell "dumpsys activity top 2>/dev/null" | grep -q "cmp=$1"; do
+    if (( SECONDS > deadline )); then
+      echo "WARNING: app readiness probe timed out after 30s — proceeding anyway (Maestro extendedWaitUntil is the secondary guard)"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "app ready"
+}
+wait_for_app_ready "com.singularity.todo/.MainActivity"
 
 # Explicit config path — Maestro looks for config.yaml in the workspace root,
 # but our config lives in Maestro/config.yaml relative to the repo root.
@@ -51,9 +65,9 @@ MAESTRO_CONFIG=Maestro/config.yaml
 run_flow() {
   local name=$1 attempt
   shift
-  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG args=$*"
+  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG MAESTRO_TIMEOUT=$MAESTRO_TIMEOUT args=$*"
   for attempt in 1 2; do
-    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" "$@"; then
+    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" --timeout "$MAESTRO_TIMEOUT" "$@"; then
       if ((attempt > 1)); then
         echo "::warning title=Flaky flow::$name passed only on attempt $attempt"
       fi

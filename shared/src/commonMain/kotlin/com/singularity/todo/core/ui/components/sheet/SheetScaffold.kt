@@ -12,6 +12,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
 
 /**
@@ -61,7 +62,7 @@ private fun SheetActionsRow(actions: SheetActions) {
         if (actions.onClear != null) {
             TextButton(
                 onClick = actions.onClear,
-                modifier = actions.testTagClear?.let { Modifier.testTag(it) } ?: Modifier,
+                modifier = actions.testTagClear?.let { Modifier.testTag(it).mapTestTagsAsResourceIds() } ?: Modifier,
             ) { Text(actions.clearLabel) }
         } else {
             Spacer(Modifier)
@@ -69,11 +70,11 @@ private fun SheetActionsRow(actions: SheetActions) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(
                 onClick = actions.onCancel,
-                modifier = actions.testTagCancel?.let { Modifier.testTag(it) } ?: Modifier,
+                modifier = actions.testTagCancel?.let { Modifier.testTag(it).mapTestTagsAsResourceIds() } ?: Modifier,
             ) { Text(actions.cancelLabel) }
             TextButton(
                 onClick = actions.onConfirm,
-                modifier = actions.testTagConfirm?.let { Modifier.testTag(it) } ?: Modifier,
+                modifier = actions.testTagConfirm?.let { Modifier.testTag(it).mapTestTagsAsResourceIds() } ?: Modifier,
             ) { Text(actions.confirmLabel) }
         }
     }

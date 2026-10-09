@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -141,8 +142,11 @@ fun TaskEditorContent(
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
     now: Instant,
+    sheets: DialogState<TaskEditorSheet>? = null,
 ) {
-    val sheets = rememberDialogState<TaskEditorSheet>()
+    // Use the passed sheet state if provided (caller owns the lifecycle),
+    // otherwise create a local one (for use cases that don't need external control).
+    val dialogState = sheets ?: rememberDialogState<TaskEditorSheet>()
     var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -194,14 +198,14 @@ fun TaskEditorContent(
                         "${dependsOn.size} dependency${if (dependsOn.size > 1) "s" else ""}"
                     },
                     isActive = true,
-                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
+                    onClick = { dialogState.show(TaskEditorSheet.Dependencies) },
                 )
             }
 
             // Priority row
             TaskEditorPriorityRow(
                 priority = priority,
-                onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
+                onPriorityClick = onPriorityClick ?: { dialogState.show(TaskEditorSheet.Priority) },
                 onPriorityClear = onPriorityClear,
             )
 
@@ -209,7 +213,7 @@ fun TaskEditorContent(
             estimateCallbacks?.let { cb ->
                 TaskEditorEstimateRow(
                     estimateMinutes = estimateMinutes,
-                    onEstimateClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Estimate) },
+                    onEstimateClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Estimate) },
                     onEstimateClear = cb.onClear,
                 )
             }
@@ -219,8 +223,9 @@ fun TaskEditorContent(
                 TaskEditorDueDateRow(
                     dueDate = dueDate,
                     dueTime = dueTime,
-                    onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
+                    onDueDateClick = onDueDateClick ?: { dialogState.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
+                    labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
                 )
             }
 
@@ -230,7 +235,7 @@ fun TaskEditorContent(
                     startDate = startDate,
                     startTime = startTime,
                     callbacks = cb,
-                    onStartDateClick = { sheets.show(TaskEditorSheet.StartDate) },
+                    onStartDateClick = { dialogState.show(TaskEditorSheet.StartDate) },
                 )
             }
 
@@ -240,7 +245,7 @@ fun TaskEditorContent(
                     icon = Icons.Filled.Folder,
                     label = project?.value ?: "No project",
                     isActive = project != null,
-                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
+                    onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Project) },
                     trailingContent = if (cb.onClear != null && project != null) {
                         {
                             Icon(
@@ -263,7 +268,7 @@ fun TaskEditorContent(
                     icon = Icons.AutoMirrored.Filled.Label,
                     label = if (tags.isEmpty()) "Add tags" else "${tags.size} tag${if (tags.size > 1) "s" else ""}",
                     isActive = tags.isNotEmpty(),
-                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Tags) },
+                    onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Tags) },
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_TAGS_ROW),
                 )
             }
@@ -274,7 +279,7 @@ fun TaskEditorContent(
                     icon = Icons.Filled.Repeat,
                     label = recurrence?.let { "Repeats" } ?: "No repeat",
                     isActive = recurrence != null,
-                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Recurrence) },
+                    onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Recurrence) },
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_RECURRENCE_ROW),
                 )
             }
@@ -379,13 +384,13 @@ fun TaskEditorContent(
             bottomBar = null,
             menuItems = menuItems,
         ),
-        activeSheet = sheets.active,
+        activeSheet = dialogState.active,
         // Passed down so the time-entry sheet's "now" default comes from the one
         // place that resolved the clock, rather than from a clock this screen
         // reaches for itself (#91). `now` is required, so a caller that has not
         // decided what "now" is cannot compile.
         now = now,
-        onSheetDismiss = { sheets.dismiss() },
+        onSheetDismiss = { dialogState.dismiss() },
     )
 }
 
