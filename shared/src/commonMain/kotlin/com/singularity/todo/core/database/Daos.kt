@@ -724,6 +724,13 @@ interface TagDao {
     @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
+    /** Restores a soft-deleted tag by clearing deletedAt. Returns row count. */
+    @Query(
+        "UPDATE tags SET deleted_at = NULL, updated_at = :ts " +
+            "WHERE id = :id AND user_id = :userId AND deleted_at IS NOT NULL",
+    )
+    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+
     @Query("SELECT * FROM tags WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagEntity>
 

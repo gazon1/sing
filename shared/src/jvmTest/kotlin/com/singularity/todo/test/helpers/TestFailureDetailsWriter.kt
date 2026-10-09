@@ -5,7 +5,6 @@ import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler
 import java.io.File
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Writes comprehensive failure diagnostics to `build/diagnostics/<TestClass>/failure-details.txt`

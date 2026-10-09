@@ -13,6 +13,10 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -43,13 +47,31 @@ sealed interface TagsIntent : MviIntent {
      *   write instead of a read-modify-write that races a concurrent rename.
      */
     data class Rename(val id: TagId, val name: String, val color: Int) : TagsIntent
+
+    /** User tapped Undo on the delete snackbar. */
+    data object UndoDeleteTapped : TagsIntent
 }
 
 // --- Events (one-shot, for async operations only) ---
 
 sealed interface TagsUiEvent : MviEvent {
     data class ShowError(val message: String) : TagsUiEvent
+
+    /**
+     * A delete was performed and the user can undo it for [UNDO_WINDOW_MS].
+     * @param tagId The deleted tag id.
+     * @param title Short label for the snackbar.
+     */
+    data class UndoDelete(val tagId: TagId, val title: String) : TagsUiEvent
 }
+
+/**
+ * Marks a tag deletion that can still be undone.
+ *
+ * @param tagId The deleted tag id.
+ * @param title Short label for the snackbar.
+ */
+data class PendingTagDelete(val tagId: TagId, val title: String)
 
 /**
  * Tags list screen ViewModel.
@@ -57,6 +79,7 @@ sealed interface TagsUiEvent : MviEvent {
  * Collects tag list via [tagRepo.observeAll].
  * Delete failures emit [TagsUiEvent.ShowError] as one-shot events.
  * Collection errors are mapped to [TagsUiState.Error].
+ * Delete success emits [TagsUiEvent.UndoDelete] and starts the undo window.
  *
  * @see TagsUiState
  * @see TagsIntent
@@ -67,13 +90,42 @@ class TagsViewModel(
     private val createTag: CreateTagUseCase,
     private val updateTag: UpdateTagUseCase,
     private val currentUser: ProfileAwareCurrentUser,
-    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
         initialState = TagsUiState.Loading,
         crashReporter = crashReporter,
         scope = scope,
     ) {
+
+    companion object {
+        /** 5-second undo window, matching the snackbar countdown. */
+        private const val UNDO_WINDOW_MS = 5_000L
+
+        private const val DELETE_FAILED = "tags.delete_failed"
+        private const val RESTORE_FAILED = "tags.restore_failed"
+    }
+
+    // ── Undo-delete state ────────────────────────────────────────────────────────
+
+    /**
+     * The tag a delete is holding open for undo, or null when none is.
+     *
+     * Public so the screen drives the snackbar directly from it; cleared
+     * when the window expires or the reversal succeeds.
+     */
+    private val _pendingDelete = MutableStateFlow<PendingTagDelete?>(null)
+    val pendingDelete = _pendingDelete.asStateFlow()
+
+    /**
+     * Countdown progress for the undo snackbar's progress bar, in [0, 1].
+     * Null when no delete is pending.
+     */
+    private val _countdownProgress = MutableStateFlow<Float?>(null)
+    val countdownProgress = _countdownProgress.asStateFlow()
+
+    /** Cooldown job for clearing the undo window. */
+    private var pendingDeleteJob: Job? = null
 
     init {
         scope.launch {
@@ -95,20 +147,64 @@ class TagsViewModel(
     override fun onIntent(intent: TagsIntent) {
         when (intent) {
             is TagsIntent.Create -> scope.launch { create(intent.name, intent.color) }
-            is TagsIntent.Delete -> scope.launch { delete(intent.id) }
+            is TagsIntent.Delete -> scope.launch { handleDelete(intent.id) }
             is TagsIntent.Rename -> scope.launch { rename(intent.id, intent.name, intent.color) }
+            is TagsIntent.UndoDeleteTapped -> scope.launch { handleUndoDeleteTapped() }
         }
     }
 
     /**
-     * Fire-and-forget delete. Errors are emitted as [TagsUiEvent.ShowError].
+     * Soft-deletes a tag, then offers [TagsUiEvent.UndoDelete] for [UNDO_WINDOW_MS].
      *
-     * Private since [TagsIntent.Delete] routes here: `SettingsScreen` used to take
-     * this as a method reference while `onCreate` and `onRename` went through the
-     * dispatcher, so the intent handler existed and nothing ever reached it.
+     * The deletion is performed first; the undo offer is made only on success.
+     * A failed delete never evicts a recoverable undo.
      */
-    private fun delete(id: TagId) = emitError("Delete failed", TagsUiEvent::ShowError) {
-        tagRepo.delete(id)
+    private suspend fun handleDelete(id: TagId) {
+        // Read title before deleting so we still have the row.
+        val tagTitle = tagRepo.get(id)?.name ?: id.value
+
+        val deleted = tagRepo.delete(id)
+        if (deleted.isFailure) {
+            val error = deleted.exceptionOrNull() ?: IllegalStateException("delete failed")
+            crashReporter.report(error, DELETE_FAILED)
+            emit(TagsUiEvent.ShowError("Delete failed"))
+            return
+        }
+
+        pendingDeleteJob?.cancel()
+        _pendingDelete.value = PendingTagDelete(id, tagTitle)
+        emit(TagsUiEvent.UndoDelete(id, tagTitle))
+
+        pendingDeleteJob = scope.launch {
+            _countdownProgress.value = 1f
+            val start = System.currentTimeMillis()
+            while (true) {
+                delay(100)
+                val elapsed = System.currentTimeMillis() - start
+                val remaining = (1f - (elapsed.toFloat() / UNDO_WINDOW_MS)).coerceAtLeast(0f)
+                _countdownProgress.value = remaining
+                if (remaining <= 0f) break
+            }
+            _pendingDelete.value = null
+            _countdownProgress.value = null
+        }
+    }
+
+    /**
+     * Restores the tag held by [_pendingDelete], clearing the offer on success only.
+     * A failed reversal leaves the offer standing so the user can retry.
+     */
+    private suspend fun handleUndoDeleteTapped() {
+        val pending = _pendingDelete.value ?: return
+        tagRepo.restore(pending.tagId)
+            .onSuccess {
+                pendingDeleteJob?.cancel()
+                _pendingDelete.value = null
+                _countdownProgress.value = null
+            }
+            .onFailure {
+                crashReporter.report(it, RESTORE_FAILED)
+            }
     }
 
     /**

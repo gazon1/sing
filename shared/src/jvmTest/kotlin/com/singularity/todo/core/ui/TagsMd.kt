@@ -203,8 +203,6 @@ object TagsMd {
 
         "calendarViewMode" -> DynamicMeta(fnName, "Calendar", "month", "Calendar view-mode tabs (month / day / 4_days)")
 
-
-
         "Settings.accentSwatch" -> DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in Settings")
 
         "CalendarSync.providerSegment" ->
