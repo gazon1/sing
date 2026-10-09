@@ -719,6 +719,49 @@ room3 {
 }
 
 // ---------------------------------------------------------------------------
+// generateSyncSql — regenerate server-side SQL from SyncContract
+// ---------------------------------------------------------------------------
+tasks.register("generateSyncSql") {
+    group = "generate"
+    description = "Generates server-side SQL artifacts (sync_field_allowlist.sql) from SyncContract.FIELD_ALLOWLIST."
+    notCompatibleWithConfigurationCache("Spawns a JVM process with runtime classpath; not cacheable.")
+
+    // Capture as strings in the configuration phase to avoid serializing project objects
+    val outputDirPath = rootProject.layout.projectDirectory.dir("supabase/migrations").asFile.absolutePath
+    val projectDirPath = rootProject.projectDir.absolutePath
+    val classesDirPath = layout.buildDirectory.dir("classes/kotlin/jvm/main").get().asFile.absolutePath
+
+    inputs.file(rootProject.layout.projectDirectory.file("shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt"))
+        .withPropertyName("syncContract")
+    outputs.dir(rootProject.layout.projectDirectory.dir("supabase/migrations"))
+        .withPropertyName("outputDir")
+
+    dependsOn(tasks.named("jvmMainClasses"))
+
+    doLast {
+        val javaHome = System.getProperty("java.home")
+        val runtimeClasspath = configurations.named("jvmRuntimeClasspath").get()
+        val cpFiles = runtimeClasspath.files
+        val separator = System.getProperty("path.separator")
+        val classpath = cpFiles.joinToString(separator) { it.absolutePath } +
+            separator + classesDirPath
+        val pb = ProcessBuilder(
+            "$javaHome/bin/java",
+            "-cp", classpath,
+            "com.singularity.todo.core.sync.SqlGeneratorCliKt",
+            outputDirPath,
+        )
+        pb.directory(File(projectDirPath))
+        val process = pb.start()
+        val exitCode = process.waitFor()
+        if (exitCode != 0) {
+            error("SqlGeneratorCli exited with code $exitCode: ${process.errorStream.bufferedReader().readText()}")
+        }
+        println("Generated SQL artifacts to: $outputDirPath")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // resolvedArtifacts — the mapping Gradle has and the catalog does not (#205)
 // ---------------------------------------------------------------------------
 // A Gradle coordinate does not determine an import package:
