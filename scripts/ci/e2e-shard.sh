@@ -14,11 +14,9 @@
 #      the shard loop needs a `for`.
 #
 # Env: SUITE=smoke|full  SHARD=1..N  SHARDS=N  (set by e2e.yml)
-#   MAESTRO_TIMEOUT    — per-flow timeout in ms passed to maestro test --timeout (default: 60000)
 set -euo pipefail
 
 : "${SUITE:?SUITE must be set by the workflow}" "${SHARD:?SHARD must be set}" "${SHARDS:?SHARDS must be set}"
-: "${MAESTRO_TIMEOUT:=60000}"
 
 # Where `traceability results` looks for Maestro JUnit when it is given `--maestro`,
 # and where the uploaded artifact is read from.
@@ -65,9 +63,9 @@ MAESTRO_CONFIG=Maestro/config.yaml
 run_flow() {
   local name=$1 attempt
   shift
-  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG MAESTRO_TIMEOUT=$MAESTRO_TIMEOUT args=$*"
+  echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG args=$*"
   for attempt in 1 2; do
-    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" --timeout "$MAESTRO_TIMEOUT" "$@"; then
+    if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" "$@"; then
       if ((attempt > 1)); then
         echo "::warning title=Flaky flow::$name passed only on attempt $attempt"
       fi
