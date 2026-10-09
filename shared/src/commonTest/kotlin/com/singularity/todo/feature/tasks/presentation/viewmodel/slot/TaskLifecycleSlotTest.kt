@@ -120,4 +120,35 @@ class TaskLifecycleSlotTest {
 
         assertNull(slot.state.value.recentlyDeleted)
     }
+
+    @Test
+    fun `restore failure keeps the snapshot alive so the user can retry`() = runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1"))
+        val errors = mutableListOf<String>()
+        val slot = TaskLifecycleSlot(
+            core = fakes.core(),
+            scheduling = fakes.scheduling(),
+            scope = testSlotScope(backgroundScope),
+            taskFlow = TaskSource(task("t1")).also { it.emit(task("t1")) }.state,
+            onError = { errors += it },
+            onUndoDelete = {},
+            onNavigateBack = {},
+            onSaved = {},
+        )
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.Delete)
+        runCurrent()
+        assertNotNull(slot.state.value.recentlyDeleted)
+
+        // Simulate a persistent server error
+        fakes.taskRepo.restoreOverride = Result.failure(IllegalStateException("Server error"))
+        slot.onIntent(TaskDetailIntent.Domain.Restore)
+        runCurrent()
+
+        // Snapshot must stay alive so the user can try again once the server recovers
+        assertNotNull(slot.state.value.recentlyDeleted)
+        assertEquals(listOf("Restore failed"), errors)
+    }
 }
