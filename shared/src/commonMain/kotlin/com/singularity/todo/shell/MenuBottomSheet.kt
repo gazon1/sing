@@ -70,7 +70,13 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
                         selected = false,
                         onClick = { onSelect(item.destination) },
                         icon = item.iconContent(),
-                        modifier = Modifier.fillMaxWidth()
+                        // Ensure testTagsAsResourceId reaches this item individually.
+                        // mapTestTagsAsResourceIds() on the Column covers descendants, but
+                        // NavigationDrawerItem may establish its own semantics scope.
+                        // Applying it here too is idempotent and guarantees propagation.
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .mapTestTagsAsResourceIds()
                             .testTag(TestTags.menuItem(item.label)),
                     )
                 }
