@@ -217,6 +217,16 @@ internal class SyncEngine(
     private val idGenerator: IdGenerator,
     private val stateRepository: SyncStateRepository,
     private val scopeProvider: SyncScopeProvider,
+    /**
+     * Bootstraps pull handlers for all DocTypes.
+     *
+     * Nullable here (a no-op placeholder) because Koin only instantiates a bean
+     * when it is first resolved. The real `SyncBootstrapper` is created in a
+     * separate `single {}` block in `CoreDiModule` — after the engine is cached —
+     * so that its `init {}` (which registers the handlers) runs with a valid engine.
+     */
+    @Suppress("UNUSED_PARAMETER")  // side-effect only: init {} in real Bootstrapper
+    private val bootstrapper: SyncBootstrapper? = null,
     private val shadowDao: SyncShadowDao,
     private val patchBuilder: SyncPatchBuilder,
     /**
