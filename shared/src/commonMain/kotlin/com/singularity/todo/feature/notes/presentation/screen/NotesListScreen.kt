@@ -51,6 +51,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -113,14 +114,22 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
             duration = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) {
-            viewModel.onUndoDeleteIntent()
+            actions.onUndoDelete(pd.noteId)
         }
     }
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
             is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
+
+            // The affordance itself is driven by `pendingDelete`; this event carries
+            // the same id and title for the same purpose and is not read here.
             is NotesUiEvent.UndoDelete -> { /* handled by LaunchedEffect above */ }
+
+            is NotesUiEvent.Error -> {
+                scope.launch { snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short) }
+            }
+
             else -> Unit
         }
     }
@@ -133,7 +142,7 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
             currentFilter = (state as? NotesUiState.Content)?.list?.filter ?: NoteFilter.All,
             currentSortOrder = (state as? NotesUiState.Content)?.list?.sortOrder ?: NoteSortOrder.UpdatedDesc,
             navigator = navigator,
-            onCreateNote = { title -> viewModel.createNoteWithTitle(title) },
+            onCreateNote = { title -> actions.onCreateNote(title) },
             actions = actions,
             modifier = Modifier.padding(paddingValues),
         )

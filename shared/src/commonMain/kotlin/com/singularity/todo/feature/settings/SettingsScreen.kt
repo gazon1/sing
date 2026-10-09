@@ -212,7 +212,7 @@ private fun SettingsContent(
                         TagsScreen(
                             state = tagsState,
                             onCreate = { name, color -> tagsVm.onIntent(TagsIntent.Create(name, color)) },
-                            onDelete = tagsVm::delete,
+                            onDelete = { id -> tagsVm.onIntent(TagsIntent.Delete(id)) },
                             onRename = { id, name, color -> tagsVm.onIntent(TagsIntent.Rename(id, name, color)) },
                         )
                     }

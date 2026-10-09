@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -25,6 +26,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 
 /**
  * ViewModel for the Agenda screen.
@@ -43,7 +47,7 @@ import kotlinx.coroutines.launch
  *        at runtime; future MRs will support switching definitions.
  * @param scope CoroutineScope for all coroutine work. Tests pass `this` (TestScope).
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
 class AgendaViewModel(
     private val deps: AgendaDeps,
     definition: AgendaDefinition,
@@ -66,21 +70,23 @@ class AgendaViewModel(
      */
     val definition: AgendaDefinition = definition
 
-    // ── Selection state ───────────────────────────────────────────────────────────
-
-    /** Currently selected task IDs. Persists across agenda re-evaluations. */
-    private val _selectedTaskIds = MutableStateFlow<Set<TaskId>>(emptySet())
-    val selectedTaskIds = _selectedTaskIds.asStateFlow()
-
-    /** True when the user is in multi-selection mode. */
-    private val _isSelectionMode = MutableStateFlow(false)
-    val isSelectionMode = _isSelectionMode.asStateFlow()
+    // ── Selection state ──────────────────────────────────────────────────────────
+    //
+    // Selection has no fields of its own. It lives in `AgendaUiState.Loaded`,
+    // because that is what the screen renders, and it used to also live in a pair
+    // of `MutableStateFlow`s with `updateSelectionState()` copying between them —
+    // two writers for one value, bridged by hand, with nothing enforcing that a
+    // fourth handler remembered to call the bridge.
 
     // ── Undo-delete state ────────────────────────────────────────────────────────
 
     /**
-     * Tracks a soft-deleted task pending undo, so the snackbar can offer a 5-second window.
-     * Null when no delete is pending.
+     * The item a delete is holding open for undo, or null when none is.
+     *
+     * Public because the screen's snackbar is driven by it and dismissed when it
+     * clears — see `AgendaScreen`. This is the ADR's in-memory marker, not a second
+     * copy of state the screen renders: nothing else reads it, and the undo window
+     * is exactly as long as this is set.
      */
     private val _pendingDelete = MutableStateFlow<PendingDelete?>(null)
     val pendingDelete = _pendingDelete.asStateFlow()
@@ -88,24 +94,57 @@ class AgendaViewModel(
     /** Cooldown job for clearing [_pendingDelete] after the undo window expires. */
     private var pendingDeleteJob: Job? = null
 
+    /**
+     * Identity of the pending-delete slot.
+     *
+     * The scope runs on `Dispatchers.Default` — a multi-threaded pool — so two
+     * deletes dispatched in quick succession genuinely interleave, and the first
+     * one's timer can still be live when the second claims the slot. Cancelling
+     * the job is best-effort there; comparing generations is not.
+     */
+    private val undoSlot = AtomicInt(0)
+
+    /**
+     * Order in which deletes were *requested*, as opposed to the order they finished.
+     *
+     * Separate from [undoSlot] on purpose. [undoSlot] identifies who owns the single
+     * undo affordance and is advanced only on success, so a failed delete cannot
+     * evict a recoverable one. This one is advanced at dispatch time, so a delete
+     * that finishes late knows it has been superseded and does not claim the slot.
+     */
+    private val deleteSequence = AtomicInt(0)
+
     init {
         scope.launch {
             todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
                     .map { tasks ->
-                        val sections = AgendaEvaluator.evaluate(tasks, definition, today)
-                        // Preserve selection state across re-evaluations.
                         AgendaUiState.Loaded(
-                            sections = sections,
+                            sections = AgendaEvaluator.evaluate(tasks, definition, today),
                             today = today,
-                            isSelectionMode = _isSelectionMode.value,
-                            selectedTaskIds = _selectedTaskIds.value,
                         )
                     }
             }
-                .collect { loaded -> setState(loaded) }
+                .collect { fresh ->
+                    // Reconciliation goes through `updateState`, which is CAS-backed,
+                    // because this collector and the selection handlers both write and
+                    // the scope is multi-threaded. Reading `_state.value` and then
+                    // `setState`-ing the result — which is what this used to do —
+                    // is a read-modify-write that can drop a concurrent selection.
+                    updateState { current ->
+                        val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+                        // A task that has left the agenda — completed or deleted
+                        // elsewhere — must not stay selected: the id would otherwise
+                        // ride along into a later bulk delete.
+                        val kept = previous.intersect(fresh.taskIds())
+                        fresh.copy(isSelectionMode = kept.isNotEmpty(), selectedTaskIds = kept)
+                    }
+                }
         }
     }
+
+    private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
+        sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }
 
     /** Title derived from the definition, for the Slot API. */
     val title: String get() = definition.title
@@ -124,7 +163,7 @@ class AgendaViewModel(
     override fun onIntent(intent: AgendaIntent) {
         when (intent) {
             is AgendaIntent.TaskClicked -> with(intent) {
-                if (_isSelectionMode.value) {
+                if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
                     scope.launch { handleToggleSelection(taskId) }
                 } else {
                     scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
@@ -134,12 +173,12 @@ class AgendaViewModel(
             is AgendaIntent.TaskCheckClicked -> with(intent) {
                 scope.launch {
                     deps.taskRepo.toggleComplete(taskId)
-                        .onFailure { crashReporter.report(it, TOGGLE_COMPLETE_FAILED) }
+                        .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
                 }
             }
 
             is AgendaIntent.TaskLongClicked -> with(intent) {
-                if (_isSelectionMode.value) {
+                if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
                     // Already in selection mode — ignore long-press, click handles selection.
                 } else {
                     scope.launch { handleEnterSelectionMode(taskId) }
@@ -149,12 +188,16 @@ class AgendaViewModel(
             is AgendaIntent.TaskPinClicked -> with(intent) {
                 scope.launch {
                     deps.taskRepo.togglePinned(taskId)
-                        .onFailure { crashReporter.report(it, TOGGLE_PINNED_FAILED) }
+                        .onFailure { report(it, TOGGLE_PINNED_FAILED, "Could not update task") }
                 }
             }
 
             is AgendaIntent.TaskDeleteClicked -> with(intent) {
                 scope.launch { handleTaskDelete(intent.taskId) }
+            }
+
+            is AgendaIntent.UndoDeleteTapped -> {
+                scope.launch { handleUndoDeleteTapped() }
             }
 
             is AgendaIntent.TaskExpandClicked -> with(intent) {
@@ -188,36 +231,46 @@ class AgendaViewModel(
     }
 
     // ── Selection handlers ──────────────────────────────────────────────────────
+    //
+    // Every one of these is a single `updateState`, so the selection has exactly one
+    // home and one writer path. They used to write a pair of `MutableStateFlow`s and
+    // then call `updateSelectionState()` to copy them into the state — so each handler
+    // had to remember the second step, and nothing enforced that a new one would.
 
-    /**
-     * Enter multi-selection mode, selecting [taskId].
-     * Called from long-press or explicit enter action.
-     */
-    private fun handleEnterSelectionMode(taskId: TaskId) {
-        _isSelectionMode.value = true
-        _selectedTaskIds.value = setOf(taskId)
-        updateSelectionState()
+    /** The ids currently selected, read from the single state. */
+    private fun selectedIds(): Set<TaskId> =
+        (currentState as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+
+    /** Enter multi-selection mode, selecting [taskId]. */
+    private fun handleEnterSelectionMode(taskId: TaskId) = updateState { current ->
+        (current as? AgendaUiState.Loaded)?.copy(
+            isSelectionMode = true,
+            selectedTaskIds = setOf(taskId),
+        ) ?: current
     }
 
     /**
      * Toggle [taskId] in the current selection.
-     * If it was the last selected task, exits selection mode.
+     *
+     * Deselecting the last task leaves selection mode, because the action row and
+     * the per-row checkbox are both driven by that flag.
      */
-    private fun handleToggleSelection(taskId: TaskId) {
-        val current = _selectedTaskIds.value
-        val updated = if (taskId in current) current - taskId else current + taskId
-        _selectedTaskIds.value = updated
-        if (updated.isEmpty()) {
-            _isSelectionMode.value = false
+    private fun handleToggleSelection(taskId: TaskId) = updateState { current ->
+        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+        val updated = if (taskId in loaded.selectedTaskIds) {
+            loaded.selectedTaskIds - taskId
+        } else {
+            loaded.selectedTaskIds + taskId
         }
-        updateSelectionState()
+        loaded.copy(isSelectionMode = updated.isNotEmpty(), selectedTaskIds = updated)
     }
 
     /** Exit selection mode, clearing all selected tasks. */
-    private fun handleExitSelectionMode() {
-        _isSelectionMode.value = false
-        _selectedTaskIds.value = emptySet()
-        updateSelectionState()
+    private fun handleExitSelectionMode() = updateState { current ->
+        (current as? AgendaUiState.Loaded)?.copy(
+            isSelectionMode = false,
+            selectedTaskIds = emptySet(),
+        ) ?: current
     }
 
     /**
@@ -225,7 +278,7 @@ class AgendaViewModel(
      * Exits selection mode on completion.
      */
     private suspend fun handleBulkDelete() {
-        val ids = _selectedTaskIds.value.toList()
+        val ids = selectedIds().toList()
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkDelete(ids)
@@ -247,7 +300,7 @@ class AgendaViewModel(
      * Exits selection mode on completion.
      */
     private suspend fun handleBulkComplete() {
-        val ids = _selectedTaskIds.value.toList()
+        val ids = selectedIds().toList()
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkComplete(ids)
@@ -264,60 +317,112 @@ class AgendaViewModel(
         )
     }
 
-    /** Push current selection state into [setState] so the screen re-renders. */
-    private fun updateSelectionState() {
-        val current = _state.value as? AgendaUiState.Loaded ?: return
-        setState(
-            current.copy(
-                isSelectionMode = _isSelectionMode.value,
-                selectedTaskIds = _selectedTaskIds.value,
-            ),
-        )
-    }
-
     // ── Undo-delete handlers ────────────────────────────────────────────────────
 
     /**
-     * Soft-deletes a task and emits [AgendaUiEvent.UndoDelete] so the UI can show a snackbar.
-     * The snackbar offers a 5-second undo window; if not tapped, the pending delete is cleared.
-     * If the user taps Undo, [onUndoDelete] calls [restore] to reverse the delete.
+     * Soft-deletes a task, then offers an undo for as long as [_pendingDelete] holds
+     * the entry.
+     *
+     * The affordance *is* the marker, not an event: the screen renders it by
+     * watching [pendingDelete] and dismisses it when the marker clears. An
+     * `UndoDelete` event carrying the same id and title existed alongside it and was
+     * collected into an empty branch — two channels for one fact, one of them dead
+     * from the day it was written.
+     *
+     * ## What this used to do
+     *
+     * It announced a delete it never issued. `taskRepo.softDelete` appeared nowhere
+     * in this class, so tapping delete produced a snackbar saying `"X" deleted`
+     * while the task stayed live, kept its reminders, and could still be restored
+     * by an Undo that called `restore` against a row that was never archived.
+     * `AgendaDeps` carried `reminderScheduler` and `currentUser` documented as
+     * being for exactly this call, and neither was referenced.
+     *
+     * ## Order
+     *
+     * Reminders are cancelled **before** the delete, and a cancellation failure
+     * aborts the delete. The invariant that buys is one-directional: a reminder
+     * never outlives its task. `cancelByTask` returns `Unit` and hands back no
+     * `Reminder` spec, so the reverse cannot be compensated for — a delete that
+     * fails after a successful cancellation leaves the task without its reminder.
+     * That is the accepted trade; a lost reminder is recoverable, a zombie reminder
+     * for a deleted task is not.
      */
-    private suspend fun handleTaskDelete(taskId: TaskId) {
+    private fun handleTaskDelete(taskId: TaskId) {
         // Find the task title from the current state for the snackbar label.
         val taskTitle = findTaskTitle(taskId)
+        // Claim the *request* order up front. Two deletes dispatched in quick
+        // succession genuinely interleave on Dispatchers.Default, so the one that
+        // reaches the repository last is not necessarily the one the user asked for
+        // last — and the newer request is the one whose undo they are looking at.
+        val request = deleteSequence.incrementAndFetch()
 
-        // Cancel any existing undo window — a new delete supersedes it.
-        pendingDeleteJob?.cancel()
+        scope.launch {
+            // `runCatchingCancellable` rather than a try/catch: cancellation must still
+            // propagate, and it hands back a Result, which is what the rest of this
+            // function already speaks.
+            runCatchingCancellable {
+                deps.reminderScheduler.cancelByTask(taskId, deps.currentUser.scopedUserId.value)
+            }.onFailure {
+                report(it, CANCEL_REMINDERS_FAILED, "Could not delete — its reminder is still scheduled")
+                return@launch
+            }
 
-        // Store the pending delete and emit the event.
-        _pendingDelete.value = PendingDelete(taskId, taskTitle)
-        emit(AgendaUiEvent.UndoDelete(taskId, taskTitle))
+            val deleted = deps.taskRepo.softDelete(taskId)
+            if (deleted.isFailure) {
+                report(
+                    deleted.exceptionOrNull() ?: IllegalStateException("delete failed"),
+                    SOFT_DELETE_FAILED,
+                    "Delete failed",
+                )
+                return@launch
+            }
 
-        // Kick off the 5-second undo window.
-        pendingDeleteJob = scope.launch {
-            delay(UNDO_WINDOW_MS)
-            _pendingDelete.value = null
+            // Superseded while in flight: the task is genuinely deleted, but a newer
+            // request owns the single affordance and this one does not compete for it.
+            if (deleteSequence.load() != request) return@launch
+
+            // Claimed only now — a failed delete must not evict a good pending undo.
+            val generation = undoSlot.incrementAndFetch()
+            pendingDeleteJob?.cancel()
+            _pendingDelete.value = PendingDelete(taskId, taskTitle)
+
+            pendingDeleteJob = scope.launch {
+                delay(UNDO_WINDOW_MS)
+                // Generation-scoped: a superseded timer can still be live when a newer
+                // delete claims the slot. `cancel()` is best-effort on that path —
+                // the timer may already have resumed — and this check is not.
+                if (undoSlot.load() == generation) _pendingDelete.value = null
+            }
         }
     }
 
     /**
-     * Restores the last soft-deleted task, cancelling the undo window.
-     * Called when the user taps "Undo" on the snackbar.
+     * Restores the item held by [_pendingDelete].
+     *
+     * The marker is cleared **only on success**, and the timer is left running
+     * until then. A failed reversal must leave the offer addressable: clearing the
+     * pending slot before knowing the write worked removes the only recovery path
+     * at the exact moment the user needs it, and dismisses the snackbar with it, so
+     * the failure becomes invisible. See `delete-safety-feedback` Phase 1 and #78.
+     *
+     * `restore` re-uses the original id, so a repeated attempt is safe rather than
+     * impossible — the timer bounds how long the offer stays up.
      */
-    private suspend fun onUndoDelete(taskId: TaskId) {
-        pendingDeleteJob?.cancel()
-        _pendingDelete.value = null
-        deps.taskRepo.restore(taskId)
-            .onFailure { crashReporter.report(it, RESTORE_FAILED) }
+    private fun handleUndoDeleteTapped() = scope.launch {
+        val pending = _pendingDelete.value ?: return@launch
+        deps.taskRepo.restore(pending.taskId)
+            .onSuccess {
+                pendingDeleteJob?.cancel()
+                _pendingDelete.value = null
+            }
+            .onFailure { report(it, RESTORE_FAILED, "Could not restore") }
     }
 
-    /**
-     * Call this from the UI when the user taps "Undo" on the snackbar.
-     * The UI layer holds the snackbar reference and invokes this method directly.
-     */
-    fun onUndoDeleteIntent() {
-        val pending = _pendingDelete.value ?: return
-        scope.launch { onUndoDelete(pending.taskId) }
+    /** Reports a failure to the crash reporter and to the user. */
+    private suspend fun report(error: Throwable, label: String, message: String) {
+        crashReporter.report(error, label)
+        emit(AgendaUiEvent.ShowError(message))
     }
 
     private fun findTaskTitle(taskId: TaskId): String {
@@ -368,6 +473,8 @@ class AgendaViewModel(
         // Machine-shaped grouping keys — these leave the device.
         private const val TOGGLE_COMPLETE_FAILED = "agenda.toggle_complete_failed"
         private const val TOGGLE_PINNED_FAILED = "agenda.toggle_pinned_failed"
+        private const val CANCEL_REMINDERS_FAILED = "agenda.cancel_reminders_failed"
+        private const val SOFT_DELETE_FAILED = "agenda.soft_delete_failed"
         private const val RESTORE_FAILED = "agenda.restore_failed"
         private const val BULK_DELETE_FAILED = "agenda.bulk_delete_failed"
         private const val BULK_COMPLETE_FAILED = "agenda.bulk_complete_failed"

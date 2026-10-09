@@ -748,7 +748,7 @@ decision about which profile becomes active, not just a DTO.
 
 **Symptom:** `ConfirmActionDialog` используется только в 2 местах: `SavedAgendaScreen` delete-view и `ProfileSwitcherScreen` delete-profile. Остальные 10 delete flow'ов удаляют мгновенно и молча:
 
-- `AgendaContent.kt:314` → `AgendaViewModel.kt:98` (`TaskDeleteClicked`, no event)
+- ~~`AgendaContent.kt:314` → `AgendaViewModel.kt:98` (`TaskDeleteClicked`, no event)~~ — **поправка, #253:** не «мгновенно и молча», а обратное. `handleTaskDelete` вообще не вызывал `taskRepo.softDelete`: ставил маркер, эмитил событие, заводил таймер. Snackbar рапортовал об удалении, которого не было; `reminderScheduler`/`currentUser` в `AgendaDeps` были неиспользуемыми. Исправлено в #253.
 - `SavedAgendaListScreen.kt:107` → `SavedAgendaListViewModel.kt:78`
 - `ProjectDetailBody.kt:111` → `ProjectDetailViewModel.kt:349`
 - `NotesListScreen.kt` × 5 мест → `NotesListViewModel.kt:250`
@@ -762,6 +762,8 @@ decision about which profile becomes active, not just a DTO.
 KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для deletes. Паттерн существует в `TaskDetailViewScreen.kt` для task delete.
 
 **Status: OPEN.** Политика: строчные deletes (tasks, notes, tags, views, searches, attachments) → `Notification.Undo`; каскадные/невозвратные (проект, группа тегов, backup-файл) → `ConfirmActionDialog`. Фиксируется в MR-1.
+
+**Оговорка по #104 после #253.** Пункты #78, #80 и сам этот свип описывали agenda как работающий образец delete-with-undo. Он не работал — см. правку выше. Планы #78 и #80 выводились из поведения, которого не было; перечитать их нужно до начала работы, а не после.
 
 ---
 

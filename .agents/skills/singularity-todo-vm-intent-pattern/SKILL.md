@@ -13,7 +13,14 @@ This skill captures the pattern, the common pitfalls, and the key design split �
 
 - **Full** (has routing intents for sheets): `TaskDetailViewModel`, `TaskEditorViewModel`
 - **Minimal** (no sheets — only domain mutations + navigation): `ProjectDetailViewModel`
-- **Evaluate-only (static definition, no intents)** — pure read-through variant: `AgendaViewModel`. Definition is injected at construction; the VM watches all tasks and evaluates them in-memory with `AgendaEvaluator.evaluate()`. No routing intents, no mutation intents, no editable draft state. **This is the canonical case where `combine + stateIn(WhileSubscribed)` IS appropriate** — the state is purely derived from upstream flows with no init logic, no drafts, and no local mutations. Tests for this variant do need Turbine (see `singularity-todo-testable-vm`: "When to Use Each Pattern").
+- **Evaluate + mutate (definition injected, evaluated in-process)**: `AgendaViewModel`. The `definition` is injected at construction and the VM watches all tasks via `TaskFilter.All`, evaluating them in memory with `AgendaEvaluator.evaluate()` — but it is **not** a read-through VM. It extends `MviViewModel`, keeps a plain `MutableStateFlow` state, and carries five mutation intents: `TaskCheckClicked`, `TaskPinClicked`, `TaskDeleteClicked`, `DeleteSelected`, `CompleteSelected`, plus `UndoDeleteTapped`. Use it as the example of a VM whose sections are derived from a repository while its own commands are not.
+
+> This entry used to describe `AgendaViewModel` as "evaluate-only, no mutation intents" and
+> name it the canonical `combine + stateIn(WhileSubscribed)` case. Neither was true. A stale
+> skill is a planning input, not just documentation: an agent that believed it would conclude
+> agenda had no intents, and so never look for a missing `softDelete` *inside an intent
+> handler* — which is exactly how a delete that deleted nothing survived in a feature whose
+> KDoc said it deleted everything.
 
 ---
 
@@ -258,7 +265,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 - `TaskEditorViewModel` — draft-editor pattern with pure `reduce()` + `TaskEditorReducerTest`
 - `TaskDetailViewModel` — write-through pattern with single `onIntent()` + `mutate{}`; has sheet routing intents
 - `ProjectDetailViewModel` — **minimal variant**: no sheets, only domain intents + navigation callbacks; demonstrates the pattern at its simplest
-- `AgendaViewModel` — **evaluate-only variant**: `definition` injected at construction; watches all tasks via `TaskFilter.All`, evaluates in-process with `AgendaEvaluator.evaluate()`, emits `AgendaUiState`. No mutation intents — navigation only via `AgendaUiEvent.NavigateToTask`.
+- `AgendaViewModel` — **evaluate-and-mutate variant**: `definition` injected at construction; watches all tasks via `TaskFilter.All` and evaluates in-process with `AgendaEvaluator.evaluate()`, but extends `MviViewModel` with a plain `MutableStateFlow` and carries real mutation intents. Selection is a single `updateState` per handler — no second flow mirroring `AgendaUiState`.
 - `TaskDetailIntent.kt` — routing/domain separation in a real-world screen
 
 ## See Also
