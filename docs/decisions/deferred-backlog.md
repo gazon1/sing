@@ -3914,3 +3914,70 @@ and is correctly *not* reported.
 the screen should render. If yes, replace the current row with it and delete this
 entry. If no, delete `ReminderTile.kt` and its previews outright — a component with no
 caller and no plan is not an asset, it is a trap for the next reader.
+
+---
+
+## simplefiltersheet-modalbottomsheet-unreachable-on-desktop
+
+**Status: OPEN**
+
+**Tracked as:** #403
+
+**Found in:** PR #402 (`:fix/search-viewmodel-test-33-35-73-83`), while attempting to
+write desktop Compose UI tests for `SimpleFilterSheet`.
+
+`SimpleFilterSheet` is a `ModalBottomSheet`. On desktop Compose, `ModalBottomSheet`
+renders its content into a **separate semantics root** — the test API (`onNodeWithText`,
+`performClick`) cannot reach it. All four tests that tried to interact with the sheet's
+controls (`Has description`, `Pinned` toggles; `Apply`, `Cancel` buttons) failed with
+`IllegalStateException` ("expected at least one item").
+
+**Already ruled out — measured, not inferred.** `BottomSheetScaffold` cannot work
+around this: the sheet manages its own `SheetState`, and the content lives in the
+scaffold's `sheetContent` slot which the test API still cannot reach. The codebase's
+own `TagsMd.kt:282` already documents this limitation for the `SearchFilter` tag class.
+`ModalBottomSheet` on desktop always creates a separate semantics root.
+
+**Try next, in this order.**
+
+1. **Accept the gap (Android/Maestro tier only).** Document the gap permanently in
+   `TagsMd.kt` under the `SearchFilter` heading. The controls are reachable via
+   Maestro flows on Android. No code change.
+2. **Refactor to BottomSheetScaffold.** If `SimpleFilterSheet` used `BottomSheetScaffold`
+   directly instead of `ModalBottomSheet`, it would render in the same semantics root.
+   This is a product/UX decision about the sheet's dismissal model (swipe-to-dismiss
+   vs. tap-outside-to-dismiss), not a test infrastructure decision.
+3. **Screenshot-based testing.** A screenshot test would capture the rendered sheet
+   and could assert on pixel values. This tests appearance, not behaviour.
+
+---
+
+## savedsearchesrow-longpress-unreachable-on-desktop
+
+**Status: OPEN**
+
+**Tracked as:** #404
+
+**Found in:** PR #402 (`:fix/search-viewmodel-test-33-35-73-83`), while writing
+`SavedSearchesRowUiTest`.
+
+`SavedSearchesRow` has a long-press context menu (rename, delete) implemented with
+`combinedClickable` inside a `LazyRow`'s `DropdownMenu` popup. The desktop Compose
+test API cannot reliably address nodes inside a `DropdownMenu` popup rendered by
+`LazyRow` — the popup is in a separate layer that `onNodeWithText` and `performClick`
+cannot reach. The test was omitted from the PR rather than shipped broken.
+
+**Already ruled out — measured, not inferred.** Direct `performClick` on the chip
+works correctly (covered by the PR's tests). The long-press path is the gap.
+
+**Try next, in this order.**
+
+1. **Accept the gap (Android/Maestro tier only).** The long-press rename/delete is
+   reachable via Maestro on Android. No code change.
+2. **Rewrite context menu as inline UI.** If the menu were rendered as a permanent
+   inline UI element (e.g., a separate column or a dialog) instead of `DropdownMenu`,
+   it would be addressable by the desktop test API.
+3. **Investigate desktop PopupLayer API.** `DropdownMenu` in desktop Compose uses a
+   `PopupLayer`; there may be a way to traverse it with the test API that was not
+   explored during this PR.
+
