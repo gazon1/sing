@@ -139,6 +139,7 @@ class RepoTest:
     feature: str  # feature.tasks | core.ui | arch | root
     tag: str  # fast | slow | untagged
     is_arch: bool  # класс из пакета arch — это проверки архитектуры
+    declared_class: str  # имя класса, объявленного в файле (может отличаться от path.stem)
 
     @property
     def component(self) -> str:
@@ -373,6 +374,18 @@ def scan_repository() -> list[RepoTest]:
             if not has_runnable_test(source):
                 SKIPPED_NON_TESTS.append((path.stem, _rel(path)))
                 continue
+            # Имя класса, объявленного в файле. Кейс в Kiwi идентифицируется
+            # по source_path (имени файла), а не по FQN, поэтому declared_class
+            # может отличаться от path.stem — это видимый признак расхождения
+            # (PurchaseStateTest в NoopSubscriptionProviderTest.kt, и т.д.).
+            all_classes = _test_classes_in(source)
+            file_class = path.stem  # имя файла без расширения
+            if file_class in all_classes:
+                declared_class = file_class
+            elif all_classes:
+                declared_class = all_classes[0]
+            else:
+                declared_class = "unknown"
             found.append(
                 RepoTest(
                     fqn=fqn,
@@ -389,6 +402,7 @@ def scan_repository() -> list[RepoTest]:
                     # тихая подстановка чужого тега.
                     tag=_read_tag(source, path.stem),
                     is_arch=".arch." in fqn or fqn.endswith(".arch"),
+                    declared_class=declared_class,
                 )
             )
     return found
@@ -549,6 +563,7 @@ def sync_plan(
         client.set_property(case["id"], "source_path", test.rel_path)
         client.set_property(case["id"], "module", test.module)
         client.set_property(case["id"], "junit_tag", test.tag)
+        client.set_property(case["id"], "declared_class", test.declared_class)
         if test.tag:
             client.set_tag(case["id"], test.tag)
         existing[test.rel_path] = case["id"]
