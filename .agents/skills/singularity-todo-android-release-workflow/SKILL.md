@@ -1,46 +1,53 @@
 ---
 name: singularity-todo-android-release-workflow
-description: Android release build workflow for Singularity Todo — signing configuration, R8/ProGuard minification, iterative rule fixing, APK verification, and the release checklist. Use when building a release APK, fixing R8 missing-class warnings, or preparing a release.
+description: Android release build workflow for Singularity Todo — signing configuration, version injection, R8/ProGuard minification (not yet enabled), iterative rule fixing, APK verification, and the release checklist. Use when building a release APK, fixing R8 missing-class warnings, or preparing a release.
 ---
 
 # Android Release Workflow
 
+> **Current state (2026-10-09):** signing is implemented (env-driven, fail-closed);
+> minification is NOT yet enabled (`isMinifyEnabled = false`). Until R8 rules are
+> written, shipping a minified build is blocked. See
+> `docs/decisions/deferred-backlog.md` → `release-apk-is-unsigned-and-unminified`.
+
 ## Prerequisites
 
-Before building a release APK, ensure the following are configured:
+### 1. Keystore (CI)
 
-### 1. Keystore
+In GitHub Actions, set four repository secrets (Settings → Secrets and variables →
+Actions):
 
-A Java keystore (`.jks` or `.keystore`) with a signing key. Generate a test keystore:
+| Secret | Value |
+|--------|-------|
+| `ANDROID_KEYSTORE_BASE64` | Base-64 encoded `.jks`/`.keystore` file |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias (e.g. `singularity`) |
+| `ANDROID_KEY_PASSWORD` | Key password |
+
+Also set a repository variable (Settings → Secrets and variables → Actions → Variables):
+
+| Variable | Value |
+|----------|-------|
+| `ANDROID_CERT_FINGERPRINT` | SHA-256 fingerprint of the signing cert (hex, no colons). Run: `keytool -exportcert -alias singularity -keystore keystore.jks \| openssl sha256 -binary \| xxd -p -c 256` |
+
+**Without all four secrets the release workflow fails-closed** — it never silently
+produces an APK with the JDK debug key. Losing the keystore means Android will
+never accept an update over the installed app. Back it up in at least two places.
+
+### 2. Local Development
+
+For local builds, do NOT set the signing env vars. The `release` buildType in
+`androidApp/build.gradle.kts` activates the signing config only when all four
+`SIGNING_*` environment variables are present; otherwise it falls back to the
+default JDK keystore (which produces an unsigned APK).
 
 ```bash
-keytool -genkey -v -keystore /tmp/singularity-test.keystore \
-  -alias singularity -keyalg RSA -keysize 2048 -validity 10000 \
-  -storepass teststore -keypass testkey -dname "CN=Test"
+# Local release build (unsigned — for testing only)
+./gradlew :androidApp:assembleRelease
+# APK: androidApp/build/outputs/apk/release/app-release.apk (unsigned)
 ```
 
-**For production:** use a real keystore managed by your team. Never commit keystore passwords to source control.
-
-### 2. Gradle Properties
-
-Set credentials in `~/.gradle/gradle.properties` (user-level, not project-level):
-
-```properties
-singularity.keystore.path=/path/to/your/keystore.jks
-singularity.keystore.password=your_store_password
-singularity.key.alias=your_alias
-singularity.key.password=your_key_password
-```
-
-Or pass them as environment variables:
-```bash
-export SINGULARITY_KEYSTORE_PATH=/path/to/keystore.jks
-export SINGULARITY_KEYSTORE_PASSWORD=...
-export SINGULARITY_KEY_ALIAS=...
-export SINGULARITY_KEY_PASSWORD=...
-```
-
-### 3. Local SDK
+### 3. SDK
 
 Ensure `local.properties` exists in the project root (not checked in):
 ```
@@ -56,56 +63,60 @@ sdk.dir=/path/to/android/sdk
 # APK: androidApp/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Release (signing + minification)
+### Release (CI: signed + version-injected; local: unsigned)
 
 ```bash
-./gradlew :androidApp:assembleRelease
-# APK: androidApp/build/outputs/apk/release/app-release.apk
+# CI: VERSION_NAME and VERSION_CODE are injected by release.yml
+./gradlew :androidApp:assembleRelease \
+  -PVERSION_NAME="1.2.3" \
+  -PVERSION_CODE=1002003
+# APK: androidApp/build/outputs/apk/release/app-release.apk (or *-unsigned.apk locally)
 ```
 
-If keystore is not configured, signing is **skipped** and a debug-style unsigned APK is produced. The `release` buildType still enables minification.
+**In CI:** `release.yml` passes these from the tag. Do not set them manually in
+`androidApp/build.gradle.kts` — the hardcoded `versionName = "0.1.0"` is replaced
+at build time via `project.findProperty("VERSION_NAME")`.
 
-### Release with verbose signing info
-
-```bash
-./gradlew :androidApp:assembleRelease --info 2>&1 | grep -i signing
-```
+**Version code scheme:** `major * 1_000_000 + minor * 1_000 + patch`.
+Example: `1.2.3` → `1_000_000 + 2_000 + 3 = 1_002_003`.
+Asserted: `minor < 1000`, `patch < 1000`.
 
 ## Verifying the APK
 
-### Check signing
+### Check signing (certificate fingerprint)
 
 ```bash
-apksigner verify --verbose androidApp/build/outputs/apk/release/app-release.apk
+# Extract cert SHA-256 from APK
+cert_sha256=$(keytool -printcert -jarfile androidApp/build/outputs/apk/release/app-release.apk \
+  | sed -n 's/SHA-256: \(.*\)/\1/p' | tr -d ': \n' | tr 'A-Z' 'a-z')
+echo "$cert_sha256"
+# Compare against ANDROID_CERT_FINGERPRINT repo variable
 ```
 
-Expected output for a signed APK:
-```
-Verifies
-Verified using v1 scheme (JAR signing): true
-Verified using v2 scheme (APK signing): true
-```
+`apksigner verify` alone is insufficient — it only confirms the APK is signed,
+not that it is signed with the right key. Always compare the certificate fingerprint.
 
-### Check minification
+### Check version
 
 ```bash
-apkanalyzer dex size androidApp/build/outputs/apk/release/app-release.apk
+aapt2 dump badging androidApp/build/outputs/apk/release/app-release.apk \
+  | sed -n "s/^package: name='[^']*' versionCode='\([^']*\)' versionName='\([^']*\)'.*/versionCode: \1  versionName: \2/p"
 ```
 
-Compare against the debug APK size:
-```bash
-ls -lh androidApp/build/outputs/apk/debug/app-release.apk   # after rename
-```
+The `versionName` must match the tag exactly. `release.yml` fails the build if
+`embedded != tag` (exact string comparison).
 
-### Inspect DEX classes
+## R8/ProGuard — NOT YET ENABLED
 
-```bash
-apkanalyzer dex packages androidApp/build/outputs/apk/release/app-release.apk
-```
+Minification is blocked on writing the rules. See
+`docs/decisions/deferred-backlog.md` → `release-apk-is-unsigned-and-unminified`.
 
-## R8/ProGuard — Iterative Rule Fixing
+**Order matters:** minification before signing. A minified APK that crashes is worse
+than an unsigned APK that installs cleanly. The rules must be written and exercised
+in CI before the flag is flipped.
 
-When `isMinifyEnabled = true`, R8 may emit warnings about missing classes from third-party libraries. These are **warnings only** — the build succeeds, but the DEX may contain unnecessary code.
+When `isMinifyEnabled = true`, R8 may emit `Missing class` warnings. These are
+**warnings only** — the build succeeds but the DEX may contain unnecessary code.
 
 ### Step 1: Build and capture warnings
 
@@ -171,42 +182,23 @@ Repeat until no new missing-class warnings appear.
 
 ## Release Checklist
 
-Before publishing:
+Before tagging a release:
 
 - [ ] `./gradlew :androidApp:assembleRelease` completes without errors
-- [ ] `apksigner verify --verbose` shows `Verified using v1 scheme` and `Verified using v2 scheme`
-- [ ] No `Missing class` warnings in the build output
-- [ ] `apkanalyzer dex size` shows meaningful reduction vs debug APK (typically 30-50% smaller)
-- [ ] Version name and version code are correct in `androidApp/build.gradle.kts`
-- [ ] ProGuard rules are stable (running the build twice produces identical rules warnings)
-- [ ] Tests pass: `./gradlew :shared:test --no-daemon`
-
-## Version Bump
-
-Version name and code are in `androidApp/build.gradle.kts`:
-
-```kotlin
-android {
-    defaultConfig {
-        versionName = "1.0.0"
-        versionCode = 1
-    }
-}
-```
-
-For a hotfix release, increment `versionCode` and rebuild.
+- [ ] `apksigner verify` shows `v1: true  v2: true`
+- [ ] Certificate SHA-256 fingerprint matches `ANDROID_CERT_FINGERPRINT`
+- [ ] `aapt2 dump badging` shows the correct `versionName` matching the tag
+- [ ] No `Missing class` warnings in the build output (only after minification is enabled)
+- [ ] Tests pass: `./gradlew :shared:jvmTest --no-daemon`
+- [ ] Draft GitHub Release is created and reviewed before publishing
 
 ## Troubleshooting
 
-### "Keystore file not set for signing config release"
+### "Keystore file not set for signing config release" (local)
 
-The signing config is conditional — it only activates when ALL four properties are set:
-- `singularity.keystore.path`
-- `singularity.keystore.password`
-- `singularity.key.alias`
-- `singularity.key.password`
-
-If any is missing, the release build uses the default debug keystore (which is unsigned and cannot be published). See **Prerequisites** above.
+The signing config is conditional — it only activates when all four `SIGNING_*`
+environment variables are set. If they are absent, Gradle uses the default JDK
+keystore. This is correct local dev behaviour (unsigned builds for testing).
 
 ### R8/ProGuard removes a class it shouldn't
 
@@ -222,10 +214,12 @@ This means R8 can't find the class during minification. Possible causes:
 - The class is in a source set not included in the release build
 - KSP-generated code is missing a keep rule
 
-Add the appropriate `-keep` rule or check that all relevant source sets are included in the release variant.
+Add the appropriate `-keep` rule or check that all relevant source sets are
+included in the release variant.
 
 ## See Also
 
 - `singularity-todo-quality-tools` — detekt, ktlint, kover tooling
-- `RELEASE.md` in project root — full release documentation
+- `docs/decisions/deferred-backlog.md` — `release-apk-is-unsigned-and-unminified`
+- `.github/workflows/release.yml` — the release pipeline
 - `android-dev` skill — Android-specific development workflow

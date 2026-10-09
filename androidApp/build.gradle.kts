@@ -184,8 +184,8 @@ android {
         applicationId = "com.singularity.todo"
         minSdk = libs.versions.sdk.min.get().toInt()
         targetSdk = libs.versions.sdk.target.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = (project.findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("VERSION_NAME") as String?) ?: "0.1.0"
 
         // The Application class differs between the two configurations, and the
         // difference is not cosmetic: `ProSingularityApp` implements the vendor's
@@ -231,6 +231,21 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Signing is driven by GitHub Actions secrets (ANDROID_KEYSTORE_BASE64 etc.)
+            // set as env vars by release.yml.  The workflow fails-closed if any secret
+            // is absent, so a missing key never silently produces an unsigned APK.
+            val keystorePath = System.getenv("SIGNING_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            val keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            if (keystorePath != null && keystorePassword != null && keyAlias != null && keyPassword != null) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(keystorePath)
+                    storePassword = keystorePassword
+                    this.keyAlias = keyAlias
+                    this.keyPassword = keyPassword
+                }
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -317,17 +332,4 @@ detekt {
     )
 }
 
-// Publish to GitHub Packages
-val releaseApk = file("${layout.buildDirectory.get().asFile}/outputs/apk/release/app-release.apk")
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            artifactId = "singularity-todo-android"
-            artifact(releaseApk)
-            pom {
-                name.set("Singularity Todo (Android)")
-                description.set("Todo application for Android")
-            }
-        }
-    }
-}
+

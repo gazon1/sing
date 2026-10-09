@@ -122,5 +122,7 @@ __pycache__/
 docs/decisions/DIGEST.md
 .safety-patches/
 
+# Local environment secrets — contains Android signing keystore + passwords
 # Local env with secrets (API tokens, etc.)
 .env
+keystore/
