@@ -80,7 +80,14 @@ class TaskLifecycleSlot(
                 _state.update { it.copy(recentlyDeleted = null) }
                 onSaved("Task restored")
             }
-            .onFailure { onError("Restore failed") }
+            .onFailure {
+                // Keep the snapshot alive: the user saw the undo toast dismissed and the
+                // error dialog will also auto-dismiss. If we clear the snapshot now, the
+                // next snackbar auto-dismiss removes the only safety net and the task is
+                // silently lost. Keeping it gives the user a chance to retry once the
+                // server recovers.
+                onError("Restore failed")
+            }
     }
 
     /**
