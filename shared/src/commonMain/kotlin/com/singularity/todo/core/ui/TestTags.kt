@@ -259,6 +259,12 @@ object TestTags {
      */
     fun noteItemByTitle(title: String) = "note_item_by_title_${slug(title)}"
 
+    /** Dynamic tag of the form `note_filter_chip_<slug>`. */
+    fun noteFilterChip(name: String) = "note_filter_chip_${slug(name)}"
+
+    /** Dynamic tag of the form `note_action_<slug>`. */
+    fun noteAction(name: String) = "note_action_${slug(name)}"
+
     // ─── Note Editor ────────────────────────────────────────────────────────
     const val NOTE_EDITOR_TITLE_INPUT = "note_editor_title_input"
     const val NOTE_EDITOR_BODY = "note_editor_body"

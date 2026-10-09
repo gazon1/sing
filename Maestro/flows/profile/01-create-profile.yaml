@@ -20,18 +20,20 @@ tags:
     visible: "Profiles"
     timeout: 8000
 - tapOn:
-    text: "New"
+    id: profile_create_button
 - extendedWaitUntil:
-    visible: "New Profile"
+    visible:
+      id: profile_create_name_input
     timeout: 8000
 - tapOn:
-    text: "Name"
+    id: profile_create_name_input
 - inputText: "Work"
 - hideKeyboard
 - tapOn:
-    text: "Create"
+    id: dialog_confirm
 - extendedWaitUntil:
-    notVisible: "New Profile"
+    notVisible:
+      id: profile_create_name_input
     timeout: 8000
 # The new profile is listed.
 - assertVisible: "Work"

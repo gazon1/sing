@@ -30,7 +30,7 @@ tags:
 # note, or straight in the editor. Tapping "Edit" is a no-op in the second case,
 # so it is optional and the editor is the thing waited on.
 - tapOn:
-    text: "Edit"
+    id: note_action_edit
     optional: true
 - extendedWaitUntil:
     visible:

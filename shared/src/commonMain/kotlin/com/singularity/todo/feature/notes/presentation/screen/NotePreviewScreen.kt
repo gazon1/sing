@@ -189,7 +189,9 @@ fun NotePreviewScreenContent(
                 ) {
                     FilledTonalButton(
                         onClick = onEdit,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag(TestTags.noteAction("edit")),
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -197,7 +199,9 @@ fun NotePreviewScreenContent(
                     }
                     OutlinedButton(
                         onClick = onDelete,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag(TestTags.noteAction("delete")),
                     ) {
                         Icon(
                             Icons.Default.Delete,
