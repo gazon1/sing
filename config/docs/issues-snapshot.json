@@ -1,9 +1,27 @@
 [
   {
+    "number": 25,
+    "state": "OPEN",
+    "title": "JVM coroutine diagnostics: kotlinx-coroutines-debug integration",
+    "backlog_slug": ""
+  },
+  {
+    "number": 26,
+    "state": "CLOSED",
+    "title": "Agenda Views: батч-фиксы + полная тест-пирамида",
+    "backlog_slug": ""
+  },
+  {
+    "number": 27,
+    "state": "CLOSED",
+    "title": "[GATE] Desktop: save → back → blank screen (desktop-nav-goBack-blank-screen)",
+    "backlog_slug": ""
+  },
+  {
     "number": 28,
     "state": "OPEN",
     "title": "Navigation as policy: unified open/close + typed ids",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 29,
@@ -15,7 +33,7 @@
     "number": 30,
     "state": "OPEN",
     "title": "Migration31To32 backfills after task_id is dropped — all pre-v32 DBs stuck on upgrade",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 32,
@@ -25,19 +43,19 @@
   },
   {
     "number": 33,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Coverage: 40 packages at 0% (measured), starting with settings/screens and search/presentation",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 34,
     "state": "OPEN",
     "title": "detekt baseline: 413 suppressions, no ratchet — stop the ceiling from rising",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 35,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "write-pipeline: 7 requirements have no assertion, 5 name the wrong test",
     "backlog_slug": "baseline-write-pipeline-verification-was-asserted-not-checked"
   },
@@ -49,7 +67,7 @@
   },
   {
     "number": 37,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Log export has no surface: a user cannot attach logs to a bug report",
     "backlog_slug": "log-export-has-no-surface"
   },
@@ -61,7 +79,7 @@
   },
   {
     "number": 39,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "TaskDetailCoordinatorGraphTest times out under parallel load (10s wall-clock budget)",
     "backlog_slug": "task-detail-coordinator-graph-test-times-out-under-parallel-load"
   },
@@ -85,7 +103,7 @@
   },
   {
     "number": 43,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Log redaction covers credentials, not user content — the commonMain sweep is undone",
     "backlog_slug": "log-messages-need-a-user-content-sweep"
   },
@@ -111,19 +129,19 @@
     "number": 47,
     "state": "OPEN",
     "title": "7 of 38 worktrees have no .githooks — blocks flipping core.hooksPath to a relative path",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 48,
     "state": "OPEN",
     "title": "P4: merge the duplicated JVM/Android entry body (blocked on Maestro)",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 49,
     "state": "OPEN",
     "title": "Cleanup: libs.plugins.kover is a dead catalog entry after the settings-level move",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 50,
@@ -141,7 +159,7 @@
     "number": 52,
     "state": "OPEN",
     "title": "DIGEST.md is 1237/1250 lines — the index grows with every ADR, the limit does not",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 53,
@@ -181,7 +199,7 @@
   },
   {
     "number": 59,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A test task served FROM-CACHE prints BUILD SUCCESSFUL with no test executed",
     "backlog_slug": "gradle-test-cache-silently-skips-the-suite"
   },
@@ -243,23 +261,23 @@
     "number": 69,
     "state": "OPEN",
     "title": "Do the one-shot migration scripts stay in the tree? (decision, not a task)",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 72,
     "state": "OPEN",
     "title": "openspec-validate is red on main: 2 pre-existing failures, required check carrying no information",
-    "backlog_slug": ""
+    "backlog_slug": "deferred-backlog"
   },
   {
     "number": 73,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "An assumption guard made a contract test vanish exactly where it mattered (found by the skipped ceiling)",
     "backlog_slug": ""
   },
   {
     "number": 74,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "ReadToolsProfileAwareTest raced on Dispatchers.Default and failed 1-2 tests per run — invisible because the class has no @Tag",
     "backlog_slug": ""
   },
@@ -307,13 +325,13 @@
   },
   {
     "number": 82,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "BackupImporter writes straight to DAOs — the bulk-import exemption has no port and no name",
     "backlog_slug": "bulk-import-port"
   },
   {
     "number": 83,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Ten ViewModels ship with no test — the allowlist in ViewModelTestCoverageTest is the work list",
     "backlog_slug": "vm-without-test"
   },
@@ -361,7 +379,7 @@
   },
   {
     "number": 91,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "UI reads the system clock directly, so an injected Clock cannot reach it — the escape hatch is where the untestable screens live",
     "backlog_slug": "ui-reads-the-system-clock-directly-so-a-fixed-date-cannot-reach-it"
   },
@@ -391,7 +409,7 @@
   },
   {
     "number": 98,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "detekt-rule branch coverage is measured but has no floor — koverVerify is not wired",
     "backlog_slug": "detekt-rule-branch-coverage-owed"
   },
@@ -469,13 +487,13 @@
   },
   {
     "number": 116,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Four gate scripts are never invoked: check-adr-references, check_adr_status, check_skill_frontmatter, check-detekt-registrations",
     "backlog_slug": ""
   },
   {
     "number": 117,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "One commit to main produces three CI runs: push and pull_request fire both workflows on the same SHA",
     "backlog_slug": ""
   },
@@ -577,7 +595,7 @@
   },
   {
     "number": 135,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Nothing stops the twenty-first detekt rule shipping untested — and my first attempt to measure this was wrong",
     "backlog_slug": "detekt-rules-test-was-never-run-by-any-gate"
   },
@@ -649,7 +667,7 @@
   },
   {
     "number": 147,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Kiwi case id follows the file, hiding the class declared inside it",
     "backlog_slug": "a-kiwi-case-named-after-a-file-hides-the-class-inside-it"
   },
@@ -673,7 +691,7 @@
   },
   {
     "number": 151,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "No Maestro flow has ever produced a result; the Android tier is unverified end to end",
     "backlog_slug": "maestro-results-are-produced-and-discarded-in-ci"
   },
@@ -697,7 +715,7 @@
   },
   {
     "number": 155,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "infra/kiwi is a directory of standalone scripts, and every new consumer re-derives the sys.path bootstrap",
     "backlog_slug": ""
   },
@@ -727,13 +745,13 @@
   },
   {
     "number": 160,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The clock rule bans one spelling of the system clock and 20 uses of the other walk past it",
     "backlog_slug": ""
   },
   {
     "number": 161,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "enqueue() is the last write path that cannot tell a local storage failure from a server refusal",
     "backlog_slug": ""
   },
@@ -787,13 +805,13 @@
   },
   {
     "number": 170,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Thirteen scenario slices, ordered: each one journey = spec + test + its own seed or tag, in one PR",
     "backlog_slug": "thirteen-scenario-slices-queued-not-yet-written"
   },
   {
     "number": 171,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The debug seed dispatches on a single key, so no scenario can ask for a related graph",
     "backlog_slug": "debug-seed-cannot-build-a-related-graph"
   },
@@ -841,7 +859,7 @@
   },
   {
     "number": 179,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The half of the hybrid clock that merges a received clock has no caller",
     "backlog_slug": ""
   },
@@ -949,13 +967,13 @@
   },
   {
     "number": 197,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Calendar's dark palette is hand-authored against a generated scheme, and four slots use the raw seed colour",
     "backlog_slug": "dark-calendar-palette-is-hand-authored-against-a-generated-scheme"
   },
   {
     "number": 198,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The tasks feature pins its own dark palette — a light-theme user gets a dark task screen, and the accent picker does nothing there",
     "backlog_slug": "tasks-feature-pins-its-own-dark-palette-and-ignores-the-theme-entirely"
   },
@@ -991,13 +1009,13 @@
   },
   {
     "number": 204,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "purchaseStateFor would deny a paying customer, because it downcasts the flow to MutableStateFlow",
     "backlog_slug": "billing-entitlement-is-a-port-without-a-caller"
   },
   {
     "number": 205,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A dependency-usage gate needs resolved artifacts, not the catalog — the coordinate does not determine the import package",
     "backlog_slug": "a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog"
   },
@@ -1009,7 +1027,7 @@
   },
   {
     "number": 207,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The server reports newVersion 1 on every push, and reads no baseVersion, so the version mechanism is inert at both ends",
     "backlog_slug": ""
   },
@@ -1051,7 +1069,7 @@
   },
   {
     "number": 215,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The TASK-TIME-01 desktop carrier passes alone and breaks the test that follows it",
     "backlog_slug": ""
   },
@@ -1063,7 +1081,7 @@
   },
   {
     "number": 219,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "MainActivity ANRs on emulator cold start, failing every instrumented test",
     "backlog_slug": "mainactivity-anr-makes-every-instrumented-test-fail"
   },
@@ -1087,7 +1105,7 @@
   },
   {
     "number": 228,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "TagGroupRepository.setInheritedForProject has no caller: the feature is inert, and inheritedTagGroupIds is a synced field",
     "backlog_slug": ""
   },
@@ -1369,7 +1387,7 @@
   },
   {
     "number": 298,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[scenarios] implement scenario-claims integrity: detect missing runs for claimed scenarios",
     "backlog_slug": "scenario-result-missing-for-a-claiming-commit-is-not-a-failure"
   },
@@ -1381,7 +1399,7 @@
   },
   {
     "number": 300,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[quality] decide: scenario layer vs per-class floor — which is the authoritative untested answer",
     "backlog_slug": "untested-has-two-answers-per-class-and-per-scenario"
   },
@@ -1393,7 +1411,7 @@
   },
   {
     "number": 302,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[backup] add 8 missing tables to backup payload: reminders, checklist_items, tag_groups, etc.",
     "backlog_slug": "agenda-views-not-in-backup"
   },
@@ -1429,25 +1447,25 @@
   },
   {
     "number": 312,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "ci: verify gradle-home-cache-excludes prevents transforms caching",
     "backlog_slug": ""
   },
   {
     "number": 313,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "ci: evaluate setup-gradle@v6 with cache-provider: enhanced",
     "backlog_slug": ""
   },
   {
     "number": 314,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "ci: add restore-keys fallback to AVD cache",
     "backlog_slug": ""
   },
   {
     "number": 315,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "ci: gradle-home entries accumulate from multiple jobs on main",
     "backlog_slug": ""
   },
@@ -1633,7 +1651,7 @@
   },
   {
     "number": 352,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[test] Pre-existing arch test failures: TestTagCoverageTest, UiAutomationSelectorTest, TestTagsCatalogJvmTest",
     "backlog_slug": ""
   },
@@ -1657,13 +1675,13 @@
   },
   {
     "number": 357,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "#219: MainActivity ANR on emulator cold start — verify if still reproduces",
     "backlog_slug": ""
   },
   {
     "number": 359,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] backup/01-round-trip.yaml asserts dated task in Inbox (No Date) — flow bug",
     "backlog_slug": ""
   },
@@ -1687,19 +1705,19 @@
   },
   {
     "number": 363,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "maestro-smoke CI job has never executed — smoke set is not locale-stable enough to be a blocking gate",
     "backlog_slug": "maestro-smoke-never-run"
   },
   {
     "number": 364,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A Maestro gate and a Gradle build cannot share the device — concurrent install un-installs app mid-run, 16 false failures",
     "backlog_slug": "maestro-gradle-device-conflict"
   },
   {
     "number": 365,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Six smoke flows are still red, five of them undiagnosed — need one-at-a-time run with per-flow logs",
     "backlog_slug": "six-smoke-flows-red"
   },
@@ -1711,25 +1729,25 @@
   },
   {
     "number": 367,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A failing undo-restore is silent: pending slot already cleared, snackbar gone, task lost",
     "backlog_slug": "silent-undo-restore-failure"
   },
   {
     "number": 368,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A baseline higher than the number of tests in the sources is unreachable by construction — detekt baseline integrity gap",
     "backlog_slug": "baseline-unreachable"
   },
   {
     "number": 369,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The background.coroutine_failed group needs a dashboard check before anyone retires the key",
     "backlog_slug": "coroutine-failed-dashboard"
   },
   {
     "number": 370,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A Koin definition body stays at 0% covered even when the definition is resolved for real",
     "backlog_slug": "koin-definition-coverage-zero"
   },
@@ -1741,7 +1759,7 @@
   },
   {
     "number": 372,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A stale detekt rule classpath makes :shared:detekt report green with no custom rules running",
     "backlog_slug": "stale-detekt-classpath"
   },
@@ -1759,7 +1777,7 @@
   },
   {
     "number": 375,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "check-yaml-duplicate-keys self-test fails — duplicate key detection is broken",
     "backlog_slug": "check-yaml-dup-keys-self-test-fails"
   },
@@ -1771,7 +1789,7 @@
   },
   {
     "number": 377,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "check-sync-allowlist-regenerated.py gate has no positive control",
     "backlog_slug": "sync-allowlist-regen-no-control"
   },
@@ -1783,7 +1801,7 @@
   },
   {
     "number": 379,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] Clean up 23 stale DYNAMIC_EXPANSIONS entries in validate-maestro-selectors.py",
     "backlog_slug": ""
   },
@@ -1797,6 +1815,414 @@
     "number": 381,
     "state": "OPEN",
     "title": "[adr] Fix deferred-backlog.md tracking CLOSED issue #105",
+    "backlog_slug": ""
+  },
+  {
+    "number": 382,
+    "state": "CLOSED",
+    "title": "Cold start StackOverflowError in coreModule — the Android Koin graph is resolved by no test",
+    "backlog_slug": ""
+  },
+  {
+    "number": 383,
+    "state": "CLOSED",
+    "title": "AppTracer plugin generates no build UUID — the SDK never initializes, so all four critical paths in #134 stay unreachable",
+    "backlog_slug": ""
+  },
+  {
+    "number": 384,
+    "state": "CLOSED",
+    "title": "connectedDebugAndroidTest reports BUILD SUCCESSFUL with 0 tests while the instrumented process crashed",
+    "backlog_slug": ""
+  },
+  {
+    "number": 385,
+    "state": "CLOSED",
+    "title": "android-device-tests.yml hard-codes flavors=[free], so no Android CI job ever builds the pro variant",
+    "backlog_slug": ""
+  },
+  {
+    "number": 387,
+    "state": "CLOSED",
+    "title": "Whether a build uploads to AppTracer is decided by token presence, not build type — release from a dev machine uploads too",
+    "backlog_slug": ""
+  },
+  {
+    "number": 388,
+    "state": "CLOSED",
+    "title": "shared:jvmTest does not compile on main — FakeProfilesRepo is missing ProfileRepository.findByName",
+    "backlog_slug": ""
+  },
+  {
+    "number": 391,
+    "state": "OPEN",
+    "title": "Invalid AES key length: 48 bytes — GRADLE_ENCRYPTION_KEY breaks every Gradle job in all four workflows",
+    "backlog_slug": ""
+  },
+  {
+    "number": 393,
+    "state": "CLOSED",
+    "title": "test_check_gate_honesty.TestProbeMechanics fails in CI but passes locally — the gate that verifies gates passes vacuously",
+    "backlog_slug": ""
+  },
+  {
+    "number": 395,
+    "state": "CLOSED",
+    "title": "NoCoroutineLaunchInInit: 33 findings — custom detekt JAR not rebuilt",
+    "backlog_slug": ""
+  },
+  {
+    "number": 396,
+    "state": "CLOSED",
+    "title": "Kiwi TCMS inventory ceiling exceeded: 405 items vs ceiling 1",
+    "backlog_slug": ""
+  },
+  {
+    "number": 397,
+    "state": "OPEN",
+    "title": "OpenSpec REQ IDs non-standard: multiple specs use wrong format",
+    "backlog_slug": ""
+  },
+  {
+    "number": 401,
+    "state": "CLOSED",
+    "title": "8 desktop flow tests fail with StackOverflowError in Koin resolution",
+    "backlog_slug": ""
+  },
+  {
+    "number": 403,
+    "state": "CLOSED",
+    "title": "[test] SimpleFilterSheet desktop coverage gap — ModalBottomSheet unreachable",
+    "backlog_slug": "simplefiltersheet-modalbottomsheet-unreachable-on-desktop"
+  },
+  {
+    "number": 404,
+    "state": "CLOSED",
+    "title": "[test] SavedSearchesRow long-press context menu unreachable on desktop Compose test API",
+    "backlog_slug": "savedsearchesrow-longpress-unreachable-on-desktop"
+  },
+  {
+    "number": 405,
+    "state": "CLOSED",
+    "title": "[test] #33 remaining: investigate feature/settings/screens for testable surfaces",
+    "backlog_slug": ""
+  },
+  {
+    "number": 407,
+    "state": "CLOSED",
+    "title": "[ci] Triage 4 pre-existing gate failures in check-gate-wiring.py Part E",
+    "backlog_slug": ""
+  },
+  {
+    "number": 409,
+    "state": "OPEN",
+    "title": "[seed] sealed interface SeedItem for multi-object graph seeding",
+    "backlog_slug": "sealed-seeditem-multi-object"
+  },
+  {
+    "number": 410,
+    "state": "OPEN",
+    "title": "[CI] scenario-claims integrity gate — emit result for unrun claimed scenarios",
+    "backlog_slug": "scenario-claims-integrity-impl"
+  },
+  {
+    "number": 411,
+    "state": "CLOSED",
+    "title": "TASK-SUB-01: subtask add/delete/toggle — spec + Maestro flow",
+    "backlog_slug": "task-sub-01-spec"
+  },
+  {
+    "number": 412,
+    "state": "CLOSED",
+    "title": "[test] 5 pre-existing jvmTest failures not covered by existing issues",
+    "backlog_slug": ""
+  },
+  {
+    "number": 413,
+    "state": "OPEN",
+    "title": "Verify JDK 21 behavior for desktop flow SO tests",
+    "backlog_slug": ""
+  },
+  {
+    "number": 414,
+    "state": "OPEN",
+    "title": "Investigate NavHost entry lambdas with koinInject causing SO under JDK 25",
+    "backlog_slug": ""
+  },
+  {
+    "number": 415,
+    "state": "OPEN",
+    "title": "Android cold start StackOverflowError - related to desktop SO investigation",
+    "backlog_slug": ""
+  },
+  {
+    "number": 418,
+    "state": "CLOSED",
+    "title": "[#170] AUTH scenarios batch — 7 scenarios (attach, firstrun, seed, session, signin, signup x2)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 419,
+    "state": "CLOSED",
+    "title": "[#170] CAL-SYNC scenarios batch — 7 scenarios (connect, import, provider, recur, renew, syncnow, system)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 420,
+    "state": "CLOSED",
+    "title": "[#170] SYNC scenarios batch — 8 scenarios (failed, incoming, offline, profiles, proto, settings, signout, status)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 421,
+    "state": "CLOSED",
+    "title": "[#170] TASK-TIME-01 android — timer start/stop Maestro flow + testTag wiring",
+    "backlog_slug": ""
+  },
+  {
+    "number": 422,
+    "state": "CLOSED",
+    "title": "[infra] Fix stale just alias kfloor → kiwi::floor (removed recipe)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 423,
+    "state": "CLOSED",
+    "title": "AUTH batch 7: write Maestro flows for 6 unauthenticated scenarios",
+    "backlog_slug": ""
+  },
+  {
+    "number": 424,
+    "state": "CLOSED",
+    "title": "CAL-SYNC batch 7: write Maestro flows for calendar sync scenarios",
+    "backlog_slug": ""
+  },
+  {
+    "number": 425,
+    "state": "CLOSED",
+    "title": "SYNC batch 8: write Maestro flows for cloud sync scenarios",
+    "backlog_slug": ""
+  },
+  {
+    "number": 426,
+    "state": "CLOSED",
+    "title": "just: kfloor alias is stale — needs refresh",
+    "backlog_slug": ""
+  },
+  {
+    "number": 427,
+    "state": "CLOSED",
+    "title": "TASK-TIME-01: write Android Maestro flow for time tracking start/stop",
+    "backlog_slug": ""
+  },
+  {
+    "number": 430,
+    "state": "OPEN",
+    "title": "AppTracer SDK does not generate buildUuid for pro library module",
+    "backlog_slug": ""
+  },
+  {
+    "number": 431,
+    "state": "OPEN",
+    "title": "[test] REQ-WP-002: scoped DAO mutations should return and be tested for affected row count",
+    "backlog_slug": ""
+  },
+  {
+    "number": 432,
+    "state": "OPEN",
+    "title": "[test] REQ-WP-020: outgoing links must be persisted on the source entity, not the target",
+    "backlog_slug": ""
+  },
+  {
+    "number": 433,
+    "state": "OPEN",
+    "title": "[test] REQ-WP-021: outgoing_links must be updated atomically with the entity write",
+    "backlog_slug": ""
+  },
+  {
+    "number": 434,
+    "state": "OPEN",
+    "title": "[test] REQ-WP-041: id-only write methods must rely on DAO-layer enforcement",
+    "backlog_slug": ""
+  },
+  {
+    "number": 435,
+    "state": "OPEN",
+    "title": "[docs] REQ-WP-050: BackupImporter unscoped mutations allowlist premise no longer holds",
+    "backlog_slug": ""
+  },
+  {
+    "number": 436,
+    "state": "OPEN",
+    "title": "[CI] Wire --gradle-log into CI to detect UP-TO-DATE/FROM-CACHED test runs",
+    "backlog_slug": ""
+  },
+  {
+    "number": 437,
+    "state": "OPEN",
+    "title": "[validate-maestro-selectors] Every seeded task title must be manually added to DYNAMIC_EXPANSIONS",
+    "backlog_slug": ""
+  },
+  {
+    "number": 438,
+    "state": "OPEN",
+    "title": "[e2e.yml] GitHub Actions ::keyword:: directives break YAML block scalar parsing",
+    "backlog_slug": ""
+  },
+  {
+    "number": 439,
+    "state": "OPEN",
+    "title": "[e2e.yml] GitHub Actions ::keyword:: directives break YAML block scalar parsing",
+    "backlog_slug": ""
+  },
+  {
+    "number": 440,
+    "state": "OPEN",
+    "title": "[deferred] log-export-has-no-surface: file logging has no user-facing export UI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 441,
+    "state": "OPEN",
+    "title": "[deferred] bulk-task-operations-have-no-ui: bulkComplete/bulkDelete have no UI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 442,
+    "state": "OPEN",
+    "title": "[deferred] core-auth-oauth-is-entirely-unwired: OAuth.kt has no consumers",
+    "backlog_slug": ""
+  },
+  {
+    "number": 443,
+    "state": "OPEN",
+    "title": "[deferred] log-messages-need-a-user-content-sweep: user-derived values may be logged",
+    "backlog_slug": ""
+  },
+  {
+    "number": 444,
+    "state": "OPEN",
+    "title": "[deferred] no-direct-dispatchers-rule-one-whitelisted-case: sweep remaining callers",
+    "backlog_slug": ""
+  },
+  {
+    "number": 445,
+    "state": "OPEN",
+    "title": "[deferred] nav-display-debug-border-not-found: desktop nav blank-screen diagnostic",
+    "backlog_slug": ""
+  },
+  {
+    "number": 446,
+    "state": "OPEN",
+    "title": "[deferred] skill-symbol-clusters-many-fixes-pending: skill files describe outdated architecture",
+    "backlog_slug": ""
+  },
+  {
+    "number": 447,
+    "state": "OPEN",
+    "title": "[deferred] task-detail-coordinator-graph-test-times-out-under-parallel-load",
+    "backlog_slug": ""
+  },
+  {
+    "number": 448,
+    "state": "OPEN",
+    "title": "[deferred] baseline-write-pipeline-verification-was-asserted-not-checked: 5 checklist items wrong",
+    "backlog_slug": ""
+  },
+  {
+    "number": 449,
+    "state": "OPEN",
+    "title": "[deferred] recurrence-parser-is-unwired: 309-line parser with zero call sites",
+    "backlog_slug": ""
+  },
+  {
+    "number": 450,
+    "state": "OPEN",
+    "title": "[deferred] note-editor-unwired-domain-classes: NoteEditorState, DailyNoteFactory, TemplatePicker unreachable",
+    "backlog_slug": ""
+  },
+  {
+    "number": 451,
+    "state": "OPEN",
+    "title": "[deferred] awt-menubarinstaller-jvm-unused: desktop menu bar installer has no call site",
+    "backlog_slug": ""
+  },
+  {
+    "number": 452,
+    "state": "OPEN",
+    "title": "[deferred] two-rulesets-were-vacuous-52-violations-were-invisible: NoDirectDispatchers + NoEmptyOnClickLambda needed fixes",
+    "backlog_slug": ""
+  },
+  {
+    "number": 453,
+    "state": "OPEN",
+    "title": "[deferred] adr-frontmatter-drift-is-unenforced: 8 ADRs have frontmatter drift",
+    "backlog_slug": ""
+  },
+  {
+    "number": 454,
+    "state": "OPEN",
+    "title": "[deferred] two-line-length-authorities: detekt default 120 beats editorconfig 140 silently",
+    "backlog_slug": ""
+  },
+  {
+    "number": 455,
+    "state": "OPEN",
+    "title": "[deferred] direct-dispatchers-mostly-sit-in-platform-ports: most NoDirectDispatchers sites are correct",
+    "backlog_slug": ""
+  },
+  {
+    "number": 456,
+    "state": "OPEN",
+    "title": "[deferred] two-largest-baseline-rules-contradict-documented-conventions: BackingPropertyNaming and one other",
+    "backlog_slug": ""
+  },
+  {
+    "number": 457,
+    "state": "OPEN",
+    "title": "[deferred] detektbaseline-caches-its-output-and-cannot-drain: baseline task is additive and cached",
+    "backlog_slug": ""
+  },
+  {
+    "number": 458,
+    "state": "OPEN",
+    "title": "[deferred] gradle-test-cache-silently-skips-the-suite: test task served FROM-CACHE with no execution",
+    "backlog_slug": ""
+  },
+  {
+    "number": 459,
+    "state": "OPEN",
+    "title": "[deferred] autocorrect-touches-files-outside-the-change: detekt --auto-correct rewrote 5 unrelated files",
+    "backlog_slug": ""
+  },
+  {
+    "number": 460,
+    "state": "OPEN",
+    "title": "[deferred] no-consecutive-blank-lines-was-never-declared: rule runs on detekt default, not project config",
+    "backlog_slug": ""
+  },
+  {
+    "number": 461,
+    "state": "OPEN",
+    "title": "[deferred] each-module-needs-a-named-gate-owner: no gate has an assigned owner per module",
+    "backlog_slug": ""
+  },
+  {
+    "number": 462,
+    "state": "OPEN",
+    "title": "[deferred] desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch",
+    "backlog_slug": ""
+  },
+  {
+    "number": 463,
+    "state": "OPEN",
+    "title": "[deferred] no-direct-clock-system-kdoc-claims-tests-are-exempt",
+    "backlog_slug": ""
+  },
+  {
+    "number": 464,
+    "state": "OPEN",
+    "title": "[deferred] editoroverflow-test-tag-unused",
     "backlog_slug": ""
   }
 ]

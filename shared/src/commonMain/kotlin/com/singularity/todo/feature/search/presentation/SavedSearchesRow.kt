@@ -30,6 +30,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -129,7 +131,9 @@ private fun SavedSearchChipWithMenu(
             // so Maestro id: selectors can find items inside the menu.
             modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
-            // Rename row with inline text field
+            // Rename row with inline text field.
+            // Desktop gap: DropdownMenu renders in a separate layer that the desktop
+            // Compose test API cannot reach. These tags are for Android/Maestro.
             DropdownMenuItem(
                 text = {
                     Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
@@ -156,7 +160,10 @@ private fun SavedSearchChipWithMenu(
                 },
                 onClick = noopClick,
                 leadingIcon = {},
+                modifier = Modifier.testTag(TestTags.SavedSearches.SEARCH_MENU_RENAME),
             )
+            // Desktop gap: DropdownMenu renders in a separate layer that the desktop
+            // Compose test API cannot reach. These tags are for Android/Maestro.
             DropdownMenuItem(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 onClick = {
@@ -164,6 +171,7 @@ private fun SavedSearchChipWithMenu(
                     showMenu = false
                 },
                 leadingIcon = {},
+                modifier = Modifier.testTag(TestTags.SavedSearches.SEARCH_MENU_DELETE),
             )
         }
     }

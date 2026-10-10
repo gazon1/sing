@@ -56,6 +56,10 @@ OUTCOME_TO_KIWI = {
     # simply not published: absence in Kiwi is the honest representation, and
     # `not-run` is stated in the result matrix instead.
     Outcome.NOT_RUN.value: None,
+    # MISSING: CI claimed the target and attempted it, but this scenario's flow
+    # was never executed. Like NOT_RUN, not published to Kiwi — the matrix is
+    # the honest record of what CI reported.
+    Outcome.MISSING.value: None,
 }
 
 PLAN_NAME = "Scenarios"

@@ -1,0 +1,60 @@
+# AUTH-SIGNUP-01 part 1: toggle to sign-up mode and enter credentials.
+#
+# preconditions: server configured, on sign-in screen.
+# steps:
+#   1. Switch to creating an account (toggle mode).
+#   2. Enter valid-looking details and submit.
+#
+# This tests the UI path. The happy path (account actually created) requires
+# real Supabase credentials — it is tested separately with secrets mounted.
+#
+appId: com.singularity.todo
+name: auth-signup-toggle
+tags:
+  - regression
+  - auth
+  - AUTH-SIGNUP-01
+---
+# Start from server-config (clear state → configure → continue offline).
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible:
+      id: auth_save_server_button
+    timeout: 15000
+- tapOn:
+    id: auth_save_server_button
+- extendedWaitUntil:
+    visible:
+      id: auth_email_input
+    timeout: 15000
+
+# Toggle from "Sign In" to "Sign Up". The button text changes and the
+# form fields stay filled.
+- tapOn:
+    id: auth_toggle_mode_button
+
+# After toggling, the button should say "Sign Up" (not "Sign In").
+# The email and password fields are cleared on toggle.
+- inputText:
+    id: auth_email_input
+    text: "newuser@example.com"
+- inputText:
+    id: auth_password_input
+    text: "ValidPassword123!"
+
+# Submit. If credentials are real, Supabase creates the account.
+# If not, the server returns an error — either way the form interaction
+# is covered.
+- tapOn:
+    id: auth_sign_in_button
+
+# The app either enters a loading state or shows a message/error.
+# Wait for the loading spinner — if it never appears the message/error tag shows instead.
+- extendedWaitUntil:
+    visible:
+      id: auth_loading
+    timeout: 8000

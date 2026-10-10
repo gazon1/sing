@@ -273,7 +273,7 @@ def render_result_matrix(matrix: ResultMatrix) -> str:
         (scenario_id, target)
         for scenario_id, row in matrix.cells.items()
         for target, cell in row.items()
-        if cell.outcome.value in ("failed",)
+        if cell.outcome in (Outcome.FAILED, Outcome.MISSING)
     ]
     if failures:
         lines += ["## Failures", ""]

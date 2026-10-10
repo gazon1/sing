@@ -21,8 +21,12 @@ tags:
 - tapOn:
     id: settings_tab_notifications
 - extendedWaitUntil:
-    visible: "Enable Notifications"
+    visible:
+      id: settings_notifications_enabled_switch
     timeout: 8000
-- assertVisible: "Default Reminder"
-- assertVisible: "Notification Sound"
-- assertVisible: "At due time"
+- assertVisible:
+    id: reminder_defaults_section
+- assertVisible:
+    id: settings_notifications_sound_switch
+- assertVisible:
+    id: reminder_offset_radio_at_due_time

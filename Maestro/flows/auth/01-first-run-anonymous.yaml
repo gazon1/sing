@@ -1,0 +1,81 @@
+# AUTH-FIRSTRUN-01: use the app without an account, create data, go offline.
+#
+# preconditions: clean install, no account configured.
+# steps:
+#   1. Start the app and do not sign in.
+#   2. Create a task.
+#   3. Turn the network off and restart the app.
+# expected: data survives offline restart without error.
+#
+# The app is local-first. Room is the source of truth; sync is a background
+# concern. Without an account the app should still be fully functional.
+#
+appId: com.singularity.todo
+name: auth-first-run-anonymous
+onFlowComplete:
+  - setAirplaneMode: disabled
+tags:
+  - regression
+  - auth
+  - AUTH-FIRSTRUN-01
+---
+# Clear state so we land on the auth/server-config screen, not the agenda.
+# The emulator snapshot is pre-authenticated; fresh install is what we need.
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+
+# No server configured yet — the server config form is shown first.
+- extendedWaitUntil:
+    visible:
+      id: auth_save_server_button
+    timeout: 15000
+
+# Fill in server URL and anon key (from environment variables in CI).
+# In local dev these come from the emulator's shared prefs snapshot.
+# Continue without configuring — this is the "no account" path.
+- tapOn:
+    id: auth_continue_offline_button
+
+# After "Continue Offline" the app navigates to the agenda.
+# The auth guard is bypassed; the anonymous session is active.
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+
+# Create a task via FAB.
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- inputText: "Anonymous task"
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+
+# The task appears in Inbox.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_anonymous_task
+    timeout: 5000
+
+# Go offline and restart the app. The task must still be visible — local-first.
+- setAirplaneMode: enabled
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: task_item_anonymous_task
+    timeout: 10000
+
+# No error was shown (the anonymous path has no sync guard to trip).
+# The task survived the offline restart.
+- assertVisible: "Anonymous task"

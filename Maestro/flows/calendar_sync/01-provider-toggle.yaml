@@ -1,0 +1,71 @@
+# CAL-SYNC-PROVIDER-01: switch between system and Google calendar providers.
+#
+# preconditions: signed-in session, Settings → Calendar tab open.
+# steps:
+#   1. Verify the provider selector is visible.
+#   2. Switch from system to Google (or whichever is default).
+#   3. Switch back.
+# expected: controls for each provider appear/disappear correctly.
+#
+# The system calendar's controls (enable switch, sync now) disappear when Google
+# is selected and return when system is selected again.
+#
+appId: com.singularity.todo
+name: calendar-sync-provider-toggle
+tags:
+  - regression
+  - calendar_sync
+  - CAL-SYNC-PROVIDER-01
+---
+- runFlow: ../helpers/launch-clean.yaml
+
+# Open Settings.
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+
+# Navigate to Calendar tab.
+- tapOn:
+    id: settings_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 8000
+
+# The system calendar controls are visible when system calendar is selected.
+# Assert the enable switch is present — the first control in the system section.
+- assertVisible:
+    id: calendar_sync_system_enable_switch
+
+# Toggle to Google calendar provider.
+# The provider selector uses a SegmentedButton; tap the Google segment.
+# The dynamic tag is calendar_sync_provider_google_calendar if that's the label.
+# If the labels differ, the Google segment is identified by the absence of
+# "system" in the id (the system segment is not present when Google is active).
+- tapOn:
+    id: calendar_sync_provider_google_calendar
+
+# After switching to Google, the system calendar controls should be gone.
+# Instead, the Google connect button (or disconnect if already connected)
+# should be visible.
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_google_connect_button
+    timeout: 5000
+- assertVisible:
+    id: calendar_sync_google_connect_button
+
+# Switch back to system calendar.
+- tapOn:
+    id: calendar_sync_provider_system_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 5000
+
+# Controls returned — the toggle back was respected.
+- assertVisible:
+    id: calendar_sync_system_enable_switch
