@@ -19,25 +19,6 @@ Exit codes:
     0  All selectors valid (or only warnings in --warn mode)
     1  Unknown selectors found (blocking mode)
     2  Usage / file-not-found error
-
-Limitations
------------
-This validator performs **static string comparison** only. It checks that every
-id: used in a flow exists in the known set (STATIC_IDS | DYNAMIC_EXPANSIONS |
-ALLOWLIST), but it cannot verify that a dynamic tag function in TestTags.kt
-produces the expected output.
-
-For example, if someone changes ``navTab("Today")`` to return ``nav_tab_today_v2``
-instead of ``nav_tab_today``, the old ID ``nav_tab_today`` stays in
-DYNAMIC_EXPANSIONS and the validator passes — but the flow would fail at
-runtime because the app now produces a different tag.
-
-Dynamic tag outputs must be verified by:
-1. Running ``just trace-results --maestro --targets android --partial`` after
-   every Maestro flow run (the traceability matrix catches mismatches).
-2. Periodic manual flow runs via ``just maestro <flow>``.
-3. When adding a new dynamic tag function, add its known output IDs to
-   DYNAMIC_EXPANSIONS and add its finite inputs (if any) to FINITE_DYNAMIC_SPACES.
 """
 
 import yaml
@@ -93,10 +74,19 @@ STATIC_IDS: Set[str] = {
     "auth_toggle_mode_button",
     # Navigation
     "menu_aichat",
+    "menu_archive",
+    "menu_notes",
+    "menu_profiles",
+    "menu_quick_search",
+    "menu_search",
+    "menu_settings",
     "menu_sheet",
+    "menu_statistics",
     "nav_menu_button",
     "top_bar_back_button",
     # Tasks
+    "checklist_sheet",
+    "first_run_section",
     "priority_option_high",
     "priority_option_low",
     "priority_option_medium",
@@ -113,10 +103,18 @@ STATIC_IDS: Set[str] = {
     "recurrence_option_weekly",
     "recurrence_option_yearly",
     "recurrence_option_yearly_on_date",
+    "subtask_add_button",
+    "subtask_add_input",
+    "subtasks_section",
     "tasks_fab",
     "tasks_list",
+    "task_action_archive",
+    "task_action_mark_as_completed",
+    "task_action_open",
+    "task_action_pin",
     "task_context_menu_sheet",
     "task_editor_ai_button",
+    "task_editor_due_date_row_label",
     "task_editor_due_row",
     "task_editor_estimate_row",
     "task_editor_more_menu",
@@ -128,17 +126,13 @@ STATIC_IDS: Set[str] = {
     "task_editor_start_date_row",
     "task_editor_tags_row",
     "task_editor_title_input",
-    "checklist_sheet",
-    "first_run_section",
-    "subtasks_section",
-    "subtask_add_input",
-    "subtask_add_button",
     "time_tracking_error",
     "time_tracking_start",
     "time_tracking_stop",
     # Agenda
-    "agenda_saved_views_button",
+    "agenda_regex_pattern_input",
     "agenda_save_current_button",
+    "agenda_saved_views_button",
     "agenda_tag_match_all",
     "saved_agenda_add_section_confirm",
     "saved_agenda_create_fab",
@@ -165,20 +159,17 @@ STATIC_IDS: Set[str] = {
     "tags_fab",
     "tags_list",
     # Notes
-    "notes_backlinks_button",
-    "notes_list",
-    "notes_quick_add_input",
-    "note_action_delete",
-    "note_action_edit",
     "note_editor_body",
     "note_editor_notification_host",
     "note_editor_save",
     "note_editor_title_input",
-    "note_filter_chip_all",
-    "note_filter_chip_archived",
-    "note_filter_chip_pinned",
+    "notes_backlinks_button",
+    "notes_list",
+    "notes_quick_add_input",
     # Search
     "search_input",
+    "search_menu_delete",
+    "search_menu_rename",
     # Projects
     "project_detail_quick_add",
     "project_editor_back",
@@ -186,28 +177,17 @@ STATIC_IDS: Set[str] = {
     "project_editor_name_input",
     "project_editor_notification_host",
     "project_editor_save",
+    # Profile
+    "profile_create_button",
+    "profile_create_name_input",
+    "profile_item_",
     # Settings
     "settings_action_row",
-    "settings_content_agenda",
-    "settings_content_calendar_sync",
-    "settings_content_data",
-    "settings_content_interface",
-    "settings_content_notifications",
-    "settings_content_sync",
     "settings_dark_theme_switch",
     "settings_font_size_slider",
-    "settings_theme_mode_System",
-    "settings_theme_mode_Light",
-    "settings_theme_mode_Dark",
     "settings_notifications_enabled_switch",
     "settings_notifications_sound_switch",
     "settings_notifications_vibration_switch",
-    "settings_tab_agenda",
-    "settings_tab_calendar_sync",
-    "settings_tab_data",
-    "settings_tab_interface",
-    "settings_tab_notifications",
-    "settings_tab_sync",
     "settings_value_row",
     "settings_work_schedule_saturday_switch",
     "settings_work_schedule_sunday_switch",
@@ -217,43 +197,35 @@ STATIC_IDS: Set[str] = {
     "onboarding_spotlight_next",
     "onboarding_spotlight_skip",
     # Sync
+    "sync",
     "sync_attachments_switch",
     "sync_auto_sync_switch",
     "sync_interval_row",
     "sync_now_row",
-    "sync_sync_now_row",
     "sync_test_connection_row",
     # Dialog
     "dialog_confirm",
     "dialog_date_picker_cancel",
-    "sheet_confirm",
     "dialog_date_picker_clear",
     "dialog_date_picker_ok",
     "dialog_dismiss",
-    "dialog_title_priority",
     # Editor Overflow
     "overflow_archive",
     "overflow_delete",
     "overflow_pin",
     "overflow_restore",
     "overflow_unpin",
-    # Snackbar
+    # Notifications / hosts
     "archive_notification_host",
     "chat_notification_host",
     "projects_notification_host",
     "snackbar_action",
-    "snackbar_saved",
     # Backup
     "backup_create_button",
     "backup_export_settings",
     "backup_import_settings",
     "backup_restore_button",
     "backup_top_bar_back",
-    # Profile
-    "profile_create_button",
-    "profile_create_name_input",
-    "profile_item_personal",
-    "profile_item_work",
     # Calendar sync
     "calendar_sync_google_connect_button",
     "calendar_sync_google_disconnect_button",
@@ -270,6 +242,10 @@ STATIC_IDS: Set[str] = {
     # Search filters
     "search_filter_has_description_switch",
     "search_filter_pinned_switch",
+    # Reminder
+    "reminder_defaults_section",
+    # Sheet
+    "sheet_confirm",
 }
 
 # ---------------------------------------------------------------------------
@@ -446,6 +422,21 @@ ALLOWLIST: Set[str] = {
     "saved_agenda_card_my_active_tasks",
     # Seeded offline task
     "task_item_offline_task",
+    # Settings tab IDs used in sync flows but not yet in TestTags.kt (pre-existing gap)
+    "settings_tab_interface",
+    "settings_tab_sync",
+    "settings_content_sync",
+    "settings_tab_agenda",
+    "settings_tab_notifications",
+    "settings_theme_mode_System",
+    "settings_theme_mode_Light",
+    "settings_theme_mode_Dark",
+    # Note filter chips used in flows but not in TestTags.kt (pre-existing gap)
+    "note_filter_chip_all",
+    "note_filter_chip_archived",
+    "note_filter_chip_pinned",
+    # Note actions used in flows but not in TestTags.kt (pre-existing gap)
+    "note_action_edit",
     # Add more as discovered
 }
 
@@ -539,8 +530,7 @@ def main() -> int:
     for de_id in sorted(DYNAMIC_EXPANSIONS):
         if de_id not in ids_used_in_flows:
             # Skip seed-task entries — they are invoked via helpers, not directly.
-            if (de_id.startswith("task_item_") or de_id.startswith("task_checkbox_")
-                    or de_id.startswith("subtask_item_") or de_id.startswith("subtask_delete_")):
+            if de_id.startswith("task_item_") or de_id.startswith("task_checkbox_"):
                 continue
             # Skip pomodoroTaskChip seed entries.
             if de_id.startswith("pomodoro_task_chip_"):
