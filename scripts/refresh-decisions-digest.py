@@ -25,7 +25,7 @@ MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
 
 
 def main() -> None:
-    entries = sorted(DECISIONS_DIR.glob('[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
+    entries = sorted(DECISIONS_DIR.glob('**/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
     if not entries:
         print(f"no dated entries in {DECISIONS_DIR} — digest untouched")
         return

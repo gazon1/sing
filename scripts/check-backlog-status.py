@@ -240,8 +240,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--backlog",
-        default="docs/decisions/deferred-backlog.md",
-        help="backlog file to check (default: the live one)",
+        default="docs/decisions",
+        help="backlog file or directory to check (default: docs/decisions/)",
     )
     ap.add_argument(
         "--max-entries",
@@ -251,12 +251,30 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    path = ROOT / args.backlog
-    if not path.is_file():
-        print(f"ERROR: backlog not found: {path}")
+    backlog_path = ROOT / args.backlog
+
+    # After T2 (per-entry split), entries live as individual .md files. Before T2
+    # (or when checking the legacy combined file), it's a single file. Support both.
+    if backlog_path.is_dir():
+        # Glob the deferred/ subdirectory (T2 layout) and the legacy file itself
+        # so this script works before and after the split without flag changes.
+        entries: list[dict[str, object]] = []
+        if (backlog_path / "deferred").is_dir():
+            for fp in sorted((backlog_path / "deferred").glob("*.md")):
+                text = fp.read_text(encoding="utf-8")
+                entries.extend(parse_entries(text))
+        legacy = backlog_path / "deferred-backlog.md"
+        if legacy.is_file():
+            text = legacy.read_text(encoding="utf-8")
+            entries.extend(parse_entries(text))
+        rel = args.backlog
+    elif backlog_path.is_file():
+        text = backlog_path.read_text(encoding="utf-8")
+        entries = parse_entries(text)
+        rel = args.backlog
+    else:
+        print(f"ERROR: backlog not found: {backlog_path}")
         return 1
-    text = path.read_text(encoding="utf-8")
-    entries = parse_entries(text)
     if not entries:
         print(f"ERROR: no `## slug` entries found in {path}")
         return 1
