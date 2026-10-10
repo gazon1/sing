@@ -74,10 +74,19 @@ STATIC_IDS: Set[str] = {
     "auth_toggle_mode_button",
     # Navigation
     "menu_aichat",
+    "menu_archive",
+    "menu_notes",
+    "menu_profiles",
+    "menu_quick_search",
+    "menu_search",
+    "menu_settings",
     "menu_sheet",
+    "menu_statistics",
     "nav_menu_button",
     "top_bar_back_button",
     # Tasks
+    "checklist_sheet",
+    "first_run_section",
     "priority_option_high",
     "priority_option_low",
     "priority_option_medium",
@@ -94,10 +103,18 @@ STATIC_IDS: Set[str] = {
     "recurrence_option_weekly",
     "recurrence_option_yearly",
     "recurrence_option_yearly_on_date",
+    "subtask_add_button",
+    "subtask_add_input",
+    "subtasks_section",
     "tasks_fab",
     "tasks_list",
+    "task_action_archive",
+    "task_action_mark_as_completed",
+    "task_action_open",
+    "task_action_pin",
     "task_context_menu_sheet",
     "task_editor_ai_button",
+    "task_editor_due_date_row_label",
     "task_editor_due_row",
     "task_editor_estimate_row",
     "task_editor_more_menu",
@@ -113,8 +130,9 @@ STATIC_IDS: Set[str] = {
     "time_tracking_start",
     "time_tracking_stop",
     # Agenda
-    "agenda_saved_views_button",
+    "agenda_regex_pattern_input",
     "agenda_save_current_button",
+    "agenda_saved_views_button",
     "agenda_tag_match_all",
     "saved_agenda_add_section_confirm",
     "saved_agenda_create_fab",
@@ -141,20 +159,17 @@ STATIC_IDS: Set[str] = {
     "tags_fab",
     "tags_list",
     # Notes
-    "notes_backlinks_button",
-    "notes_list",
-    "notes_quick_add_input",
-    "note_action_delete",
-    "note_action_edit",
     "note_editor_body",
     "note_editor_notification_host",
     "note_editor_save",
     "note_editor_title_input",
-    "note_filter_chip_all",
-    "note_filter_chip_archived",
-    "note_filter_chip_pinned",
+    "notes_backlinks_button",
+    "notes_list",
+    "notes_quick_add_input",
     # Search
     "search_input",
+    "search_menu_delete",
+    "search_menu_rename",
     # Projects
     "project_detail_quick_add",
     "project_editor_back",
@@ -162,28 +177,17 @@ STATIC_IDS: Set[str] = {
     "project_editor_name_input",
     "project_editor_notification_host",
     "project_editor_save",
+    # Profile
+    "profile_create_button",
+    "profile_create_name_input",
+    "profile_item_",
     # Settings
     "settings_action_row",
-    "settings_content_agenda",
-    "settings_content_calendar_sync",
-    "settings_content_data",
-    "settings_content_interface",
-    "settings_content_notifications",
-    "settings_content_sync",
     "settings_dark_theme_switch",
     "settings_font_size_slider",
-    "settings_theme_mode_System",
-    "settings_theme_mode_Light",
-    "settings_theme_mode_Dark",
     "settings_notifications_enabled_switch",
     "settings_notifications_sound_switch",
     "settings_notifications_vibration_switch",
-    "settings_tab_agenda",
-    "settings_tab_calendar_sync",
-    "settings_tab_data",
-    "settings_tab_interface",
-    "settings_tab_notifications",
-    "settings_tab_sync",
     "settings_value_row",
     "settings_work_schedule_saturday_switch",
     "settings_work_schedule_sunday_switch",
@@ -193,43 +197,35 @@ STATIC_IDS: Set[str] = {
     "onboarding_spotlight_next",
     "onboarding_spotlight_skip",
     # Sync
+    "sync",
     "sync_attachments_switch",
     "sync_auto_sync_switch",
     "sync_interval_row",
     "sync_now_row",
-    "sync_sync_now_row",
     "sync_test_connection_row",
     # Dialog
     "dialog_confirm",
     "dialog_date_picker_cancel",
-    "sheet_confirm",
     "dialog_date_picker_clear",
     "dialog_date_picker_ok",
     "dialog_dismiss",
-    "dialog_title_priority",
     # Editor Overflow
     "overflow_archive",
     "overflow_delete",
     "overflow_pin",
     "overflow_restore",
     "overflow_unpin",
-    # Snackbar
+    # Notifications / hosts
     "archive_notification_host",
     "chat_notification_host",
     "projects_notification_host",
     "snackbar_action",
-    "snackbar_saved",
     # Backup
     "backup_create_button",
     "backup_export_settings",
     "backup_import_settings",
     "backup_restore_button",
     "backup_top_bar_back",
-    # Profile
-    "profile_create_button",
-    "profile_create_name_input",
-    "profile_item_personal",
-    "profile_item_work",
     # Calendar sync
     "calendar_sync_google_connect_button",
     "calendar_sync_google_disconnect_button",
@@ -246,6 +242,10 @@ STATIC_IDS: Set[str] = {
     # Search filters
     "search_filter_has_description_switch",
     "search_filter_pinned_switch",
+    # Reminder
+    "reminder_defaults_section",
+    # Sheet
+    "sheet_confirm",
 }
 
 # ---------------------------------------------------------------------------
@@ -314,11 +314,22 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_tomorrowtask",
     "task_item_write_spec",
     "task_item_worktask",
+    "task_item_grocery_run",
     # taskCheckbox(...) — from seed flows
     "task_checkbox_buy_milk",
+    # subtaskItem(...) — from TASK-SUB-01 flow
+    "subtask_item_child_task_one",
+    # subtaskDelete(...) — from TASK-SUB-01 flow
+    "subtask_delete_child_task_one",
+    # taskItem(...) — seeded via DebugSeedActivity for TASK-SUB-01
+    "task_item_parent_task",
+    # taskItem("Anonymous task") — AUTH-FIRSTRUN-01 anonymous first-run flow
+    "task_item_anonymous_task",
     # pomodoroTaskChip(...) — from seed flows
     "pomodoro_task_chip_buy_milk",
     # savedAgendaCard(...) — used in flows
+    "saved_agenda_card_work",
+    "saved_agenda_card_personal",
     "saved_agenda_card_journey_view",
     "saved_agenda_card_journey_renamed",
     # agendaSection(...) — section headers used in flows
@@ -333,11 +344,26 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "profile_item_work",
     # Dialog.title(...) — used in flows
     "dialog_title_priority",
+    "dialog_title_discard",
+    "dialog_title_delete",
     "dialog_title_delete_view",
+    "dialog_title_archive",
     # Note items — desktop/seed
     "note_item_by_title_meeting_notes",
+    # agendaSectionTemplate(...)
+    "agenda_section_template_by_tag",
+    "agenda_section_template_due_date",
+    # agendaSelectorOption(...)
+    "agenda_selector_option_work",
+    # Calendar day cells (hard-coded expanded form)
+    "calendar_day_2026_09_15",
+    # genUi(...)
+    "genui_whatsnew",
     # Menu item slug — "Quick Search" slug = "quick_search"
     "menu_quick_search",
+    # Calendar sync provider segments
+    "calendar_sync_provider_google_calendar",
+    "calendar_sync_provider_system_calendar",
     # Settings tabs (settingsTab function — slug of the tab name)
     "settings_tab_backup",
     "settings_tab_account",
@@ -356,10 +382,27 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_action_mark_as_completed",
     "task_action_open",
     # Calendar view mode tabs (calendarViewMode function)
+    "calendar_view_mode_day",
+    "calendar_view_mode_4_days",
     "calendar_view_mode_week",
     "calendar_view_mode_month",
     # Accent color swatches — used in settings flows (blue is exercised in theme-toggle.yaml)
     "settings_accent_swatch_blue",
+    "settings_accent_swatch_purple",
+    "settings_accent_swatch_pink",
+    "settings_accent_swatch_red",
+    "settings_accent_swatch_orange",
+    "settings_accent_swatch_yellow",
+    "settings_accent_swatch_green",
+    "settings_accent_swatch_teal",
+    # Agenda selector options (agendaSelectorOption function)
+    "agenda_selector_option_none",
+    # Reminder offset radio rows (reminderOffsetRadioRow function — slug of label)
+    "reminder_defaults_section",
+    "reminder_offset_radio_at_due_time",
+    "reminder_offset_radio_15_minutes_before",
+    "reminder_offset_radio_1_hour_before",
+    "reminder_offset_radio_1_day_before",
 }
 
 # ---------------------------------------------------------------------------
@@ -379,6 +422,21 @@ ALLOWLIST: Set[str] = {
     "saved_agenda_card_my_active_tasks",
     # Seeded offline task
     "task_item_offline_task",
+    # Settings tab IDs used in sync flows but not yet in TestTags.kt (pre-existing gap)
+    "settings_tab_interface",
+    "settings_tab_sync",
+    "settings_content_sync",
+    "settings_tab_agenda",
+    "settings_tab_notifications",
+    "settings_theme_mode_System",
+    "settings_theme_mode_Light",
+    "settings_theme_mode_Dark",
+    # Note filter chips used in flows but not in TestTags.kt (pre-existing gap)
+    "note_filter_chip_all",
+    "note_filter_chip_archived",
+    "note_filter_chip_pinned",
+    # Note actions used in flows but not in TestTags.kt (pre-existing gap)
+    "note_action_edit",
     # Add more as discovered
 }
 

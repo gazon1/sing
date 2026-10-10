@@ -92,13 +92,6 @@ import com.singularity.todo.feature.reminders.data.ProjectRemindersRepositoryImp
 import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
-import com.singularity.todo.feature.timetracking.data.TimeEntryDao
-import com.singularity.todo.core.database.ChecklistDao
-import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
-import com.singularity.todo.core.database.ProjectReminderDao
-import com.singularity.todo.core.database.ReminderDao
-import com.singularity.todo.core.database.SavedSearchDao
-import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.factoryOf
@@ -360,14 +353,13 @@ fun coreModule(): org.koin.core.module.Module = module {
         )
     }
 
-    // SyncBootstrapper registration is deferred until the engine is re-enabled.
-    // When SyncEngine(...) is uncommented, also uncomment these two lines:
-    //   single { SyncBootstrapper(engine = get<SyncEngine>(), writer = get()) }
-    // and remove the stub below.
-    //
-    // (Both lines below are stubs so the SyncBootstrapper slot remains wired.
-    //  The real one needs a SyncEngine; these take a no-op.)
-    single { SyncBootstrapper(engine = null, writer = get()) }
+    // Force bootstrapper instantiation so its init {} runs and registers handlers.
+    // The engine single {} has executed above, so get<SyncEngine>() returns the cached engine.
+    // Koin resolves get() at call-time, not definition-time.
+    single { get<SyncEngine>() }
+    single {
+        SyncBootstrapper(engine = get<SyncEngine>(), writer = get())
+    }
 
     // Backoff policy for rejected patches. One instance so the outbox, the push path
     // and the settings screen all agree on what "too many attempts" means.
@@ -383,37 +375,38 @@ fun coreModule(): org.koin.core.module.Module = module {
     // Single owner of the sync cycle. Every trigger — periodic, user-initiated,
     // WorkManager — requests through it, so two cycles cannot overlap.
     //
-    // STUBBED: SyncEngine is disabled. This binding will be restored when
-    // the engine is re-enabled. The stub no-ops the cycle.
+    // The engine is resolved to a local rather than looked up inside the lambda:
+    // a `get()` nested in a lambda argument is outside what the Koin compiler
+    // plugin can verify, and an unverifiable graph is exactly the state this
+    // project refuses to build with.
     single {
-        SyncCoordinator(runCycle = { com.singularity.todo.core.sync.SyncOutcome.NothingToDo }, scope = get())
+        val engine = get<SyncEngine>()
+        SyncCoordinator(runCycle = { engine.syncOnce() }, scope = get())
     }
 
     // SyncRunner is internal.
-    // STUBBED: SyncEngine is disabled — re-enable when the engine is stable.
-    // single {
-    //     SyncRunner(
-    //         engine = get(),
-    //         coordinator = get(),
-    //         periodicTrigger = get(),
-    //         authRepository = get(),
-    //         stateRepository = get(),
-    //         scopeProvider = get(),
-    //         scope = get(),
-    //     )
-    // }
+    single {
+        SyncRunner(
+            engine = get(),
+            coordinator = get(),
+            periodicTrigger = get(),
+            authRepository = get(),
+            stateRepository = get(),
+            scopeProvider = get(),
+            scope = get(),
+        )
+    }
 
     // Public facade.
-    // STUBBED: SyncEngine is disabled — re-enable when the engine is stable.
-    // single<SyncRepository> {
-    //     SyncRepositoryImpl(
-    //         engine = get(),
-    //         runner = get(),
-    //         coordinator = get(),
-    //         api = get(),
-    //         authRepository = get(),
-    //     )
-    // }
+    single<SyncRepository> {
+        SyncRepositoryImpl(
+            engine = get(),
+            runner = get(),
+            coordinator = get(),
+            api = get(),
+            authRepository = get(),
+        )
+    }
 
     // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
     single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
@@ -446,18 +439,17 @@ fun coreModule(): org.koin.core.module.Module = module {
     // SeedPlanner: the one-time upload of data that existed before sign-in. It
     // shares the bootstrapper's reach into the feature repositories for the same
     // reason — a bootstrapper is the one place that knows every entity type.
-    // STUBBED: SyncEngine is disabled — re-enable when the engine is stable.
-    // single {
-    //     SeedPlanner(
-    //         stateRepository = get(),
-    //         enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
-    //         taskRepo = get(),
-    //         noteRepo = get(),
-    //         projectRepo = get(),
-    //         tagRepo = get(),
-    //         tagGroupRepo = get(),
-    //     )
-    // }
+    single {
+        SeedPlanner(
+            stateRepository = get(),
+            enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
+            taskRepo = get(),
+            noteRepo = get(),
+            projectRepo = get(),
+            tagRepo = get(),
+            tagGroupRepo = get(),
+        )
+    }
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
@@ -507,9 +499,18 @@ fun coreModule(): org.koin.core.module.Module = module {
     singleOf(::BackupExporter)
     single {
         BackupImporter(
-            codec = get(),
+            Logger.withTag("BackupImporter"),
+            get(), // taskDao
+            get(), // noteDao
+            get(), // projectDao
+            get(), // tagDao
+            get(), // agendaViewDao
+            get(), // attachmentDao
+            get(), // annotationDao
+            get(), // attachmentStorage
+            get(), // codec
+            get(), // clock
             createFileSource = get(),
-            bulkImportPort = get(),
         )
     }
     single<BackupRepository> {

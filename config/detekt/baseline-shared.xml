@@ -4,35 +4,7 @@
     <ID>TooGenericExceptionCaught:SupabaseSyncApiClient.kt:SupabaseSyncApiClient$e: Exception</ID>
   </ManuallySuppressedIssues>
   <CurrentIssues>
-    <ID>AnnotationOnSeparateLine:SyncEngine.kt:SyncEngine$@Suppress("UNREACHABLE_CODE") Result.failure(IllegalStateException("Phase did not run"))</ID>
-    <ID>AnnotationOnSeparateLine:SyncEngine.kt:SyncEngine$@Suppress("UNREACHABLE_CODE") Result.success(PullSummary(0, 0, 0))</ID>
-    <ID>ArgumentListWrapping:PullPhaseTest.kt:PullPhaseTest$(DocType.Task, StableJson.encodeToString(serializer&lt;Task&gt;(), doc) .let { Json.parseToJsonElement(it) as JsonObject })</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(0, 0, 0)</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(PullSummary(0, 0, 0))</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(PushSummary(0, 0, 0))</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(PushSummary(cycleCount, cycleCount, 0))</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0)))</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(Result.success(PushSummary(cycleCount, cycleCount, 0)), Result.success(PullSummary(0, 0, 0)))</ID>
-    <ID>ArgumentListWrapping:SyncCoordinatorTest.kt:SyncCoordinatorTest$(cycleCount, cycleCount, 0)</ID>
-    <ID>ArgumentListWrapping:SyncEngine.kt:SyncEngine$("Phase did not run")</ID>
-    <ID>ArgumentListWrapping:SyncEngine.kt:SyncEngine$("UNREACHABLE_CODE")</ID>
-    <ID>ArgumentListWrapping:SyncEngine.kt:SyncEngine$(IllegalStateException("Phase did not run"))</ID>
-    <ID>ArgumentListWrapping:TagsMd.kt:TagsMd$(fnName, "Settings", "Dark", "Theme-mode segmented button (System / Light / Dark)")</ID>
-    <ID>ArgumentListWrapping:TaskContextMenuSheet.kt:(label = "Archive", actionId = TestTags.TASK_CONTEXT_MENU_ARCHIVE, onClick = onArchive, onDismiss = onDismiss)</ID>
-    <ID>ArgumentListWrapping:TaskContextMenuSheet.kt:(label = "Open", actionId = TestTags.TASK_CONTEXT_MENU_OPEN, onClick = onOpen, onDismiss = onDismiss)</ID>
-    <ID>BlankLineBetweenWhenConditions:PushPhase.kt:PushPhase$when (plan) { is PushPlan.Ready -&gt; plan PushPlan.Empty -&gt; { phases.setPushStatus(isPushing = false) return PhaseResult.Ok(PushSummary(0, 0, 0)) } }</ID>
-    <ID>BlankLineBetweenWhenConditions:SyncEngine.kt:SyncEngine$when (pullResult) { is PhaseResult.Ok -&gt; Result.success(pullResult.getOrThrow()) // NotRun is unreachable: pull() returns NotRun only when !SignedIn, but // `active ?: return NothingToDo` guards this call before it is reached. is PhaseResult.NotRun -&gt; @Suppress("UNREACHABLE_CODE") Result.success(PullSummary(0, 0, 0)) is PhaseResult.Failed -&gt; Result.failure(pullResult.error) is PhaseResult.Superseded -&gt; Result.success(PullSummary(0, 0, 0)) }</ID>
-    <ID>BlankLineBetweenWhenConditions:SyncEngine.kt:SyncEngine$when (pushResult) { is PhaseResult.Ok -&gt; Result.success(pushResult.getOrThrow()) // NotRun is unreachable: push() returns Ok/Failed or throws; it never returns NotRun. // Suppressed instead of removed so a future caller that adds NotRun gets a // compile warning rather than a silent missing-arm crash. is PhaseResult.NotRun -&gt; @Suppress("UNREACHABLE_CODE") Result.failure(IllegalStateException("Phase did not run")) is PhaseResult.Failed -&gt; Result.failure(pushResult.error) is PhaseResult.Superseded -&gt; Result.success(PushSummary(0, 0, 0, superseded = 0)) }</ID>
-    <ID>BlankLineBetweenWhenConditions:TagsMd.kt:TagsMd$when (fnName) { "navTab" -&gt; DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs") "calendarViewMode" -&gt; DynamicMeta(fnName, "Calendar", "month", "Calendar view-mode tabs (month / day / 4_days)") "Settings.accentSwatch" -&gt; DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in Settings") "CalendarSync.providerSegment" -&gt; DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel") "CalendarSync.googleCalendarRow" -&gt; DynamicMeta(fnName, "Calendar sync", "primary-cal", "One row per writable Google calendar") "settingsTab" -&gt; DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs") "Settings.content" -&gt; DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area") "menuItem" -&gt; DynamicMeta(fnName, "Menu", "Settings", "Menu bottom sheet items") "taskItem" -&gt; DynamicMeta(fnName, "Tasks", "Buy milk", "Task list rows") "taskCheckbox" -&gt; DynamicMeta(fnName, "Tasks", "Buy milk", "Task checkboxes") "noteItem" -&gt; DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)") "noteItemByTitle" -&gt; DynamicMeta(fnName, "Notes", "Meeting notes", "Note cards (automation)") "savedAgendaCard" -&gt; DynamicMeta(fnName, "Agenda", "Work", "Saved agenda cards") "agendaSection" -&gt; DynamicMeta(fnName, "Agenda", "Today", "Agenda section headers") "agendaSectionTemplate" -&gt; DynamicMeta(fnName, "Agenda", "By tag", "Section *types* in the add-section sheet") "agendaSelectorOption" -&gt; DynamicMeta(fnName, "Agenda", "work", "Values in the section parameter picker") "projectCard" -&gt; DynamicMeta(fnName, "Projects", "Project Alpha", "Project cards") "pomodoroTaskChip" -&gt; DynamicMeta(fnName, "Pomodoro", "Buy milk", "Pomodoro focus-task chips") "genUi" -&gt; DynamicMeta(fnName, "AI", "whatsnew", "GenUI surfaces") "tagRename" -&gt; DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card") "taskAction" -&gt; DynamicMeta(fnName, "Dialog", "Archive", "Long-press action rows") "Dialog.title" -&gt; DynamicMeta(fnName, "Dialog", "discard", "Dialog title") "profileItem" -&gt; DynamicMeta(fnName, "Profile", "Personal", "Profile list items") "noteFilterChip" -&gt; DynamicMeta(fnName, "Notes", "my_chip", "Filter chips in the notes list") "noteAction" -&gt; DynamicMeta(fnName, "Notes", "archive", "Action buttons in the notes list") "Settings.themeModeButton" -&gt; DynamicMeta(fnName, "Settings", "Dark", "Theme-mode segmented button (System / Light / Dark)") // A new dynamic function must be described here, not silently dropped: // "Used for" and the example input are documentation, not derivable from source. else -&gt; error( "TagsMd.dynamicMeta has no entry for TestTags.$fnName (prefix \"$prefix\"). " + "Add a DynamicMeta(...) row so the function appears in TAGS.md.", ) }</ID>
-    <ID>ChainWrapping:EventBusTest.kt:EventBusAfterCloseTest$+</ID>
-    <ID>ClassSignature:BackupDtos.kt:ProjectTagGroupDto</ID>
-    <ID>ClassSignature:DevAuthRepository.kt:DevAuthRepository : AuthRepository</ID>
-    <ID>ClassSignature:InterceptableSyncApiClient.kt:InterceptableSyncApiClient : SyncApiClient</ID>
-    <ID>ClassSignature:PullPhase.kt:PullPhase$PageOutcome</ID>
-    <ID>ClassSignature:SyncEngineFakes.kt:ThrowingSyncScopeProvider : SyncScopeProvider</ID>
-    <ID>ClassSignature:SyncPhaseReporter.kt:SyncEngineState</ID>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
-    <ID>CyclomaticComplexMethod:BulkImportPortImpl.kt:BulkImportPortImpl$override suspend fun restore: Result&lt;RestoreResult&gt;</ID>
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
@@ -47,7 +19,6 @@
     <ID>EmptyFunctionBlock:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:FakeHlcFactory.kt:FakeHlcFactory.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:NoopCalendarSyncRepositoryImpl.kt:NoopCalendarSyncRepositoryImpl${}</ID>
-    <ID>EmptyFunctionBlock:SyncPhaseReporterTest.kt:SyncPhaseReporterTest.RecordingCrashReporter${}</ID>
     <ID>EndOfSentenceFormat:BackupCodec.kt:BackupCodec$* Creates a zip archive at `destPath` containing: * - `MANIFEST.json` — [manifestBytes] * - `payload.json` — [payloadBytes] * - `attachments/$name` — one entry per [attachments] pair (name → bytes)</ID>
     <ID>EndOfSentenceFormat:Daos.kt:DailyUsageRow$ Row type returned by observeByDay </ID>
     <ID>EndOfSentenceFormat:Daos.kt:ModelUsageRow$ Row type returned by observeByModel </ID>
@@ -80,13 +51,6 @@
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Start date + time row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Tags row — null = hidden </ID>
     <ID>ForbiddenComment:CoreDiModule.kt:// TODO: when a real SDK is connected, replace with RealAnalytics(binding).</ID>
-    <ID>FunctionExpressionBody:ScriptedSyncApiClient.kt:ScriptedSyncApiClient${ return if (_pushResponses.isNotEmpty()) { _pushResponses.removeFirst() } else { defaultPushResponse } }</ID>
-    <ID>FunctionExpressionBody:ScriptedSyncApiClient.kt:ScriptedSyncApiClient${ return pullEvents .filter { _ignoreSinceLsn || it.serverLsn &gt; sinceLsn } .sortedBy { it.serverLsn } .take(limit) }</ID>
-    <ID>FunctionExpressionBody:SearchViewModelTest.kt:SearchViewModelTest${ return SearchViewModel( searchUseCase = SearchUseCase( taskRepo = fakeTaskRepo, noteRepo = fakeNotesRepo, projectRepo = fakeProjectsRepo, tagRepo = fakeTagsRepo, queryResolver = FakeSearchQueryResolver(), ), savedSearchRepo = fakeSavedSearchRepo, taskRepo = fakeTaskRepo, parseQuery = { input -&gt; try { com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() } catch (_: com.singularity.todo.feature.search.query.QueryParseException) { Query.EMPTY } }, clock = FakeClock(NOW), crashReporter = NoOpCrashReportingPort(), // backgroundScope owns the VM's lifecycle — see TagGroupsViewModelTest for rationale scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext), ) }</ID>
-    <ID>FunctionExpressionBody:SyncEngineTest.kt:SyncEngineTest.&lt;no name provided&gt;${ throw IllegalStateException("outbox delete failed") }</ID>
-    <ID>FunctionExpressionBody:SyncEngineTest.kt:SyncEngineTest.&lt;no name provided&gt;${ throw IllegalStateException("outbox insert failed") }</ID>
-    <ID>FunctionLiteral:SyncCoordinatorTest.kt:SyncCoordinatorTest$&lt;anonymous&gt;</ID>
-    <ID>Indentation:SyncContractIsTheSourceOfTruthTest.kt:SyncContractIsTheSourceOfTruthTest$ </ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
     <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
@@ -101,10 +65,9 @@
     <ID>LongMethod:AiToolsModule.jvm.kt:actual fun aiToolsModule: Module</ID>
     <ID>LongMethod:AndroidNavEntries.kt:@Composable fun createAppEntryProvider: (AppDestination) -&gt; NavEntry&lt;AppDestination&gt;</ID>
     <ID>LongMethod:AttachmentsSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AttachmentsSheet</ID>
-    <ID>LongMethod:BackupExporter.kt:BackupExporter$suspend fun export: Result&lt;BackupResult&gt;</ID>
+    <ID>LongMethod:BackupImporter.kt:BackupImporter$suspend fun import: Result&lt;RestoreResult&gt;</ID>
     <ID>LongMethod:BackupScreen.kt:@Composable private fun BackupScreenContentPreview</ID>
     <ID>LongMethod:BackupScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen</ID>
-    <ID>LongMethod:BulkImportPortImpl.kt:BulkImportPortImpl$override suspend fun restore: Result&lt;RestoreResult&gt;</ID>
     <ID>LongMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>LongMethod:CoreDiModule.kt:fun coreModule: org.koin.core.module.Module</ID>
     <ID>LongMethod:DesktopShellNav3.kt:@Composable fun DesktopShellNav3Root</ID>
@@ -122,9 +85,9 @@
     <ID>LongMethod:PomodoroScreen.kt:@Composable private fun PomodoroContentPreview</ID>
     <ID>LongMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectDetailContent</ID>
     <ID>LongMethod:ProjectEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ProjectEditorContent</ID>
-    <ID>LongMethod:PushPhase.kt:PushPhase$internal suspend fun push: PhaseResult&lt;PushSummary&gt;</ID>
     <ID>LongMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>LongMethod:ReorderableSectionList.kt:@Composable fun ReorderableSectionList</ID>
+    <ID>LongMethod:SavedAgendaScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SavedAgendaScreen</ID>
     <ID>LongMethod:SearchScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SearchScreen</ID>
     <ID>LongMethod:SettingsImporter.kt:SettingsImporter$open suspend fun importFromJson: ImportResult</ID>
     <ID>LongMethod:SimpleFilterSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimpleFilterSheet</ID>
@@ -132,46 +95,27 @@
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
-    <ID>LoopWithTooManyJumpStatements:CountdownStateMachine.kt:CountdownStateMachine$while</ID>
     <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
     <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
     <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
+    <ID>MaximumLineLength:KoogAgentService.kt:FakeTextGen$,</ID>
+    <ID>MaximumLineLength:LlmUseCase.kt:ImproveNoteUseCase$(</ID>
     <ID>MaximumLineLength:LogBundleExporterTest.kt:FakeBackupCodec${</ID>
     <ID>MaximumLineLength:NoteContentMapperTest.kt:NoteContentMapperTest$"""</ID>
     <ID>MaximumLineLength:ProfileSwitcherScreen.kt:// Preview pattern: construct VM with Fake* deps directly</ID>
     <ID>MaximumLineLength:SavedAgendaViewModelTest.kt:SavedAgendaViewModelTest$,</ID>
     <ID>MaximumLineLength:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$// other user — not returned by scoped query</ID>
     <ID>MaximumLineLength:SettingsImporter.kt:SettingsImporter$)</ID>
-    <ID>MaximumLineLength:SyncCoordinatorTest.kt:SyncCoordinatorTest$)</ID>
-    <ID>MaximumLineLength:SyncCoordinatorTest.kt:SyncCoordinatorTest$,</ID>
-    <ID>MaximumLineLength:SyncEngine.kt:SyncEngine$)</ID>
     <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
-    <ID>MaximumLineLength:TagsMd.kt:TagsMd$)</ID>
-    <ID>MaximumLineLength:TaskContextMenuSheet.kt:)</ID>
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
-    <ID>NoConsecutiveBlankLines:HandlerRegistry.kt: </ID>
-    <ID>NoMultipleSpaces:PushPhaseTest.kt:PushPhaseTest$ </ID>
-    <ID>NoMultipleSpaces:SyncEngine.kt:SyncEngine$ </ID>
-    <ID>NoMultipleSpaces:SyncPhaseReporter.kt:PhaseResult.NotRun$ </ID>
+    <ID>NoMultipleSpaces:CoreDiModule.kt: </ID>
+
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
     <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
-    <ID>NoSwallowedCancellation:EventBus.kt:EventBus$catch (closed: ClosedSendChannelException) { // Closed-bus case: a lifecycle race, not a defect. Count and log — but do not // report as a crash, because a drop that is expected on a closed channel is // not a defect. The test enforces this: `reports.isEmpty()` after a drop. val dropped = droppedAfterCloseCount.incrementAndFetch() log.d(closed) { "EventBus closed, dropped event #$dropped" } }</ID>
-    <ID>NoUnusedImports:BackupImporter.kt:com.singularity.todo.core.backup.BackupImporter.kt</ID>
-    <ID>NoUnusedImports:CoreDiModule.kt:com.singularity.todo.core.di.CoreDiModule.kt</ID>
-    <ID>NoUnusedImports:PullPhaseTest.kt:com.singularity.todo.core.sync.PullPhaseTest.kt</ID>
-    <ID>NoUnusedImports:PushPhase.kt:com.singularity.todo.core.sync.PushPhase.kt</ID>
-    <ID>NoUnusedImports:PushPhaseTest.kt:com.singularity.todo.core.sync.PushPhaseTest.kt</ID>
-    <ID>NoUnusedImports:RecordingSyncApiClient.kt:com.singularity.todo.test.fakes.RecordingSyncApiClient.kt</ID>
-    <ID>NoUnusedImports:SearchViewModelTest.kt:com.singularity.todo.feature.search.SearchViewModelTest.kt</ID>
-    <ID>NoUnusedImports:SyncContractIsTheSourceOfTruthTest.kt:com.singularity.todo.core.sync.SyncContractIsTheSourceOfTruthTest.kt</ID>
-    <ID>NoUnusedImports:SyncCoordinatorTest.kt:com.singularity.todo.core.sync.SyncCoordinatorTest.kt</ID>
-    <ID>NoUnusedImports:SyncEngine.kt:com.singularity.todo.core.sync.SyncEngine.kt</ID>
-    <ID>NoUnusedImports:SyncEngineTest.kt:com.singularity.todo.core.sync.SyncEngineTest.kt</ID>
-    <ID>NoUnusedImports:SyncPhaseReporterTest.kt:com.singularity.todo.core.sync.SyncPhaseReporterTest.kt</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -344,7 +288,6 @@
     <ID>PackageNaming:SyncSourceTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:SyncedEventRef.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:TranslateExceptions.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
-    <ID>ParameterListSpacing:SyncEngine.kt:SyncEngine$( private val log: Logger, private val api: SyncApiClient, private val authRepository: AuthRepository, private val outboxDao: SyncOutboxDao, private val deadLetterDao: SyncDeadLetterDao, private val idGenerator: IdGenerator, private val stateRepository: SyncStateRepository, private val scopeProvider: SyncScopeProvider, /** * Bootstraps pull handlers for all DocTypes. * * Nullable here (a no-op placeholder) because Koin only instantiates a bean * when it is first resolved. The real `SyncBootstrapper` is created in a * separate `single {}` block in `CoreDiModule` — after the engine is cached — * so that its `init {}` (which registers the handlers) runs with a valid engine. */ @Suppress("UNUSED_PARAMETER") // side-effect only: init {} in real Bootstrapper private val bootstrapper: SyncBootstrapper? = null, private val shadowDao: SyncShadowDao, private val patchBuilder: SyncPatchBuilder, /** * Supplies the per-type document writer, on demand rather than eagerly. * * A provider and not the writer itself because of a real dependency cycle, not for * laziness's sake: * * ``` * TaskRepository → SyncRepository → SyncEngine → SyncDocumentWriter → TaskRepository * ``` * * `SyncDocumentWriter` needs the repositories (that is what it is a table of), and * the repositories need the engine (that is what `enqueue` is). Resolving the * writer as a constructor argument closes the loop, and Koin recurses until the * stack gives out — which it did, in a graph that resolves the chain, rather than * at module-definition time where it would have been obvious. * * A provider is the honest way out: the writer is only needed to resolve a lost * race, by which point the repositories exist. The alternative — reaching into the * repositories from the engine directly, which is the direction the layering runs * away from — trades a runtime failure for a worse structural one. */ private val writerProvider: () -&gt; SyncDocumentWriter, private val scheduler: SyncWorkScheduler, private val retryPolicy: PatchRetryPolicy = PatchRetryPolicy(), /** * Wall-clock time, injected. * * The backoff, the patch timestamp, the outbox row's creation time and the * "last synced" stamp are all wall-clock readings, and all of them used to be * taken from `System.currentTimeMillis()` at six call sites. That made every * time-dependent behaviour of this class untestable: a test could not observe a * deferral, could not let one expire, and could not assert what timestamp a patch * carries. Required rather than defaulted, so a new call site has to decide * rather than inherit the wall clock. */ private val clock: Clock, private val scope: AutoCloseableCoroutineScope, private val crashReporter: CrashReportingPort, /** * Per-entity pull handlers (registered by TasksDiModule, NotesDiModule, etc.). * * Default constructs a real instance so that test helpers that construct [SyncEngine] * without this parameter continue to work. */ private val handlerRegistry: HandlerRegistry = HandlerRegistry(), /** * Shared mutable state and phase reporter. [SyncEngine] exposes its [SyncEngineState.status], * [SyncEngineState.lastPush], and [SyncEngineState.lastPull] as public `StateFlow`s. * [PushPhase] uses the same [SyncEngineState.phases] reporter. * * Default constructs a real instance so that test helpers that construct [SyncEngine] * without this parameter continue to work. */ internal val state: SyncEngineState = SyncEngineState(log, crashReporter), /** * The push phase. Delegates status management and result recording to [state]. * * Default constructs a real instance so that test helpers that construct [SyncEngine] * without this parameter continue to work. */ private val pushPhase: PushPhase = PushPhase( api = api, authRepository = authRepository, outboxDao = outboxDao, deadLetterDao = deadLetterDao, shadowDao = shadowDao, idGenerator = idGenerator, scopeProvider = scopeProvider, patchBuilder = patchBuilder, monoNow = { clock.now().toEpochMilliseconds() }, phases = state.phases, writerProvider = writerProvider, retryPolicy = retryPolicy, scope = scope, ), /** * The pull phase. Uses [state] for status and result reporting. * * Default constructs a real instance so that test helpers that construct [SyncEngine] * without this parameter continue to work. */ private val pullPhase: PullPhase = PullPhase( api = api, authRepository = authRepository, stateRepository = stateRepository, clock = clock, scopeProvider = scopeProvider, phases = state.phases, getHandlers = { handlerRegistry.handlers }, scope = scope, ), )</ID>
     <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
     <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
     <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_ALPHA = ProjectId("proj-alpha")</ID>
@@ -360,6 +303,12 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
+    <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseCatchUp: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseEveryWeekday: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseMonthlyOrdinal: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
+    <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>RethrowCaughtException:EventBus.kt:EventBus$throw cancelled</ID>
     <ID>ReturnCount:PullPhase.kt:PullPhase$internal suspend fun pull: PhaseResult&lt;PullSummary&gt;</ID>
     <ID>ReturnCount:PushPhase.kt:PushPhase$internal suspend fun push: PhaseResult&lt;PushSummary&gt;</ID>
@@ -368,10 +317,9 @@
     <ID>SpacingBetweenDeclarationsWithComments:TagsViewModel.kt:TagsViewModel$/** Exposes countdown progress to the screen's snackbar progress bar. */</ID>
     <ID>StatementWrapping:ScriptedSyncApiClient.kt:ScriptedSyncApiClient${ _ignoreSinceLsn = value }</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
-    <ID>SwallowedException:PullPhaseTest.kt:PullPhaseTest$e: Exception</ID>
     <ID>SwallowedException:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:AiToolFilters.kt:e: Throwable</ID>
-    <ID>TooGenericExceptionCaught:BulkImportPortImpl.kt:BulkImportPortImpl$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:BackupImporter.kt:BackupImporter$e: Exception</ID>
     <ID>TooGenericExceptionCaught:CalendarSyncViewModel.kt:CalendarSyncViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:CalendarSyncWorker.kt:CalendarSyncWorker$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ClusterNotesTool.kt:ClusterNotesTool$e: Exception</ID>
@@ -382,6 +330,7 @@
     <ID>TooGenericExceptionCaught:ImproveNoteTool.kt:ImproveNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NoteEditor.kt:NoteEditor$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NotePreview.kt:NotePreview$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RecurrenceParser.kt:RecurrenceParser$e: Exception</ID>
     <ID>TooGenericExceptionCaught:PullPhase.kt:PullPhase$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:PushPhase.kt:PushPhase$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$e: Throwable</ID>
@@ -392,13 +341,13 @@
     <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SyncBootstrapper.kt:SyncBootstrapper$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SyncEngine.kt:SyncEngine$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:SyncOutboxWorker.kt:SyncOutboxWorker$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SyncViewModel.kt:SyncViewModel$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:ToolFactories.kt:&lt;no name provided&gt;$e: Exception</ID>
     <ID>TooGenericExceptionCaught:WeeklyPlanTool.kt:WeeklyPlanTool$e: Exception</ID>
     <ID>TooManyFunctions:AppDatabase.kt:AppDatabase : RoomDatabase</ID>
     <ID>TooManyFunctions:AttachmentDao.kt:AttachmentDao</ID>
-    <ID>TooManyFunctions:BackupDtos.kt:com.singularity.todo.core.backup.BackupDtos.kt</ID>
     <ID>TooManyFunctions:Daos.kt:NoteDao</ID>
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
     <ID>TooManyFunctions:Daos.kt:ReminderDao</ID>
@@ -414,6 +363,7 @@
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$targetPath: String</ID>
+    <ID>UnusedParameter:AttachmentsSheet.kt:onAttachFile: () -&gt; Unit</ID>
     <ID>UnusedParameter:AttachmentsSheet.kt:taskId: TaskId?</ID>
     <ID>UnusedParameter:BackupScreen.kt:/** * Called when user has selected a settings JSON file from [onSelectSettingsFile]. * [jsonContent] is the raw content of the selected JSON file. */ onImportSettings: (jsonContent: String) -&gt; Unit</ID>
     <ID>UnusedParameter:CalendarContent.kt:onTaskClick: (LocalDate) -&gt; Unit = {}</ID>
@@ -426,6 +376,7 @@
     <ID>UnusedParameter:NoteCard.kt:isSelected: Boolean</ID>
     <ID>UnusedParameter:NoteCard.kt:onLongClick: () -&gt; Unit = {}</ID>
     <ID>UnusedParameter:NotesListScreen.kt:allNotes: List&lt;Note&gt;</ID>
+    <ID>UnusedParameter:NotesListScreen.kt:modifier: Modifier = Modifier</ID>
     <ID>UnusedParameter:NotesListScreen.kt:route: NotesRoute.List</ID>
     <ID>UnusedParameter:ParentPickerSheet.kt:currentParentId: ProjectId?</ID>
     <ID>UnusedParameter:ProjectsScreen.kt:onCreateProject: () -&gt; Unit</ID>
@@ -434,8 +385,6 @@
     <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$userId: UserId</ID>
     <ID>UnusedParameter:SavedAgendaListScreen.kt:viewId: SavedAgendaViewId</ID>
     <ID>UnusedParameter:SectionEditorCard.kt:index: Int</ID>
-    <ID>UnusedParameter:SettingsScreen.kt:onTagsCountdownProgress: (Float?) -&gt; Unit = {}</ID>
-    <ID>UnusedParameter:SettingsScreen.kt:snackbarHostState: SnackbarHostState</ID>
     <ID>UnusedParameter:TaskSaveBar.kt:isLoading: Boolean = false</ID>
     <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
     <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
@@ -446,7 +395,5 @@
     <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
     <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
-    <ID>Wrapping:PullPhaseTest.kt:PullPhaseTest$(</ID>
-    <ID>Wrapping:PullPhaseTest.kt:PullPhaseTest$(DocType.Task, StableJson.encodeToString(serializer&lt;Task&gt;(), doc) .let { Json.parseToJsonElement(it) as JsonObject })</ID>
   </CurrentIssues>
 </SmellBaseline>

@@ -7,12 +7,10 @@ import com.singularity.todo.core.sync.PatchResult
 import com.singularity.todo.core.sync.SyncEvent
 import com.singularity.todo.core.sync.SyncEventType
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
-@Tag("fast")
 class SyncApiClientFakesTest {
 
     private fun patchResult(

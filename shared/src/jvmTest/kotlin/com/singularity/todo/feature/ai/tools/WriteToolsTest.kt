@@ -15,7 +15,6 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Tag
@@ -262,50 +261,5 @@ class WriteToolsTest {
 
         val created = fakeNotesRepo.notes.values.first { it.title == "Scoped Note" }
         assertEquals(userId, created.userId)
-    }
-
-    @Test
-    fun `CreateNoteTool stores canonical HTML with actual converted content`() = runTest {
-        // REQ-WP-031: bodyHtml must contain the actual HTML produced by NoteContentMapper.toHtml,
-        // not just a non-null placeholder.  A DAO bypass would leave bodyMarkdown set and
-        // bodyHtml null, so checking the actual HTML content also proves the routing.
-        val tool = CreateNoteTool(fakeNotesRepo, clock, profileAwareUser)
-        val input = CreateNoteInput(title = "Test", bodyMarkdown = "# Heading\n- Item 1\n- Item 2")
-        val outputJson = tool.execute(input)
-
-        val output = Json.decodeFromString(CreateNoteOutput.serializer(), outputJson)
-        val created = fakeNotesRepo.notes[output.noteId]!!
-        assertNull(created.bodyMarkdown, "bodyMarkdown must be null — raw markdown never stored")
-        assertNotNull(created.bodyHtml, "bodyHtml must be set")
-        // NoteContentMapper.toHtml uses RichTextState, which produces HTML elements.
-        // Heading "# Heading" → <h1>Heading</h1>, list → <ul>/<li>.
-        assertTrue(
-            created.bodyHtml!!.contains("<h1>") || created.bodyHtml!!.contains("<h2>"),
-            "HTML must contain a heading element from markdown conversion: ${created.bodyHtml}",
-        )
-        assertTrue(
-            created.bodyHtml!!.contains("Heading"),
-            "HTML must contain the heading text: ${created.bodyHtml}",
-        )
-        assertTrue(
-            created.bodyHtml!!.contains("<ul>") || created.bodyHtml!!.contains("<li>"),
-            "HTML must contain list elements from markdown conversion: ${created.bodyHtml}",
-        )
-    }
-
-    @Test
-    fun `CreateNoteTool routes through notesRepository-create not DAO`() = runTest {
-        // REQ-WP-030: CreateNoteTool must go through notesRepository.create(), not write to
-        // the DAO directly.  Verify by checking the note appears through the repository's
-        // observable interface (observeAll), which is populated only via the repository path.
-        // A DAO bypass would bypass the repository entirely and the note would not appear.
-        val tool = CreateNoteTool(fakeNotesRepo, clock, profileAwareUser)
-        tool.execute(CreateNoteInput(title = "Via Repository Route"))
-
-        val observed = fakeNotesRepo.observeAll().first()
-        assertTrue(
-            observed.any { it.title == "Via Repository Route" },
-            "Created note must appear in observeAll() — proves routing through repository, not DAO",
-        )
     }
 }

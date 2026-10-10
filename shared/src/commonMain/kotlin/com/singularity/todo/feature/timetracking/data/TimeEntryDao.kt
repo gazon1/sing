@@ -24,10 +24,6 @@ interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE task_id = :taskId AND deleted_at IS NULL ORDER BY started_at DESC")
     fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>>
 
-    /** One-shot bulk read for backup export. Excludes soft-deleted rows. */
-    @Query("SELECT * FROM time_entries WHERE user_id = :userId AND deleted_at IS NULL ORDER BY started_at DESC")
-    suspend fun listAllForUser(userId: String): List<TimeEntryEntity>
-
     @Query("SELECT * FROM time_entries WHERE user_id = :userId AND ended_at IS NULL AND deleted_at IS NULL LIMIT 1")
     fun watchOpenEntry(userId: String): Flow<TimeEntryEntity?>
 

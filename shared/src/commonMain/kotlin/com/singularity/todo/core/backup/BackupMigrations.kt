@@ -60,21 +60,6 @@ object BackupMigrations {
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to v1ToV2,
-        // v3 → v4: add 7 new entity lists as empty (old backup has none)
-        3 to { payload ->
-            JsonObject(
-                payload + mapOf(
-                    "taskReminders" to JsonArray(listOf()),
-                    "projectReminders" to JsonArray(listOf()),
-                    "checklistItems" to JsonArray(listOf()),
-                    "tagGroups" to JsonArray(listOf()),
-                    "projectTagGroups" to JsonArray(listOf()),
-                    "savedSearches" to JsonArray(listOf()),
-                    "timeEntries" to JsonArray(listOf()),
-                    "schemaVersion" to JsonPrimitive(4),
-                ),
-            )
-        },
     )
 
     /**

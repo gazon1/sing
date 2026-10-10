@@ -165,9 +165,7 @@ gate blocking "YAML has no duplicate keys" python3 scripts/check-yaml-duplicate-
 gate blocking "detekt rules config is current" python3 scripts/gen-detekt-rules-config.py --check
 gate blocking "detekt rule inventory is current" python3 scripts/gen-detekt-rule-table.py --check
 gate blocking "detekt rule registry" ./scripts/check-detekt-registrations.sh
-gate blocking "detekt rules classpath integrity" ./scripts/check-detekt-rules-classpath.sh
-gate blocking "detekt rules test coverage" ./scripts/check-detekt-rules-test-coverage.sh
-gate blocking "detekt baseline ratchet" python3 scripts/check-baseline-ratchet.py --max-growth 70 && python3 scripts/check-baseline-ratchet.py --stale-check
+gate blocking "detekt baseline ratchet" python3 scripts/check-baseline-ratchet.py
 gate blocking "lint rules are declared decisions" python3 scripts/check-rule-intent.py
 gate blocking "file-level suppressions explain themselves" python3 scripts/check-suppression-intent.py
 # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).

@@ -91,44 +91,25 @@ class BackupAnnotationRoundTripTest {
         attachmentDao = db.attachmentDao(),
         annotationDao = db.annotationDao(),
         agendaViewDao = db.agendaViewDao(),
-        reminderDao = db.reminderDao(),
-        projectReminderDao = db.projectReminderDao(),
-        checklistDao = db.checklistDao(),
-        tagGroupDao = db.tagGroupDao(),
-        projectTagGroupDao = db.projectInheritedTagGroupDao(),
-        savedSearchDao = db.savedSearchDao(),
-        timeEntryDao = db.timeEntryDao(),
         codec = codec,
         clock = clock,
         fs = fs,
     )
 
-    private fun importer(db: AppDatabase): BackupImporter {
-        val bulkImport = BulkImportPortImpl(
-            log = Logger.withTag("BackupAnnotationRoundTripTest"),
-            taskDao = db.taskDao(),
-            noteDao = db.noteDao(),
-            projectDao = db.projectDao(),
-            tagDao = db.tagDao(),
-            agendaViewDao = db.agendaViewDao(),
-            attachmentDao = db.attachmentDao(),
-            annotationDao = db.annotationDao(),
-            reminderDao = db.reminderDao(),
-            projectReminderDao = db.projectReminderDao(),
-            checklistDao = db.checklistDao(),
-            tagGroupDao = db.tagGroupDao(),
-            projectTagGroupDao = db.projectInheritedTagGroupDao(),
-            savedSearchDao = db.savedSearchDao(),
-            timeEntryDao = db.timeEntryDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachment-files").absolutePath),
-            clock = clock,
-        )
-        return BackupImporter(
-            codec = codec,
-            createFileSource = fileSourceFactory,
-            bulkImportPort = bulkImport,
-        )
-    }
+    private fun importer(db: AppDatabase) = BackupImporter(
+        log = Logger.withTag("BackupAnnotationRoundTripTest"),
+        taskDao = db.taskDao(),
+        noteDao = db.noteDao(),
+        projectDao = db.projectDao(),
+        tagDao = db.tagDao(),
+        agendaViewDao = db.agendaViewDao(),
+        attachmentDao = db.attachmentDao(),
+        annotationDao = db.annotationDao(),
+        attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachment-files").absolutePath),
+        codec = codec,
+        clock = clock,
+        createFileSource = fileSourceFactory,
+    )
 
     /** An attachment whose bytes are not on this disk — the row is what matters here. */
     private fun attachmentRow(id: String, localPath: String? = null) = AttachmentEntity(

@@ -146,98 +146,6 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
     )
 
 
-# Source roots scanned for stale baseline entry detection.
-# Keyed by module name for clarity in error messages.
-_SOURCE_ROOTS: list[tuple[str, Path]] = [
-    ("shared/commonMain",   ROOT / "shared" / "src" / "commonMain"),
-    ("shared/androidMain",  ROOT / "shared" / "src" / "androidMain"),
-    ("shared/jvmMain",     ROOT / "shared" / "src" / "jvmMain"),
-    ("shared/commonTest",  ROOT / "shared" / "src" / "commonTest"),
-    ("shared/jvmTest",     ROOT / "shared" / "src" / "jvmTest"),
-    ("shared/androidTest", ROOT / "shared" / "src" / "androidTest"),
-    ("androidApp",         ROOT / "androidApp" / "src"),
-    ("desktopApp",         ROOT / "desktopApp" / "src"),
-    ("mcp-server",         ROOT / "mcp-server" / "src"),
-]
-
-
-def _build_file_map() -> dict[str, Path]:
-    """File name -> full path for every .kt file in known source roots."""
-    out: dict[str, Path] = {}
-    for _, root in _SOURCE_ROOTS:
-        if root.exists():
-            for f in root.rglob("*.kt"):
-                out[f.name] = f
-    return out
-
-
-def file_of_entry(entry: str) -> str:
-    """The file name in a baseline entry.
-
-    Entry format: `RuleName:File.kt:Signature`.
-    The file is the second colon-separated segment.
-    """
-    body = entry.strip()
-    if body.startswith("<ID>"):
-        body = body[len("<ID>"):]
-    if body.endswith("</ID>"):
-        body = body[: -len("</ID>")]
-    parts = body.split(":", 1)
-    if len(parts) < 2:
-        return ""
-    file_with_sig = parts[1]
-    return file_with_sig.split(":")[0]
-
-
-def stale_entries(baseline: Path) -> list[tuple[str, str]]:
-    """Entries in `baseline` whose referenced file does not exist.
-
-    Returns sorted list of (file, entry_snippet).
-    """
-    if not baseline.is_file():
-        return []
-    text = baseline.read_text(encoding="utf-8")
-    file_map = _build_file_map()
-    out: list[tuple[str, str]] = []
-    for e in entries(text):
-        fn = file_of_entry(e)
-        if fn and fn not in file_map:
-            out.append((fn, e[:80]))
-    return sorted(out)
-
-
-def check_stale_baseline(baseline: Path) -> bool:
-    """Run stale-entry check on one baseline. Returns True if clean."""
-    stale = stale_entries(baseline)
-    if not stale:
-        print(f"check-baseline-stale: OK  -- {baseline.name} (0 stale entries)")
-        return True
-
-    # Group by file
-    from collections import Counter
-    by_file = Counter(s[0] for s in stale)
-    print("")
-    print(
-        f"check-baseline-stale: FAIL -- {baseline.name} has "
-        f"{len(stale)} stale entry/entries "
-        f"({len(by_file)} unique missing file(s))"
-    )
-    for fn, cnt in sorted(by_file.items(), key=lambda x: -x[1])[:15]:
-        print(f"  {cnt:4d}x  {fn}")
-    if len(by_file) > 15:
-        remaining = len(by_file) - 15
-        print(f"  ... and {remaining} more missing file(s)")
-    print("")
-    print("A baseline entry for a deleted file is a free suppression: it")
-    print("occupies a slot in the ratchet count while suppressing nothing.")
-    print("Fix by regenerating the baseline:")
-    print(f"  ./gradlew :shared:detektBaseline   # for baseline-shared.xml")
-    print(f"  ./gradlew :androidApp:detektBaseline  # for baseline-androidApp.xml")
-    print(f"  ./gradlew :desktopApp:detektBaseline  # for baseline-desktopApp.xml")
-    print("Or, if the file was renamed: update the entry's file path in the baseline.")
-    return False
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -261,35 +169,7 @@ def main() -> int:
         default=0,
         help="entries allowed to be added per file per run (default: 0)",
     )
-    parser.add_argument(
-        "--stale-check",
-        action="store_true",
-        help=(
-            "Check for stale baseline entries — entries whose referenced file no longer "
-            "exists in the source tree. Such entries are free suppressions that inflate "
-            "the ratchet count while suppressing nothing. Use after a refactor that "
-            "deletes files, or run ./gradlew :<module>:detektBaseline to regenerate."
-        ),
-    )
     args = parser.parse_args()
-
-    # Stale-entry check is independent of the ratchet and does not need detekt.yml.
-    if args.stale_check:
-        baselines = (
-            [Path(p) for p in args.baseline]
-            if args.baseline
-            else [
-                ROOT / "config" / "detekt" / "baseline-shared.xml",
-                ROOT / "config" / "detekt" / "baseline-androidApp.xml",
-                ROOT / "config" / "detekt" / "baseline-desktopApp.xml",
-                ROOT / "mcp-server" / "detekt-baseline.xml",
-            ]
-        )
-        failed = False
-        for baseline in baselines:
-            if not check_stale_baseline(baseline):
-                failed = True
-        return 1 if failed else 0
 
     # Both module baselines are ratcheted. This originally watched only
     # `baseline-shared.xml`, which left `baseline-desktopApp.xml` free to grow

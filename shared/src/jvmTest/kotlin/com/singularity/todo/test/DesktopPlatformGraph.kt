@@ -12,8 +12,6 @@ import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.backup.BackupCodec
-import com.singularity.todo.core.backup.BulkImportPort
-import com.singularity.todo.core.backup.BulkImportPortImpl
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
@@ -188,30 +186,6 @@ internal fun desktopPlatformModule(): Module = module {
     single<SharePort> { JvmSharePort() }
     single<FileSharePort> { JvmFileSharePort() }
     single<BackupCodec> { JvmBackupCodec() }
-    // Mirror of the BulkImportPortImpl binding from PlatformModule.jvm.kt.
-    // attachmentStorage is provided by CoreDiModule.factoryOf(::AttachmentStorage)
-    // which is part of every graph that reaches this module.
-    single<BulkImportPort> {
-        BulkImportPortImpl(
-            log = get<Logger>(),
-            taskDao = get(),
-            noteDao = get(),
-            projectDao = get(),
-            tagDao = get(),
-            agendaViewDao = get(),
-            attachmentDao = get(),
-            annotationDao = get(),
-            reminderDao = get(),
-            projectReminderDao = get(),
-            checklistDao = get(),
-            tagGroupDao = get(),
-            projectTagGroupDao = get(),
-            savedSearchDao = get(),
-            timeEntryDao = get(),
-            attachmentStorage = get(),
-            clock = get(),
-        )
-    }
     single<String> { "$tempHome/backups" }
     single<String> { "$tempHome/logs" }
     single { LogBundleExporter(get(), get(), get()) }

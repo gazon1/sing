@@ -7,9 +7,6 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
-import com.singularity.todo.core.backup.BulkImportPort
-import com.singularity.todo.core.backup.BulkImportPortImpl
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
@@ -225,28 +222,6 @@ actual fun platformModule(): Module = module {
     single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
 
     single<BackupCodec> { AndroidBackupCodec() }
-
-    single<BulkImportPort> {
-        BulkImportPortImpl(
-            log = Logger.withTag("BulkImportPort"),
-            taskDao = get(),
-            noteDao = get(),
-            projectDao = get(),
-            tagDao = get(),
-            agendaViewDao = get(),
-            attachmentDao = get(),
-            annotationDao = get(),
-            reminderDao = get(),
-            projectReminderDao = get(),
-            checklistDao = get(),
-            tagGroupDao = get(),
-            projectTagGroupDao = get(),
-            savedSearchDao = get(),
-            timeEntryDao = get(),
-            attachmentStorage = get(),
-            clock = get(),
-        )
-    }
 
     // Free core: the log-file reporter. The pro catalogue overrides this binding
     // with the Tracer-backed one, which is why it is a `single<CrashReportingPort>`

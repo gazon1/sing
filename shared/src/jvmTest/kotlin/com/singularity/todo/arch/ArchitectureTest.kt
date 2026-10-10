@@ -267,7 +267,6 @@ class ArchitectureTest {
          */
         private val CORE_DAO_WRITE_ALLOWLIST = setOf(
             "core/backup/BackupImporter.kt",
-            "core/backup/BulkImportPortImpl.kt",
         )
 
         /**

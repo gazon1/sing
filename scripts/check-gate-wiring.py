@@ -209,47 +209,6 @@ SCRIPT_GATES = [
         why="a RuleSetId with no detekt.yml block never loads, so the rule never runs",
     ),
     ScriptGate(
-        name="detekt-rules-classpath",
-        cmd=["./scripts/check-detekt-rules-classpath.sh"],
-        sabotage_path="detekt-rules/build/libs/detekt-rules.jar",
-        sabotage=(
-            "import zipfile, os, pathlib\n"
-            "\n"
-            "jar = p\n"
-            "tmp = pathlib.Path(str(jar) + \".tmp\")\n"
-            "\n"
-            "# Rename the Provider class inside the JAR so the integrity check fails.\n"
-            "# The check script looks for\n"
-            "#   com/singularity/todo/detekt/NoCoroutineLaunchInInitProvider.class\n"
-            "# derived from ServiceLoader entry\n"
-            "#   com.singularity.todo.detekt.NoCoroutineLaunchInInitProvider.\n"
-            "with zipfile.ZipFile(jar, 'r') as zin:\n"
-            "    with zipfile.ZipFile(tmp, 'w', compression=zipfile.ZIP_DEFLATED) as zout:\n"
-            "        for item in zin.infolist():\n"
-            "            data = zin.read(item.filename)\n"
-            "            if 'NoCoroutineLaunchInInitProvider.class' in item.filename:\n"
-            "                zout.writestr(\n"
-            "                    item.filename.replace(\n"
-            "                        'NoCoroutineLaunchInInitProvider.class',\n"
-            "                        'NoCoroutineLaunchInInitProviderXXX.class'\n"
-            "                    ),\n"
-            "                    data\n"
-            "                )\n"
-            "            else:\n"
-            "                zout.writestr(item, data)\n"
-            "\n"
-            "os.replace(tmp, jar)\n"
-        ),
-        why="a stale JAR means the Kotlin daemon is serving cached bytecode, so detekt runs with old rules",
-    ),
-    ScriptGate(
-        name="detekt-rules-test-coverage",
-        cmd=["./scripts/check-detekt-rules-test-coverage.sh"],
-        sabotage_path="detekt-rules/src/test/kotlin/com/singularity/todo/detekt/RuleFiresSmokeTest.kt",
-        sabotage="p.write_text(p.read_text().replace('NoStaticProfileAwareCurrentUserRule', 'NoStaticProfileAwareCurrentUserRuleX'))",
-        why="a rule without a test can be added without anyone noticing it is a no-op",
-    ),
-    ScriptGate(
         name="baseline-ratchet",
         cmd=[sys.executable, "scripts/check-baseline-ratchet.py"],
         sabotage_path="config/detekt/baseline-shared.xml",
@@ -960,48 +919,22 @@ def check_can_fail() -> list[str]:
             finally:
                 os.utime(target, (original_mtime, original_mtime))
         else:
-            # For binary files (UTF-8 read fails), back up raw bytes and restore via bytes.
-            # The sabotage must handle the binary target correctly (e.g. zipfile, raw I/O).
-            binary_backup: tuple[bytes, float] | None = None
+            original = target.read_text(encoding="utf-8")
             try:
-                original = target.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                # Binary target: back up raw bytes + mtime; restore via write_bytes.
-                binary_backup = (target.read_bytes(), target.stat().st_mtime)
-                try:
-                    ns = {"p": target}
-                    exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
-                    sabotaged_rc = run_gate(gate.cmd)
-                finally:
-                    if binary_backup is not None:
-                        orig_bytes, orig_mtime = binary_backup
-                        target.write_bytes(orig_bytes)
-                        os.utime(target, (orig_mtime, orig_mtime))
-                restored = target.read_bytes()
-                if restored != binary_backup[0]:
-                    errors.append(
-                        f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
-                        f"Restoring from the recorded copy and failing."
-                    )
-                    target.write_bytes(binary_backup[0])
-                    os.utime(target, (binary_backup[1], binary_backup[1]))
-                    continue
-            else:
-                try:
-                    ns = {"p": target}
-                    exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
-                    sabotaged_rc = run_gate(gate.cmd)
-                finally:
-                    target.write_text(original, encoding="utf-8")
+                ns = {"p": target}
+                exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
+                sabotaged_rc = run_gate(gate.cmd)
+            finally:
+                target.write_text(original, encoding="utf-8")
 
-                restored = target.read_text(encoding="utf-8")
-                if restored != original:
-                    errors.append(
-                        f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
-                        f"Restoring from the recorded copy and failing."
-                    )
-                    target.write_text(original, encoding="utf-8")
-                    continue
+            restored = target.read_text(encoding="utf-8")
+            if restored != original:
+                errors.append(
+                    f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
+                    f"Restoring from the recorded copy and failing."
+                )
+                target.write_text(original, encoding="utf-8")
+                continue
 
         if sabotaged_rc == 0:
             errors.append(

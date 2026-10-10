@@ -249,11 +249,6 @@ object TagsMd {
 
         "profileItem" -> DynamicMeta(fnName, "Profile", "Personal", "Profile list items")
 
-        "noteFilterChip" -> DynamicMeta(fnName, "Notes", "my_chip", "Filter chips in the notes list")
-        "noteAction" -> DynamicMeta(fnName, "Notes", "archive", "Action buttons in the notes list")
-
-        "Settings.themeModeButton" -> DynamicMeta(fnName, "Settings", "Dark", "Theme-mode segmented button (System / Light / Dark)")
-
         // A new dynamic function must be described here, not silently dropped:
         // "Used for" and the example input are documentation, not derivable from source.
         else -> error(
@@ -334,7 +329,6 @@ object TagsMd {
         "CALENDAR_" to "Calendar",
         "SEARCH_" to "Search",
         "PROJECT_" to "Projects",
-        "SHEET_" to "Dialog",
     )
 
     /**

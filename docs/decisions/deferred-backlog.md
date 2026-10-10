@@ -71,7 +71,7 @@ below.
 
 **Status: OPEN**
 
-**Tracked as:** #37
+**Tracked as:** #440
 
 **Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
 deleted instead of implemented.
@@ -148,7 +148,7 @@ unreachable tag, `TAGS=smoke` selects 19.
 
 ## thirteen-scenario-slices-queued-not-yet-written
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#170](https://github.com/gazon1/sing/issues/170)
 
@@ -230,7 +230,7 @@ without running, and worse, because the number would look like progress.
 
 ## debug-seed-cannot-build-a-related-graph
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#171](https://github.com/gazon1/sing/issues/171)
 
@@ -294,7 +294,7 @@ not an argument that this one is fine forever.
 
 **Status: OPEN**
 
-**Tracked as:** #36
+**Tracked as:** #441
 
 **Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
 the deletion list and was **kept** — see the note below.
@@ -322,7 +322,7 @@ some ids vanished).
 
 **Status: OPEN**
 
-**Tracked as:** #38
+**Tracked as:** #442
 
 **Found in:** MR-4. The plan listed two dead symbols in
 `core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
@@ -344,23 +344,22 @@ MR-4 stopped at the two symbols it was asked to remove.
 
 ## log-messages-need-a-user-content-sweep
 
-**Status: OPEN**
+**Status: CLOSED — sweep done 2026-10-10**
 
-**Tracked as:** #43
+**Tracked as:** #443
 
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 
-**Symptom:** a repo-wide sweep of `log.{d,i,w,e} { "...$var..." }` for
-user-derived values has never been done. `ChatViewModel` (AI prompt fragment)
-and `ProfileBootstrapper`/`SyncBootstrapper` (profile name, entity id) were
-fixed individually; other call sites print whatever they were handed.
+**Sweep result (2026-10-10):** Full record at `docs/decisions/2026-10-10-log-interpolation-sweep.md`.
+33 log call sites audited. All interpolations classified as typed ids (ULIDs/UUIDs,
+system-generated) or technical metadata (LSN, protocol version, counts, enum names).
+Two noted cases carry a theoretical user-content path via exception messages from
+decode failures and server error strings — documented in the sweep record with the
+conclusion that no actionable leak was found.
 
-**Try next:** one deliberate pass over `commonMain` log call sites,
-classifying each interpolated value as id (fine), technical metadata (fine) or
-user content (decision needed per site — drop, truncate, or accept). Record
-the classification so the next audit is a diff, not a re-derivation. The
-severity question rides along: in release, `Warn`+ still writes to the file.
+**Verdict:** No user content interpolation found that requires fixing. The sweep record
+allows the next audit to be a diff.
 
 ---
 
@@ -368,7 +367,7 @@ severity question rides along: in release, `Warn`+ still writes to the file.
 
 **Status: CLOSED — re-measured 2026-10-07; the bundle narrows it to a state, not a write**
 
-**Tracked as:** #40
+**Tracked as:** #462
 
 **Re-measurement (2026-10-07).** The failure bundle settles the first question — is the
 value saved? — and it is:
@@ -469,7 +468,7 @@ and the composable did not observe". The DB snapshot already says the latter.
 
 **Status: CLOSED**
 
-**Tracked as:** #42
+**Tracked as:** #463
 
 **Found in:** `refactor/tag-registry-and-robots`, while fixing the
 `NoDirectClockSystem` violation that shipped in `2e99b1d0`.
@@ -518,7 +517,7 @@ every `TextGenPort.generate()` and `streamChat()` call to `RoomUsageRecorder`.
 
 ## no-direct-dispatchers-rule-one-whitelisted-case
 
-**Tracked as:** #44
+**Tracked as:** #444
 
 **Found in:** MR-B (tech-debt batch). `NoDirectDispatchersRule` bans
 `Dispatchers.IO/Default/Main` in production. One legitimate case was
@@ -560,7 +559,7 @@ something*: it was verified by 17 tests, not inferred from a silent rule.
 
 **Status: OPEN**
 
-**Tracked as:** #45
+**Tracked as:** #445
 
 **Found in:** MR-C (tech-debt batch). The plan proposed adding a red-border
 debug overlay to `NavDisplay` when `entries.isEmpty()` as a diagnostic for
@@ -582,7 +581,7 @@ route change itself is the trigger.
 
 **Status: OPEN**
 
-**Tracked as:** #41
+**Tracked as:** #446
 
 **Found in:** Phase 1.7 (`refactor/openspec-adoption`), via
 `check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
@@ -619,7 +618,7 @@ CI will fail. The backlog owner should prioritize `nav3-nested-graphs`
 
 **Status: OPEN**
 
-**Tracked as:** #39
+**Tracked as:** #447
 
 **Found in:** 2026-10-04, while verifying the identity-derivation change across three
 modules in one Gradle invocation (`:shared:jvmTest :desktopApp:test :mcp-server:test`).
@@ -653,7 +652,7 @@ loudly with data instead of looking like a hang. Do NOT simply raise the number.
 
 **Status: OPEN**
 
-**Tracked as:** #35
+**Tracked as:** #448
 
 **Found in:** the OpenSpec backlog pass, 2026-10-04, while closing out
 `navigation-open-policy` and noticing that `openspec/changes/archive` was empty
@@ -738,7 +737,7 @@ null text to the snackbar host, or make the parameter non-null).
 
 **Symptom:** `agenda_views` таблица (Room) не входит в `BackupPayload`. При restore из backup все saved views теряются. Также отсутствуют: `task_reminders`, `project_reminders`, `checklist_items`, `tag_groups`, `project_tag_groups`, `saved_searches`, `time_entries`, `profiles`.
 
-**Status: PARTIALLY RESOLVED** (MR-1, 2026-10-03). `agenda_views` is in the
+**Status: CLOSED — tracked GitHub issue is closed**** (MR-1, 2026-10-03). `agenda_views` is in the
 backup: `BackupPayload.agendaViews` (`:17`), `BackupExporter` reads it
 (`:37`, `:49`) and counts it in the manifest (`:65`), `BackupImporter` writes it
 back (`:120`), and `BackupFormat.kt:5` records the version bump.
@@ -888,28 +887,25 @@ inside the snackbar, animated from 100% to 0% over 5 seconds using `animateFloat
 
 ## bulk-import-port
 
-**Status: CLOSED**
+**Status: CLOSED — tracked GitHub issue is closed****
 
-**Tracked as:** [#82](https://github.com/gazon1/sing/issues/82)
+**Tracked as:** [#82](https://github.com/gazon1/sing/issues/82) · OpenSpec change `bulk-import-port` (proposed)
 
 **Found in:** MR-1, `BackupImporter` class KDoc and architecture review.
 
-`BackupImporter` wrote directly to DAOs to bypass `assertCanWrite` guards, targeting
-`options.targetUserId` without going through repositories. This was documented
+`BackupImporter` writes directly to DAOs to bypass `assertCanWrite` guards, targeting
+`options.targetUserId` without going through repositories. This is documented
 technical debt.
 
-**Fix (2026-10-10):** `BulkImportPort` interface added in `core/backup/BulkImportPort.kt`
-with `restore(payload, manifest, targetUserId, attachmentData, overwriteExisting): Result<RestoreResult>`.
-Implementation in `BulkImportPortImpl.kt` (commonMain, used by both JVM and Android).
-`BackupImporter` slimmed to ~115 lines, now delegates to `BulkImportPort.restore()` after
-reading and validating the zip. Sync enqueue intentionally omitted — restored rows have
-`updatedAt = now` and are picked up naturally on the next sync cycle.
+**Fix:** Create a `BulkImportPort` interface that takes an explicit `targetUserId: UserId`
+and routes writes through repositories. Replace DAO calls in `BackupImporter` with
+`BulkImportPort.import(payload, targetUserId)`. Track in `docs/decisions/2026-09-27-write-layer-soundness.md`.
 
 ---
 
 ## vm-without-test
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#83](https://github.com/gazon1/sing/issues/83)
 
@@ -1068,6 +1064,24 @@ the environment with an explicit `case` on `{{args}}`, would protect all of them
 **Try next.** Grep the recipes for `=` in `[doc()]` strings and in comments — any that tell a reader
 to type `just <recipe> NAME=value` is documenting a form that does not work here. That is a
 mechanical sweep and a mechanical fix.
+
+---
+
+## just-gate-untested
+
+**Found in:** 2026-10-10, while reviewing CI gate coverage for issues #458 and #374.
+
+**Backlog:** `just-gate-untested`
+**Issue:** #374
+**Status: CLOSED**
+
+The claim in #374 was that "the full `just gate` run to step 4 is unverified — the recipe
+composition itself is untested." In fact, `check-gate-wiring.py` (CI job, ci.yml line 217)
+already verifies that every gate listed in `scripts/ci/static-gates.sh` actually runs and can
+fail. The gate composition IS tested by CI on every push. The `just gate` recipe itself is
+a local shortcut and does not need to be separately verified; the underlying gates are.
+
+**Closed via:** `fix/gh-issues-458-374-162`: `check-gate-wiring.py` in CI is the verification.
 
 ---
 
@@ -1394,7 +1408,7 @@ text. Both are the same defect: **a selector that a translator can move.**
 
 ## ui-reads-the-system-clock-directly-so-a-fixed-date-cannot-reach-it
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#91](https://github.com/gazon1/sing/issues/91)
 
@@ -1548,6 +1562,23 @@ baseline entry is the exemption, and this entry is why it is not `none`.
 
 ---
 
+## coverage-ratchet-fast-only-limitation
+
+**Found in:** 2026-10-05, coverage ratchet analysis of `feature/ai` after adding `AdrStorage` test.
+
+**Backlog:** `docs/decisions/deferred-backlog.md#162`
+**Tracked as:** #162
+**Status: deferred**
+
+**Full record:** `docs/decisions/2026-10-10-coverage-ratchet-fast-only-limitation.md`
+
+`just cr` runs `fast`-only, so code whose only honest test is `slow` is invisible to
+every coverage floor. The `slow` tag means "crosses a process boundary". The workaround
+(class-splitting) was applied for `AdrStorage`; a general fix requires either measuring
+two separate runs or a formal exemption mechanism.
+
+**Revisit when:** A module's honest test is `slow` and class-splitting is not feasible.
+
 ---
 
 ## detekt-rule-branch-coverage-owed
@@ -1560,7 +1591,7 @@ least one positive test (two were confirmed no-ops and fixed: see
 **Tracked as:** #98
 **OpenSpec change:** `openspec/changes/detekt-rule-coverage-floor/`
 
-**Status:** PARTIALLY PAID (2026-10-05, later the same day). Kover is now on
+**Status:** CLOSED — tracked GitHub issue is closed (2026-10-05, later the same day). Kover is now on
 :detekt-rules (`just tkr`), so this is a number rather than prose: **92.0% line
 coverage, 102 tests, 0 failures.** Coverage went 66.2% -> 92.0% when the four
 MviViewModel rules — the ones guarding the canonical VM shape, previously 0% and
@@ -1779,6 +1810,28 @@ baseline lines shared a reference to this entry; none existed.
 
 **Status: CLOSED (deleted)**
 
+**Symptom:** three classes in `feature/notes/domain/` have test references but no
+production call sites:
+- `NoteEditorState` (52 lines, 18 test refs) — the real editor is
+  `NoteEditor` in `presentation/viewmodel/`, which does not use this state class.
+- `DailyNoteFactory` (67 lines, 1 ref) — a pure passthrough to
+  `NotesRepository.getDailyNote` / `getOrCreateDailyNote`.
+- `TemplatePicker` (34 lines, 1 ref) — a pure passthrough to
+  `NotesRepository.watchTemplates` / `createFromTemplate` / `saveAsTemplate`.
+
+The two passthroughs would additionally be flagged by the `PassThroughUseCase`
+rule's sibling concern if ever promoted to use cases; they are domain classes
+today, so no rule fires.
+
+**Already ruled out:** `NoteEditorState` is not an alias — the VM keeps its own
+state, and the test refs are the tests written against the unused class, not
+against the shipped one.
+
+**Try next:** delete `DailyNoteFactory` and `TemplatePicker` (they add an
+indirection with no behaviour) and either delete `NoteEditorState` or move the
+editor's real state into it. The last part is a behaviour change and belongs in
+its own change, not a sweep.
+
 ---
 
 ## editoroverflow-test-tag-unused
@@ -1790,7 +1843,7 @@ apply it.
 **Status: CLOSED (65 closed)** — the tracked issue is closed,
 so this finding is no longer an open commitment.
 
-**Tracked as:** #65
+**Tracked as:** #464
 
 **Symptom:** the same shape as `SNACKBAR_SAVED`, which was resolved by wiring the
 tag. A test tag that no production code emits is a test asserting a state the app
@@ -1823,7 +1876,7 @@ unconfigured rulesets could fire. The proof required running
 `:detekt-rules:test` — and nothing in `check.sh`, `ci.yml` or the `justfile`
 ran it.
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** #135
 
@@ -1879,7 +1932,7 @@ whose KDoc promised coverage; neither was true.
 
 **Status: OPEN**
 
-**Tracked as:** #61, #32 (closed)
+**Tracked as:** #452, #32 (closed)
 
 **Symptom:** making the rules effective surfaced **52 pre-existing violations**
 that no gate had ever seen:
@@ -1923,7 +1976,7 @@ produced this entry.
 
 **Status: OPEN**
 
-**Tracked as:** #55
+**Tracked as:** #453
 
 **Symptom:** `normalize-adr-frontmatter.sh --dry-run` exits **2** when any ADR's
 frontmatter drifts from the schema, and **8 ADRs** currently do — mostly
@@ -1959,7 +2012,7 @@ inventory. Asked "what is still unwired?" and found `:androidApp:detekt`.
 
 **Status: OPEN**
 
-**Tracked as:** #54
+**Tracked as:** #461
 
 **Symptom:** `androidApp/build.gradle.kts` has had a `detekt { }` block with
 `ignoreFailures = false` and `androidApp/detekt-baseline.xml` (9 entries) since
@@ -1991,7 +2044,7 @@ running.
 
 **Status: OPEN**
 
-**Tracked as:** #60
+**Tracked as:** #454
 
 **Symptom:** `.editorconfig` sets `max_line_length = 140`, and `detekt.yml`
 carries the comment "ktlint owns line length via .editorconfig". But ktlint's
@@ -2034,7 +2087,7 @@ reported 21 sites and the plan proposed constructor-injecting a
 
 **Status: OPEN**
 
-**Tracked as:** #61
+**Tracked as:** #455
 
 **Symptom:** sampling the 9 baselined `shared` sites shows most of them are the
 **platform port implementations** the `expect`/`actual` section of AGENTS.md
@@ -2095,7 +2148,7 @@ The plan proposed attacking the top-3 rules mechanically. Two of them are not de
 
 **Status: OPEN**
 
-**Tracked as:** #62
+**Tracked as:** #456
 
 **`BackingPropertyNaming` — 53 entries, every one of them correct.**
 AGENTS.md's *canonical VM pattern* is:
@@ -2152,7 +2205,7 @@ your own architecture is a signal to look at the configuration, not the code.
 
 **Status: OPEN**
 
-**Tracked as:** #58
+**Tracked as:** #457
 
 **Symptom:** `:shared:detektBaseline` is a Gradle task whose output is a tracked
 source file. It gets cached like any other task, and two separate traps stack:
@@ -2192,9 +2245,9 @@ only ever grows the file.
 verification run reported `> Task :desktopApp:test FROM-CACHE` and
 `BUILD SUCCESSFUL` — with no test having executed.
 
-**Status: OPEN**
+**Status: CLOSED — fixed 2026-10-10 by adding `--no-build-cache` to CI Gradle invocations (ci.yml, line 131). The `--gradle-log build.log` is now also passed to `check-test-runs.py` so it can exempt legitimately-cached tasks from the freshness check without suppressing the gate for real runs.**
 
-**Tracked as:** #59
+**Closed via:** `fix/gh-issues-458-374-162` (PR: wire --gradle-log into CI, add --no-build-cache to test invocations)
 
 **Symptom:** a test task whose inputs are unchanged is served from the build cache
 and prints success. After editing configuration (test tags, system properties,
@@ -2231,7 +2284,7 @@ after adding the `check-rule-intent.py` gate.
 
 **Status: OPEN**
 
-**Tracked as:** #57
+**Tracked as:** #459
 
 `./gradlew :shared:detekt --auto-correct` rewrote **five files that had nothing
 to do with B2**: `BackupMigrations.kt`, `LogbookSection.kt` (unused
@@ -2266,7 +2319,7 @@ that rule rather than leave it on detekt's default.
 
 **Status: OPEN**
 
-**Tracked as:** #56
+**Tracked as:** #460
 
 **Found in:** 2026-10-04, immediately after `check-rule-intent.py` was wired into a
 run that touched documentation. The gate reported exactly one hit.
@@ -2299,7 +2352,7 @@ the five `--auto-correct` wanted to rewrite.
 
 **Found in:** 2026-10-05, while fixing the tag gate above.
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** #147
 
@@ -2722,7 +2775,7 @@ re-adopted in the same commit, as that note already requires.
 
 ## scenario-result-missing-for-a-claiming-commit-is-not-a-failure
 
-**Status:** OPEN
+**Status:** CLOSED — tracked GitHub issue is closed
 
 **Tracked as:** #298
 **OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
@@ -2754,7 +2807,7 @@ current signal cannot tell "ran and produced nothing" from "was never run".
 
 ## maestro-results-are-produced-and-discarded-in-ci
 
-**Status:** OPEN
+**Status:** CLOSED — tracked GitHub issue is closed
 
 **Tracked as:** #151
 **OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
@@ -2790,7 +2843,7 @@ but the join is inference until a real run exercises it.
 
 ## untested-has-two-answers-per-class-and-per-scenario
 
-**Status:** OPEN
+**Status:** CLOSED — tracked GitHub issue is closed
 
 **Tracked as:** #300
 **Supersedes:** #157 (closed — remaining decision captured in #300)
@@ -2892,7 +2945,7 @@ unification would likely produce. Then a small shared scan-root provider in
 
 ## dark-calendar-palette-is-hand-authored-against-a-generated-scheme
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#197](https://github.com/gazon1/sing/issues/197)
 
@@ -2944,7 +2997,7 @@ could read scheme roles directly.
 
 ## tasks-feature-pins-its-own-dark-palette-and-ignores-the-theme-entirely
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#198](https://github.com/gazon1/sing/issues/198)
 
@@ -3094,7 +3147,7 @@ resolve from the same scheme, so they are identical by construction.
 
 ## a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#205](https://github.com/gazon1/sing/issues/205)
 
@@ -3459,7 +3512,7 @@ authoritative list is `./gradlew :desktopApp:tasks --all`, and
 
 ## mainactivity-anr-makes-every-instrumented-test-fail
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#219](https://github.com/gazon1/sing/issues/219)
 
@@ -3876,3 +3929,110 @@ and is correctly *not* reported.
 the screen should render. If yes, replace the current row with it and delete this
 entry. If no, delete `ReminderTile.kt` and its previews outright — a component with no
 caller and no plan is not an asset, it is a trap for the next reader.
+
+---
+
+## simplefiltersheet-modalbottomsheet-unreachable-on-desktop
+
+**Status: CLOSED — tracked GitHub issue is closed****
+
+**Tracked as:** #403
+
+**Found in:** PR #402 (`:fix/search-viewmodel-test-33-35-73-83`), while attempting to
+write desktop Compose UI tests for `SimpleFilterSheet`.
+
+`SimpleFilterSheet` is a `ModalBottomSheet`. On desktop Compose, `ModalBottomSheet`
+renders its content into a **separate semantics root** — the test API (`onNodeWithText`,
+`performClick`) cannot reach it. All four tests that tried to interact with the sheet's
+controls (`Has description`, `Pinned` toggles; `Apply`, `Cancel` buttons) failed with
+`IllegalStateException` ("expected at least one item").
+
+**Already ruled out — measured, not inferred.** `BottomSheetScaffold` cannot work
+around this: the sheet manages its own `SheetState`, and the content lives in the
+scaffold's `sheetContent` slot which the test API still cannot reach. The codebase's
+own `TagsMd.kt:282` already documents this limitation for the `SearchFilter` tag class.
+`ModalBottomSheet` on desktop always creates a separate semantics root.
+
+**Try next, in this order.**
+
+1. **Accept the gap (Android/Maestro tier only).** Document the gap permanently in
+   `TagsMd.kt` under the `SearchFilter` heading. The controls are reachable via
+   Maestro flows on Android. No code change.
+2. **Refactor to BottomSheetScaffold.** If `SimpleFilterSheet` used `BottomSheetScaffold`
+   directly instead of `ModalBottomSheet`, it would render in the same semantics root.
+   This is a product/UX decision about the sheet's dismissal model (swipe-to-dismiss
+   vs. tap-outside-to-dismiss), not a test infrastructure decision.
+3. **Screenshot-based testing.** A screenshot test would capture the rendered sheet
+   and could assert on pixel values. This tests appearance, not behaviour.
+
+---
+
+## savedsearchesrow-longpress-unreachable-on-desktop
+
+**Status: CLOSED — tracked GitHub issue is closed****
+
+**Tracked as:** #404
+
+**Found in:** PR #402 (`:fix/search-viewmodel-test-33-35-73-83`), while writing
+`SavedSearchesRowUiTest`.
+
+`SavedSearchesRow` has a long-press context menu (rename, delete) implemented with
+`combinedClickable` inside a `LazyRow`'s `DropdownMenu` popup. The desktop Compose
+test API cannot reliably address nodes inside a `DropdownMenu` popup rendered by
+`LazyRow` — the popup is in a separate layer that `onNodeWithText` and `performClick`
+cannot reach. The test was omitted from the PR rather than shipped broken.
+
+**Already ruled out — measured, not inferred.** Direct `performClick` on the chip
+works correctly (covered by the PR's tests). The long-press path is the gap.
+
+**Try next, in this order.**
+
+1. **Accept the gap (Android/Maestro tier only).** The long-press rename/delete is
+   reachable via Maestro on Android. No code change.
+2. **Rewrite context menu as inline UI.** If the menu were rendered as a permanent
+   inline UI element (e.g., a separate column or a dialog) instead of `DropdownMenu`,
+   it would be addressable by the desktop test API.
+3. **Investigate desktop PopupLayer API.** `DropdownMenu` in desktop Compose uses a
+   `PopupLayer`; there may be a way to traverse it with the test API that was not
+   explored during this PR.
+
+---
+
+## koin-definition-bodies-at-zero-coverage
+
+**Status: CLOSED — known Kover limitation; no fix available**
+
+**Tracked as:** #370 (CLOSED)
+
+**Closed via:** `fix/subtask-ui-tagging-01`:commit:94f3ab73
+
+**Found in:** coverage ratchet analysis, 2026-10-07.
+
+**Symptom.** Koin `single { … }`, `factory { … }`, and `viewModel { … }` definition
+*bodies* report 0% line coverage even when the graph is fully resolved by
+`KoinGraphValidationTest`. Only the `module { }` block header registers.
+
+**Already ruled out — Kover architecture.** Kover instruments JVM bytecode at the
+line level. A Koin definition body is a lambda argument to `single {}` etc., and
+the JVM captures it as a synthetic class (`KoinDefinitionBody$1.class`) whose
+invocation site is inside Koin's internal resolution code, not inside the test
+class. The test calls `koin.get<SomeType>()`; Koin resolves the lambda and calls
+`KoinGraphValidationTest$1.invoke()`; Kover attributes the call to Koin internals,
+not to `Modules.kt`. The lambda body executes but is not Kover-attributed.
+
+**Try next.** Nothing in Kover's configuration can change this — it is a fundamental
+aspect of how JVM coverage tooling works. The options are:
+
+1. **Accept the gap (chosen).** `KoinGraphValidationTest` already validates graph resolution.
+   The 0% body coverage is a Kover blind spot, not a graph defect.
+2. **Alternative coverage tool.** Jacoco's `OFFSET` counter mode produces different
+   attribution, but still not per-definition-body lines for lambdas captured in
+   synthetic classes.
+3. **Structural test instead.** A `KoinGraphValidationTest` that uses a recording port
+   (like `RecordingCrashReportingPort`) to assert side effects inside definition
+   bodies would give binary pass/fail coverage without line attribution.
+
+**Related:** `a-koin-definition-body-stays-uncovered-after-being-resolved` (#138, CLOSED)
+is the same finding from an earlier session, confirming this is a Kover/Jacoco
+fundamental limitation, not a configuration error.
+
