@@ -10,17 +10,17 @@
  "floors": [
   {
    "metric": "holes",
-   "max": 40,
-   "measured": 40,
+   "max": 38,
+   "measured": 38,
    "label": "claimed (scenario, target) cells with no automation",
-   "note": "Raised 32 -> 40 on 2026-10-07 for exactly one reason, recorded here because a raised floor is only defensible if the reason is in the repo: the Google calendar-sync feature shipped 23 unit-test classes, 8 OpenSpec requirements and ZERO scenario specs, so it was contributing no cells at all and could not be reported as a gap. Seven specs were added (CAL-SYNC-PROVIDER-01, -CONNECT-01, -RENEW-01, -SYNCNOW-01, -IMPORT-01, -RECUR-01, -SYSTEM-01). Six of them got desktop carriers in the same commit; all seven opened 14 claimed cells and 6 of those are android cells no carrier can close on a host with no device. The honest reading of the previous floor was therefore 'this feature is not measured', not 'this feature is covered' — declaring the scenarios is what made the debt visible, and the floor is raised because visibility is not the same as paying it. NET MOVEMENT SINCE 2026-10-05: 19 specs/35 claimed cells/3 carriers -> 26/49/9, and holes 32 -> 40, i.e. six new scenarios verified on desktop bought an honest accounting of twelve cells that were previously invisible."
+   "note": "Dropped 40 -> 38 on ref-night-work-02: TASK-CHECK-01 spec corrected from targets: [desktop] to targets: [android] (Maestro flow). The desktop cell is no longer claimed, so it is neither a hole nor a not-claimed cell."
   },
   {
    "metric": "dark_scenarios",
-   "max": 17,
-   "measured": 17,
+   "max": 15,
+   "measured": 15,
    "label": "declared scenarios with a claimed target and no automation on any target",
-   "note": "A cell count cannot see a change that leaves the cell count alone while the number of scenarios in trouble goes up. Verified by brute force over every per-scenario (claimed, automated) state on both targets: 85 such trades exist, the simplest being a spec split. One scenario claiming [android, desktop] with no carrier is 2 holes and 1 dark scenario; split it per platform into two specs each claiming one target and the total is still 2 holes, but 2 dark scenarios. Splitting a spec per platform looks like tidying up, which is what makes it worth ratcheting. Raised 16 -> 17 on 2026-10-07 by exactly one scenario: CAL-SYNC-RECUR-01, whose both cells are declared unreachable because the property is about what a SECOND Google account holds after the app pushes an edit. It is counted here rather than quietly omitted precisely because the recurrence rule is the highest-blast-radius invariant in the feature (REQ-CS-007) and the one a reader would most assume is covered by the 23 passing unit-test classes."
+   "note": "Dropped 17 -> 15 on ref-night-work-02: TASK-CHECK-01 now has a Maestro carrier on android, so it is no longer dark. 16 dark scenarios remain, all sync or auth scenarios with no carriers committed."
   },
   {
    "metric": "unreachable_cells",

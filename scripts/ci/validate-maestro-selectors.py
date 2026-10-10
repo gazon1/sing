@@ -109,6 +109,8 @@ STATIC_IDS: Set[str] = {
     "task_editor_start_date_row",
     "task_editor_tags_row",
     "task_editor_title_input",
+    "checklist_sheet",
+    "first_run_section",
     "time_tracking_error",
     "time_tracking_start",
     "time_tracking_stop",
@@ -314,6 +316,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_tomorrowtask",
     "task_item_write_spec",
     "task_item_worktask",
+    "task_item_grocery_run",
     # taskCheckbox(...) — from seed flows
     "task_checkbox_buy_milk",
     # pomodoroTaskChip(...) — from seed flows

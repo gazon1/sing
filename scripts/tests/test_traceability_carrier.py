@@ -159,12 +159,15 @@ class CliTest(unittest.TestCase):
         self.assertNotIn("записан", result.stdout)
 
     def test_dry_run_writes_nothing(self):
-        result = _run("carrier", "TASK-CHECK-01", "--dry-run")
-        self.assertEqual(result.returncode, 0)
+        # AUTH-ATTACH-01 claims desktop but has no desktop carrier (auth flows are
+        # not yet committed). Used to test the dry-run path for a valid desktop
+        # carrier request that has not yet been fulfilled.
+        result = _run("carrier", "AUTH-ATTACH-01", "--target", "desktop", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("dry run", result.stdout)
         self.assertFalse(
-            (ROOT / "desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/checklist"
-                   / "TaskCheck01ScenarioTest.kt").exists()
+            (ROOT / "desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/attachment"
+                   / "AuthAttach01ScenarioTest.kt").exists()
         )
 
     def test_no_refusal_path_leaves_a_file_behind(self):
