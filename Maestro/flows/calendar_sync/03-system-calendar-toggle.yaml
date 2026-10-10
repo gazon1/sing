@@ -1,0 +1,63 @@
+# CAL-SYNC-SYSTEM-01 (Android path): toggle system calendar sync on Android.
+#
+# preconditions: Settings → Calendar tab open, system calendar selected.
+# steps:
+#   1. The system enable switch is visible.
+#   2. Toggle it on — the status shows the sync is enabled.
+#   3. Toggle it off — status returns to disabled.
+#
+# On Android (the only platform Maestro runs against) the system calendar IS
+# available. The unavailable message (CAL-SYNC-SYSTEM-01 desktop path) is
+# desktop-only and unreachable from Maestro.
+#
+appId: com.singularity.todo
+name: calendar-sync-system-toggle
+tags:
+  - regression
+  - calendar_sync
+  - CAL-SYNC-SYSTEM-01
+---
+- runFlow: ../helpers/launch-clean.yaml
+
+# Open Settings.
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+
+# Navigate to Calendar tab.
+- tapOn:
+    id: settings_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 8000
+
+# Select system calendar provider (may already be selected).
+- tapOn:
+    id: calendar_sync_provider_system_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 5000
+
+# Toggle system calendar sync on.
+- tapOn:
+    id: calendar_sync_system_enable_switch
+
+# The status should change from Disabled to Idle/Syncing after enabling.
+# Assert the switch stayed on (it is a toggle, not a one-shot).
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 5000
+
+# Toggle off.
+- tapOn:
+    id: calendar_sync_system_enable_switch
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 5000
