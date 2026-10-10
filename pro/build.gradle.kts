@@ -64,6 +64,13 @@ val tracerAppToken = providers.gradleProperty("tracerAppToken")
 val tracerPluginToken = providers.gradleProperty("tracerPluginToken")
     .orElse(providers.environmentVariable("TRACER_PLUGIN_TOKEN"))
 
+// Policy: release builds must not upload from a developer machine.
+// Debug builds may always upload (for #134 verification before first release).
+// Release uploads are only acceptable in CI — where CI=true is set by GitHub Actions.
+// See ADR 2026-10-10-apptracer-upload-policy.md.
+val isCi = providers.environmentVariable("CI").orElse("").get() == "true"
+val tokensPresent = tracerAppToken.getOrElse("").isNotBlank()
+
 tracer {
     create("defaultConfig") {
         appToken = tracerAppToken.getOrElse("")
@@ -73,10 +80,71 @@ tracer {
         uploadRetryCount = 2
         // A network blip during CI must not fail the build.
         dontFailOnUploadFailure = true
-        isDisabled = tracerAppToken.getOrElse("").isBlank()
+        // Default: disabled when no tokens (no plugin activity at all).
+        isDisabled = !tokensPresent
     }
     create("debug") {
-        isDisabled = tracerAppToken.getOrElse("").isBlank()
+        // Debug: always enabled when tokens are present, for #134 pre-release verification.
+        isDisabled = !tokensPresent
+    }
+    create("release") {
+        // Release: disabled unless in CI. This is the structural gate — a developer
+        // with tokens on their machine does not accidentally ship mapping files.
+        isDisabled = !tokensPresent || !isCi
+    }
+}
+
+// #383: The AppTracer SDK requires buildUuid to be non-null. When the plugin is
+// enabled (tokens present) but buildUuid is null, Tracer.init() throws at runtime
+// and the crash-report subsystem is dead for the life of the process. This task
+// catches that condition at build time by reading the generated manifest.
+//
+// The manifest is produced by the tracer plugin during source generation. The task
+// depends on the variant's tracer manifest task so it runs after generation.
+tasks.register<Exec>("assertTracerBuildUuid") {
+    // Only relevant when the plugin is active (tokens present).
+    onlyIf { tokensPresent }
+
+    val variant = if (project.hasProperty("isDebug") == true) "debug" else "release"
+    val manifestFile = layout.buildDirectory
+        .dir("generated/source/tracerManifest/$variant/com/singularity/todo/pro")
+        .get()
+        .file("TracerLibraryManifest.java")
+
+    // The tracer plugin must run before this task can read its output.
+    tasks.find {
+        it.name == "generate${variant.replaceFirstChar { it.uppercase() }}TracerLibraryManifest"
+    }?.let { dependsOn(it) }
+
+    doFirst {
+        val javaFile = manifestFile.asFile
+        if (!javaFile.exists()) {
+            logger.error("TracerLibraryManifest.java not found at $javaFile — is the tracer plugin applied?")
+            throw GradleException("assertTracerBuildUuid failed: manifest not generated. Run a build first.")
+        }
+        val content = javaFile.readText()
+        // Extract the buildUuid() method's return value.
+        // The generated file looks like:
+        //   public String buildUuid() { return "abc123"; }
+        // or:
+        //   public String buildUuid() { return null; }
+        val returnMatch = Regex("""public String buildUuid\(\)\s*\{\s*return\s*"([^"]*)"\s*;?\s*}""")
+            .find(content)
+        val returnValue = returnMatch?.groupValues?.getOrNull(1)
+
+        if (returnValue == null) {
+            logger.error(
+                "TracerLibraryManifest.buildUuid() is null — " +
+                    "the AppTracer plugin did not generate a UUID for variant '$variant'. " +
+                    "The SDK will throw IllegalStateException at runtime and crash reporting will be dead."
+            )
+            throw GradleException(
+                "AppTracer buildUuid is null. " +
+                    "Ensure the tracer plugin is applied to the application module (not just a library) " +
+                    "or configure tracer.buildUuid per variant in pro/build.gradle.kts."
+            )
+        }
+        logger.lifecycle("AppTracer buildUuid for variant '$variant': $returnValue")
     }
 }
 

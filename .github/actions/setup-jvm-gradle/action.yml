@@ -27,6 +27,12 @@ runs:
     # three hand-written actions/cache blocks do not appear here: they were a
     # workaround for setup-gradle@v4 and they keyed on run_id, so every run
     # stored a fresh cache and evicted the previous one.
+    # NOTE on v6: gradle/actions@v6 moves caching into a proprietary library
+    # (Gradle Terms of Use; ADR 2026-10-05-ci-action-versions-and-runner-image-pin §v6).
+    # `cache-provider: enhanced` is Gradle's own backend — higher hit rates, free for
+    # public repos, but requires GitHub Enterprise for private ones (gazon1/sing is private).
+    # v5 with `cache-cleanup: on-success` (default) is the current target. Revisit when
+    # the repository is public or GitHub Enterprise is in use (#313).
     - uses: gradle/actions/setup-gradle@v5
       with:
         cache-read-only: ${{ github.ref != 'refs/heads/main' }}
@@ -34,7 +40,14 @@ runs:
         # Exclude transforms and instrumented jars — they are content-addressed and
         # accumulate as new entries when dependencies change, reaching ~1.5 GB each.
         # Excluding them saves ~7 GB. Dependencies (modules-2) and wrapper are kept.
+        #
+        # NOTE: glob patterns (transforms-*, jars-*) were tried and found ineffective —
+        # transforms entries kept appearing in the cache despite the exclude. The
+        # explicit versioned paths below are the working fallback (#312).
         gradle-home-cache-excludes: |
-          caches/transforms-*
-          caches/jars-*
-          caches/instrumented-jars-*
+          caches/transforms-2
+          caches/transforms-3
+          caches/transforms-4
+          caches/jars-3
+          caches/jars-9
+          caches/instrumented-jars-2

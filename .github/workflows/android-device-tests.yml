@@ -108,7 +108,10 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64-v1
+          key: android-avd-api36-google_apis-x86_64-v2
+          restore-keys: |
+            android-avd-api36-google_apis-x86_64-v2
+            android-avd-api36-google_apis-x86_64-v1
 
       # Skipped on a cache hit. On cache miss, create the AVD from scratch — runners
       # are ephemeral so force-avd-creation: true is needed to actually create it.
@@ -134,7 +137,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64-v1
+          key: android-avd-api36-google_apis-x86_64-v2
 
       # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target). An
       # emulator below the app's targetSdk is a test of something nobody ships.
