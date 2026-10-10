@@ -169,6 +169,11 @@ exceptions:
       - 'Exception'
       - 'Throwable'
       - 'Error'
+  RethrowCaughtException:
+    # Declared 2026-10-10: catching and rethrowing a caught exception without
+    # adding context is a no-op for callers trying to understand the error
+    # chain. Findings fixed in baseline.
+    active: true
 
 # ---------------------------------------------------------------------------
 # cancellation-integrity rules (Phase 2)
@@ -331,6 +336,25 @@ ktlint:
     active: true
     auto_correct: false
   no-wildcard-imports:
+    active: true
+  parameter-list-spacing:
+    # Declared 2026-10-10: ktlint rule id in camelCase (confirmed by baseline entries
+    # disappearing when active: true). Findings in baseline.
+    active: true
+  chain-wrapping:
+    # Declared 2026-10-10: ktlint rule. Findings in baseline.
+    active: true
+  statement-wrapping:
+    # Declared 2026-10-10: ktlint rule. Findings in baseline.
+    active: true
+  function-expression-body:
+    # Declared 2026-10-10: ktlint rule. Findings in baseline.
+    active: true
+  annotation-on-separate-line:
+    # Declared 2026-10-10: ktlint rule. Findings in baseline.
+    active: true
+  function-literal:
+    # Declared 2026-10-10: ktlint rule. Findings in baseline.
     active: true
     auto_correct: true
   max-line-length:

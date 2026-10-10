@@ -72,6 +72,7 @@ FileOpener|seam|AndroidFileOpener|JvmFileOpener|real|injected|-|Gated by OpenOut
 PomodoroTimer|seam|AndroidPomodoroTimer|JvmPomodoroTimer|real|injected|-|
 Haptic|seam|AndroidHaptic|createHaptic|exempt|injected|-|UNGATED by necessity: a definition must exist on every platform or composition fails. The task detail composes haptics unconditionally, so there is no UI decision point at which a capability could be checked — the Desktop implementation is simply inert.
 CrashReportingPort|seam|FileCrashReportingPort|JvmCrashReportingPort|exempt|injected|-|UNGATED by necessity: Desktop logs through loggingBackgroundFailureHandler. Crash reporting has no user-facing control to gate, so a capability flag would have nothing to protect.
+BulkImportPort|seam|BulkImportPortImpl|BulkImportPortImpl|real|injected|-|Bulk import restores a backup archive into a named profile. Both implementations write to DAOs with an explicit user ID — not a stub, not a no-op. The import is gated by BackupImporter which is only reachable from the settings UI.
 
 # ── Infrastructure bindings: present on both platforms, not behavioural seams ──────────
 Notifier|seam|AndroidNotifier|JvmNotifier|real|injected|isSupported|Replaces the deleted NotificationPort, which is NOT to be revived: its JVM half used at(1) and cancelled every at job on the host. This port can only display something — it has no way to enumerate or cancel system units, so the original failure has no code path here. JvmNotifier probes notify-send at runtime rather than asserting a constant, so a headless host reports false.

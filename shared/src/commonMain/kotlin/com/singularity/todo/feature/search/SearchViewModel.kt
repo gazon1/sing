@@ -123,6 +123,7 @@ class SearchViewModel(
         taskRepo: TaskRepository,
         clock: Clock,
         crashReporter: CrashReportingPort,
+        scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
     ) : this(
         searchUseCase = searchUseCase,
         savedSearchRepo = savedSearchRepo,
@@ -130,6 +131,7 @@ class SearchViewModel(
         parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
         clock = clock,
         crashReporter = crashReporter,
+        scope = scope,
     )
 
     // ─── Internal state ────────────────────────────────────────────────────────

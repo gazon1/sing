@@ -1394,6 +1394,9 @@ private class FakeProjectReminderDao(
                 ?: m
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<ProjectReminderEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 private class FakeReminderDao(
@@ -1465,6 +1468,9 @@ private class FakeReminderDao(
             current + (key to existing.copy(lastFiredAt = lastFiredAt, updatedAt = updatedAt))
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskReminderEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 // ─── CalendarSyncTaskMapDao ───────────────────────────────────────────────────────
@@ -1672,6 +1678,13 @@ private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, C
         store.update { it + (itemId to existing.copy(isCompleted = isCompleted, updatedAt = updatedAt)) }
         return 1
     }
+
+    /**
+     * The real DAO scopes these through the owning task's `user_id`. This fake
+     * has no task store, so it cannot evaluate ownership — returns all items.
+     */
+    override suspend fun listAllForUser(userId: String): List<ChecklistItemEntity> =
+        store.value.values.toList()
 
     override suspend fun toggleItem(
         itemId: String,
@@ -1890,6 +1903,9 @@ private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String,
     override suspend fun findByName(userId: String, name: String): SavedSearchEntity? =
         store.value.values.find { v -> v.userId == userId && v.name.equals(name, ignoreCase = true) }
 
+    override suspend fun listAllForUser(userId: String): List<SavedSearchEntity> =
+        store.value.values.filter { it.userId == userId }
+
     override suspend fun upsert(entity: SavedSearchEntity) {
         store.update { it + (entity.id to entity) }
     }
@@ -1913,6 +1929,8 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
     }
     override suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity? =
         store.value.values.find { it.id == id && it.userId == userId }
+    override suspend fun listAllForUser(userId: String): List<TagGroupEntity> =
+        store.value.values.filter { it.userId == userId }
     override suspend fun upsert(entity: TagGroupEntity) {
         store.update { it + (entity.id to entity) }
     }
@@ -1980,6 +1998,13 @@ private class FakeProjectInheritedTagGroupDao(
         store.update { list -> list.filter { it.tagGroupId != tagGroupId } }
         return before
     }
+
+    /**
+     * The real DAO scopes this through `projects.user_id`. This fake holds only the join
+     * rows and has no view of the projects table, so it cannot evaluate ownership.
+     */
+    override suspend fun listAllForUser(userId: String): List<ProjectInheritedTagGroupCrossRef> =
+        store.value.toList()
 }
 
 private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, TimeEntryEntity>>) : TimeEntryDao {
@@ -2034,6 +2059,9 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
         store.update { map -> map - id }
         return 1
     }
+
+    override suspend fun listAllForUser(userId: String): List<TimeEntryEntity> =
+        store.value.values.filter { it.userId == userId && it.deletedAt == null }
 }
 
 /**

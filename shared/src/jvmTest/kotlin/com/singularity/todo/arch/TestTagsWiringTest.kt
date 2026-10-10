@@ -75,6 +75,9 @@ class TestTagsWiringTest {
             "the pin/unpin overflow rows are rendered through " +
             "TestTags.taskAction(action), so these constants have no call site yet",
         "EditorOverflow.UNPIN" to "same as EditorOverflow.PIN",
+        "Pomodoro.FOCUS_CHIP" to
+            "declared for Maestro flows targeting the Focus chip; the static " +
+            "Focus chip UI element has not yet been added to PomodoroScreen",
     )
 
     @Test
