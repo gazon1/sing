@@ -495,6 +495,56 @@ change this while the "47 suppressions" item from
 
 ---
 
+## no-direct-clock-system-rule-misses-system-currenttimemillis
+
+**Status: OPEN**
+
+**Tracked as:** #477
+
+**Found in:** 2026-10-07, background agent investigation of `NoDirectClockSystemRule`.
+
+**Symptom:** `NoDirectClockSystemRule` bans `Clock.System` (receiver and call) but does NOT ban `System.currentTimeMillis()`. There are 14 live uses of the latter in `commonMain` production code:
+
+| File | Lines | Purpose |
+|---|---|---|
+| `core/settings/SettingsDataStoreMigration.kt` | 131, 176 | Migration timestamp markers |
+| `feature/ai/data/AiSettingsStore.kt` | 100, 116 | Latency measurement |
+| `feature/backup/BackupScreen.kt` | 457, 468 | Hardcoded yesterday epoch for sample data |
+| `feature/calendar_sync/auth/GoogleCredentialStore.kt` | 142 | OAuth expiry computation |
+| `feature/calendar_sync/domain/logic/CalendarEventMapper.kt` | 104 | Instant from epoch millis |
+| `feature/calendar_sync/sync/DirtyHashProvider.kt` | 19, 47 | Hash-slot computation |
+| `feature/tasks/domain/util/ReminderFormatter.kt` | 27 | Default parameter for `nowEpochMs` |
+
+The two patterns serve different purposes: `Clock.System` is for wall-clock time (injectable), while `System.currentTimeMillis()` is for epoch timestamps, OAuth expiry, and hash computation — specific use cases that may or may not warrant exemptions per se.
+
+The 6 existing file-level suppressions for `NoDirectClockSystem` are all justified (preview fixtures, ambient logger timestamps, dead code removal) and are unrelated to this gap.
+
+---
+
+## ci-push-and-pull-request-both-fire-causing-duplicate-runs
+
+**Status: OPEN**
+
+**Tracked as:** #475
+
+**Found in:** 2026-10-07, background agent investigation of CI duplicate runs.
+
+**Symptom:** CI runs twice for every PR commit. `ci.yml` triggers on both `push` (to main) and `pull_request` (to main). The concurrency group at lines 22-24:
+
+```yaml
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+```
+
+When a PR branch pushes to main: the `push` event fires with `cancel-in-progress: false` (because `github.event_name == push`), so it is never cancelled. The `pull_request` event fires simultaneously but may not win the cancellation race.
+
+**Root cause:** `cancel-in-progress` is conditional on event type, so the `push` run is always unconditional. There is also no `paths` filter.
+
+**Fix:** Set `cancel-in-progress: true` unconditionally, or rethink the concurrency group key so both event types share a group where cancellation applies to whichever fires second.
+
+---
+
 ## usage-recording-text-gen-requires-cross-cutting-architecture
 
 **Tracked as:** #106
@@ -729,7 +779,7 @@ null text to the snackbar host, or make the parameter non-null).
 
 ## agenda-views-not-in-backup
 
-**Tracked as:** #302 · OpenSpec change `backup-include-remaining-tables` (proposed)
+**Tracked as:** #302 · OpenSpec change `backup-include-remaining-tables` (proposed); **#478** (8 tables gap)
 **Supersedes:** #77 (closed — 8 remaining tables captured in #302)
 
 **Found in:** MR-0, свип BackupPayload vs Room tables.
@@ -996,7 +1046,9 @@ wrong.
 
 **Status: OPEN**
 
-**Tracked as:** [#85](https://github.com/gazon1/sing/issues/85)
+**Tracked as:** [#85](https://github.com/gazon1/sing/issues/85); **#476** (branch coverage floor not wired, koverVerify not in CI)
+
+**Additional finding (2026-10-07):** kover branch coverage is 65.1% with no floor set (no `verify { rule { } }` DSL), and `koverVerify` is not wired into `check` or CI. `just kover-rules` is informational only. Branch coverage: class 92.2%, method 89.4%, line 93.3%, instruction 89%.
 
 **Found in:** MR-6, while building the agenda coverage ratchet.
 
