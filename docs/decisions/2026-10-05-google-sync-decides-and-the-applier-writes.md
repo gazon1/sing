@@ -1,7 +1,8 @@
 ---
+title: Google sync decides; a separate applier writes. And it runs on desktop.
 date: 2026-10-05
-slug: google-sync-decides-and-the-applier-writes
 status: accepted
+slug: google-sync-decides-and-the-applier-writes
 ---
 
 # Google sync decides; a separate applier writes. And it runs on desktop.

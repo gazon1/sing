@@ -166,22 +166,36 @@ class TestRegistryDiscipline(unittest.TestCase):
         mistake `test_check_rule_intent.py` made in its first version, where a
         correct re-implementation of the predicate was tested instead of the
         predicate.
+
+        Updated 2026-10-10: FileLogWriter.kt no longer carries a suppression
+        (NoDirectClockSystemRule is retired, #160). The test target is now
+        JvmPomodoroTimer.kt with NoRealDelayInTest — which has a comment, so
+        the comment is stripped temporarily to exercise the unjustified path.
         """
-        target = "shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt"
+        target = "shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt"
         self.assertIn(target, {str(p.relative_to(csi.ROOT)) for p, _, _, _ in csi.scan_file_suppressions()})
 
-        out = self._run({})
-        self.assertIn("UNJUSTIFIED", out)
-        self.assertIn("FileLogWriter.kt", out)
-        # An empty registry must not manufacture registry-level errors of its own.
-        self.assertNotIn("empty reason", out)
+        # Temporarily strip the comment justification so the gate sees an unjustified
+        # bare suppression. The file is restored in `finally`.
+        target_path = csi.ROOT / target
+        original = target_path.read_text(encoding="utf-8")
+        try:
+            stripped = "@file:Suppress(\"NoRealDelayInTest\")\n" + \
+                       "\n".join(l for l in original.splitlines() if not l.strip().startswith("//"))[len("@file:Suppress(\"NoRealDelayInTest\")\n"):]
+            target_path.write_text(stripped, encoding="utf-8")
 
-        out_justified = self._run({target: "a log line stamps its own time"})
-        self.assertIn("justified   shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt", out_justified)
-        # Scoped to this file: the other eleven are still unaccounted for, so a
-        # repository-wide `assertNotIn` would be asserting a state #189 has not
-        # reached yet — a test that fails for a reason unrelated to its subject.
-        self.assertNotIn("FileLogWriter.kt:1 — @file:Suppress", out_justified)
+            out = self._run({})
+            self.assertIn("UNJUSTIFIED", out)
+            self.assertIn("JvmPomodoroTimer.kt", out)
+            # An empty registry must not manufacture registry-level errors of its own.
+            self.assertNotIn("empty reason", out)
+        finally:
+            target_path.write_text(original, encoding="utf-8")
+
+        # With the comment present, the same suppression is justified.
+        out_justified = self._run({target: "a pomodoro ticker delay is the product's own cadence"})
+        self.assertIn("justified", out_justified)
+        self.assertIn("JvmPomodoroTimer.kt", out_justified)
 
     def test_every_shipped_entry_names_a_real_file_and_a_real_suppression(self):
         """The registry as committed, not as mutated by a test.
@@ -241,36 +255,18 @@ class TestCurrentRepositoryState(unittest.TestCase):
     def test_every_current_suppression_is_justified(self):
         """The gate is green, and the count is pinned so a change is visible.
 
-        Nine files as of 2026-10-05, down from twelve: the four LIVE DEFECT
-        entries were fixed (the #91 work) and `FakeRepositories.kt` moved its
-        exemption into the rule's allow-list. Eight are
-        `@file:Suppress("NoDirectClockSystem")` and one
-        `@file:Suppress("NoRealDelayInTest")`. Every one carries a reason — five as
-        a comment on the file, two through `JUSTIFIED_FILE_SUPPRESSIONS`, and three
-        task screens that forward a `now` into `TimeEntryEditorSheet` inline.
-
-        The count is a measurement, not a target: it moves when a file is fixed and
-        when a deferral is recorded, and both are supposed to show up in review.
-        It went 12 -> 6 -> 9 within one session, then back to 6. The 6 -> 9 move is
-        the interesting one: threading a clock through a sheet made its *callers*
-        read one, and the rule reported all three. A gate that only counts defects
-        would have shown the same number; this one shows the reason each was added,
-        which is the difference between a registry and a queue.
-
-        The 9 -> 6 move is the one this pin exists to catch in the other direction.
-        The three task screens carried a file-level suppression whose recorded
-        reason was "threading `now` is four signature changes across three screens,
-        ending in a call no desktop Compose test can execute (#201)". That is work
-        not yet done stated as a justification, which is how a deferral turns into
-        a permanent exemption. The signatures are made and `now` is a required
-        parameter from the nav entry down, so the three screens no longer suppress
-        anything.
+        As of 2026-10-10 after #160 retirement, only one file carries a custom
+        suppression: `JvmPomodoroTimer.kt` with `NoRealDelayInTest`. The
+        NoDirectClockSystem rule was unwired (its source remains in the tree but
+        detekt.yml no longer references it). The count is a measurement, not a
+        target: it moves when a file is fixed and when a deferral is recorded, and
+        both are supposed to show up in review.
         """
         findings = csi.scan_file_suppressions()
-        self.assertEqual(len(findings), 6, f"expected 6, got {len(findings)}")
+        self.assertEqual(len(findings), 1, f"expected 1, got {len(findings)}")
         self.assertEqual(
             {rule for _, rule, _, _ in findings},
-            {"NoDirectClockSystem", "NoRealDelayInTest"},
+            {"NoRealDelayInTest"},
         )
         unjustified = [
             f"{path.relative_to(csi.ROOT)}:{line}"

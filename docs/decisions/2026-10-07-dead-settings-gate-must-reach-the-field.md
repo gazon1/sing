@@ -1,4 +1,5 @@
 ---
+title: A gate is only as deep as the layer it stops at
 date: 2026-10-07
 status: accepted
 slug: dead-settings-gate-must-reach-the-field

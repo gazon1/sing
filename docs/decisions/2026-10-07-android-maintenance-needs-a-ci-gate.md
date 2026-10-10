@@ -1,7 +1,8 @@
 ---
+title: `:androidApp:assembleDebug` is the only thing that compiles `androidMain`, and CI is down
 date: 2026-10-07
-slug: android-maintenance-needs-a-ci-gate
 status: accepted
+slug: android-maintenance-needs-a-ci-gate
 ---
 
 # `:androidApp:assembleDebug` is the only thing that compiles `androidMain`, and CI is down

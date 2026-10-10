@@ -1,9 +1,10 @@
+---
+title: "detekt `ClassSignature` Rule Gotcha for Data Classes"
+date: 2026-10-09
+status: accepted
+---
+
 # ADR: detekt `ClassSignature` Rule Gotcha for Data Classes
-
-**Date:** 2026-10-09
-**Status:** observed
-
-## Context
 
 When adding `SelectorTemplate.ByDateRange` as a `data class` with multiple parameters with default values, the initial implementation split parameters across lines:
 

@@ -1,7 +1,8 @@
 ---
+title: Google OAuth: KMPAuth for consent, our own token exchange for background sync
 date: 2026-10-05
-slug: google-oauth-hybrid-kmpauth-plus-own-token-exchange
 status: accepted
+slug: google-oauth-hybrid-kmpauth-plus-own-token-exchange
 ---
 
 # Google OAuth: KMPAuth for consent, our own token exchange for background sync

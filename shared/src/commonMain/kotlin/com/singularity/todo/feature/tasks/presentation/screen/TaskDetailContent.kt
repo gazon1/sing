@@ -323,6 +323,7 @@ fun TaskDetailContent(
                                     onOpenNote = { navigator.openNote(it) },
                                     onAddNote = { taskId -> navigator.openCreateNote(taskId) },
                                     currentTaskId = ui.task.id,
+                                    now = now,
                                 )
                             }
                         },

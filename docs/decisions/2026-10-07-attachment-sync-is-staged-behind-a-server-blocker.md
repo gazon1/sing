@@ -1,4 +1,5 @@
 ---
+title: Attachment sync is staged behind a server blocker, and the stage-1 setting is stored, shown, and locked
 date: 2026-10-07
 status: accepted
 tags: [sync, attachments, settings, scope]

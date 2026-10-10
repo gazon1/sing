@@ -1,7 +1,8 @@
 ---
+title: "Read but never written" is a question about a set, not about syntax
 date: 2026-10-07
-slug: reading-a-state-property-is-not-writing-one
 status: accepted
+slug: reading-a-state-property-is-not-writing-one
 ---
 
 # "Read but never written" is a question about a set, not about syntax

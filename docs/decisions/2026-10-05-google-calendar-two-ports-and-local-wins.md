@@ -1,7 +1,8 @@
 ---
+title: Google Calendar sync: two ports, and why the overlap resolves to the app
 date: 2026-10-05
-slug: google-calendar-two-ports-and-local-wins
 status: accepted
+slug: google-calendar-two-ports-and-local-wins
 ---
 
 # Google Calendar sync: two ports, and why the overlap resolves to the app

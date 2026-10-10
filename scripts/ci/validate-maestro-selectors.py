@@ -331,8 +331,6 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # pomodoroTaskChip(...) — from seed flows
     "pomodoro_task_chip_buy_milk",
     # savedAgendaCard(...) — used in flows
-    "saved_agenda_card_work",
-    "saved_agenda_card_personal",
     "saved_agenda_card_journey_view",
     "saved_agenda_card_journey_renamed",
     # agendaSection(...) — section headers used in flows
@@ -347,26 +345,11 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "profile_item_work",
     # Dialog.title(...) — used in flows
     "dialog_title_priority",
-    "dialog_title_discard",
-    "dialog_title_delete",
     "dialog_title_delete_view",
-    "dialog_title_archive",
     # Note items — desktop/seed
     "note_item_by_title_meeting_notes",
-    # agendaSectionTemplate(...)
-    "agenda_section_template_by_tag",
-    "agenda_section_template_due_date",
-    # agendaSelectorOption(...)
-    "agenda_selector_option_work",
-    # Calendar day cells (hard-coded expanded form)
-    "calendar_day_2026_09_15",
-    # genUi(...)
-    "genui_whatsnew",
     # Menu item slug — "Quick Search" slug = "quick_search"
     "menu_quick_search",
-    # Calendar sync provider segments
-    "calendar_sync_provider_google_calendar",
-    "calendar_sync_provider_system_calendar",
     # Settings tabs (settingsTab function — slug of the tab name)
     "settings_tab_backup",
     "settings_tab_account",
@@ -385,21 +368,10 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_action_mark_as_completed",
     "task_action_open",
     # Calendar view mode tabs (calendarViewMode function)
-    "calendar_view_mode_day",
-    "calendar_view_mode_4_days",
     "calendar_view_mode_week",
     "calendar_view_mode_month",
-    # Accent color swatches (accentSwatch function)
+    # Accent color swatches — used in settings flows (blue is exercised in theme-toggle.yaml)
     "settings_accent_swatch_blue",
-    "settings_accent_swatch_purple",
-    "settings_accent_swatch_pink",
-    "settings_accent_swatch_red",
-    "settings_accent_swatch_orange",
-    "settings_accent_swatch_yellow",
-    "settings_accent_swatch_green",
-    "settings_accent_swatch_teal",
-    # Agenda selector options (agendaSelectorOption function)
-    "agenda_selector_option_none",
 }
 
 # ---------------------------------------------------------------------------

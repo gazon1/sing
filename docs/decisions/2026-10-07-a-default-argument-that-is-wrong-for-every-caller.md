@@ -1,7 +1,8 @@
 ---
+title: A default argument that is wrong for every caller who does not notice it
 date: 2026-10-07
-slug: a-default-argument-that-is-wrong-for-every-caller
 status: accepted
+slug: a-default-argument-that-is-wrong-for-every-caller
 ---
 
 # A default argument that is wrong for every caller who does not notice it

@@ -1,7 +1,8 @@
 ---
+title: A Google pass that failed was shaped exactly like a pass that never ran
 date: 2026-10-06
-slug: google-sync-failures-were-shaped-like-skips
 status: accepted
+slug: google-sync-failures-were-shaped-like-skips
 ---
 
 # A Google pass that failed was shaped exactly like a pass that never ran

@@ -1,7 +1,8 @@
 ---
+title: The push direction was dead: the merge's local side came from the ancestor
 date: 2026-10-05
-slug: google-sync-local-side-came-from-the-shadow
 status: accepted
+slug: google-sync-local-side-came-from-the-shadow
 ---
 
 # The push direction was dead: the merge's local side came from the ancestor

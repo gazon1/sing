@@ -1,4 +1,5 @@
 ---
+title: Reminders declare their capability; two of the three reminder paths were lying
 date: 2026-10-07
 status: accepted
 slug: reminders-capability-gate

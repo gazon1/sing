@@ -1,7 +1,8 @@
 ---
+title: Three files, each read by exactly one gate, each silently broken on `main`
 date: 2026-10-07
-slug: three-files-that-only-one-gate-reads
 status: accepted
+slug: three-files-that-only-one-gate-reads
 ---
 
 # Three files, each read by exactly one gate, each silently broken on `main`

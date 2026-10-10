@@ -1,4 +1,5 @@
 ---
+title: A fork that died left no evidence, so the fix is to make the next one legible
 date: 2026-10-07
 status: accepted
 tags: [testing, build, observability, sync]

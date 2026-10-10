@@ -21,7 +21,7 @@ on:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -152,6 +152,11 @@ jobs:
 
       - name: Coverage floors
         run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
+
+      # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
+      # Runs here (not in static) because it needs Gradle to generate the kover report.
+      - name: detekt-rule branch coverage
+        run: python3 scripts/check-detekt-rule-coverage.py
 
       # desktop only, deliberately. The android target's results come from
       # :androidApp:connectedDebugAndroidTest, which no CI job runs, and

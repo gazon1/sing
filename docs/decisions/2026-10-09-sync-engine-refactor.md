@@ -1,7 +1,8 @@
 ---
 title: "SyncEngine refactor: split into three collaborators, reshape contracts, fix four defects"
 date: 2026-10-09
-status: proposed
+status: open
+status-was: proposed
 tags: [sync, architecture, cleanup]
 ---
 

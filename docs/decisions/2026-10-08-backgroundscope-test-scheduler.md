@@ -1,10 +1,11 @@
-# ADR: `backgroundScope` collectors are not driven by `advanceUntilIdle()`
-
-**Date:** 2026-10-08
-**Status:** accepted
-**Deciders:** agent (investigation), user (review)
-
 ---
+title: "`backgroundScope` collectors are not driven by `advanceUntilIdle()`"
+date: 2026-10-08
+status: accepted
+deciders: agent (investigation), user (review)
+---
+
+# ADR: `backgroundScope` collectors are not driven by `advanceUntilIdle()`
 
 ## Context
 

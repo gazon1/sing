@@ -1,10 +1,11 @@
-# ADR: `NoUnusedImports` false positive on launch through implicit receiver
-
-**Date:** 2026-10-08
-**Status:** accepted
-**Deciders:** agent (investigation), user (review)
-
 ---
+title: "`NoUnusedImports` false positive on launch through implicit receiver"
+date: 2026-10-08
+status: accepted
+deciders: agent (investigation), user (review)
+---
+
+# ADR: `NoUnusedImports` false positive on launch through implicit receiver
 
 ## Context
 

@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: open
+status-was: proposed
 date: 2026-10-10
 deciders: mavis
 gh: https://github.com/gazon1/sing/issues/257
