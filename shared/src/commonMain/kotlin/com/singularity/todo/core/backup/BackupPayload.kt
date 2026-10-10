@@ -17,4 +17,13 @@ data class BackupPayload(
     val taskDependencies: List<TaskDependencyDto> = emptyList(),
     /** MR-1: saved agenda views. */
     val agendaViews: List<AgendaViewDto> = emptyList(),
+    // MR-2: 8 new entity types
+    val taskReminders: List<TaskReminderDto> = emptyList(),
+    val projectReminders: List<ProjectReminderDto> = emptyList(),
+    val checklistItems: List<ChecklistItemDto> = emptyList(),
+    val tagGroups: List<TagGroupDto> = emptyList(),
+    val projectTagGroups: List<ProjectTagGroupDto> = emptyList(),
+    val savedSearches: List<SavedSearchDto> = emptyList(),
+    val timeEntries: List<TimeEntryDto> = emptyList(),
+    val profiles: List<ProfileDto> = emptyList(),
 )

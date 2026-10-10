@@ -57,9 +57,21 @@ object BackupMigrations {
         )
     }
 
+    /**
+     * v3 → v4: Add 8 new entity types.
+     *
+     * All new list fields default to empty in the serializable class, so a v3 payload
+     * is fully restorable on a v4 client without any field-level transformation.
+     * This migration only bumps the schema version for correctness.
+     */
+    private val v3ToV4: (JsonObject) -> JsonObject = { payload ->
+        JsonObject(payload + mapOf("schemaVersion" to JsonPrimitive(4)))
+    }
+
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to v1ToV2,
+        3 to v3ToV4,
     )
 
     /**

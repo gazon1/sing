@@ -148,7 +148,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun annotationDao(): AttachmentAnnotationDao = FakeAttachmentAnnotationDao(_annotations)
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
     override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
-    override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist)
+    override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist, _tasks)
     override fun llmUsageDao(): LlmUsageDao = FakeLlmUsageDao(_llmUsage)
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
     override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
@@ -1394,6 +1394,9 @@ private class FakeProjectReminderDao(
                 ?: m
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<ProjectReminderEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 private class FakeReminderDao(
@@ -1465,6 +1468,9 @@ private class FakeReminderDao(
             current + (key to existing.copy(lastFiredAt = lastFiredAt, updatedAt = updatedAt))
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskReminderEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 // ─── CalendarSyncTaskMapDao ───────────────────────────────────────────────────────
@@ -1636,7 +1642,10 @@ private class FakeCalendarImportEventDao(
 
 // ─── ChecklistDao ───────────────────────────────────────────────────────────────
 
-private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>) : ChecklistDao {
+private class FakeChecklistDao(
+    private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>,
+    private val tasksStore: MutableStateFlow<Map<String, TaskEntity>>,
+) : ChecklistDao {
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>> =
         store.map { it.values.filter { c -> c.taskId == taskId }.sortedBy { c -> c.sortOrder } }
@@ -1694,6 +1703,11 @@ private class FakeChecklistDao(private val store: MutableStateFlow<Map<String, C
             )
         }
         return 1
+    }
+
+    override suspend fun listAllForUser(userId: String): List<ChecklistItemEntity> {
+        val ownedTaskIds = tasksStore.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        return store.value.values.filter { it.taskId in ownedTaskIds }
     }
 }
 
@@ -1805,6 +1819,8 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
         }
         return claimed
     }
+
+    override suspend fun listAll(): List<ProfileEntity> = store.value.values.toList()
 }
 
 // ─── AgendaViewDao ────────────────────────────────────────────────────────────
@@ -1899,6 +1915,9 @@ private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String,
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<SavedSearchEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 // ─── TagGroupDao ───────────────────────────────────────────────────────────────
@@ -1928,6 +1947,9 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
             0
         }
     }
+
+    override suspend fun listAllForUser(userId: String): List<TagGroupEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 // ─── ProjectInheritedTagGroupDao ───────────────────────────────────────────────
@@ -1979,6 +2001,18 @@ private class FakeProjectInheritedTagGroupDao(
         val before = store.value.count { it.tagGroupId == tagGroupId }
         store.update { list -> list.filter { it.tagGroupId != tagGroupId } }
         return before
+    }
+
+    override suspend fun listAllForUser(userId: String): List<ProjectInheritedTagGroupCrossRef> = store.value
+
+    override suspend fun insert(ref: ProjectInheritedTagGroupCrossRef) {
+        store.update { list ->
+            if (list.any { it.projectId == ref.projectId && it.tagGroupId == ref.tagGroupId }) {
+                list
+            } else {
+                list + ref
+            }
+        }
     }
 }
 
@@ -2034,6 +2068,9 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
         store.update { map -> map - id }
         return 1
     }
+
+    override suspend fun listAllForUser(userId: String): List<TimeEntryEntity> =
+        store.value.values.filter { it.userId == userId }
 }
 
 /**
