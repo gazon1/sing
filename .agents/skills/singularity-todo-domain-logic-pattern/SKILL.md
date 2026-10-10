@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-domain-logic-pattern
-description: 'Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. These are side-effect-free, deterministic, fully unit-tested in commonTest without any mocking infrastructure. Examples: RecurrenceCalculator, RecurrenceParser, DependencyValidator, Computed. Covers: what belongs here, what doesn''t, testing conventions, and the fake-friendly architecture.'
+description: 'Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. These are side-effect-free, deterministic, fully unit-tested in commonTest without any mocking infrastructure. Examples: RecurrenceCalculator, DependencyValidator, Computed. Covers: what belongs here, what doesn''t, testing conventions, and the fake-friendly architecture.'
 ---
 
 # Pure Domain Logic — `feature/X/domain/logic/` Pattern
@@ -17,7 +17,6 @@ Files in `feature/X/domain/logic/` contain **pure functions with no side effects
 ```
 feature/<feature>/domain/logic/
 ├── RecurrenceCalculator.kt   — nextOccurrence(), missedCount() — pure date arithmetic
-├── RecurrenceParser.kt       — parse(String) → RecurrenceSpec — pure parsing
 ├── DependencyValidatorImpl.kt — assertNoSelfLoop() — pure validation
 ├── Computed.kt               — isBlocked(), isCompleted() — pure computed properties
 └── AgendaEvaluator.kt        — evaluate() — pure filtering/aggregation
@@ -39,7 +38,6 @@ feature/<feature>/domain/logic/
 /**
  * Pure [RecurrenceSpec] calculator.
  *
- * @see RecurrenceParser for the inverse operation (string → spec).
  */
 object RecurrenceCalculator {
 
@@ -57,7 +55,6 @@ Pure logic tests go in `commonTest` alongside the source:
 
 ```
 shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/domain/logic/
-├── RecurrenceParserTest.kt      — 27 test cases
 ├── RecurrenceCalculatorTest.kt   — 14 test cases
 └── ComputedIsBlockedTest.kt    — dependency logic
 ```
@@ -84,29 +81,6 @@ class RecurrenceCalculatorTest {
 ```
 
 **Rule**: `commonTest` tests have **zero dependencies** on `test/fakes/`. If you need a fake to test pure logic, the logic is not pure — move it to a `UseCase` or reconsider the architecture.
-
-## RecurrenceParser — a complete example
-
-The parser demonstrates all key aspects of the pattern:
-
-```kotlin
-// Grammar rules in order — ordered choice with backtracking
-private fun parseRule(tokens: List<Token>, pos: Int): Pair<RecurrenceSpec, Int> {
-    parseCatchUp(tokens, pos)?.checkFull() ?: return parseYearlyDate(tokens, pos)?.checkFull()
-        ?: return parseEveryWeekday(tokens, pos)?.checkFull() ?: ...
-    throw IllegalArgumentException("Unrecognised token at position $pos")
-}
-
-private fun Pair<RecurrenceSpec, Int>?.checkFull(size: Int): RecurrenceSpec? =
-    this?.takeIf { second == size }?.first
-```
-
-**Key design decisions:**
-- **Tokenizer** produces a flat `List<Token>` — simple, fast, debuggable
-- **Ordered choice** — first rule that consumes all tokens wins (no ambiguity)
-- **`Pair<Spec, Int>?` return type** — `null` = rule didn't match, `Int` = new position
-- **`IllegalArgumentException`** for parse errors (user-facing, matches `require()` contract)
-- **Only `kotlinx.datetime`** — no platform APIs, works in `commonMain`
 
 ## FakeTaskRepository — for testing VMs that USE pure logic
 
@@ -194,7 +168,6 @@ private fun parseEveryWeekday(tokens: List<Token>, pos: Int): Pair<RecurrenceSpe
 | Logic needs platform APIs (file I/O, system clock) | `expect`/`actual` — separate per platform |
 | Logic is a thin wrapper over a platform API | Port interface in `commonMain`, impl in `androidMain`/`jvmMain` |
 
-`RecurrenceParser` uses only `kotlinx.datetime` + string manipulation → `commonMain`. No `expect`/`actual` needed.
 
 ## Related Skills
 
