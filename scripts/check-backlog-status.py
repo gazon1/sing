@@ -52,6 +52,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
+CORPUS = adr_corpus.load(ROOT)
 
 _ENTRY_RE = re.compile(r"^## (.+)$", re.M)
 _STATUS_RE = re.compile(r"^\*\*\s*Status[^:*]*:?\*?\*?:?\s*(.+?)\s*$")
@@ -236,13 +240,36 @@ def classify(status: str | None) -> str:
     return "unclassifiable"
 
 
+def parse_single_entry(path: Path) -> dict[str, object]:
+    """Read one T2 file as one entry.
+
+    T2 (PR #508) split the combined `deferred-backlog.md` into individual files and
+    deleted the combined file, so `parse_entries` above — which splits on `## slug`
+    headings — now returns nothing for every file. This reads the per-file shape.
+
+    `parse_entries` stays: it is still what the tests exercise, and it is the right
+    tool if a combined file ever comes back.
+    """
+    text = path.read_text(encoding="utf-8")
+
+    status_raw: str | None = None
+    for line in text.splitlines():
+        sm = _STATUS_RE.match(line.strip())
+        if sm:
+            status_raw = sm.group(1).strip().strip("*_` ").strip()
+            break
+
+    return {
+        "slug": path.stem,
+        "line": 1,
+        "status": status_raw,
+        "tracked": bool(_TRACKED_RE.search(text)) or bool(_TRACKING_WHY_RE.search(text)),
+        "body": text,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--backlog",
-        default="docs/decisions",
-        help="backlog file or directory to check (default: docs/decisions/)",
-    )
     ap.add_argument(
         "--max-entries",
         type=int,
@@ -251,32 +278,10 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    backlog_path = ROOT / args.backlog
-
-    # After T2 (per-entry split), entries live as individual .md files. Before T2
-    # (or when checking the legacy combined file), it's a single file. Support both.
-    if backlog_path.is_dir():
-        # Glob the deferred/ subdirectory (T2 layout) and the legacy file itself
-        # so this script works before and after the split without flag changes.
-        entries: list[dict[str, object]] = []
-        if (backlog_path / "deferred").is_dir():
-            for fp in sorted((backlog_path / "deferred").glob("*.md")):
-                text = fp.read_text(encoding="utf-8")
-                entries.extend(parse_entries(text))
-        legacy = backlog_path / "deferred-backlog.md"
-        if legacy.is_file():
-            text = legacy.read_text(encoding="utf-8")
-            entries.extend(parse_entries(text))
-        rel = args.backlog
-    elif backlog_path.is_file():
-        text = backlog_path.read_text(encoding="utf-8")
-        entries = parse_entries(text)
-        rel = args.backlog
-    else:
-        print(f"ERROR: backlog not found: {backlog_path}")
-        return 1
+    rel = f"{CORPUS.root.name}/{CORPUS.deferred_dir}"
+    entries: list[dict[str, object]] = [parse_single_entry(fp) for fp in CORPUS.deferred()]
     if not entries:
-        print(f"ERROR: no `## slug` entries found in {path}")
+        print(f"ERROR: no backlog entries found in {CORPUS.root}/{CORPUS.deferred_dir}")
         return 1
 
     errors: list[str] = []
@@ -293,7 +298,7 @@ def main() -> int:
     for e in entries:
         counts[classify(e["status"])] = counts.get(classify(e["status"]), 0) + 1
 
-    rel = args.backlog
+    rel = f"{CORPUS.root.name}/{CORPUS.deferred_dir}"
     print(f"{rel}: {len(entries)} entries (budget {args.max_entries})")
     for state in ("open", "partial", "closed", "unclassifiable"):
         if state in counts:

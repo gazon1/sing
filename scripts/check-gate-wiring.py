@@ -188,6 +188,22 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="adr-config-sync",
+        cmd=[sys.executable, "scripts/check-adr-config-sync.py"],
+        sabotage_path="scripts/check_adr_status.py",
+        sabotage=(
+            "p.write_text(p.read_text() + "
+            "\n_SABOTAGE = sorted(Path('docs/decisions').glob('*.md'))\n)"
+        ),
+        why=(
+            "the gate's whole claim is that no consumer grows its own glob. "
+            "Appending one to a consumer is exactly the regression it exists to "
+            "catch, and nothing else in the registry fails when that happens: the "
+            "status gate would keep reporting 'all statuses in vocabulary' while "
+            "reading a different corpus than the other four consumers"
+        ),
+    ),
+    ScriptGate(
         name="yaml-duplicate-keys",
         cmd=[sys.executable, "scripts/check-yaml-duplicate-keys.py", "--quiet"],
         sabotage_path="config/detekt/detekt-rules-module.yml",

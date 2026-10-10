@@ -17,13 +17,21 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.time.Clock
 
-/** Directory name, relative to whichever root [AdrStorage] settles on. */
-private const val DECISIONS_DIR_NAME = "docs/decisions"
+/** Relative corpus root. The value itself lives in config/docs/adr-corpus.json (#520);
+ *  this is only the fallback for checkouts with no config/ directory. */
+private val DECISIONS_DIR_NAME = AdrCorpusConfig.DEFAULT.root
 
 /** Slug format: lowercase letters, digits, hyphens and underscores only. Guards against path traversal. */
 private val VALID_SLUG_REGEX = Regex("^[a-z0-9][a-z0-9_-]*$")
 
 private const val MAX_DEPTH = 3 // Guards against unbounded filesystem walks
+
+/**
+ * Backlog states that mean "still live". Normalized, so `OPEN` and `open` are the
+ * same answer — before, this list carried five spellings and the policy gate
+ * accepted one, so the tool and the gate disagreed about what "open" means.
+ */
+private val OPEN_DEFERRED_STATES = setOf("open", "partial", "partially")
 
 /**
  * ADR (Architecture Decision Record) storage helper.
@@ -58,6 +66,19 @@ class AdrStorage(
      * — and resolving per call would re-stat the filesystem on every read.
      */
     private val decisionsDir: String = resolveDecisionsDir()
+
+    /**
+     * Corpus rules, read from `config/docs/adr-corpus.json` (#520).
+     *
+     * Resolved next to [decisionsDir] so a checkout always gets its own rules and
+     * the `~/.singularity-todo` fallback gets the mirrored defaults.
+     */
+    private val corpus: AdrCorpusConfig = AdrCorpusConfig.loadOrDefault(repoRoot())
+
+    /** Nearest ancestor of the working directory holding `config/docs/adr-corpus.json`. */
+    private fun repoRoot(): String? = generateSequence(Path(host.workingDirectory()).toAbsolutePath().toString()) { it.substringBeforeLast('/', "") }
+        .plus(host.homeDirectory())
+        .firstOrNull { Path("$it/config/docs/adr-corpus.json").exists() }
 
     private fun resolveDecisionsDir(): String {
         val projectAdrDir = Path("${host.workingDirectory()}/$DECISIONS_DIR_NAME")
@@ -97,7 +118,18 @@ class AdrStorage(
 
     // ─── Frontmatter parsing ───────────────────────────────────────────────────
 
-    data class AdrFrontmatter(val title: String, val date: String, val tags: List<String>)
+    /**
+     * `status` used to be absent, which is why `readAdrStatus` re-scanned the body
+     * for an inline `**Status: X**` line: the parser could not return it. The body
+     * scan then also matched prose, and the vocabulary check below had to accept
+     * five spellings. Carrying the field here removes both.
+     */
+    data class AdrFrontmatter(
+        val title: String,
+        val date: String,
+        val tags: List<String>,
+        val status: String = "",
+    )
 
     fun parseFrontmatter(content: String): AdrFrontmatter? {
         val start = content.indexOf("---")
@@ -106,12 +138,15 @@ class AdrStorage(
         val yaml = content.substring(start + 3, end).trim()
         var title = ""
         var date = ""
+        var status = ""
         val tags = mutableListOf<String>()
         for (line in yaml.lines()) {
             when {
                 line.startsWith("title:") -> title = line.removePrefix("title:").trim().trim('"')
 
                 line.startsWith("date:") -> date = line.removePrefix("date:").trim()
+
+                line.startsWith("status:") -> status = line.removePrefix("status:").trim().trim('"')
 
                 line.startsWith("tags:") -> {
                     val rest = line.removePrefix("tags:").trim().removeSurrounding("[", "]")
@@ -122,7 +157,7 @@ class AdrStorage(
             }
         }
         if (title.isEmpty()) return null
-        return AdrFrontmatter(title, date, tags)
+        return AdrFrontmatter(title, date, tags, status)
     }
 
     fun readAdr(slug: String): AdrFile? {
@@ -146,29 +181,11 @@ class AdrStorage(
         }.getOrNull()
     }
 
-    fun listAdrs(): List<AdrSummary> {
-        val dirPath = Path(decisionsDir)
-        if (!dirPath.isDirectory()) return emptyList()
-        // Recursive with depth limit (MAX_DEPTH) to guard against unbounded filesystem walks.
-        return listAdrsRecursive(dirPath, depth = 0)
+    fun listAdrs(): List<AdrSummary> =
+        corpus.discover(decisionsDir, MAX_DEPTH)
+            .mapNotNull { readAdr(Path(it).fileName.toString().removeSuffix(".md")) }
+            .map { AdrSummary(it.slug, it.title, it.date, it.tags) }
             .sortedByDescending { it.date }
-    }
-
-    private fun listAdrsRecursive(dirPath: Path, depth: Int): List<AdrSummary> {
-        if (depth > MAX_DEPTH) return emptyList()
-        return dirPath.listDirectoryEntries()
-            .filter { it.isDirectory() || it.fileName.toString().endsWith(".md") }
-            .flatMap { entry ->
-                if (entry.isDirectory()) {
-                    listAdrsRecursive(entry, depth + 1)
-                } else {
-                    val slug = entry.fileName.toString().removeSuffix(".md")
-                    val adr = readAdr(slug)
-                    if (adr != null) { listOf(AdrSummary(adr.slug, adr.title, adr.date, adr.tags)) }
-                    else { emptyList() }
-                }
-            }
-    }
 
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
         requireValidSlug(slug)
@@ -233,18 +250,20 @@ class AdrStorage(
         // We use the date-sorted list as input; status is checked per-entry.
         val file = readAdr(summary.slug)
         val status = file?.let { readAdrStatus(it.path) }
-        status in listOf("open", "partial", "OPEN", "PARTIAL", "PARTIALLY")
+        corpus.normalizeStatus(status) in OPEN_DEFERRED_STATES
     }
 
     private fun readAdrStatus(filePath: String): String? {
         val content = runCatching { Path(filePath).readText(Charsets.UTF_8) }.getOrNull() ?: return null
         val fm = parseFrontmatter(content) ?: return null
-        // Status is stored as frontmatter field; currently writeAdr sets it to "open".
-        // Also check body for legacy entries that carry inline status.
+        // Frontmatter first — it is what writeAdr emits. The body scan is for legacy
+        // entries that carry an inline `**Status: X**` and no frontmatter field.
         val bodyStart = content.indexOf("---", 3)
         val body = if (bodyStart != -1) content.substring(bodyStart + 3) else content
         val statusRe = Regex("""^\*\*\s*Status[^:*]*:?\*?\*?:?\s*(.+?)\s*$""", RegexOption.MULTILINE)
-        return statusRe.find(body)?.groupValues?.get(1)?.trim()?.split(" ")?.firstOrNull()?.uppercase()
+        val raw = fm.status.takeIf { it.isNotBlank() }
+            ?: statusRe.find(body)?.groupValues?.get(1)?.trim()?.split(" ")?.firstOrNull()
+        return corpus.normalizeStatus(raw)
     }
 }
 

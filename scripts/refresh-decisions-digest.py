@@ -9,7 +9,12 @@ import re
 import sys
 from pathlib import Path
 
-DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
+ROOT = Path(__file__).resolve().parent.parent
+CORPUS = adr_corpus.load(ROOT)
+DECISIONS_DIR = CORPUS.root
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
 MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
@@ -25,7 +30,9 @@ MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
 
 
 def main() -> None:
-    entries = sorted(DECISIONS_DIR.glob('**/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
+    # This consumer's own glob was the only one that saw `deferred/`. The digest has
+    # an "open deferred" section, so it needs them — but it must not re-derive that.
+    entries = CORPUS.decisions(include_archived=False) + CORPUS.deferred()
     if not entries:
         print(f"no dated entries in {DECISIONS_DIR} — digest untouched")
         return
@@ -49,9 +56,10 @@ def main() -> None:
                 fm[key.strip()] = val.strip().strip('"').strip("'")
         titles[slug] = fm.get('title', '')
         tags_raw[slug] = fm.get('tags', '')
-        statuses[slug] = fm.get('status', '')
+        statuses[slug] = CORPUS.normalize_status(fm.get('status', ''))
         if fm.get('supersedes'):
-            superseded[fm['supersedes']] = slug
+            # Strip brackets: `[slug]` was being stored verbatim and never resolved.
+            superseded[fm['supersedes'].strip('[]').removesuffix('.md')] = slug
 
     CRITICAL_RE = re.compile(r'\*\*Always\*\*|\*\*Never\*\*|\*\*MUST\*\*')
     CRIT_SUFFIX_RE = re.compile(r'\s*_\(from\s+`([^`]+)`\)_\s*$')

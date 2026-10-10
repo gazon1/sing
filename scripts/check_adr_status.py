@@ -26,59 +26,51 @@ import pathlib
 import re
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DECISIONS = ROOT / 'docs' / 'decisions'
-
-# The documented vocabulary. `archived` is legal only under docs/decisions/archive/.
-VOCABULARY = {'accepted', 'deferred', 'superseded', 'open'}
-ARCHIVE_STATUS = 'archived'
-
-
-def frontmatter(text: str) -> str | None:
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != '---':
-        return None
-    end = next((i for i, l in enumerate(lines[1:], 1) if l.strip() == '---'), None)
-    return None if end is None else '\n'.join(lines[1:end])
+CORPUS = adr_corpus.load(ROOT)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--stale-days', type=int, default=30)
+    parser.add_argument('--stale-days', type=int, default=CORPUS.stale_days)
     args = parser.parse_args()
 
     today = dt.date.today()
-    dated = sorted(DECISIONS.glob('[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
-    archived = sorted((DECISIONS / 'archive').glob('*.md')) if (DECISIONS / 'archive').is_dir() else []
+    dated = CORPUS.decisions()
+    archived = CORPUS.archived()
 
     # Every slug that exists, wherever it lives. A superseded target in archive/ is
     # still a resolvable reference: moving is not deleting.
-    slugs = {p.stem for p in dated + archived}
+    slugs = CORPUS.all_slugs()
 
     errors: list[str] = []
 
     def check(path: pathlib.Path, *, in_archive: bool) -> None:
         rel = path.relative_to(ROOT)
-        fm = frontmatter(path.read_text())
+        text = path.read_text(encoding='utf-8', errors='replace')
+        fm = adr_corpus.frontmatter(text)
         if fm is None:
             errors.append(f'{rel}: no parseable frontmatter block')
             return
 
-        status = re.search(r'(?m)^status:\s*(\S+)', fm)
-        if not status:
+        raw_status = re.search(r'(?m)^status:\s*(\S+)', fm)
+        if not raw_status:
             errors.append(f'{rel}: missing `status:` (rule 4)')
             return
-        value = status.group(1)
+        value = CORPUS.normalize_status(raw_status.group(1))
 
         if in_archive:
-            if value != ARCHIVE_STATUS:
+            if value != CORPUS.archived_status:
                 errors.append(f'{rel}: archived file must carry `status: {ARCHIVE_STATUS}`, '
-                              f'found `{value}`')
+                              f'found `{raw_status.group(1)}`')
             return
 
-        if value not in VOCABULARY:
-            errors.append(f'{rel}: status `{value}` is not in the documented vocabulary '
-                          f'({", ".join(sorted(VOCABULARY))})')
+        if not CORPUS.is_valid_status(value):
+            errors.append(f'{rel}: status `{raw_status.group(1)}` is not in the documented '
+                          f'vocabulary ({", ".join(sorted(CORPUS.statuses))})')
             return
 
         # Accept both spellings in the corpus, but a superseded ADR must name a target
@@ -87,7 +79,7 @@ def main() -> None:
         if value == 'superseded' and not target:
             errors.append(f'{rel}: status `superseded` requires `superseded-by` (rule 2)')
         if target:
-            slug = target.group(1).removesuffix('.md')
+            slug = target.group(1).strip('[]').removesuffix('.md')
             if slug not in slugs:
                 errors.append(f'{rel}: `superseded-by` points at {slug}, which does not '
                               'exist in docs/decisions/ or its archive/ (rule 2)')

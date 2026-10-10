@@ -215,6 +215,13 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
 gate blocking "ADR status policy" python3 scripts/check_adr_status.py
 
+# Five consumers discovered docs/decisions/ five different ways and had already
+# drifted apart — three could not see deferred/, which is how the status gate
+# reported "all statuses in vocabulary" while 129 files used a vocabulary of their
+# own. The rules live in config/docs/adr-corpus.json; this gate keeps every consumer
+# reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
+gate blocking "ADR corpus rules are shared" python3 scripts/check-adr-config-sync.py
+
 # Advisory — each needs an exit plan, or it is just a quieter blocking gate.
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.

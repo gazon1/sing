@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+
+  "_comment": "Single source of truth for how every consumer discovers the ADR corpus. Five sites used to glob it five different ways and had already drifted apart (check_adr_status.py saw 565 files, AdrStorage saw 709). JSON rather than YAML because Python reads it with stdlib json and Kotlin with kotlinx-serialization, both with zero added dependencies. See #520.",
+
+  "root": "docs/decisions",
+
+  "decisionPattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-",
+  "archiveDir": "archive",
+  "deferredDir": "deferred",
+
+  "_comment_classes": "Three distinct classes, not one. An ADR is a dated decision record under `root`. An archived ADR keeps its dated name but leaves the live corpus. A file under `deferred/` is backlog, NOT a decision: it carries slug names, no real date, and statuses from a different vocabulary. Treating it as a decision is what produced 129 files the gate could not see.",
+
+  "ignoredFiles": ["DIGEST.md"],
+
+  "vocabulary": {
+    "statuses": ["accepted", "deferred", "superseded", "open"],
+    "archivedStatus": "archived"
+  },
+
+  "staleDays": 30,
+
+  "_comment_links": {
+    "supersedes": "frontmatter key on the NEWER ADR naming the one it replaces",
+    "superseded-by": "frontmatter key on the OLDER ADR naming its replacement; required when status is superseded"
+  },
+
+  "_comment_case": "normalizeStatus() folds case and strips brackets only. It does NOT map out-of-vocabulary values (CLOSED -> accepted): that is a one-time migration, deliberately not automatic, so a typo cannot be silently reinterpreted."
+}

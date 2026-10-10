@@ -19,7 +19,12 @@ import re
 import sys
 from pathlib import Path
 
-DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
+ROOT = Path(__file__).resolve().parent.parent
+CORPUS = adr_corpus.load(ROOT)
+DECISIONS_DIR = CORPUS.root
 
 # The only keys this script is allowed to carry through. Derived from the keys actually
 # present in well-formed ADRs under docs/decisions, not invented. Anything else inside
@@ -225,7 +230,10 @@ def process_file(path: Path, dry_run: bool = True) -> tuple[bool, str]:
 def main() -> None:
     dry_run = '--apply' not in sys.argv
 
-    entries = sorted(DECISIONS_DIR.glob('[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
+    # Scope is unchanged (dated, top level, no archive) — widening it is #516's
+    # decision. What changes is that this script stops guessing its own glob and
+    # asks adr_corpus, so the next scope change is one edit in one file.
+    entries = adr_corpus.decisions_in(DECISIONS_DIR, CORPUS)
 
     changed = []
     unchanged = 0
