@@ -39,7 +39,23 @@ data class AdrCorpusConfig(
     val archivedStatus: String,
     val staleDays: Int,
 ) {
-    /** `docs/decisions/<archiveDir>/` */
+    /**
+     * Backlog entries under `<root>/<deferredDir>/`, as slugs.
+     *
+     * These are *not* decisions (see the class docstring), but `supersededBy` must
+     * still be able to point at one — a decision can be replaced by a planned one.
+     */
+    fun deferred(root: String): List<String> {
+        val d = "$root/$deferredDir"
+        val dir = java.io.File(d)
+        if (!dir.isDirectory) return emptyList()
+        return dir.listFiles()?.filter { it.isFile && it.name.endsWith(".md") }
+            ?.map { it.name.removeSuffix(".md") }
+            ?.filterNot { it in ignoredFiles }
+            ?.sorted()
+            ?: emptyList()
+    }
+
     fun isArchived(path: String): Boolean = path.contains("/$archiveDir/")
 
     /** `docs/decisions/<deferredDir>/` — backlog, deliberately NOT decisions. */

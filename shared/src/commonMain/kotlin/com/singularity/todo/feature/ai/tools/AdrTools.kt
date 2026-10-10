@@ -33,6 +33,20 @@ private const val MAX_DEPTH = 3 // Guards against unbounded filesystem walks
  */
 private val OPEN_DEFERRED_STATES = setOf("open", "partial", "partially")
 
+/** Quote characters stripped from a `superseded-by` value before it is resolved. */
+private const val CHAR_QUOTE = '\u0022'
+private const val CHAR_APOSTROPHE = '\u0027'
+
+/**
+ * `[2026-10-05-thing](2026-10-05-thing.md)` — how an ADR is cited in prose, and so
+ * how it arrives here when a human or a model pastes the reference it found.
+ *
+ * The *label* is captured and discarded on purpose: it is display text that can
+ * differ from the target (`[the new ADR](2026-10-05-thing.md)`), and resolving
+ * against it would fail on exactly the references that read best.
+ */
+private val MD_LINK = Regex("""\[[^\]]*\]\(([^)]+)\)""")
+
 /**
  * ADR (Architecture Decision Record) storage helper.
  * Reads/writes Markdown files in the `docs/decisions/` directory.
@@ -75,10 +89,20 @@ class AdrStorage(
      */
     private val corpus: AdrCorpusConfig = AdrCorpusConfig.loadOrDefault(repoRoot())
 
-    /** Nearest ancestor of the working directory holding `config/docs/adr-corpus.json`. */
-    private fun repoRoot(): String? = generateSequence(Path(host.workingDirectory()).toAbsolutePath().toString()) { it.substringBeforeLast('/', "") }
-        .plus(host.homeDirectory())
-        .firstOrNull { Path("$it/config/docs/adr-corpus.json").exists() }
+    /**
+     * Nearest ancestor of the working directory holding `config/docs/adr-corpus.json`.
+     *
+     * The walk has to *terminate at the filesystem root*. `"".substringBeforeLast('/', "")`
+     * is `""` — feeding it back into the sequence produces an infinite generator,
+     * which does not spin in a loop you can see: it burns a core in `Files.exists`
+     * forever and the test run simply never finishes.
+     */
+    private fun repoRoot(): String? =
+        generateSequence(Path(host.workingDirectory()).toAbsolutePath().toString()) { current ->
+            current.substringBeforeLast('/', "").takeIf { it.isNotEmpty() && it != current }
+        }
+            .plus(host.homeDirectory())
+            .firstOrNull { Path("$it/config/docs/adr-corpus.json").exists() }
 
     private fun resolveDecisionsDir(): String {
         val projectAdrDir = Path("${host.workingDirectory()}/$DECISIONS_DIR_NAME")
@@ -162,28 +186,37 @@ class AdrStorage(
 
     fun readAdr(slug: String): AdrFile? {
         requireValidSlug(slug)
-        val path = Path(filePath(slug))
-        return runCatching {
-            if (!path.exists()) return@runCatching null
-            if (path.isDirectory()) return@runCatching null
-            val content = path.readText(Charsets.UTF_8)
-            val frontmatter = parseFrontmatter(content)
-            val bodyStart = content.indexOf("---", 3)
-            val body = if (bodyStart != -1) content.substring(bodyStart + 3).trim() else content
-            AdrFile(
-                slug = slug,
-                title = frontmatter?.title ?: "(no title)",
-                date = frontmatter?.date ?: "",
-                tags = frontmatter?.tags ?: emptyList(),
-                body = body,
-                path = path.toString(),
-            )
-        }.getOrNull()
+        return readAdrAt(Path(filePath(slug)))
     }
+
+    /**
+     * Reads the ADR at an already-resolved [path].
+     *
+     * Split out of [readAdr] because [corpus.discover] hands back real paths, and
+     * rebuilding one from a bare slug silently drops every file that is not at the
+     * top level — which is the entire `deferred/` backlog.
+     */
+    private fun readAdrAt(path: Path): AdrFile? = runCatching {
+        if (!path.exists()) return@runCatching null
+        if (path.isDirectory()) return@runCatching null
+        val slug = path.fileName.toString().removeSuffix(".md")
+        val content = path.readText(Charsets.UTF_8)
+        val frontmatter = parseFrontmatter(content)
+        val bodyStart = content.indexOf("---", 3)
+        val body = if (bodyStart != -1) content.substring(bodyStart + 3).trim() else content
+        AdrFile(
+            slug = slug,
+            title = frontmatter?.title ?: "(no title)",
+            date = frontmatter?.date ?: "",
+            tags = frontmatter?.tags ?: emptyList(),
+            body = body,
+            path = path.toString(),
+        )
+    }.getOrNull()
 
     fun listAdrs(): List<AdrSummary> =
         corpus.discover(decisionsDir, MAX_DEPTH)
-            .mapNotNull { readAdr(Path(it).fileName.toString().removeSuffix(".md")) }
+            .mapNotNull { readAdrAt(Path(it)) }
             .map { AdrSummary(it.slug, it.title, it.date, it.tags) }
             .sortedByDescending { it.date }
 
@@ -205,6 +238,125 @@ class AdrStorage(
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
         val frontmatter = "---\ntitle: \"$title\"\ndate: $date\nstatus: open\ntags: $tagsStr\n---\n\n"
         path.writeText(frontmatter + body, Charsets.UTF_8)
+        return path.toString()
+    }
+
+    /**
+     * Reduce whatever the caller passed to a bare slug, or `null`.
+     *
+     * Four shapes are accepted because four shapes arrive in practice: a slug, a
+     * slug with `.md`, a markdown link pasted out of a body, and any of those
+     * quoted. `trim('[', ']', '"', '\'')` alone is not enough — it stops at the
+     * `)` of `(slug.md)` and hands the resolver half a link.
+     */
+    private fun slugFromSupersededBy(raw: String?): String? {
+        val value = raw?.trim().orEmpty()
+        if (value.isEmpty()) return null
+        val target = MD_LINK.matchEntire(value)?.groupValues?.get(1) ?: value
+        return target
+            .trim('[', ']', CHAR_QUOTE, CHAR_APOSTROPHE)
+            .substringBefore('#')
+            .removeSuffix(".md")
+            .trim()
+            .ifEmpty { null }
+    }
+
+    /**
+     * Change an ADR's status frontmatter. The body is never touched.
+     *
+     * Why a separate operation rather than a mode of [writeAdr]: the body of a
+     * decision is immutable by design — that is what [writeAdr]'s fail-loudly on
+     * overwrite protects. But the *frontmatter* describes the lifecycle of the
+     * decision and is meant to change: `open` → `accepted`, and later
+     * `open` → `superseded` when a newer ADR replaces it. Mixing the two in one
+     * call would give up the guarantee above.
+     *
+     * The four file-local invariants of `docs/doc-maintenance.md` are enforced
+     * here rather than in the gate, because the writer is the only place that
+     * cannot be bypassed by someone editing the file by hand (#523):
+     *
+     *  - `status` is one of the documented vocabulary values
+     *  - `status: superseded` requires `supersededBy`
+     *  - `supersededBy` names a slug that actually exists
+     *  - `status: archived` is refused — `archived` belongs to `archive/`
+     *
+     * The gate keeps only what a writer cannot know: how old a file is, where it
+     * lives, and what happened to it outside any tool's reach (a hand edit, a
+     * merge, a deletion).
+     */
+    fun updateAdr(
+        slug: String,
+        status: String,
+        supersededBy: String? = null,
+    ): String {
+        requireValidSlug(slug)
+        val path = Path(filePath(slug))
+        if (!path.exists()) {
+            error("No ADR at '$slug'. Creating it is writeAdr's job; this only changes an existing one.")
+        }
+        require(status in corpus.statuses) {
+            "Invalid status '$status'. Allowed: ${corpus.statuses.sorted().joinToString(", ")}."
+        }
+        require(status != corpus.archivedStatus) {
+            "status `${corpus.archivedStatus}` is reserved for docs/decisions/${corpus.archiveDir}/ " +
+                "and cannot be set through this tool."
+        }
+        if (status == "superseded") {
+            require(!supersededBy.isNullOrBlank()) {
+                "status `superseded` requires supersededBy — a decision that says 'replaced' " +
+                    "must name what replaced it."
+            }
+        }
+
+        val original = path.readText(Charsets.UTF_8)
+        if (parseFrontmatter(original) == null) {
+            error("'$slug' has no parseable frontmatter block; refusing to edit it by guesswork.")
+        }
+        val lines = original.lines()
+
+        // Resolve the replacement target against the whole corpus — decisions,
+        // archive and backlog — because a superseded ADR may point at any of them.
+        val resolved = slugFromSupersededBy(supersededBy)
+        if (resolved != null) {
+            val known = corpus.discover(decisionsDir, MAX_DEPTH)
+                .map { it.substringAfterLast('/').removeSuffix(".md") }
+                .toSet() + corpus.deferred(decisionsDir)
+            require(resolved in known) {
+                "supersededBy '$resolved' does not exist in ${corpus.root} or its ${corpus.deferredDir}/."
+            }
+        }
+
+        // indexOfFirst hands the lambda the *element*, not the index, so the closing
+        // fence is searched in the tail after the opening one and shifted back.
+        // A missing closing fence yields -1, which `end > start` rejects.
+        val start = lines.indexOfFirst { it.trim() == "---" }
+        val closing = lines.drop(start + 1).indexOfFirst { it.trim() == "---" }
+        val end = closing + start + 1
+        require(start == 0 && closing >= 0 && end > start) {
+            "'$slug' frontmatter block is malformed."
+        }
+
+        // Frontmatter only. `body` — everything after the closing fence — is rejoined
+        // verbatim, without a `trimEnd()` and without a separating newline: the
+        // first element already carries the blank line the file was written with,
+        // and adding either one silently rewrites the decision's prose. The
+        // "survives byte for byte" test exists because of exactly this.
+        val body = lines.subList(end + 1, lines.size)
+        val rebuilt = buildList {
+            add("status: $status")
+            if (resolved != null) add("superseded-by: $resolved")
+            addAll(lines.subList(1, end).filterNot { line ->
+                line.startsWith("status:") || line.startsWith("superseded-by:") ||
+                    line.startsWith("superseded_by:")
+            })
+        }
+        val out = buildString {
+            append("---").append('\n')
+            append(rebuilt.joinToString("\n")).append('\n')
+            append("---").append('\n')
+            append(body.joinToString("\n"))
+        }
+        path.writeText(out, Charsets.UTF_8)
         return path.toString()
     }
 

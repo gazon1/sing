@@ -4,6 +4,8 @@ import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.assertTimeoutPreemptively
+import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -85,5 +87,30 @@ class AdrStorageResolutionTest {
     @Test
     fun `a document with no frontmatter parses as nothing rather than guessing`() {
         assertEquals(null, absentStorage().parseFrontmatter("Just a body."))
+    }
+
+    /**
+     * The ancestor walk has to stop at the filesystem root.
+     *
+     * It did not, and the failure mode was invisible: `""` was fed back into its own
+     * `substringBeforeLast('/', "")`, so [AdrStorage]'s constructor spun in `Files.exists`
+     * on a core and the run simply never finished. No failure, no message — just a
+     * build that hangs. Hence the explicit bound: a regression has to arrive as a red
+     * test within five seconds, not as a CI job somebody kills by hand.
+     */
+    @Test
+    fun `resolving the corpus config terminates instead of looping at the root`() {
+        val storage = assertTimeoutPreemptively(Duration.ofSeconds(5)) {
+            AdrStorage(
+                host = AbsentHost("/singularity-adr-deep/nested/checkout"),
+                clock = FakeClock(),
+                timeZone = TEST_TZ,
+            )
+        }
+
+        assertEquals(
+            "/singularity-adr-deep/nested/checkout/home/.singularity-todo/docs/decisions",
+            storage.decisionsDir(),
+        )
     }
 }
