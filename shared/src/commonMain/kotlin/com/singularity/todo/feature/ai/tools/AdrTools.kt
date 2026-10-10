@@ -21,7 +21,7 @@ import kotlin.time.Clock
 private const val DECISIONS_DIR_NAME = "docs/decisions"
 
 /** Slug format: lowercase letters, digits, hyphens and underscores only. Guards against path traversal. */
-private val VALID_SLUG_REGEX = Regex("^[a-z][a-z0-9_-]*$")
+private val VALID_SLUG_REGEX = Regex("^[a-z0-9][a-z0-9_-]*$")
 
 private const val MAX_DEPTH = 3 // Guards against unbounded filesystem walks
 
@@ -91,7 +91,7 @@ class AdrStorage(
      */
     private fun requireValidSlug(slug: String) {
         require(isValidSlug(slug)) {
-            "Invalid slug: '$slug'. Use only lowercase letters, digits, hyphens and underscores, starting with a letter."
+            "Invalid slug: '$slug'. Use only lowercase letters, digits, hyphens and underscores."
         }
     }
 
