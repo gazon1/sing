@@ -26,10 +26,10 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 | **Projects** | Folder-like grouping, color + icon, task counts |
 | **Tags** | Global tags, per-profile isolation |
 | **Agenda** | Calendar view, daily/weekly schedule |
-| **AI Assistant** | 37 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
+| **AI Assistant** | 38 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
 | **Sync** | Supabase backend, HLC conflict resolution, offline-first |
 | **Backup** | JSON export/import, per-profile |
-| **MCP Server** | AI agent control via stdio (37 read/write/list tools) |
+| **MCP Server** | AI agent control via stdio (38 read/write/list tools) |
 | **Multi-profile** | Isolated data per profile (Personal, AI Agent, etc.) |
 
 ---

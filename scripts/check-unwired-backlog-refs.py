@@ -5,7 +5,7 @@ Why this exists (2026-10-04): `find-unwired-surfaces-baseline.txt` documents the
 invariant in its own header —
 
     Rule: a line without a live backlog reference is a gate failure (the symbol
-    must have a home in deferred-backlog.md or an ADR before it can be exempted).
+    must have a home in a deferred ADR or an ADR before it can be exempted).
 
 — and nothing implemented it. `find-unwired-surfaces.py` splits each row on `|`
 and reads `parts[2]` (the Reason) into its report; the reference in `parts[3]`
@@ -20,15 +20,22 @@ separate from the detector rather than folded into it because the detector
 answers "is this symbol wired?", and this answers "is the exemption honest?" —
 a question about the baseline file, not the source tree.
 
+2026-10-10: deferred backlog entries were split into individual ADR files under
+`docs/decisions/deferred/`. The script now handles both the old `deferred-backlog.md`
+format and the new `deferred/<slug>.md` format (checking frontmatter `title:`).
+
 Contract:
   * Every non-comment row must have 4 `|`-separated columns.
   * Column 4 is either `none` (accepted dead debt, consciously untracked) or
-    `deferred-backlog.md:<anchor>` / `decisions/<file>.md:<anchor>` /
-    `<file>.md:<anchor>` naming a `## <anchor>` heading that exists.
+    `deferred/<slug>.md:<anchor>` (deferred ADR under `docs/decisions/deferred/`) /
+    `decisions/<file>.md:<anchor>` / `<file>.md:<anchor>` naming a `## <anchor>`
+    heading that exists.
+  * For `deferred/<slug>.md` references: the slug is encoded in the filename;
+    the script verifies the file exists and its YAML frontmatter `title:` slugifies
+    to the referenced anchor. No `##` heading is required in a deferred file.
   * The 4th column is parsed as a regex `[A-Za-z0-9._/-]+`, because the baseline
-    stores the short name (`deferred-backlog.md`) while the file on disk lives at
-    `docs/decisions/deferred-backlog.md`. Resolution tries `docs/decisions/<ref>`
-    first, then the raw path.
+    stores the short name while the file on disk lives at `docs/decisions/<ref>`.
+    Resolution tries `docs/decisions/<ref>` first, then the raw path.
 
 Usage:
   python3 scripts/check-unwired-backlog-refs.py [--baseline <path>]
@@ -77,6 +84,32 @@ def anchors_in(path: pathlib.Path) -> set[str]:
     return found
 
 
+def slugify(text: str) -> str:
+    """Convert a title to its slug form for comparison with anchors."""
+    # Lowercase, replace spaces/hyphens/underscores with hyphens, strip non-alnum
+    text = text.lower()
+    text = re.sub(r"[\s_]+", "-", text)
+    text = re.sub(r"[^a-z0-9-]", "", text)
+    text = re.sub(r"-+", "-", text)
+    return text.strip("-")
+
+
+def title_from_frontmatter(path: pathlib.Path) -> str | None:
+    """Extract the `title:` value from a YAML frontmatter block, if present."""
+    text = path.read_text(encoding="utf-8")
+    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+    if not m:
+        return None
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        if line.startswith("title:"):
+            # Strip `title: "`value`"` or `title: value`
+            m2 = re.match(r'^title:\s*["\']?(.*?)["\']?\s*$', line)
+            if m2:
+                return m2.group(1).strip()
+    return None
+
+
 def check_baseline(baseline: pathlib.Path) -> list[str]:
     errors: list[str] = []
     if not baseline.is_file():
@@ -120,7 +153,17 @@ def check_baseline(baseline: pathlib.Path) -> list[str]:
             continue
 
         anchor = m.group("anchor").lower()
-        if anchor not in anchors_in(target):
+        ref_file = m.group("file")
+        if ref_file.startswith("deferred/"):
+            # Deferred files: slug is in the filename; verify frontmatter title matches.
+            title = title_from_frontmatter(target)
+            if title is None or slugify(title) != anchor:
+                errors.append(
+                    f"{baseline.name}:{lineno}: {symbol} references "
+                    f"{ref_file}:{anchor} — title in frontmatter is {title!r}, "
+                    f"which slugifies to {slugify(title) if title else '?'!r}, not {anchor!r}"
+                )
+        elif anchor not in anchors_in(target):
             errors.append(
                 f"{baseline.name}:{lineno}: {symbol} references "
                 f"## {m.group('anchor')} in {target.relative_to(ROOT)}, "
@@ -147,7 +190,7 @@ def main() -> int:
             print(f"ERROR: {err}")
         print("")
         print(
-            "Every exempt symbol needs a home in deferred-backlog.md before it "
+            "Every exempt symbol needs a home in a deferred ADR or an ADR before it "
             "can stay in the baseline. Add the entry (or drop the symbol from the "
             "baseline if the debt is gone). A reference to a heading that does "
             "not exist is the same as no reference at all."
