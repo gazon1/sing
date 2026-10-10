@@ -74,6 +74,7 @@ tasks.register("koverReport") {
         ":desktopApp:test",
         ":mcp-server:test",
         ":androidApp:test",
+        ":detekt-rules:test",   // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )
 }

@@ -164,10 +164,29 @@ jobs:
       - name: Coverage floors
         run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
 
+      - name: Coverage report (CI summary)
+        if: ${{ !cancelled() }}
+        run: |
+          # Render the app coverage floors into the job summary.
+          {
+            echo ""
+            echo "### Code coverage"
+          } >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/check-coverage.py --since "$RUN_STARTED" 2>&1 | \
+            grep -v "^$" >> "$GITHUB_STEP_SUMMARY" || true
+          # Render detekt-rules branch coverage into the job summary.
+          {
+            echo ""
+            echo "**detekt-rules branch coverage**"
+          } >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/check-detekt-rule-coverage.py 2>&1 | \
+            grep -v "^$" >> "$GITHUB_STEP_SUMMARY" || true
+
       # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
-      # Runs here (not in static) because it needs Gradle to generate the kover report.
-      - name: detekt-rule branch coverage
-        run: python3 scripts/check-detekt-rule-coverage.py
+      # Blocking: generates the kover XML report then enforces the floor.
+      # Runs here (not in static) because it needs Gradle to run koverXmlReport.
+      - name: Kover verify (detekt-rules)
+        run: bash scripts/ci/kover-verify-gate.sh
 
       # desktop only, deliberately. The android target's results come from
       # :androidApp:connectedDebugAndroidTest, which no CI job runs, and
