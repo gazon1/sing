@@ -37,4 +37,13 @@ data class EntityCounts(
     val taskDependencies: Int = 0,
     /** MR-1: saved agenda views. */
     val agendaViews: Int = 0,
+    // MR-2: 8 new entity types
+    val taskReminders: Int = 0,
+    val projectReminders: Int = 0,
+    val checklistItems: Int = 0,
+    val tagGroups: Int = 0,
+    val projectTagGroups: Int = 0,
+    val savedSearches: Int = 0,
+    val timeEntries: Int = 0,
+    val profiles: Int = 0,
 )

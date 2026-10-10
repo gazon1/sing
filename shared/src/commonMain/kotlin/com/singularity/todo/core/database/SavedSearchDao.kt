@@ -25,4 +25,8 @@ interface SavedSearchDao {
 
     @Query("DELETE FROM saved_searches WHERE user_id = :userId AND id = :id")
     suspend fun delete(userId: String, id: String)
+
+    /** Full-table export — all saved searches for a user. */
+    @Query("SELECT * FROM saved_searches WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<SavedSearchEntity>
 }
