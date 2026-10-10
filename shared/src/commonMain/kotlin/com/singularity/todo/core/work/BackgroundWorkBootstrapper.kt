@@ -43,5 +43,7 @@ class BackgroundWorkBootstrapper(private val scheduler: BackgroundWorkScheduler)
         // it, so a desktop that suspends overnight and a phone that is on Doze both
         // reach the job rather than colliding with the sync poll that sits near 03:00.
         scheduler.schedule(PruneLlmUsageJob.ID, JobSchedule.Daily(atHour = 4, atMinute = 20))
+        scheduler.schedule(BackupJob.ID, JobSchedule.Daily(atHour = 4, atMinute = 30))
+        scheduler.schedule(ArchiveJob.ID, JobSchedule.Daily(atHour = 4, atMinute = 35))
     }
 }

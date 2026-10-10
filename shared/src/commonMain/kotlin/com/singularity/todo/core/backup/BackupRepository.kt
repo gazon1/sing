@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import com.singularity.todo.core.error.runCatchingCancellable
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Repository for local backup management and remote backup push/pull.
@@ -22,6 +24,12 @@ interface BackupRepository {
      * List is sorted newest-first by `createdAtEpochMillis`.
      */
     fun observeAll(): Flow<List<BackupMetadata>>
+
+    /**
+     * Creates a local backup using auto-generated file name and default settings.
+     * Used by auto-backup background job.
+     */
+    suspend fun createBackup(): Result<BackupResult>
 
     /** Exports a full backup (tasks, notes, projects, tags, settings) to a zip in `backupDir`. */
     suspend fun export(options: ExportOptions): Result<BackupResult>
@@ -52,6 +60,7 @@ class BackupRepositoryImpl(
     private val fs: FileSystem,
     private val backupDir: String,
     private val currentUser: ProfileAwareCurrentUser,
+    private val clock: Clock,
 ) : BackupRepository {
 
     override fun observeAll(): Flow<List<BackupMetadata>> = flow {
@@ -59,6 +68,14 @@ class BackupRepositoryImpl(
             emit(scanBackups())
             delay(TimeConstants.BackupRefreshIntervalMs)
         }
+    }
+
+    override suspend fun createBackup(): Result<BackupResult> {
+        val timestamp = clock.now().toEpochMilliseconds()
+        val fileName = "singularity_backup_$timestamp.zip"
+        val destPath = "$backupDir/$fileName"
+        val userId = currentUser.scopedUserId.value
+        return export(ExportOptions(userId = userId, destPath = destPath))
     }
 
     private suspend fun scanBackups(): List<BackupMetadata> {

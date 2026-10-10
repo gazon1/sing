@@ -529,6 +529,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             fs = get(),
             backupDir = get<String>(),
             currentUser = get(),
+            clock = get(),
         )
     }
     // ─── Settings ────────────────────────────────────────────────────────
