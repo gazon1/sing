@@ -51,18 +51,34 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-# `infra/kiwi` — плоский каталог скриптов, а не установленный пакет, поэтому
-# пакет `traceability` лежит рядом и не находится без явного пути. Обычно
-# достаточно sys.path[0] (скрипт запускают как `./infra/kiwi/sync.py`), но
-# gaps.py и тесты грузят модуль через importlib — без этой строки любой такой
-# запуск падает на импорте общего JUnit-ридера.
-_KIWI_DIR = str(Path(__file__).resolve().parent)
-if _KIWI_DIR not in sys.path:
-    sys.path.insert(0, _KIWI_DIR)
+# `infra/kiwi` is now a Python package (has __init__.py).  We need *both*
+# `infra/` (for the `infra.kiwi` prefix) and `infra/kiwi/` (for scripts
+# that still use `from kiwi_client import ...` by adding infra/kiwi to their
+# own sys.path).  Adding the wider path last preserves those callers' ability
+# to shadow the package with their own sys.path insert of infra/kiwi.
+_INFRA_KIWI = str(Path(__file__).resolve().parent)
+_INFRA = str(Path(__file__).resolve().parents[1])
+if _INFRA not in sys.path:
+    sys.path.insert(0, _INFRA)
+if _INFRA_KIWI not in sys.path:
+    sys.path.insert(0, _INFRA_KIWI)
 
-from kiwi_client import KiwiClient, KiwiError
-from traceability.junit_xml import TestCaseResult
-from traceability.junit_xml import parse_junit as parse_junit_flat
+# ``import infra.kiwi.something`` requires ``infra`` to already be in
+# ``sys.modules``.  The bare ``import infra`` call below ensures that:
+# if infra is not yet registered, Python imports it from infra/__init__.py.
+# The path-importer cache is also cleared because a stale cache entry for
+# ``infra/`` (recorded before infra/__init__.py existed) would make Python
+# return an importer that does not know about __init__.py and would raise
+# 'No module named infra' even though the file is there.
+sys.path_importer_cache.clear()
+import infra  # noqa: F401
+
+import infra.kiwi.kiwi_client as kiwi_client  # noqa: F401  (sys.modules registration for traceability)
+import infra.kiwi.traceability  # noqa: F401  (sys.modules registration for traceability)
+
+from infra.kiwi.kiwi_client import KiwiClient, KiwiError
+from infra.kiwi.traceability.junit_xml import TestCaseResult
+from infra.kiwi.traceability.junit_xml import parse_junit as parse_junit_flat
 
 # The JUnit reader itself lives in traceability/junit_xml.py and is shared with
 # the scenario pipeline. Two parsers of one format is how the join between "what

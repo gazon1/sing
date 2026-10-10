@@ -63,7 +63,7 @@ import pathlib
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "infra" / "kiwi"))
+sys.path.insert(0, str(REPO_ROOT / "infra"))
 
 BASELINE = REPO_ROOT / "config" / "docs" / "kiwi-gaps-baseline.txt"
 PRODUCT = "Singularity Todo"
@@ -74,7 +74,7 @@ FRESH_MARKER = "gradle "
 
 
 def _load_client():
-    from kiwi_client import KiwiError, KiwiClient  # noqa: PLC0415
+    from infra.kiwi.kiwi_client import KiwiError, KiwiClient
 
     return KiwiClient(), KiwiError
 
