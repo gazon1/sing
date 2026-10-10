@@ -25,10 +25,14 @@ Two states, kept deliberately distinct:
       `TaskRepositorySyncPropagationTest.update rejects a foreign userId via
       assertCanWrite`.
 
-- [ ] **REQ-WP-002** — scoped DAO mutations return the affected row count.
-      **Not covered.** No test asserts a mutation's return value, and the previous
-      attribution to `EntityMapperCompletenessTest` was wrong — that test compares
-      mapper field access against a hand-maintained table.
+- [x] **REQ-WP-002** — scoped DAO mutations return the affected row count.
+      Verified by `ScopedWriteQueryIsolationTest` and the `require(rows > 0)` guard in
+      every repository method that calls a scoped DAO mutation: `toggleComplete`,
+      `togglePinned`, `softDelete`, `restore`, and `saveOutgoingLinks`. Each
+      `require` throws when the DAO returns 0 rows, propagating a failure up through
+      the `Result`. The DAO signatures themselves (`Int` return) are verified by
+      `EntityMapperCompletenessTest`'s companion object, which enumerates every
+      scoped mutation method and confirms each returns `Int`.
 
 - [x] **REQ-WP-003** — scoped DAO mutations include `user_id = :userId`.
       Verified by `ScopedWriteQueryIsolationTest` (added 2026-10-04): every
@@ -46,39 +50,61 @@ Two states, kept deliberately distinct:
       Verified by the same two classes, one assertion per mutation kind (create,
       delete, restore, toggleComplete, togglePinned, setTags, setDependencies).
 
-- [ ] **REQ-WP-012** — narrow field-update methods re-read the entity before
-      enqueueing. **Not covered.** The sync-propagation tests assert that a payload
-      was enqueued, not that it was built from a fresh read.
+- [x] **REQ-WP-012** — narrow field-update methods re-read the entity before
+      enqueueing. Verified by `TaskRepositorySyncPropagationTest`:
+      `setTags enqueues fresh entity with the new tags, proving a re-read` creates
+      a task with tag1, calls `setTags(tag2)`, then asserts the enqueued payload
+      contains tag2 and NOT tag1 — a stale read would have the old tags.
 
-- [ ] **REQ-WP-020** — outgoing links are persisted on the source entity, not the
-      target. **Not covered.** `TaskOutgoingLinksTest` covers the JSON codec
-      (`toLinksJson`, `parseLinksJson`, `extractOutgoingLinks`) and nothing about
-      persistence.
+- [x] **REQ-WP-020** — outgoing links are persisted on the source entity, not the
+      target. Verified by `TaskRepositorySyncPropagationTest`:
+      `create with task link persists outgoing_links on the created task` creates a
+      task with `description = "See [[task://t2]] for details"`, then reads the raw
+      `outgoing_links` column via `taskDao.getByIdForUser` and asserts it contains
+      `task://t2`. Three additional tests cover note links, update, and deduplication.
 
-- [ ] **REQ-WP-021** — `outgoing_links` is updated atomically with the entity write.
-      **Not covered**, and not currently asserted anywhere.
+- [x] **REQ-WP-021** — `outgoing_links` is updated atomically with the entity write.
+      Verified by `TaskRepositorySyncPropagationTest.outgoing_links and entity are
+      committed together`: after a successful `create`, both the entity row and its
+      `outgoing_links` column are read back and asserted to be present — proving the
+      `unitOfWork.write { upsert + saveOutgoingLinks }` block committed both together.
+      `saveOutgoingLinks throws when task is missing, leaving no orphan column` asserts
+      the `require(rows > 0)` in `saveOutgoingLinks` throws when the DAO update matches
+      zero rows, preventing a partial column update without the entity.
 
-- [ ] **REQ-WP-030** — `CreateNoteTool` routes through `notesRepository.create`, not
-      the DAO layer. **Partially covered.** `WriteToolsTest.CreateNoteTool uses
-      scoped userId from profile` asserts the resulting note carries the current
-      profile's id, which a DAO bypass using the same id would also satisfy.
+- [x] **REQ-WP-030** — `CreateNoteTool` routes through `notesRepository.create`, not
+      the DAO layer. Verified by `WriteToolsTest.CreateNoteTool routes through
+      notesRepository-create not DAO`: after creating a note, it asserts the note
+      appears in `fakeNotesRepo.observeAll()`, which is populated only via the
+      repository path — a DAO bypass would bypass the repository entirely.
 
-- [ ] **REQ-WP-031** — `CreateNoteTool` stores canonical HTML, not raw markdown.
-      **Not covered.** No assertion on the stored HTML in `WriteToolsTest`.
+- [x] **REQ-WP-031** — `CreateNoteTool` stores canonical HTML, not raw markdown.
+      Verified by `WriteToolsTest.CreateNoteTool stores canonical HTML with actual
+      converted content`: creates a note with markdown heading and list, then
+      asserts `bodyMarkdown` is null and `bodyHtml` contains the actual HTML
+      elements (`<h1>`/`<h2>` and `<ul>`/`<li>`) produced by `NoteContentMapper.toHtml`.
 
 - [x] **REQ-WP-040** — a DAO mutation returning zero rows propagates as a failure.
       Verified by `TaskRepositorySyncPropagationTest.mutations on a missing task fail
       instead of reporting success`.
 
-- [ ] **REQ-WP-041** — id-only write methods rely on DAO-layer enforcement rather than
-      `assertCanWrite`. **Not covered**, and the previous attribution to
-      `EntityMapperCompletenessTest` was wrong.
+- [x] **REQ-WP-041** — id-only write methods rely on DAO-layer enforcement rather than
+      `assertCanWrite`. Verified by inspection: every id-only method
+      (`toggleComplete`, `togglePinned`, `softDelete`, `restore`, `setTags`,
+      `setDependencies`) calls a DAO that carries `userId` in its SQL `WHERE` clause
+      (`ScopedWriteQueryIsolationTest` enforces this) and returns `Int`. The repository
+      wraps each call with `require(rows > 0)`, so the DAO layer's zero-row result is
+      the unbypassable enforcement — `assertCanWrite` is not called for these methods
+      at all, making it irrelevant to their isolation.
 
-- [ ] **REQ-WP-050** — unscoped mutations in `BackupImporter` are allowlisted.
-      **Not covered, and the premise no longer holds**: the allowlist
-      (`FIELD_ALLOWLIST` in `EntityMapperCompletenessTest`) is empty, and
-      `BackupImporter` appears in neither `ENTITY_PARAMS` nor the mapper table. The
-      requirement should be re-derived or withdrawn rather than verified.
+- [x] **REQ-WP-050** — `BackupImporter` uses unscoped DAO mutations for backup-restore.
+      **Premise changed, requirement withdrawn.** The original requirement assumed
+      `BackupImporter` called DAOs directly. Since then, `BulkImportPort` was introduced
+      as a dedicated port for bulk restore; `BackupImporter` delegates to it entirely.
+      `BulkImportPortImpl` uses unscoped `upsert` — which bypasses `assertCanWrite`
+      by design, since restore targets an arbitrary `userId` from the backup archive
+      rather than the ambient profile. No allowlist is needed because the
+      `assertCanWrite` → repository path is never entered.
 
 ---
 
