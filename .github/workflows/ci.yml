@@ -72,7 +72,7 @@ jobs:
           # under you, but requiring a repository variable before the first run
           # lands turns a safety pin into a day-one outage. Override by setting the
           # variable when the pin needs to move.
-          OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.1' }}
+          OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.0' }}
         run: >
           npx --yes "@fission-ai/openspec@${OPENSPEC_VERSION}" validate --all --json --strict
 
