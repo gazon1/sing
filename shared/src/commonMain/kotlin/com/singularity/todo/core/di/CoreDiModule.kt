@@ -327,7 +327,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             getHandlers = { get<SyncEngine>().handlers },
             scope = get(),
         )
-        SyncEngine(
+        // SyncEngine(
             log = Logger.withTag("SyncEngine"),
             api = get(),
             authRepository = get(),

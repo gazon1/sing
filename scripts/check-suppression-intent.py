@@ -212,24 +212,9 @@ JUSTIFIED_FILE_SUPPRESSIONS: dict[str, str] = {
     #
     # ── Live injection, blanket suppression nonetheless. The parameter is honoured;
     #    only its *default* names the system clock, and the rule reads that as a call.
-    "shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/data/SavedAgendaViewsRepositoryImpl.kt":
-        "The class already does the right thing: `SavedAgendaViewsRepositoryImpl` takes "
-        "`private val clock: Clock = Clock.System` and reads `clock.now()` at line 70. "
-        "Koin passes `get()` (`AgendaDiModule.kt:41`), so production really does get a "
-        "system clock and a test really can override it. The only reason the rule "
-        "fires is the *default value* naming `Clock.System` — which is this codebase's "
-        "idiom for injectable-but-system-by-default, used at 52 other call sites. "
-        "Suppressing the file is wider than the finding; the narrow fix is for the "
-        "rule to exempt a `Clock.System` that appears as a default argument, which is "
-        "recorded in #192.",
-    "shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt":
-        "Same shape as the entry above, one level up: `SavedAgendaViewModel.Deps` takes "
-        "`val clock: kotlin.time.Clock = kotlin.time.Clock.System` and the ViewModel "
-        "reads `deps.clock.now()` at line 257. The injection is honoured; only the "
-        "default names the system clock, and the rule matches a default argument as "
-        "readily as a call. Pinned as a default-argument false positive in #192 rather "
-        "than suppressed per declaration here, because there are at least two such "
-        "sites and a per-file list would have to be maintained by hand.",
+    # Entries removed on 2026-10-10: NoDirectClockSystemRule is retired (#160, ADR
+    # 2026-10-10-no-direct-clock-system-rule-retired). SavedAgendaViewsRepositoryImpl
+    # and SavedAgendaViewModel no longer carry @file:Suppress("NoDirectClockSystem").
 }
 
 

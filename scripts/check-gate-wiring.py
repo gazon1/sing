@@ -601,6 +601,23 @@ FIXTURE_GATES = [
         why="a coverage report produced without the tests running describes no execution at all",
         needs_clean_run=False,
     ),
+    FixtureGate(
+        name="detekt-rule-coverage",
+        cmd=[sys.executable, "scripts/check-detekt-rule-coverage.py", "--report", "{tmp}/report.xml"],
+        setup=(
+            "root.joinpath('report.xml').write_text(\n"
+            "    '<?xml version=\"1.0\"?><report name=\"Kover\"><package name=\"p\">'\n"
+            "    '<class name=\"A\" sourcefilename=\"A.kt\"><method name=\"m\" covered=\"false\">'\n"
+            "    '<counter type=\"BRANCH\" missed=\"10\" covered=\"0\"/></method>'\n"
+            "    '</class></package></report>')"
+        ),
+        why=(
+            "a Kover report that measures zero branches must not satisfy a floor that "
+            "was measured at 65.1%; the fixture proves the gate parses the counter and "
+            "applies the floor correctly"
+        ),
+        needs_clean_run=False,
+    ),
 ]
 
 
@@ -697,21 +714,12 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="suppression-intent",
         cmd=[sys.executable, "scripts/check-suppression-intent.py"],
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt",
-        # Strip the whole reason block from a file that has one under the
-        # annotation. That is the shape a thirteenth unjustified suppression
-        # arrives in, and it is a *comment* route specifically because six of the
-        # ten current exemptions are justified through the registry instead — a
-        # control that only exercised one of the two escapes would leave the
-        # other untested. The registry route is covered by the gate's own unit
-        # tests, which run it against an empty registry and require the verdict
-        # to change.
-        #
-        # The reason is removed *in full*, not line by line: the gate reads a
-        # four-line window, so dropping only the first comment line left the rest
-        # of the justification in place and the control passed a file that was
-        # still justified. The first version of this entry did exactly that and
-        # reported a working control over a sabotaged file.
+        sabotage_path="shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt",
+        # Strip the whole comment block from a file that has one under the
+        # annotation. `JvmPomodoroTimer.kt` carries `@file:Suppress("NoRealDelayInTest")`
+        # on line 1 with a 10-line comment justification (lines 2-11); the gate reads a
+        # 4-line window, so stripping the first two comment lines is sufficient to leave
+        # the suppression unjustified.
         sabotage=(
             "_t = p.read_text()\n"
             "_lines = _t.splitlines(keepends=True)\n"
@@ -1198,6 +1206,18 @@ def check_ci_steps_blocking() -> list[str]:
 #: are equivalent. So every asymmetry is declared here with its reason, and an
 #: undeclared one fails the check.
 GATE_PARITY: dict[str, tuple[str, str]] = {
+    "scripts/check-detekt-rule-coverage.py": (
+        "ci",
+        "needs Gradle to produce the kover XML report, so lives in the tests job "
+        "and is not in the static-gates.sh registry; local runs can invoke it "
+        "manually after ./gradlew :detekt-rules:koverXmlReport",
+    ),
+    "scripts/check-rebase-compiles.py": (
+        "ci",
+        "needs a Gradle compile run with rebased DI files, so lives in the tests "
+        "job after the rebase step and is not in the static-gates.sh registry; "
+        "documented in static-gates.sh with the ADR reference",
+    ),
     "scripts/check-flaky-tests.py": (
         "ci",
         "needs two runs of JUnit XML to compare; a single local run has no "

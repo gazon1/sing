@@ -500,10 +500,6 @@ no-runblocking:
   NoRunBlocking:
     active: true
 
-no-direct-clock-system:
-  NoDirectClockSystem:
-    active: true
-
 no-viewmodel-scope:
   NoViewModelScopeInProduction:
     active: true

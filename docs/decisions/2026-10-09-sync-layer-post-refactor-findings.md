@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: Sync layer post-refactor findings (2026-10-09)
 date: 2026-10-09
+status: accepted
+deciders: mavis
 deciders: mavis
 ---
 

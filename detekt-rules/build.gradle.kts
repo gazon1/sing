@@ -65,9 +65,9 @@ tasks.withType<Test>().configureEach {
 // 2026-10-05 both had 100%-of-file coverage in the sense that mattered and zero
 // behavioural coverage.
 //
-// `koverVerify` is deliberately NOT wired into `check`: the floor is recorded in
-// deferred-backlog.md as debt to be paid, not as a gate that would have to be lowered
-// before it could be raised. Run `just kover-rules` to see where the gaps are.
+// The actual floor enforcement is in scripts/check-detekt-rule-coverage.py rather than
+// koverVerify, because kover 0.9.x's Gradle DSL for verify{} is not stable across
+// versions. The Python gate runs the report, parses branch coverage, and fails below 60%.
 kover {
     reports {
         total {

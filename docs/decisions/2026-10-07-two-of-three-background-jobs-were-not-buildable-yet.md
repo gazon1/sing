@@ -1,4 +1,5 @@
 ---
+title: WS3 asked for three jobs; only one of them existed
 date: 2026-10-07
 status: accepted
 slug: two-of-three-background-jobs-were-not-buildable-yet

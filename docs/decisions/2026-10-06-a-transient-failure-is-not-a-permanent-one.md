@@ -2,7 +2,9 @@
 title: A transient failure is not a permanent one, and one of three guesses had no reader
 date: 2026-10-06
 tags: [sync, calendar, error-handling, ui-state]
-status: superseded-in-part
+status: superseded
+status-was: superseded-in-part
+superseded-by: 2026-10-06-a-transient-failure-is-not-a-permanent-one
 ---
 
 ## Correction

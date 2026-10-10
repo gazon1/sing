@@ -1,10 +1,11 @@
-# ADR: E2E Fixtures, Auth Bypass, and Dialog State Architecture
-
-**Date:** 2026-10-09
-**Status:** Accepted
-**Context:** Fixing CI gates for `fix-ci-gates-v2` (PR #254), E2E Maestro flows failing due to auth crashes and missing UI wiring.
-
 ---
+title: "E2E Fixtures, Auth Bypass, and Dialog State Architecture"
+date: 2026-10-09
+status: accepted
+context: "Fixing CI gates for `fix-ci-gates-v2` (PR #254), E2E Maestro flows failing due to auth crashes and missing UI wiring."
+---
+
+# ADR: E2E Fixtures, Auth Bypass, and Dialog State Architecture
 
 ## 1. DevAuthRepository for CI and local development
 

@@ -1,9 +1,10 @@
+---
+title: "TagsScreen — No Scaffold Snackbar Workaround"
+date: 2026-10-09
+status: accepted
+---
+
 # ADR: TagsScreen — No Scaffold Snackbar Workaround
-
-**Date:** 2026-10-09
-**Status:** observed
-
-## Context
 
 `TagsScreen` is a leaf screen in the navigation graph — it has no `Scaffold`, no `TopAppBar`, no `SnackbarHost`. It renders inside another screen's content area.
 

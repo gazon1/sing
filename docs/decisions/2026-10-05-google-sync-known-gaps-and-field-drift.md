@@ -1,7 +1,9 @@
 ---
+title: Known gaps in Google sync, and the two ways this feature drifts
 date: 2026-10-05
+status: open
+status-was: proposed
 slug: google-sync-known-gaps-and-field-drift
-status: proposed
 ---
 
 # Known gaps in Google sync, and the two ways this feature drifts

@@ -30,6 +30,12 @@ SERVICE="$ROOT/detekt-rules/src/main/resources/META-INF/services/dev.detekt.api.
 YML="$ROOT/config/detekt/detekt.yml"
 SRC="$ROOT/detekt-rules/src/main/kotlin"
 
+# Rules whose source is kept in the tree but are intentionally unwired from
+# detekt.yml (e.g. retired per an ADR). They are excluded from the "every
+# RuleSetId must have a detekt.yml block" invariant because the whole point
+# of the retirement is to remove the block.
+RETIRED_RULES="no-direct-clock-system"
+
 ERRORS=0
 err() { echo "ERROR: $*"; ERRORS=$((ERRORS + 1)); }
 
@@ -86,8 +92,12 @@ done < <(find "$SRC" -name "*.kt")
 #    loads with default config — which for a custom rule means "runs with
 #    whatever the rule hardcodes", or silently not at all. Either way the KDoc
 #    in the provider promises coverage the build does not deliver.
+#    Retired rules (kept in source but intentionally unwired) are skipped.
 while IFS= read -r rsid; do
     [[ -z "$rsid" ]] && continue
+    if [[ " $RETIRED_RULES " == *" $rsid "* ]]; then
+        continue
+    fi
     if ! grep -qE "^${rsid}:" "$YML"; then
         provider=$(grep -rlE "RuleSetId\(\"${rsid}\"\)" "$SRC" --include="*.kt" | head -1 | xargs -r basename)
         err "rule-set '${rsid}' (${provider%.kt}) has no block in config/detekt/detekt.yml — the rule never runs"
@@ -115,7 +125,11 @@ total=$(grep -cvE '^\s*(#|$)' "$SERVICE" || true)
 # 4. Every ruleSetId declared in source has a top-level block in detekt.yml.
 #    Without this, a rule can be implemented, registered and packaged and still
 #    never execute, because detekt only loads rule sets present in the config.
+#    Retired rules (kept in source but intentionally unwired) are skipped.
 while IFS= read -r rid; do
+    if [[ " $RETIRED_RULES " == *" $rid "* ]]; then
+        continue
+    fi
     if ! grep -qE "^${rid}:" "$YML"; then
         err "ruleSetId '$rid' is declared in detekt-rules/src but has no block in config/detekt/detekt.yml — the rule will never run"
     fi

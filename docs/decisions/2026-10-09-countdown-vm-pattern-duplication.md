@@ -1,7 +1,10 @@
-# ADR: Countdown State Machine Pattern — Duplication Across VMs
+---
+title: "Countdown State Machine Pattern — Duplication Across VMs"
+date: 2026-10-09
+status: accepted
+---
 
-**Date:** 2026-10-09
-**Status:** observed
+# ADR: Countdown State Machine Pattern — Duplication Across VMs
 
 ## Context
 

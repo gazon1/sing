@@ -1,11 +1,12 @@
+---
+title: "Scenario layer is the authoritative untested answer; Kover per-class floor is retired"
+date: 2026-10-10
+status: accepted
+backlog: docs/decisions/deferred-backlog.md#untested-has-two-answers-per-class-and-per-scenario
+tracked-as: https://github.com/gazon1/sing/issues/300
+---
+
 # Scenario layer is the authoritative "untested" answer; Kover per-class floor is retired
-
-**Date:** 2026-10-10
-**Status:** Decided
-**Backlog:** `docs/decisions/deferred-backlog.md#untested-has-two-answers-per-class-and-per-scenario`
-**Tracked as:** [#300](https://github.com/gazon1/sing/issues/300)
-
-## Context
 
 Two instruments report what is untested, and both present themselves as authoritative:
 

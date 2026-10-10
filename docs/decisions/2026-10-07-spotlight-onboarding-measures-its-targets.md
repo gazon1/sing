@@ -1,4 +1,5 @@
 ---
+title: Spotlight onboarding measures its targets through a registry, and the geometry stays out of Compose
 date: 2026-10-07
 status: accepted
 tags: [onboarding, ui, compose, settings]

@@ -1,4 +1,3 @@
-@file:Suppress("NoDirectClockSystem")
 // A log line stamps the instant it was written, so reading the clock is the
 // behaviour rather than an accident of it. There is no injected alternative:
 // a logger constructed with a frozen clock writes a wrong time on every line,

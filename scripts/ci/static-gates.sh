@@ -97,6 +97,9 @@ gate blocking "detekt rule registry" ./scripts/check-detekt-registrations.sh
 gate blocking "detekt baseline ratchet" python3 scripts/check-baseline-ratchet.py
 gate blocking "lint rules are declared decisions" python3 scripts/check-rule-intent.py
 gate blocking "file-level suppressions explain themselves" python3 scripts/check-suppression-intent.py
+# detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
+# This gate runs in ci.yml's `tests` job (where Gradle is available), not here.
+# See gate "detekt-rule branch coverage" in ci.yml.
 
 # Scenario traceability (static half; results are normalised in the tests job)
 gate blocking "scenario specs valid" traceability validate
@@ -148,6 +151,10 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 # them at its own time. So the meta-gate stays where the results are: after the tests,
 # in check.sh and in ci.yml's `tests` job.
 #
+# ADR reference integrity and status policy — these make ADR deletion safe (#116).
+gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
+gate blocking "ADR status policy" python3 scripts/check_adr_status.py
+
 # Advisory — each needs an exit plan, or it is just a quieter blocking gate.
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.

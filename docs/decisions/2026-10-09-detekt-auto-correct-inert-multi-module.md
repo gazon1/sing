@@ -1,6 +1,10 @@
-# detekt --auto-correct is inert in this Gradle configuration
+---
+title: "detekt --auto-correct is inert in this Gradle configuration"
+date: 2026-10-09
+status: accepted
+---
 
-## Status: accepted
+# detekt --auto-correct is inert in this Gradle configuration
 
 ## Context
 

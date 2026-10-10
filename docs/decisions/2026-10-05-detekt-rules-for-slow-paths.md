@@ -2,7 +2,8 @@
 title: "Detekt rules to make the slow path unreachable, not just documented"
 date: 2026-10-05
 tags: [quality-tools, detekt, performance, testing]
-status: proposed
+status: open
+status-was: proposed
 ---
 
 ## Context

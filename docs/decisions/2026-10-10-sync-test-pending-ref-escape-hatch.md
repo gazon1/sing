@@ -1,6 +1,8 @@
 ---
-status: accepted
+title: Replace SyncApiClient.pendingRef escape hatch with onBeforeResponseLoop callback
 date: 2026-10-10
+status: accepted
+deciders: mavis
 deciders: mavis
 ---
 

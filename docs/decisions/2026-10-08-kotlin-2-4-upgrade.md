@@ -1,6 +1,7 @@
 ---
 title: "Kotlin 2.4 upgrade: 2.3.21 → 2.4.10, KSP 2.3.12, detekt 2.0.0-alpha.6"
 date: 2026-10-08
+status: accepted
 tags: [kotlin, build, koin, detekt]
 ---
 

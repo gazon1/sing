@@ -1,4 +1,5 @@
 ---
+title: The sync settings screen did not exist, and neither inert-surface gate could see it
 date: 2026-10-07
 status: accepted
 tags: [sync, di, gates, defect-class]
