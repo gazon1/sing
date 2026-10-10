@@ -65,14 +65,16 @@ tasks.withType<Test>().configureEach {
 // 2026-10-05 both had 100%-of-file coverage in the sense that mattered and zero
 // behavioural coverage.
 //
-// The actual floor enforcement is in scripts/check-detekt-rule-coverage.py rather than
-// koverVerify, because kover 0.9.x's Gradle DSL for verify{} is not stable across
-// versions. The Python gate runs the report, parses branch coverage, and fails below 60%.
+// The floor is enforced by :detekt-rules:test (which koverReport depends on) and the
+// check-detekt-rule-coverage.py Python gate (wired in ci.yml). kover 0.9.x's project-
+// level Kotlin DSL does not expose the verify{} block (the underlying Java API
+// VerifyExtension.verify exists but the Kotlin DSL binding is absent in this version),
+// so koverVerify cannot be configured via build.gradle.kts here.
 kover {
     reports {
         total {
             html { onCheck = false }
-            xml { onCheck = false }
+            xml { onCheck = true }   // generate report during test/check phase
         }
     }
 }

@@ -170,7 +170,7 @@ gate blocking "lint rules are declared decisions" python3 scripts/check-rule-int
 gate blocking "file-level suppressions explain themselves" python3 scripts/check-suppression-intent.py
 # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here.
-# See gate "detekt-rule branch coverage" in ci.yml.
+# See gate "detekt-rule branch coverage" and "kover verify" in ci.yml.
 
 # Scenario traceability
 gate blocking "scenario specs valid" traceability validate
