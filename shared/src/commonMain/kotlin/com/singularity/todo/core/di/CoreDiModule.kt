@@ -326,6 +326,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             phases = state.phases,
             getHandlers = { get<SyncEngine>().handlers },
             scope = get(),
+            hlcFactory = get(),
         )
         SyncEngine(
             log = Logger.withTag("SyncEngine"),
@@ -344,6 +345,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             clock = get(),
             scope = get(),
             crashReporter = get(),
+            hlcFactory = get(),
             state = state,
             pushPhase = pushPhase,
             pullPhase = pullPhase,

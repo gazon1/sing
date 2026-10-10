@@ -13,6 +13,12 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.MutableClock
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.work.FakeHlcFactory
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -89,6 +95,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { handlers },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
         return p to phaseScope
     }
@@ -140,6 +147,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { emptyMap() },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -182,6 +190,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -223,6 +232,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { emptyMap() }, // No handler for TagGroup.
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -258,6 +268,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { emptyMap() },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         p.pull(testScopeObj, sinceLsn = 5)
@@ -292,6 +303,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { emptyMap() },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         p.pull(testScopeObj, sinceLsn = 0)
@@ -324,6 +336,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -361,6 +374,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -404,6 +418,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         p.pull(scope, sinceLsn = 0)
@@ -434,6 +449,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { emptyMap() },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -465,6 +481,7 @@ class PullPhaseTest {
             phases = state.phases,
             getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
             scope = phaseScope,
+            hlcFactory = FakeHlcFactory(),
         )
 
         val result = p.pull(testScopeObj, sinceLsn = 0)

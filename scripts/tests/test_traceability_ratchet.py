@@ -77,14 +77,14 @@ class RealCorpusTest(unittest.TestCase):
 
     def test_a_scenario_with_one_carrier_is_not_dark(self):
         # The half-state is the whole reason the metric is separate from `holes`:
-        # TASK-CHECK-01 has one claim and no carrier (a hole) but is not dark
-        # only if some other target carries it — the reverse case below proves
-        # the predicate, this one proves the shape of the corpus.
+        # TASK-CHECK-01 has one claim (android) with a Maestro carrier, so it is
+        # NOT dark — the android cell is automated. The reverse case (a carrierless
+        # claim) proves the predicate; this one proves the shape of the corpus.
         specs, coverage = _real_corpus()
         _, dark = ratchet._metrics(coverage)
         self.assertNotIn('TASK-REC-01', dark)
         self.assertNotIn('AUTH-FIRSTRUN-01', dark)
-        self.assertIn('TASK-CHECK-01', dark)
+        self.assertNotIn('TASK-CHECK-01', dark)
 
 
 class SpecSplitTest(unittest.TestCase):

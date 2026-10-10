@@ -8,6 +8,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -96,6 +97,7 @@ class SyncBootstrapperDispatchTest {
             clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
         )
         SyncBootstrapper(
             engine = engine,
@@ -309,6 +311,7 @@ class SyncBootstrapperDispatchTest {
             clock = clock,
             scope = testScope(backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
         )
 
         val outcome = engine.syncOnce()

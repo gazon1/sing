@@ -90,10 +90,9 @@ class HlcDriftIsNeverCorrectedTest {
     }
 
     @Test
-    fun `there is no received clock on the wire for the merge to consume`() = runTest {
-        // The second half of #179, and the reason the first test is about drift rather
-        // than about a merge call being missing. `DeltaPatch` carries `hlc`; `SyncEvent`
-        // does not, so the pull loop has nothing to hand `tock` even if it called it.
+    fun `sync-event now carries the hlc from the client that pushed it`() = runTest {
+        // The second half of #179. Now that `SyncEvent` carries `hlc`, the pull loop
+        // has something to hand `tock()` when it receives an event.
         val serialized = StableJson.encodeToString(
             SyncEvent(
                 serverLsn = 1,
@@ -101,14 +100,14 @@ class HlcDriftIsNeverCorrectedTest {
                 entityType = DocType.Task,
                 eventType = SyncEventType.UPDATED,
                 createdAt = start,
+                hlc = Hlc.of(start, 0, "remote-client"),
             ),
         )
 
         assertTrue(
-            "hlc" !in serialized,
-            "SyncEvent now carries an HLC. If this fails, the wire has changed and #179's " +
-                "first option — echo the merged clock on the event row — has been taken; " +
-                "re-read the issue rather than deleting this assertion.",
+            "hlc" in serialized,
+            "SyncEvent no longer carries an HLC. If this fails, the field was removed; " +
+                "re-read #179 before changing this test.",
         )
     }
 

@@ -16,7 +16,14 @@ import tempfile
 import unittest
 
 _kiwi_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "infra" / "kiwi"
+_infra_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "infra"
 sys.path.insert(0, str(_kiwi_dir))
+sys.path.insert(1, str(_infra_dir))
+# Clear the path importer cache so that ``infra/`` is re-resolved against
+# the current sys.path entries (a stale cache entry from before
+# ``infra/__init__.py`` was added would make ``import infra`` inside
+# ``sync.py`` fail with "No module named 'infra'").
+sys.path_importer_cache.clear()
 
 _spec = importlib.util.spec_from_file_location("kiwi_sync", _kiwi_dir / "sync.py")
 _sync = importlib.util.module_from_spec(_spec)
@@ -26,6 +33,26 @@ _sync.__file__ = str(_kiwi_dir / "sync.py")
 # @dataclass на этапе определения класса ищет sys.modules[cls.__module__], и
 # без записи падает с «'NoneType' object has no attribute '__dict__'».
 sys.modules["kiwi_sync"] = _sync
+
+# Pre-register the ``infra`` and ``infra.kiwi`` packages in ``sys.modules``
+# before loading sync.py, so that ``import infra`` and
+# ``import infra.kiwi.something`` inside sync.py find them already registered.
+# Without this, running sync.py via ``exec_module`` (instead of as __main__)
+# causes ``import infra`` to fail with "No module named 'infra'" because
+# Python 3.14's import machinery does not automatically create the parent
+# package entry from a module loaded via importlib.util.spec_from_file_location.
+import importlib.util as _iu
+_infra_spec = _iu.spec_from_file_location("infra", _infra_dir / "__init__.py")
+_infra_mod = _iu.module_from_spec(_infra_spec)
+_infra_mod.__path__ = [str(_infra_dir)]  # type: ignore[attr-defined]
+sys.modules["infra"] = _infra_mod
+_infra_kiwi_spec = _iu.spec_from_file_location("infra.kiwi", _kiwi_dir / "__init__.py")
+_infra_kiwi_mod = _iu.module_from_spec(_infra_kiwi_spec)
+_infra_kiwi_mod.__path__ = [str(_kiwi_dir)]  # type: ignore[attr-defined]
+sys.modules["infra.kiwi"] = _infra_kiwi_mod
+_infra_spec.loader.exec_module(_infra_mod)
+_infra_kiwi_spec.loader.exec_module(_infra_kiwi_mod)
+
 _spec.loader.exec_module(_sync)
 
 import kiwi_client  # noqa: E402  (resolved from the sys.path entry above)

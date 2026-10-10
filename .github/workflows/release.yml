@@ -1,29 +1,21 @@
 name: Release
 
 # Tag `v1.2.3` (or `v1.2.3-rc.1`) on a commit that already passed CI on main
-#   -> unsigned debug-signed-less APK + Linux .deb -> DRAFT GitHub Release.
+#   -> signed Android APK + Linux .deb + Linux .rpm -> DRAFT GitHub Release.
 # workflow_dispatch = dry run: everything is built, only workflow artifacts are kept.
 #
 # WHAT THIS DOES NOT DO, deliberately. The build cannot yet do these, so the release
 # does not pretend to:
 #
-#   * SIGN the APK. There is no `signingConfigs` block anywhere in the tree, so
-#     `assembleRelease` produces an unsigned APK. Running `apksigner verify` on it
-#     would fail every single time — which is how a pipeline teaches you to ignore a
-#     verification step. The artifact is named `-unsigned.apk` so it cannot be
-#     mistaken for a shippable build.
-#   * MINIFY. `isMinifyEnabled = false` (androidApp/build.gradle.kts:139). R8 breaks
+#   * MINIFY. `isMinifyEnabled = false` (androidApp/build.gradle.kts). R8 breaks
 #     Koin, Room and kotlinx.serialization on their reflection, and nothing in CI
 #     exercises a minified build. That is the highest-risk gap here and it is tracked,
 #     not hidden: turning minification on and fixing the rules belongs BEFORE
 #     signing, because the question "does the shipped binary work" outranks the
 #     question "who gets the file".
-#   * PACKAGE msi/dmg. `nativeDistributions.targetFormats` declares only Deb
-#     (desktopApp/build.gradle.kts:103-110), so `packageMsi`/`packageDmg` do not
-#     exist. jpackage does not cross-compile, so each format needs its own runner.
-#   * INJECT a version. There are no `appVersionName`/`appVersionCode` Gradle
-#     properties; versionName is hardcoded to 0.1.0 and versionCode to 1. The version
-#     guard below is what keeps that honest.
+#   * PACKAGE msi/dmg. `nativeDistributions.targetFormats` declares only Deb and Rpm,
+#     so `packageMsi`/`packageDmg` do not exist. jpackage does not cross-compile,
+#     so each format needs its own runner.
 #
 # Follow-ups are in docs/decisions/deferred-backlog.md.
 
@@ -56,6 +48,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.v.outputs.version }}
+      version_code: ${{ steps.v.outputs.version_code }}
       prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
@@ -69,9 +62,30 @@ jobs:
           v="${RAW#v}"
           re='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
           [[ $v =~ $re ]] || { echo "::error::'$RAW' is not X.Y.Z[-suffix]"; exit 1; }
+
+          # Parse major.minor.patch (required) and optional prerelease suffix.
+          if [[ $v == *-* ]]; then
+            base="${v%%-*}"
+            suffix="${v#*-}"
+          else
+            base="$v"
+            suffix=""
+          fi
+          IFS='.' read -r maj min patch <<< "$base"
+          maj="${maj#0}" && maj="${maj:-0}"   # "01" -> 1, "" -> 0
+          min="${min#0}" && min="${min:-0}"
+          patch="${patch#0}" && patch="${patch:-0}"
+
+          # versionCode scheme: major*1000000 + minor*1000 + patch
+          # Assert bounds: minor < 1000, patch < 1000
+          [[ $min -lt 1000 ]] || { echo "::error::minor=$min must be < 1000"; exit 1; }
+          [[ $patch -lt 1000 ]] || { echo "::error::patch=$patch must be < 1000"; exit 1; }
+          version_code=$(( maj * 1000000 + min * 1000 + patch ))
+
           {
             echo "version=$v"
-            if [[ $v == *-* ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi
+            echo "version_code=$version_code"
+            if [[ -n $suffix ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi
           } >> "$GITHUB_OUTPUT"
 
       - name: Tag must be on main and have a green CI run
@@ -79,7 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+          git merge-base --is-ancestor origin/main "$GITHUB_SHA" \
             || { echo "::error::$GITHUB_SHA is not on main"; exit 1; }
           n=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success --limit 1 \
                 --json databaseId --jq 'length')
@@ -89,87 +103,141 @@ jobs:
     needs: meta
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      VERSION_CODE: ${{ needs.meta.outputs.version_code }}
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-jvm-gradle # tag builds restore the cache read-only
 
-      # No version properties exist to pass; the build uses its hardcoded 0.1.0.
+      # Provision a signing key. Fail-closed: if secrets are missing the build fails,
+      # never silently falls back to a debug key. Split env/vs GITHUB_ENV to keep
+      # passwords out of step logs.
+      - name: Provision signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          required=(KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD)
+          for var in "${required[@]}"; do
+            [ -n "${!var}" ] || { echo "::error::secret $var is not set"; exit 1; }
+          done
+
+          # Decode the keystore to a temporary path. The path goes to GITHUB_ENV so
+          # the path is visible to subsequent steps (gradle reads it); passwords never
+          # appear in env: or log output.
+          keystore_path=/tmp/singularity.keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > "$keystore_path"
+
+          {
+            echo "SIGNING_KEYSTORE_PATH=$keystore_path"
+            echo "SIGNING_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "SIGNING_KEY_ALIAS=$KEY_ALIAS"
+            echo "SIGNING_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - uses: ./.github/actions/setup-jvm-gradle
+
       - name: Build release APK
-        run: ./gradlew :androidApp:assembleRelease
+        run: |
+          ./gradlew :androidApp:assembleRelease \
+            -PVERSION_NAME="$VERSION" \
+            -PVERSION_CODE="$VERSION_CODE"
 
-      - name: Stage and check the embedded version
+      - name: Stage and verify the embedded version
         env:
           VERSION: ${{ needs.meta.outputs.version }}
         run: |
-          apk=$(ls androidApp/build/outputs/apk/release/*unsigned*.apk | head -n1)
-          # The embedded versionName is what the build actually contains. It is
-          # compared against the tag here rather than trusted, because a release
-          # tagged 1.2.3 that ships a 0.1.0 binary is the most silent failure this
-          # workflow could have.
+          apk=$(ls androidApp/build/outputs/apk/release/*unsigned*.apk 2>/dev/null \
+                || ls androidApp/build/outputs/apk/release/*.apk | head -n1)
+          # Exact match: a release tagged 1.2.3 must ship 1.2.3, not 1.2.30 or 1.2.3-rc.1.
           embedded=$("$ANDROID_HOME"/build-tools/*/aapt2 dump badging "$apk" \
             | sed -n "s/^package: name='[^']*' versionCode='[^']*' versionName='\([^']*\)'.*/\1/p")
           echo "embedded versionName: $embedded"
-          case "$embedded" in
-            "$VERSION"*) ;;
-            *) echo "::error::APK declares version '$embedded' but the tag says '$VERSION'"; exit 1 ;;
-          esac
-          mkdir -p dist
-          cp "$apk" "dist/$APP_NAME-$VERSION-android-unsigned.apk"
+          [[ "$embedded" == "$VERSION" ]] \
+            || { echo "::error::APK declares version '$embedded' but the tag says '$VERSION'"; exit 1; }
 
-      # mapping.txt is deliberately NOT uploaded: with isMinifyEnabled = false the
-      # file does not exist, and an `if-no-files-found: warn` on a file that can
-      # never appear is a check that reports nothing forever.
+          # Verify signing: the certificate SHA-256 fingerprint must match the repo
+          # variable (never trust an APK you did not build to have the right key).
+          cert_sha256=$(keytool -printcert -jarfile "$apk" 2>/dev/null \
+            | sed -n 's/SHA-256: \(.*\)/\1/p' \
+            | tr -d ': \n' \
+            | tr 'A-Z' 'a-z')
+          expected_sha256=${{ vars.ANDROID_CERT_FINGERPRINT }}
+          [[ "$cert_sha256" == "$expected_sha256" ]] \
+            || { echo "::error::APK signing cert mismatch (got $cert_sha256, want $expected_sha256)"; exit 1; }
+
+          mkdir -p dist
+          cp "$apk" "dist/$APP_NAME-$VERSION-android.apk"
+
       - uses: actions/upload-artifact@v7
         with:
           name: release-android
           path: dist/*.apk
           if-no-files-found: error
 
-  # jpackage cannot cross-compile, and only Deb is configured, so this is one leg.
   desktop:
     name: desktop (${{ matrix.label }})
     needs: meta
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
       run:
         shell: bash
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - { os: ubuntu-24.04, label: linux-x64, fmt: deb }
+          - { os: ubuntu-24.04, label: linux-x64, fmt: rpm }
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-jvm-gradle
 
-      # Output is desktopApp/build/compose/binaries/main/deb/... — Compose Desktop
-      # has no build variants, so there is no `main-release` directory to look in.
-      - name: Package deb
-        run: ./gradlew :desktopApp:packageDeb
+      - name: Package
+        run: |
+          case "${{ matrix.fmt }}" in
+            deb) ./gradlew :desktopApp:packageDeb ;;
+            rpm) ./gradlew :desktopApp:packageRpm ;;
+          esac
+        env:
+          FMT: ${{ matrix.fmt }}
 
-      - name: Stage and check the packaged version
+      - name: Stage and verify the packaged version
         env:
           VERSION: ${{ needs.meta.outputs.version }}
           LABEL: ${{ matrix.label }}
           FMT: ${{ matrix.fmt }}
         run: |
-          f=$(ls desktopApp/build/compose/binaries/main/"$FMT"/*."$FMT" | head -n1)
-          echo "packaging $f"
-          # dpkg-deb's Version field is built from the hardcoded packageVersion
-          # (0.1.0), so it is checked against the tag for the same reason as the APK.
-          embedded=$(dpkg-deb -f "$f" Version | sed 's/-[0-9].*$//')
-          echo "embedded deb version: $embedded"
-          case "$embedded" in
-            "$VERSION"*) ;;
-            *) echo "::error::deb declares version '$embedded' but the tag says '$VERSION'"; exit 1 ;;
+          case "$FMT" in
+            deb)
+              f=$(ls desktopApp/build/compose/binaries/main/deb/*."$FMT" | head -n1)
+              embedded=$(dpkg-deb -f "$f" Version | sed 's/-[0-9].*$//')
+              ;;
+            rpm)
+              f=$(ls desktopApp/build/compose/binaries/main/rpm/*."$FMT" | head -n1)
+              # RPM VERSION field contains only the upstream number; RELEASE carries the suffix.
+              ver=$(rpm -qp --queryformat '%{VERSION}' "$f")
+              rel=$(rpm -qp --queryformat '%{RELEASE}' "$f")
+              # Reconstruct the full version as the package evaluator sees it.
+              embedded="$ver${rel:+-$rel}"
+              ;;
           esac
+          echo "embedded $FMT version: $embedded"
+          # Exact match (prerelease "1.2.3-rc.1" has already been stripped to "1.2.3"
+          # for the packageVersion by the time it reaches here).
+          [[ "$embedded" == "$VERSION" ]] \
+            || { echo "::error::${FMT^^} declares version '$embedded' but the tag says '$VERSION'"; exit 1; }
+
           mkdir -p dist
           cp "$f" "dist/$APP_NAME-$VERSION-$LABEL.$FMT"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: release-desktop-${{ matrix.label }}
+          name: release-desktop-${{ matrix.label }}-${{ matrix.fmt }}
           path: dist/*
           if-no-files-found: error
 
@@ -179,10 +247,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write # the only job that can write to the repository
-      packages: write # for GitHub Packages publishing
+      contents: write
     steps:
-      # TODO(verify): major must match the upload-artifact used by the jobs above.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
       - uses: actions/download-artifact@v7
         with:
           pattern: release-*
@@ -190,24 +260,28 @@ jobs:
           path: dist
 
       - name: Checksums
-        run: cd dist && sha256sum * > SHA256SUMS.txt
-
-      # Publish to GitHub Packages
-      - name: Publish Android APK to GitHub Packages
-        run: ./gradlew :androidApp:publishReleasePublicationToGitHubPackagesRepository
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish Linux packages to GitHub Packages
         run: |
-          ./gradlew :desktopApp:publishLinuxDebPublicationToGitHubPackagesRepository
-          ./gradlew :desktopApp:publishLinuxRpmPublicationToGitHubPackagesRepository
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          echo "--- SHA256SUMS ---"
+          cat SHA256SUMS.txt
 
-      # --draft so a human reads the notes first. TODO: actions/attest-build-provenance.
+      - name: Artifact manifest
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          VERSION_CODE: ${{ needs.meta.outputs.version_code }}
+          PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+        run: |
+          cat > dist/MANIFEST.txt <<EOF
+          version=$VERSION
+          version_code=$VERSION_CODE
+          prerelease=$PRERELEASE
+          files=$(ls dist/*.apk dist/*.deb dist/*.rpm 2>/dev/null | xargs -n1 basename | sort | tr '\n' ' ')
+          EOF
+          cat dist/MANIFEST.txt
+
+      # --draft so a human reads the notes first.
+      # TODO: actions/attest-build-provenance (once OCI attestations support KMP).
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}

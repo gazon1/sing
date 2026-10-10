@@ -9,6 +9,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import kotlinx.coroutines.test.TestScope
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
@@ -83,6 +84,7 @@ class SyncEnginePushTest {
             clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
         )
 
         return Triple(engine, outbox, deadLetter)

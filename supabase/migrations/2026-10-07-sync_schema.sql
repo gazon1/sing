@@ -644,7 +644,7 @@ begin
             server_version = t.server_version + 1
         where t.id = $4 and t.owner_id = $5 and t.profile_id = $6
           and (select count(*) from jsonb_array_elements($1) op where %4$s) > 0
-        returning 1
+        returning t.server_version + 1
     $q$, v_table, v_merged, v_clocks, v_writes);
 
     execute v_sql using p_ops, p_type, p_hlc, p_entity, v_owner, p_profile
@@ -835,7 +835,7 @@ begin
 
         v_results := v_results || jsonb_build_array(
             jsonb_build_object('patchId', p ->> 'patchId', 'ok', true, 'cached', false,
-                               'lost', v_lost, 'legacy', v_legacy, 'newVersion', 1)
+                               'lost', v_lost, 'legacy', v_legacy, 'newVersion', v_touched)
         );
 
         insert into sync_applied_patches (owner_id, patch_id, entity_id, entity_type, applied_at, result)
@@ -843,7 +843,7 @@ begin
             v_owner, p ->> 'patchId', v_entity, v_type,
             (extract(epoch from now()) * 1000)::bigint,
             jsonb_build_object('patchId', p ->> 'patchId', 'ok', true, 'cached', false,
-                               'lost', v_lost, 'legacy', v_legacy, 'newVersion', 1)
+                               'lost', v_lost, 'legacy', v_legacy, 'newVersion', v_touched)
         )
         on conflict do nothing;
 

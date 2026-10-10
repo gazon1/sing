@@ -3439,31 +3439,30 @@ the current state wearing a measurement's clothes.
 **Found in:** 2026-10-06, while writing `release.yml`.
 
 **Tracking:** `docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md` — the
-ordering argument (minify before signing) is recorded there. No issue filed yet.
+ordering argument (minify before signing) is recorded there.
 
-**Status: OPEN — the release pipeline ships what the build can actually build.**
+**Status: PARTIALLY CLOSED (signing done; minification remains OPEN).**
 
-`androidApp/build.gradle.kts` has no `signingConfigs` block at all and sets
-`isMinifyEnabled = false`. `assembleRelease` therefore produces an unsigned,
-unminified APK, and there are no `appVersionName`/`appVersionCode` properties to
-inject a version — `versionName` is hardcoded to `0.1.0`.
+**Signing — DONE (2026-10-09):**
+`androidApp/build.gradle.kts` now has a `signingConfig` block that reads
+`SIGNING_KEYSTORE_PATH`, `SIGNING_KEYSTORE_PASSWORD`, `SIGNING_KEY_ALIAS`,
+`SIGNING_KEY_PASSWORD` from environment variables (populated from GitHub Actions
+secrets in `release.yml`). `release.yml` fails-closed if any secret is missing,
+and verifies the APK certificate SHA-256 against a repo variable
+(`ANDROID_CERT_FINGERPRINT`). `VERSION_NAME` and `VERSION_CODE` are injected
+from the tag at build time.
 
-**Order matters, and it is not the obvious one.** R8 breaks Koin, Room and
-kotlinx-serialization on their reflection, and nothing in CI exercises a minified
-build today: every CI job assembles debug. So "does the shipped binary work" is a
-larger risk than "who receives the file", and minification lands first.
+**Minification — OPEN.** R8 breaks Koin, Room and kotlinx-serialization on
+their reflection, and nothing in CI exercises a minified build today: every CI
+job assembles debug. So "does the shipped binary work" is a larger risk than
+"who receives the file", and minification belongs before signing — a question
+this entry's predecessor correctly framed. `isMinifyEnabled = false` remains.
 
-**Try next, in this order:** (1) set `isMinifyEnabled = true`, write the
+**Try next:** (1) set `isMinifyEnabled = true`, write the
 `proguard-rules.pro` entries for Room/Koin/kotlinx-serialization/Compose, and add
-`assembleRelease` to the `android` matrix so R8 breakage surfaces on a PR; (2) add
-a `signingConfigs` block reading `ANDROID_KEYSTORE_*` from the environment and a
-`:androidApp:versionName`/`versionCode` pair fed from the tag; (3) upload
-`mapping.txt` as a private artifact, which is meaningless until (1) exists.
-
-**What exists meanwhile:** `release.yml` names its artifact `-unsigned.apk`, refuses
-to run `apksigner verify` on a build with no signature, and fails when the
-embedded `versionName` does not match the tag. The last one matters most: without
-it a `v1.2.3` tag ships a binary that declares `0.1.0`, and nothing notices.
+`assembleRelease` to the `android` matrix so R8 breakage surfaces on a PR;
+(2) upload `mapping.txt` as a private artifact, which is meaningless until (1)
+exists.
 
 ---
 
@@ -3471,18 +3470,20 @@ it a `v1.2.3` tag ships a binary that declares `0.1.0`, and nothing notices.
 
 **Found in:** 2026-10-06, while writing `release.yml`.
 
-**Tracking:** `docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md` — the
-what-this-does-not-do list is there. No issue filed yet.
+**Tracking:** `docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md` —
+the what-this-does-not-do list is there.
 
-**Status: OPEN.** `desktopApp/build.gradle.kts` declares
-`nativeDistributions.targetFormats(TargetFormat.Deb)` and nothing else, so
-`packageMsi` and `packageDmg` do not exist and there is no `main-release` directory
-to look in — Compose Desktop has no build variants. `release.yml` publishes the
-Linux `.deb` only.
+**Status: PARTIALLY CLOSED (Deb + RPM done; MSI/DMG remain OPEN).**
 
-jpackage cannot cross-compile, so each format needs its own runner: `windows-2025`
-and `macos-15`. Unsigned installers also trip SmartScreen and Gatekeeper, so
-adding the formats without signing ships something users must click through.
+**Deb + RPM — DONE (2026-10-09):**
+`desktopApp/build.gradle.kts` now declares `targetFormats(TargetFormat.Deb, TargetFormat.Rpm)`
+and `release.yml` has both matrix legs. `packageVersion` is injected from the tag.
+The RPM `VERSION` field is verified against the tag at upload time.
+
+**MSI + DMG — OPEN.** `packageMsi` and `packageDmg` do not exist and there is no
+`main-release` directory — Compose Desktop has no build variants. jpackage cannot
+cross-compile, so each format needs its own runner (`windows-2025` and `macos-15`).
+Unsigned installers also trip SmartScreen and Gatekeeper.
 
 **Try next:** add `Msi` and `Dmg` to `targetFormats`, add the two runner legs, then
 add signing and notarization — in that order, because an unsigned installer is
@@ -3913,3 +3914,70 @@ and is correctly *not* reported.
 the screen should render. If yes, replace the current row with it and delete this
 entry. If no, delete `ReminderTile.kt` and its previews outright — a component with no
 caller and no plan is not an asset, it is a trap for the next reader.
+
+---
+
+## simplefiltersheet-modalbottomsheet-unreachable-on-desktop
+
+**Status: OPEN**
+
+**Tracked as:** #403
+
+**Found in:** PR #402 (`:fix/search-viewmodel-test-33-35-73-83`), while attempting to
+write desktop Compose UI tests for `SimpleFilterSheet`.
+
+`SimpleFilterSheet` is a `ModalBottomSheet`. On desktop Compose, `ModalBottomSheet`
+renders its content into a **separate semantics root** — the test API (`onNodeWithText`,
+`performClick`) cannot reach it. All four tests that tried to interact with the sheet's
+controls (`Has description`, `Pinned` toggles; `Apply`, `Cancel` buttons) failed with
+`IllegalStateException` ("expected at least one item").
+
+**Already ruled out — measured, not inferred.** `BottomSheetScaffold` cannot work
+around this: the sheet manages its own `SheetState`, and the content lives in the
+scaffold's `sheetContent` slot which the test API still cannot reach. The codebase's
+own `TagsMd.kt:282` already documents this limitation for the `SearchFilter` tag class.
+`ModalBottomSheet` on desktop always creates a separate semantics root.
+
+**Try next, in this order.**
+
+1. **Accept the gap (Android/Maestro tier only).** Document the gap permanently in
+   `TagsMd.kt` under the `SearchFilter` heading. The controls are reachable via
+   Maestro flows on Android. No code change.
+2. **Refactor to BottomSheetScaffold.** If `SimpleFilterSheet` used `BottomSheetScaffold`
+   directly instead of `ModalBottomSheet`, it would render in the same semantics root.
+   This is a product/UX decision about the sheet's dismissal model (swipe-to-dismiss
+   vs. tap-outside-to-dismiss), not a test infrastructure decision.
+3. **Screenshot-based testing.** A screenshot test would capture the rendered sheet
+   and could assert on pixel values. This tests appearance, not behaviour.
+
+---
+
+## savedsearchesrow-longpress-unreachable-on-desktop
+
+**Status: OPEN**
+
+**Tracked as:** #404
+
+**Found in:** PR #402 (`:fix/search-viewmodel-test-33-35-73-83`), while writing
+`SavedSearchesRowUiTest`.
+
+`SavedSearchesRow` has a long-press context menu (rename, delete) implemented with
+`combinedClickable` inside a `LazyRow`'s `DropdownMenu` popup. The desktop Compose
+test API cannot reliably address nodes inside a `DropdownMenu` popup rendered by
+`LazyRow` — the popup is in a separate layer that `onNodeWithText` and `performClick`
+cannot reach. The test was omitted from the PR rather than shipped broken.
+
+**Already ruled out — measured, not inferred.** Direct `performClick` on the chip
+works correctly (covered by the PR's tests). The long-press path is the gap.
+
+**Try next, in this order.**
+
+1. **Accept the gap (Android/Maestro tier only).** The long-press rename/delete is
+   reachable via Maestro on Android. No code change.
+2. **Rewrite context menu as inline UI.** If the menu were rendered as a permanent
+   inline UI element (e.g., a separate column or a dialog) instead of `DropdownMenu`,
+   it would be addressable by the desktop test API.
+3. **Investigate desktop PopupLayer API.** `DropdownMenu` in desktop Compose uses a
+   `PopupLayer`; there may be a way to traverse it with the test API that was not
+   explored during this PR.
+

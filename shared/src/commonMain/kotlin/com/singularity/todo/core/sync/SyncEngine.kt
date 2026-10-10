@@ -267,6 +267,7 @@ internal class SyncEngine(
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
     private val crashReporter: CrashReportingPort,
+    private val hlcFactory: HlcFactory,
     /**
      * Per-entity pull handlers (registered by TasksDiModule, NotesDiModule, etc.).
      *
@@ -319,6 +320,7 @@ internal class SyncEngine(
         phases = state.phases,
         getHandlers = { handlerRegistry.handlers },
         scope = scope,
+        hlcFactory = hlcFactory,
     ),
 ) : AutoCloseable by scope {
     private val json = StableJson

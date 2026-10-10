@@ -25,6 +25,17 @@ internal class PullPhase(
     private val phases: SyncPhaseReporter,
     private val getHandlers: () -> Map<DocType, EntityApply>,
     private val scope: AutoCloseableCoroutineScope,
+    /**
+     * Merges the HLC received from another device into the local clock.
+     *
+     * Called on every pulled event that carries an HLC. Without this, a device whose
+     * wall clock is behind never catches up: every subsequent local patch loses every
+     * field conflict to the server because the local HLC is still behind.
+     *
+     * @see HlcFactory.tock()
+     * @see <a href="https://github.com/gazon1/sing/issues/179">GH #179</a>
+     */
+    private val hlcFactory: HlcFactory,
 ) {
     private val log = Logger.withTag("PullPhase")
 
@@ -55,9 +66,19 @@ internal class PullPhase(
 
     /**
      * Applies one event to [scope], or says why it was not applied.
+     *
+     * ## Why HLC merging is done here rather than in the handler
+     *
+     * The handler is entity-specific and registered per DocType. The clock merge is
+     * a global operation that belongs to the sync loop, not to individual entity handlers.
+     * Merging here keeps every event on the same global clock timeline.
      */
     private suspend fun applyEvent(event: SyncEvent, scope: SyncScope): PullStep {
         if (!event.belongsTo(scope)) return PullStep.Skipped
+        // Merge the received HLC into the local clock so the local device advances to
+        // meet the remote clock. Without this, a device behind a day never catches up
+        // and loses every field conflict silently (#179).
+        event.hlc?.let { hlcFactory.tock(it) }
         val handler = getHandlers()[event.entityType] ?: return PullStep.Unappliable
         return when (val outcome = handler.apply(event)) {
             is ApplyOutcome.Applied -> PullStep.Done

@@ -45,9 +45,19 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# ``infra/kiwi`` is a Python package.  Adding both ``infra/`` and
+# ``infra/kiwi/`` to ``sys.path`` lets the ``infra.kiwi`` prefix resolve
+# correctly while keeping the wider path last so that callers who insert
+# ``infra/kiwi`` explicitly still work.
+_INFRA_KIWI = str(Path(__file__).resolve().parent)
+_INFRA = str(Path(__file__).resolve().parents[1])
+if _INFRA not in sys.path:
+    sys.path.insert(0, _INFRA)
+if _INFRA_KIWI not in sys.path:
+    sys.path.insert(0, _INFRA_KIWI)
 
-from kiwi_client import KiwiClient, KiwiError  # noqa: E402
+from infra.kiwi.kiwi_client import KiwiClient, KiwiError
+from infra.kiwi import kiwi_client as _kiwi_client_module  # noqa: F401  (sys.modules entry for traceability)
 
 DEFAULT_KEEP = 20
 

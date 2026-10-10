@@ -383,6 +383,12 @@ class ProjectDetailViewModel(
             }
 
             is ProjectDetailIntent.Domain.UpdateInheritedTagGroups -> {
+                // `setInheritedForProject` writes the join table AND the project document
+                // (including updatedAt) AND enqueues the project for sync. The subsequent
+                // `mutate` is the optimistic UI update — the actual persistence is done here.
+                vmScope.launch {
+                    tagGroupRepo.setInheritedForProject(projectId, intent.groupIds)
+                }
                 mutate { copy(inheritedTagGroupIds = intent.groupIds) }
             }
 
