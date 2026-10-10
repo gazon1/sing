@@ -1,0 +1,45 @@
+appId: com.singularity.todo
+name: tasks-time-tracking-start-stop
+tags:
+  - regression
+  - tasks
+  - TASK-TIME-01
+---
+# Seed an undated task so it appears in Inbox.
+- runFlow: ../helpers/seed-task.yaml
+
+# Open the task detail screen.
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- assertVisible: "Buy milk"
+
+# The time tracking section shows the START chip on a signed-in session.
+# (Anonymous/dev sessions show time_tracking_error instead; the section is
+# still present, just in an error state — the STOP path is inaccessible.)
+- extendedWaitUntil:
+    visible:
+      id: time_tracking_start
+    timeout: 8000
+
+# Tap Start. The chip swaps to STOP and the elapsed timer renders.
+- tapOn:
+    id: time_tracking_start
+- extendedWaitUntil:
+    visible:
+      id: time_tracking_stop
+    timeout: 5000
+
+# Stop the timer. The section returns to Idle (START chip visible again).
+- tapOn:
+    id: time_tracking_stop
+- extendedWaitUntil:
+    visible:
+      id: time_tracking_start
+    timeout: 5000
+
+# The section re-rendered as Loaded without crashing — verified by the chip
+# being back in its idle state (extendedWaitUntil succeeded above).
