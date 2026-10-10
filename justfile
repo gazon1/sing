@@ -90,22 +90,13 @@ alias cr       := tests::coverage-ratchet
 alias db-a   := android::db-schema
 alias db-d   := desktop::db-schema
 
-# ----- Kiwi TCMS shortcuts -----
-# start/stop — фоновый режим: контейнеры живут между вызовами just.
-alias kiwi-start   := kiwi::start
-alias kiwi-stop    := kiwi::stop
-alias kiwi-wait    := kiwi::wait
-alias kiwi-status  := kiwi::status
-alias kiwi-logs    := kiwi::logs
-alias kiwi-up      := kiwi::up
-alias kiwi-down    := kiwi::stop
-alias kiwi-restart := kiwi::restart
-alias kiwi-purge   := kiwi::purge
-alias ksync        := kiwi::sync-plan
-alias kresults     := kiwi::sync-results
-alias kgaps        := kiwi::gaps
-alias kprune       := kiwi::prune
-alias kfloor       := kiwi::floor
+# ----- Kiwi TCMS shortcuts (DEACTIVATED 2026-10-09) -----
+# Kiwi TCMS integration is paused. The kfloor recipe below works without the stand.
+# Re-enable: uncomment the aliases in .just/kiwi/mod.just and restore this section.
+kfloor:
+    #!/bin/bash
+    set -euo pipefail
+    PYTHONPATH=. python3 scripts/check-kiwi-gaps.py --if-present
 
 # ----- Spec-first traceability (scenarios → coverage/result matrices) -----
 # Coverage is committed and CI-checked; results are a per-commit CI artifact.
