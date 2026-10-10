@@ -27,7 +27,6 @@ import kotlinx.serialization.Serializable
  * - [RecurrenceBase.CATCH_UP]: like FROM_COMPLETION but creates copies for each missed occurrence
  *   up to [MAX_MISSED] (10). Used to fill in gaps when tasks are completed late.
  *
- * @see RecurrenceParser for DSL parsing.
  * @see RecurrenceCalculator for next-occurrence computation.
  */
 @Serializable

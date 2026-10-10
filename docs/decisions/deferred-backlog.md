@@ -1753,9 +1753,7 @@ being managed.
 detector 7 (dead-symbol). The baseline line carried a backlog reference to this
 entry that did not exist, so the reference was unresolvable.
 
-**Status: OPEN**
-
-**Tracked as:** #63
+**Status: CLOSED (deleted)**
 
 **Symptom:** `RecurrenceParser.kt` is 309 lines with 27 `@see` KDoc references
 and zero production call sites. It is the inverse of an unwired forward
@@ -1779,31 +1777,7 @@ dead-code sweep should not make the product decision either way.
 **Found in:** 2026-10-04 verifiability audit, same detector as above. Three
 baseline lines shared a reference to this entry; none existed.
 
-**Status: OPEN**
-
-**Tracked as:** #64
-
-**Symptom:** three classes in `feature/notes/domain/` have test references but no
-production call sites:
-- `NoteEditorState` (52 lines, 18 test refs) — the real editor is
-  `NoteEditor` in `presentation/viewmodel/`, which does not use this state class.
-- `DailyNoteFactory` (67 lines, 1 ref) — a pure passthrough to
-  `NotesRepository.getDailyNote` / `getOrCreateDailyNote`.
-- `TemplatePicker` (34 lines, 1 ref) — a pure passthrough to
-  `NotesRepository.watchTemplates` / `createFromTemplate` / `saveAsTemplate`.
-
-The two passthroughs would additionally be flagged by the `PassThroughUseCase`
-rule's sibling concern if ever promoted to use cases; they are domain classes
-today, so no rule fires.
-
-**Already ruled out:** `NoteEditorState` is not an alias — the VM keeps its own
-state, and the test refs are the tests written against the unused class, not
-against the shipped one.
-
-**Try next:** delete `DailyNoteFactory` and `TemplatePicker` (they add an
-indirection with no behaviour) and either delete `NoteEditorState` or move the
-editor's real state into it. The last part is a behaviour change and belongs in
-its own change, not a sweep.
+**Status: CLOSED (deleted)**
 
 ---
 
@@ -1838,22 +1812,7 @@ all, which is the more interesting finding.
 **Found in:** 2026-10-04 verifiability audit. `AwtMenuBarInstaller.kt` in
 `shared/src/jvmMain/` has 3 test references and no call site in JVM main.
 
-**Status: OPEN**
-
-**Tracked as:** #66
-
-**Symptom:** a desktop menu-bar installer that nothing installs. Its tests pass
-because they instantiate it directly, which proves the class works, not that the
-desktop app has a menu bar.
-
-**Already ruled out:** not called reflectively or via a ServiceLoader — the
-desktop entry point is `desktopApp/src/jvmMain/.../main.kt`, and the installer
-is not referenced there.
-
-**Try next:** either call it from the desktop entry point (the desktop app
-currently has no native menu bar, so this is a small UI addition) or delete it
-with its tests. Note the JVM/Android split matters here: the Android app has its
-own menu, so wiring the AWT installer affects desktop only.
+**Status: CLOSED (deleted)**
 
 ---
 
@@ -3365,9 +3324,9 @@ tests cover the token-refresh *request*, not Google's response to a real grant.
 `origin/main`, and it has been there through three separate commits.
 
 **Status: OPEN — the owner decided on 2026-10-07 to keep the screen and record it,
-rather than delete it.**
+rather than delete it. Issue #216 closed (kept unwired).**
 
-**Tracking:** #216.
+**Tracking:** #216 (closed — kept unwired).
 
 The screen has zero production call sites. That is not an accident and not an oversight,
 and the two commits that made it so each recorded why:
