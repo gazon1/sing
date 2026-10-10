@@ -8,8 +8,8 @@ package com.singularity.todo.core.ui.components
  * [NotificationHost] maps each feature event to one of these variants.
  */
 sealed interface Notification {
-    /** Generic informational dialog with optional text. */
-    data class Text(val title: String, val text: String?) : Notification
+    /** Generic informational dialog. */
+    data class Text(val title: String, val text: String) : Notification
 
     /** Error dialog. */
     data class Error(val message: String) : Notification

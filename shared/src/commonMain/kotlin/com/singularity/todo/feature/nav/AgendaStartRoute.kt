@@ -36,6 +36,12 @@ sealed interface AgendaStartRoute : AppNavKey {
         val id: TagId get() = TagId.fromString(tagId)
     }
 
+    /** All tasks matching all of the given tags (matchAll). */
+    @Serializable
+    data class Tags(val tagIds: Set<String>) : AgendaStartRoute {
+        val ids: Set<TagId> get() = tagIds.map { TagId.fromString(it) }.toSet()
+    }
+
     /** Saved views list. */
     @Serializable
     data object SavedAgendaList : AgendaStartRoute

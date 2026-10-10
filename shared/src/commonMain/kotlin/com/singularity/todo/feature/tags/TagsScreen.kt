@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -66,6 +67,7 @@ import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
 fun TagsScreen(
     viewModel: TagsViewModel,
     modifier: Modifier = Modifier,
+    onOpenTag: (TagId) -> Unit = {},
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
@@ -102,6 +104,7 @@ fun TagsScreen(
                     tags = tags,
                     onDelete = { id -> viewModel.onIntent(TagsIntent.Delete(id)) },
                     onRename = { tag -> tagBeingRenamed = tag },
+                    onOpen = onOpenTag,
                 )
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
@@ -144,22 +147,35 @@ fun TagsScreen(
 private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)
 
 @Composable
-private fun TagList(tags: List<Tag>, onDelete: (TagId) -> Unit, onRename: (Tag) -> Unit) {
+private fun TagList(
+    tags: List<Tag>,
+    onDelete: (TagId) -> Unit,
+    onRename: (Tag) -> Unit,
+    onOpen: (TagId) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.testTag(TestTags.TAGS_LIST),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(tags, key = { it.id.value }) { tag ->
-            TagCard(tag = tag, onDelete = { onDelete(tag.id) }, onRename = { onRename(tag) })
+            TagCard(
+                tag = tag,
+                onDelete = { onDelete(tag.id) },
+                onRename = { onRename(tag) },
+                onOpen = { onOpen(tag.id) },
+            )
         }
     }
 }
 
 @Composable
-fun TagCard(tag: Tag, onDelete: () -> Unit, onRename: () -> Unit) {
+fun TagCard(tag: Tag, onDelete: () -> Unit, onRename: () -> Unit, onOpen: () -> Unit) {
     androidx.compose.material3.Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .testTag(TestTags.tagOpen(tag.name)),
         colors = androidx.compose.material3.CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),

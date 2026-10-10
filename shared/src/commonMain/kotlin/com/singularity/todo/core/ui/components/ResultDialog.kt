@@ -8,14 +8,13 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 
 /**
- * Generic "AI Result" / error dialog. Shows nothing when [text] is null.
+ * Generic "AI Result" / error dialog.
  *
  * Replaces four near-identical inline `AlertDialog` blocks previously living
  * in TasksScreen, NoteEditorScreen, ProjectsScreen, and ChatScreen.
  */
 @Composable
-fun ResultDialog(title: String, text: String?, onDismiss: () -> Unit) {
-    if (text == null) return
+fun ResultDialog(title: String, text: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
