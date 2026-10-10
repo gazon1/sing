@@ -531,6 +531,16 @@ no-viewmodel-scope:
   NoViewModelScopeInProduction:
     active: true
 
+# Added to close #482. The rule was registered in META-INF/services but had no
+# config block, so DetektConfigWiringTest failed.
+#
+# active: false — #477: the rule misses System.currentTimeMillis() (14 live uses
+# unbanned) and needs fixes before it can be activated without violating the build.
+# When #477 is fixed, flip to active: true.
+no-direct-clock-system:
+  NoDirectClockSystem:
+    active: false
+
 no-state-in:
   NoStateIn:
     active: true
