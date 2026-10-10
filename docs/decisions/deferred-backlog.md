@@ -344,23 +344,22 @@ MR-4 stopped at the two symbols it was asked to remove.
 
 ## log-messages-need-a-user-content-sweep
 
-**Status: OPEN**
+**Status: CLOSED — sweep done 2026-10-10**
 
 **Tracked as:** #43
 
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
 
-**Symptom:** a repo-wide sweep of `log.{d,i,w,e} { "...$var..." }` for
-user-derived values has never been done. `ChatViewModel` (AI prompt fragment)
-and `ProfileBootstrapper`/`SyncBootstrapper` (profile name, entity id) were
-fixed individually; other call sites print whatever they were handed.
+**Sweep result (2026-10-10):** Full record at `docs/decisions/2026-10-10-log-interpolation-sweep.md`.
+33 log call sites audited. All interpolations classified as typed ids (ULIDs/UUIDs,
+system-generated) or technical metadata (LSN, protocol version, counts, enum names).
+Two noted cases carry a theoretical user-content path via exception messages from
+decode failures and server error strings — documented in the sweep record with the
+conclusion that no actionable leak was found.
 
-**Try next:** one deliberate pass over `commonMain` log call sites,
-classifying each interpolated value as id (fine), technical metadata (fine) or
-user content (decision needed per site — drop, truncate, or accept). Record
-the classification so the next audit is a diff, not a re-derivation. The
-severity question rides along: in release, `Warn`+ still writes to the file.
+**Verdict:** No user content interpolation found that requires fixing. The sweep record
+allows the next audit to be a diff.
 
 ---
 

@@ -139,6 +139,30 @@ wired with no new call site at all (`AiUsageViewModel`, `AuthViewModel`, `Calend
   per-call-site key would need a per-call-site handler, which is the global-state plumbing being
   avoided; the stack trace in the report is what distinguishes them.
 
+## Retirement of `background.coroutine_failed` (#369, #140)
+
+The `background.coroutine_failed` issue grouping key requires a dashboard check before
+retirement. The retirement condition is:
+
+1. AppTracer SDK must be correctly initialised on device — this requires #383 fixed
+   (buildUuid null was preventing `Tracer.init()` from succeeding).
+2. The AppTracer integration must be verified on a real device — #134.
+3. Datadog dashboard for `background.coroutine_failed` must show **zero failures** recorded.
+4. The failure mode must be confirmed no longer relevant — background coroutine failures
+   are now caught by `BackgroundFailureHandler` which reports them and does **not**
+   kill the process.
+
+If (1) and (2) are satisfied and (3) shows zero, the key can be retired: the
+`CoroutineExceptionHandler` handles the failure gracefully and the process survives.
+If (3) shows non-zero failures after (1) and (2) are green, investigate each failure
+before retiring the key — a real failure under a correctly-initialised SDK means the
+handler is not catching all failure paths.
+
+**Current state (2026-10-10):** The SDK was broken (#383, buildUuid=null) so it never
+initialised on device. The theoretical failure count is zero because the reporting
+path was dead. Fixing #383 makes the path live; the dashboard must be checked after
+the SDK is confirmed working before the key is retired.
+
 ## Links
 
 - `core/coroutines/BackgroundFailureHandler.kt` — the handler

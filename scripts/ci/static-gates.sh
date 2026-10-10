@@ -160,7 +160,12 @@ gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
 # this becomes blocking and the `advisory` word goes with it.
 gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
 
-# Advisory — the backlog↔issues gate. I1/I2 are blocking (cite to non-existent issue,
+# AppTracer (#387): release builds must not upload outside CI. The policy is encoded
+# structurally in pro/build.gradle.kts (isCi gate) and documented in the ADR. This
+# gate asserts the structure is present — a comment is not a gate.
+gate blocking "apptracer upload policy encoded" python3 scripts/check-apptracer-policy.py
+
+# Advisory — the backlog→issues gate. I1/I2 are blocking (cite to a non-existent issue,
 # or open entry tracking a closed one). I4 (open issue missing Backlog: field) is
 # advisory because the convention is new and existing open issues do not yet carry the field.
 # When the 11 real I2 violations are triaged and the Backlog: field is added to open
