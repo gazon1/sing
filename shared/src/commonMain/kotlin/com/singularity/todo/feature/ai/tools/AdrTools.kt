@@ -124,7 +124,17 @@ class AdrStorage(
     fun listAdrs(): List<AdrSummary> {
         val dirPath = Path(decisionsDir)
         if (!dirPath.isDirectory()) return emptyList()
-        return dirPath.listDirectoryEntries("*.md")
+        // Recursive: walks all subdirectories so that future per-entry splits
+        // (T2) are found without any further changes to this function.
+        return dirPath.listDirectoryEntries()
+            .filter { it.isDirectory() || it.fileName.toString().endsWith(".md") }
+            .flatMap { entry ->
+                if (entry.isDirectory()) {
+                    entry.listDirectoryEntries("*.md")
+                } else {
+                    listOf(entry)
+                }
+            }
             .mapNotNull { filePath ->
                 val slug = filePath.fileName.toString().removeSuffix(".md")
                 readAdr(slug)?.let { AdrSummary(it.slug, it.title, it.date, it.tags) }
@@ -141,7 +151,7 @@ class AdrStorage(
         // instead of accepting whatever day it happens to run on (#91).
         val date = todayAt(clock, timeZone.current()).toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
-        val frontmatter = "---\ntitle: \"$title\"\ndate: $date\ntags: $tagsStr\n---\n\n"
+        val frontmatter = "---\ntitle: \"$title\"\ndate: $date\nstatus: open\ntags: $tagsStr\n---\n\n"
         val path = Path(filePath(slug))
         path.writeText(frontmatter + body, Charsets.UTF_8)
         return path.toString()
