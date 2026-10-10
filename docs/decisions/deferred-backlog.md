@@ -3984,9 +3984,11 @@ works correctly (covered by the PR's tests). The long-press path is the gap.
 
 ## koin-definition-bodies-at-zero-coverage
 
-**Status: OPEN — known Kover limitation; no workaround available**
+**Status: CLOSED — known Kover limitation; no fix available**
 
-**Tracked as:** #370
+**Tracked as:** #370 (CLOSED)
+
+**Closed via:** `fix/subtask-ui-tagging-01`:commit:94f3ab73
 
 **Found in:** coverage ratchet analysis, 2026-10-07.
 
@@ -4005,7 +4007,7 @@ not to `Modules.kt`. The lambda body executes but is not Kover-attributed.
 **Try next.** Nothing in Kover's configuration can change this — it is a fundamental
 aspect of how JVM coverage tooling works. The options are:
 
-1. **Accept the gap.** `KoinGraphValidationTest` already validates graph resolution.
+1. **Accept the gap (chosen).** `KoinGraphValidationTest` already validates graph resolution.
    The 0% body coverage is a Kover blind spot, not a graph defect.
 2. **Alternative coverage tool.** Jacoco's `OFFSET` counter mode produces different
    attribution, but still not per-definition-body lines for lambdas captured in
