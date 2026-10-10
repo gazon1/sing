@@ -71,7 +71,7 @@ below.
 
 **Status: OPEN**
 
-**Tracked as:** #37
+**Tracked as:** #440
 
 **Found in:** the logging epic retrospective (MR-2), when `LogExporter` was
 deleted instead of implemented.
@@ -148,7 +148,7 @@ unreachable tag, `TAGS=smoke` selects 19.
 
 ## thirteen-scenario-slices-queued-not-yet-written
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#170](https://github.com/gazon1/sing/issues/170)
 
@@ -230,7 +230,7 @@ without running, and worse, because the number would look like progress.
 
 ## debug-seed-cannot-build-a-related-graph
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#171](https://github.com/gazon1/sing/issues/171)
 
@@ -294,7 +294,7 @@ not an argument that this one is fine forever.
 
 **Status: OPEN**
 
-**Tracked as:** #36
+**Tracked as:** #441
 
 **Found in:** MR-4, while deleting dead code. `TaskMutationsUseCase` was on
 the deletion list and was **kept** — see the note below.
@@ -322,7 +322,7 @@ some ids vanished).
 
 **Status: OPEN**
 
-**Tracked as:** #38
+**Tracked as:** #442
 
 **Found in:** MR-4. The plan listed two dead symbols in
 `core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
@@ -346,7 +346,7 @@ MR-4 stopped at the two symbols it was asked to remove.
 
 **Status: CLOSED — sweep done 2026-10-10**
 
-**Tracked as:** #43
+**Tracked as:** #443
 
 **Found in:** MR-3 retrospective. The redaction decorator catches credential
 shapes; it does not catch task titles, note bodies, or AI prompt fragments.
@@ -367,7 +367,7 @@ allows the next audit to be a diff.
 
 **Status: CLOSED — re-measured 2026-10-07; the bundle narrows it to a state, not a write**
 
-**Tracked as:** #40
+**Tracked as:** #462
 
 **Re-measurement (2026-10-07).** The failure bundle settles the first question — is the
 value saved? — and it is:
@@ -468,7 +468,7 @@ and the composable did not observe". The DB snapshot already says the latter.
 
 **Status: CLOSED**
 
-**Tracked as:** #42
+**Tracked as:** #463
 
 **Found in:** `refactor/tag-registry-and-robots`, while fixing the
 `NoDirectClockSystem` violation that shipped in `2e99b1d0`.
@@ -517,7 +517,7 @@ every `TextGenPort.generate()` and `streamChat()` call to `RoomUsageRecorder`.
 
 ## no-direct-dispatchers-rule-one-whitelisted-case
 
-**Tracked as:** #44
+**Tracked as:** #444
 
 **Found in:** MR-B (tech-debt batch). `NoDirectDispatchersRule` bans
 `Dispatchers.IO/Default/Main` in production. One legitimate case was
@@ -559,7 +559,7 @@ something*: it was verified by 17 tests, not inferred from a silent rule.
 
 **Status: OPEN**
 
-**Tracked as:** #45
+**Tracked as:** #445
 
 **Found in:** MR-C (tech-debt batch). The plan proposed adding a red-border
 debug overlay to `NavDisplay` when `entries.isEmpty()` as a diagnostic for
@@ -581,7 +581,7 @@ route change itself is the trigger.
 
 **Status: OPEN**
 
-**Tracked as:** #41
+**Tracked as:** #446
 
 **Found in:** Phase 1.7 (`refactor/openspec-adoption`), via
 `check-doc-dead-refs.py --skill-symbols` (detector 8). All ~840 findings
@@ -618,7 +618,7 @@ CI will fail. The backlog owner should prioritize `nav3-nested-graphs`
 
 **Status: OPEN**
 
-**Tracked as:** #39
+**Tracked as:** #447
 
 **Found in:** 2026-10-04, while verifying the identity-derivation change across three
 modules in one Gradle invocation (`:shared:jvmTest :desktopApp:test :mcp-server:test`).
@@ -652,7 +652,7 @@ loudly with data instead of looking like a hang. Do NOT simply raise the number.
 
 **Status: OPEN**
 
-**Tracked as:** #35
+**Tracked as:** #448
 
 **Found in:** the OpenSpec backlog pass, 2026-10-04, while closing out
 `navigation-open-policy` and noticing that `openspec/changes/archive` was empty
@@ -737,7 +737,7 @@ null text to the snackbar host, or make the parameter non-null).
 
 **Symptom:** `agenda_views` таблица (Room) не входит в `BackupPayload`. При restore из backup все saved views теряются. Также отсутствуют: `task_reminders`, `project_reminders`, `checklist_items`, `tag_groups`, `project_tag_groups`, `saved_searches`, `time_entries`, `profiles`.
 
-**Status: PARTIALLY RESOLVED** (MR-1, 2026-10-03). `agenda_views` is in the
+**Status: CLOSED — tracked GitHub issue is closed**** (MR-1, 2026-10-03). `agenda_views` is in the
 backup: `BackupPayload.agendaViews` (`:17`), `BackupExporter` reads it
 (`:37`, `:49`) and counts it in the manifest (`:65`), `BackupImporter` writes it
 back (`:120`), and `BackupFormat.kt:5` records the version bump.
@@ -887,7 +887,7 @@ inside the snackbar, animated from 100% to 0% over 5 seconds using `animateFloat
 
 ## bulk-import-port
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#82](https://github.com/gazon1/sing/issues/82) · OpenSpec change `bulk-import-port` (proposed)
 
@@ -905,7 +905,7 @@ and routes writes through repositories. Replace DAO calls in `BackupImporter` wi
 
 ## vm-without-test
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#83](https://github.com/gazon1/sing/issues/83)
 
@@ -1390,7 +1390,7 @@ text. Both are the same defect: **a selector that a translator can move.**
 
 ## ui-reads-the-system-clock-directly-so-a-fixed-date-cannot-reach-it
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#91](https://github.com/gazon1/sing/issues/91)
 
@@ -1556,7 +1556,7 @@ least one positive test (two were confirmed no-ops and fixed: see
 **Tracked as:** #98
 **OpenSpec change:** `openspec/changes/detekt-rule-coverage-floor/`
 
-**Status:** PARTIALLY PAID (2026-10-05, later the same day). Kover is now on
+**Status:** CLOSED — tracked GitHub issue is closed (2026-10-05, later the same day). Kover is now on
 :detekt-rules (`just tkr`), so this is a number rather than prose: **92.0% line
 coverage, 102 tests, 0 failures.** Coverage went 66.2% -> 92.0% when the four
 MviViewModel rules — the ones guarding the canonical VM shape, previously 0% and
@@ -1751,7 +1751,7 @@ entry that did not exist, so the reference was unresolvable.
 
 **Status: OPEN**
 
-**Tracked as:** #63
+**Tracked as:** #449
 
 **Symptom:** `RecurrenceParser.kt` is 309 lines with 27 `@see` KDoc references
 and zero production call sites. It is the inverse of an unwired forward
@@ -1777,7 +1777,7 @@ baseline lines shared a reference to this entry; none existed.
 
 **Status: OPEN**
 
-**Tracked as:** #64
+**Tracked as:** #450
 
 **Symptom:** three classes in `feature/notes/domain/` have test references but no
 production call sites:
@@ -1812,7 +1812,7 @@ apply it.
 **Status: CLOSED (65 closed)** — the tracked issue is closed,
 so this finding is no longer an open commitment.
 
-**Tracked as:** #65
+**Tracked as:** #464
 
 **Symptom:** the same shape as `SNACKBAR_SAVED`, which was resolved by wiring the
 tag. A test tag that no production code emits is a test asserting a state the app
@@ -1836,7 +1836,7 @@ all, which is the more interesting finding.
 
 **Status: OPEN**
 
-**Tracked as:** #66
+**Tracked as:** #451
 
 **Symptom:** a desktop menu-bar installer that nothing installs. Its tests pass
 because they instantiate it directly, which proves the class works, not that the
@@ -1860,7 +1860,7 @@ unconfigured rulesets could fire. The proof required running
 `:detekt-rules:test` — and nothing in `check.sh`, `ci.yml` or the `justfile`
 ran it.
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** #135
 
@@ -1916,7 +1916,7 @@ whose KDoc promised coverage; neither was true.
 
 **Status: OPEN**
 
-**Tracked as:** #61, #32 (closed)
+**Tracked as:** #452, #32 (closed)
 
 **Symptom:** making the rules effective surfaced **52 pre-existing violations**
 that no gate had ever seen:
@@ -1960,7 +1960,7 @@ produced this entry.
 
 **Status: OPEN**
 
-**Tracked as:** #55
+**Tracked as:** #453
 
 **Symptom:** `normalize-adr-frontmatter.sh --dry-run` exits **2** when any ADR's
 frontmatter drifts from the schema, and **8 ADRs** currently do — mostly
@@ -1996,7 +1996,7 @@ inventory. Asked "what is still unwired?" and found `:androidApp:detekt`.
 
 **Status: OPEN**
 
-**Tracked as:** #54
+**Tracked as:** #461
 
 **Symptom:** `androidApp/build.gradle.kts` has had a `detekt { }` block with
 `ignoreFailures = false` and `androidApp/detekt-baseline.xml` (9 entries) since
@@ -2028,7 +2028,7 @@ running.
 
 **Status: OPEN**
 
-**Tracked as:** #60
+**Tracked as:** #454
 
 **Symptom:** `.editorconfig` sets `max_line_length = 140`, and `detekt.yml`
 carries the comment "ktlint owns line length via .editorconfig". But ktlint's
@@ -2071,7 +2071,7 @@ reported 21 sites and the plan proposed constructor-injecting a
 
 **Status: OPEN**
 
-**Tracked as:** #61
+**Tracked as:** #455
 
 **Symptom:** sampling the 9 baselined `shared` sites shows most of them are the
 **platform port implementations** the `expect`/`actual` section of AGENTS.md
@@ -2132,7 +2132,7 @@ The plan proposed attacking the top-3 rules mechanically. Two of them are not de
 
 **Status: OPEN**
 
-**Tracked as:** #62
+**Tracked as:** #456
 
 **`BackingPropertyNaming` — 53 entries, every one of them correct.**
 AGENTS.md's *canonical VM pattern* is:
@@ -2189,7 +2189,7 @@ your own architecture is a signal to look at the configuration, not the code.
 
 **Status: OPEN**
 
-**Tracked as:** #58
+**Tracked as:** #457
 
 **Symptom:** `:shared:detektBaseline` is a Gradle task whose output is a tracked
 source file. It gets cached like any other task, and two separate traps stack:
@@ -2231,7 +2231,7 @@ verification run reported `> Task :desktopApp:test FROM-CACHE` and
 
 **Status: OPEN**
 
-**Tracked as:** #59
+**Tracked as:** #458
 
 **Symptom:** a test task whose inputs are unchanged is served from the build cache
 and prints success. After editing configuration (test tags, system properties,
@@ -2268,7 +2268,7 @@ after adding the `check-rule-intent.py` gate.
 
 **Status: OPEN**
 
-**Tracked as:** #57
+**Tracked as:** #459
 
 `./gradlew :shared:detekt --auto-correct` rewrote **five files that had nothing
 to do with B2**: `BackupMigrations.kt`, `LogbookSection.kt` (unused
@@ -2303,7 +2303,7 @@ that rule rather than leave it on detekt's default.
 
 **Status: OPEN**
 
-**Tracked as:** #56
+**Tracked as:** #460
 
 **Found in:** 2026-10-04, immediately after `check-rule-intent.py` was wired into a
 run that touched documentation. The gate reported exactly one hit.
@@ -2336,7 +2336,7 @@ the five `--auto-correct` wanted to rewrite.
 
 **Found in:** 2026-10-05, while fixing the tag gate above.
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** #147
 
@@ -2759,7 +2759,7 @@ re-adopted in the same commit, as that note already requires.
 
 ## scenario-result-missing-for-a-claiming-commit-is-not-a-failure
 
-**Status:** OPEN
+**Status:** CLOSED — tracked GitHub issue is closed
 
 **Tracked as:** #298
 **OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
@@ -2791,7 +2791,7 @@ current signal cannot tell "ran and produced nothing" from "was never run".
 
 ## maestro-results-are-produced-and-discarded-in-ci
 
-**Status:** OPEN
+**Status:** CLOSED — tracked GitHub issue is closed
 
 **Tracked as:** #151
 **OpenSpec change:** `openspec/changes/scenario-results-are-authoritative-in-ci/`
@@ -2827,7 +2827,7 @@ but the join is inference until a real run exercises it.
 
 ## untested-has-two-answers-per-class-and-per-scenario
 
-**Status:** OPEN
+**Status:** CLOSED — tracked GitHub issue is closed
 
 **Tracked as:** #300
 **Supersedes:** #157 (closed — remaining decision captured in #300)
@@ -2929,7 +2929,7 @@ unification would likely produce. Then a small shared scan-root provider in
 
 ## dark-calendar-palette-is-hand-authored-against-a-generated-scheme
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#197](https://github.com/gazon1/sing/issues/197)
 
@@ -2981,7 +2981,7 @@ could read scheme roles directly.
 
 ## tasks-feature-pins-its-own-dark-palette-and-ignores-the-theme-entirely
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#198](https://github.com/gazon1/sing/issues/198)
 
@@ -3131,7 +3131,7 @@ resolve from the same scheme, so they are identical by construction.
 
 ## a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#205](https://github.com/gazon1/sing/issues/205)
 
@@ -3496,7 +3496,7 @@ authoritative list is `./gradlew :desktopApp:tasks --all`, and
 
 ## mainactivity-anr-makes-every-instrumented-test-fail
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** [#219](https://github.com/gazon1/sing/issues/219)
 
@@ -3918,7 +3918,7 @@ caller and no plan is not an asset, it is a trap for the next reader.
 
 ## simplefiltersheet-modalbottomsheet-unreachable-on-desktop
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** #403
 
@@ -3953,7 +3953,7 @@ own `TagsMd.kt:282` already documents this limitation for the `SearchFilter` tag
 
 ## savedsearchesrow-longpress-unreachable-on-desktop
 
-**Status: OPEN**
+**Status: CLOSED — tracked GitHub issue is closed****
 
 **Tracked as:** #404
 

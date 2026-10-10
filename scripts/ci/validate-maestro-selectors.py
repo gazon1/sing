@@ -19,6 +19,25 @@ Exit codes:
     0  All selectors valid (or only warnings in --warn mode)
     1  Unknown selectors found (blocking mode)
     2  Usage / file-not-found error
+
+Limitations
+-----------
+This validator performs **static string comparison** only. It checks that every
+id: used in a flow exists in the known set (STATIC_IDS | DYNAMIC_EXPANSIONS |
+ALLOWLIST), but it cannot verify that a dynamic tag function in TestTags.kt
+produces the expected output.
+
+For example, if someone changes ``navTab("Today")`` to return ``nav_tab_today_v2``
+instead of ``nav_tab_today``, the old ID ``nav_tab_today`` stays in
+DYNAMIC_EXPANSIONS and the validator passes — but the flow would fail at
+runtime because the app now produces a different tag.
+
+Dynamic tag outputs must be verified by:
+1. Running ``just trace-results --maestro --targets android --partial`` after
+   every Maestro flow run (the traceability matrix catches mismatches).
+2. Periodic manual flow runs via ``just maestro <flow>``.
+3. When adding a new dynamic tag function, add its known output IDs to
+   DYNAMIC_EXPANSIONS and add its finite inputs (if any) to FINITE_DYNAMIC_SPACES.
 """
 
 import yaml
@@ -328,9 +347,13 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "subtask_delete_child_task_one",
     # taskItem(...) — seeded via DebugSeedActivity for TASK-SUB-01
     "task_item_parent_task",
+    # taskItem("Anonymous task") — AUTH-FIRSTRUN-01 anonymous first-run flow
+    "task_item_anonymous_task",
     # pomodoroTaskChip(...) — from seed flows
     "pomodoro_task_chip_buy_milk",
     # savedAgendaCard(...) — used in flows
+    "saved_agenda_card_work",
+    "saved_agenda_card_personal",
     "saved_agenda_card_journey_view",
     "saved_agenda_card_journey_renamed",
     # agendaSection(...) — section headers used in flows
@@ -345,11 +368,26 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "profile_item_work",
     # Dialog.title(...) — used in flows
     "dialog_title_priority",
+    "dialog_title_discard",
+    "dialog_title_delete",
     "dialog_title_delete_view",
+    "dialog_title_archive",
     # Note items — desktop/seed
     "note_item_by_title_meeting_notes",
+    # agendaSectionTemplate(...)
+    "agenda_section_template_by_tag",
+    "agenda_section_template_due_date",
+    # agendaSelectorOption(...)
+    "agenda_selector_option_work",
+    # Calendar day cells (hard-coded expanded form)
+    "calendar_day_2026_09_15",
+    # genUi(...)
+    "genui_whatsnew",
     # Menu item slug — "Quick Search" slug = "quick_search"
     "menu_quick_search",
+    # Calendar sync provider segments
+    "calendar_sync_provider_google_calendar",
+    "calendar_sync_provider_system_calendar",
     # Settings tabs (settingsTab function — slug of the tab name)
     "settings_tab_backup",
     "settings_tab_account",
@@ -368,10 +406,27 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_action_mark_as_completed",
     "task_action_open",
     # Calendar view mode tabs (calendarViewMode function)
+    "calendar_view_mode_day",
+    "calendar_view_mode_4_days",
     "calendar_view_mode_week",
     "calendar_view_mode_month",
     # Accent color swatches — used in settings flows (blue is exercised in theme-toggle.yaml)
     "settings_accent_swatch_blue",
+    "settings_accent_swatch_purple",
+    "settings_accent_swatch_pink",
+    "settings_accent_swatch_red",
+    "settings_accent_swatch_orange",
+    "settings_accent_swatch_yellow",
+    "settings_accent_swatch_green",
+    "settings_accent_swatch_teal",
+    # Agenda selector options (agendaSelectorOption function)
+    "agenda_selector_option_none",
+    # Reminder offset radio rows (reminderOffsetRadioRow function — slug of label)
+    "reminder_defaults_section",
+    "reminder_offset_radio_at_due_time",
+    "reminder_offset_radio_15_minutes_before",
+    "reminder_offset_radio_1_hour_before",
+    "reminder_offset_radio_1_day_before",
 }
 
 # ---------------------------------------------------------------------------

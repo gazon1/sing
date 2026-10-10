@@ -154,6 +154,26 @@ def cmd_results(args) -> int:
     commit = args.commit or _git_commit()
     report = normalise(specs, links, result_dirs, commit, partial=args.partial)
 
+    # Parse --missing-scenarios: format is "scenario/target,scenario/target,..."
+    # These are (scenario, target) pairs that CI claimed but never attempted.
+    # Rendered as Outcome.MISSING (❌) in the matrix instead of Outcome.NOT_RUN (⌛).
+    missing: set[tuple[str, Target]] = set()
+    if args.missing_scenarios:
+        for item in args.missing_scenarios.split(","):
+            item = item.strip()
+            if "/" not in item:
+                print(f"WARNING: пропущен элемент без '/': {item!r}", file=sys.stderr)
+                continue
+            scenario_id, target_str = item.rsplit("/", 1)
+            scenario_id = scenario_id.strip()
+            target_str = target_str.strip()
+            try:
+                target = Target(target_str)
+            except ValueError:
+                print(f"WARNING: неизвестная цель {target_str!r}, пропущено", file=sys.stderr)
+                continue
+            missing.add((scenario_id, target))
+
     out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
     json_path = write_results(report, out_dir)
 
@@ -175,6 +195,7 @@ def cmd_results(args) -> int:
         kept=report.kept,
         dropped=report.dropped,
         unmapped=report.unmapped,
+        missing=missing,
     )
     (out_dir / "result-matrix.md").write_text(render_result_matrix(matrix), encoding="utf-8")
 
@@ -370,6 +391,14 @@ def build_parser() -> argparse.ArgumentParser:
         "fast+slow) и ложно для локального прогона по умолчанию, который "
         "исключает @Tag(\"slow\"), а носители сценариев помечены slow. "
         "Локальный рецепт just trace-results передаёт этот флаг.",
+    )
+    p_results.add_argument(
+        "--missing-scenarios",
+        help="сценарии, которые были заявлены в CI, но не запускались (device unavailable и т.п.). "
+        "Формат: scenario/target,scenario/target,... например 'smoke-launch-today/android,auth-01/android'. "
+        "Эти сценарии попадают в матрицу как 'missing' (glyph ❌) вместо 'not-run' (glyph ⌛), "
+        "что позволяет отличить 'CI заявляла цель, но этот сценарий не запустила' "
+        "от 'сценарий запустился, но не дал результата'.",
     )
     p_results.add_argument("--out-dir", help=f"куда писать (по умолчанию {OUTPUT_DIR})")
     p_results.set_defaults(func=cmd_results)

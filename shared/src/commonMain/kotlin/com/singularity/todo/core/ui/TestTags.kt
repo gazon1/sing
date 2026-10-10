@@ -392,6 +392,13 @@ object TestTags {
         /** Per-event vibration toggle. Rendered only while notifications are enabled. */
         const val NOTIFICATIONS_VIBRATION_SWITCH = "settings_notifications_vibration_switch"
 
+        /** Section container for the "Default Reminder" radio group. */
+        const val REMINDER_DEFAULTS_SECTION = "reminder_defaults_section"
+
+        /** Dynamic tag for a reminder-offset radio row. Uses the locale-aware label as input. */
+        fun reminderOffsetRadioRow(offset: com.singularity.todo.core.reminders.ReminderOffset): String =
+            "reminder_offset_radio_${slug(offset.label)}"
+
         /** Weekend-day toggles on the work schedule screen. */
         const val WORK_SCHEDULE_SATURDAY_SWITCH = "settings_work_schedule_saturday_switch"
         const val WORK_SCHEDULE_SUNDAY_SWITCH = "settings_work_schedule_sunday_switch"
@@ -422,6 +429,17 @@ object TestTags {
     object SearchFilter {
         const val HAS_DESCRIPTION_SWITCH = "search_filter_has_description_switch"
         const val PINNED_SWITCH = "search_filter_pinned_switch"
+    }
+
+    /**
+     * Saved searches row — long-press context menu items.
+     *
+     * Desktop gap: `DropdownMenu` renders in a separate layer that the desktop
+     * Compose test API cannot reach. These tags are for Android/Maestro.
+     */
+    object SavedSearches {
+        const val SEARCH_MENU_RENAME = "search_menu_rename"
+        const val SEARCH_MENU_DELETE = "search_menu_delete"
     }
 
     // ─── Calendar sync ───────────────────────────────────────────────────────
