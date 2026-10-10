@@ -8,6 +8,7 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -112,6 +113,7 @@ class SyncEngineOutboxOwnershipTest {
             clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
         )
         // One response per request, carrying a result for every patch in it — the
         // server answers a batch with one batch, and a per-patch response queue would

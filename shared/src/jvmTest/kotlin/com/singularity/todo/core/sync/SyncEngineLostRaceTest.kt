@@ -9,6 +9,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -85,6 +86,7 @@ class SyncEngineLostRaceTest {
         clock = clock,
         scope = testScope(scope.backgroundScope),
         crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
     )
 
     // ── fixtures ───────────────────────────────────────────────────────────────────
