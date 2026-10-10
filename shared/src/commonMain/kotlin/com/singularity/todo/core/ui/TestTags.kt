@@ -145,6 +145,22 @@ object TestTags {
     const val TASK_EDITOR_ESTIMATE_ROW = "task_editor_estimate_row"
 
     /**
+     * First-run suggestion card in the task detail view.
+     *
+     * Shown for tasks < 5 min old that have no description, checklist items, or
+     * completed subtasks. Contains "Write note", "Add checklist", and "Ask AI" chips.
+     */
+    const val FIRST_RUN_SECTION = "first_run_section"
+
+    /**
+     * The checklist bottom sheet (TaskEditorSheetHost with title "Checklist").
+     *
+     * Used in Maestro flows to wait for the sheet to appear before interacting
+     * with checklist items inside it.
+     */
+    const val CHECKLIST_SHEET = "checklist_sheet"
+
+    /**
      * Priority options in the priority picker dialog — one per [TaskPriority].
      *
      * The enum has five values including `Urgent`, and the sheet renders

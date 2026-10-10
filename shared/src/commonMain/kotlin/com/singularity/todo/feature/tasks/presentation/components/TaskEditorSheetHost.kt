@@ -41,6 +41,10 @@ import androidx.compose.ui.unit.dp
  *                   of by locale-sensitive label text.
  * @param sheetState Optional; share a sheet state to control dismiss externally.
  * @param content     Sheet body content.
+ *
+ * @param testTag Optional testTag for the sheet's content column. Pass this when
+ *                   the caller needs an id selector for the sheet itself (e.g. to
+ *                   wait for the checklist sheet to appear in a Maestro flow).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +54,7 @@ fun TaskEditorSheetHost(
     onConfirm: (() -> Unit)? = null,
     testTagConfirm: String? = null,
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
+    testTag: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(
@@ -59,7 +64,11 @@ fun TaskEditorSheetHost(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .then(
+                    if (testTag != null) Modifier.testTag(testTag)
+                    else Modifier,
+                ),
         ) {
             // Header: close | title | confirm
             Row(

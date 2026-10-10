@@ -50,6 +50,7 @@ fun ChecklistEditorSheet(
     TaskEditorSheetHost(
         title = "Checklist",
         onClose = onDismiss,
+        testTag = "checklist_sheet",
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Add new item
