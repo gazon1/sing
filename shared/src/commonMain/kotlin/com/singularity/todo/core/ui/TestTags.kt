@@ -160,6 +160,34 @@ object TestTags {
      */
     const val CHECKLIST_SHEET = "checklist_sheet"
 
+    // ─── Subtasks ─────────────────────────────────────────────────────────────
+    /** The subtasks section container in the task detail view. */
+    const val SUBTASKS_SECTION = "subtasks_section"
+
+    /** Text input for entering a new subtask title in the subtasks section. */
+    const val SUBTASK_ADD_INPUT = "subtask_add_input"
+
+    /** Add/submit button for the subtask input row. */
+    const val SUBTASK_ADD_BUTTON = "subtask_add_button"
+
+    /**
+     * Dynamic tag of the form `subtask_item_<slug>` — one per subtask row.
+     * Derived from the subtask's title, slugified the same way as [taskItem].
+     */
+    fun subtaskItem(title: String) = "subtask_item_${slug(title)}"
+
+    /**
+     * Dynamic tag of the form `subtask_checkbox_<slug>` — the toggle/checkbox
+     * for each subtask row.
+     */
+    fun subtaskCheckbox(title: String) = "subtask_checkbox_${slug(title)}"
+
+    /**
+     * Dynamic tag of the form `subtask_delete_<slug>` — the delete (×) button
+     * for each subtask row.
+     */
+    fun subtaskDelete(title: String) = "subtask_delete_${slug(title)}"
+
     /**
      * Priority options in the priority picker dialog — one per [TaskPriority].
      *

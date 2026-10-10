@@ -18,7 +18,7 @@ below; the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**26 scenarios · 11/49 claimed cells automated · 38 holes**
+**27 scenarios · 12/50 claimed cells automated · 38 holes**
 
 ## feature.auth
 
@@ -64,6 +64,7 @@ below; the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `TASK-CHECK-01` | Add a checklist item to a task | ● | — | The item persists with its text and its completed state, so the list survives closing and reopening the editor on the… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
+| `TASK-SUB-01` | Subtask lifecycle — add, toggle, delete | ● | — | The subtask survives add → toggle → delete. Its parentTaskId is set correctly so it appears as a child in the… |
 | `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | ● | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |
 
 ## Holes
@@ -456,6 +457,24 @@ Steps:
 3. Save the task and complete it once.
 
 **Expected:** The task list shows the next occurrence dated one day after the completion date, and the original instance is gone from Today.
+
+#### `TASK-SUB-01` — Subtask lifecycle — add, toggle, delete
+
+**confirmed** · P1 · `#TASK-SUB`
+
+**Given:** A task exists and its detail view is open. The SubtasksSection is shown even when the task has no subtasks (the "add subtask" row is always present when the section is visible).
+
+Steps:
+
+1. In the SubtasksSection, type a subtask title in the "Add subtask" input.
+2. Submit the input (press Enter or tap Add).
+3. Verify the subtask appears in the list.
+4. Tap the subtask row to toggle its completed state.
+5. Verify the subtask's completed state changes.
+6. Tap the delete (×) button on the subtask row.
+7. Verify the subtask is removed from the list.
+
+**Expected:** The subtask survives add → toggle → delete. Its parentTaskId is set correctly so it appears as a child in the SubtasksSection and nowhere else in the agenda unless "Show subtasks" is enabled.
 
 #### `TASK-TIME-01` — Start a timer on a task from its detail view
 

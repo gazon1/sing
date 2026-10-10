@@ -1,8 +1,13 @@
 package com.singularity.todo.core.di
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.database.ProfileDao
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
@@ -20,6 +25,7 @@ import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import kotlin.time.Clock
 
 /**
  * Logging module — Koin + Kermit integration.
@@ -55,10 +61,19 @@ fun domainModule(): List<Module> = buildList {
     add(
         module {
             single<ProfileRepository> {
-                ProfileRepositoryImpl(get(), get(), get(), createBackgroundScope(crashReportingFailureHandler(get())))
+                ProfileRepositoryImpl(
+                    get<ProfileDao>(),
+                    get<DataStore<Preferences>>(),
+                    get<Clock>(),
+                    createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>())),
+                )
             }
-            single {
-                ProfileAwareCurrentUser(get(), get(), createBackgroundScope(crashReportingFailureHandler(get())))
+            single<ProfileAwareCurrentUser> {
+                ProfileAwareCurrentUser(
+                    get<CurrentUser>(),
+                    get<ProfileRepository>(),
+                    createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>())),
+                )
             }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
             viewModelOf(::AccountSettingsViewModel)
