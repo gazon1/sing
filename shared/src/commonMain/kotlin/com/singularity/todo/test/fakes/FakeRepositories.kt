@@ -264,6 +264,16 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
     override suspend fun setUserId(value: String) {
         _userId.value = value
     }
+
+    // ── Backup ────────────────────────────────────────────────────────────────
+
+    private val _autoBackupEnabled = MutableStateFlow(false)
+    override val autoBackupEnabled: Flow<Boolean> = _autoBackupEnabled
+
+    // ── Tasks ────────────────────────────────────────────────────────────────
+
+    private val _autoArchiveRetentionDays = MutableStateFlow(0)
+    override val autoArchiveRetentionDays: Flow<Int> = _autoArchiveRetentionDays
 }
 
 // ─── BackupRepository ─────────────────────────────────────────────────────────
@@ -321,6 +331,8 @@ class FakeBackupRepository : BackupRepository {
     }
 
     override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
+
+    override suspend fun createBackup(): Result<BackupResult> = exportResult
 }
 
 // ─── FileSystem (in-memory) — already exists as MapFileSystem ─────────────────

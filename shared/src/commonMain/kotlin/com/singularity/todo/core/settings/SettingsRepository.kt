@@ -34,6 +34,8 @@ object SettingsNamespace {
     const val ACCOUNT = "account"
     const val AGENDA = "agenda"
     const val ONBOARDING = "onboarding"
+    const val BACKUP = "backup"
+    const val TASKS = "tasks"
 
     fun key(ns: String, name: String): String = "$ns.$name"
 }
@@ -83,6 +85,15 @@ interface SettingsRepository : SettingsReader {
 
     // Account setter
     suspend fun setUserId(value: String)
+
+    // ── Backup ───────────────────────────────────────────────────────────────
+
+    val autoBackupEnabled: Flow<Boolean>
+
+    // ── Tasks ────────────────────────────────────────────────────────────────
+
+    /** Days after completion before a task is auto-archived. 0 = disabled. */
+    val autoArchiveRetentionDays: Flow<Int>
 }
 
 /**
@@ -151,6 +162,16 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey(
             SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"),
         )
+
+        // ── Backup ────────────────────────────────────────────────────────────────
+        val AUTO_BACKUP_ENABLED = booleanPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.BACKUP, "auto_backup_enabled"),
+        )
+
+        // ── Tasks ────────────────────────────────────────────────────────────────
+        val AUTO_ARCHIVE_RETENTION_DAYS = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.TASKS, "auto_archive_retention_days"),
+        )
     }
 
     // ── Per-section repositories ───────────────────────────────────────────
@@ -177,6 +198,14 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
     // ── Account ───────────────────────────────────────────────────────────────
 
     override val userId: Flow<String> = dataStore.data.map { it[USER_ID] ?: SettingsDefaults.USER_ID }
+
+    // ── Backup ────────────────────────────────────────────────────────────────
+
+    override val autoBackupEnabled: Flow<Boolean> = dataStore.data.map { it[AUTO_BACKUP_ENABLED] ?: false }
+
+    // ── Tasks ────────────────────────────────────────────────────────────────
+
+    override val autoArchiveRetentionDays: Flow<Int> = dataStore.data.map { it[AUTO_ARCHIVE_RETENTION_DAYS] ?: 0 }
 
     // ── Setters ───────────────────────────────────────────────────────────────
 
