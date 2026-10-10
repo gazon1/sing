@@ -35,6 +35,13 @@ from traceability.links import Link
 from traceability.normalize import NormalisedResult, read_results
 from traceability.spec import ScenarioSpec, Target
 
+# ``kiwi_client`` is a sibling of the ``traceability`` package in the same
+# directory.  Python resolves a relative import (``from .name``) by looking
+# for ``sys.modules["<parent>.<name>"]``; importing it with its full package
+# name first guarantees that entry exists and the relative lookup succeeds.
+import infra.kiwi.kiwi_client as kiwi_client
+from infra.kiwi.kiwi_client import KiwiClient, KiwiError
+
 __all__ = ["OUTCOME_TO_KIWI", "run_publish", "build_runs", "RunBatch"]
 
 #: The one place the outcome vocabulary is translated. `error` never appears:
@@ -106,18 +113,6 @@ def build_runs(results: list[NormalisedResult], commit: str) -> list[RunBatch]:
         RunBatch(commit=bucket_commit, target=target, rows=tuple(rows))
         for (bucket_commit, target), rows in sorted(buckets.items(), key=lambda kv: (kv[0][0], kv[0][1].value))
     ]
-
-
-def _kiwi_module():
-    """Import the flat ``kiwi_client`` next to this package.
-
-    Lazy, and shared with ``kiwi_seed`` through
-    :func:`traceability.kiwi_module`, so the path bootstrap that makes the
-    flat-script layout importable lives in exactly one place.
-    """
-    from traceability import kiwi_module
-
-    return kiwi_module()
 
 
 def _find_case(client, plan_id: int, scenario: str) -> int | None:
@@ -218,8 +213,6 @@ def run_publish(
     into ``results.json`` by normalisation, and re-deriving them here would mean
     a second, silently-diverging copy of the same mapping.
     """
-    kiwi_client = _kiwi_module()
-
     if not results_path.exists():
         print(f"✗ нет файла результатов: {results_path}", file=sys.stderr)
         print("  (сначала: just trace-results)", file=sys.stderr)
@@ -256,7 +249,7 @@ def run_publish(
         return 0
 
     try:
-        client = kiwi_client.KiwiClient()
+        client = KiwiClient()
         client.login()
         product = client.get_product("Singularity Todo")
         if product is None:
@@ -317,7 +310,7 @@ def run_publish(
             updated_total += updated
         print(f"✓ опубликовано {published}, обновлено {updated_total} (пропущено {skipped})")
         return 0
-    except kiwi_client.KiwiError as exc:
+    except KiwiError as exc:
         # Loud, but not a build failure: reporting degraded, CI unaffected.
         print(f"✗ публикация в Kiwi не удалась: {exc}", file=sys.stderr)
         print(

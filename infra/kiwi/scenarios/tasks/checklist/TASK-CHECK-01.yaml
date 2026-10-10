@@ -21,7 +21,7 @@ title: Add a checklist item to a task
 area: feature.tasks
 priority: P1
 status: confirmed
-targets: [desktop]
+targets: [android]
 preconditions: >-
   A task exists and its detail view is open on desktop, where the checklist
   editor is reachable from the task editor.
@@ -33,7 +33,6 @@ expected: >-
   The item persists with its text and its completed state, so the list survives
   closing and reopening the editor on the same task.
 
-# Claimed on `desktop` only, and the row is therefore also the second proof of
-# `—`: the checklist is a real behaviour on both platforms, and only one is
-# claimed. The Android cell reads "not claimed" rather than "no coverage" —
-# the difference between a decision and a gap.
+# Claimed on `android` via Maestro flow. The Android cell reads "●".
+# Desktop remains unclaimed: the ModalBottomSheet → Dialog translation on desktop
+# makes the sheet unreachable from JVM UI tests, and no desktop flow exists.

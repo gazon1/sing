@@ -781,8 +781,8 @@ def run_gate(cmd: list[str]) -> int:
 def _kiwi_is_available() -> bool:
     """True when the Kiwi XML-RPC stand is reachable and login succeeds."""
     try:
-        sys.path.insert(0, str(ROOT / "infra" / "kiwi"))
-        from kiwi_client import KiwiClient
+        sys.path.insert(0, str(ROOT / "infra"))
+        from infra.kiwi.kiwi_client import KiwiClient
         client = KiwiClient()
         client.check_alive()
         return True
@@ -790,7 +790,7 @@ def _kiwi_is_available() -> bool:
         return False
     finally:
         # Clean up sys.path if we modified it
-        kiwi_path = str(ROOT / "infra" / "kiwi")
+        kiwi_path = str(ROOT / "infra")
         if kiwi_path in sys.path:
             sys.path.remove(kiwi_path)
 
