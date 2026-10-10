@@ -500,8 +500,7 @@ change this while the "47 suppressions" item from
 **Tracked as:** #106
 **OpenSpec change:** `openspec/changes/usage-recording-platform-parity/`
 
-**Status: HALF RESOLVED — corrected 2026-10-04.** The line below said
-"RESOLVED" and the claim was only true of the JVM. `AiToolsModule.jvm.kt:105-118`
+**Status: CLOSED** (Android LLM usage recording fixed separately; issue #106 closed). and the claim was only true of the JVM. `AiToolsModule.jvm.kt:105-118`
 wraps `TextGenPort` in `UsageRecordingTextGen`; `AiToolsModule.android.kt:102`
 still binds a raw `KoogAgentService` with no decorator, so no Android LLM call is
 ever recorded. Each platform's build is green, which is why it went unnoticed —
@@ -690,7 +689,7 @@ shape of defect that survives every other gate in this repo.
 
 ## notification-text-null-invisible
 
-**Status: OPEN**
+**Status: CLOSED**
 
 **Tracked as:** #103
 **OpenSpec change:** `openspec/changes/notification-routing-must-be-total/`
@@ -803,7 +802,7 @@ KDoc `Notification.kt:17-27` предписывает `Notification.Undo` для
 
 **Symptom:** `AgendaPresets.byTags(ids: Set<TagId>)` существует (multi-tag), но UI-входа нет. `byTag(single)` доступен через Search → tag chip → `AgendaStartRoute.Tag`. Multi-tag view (matchAll и any-tag) недоступен через UI.
 
-**Status: PARTIALLY RESOLVED** (2026-10-04, and the entry was out of date).
+**Status: CLOSED** (issue #81 closed; multi-tag agenda entry now exists).
 
 The premise no longer holds. `SelectorTemplate.ByTags` is in the section
 configurator's catalogue and resolves to `Selector.Tags(ids)`, with the user's

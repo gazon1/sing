@@ -223,13 +223,13 @@
   },
   {
     "number": 63,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "RecurrenceParser: 309 lines, zero production call sites — decide recurrence, or delete it",
     "backlog_slug": "recurrence-parser-is-unwired"
   },
   {
     "number": 64,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Three notes domain classes have test references and no production call sites",
     "backlog_slug": "note-editor-unwired-domain-classes"
   },
@@ -241,7 +241,7 @@
   },
   {
     "number": 66,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "AwtMenuBarInstaller: a desktop menu bar that nothing installs",
     "backlog_slug": "awt-menubarinstaller-jvm-unused"
   },
@@ -259,7 +259,7 @@
   },
   {
     "number": 69,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Do the one-shot migration scripts stay in the tree? (decision, not a task)",
     "backlog_slug": "deferred-backlog"
   },
@@ -319,7 +319,7 @@
   },
   {
     "number": 81,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "No entry point starts a multi-tag agenda — the editor can build the section, nothing opens it",
     "backlog_slug": "agenda-reachability-byTags-no-ui-entry"
   },
@@ -433,7 +433,7 @@
   },
   {
     "number": 103,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A Notification.Text with a null body is silently discarded — the routing is not total",
     "backlog_slug": "notification-text-null-invisible"
   },
@@ -451,7 +451,7 @@
   },
   {
     "number": 106,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Android LLM calls bypass UsageRecordingTextGen — only the JVM binding wraps TextGenPort",
     "backlog_slug": "usage-recording-text-gen-requires-cross-cutting-architecture"
   },
@@ -709,7 +709,7 @@
   },
   {
     "number": 154,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Four tag systems coexist and nothing checks that they agree",
     "backlog_slug": ""
   },
@@ -757,7 +757,7 @@
   },
   {
     "number": 162,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The coverage ratchet measures a fast-only run, so code only slow-testable is invisible to every floor",
     "backlog_slug": ""
   },
@@ -1075,7 +1075,7 @@
   },
   {
     "number": 216,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "TaskDetailViewScreen has no call site, and is kept on purpose",
     "backlog_slug": ""
   },
@@ -1501,7 +1501,7 @@
   },
   {
     "number": 324,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[qa] Maestro selector validator doesn't verify dynamic tag function output",
     "backlog_slug": ""
   },
@@ -1525,7 +1525,7 @@
   },
   {
     "number": 329,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[maestro] locale-fragile text selectors in theme-toggle and settings flows — caused multiple wasted rebase cycles",
     "backlog_slug": ""
   },
@@ -1639,13 +1639,13 @@
   },
   {
     "number": 350,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[mcp] MCP server start()+run()+SDK phases in Main.kt",
     "backlog_slug": ""
   },
   {
     "number": 351,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[mcp] McpToolCatalog: compute ToolAnnotations directly, remove TOOL_ANNOTATIONS duplicate",
     "backlog_slug": ""
   },
@@ -1771,7 +1771,7 @@
   },
   {
     "number": 374,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The full just gate run to step 4 is unverified — the recipe composition itself is untested",
     "backlog_slug": "just-gate-untested"
   },
@@ -1921,7 +1921,7 @@
   },
   {
     "number": 410,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[CI] scenario-claims integrity gate — emit result for unrun claimed scenarios",
     "backlog_slug": "scenario-claims-integrity-impl"
   },
@@ -2023,43 +2023,43 @@
   },
   {
     "number": 431,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[test] REQ-WP-002: scoped DAO mutations should return and be tested for affected row count",
     "backlog_slug": ""
   },
   {
     "number": 432,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[test] REQ-WP-020: outgoing links must be persisted on the source entity, not the target",
     "backlog_slug": ""
   },
   {
     "number": 433,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[test] REQ-WP-021: outgoing_links must be updated atomically with the entity write",
     "backlog_slug": ""
   },
   {
     "number": 434,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[test] REQ-WP-041: id-only write methods must rely on DAO-layer enforcement",
     "backlog_slug": ""
   },
   {
     "number": 435,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[docs] REQ-WP-050: BackupImporter unscoped mutations allowlist premise no longer holds",
     "backlog_slug": ""
   },
   {
     "number": 436,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[CI] Wire --gradle-log into CI to detect UP-TO-DATE/FROM-CACHED test runs",
     "backlog_slug": ""
   },
   {
     "number": 437,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[validate-maestro-selectors] Every seeded task title must be manually added to DYNAMIC_EXPANSIONS",
     "backlog_slug": ""
   },
@@ -2131,19 +2131,19 @@
   },
   {
     "number": 449,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] recurrence-parser-is-unwired: 309-line parser with zero call sites",
     "backlog_slug": ""
   },
   {
     "number": 450,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] note-editor-unwired-domain-classes: NoteEditorState, DailyNoteFactory, TemplatePicker unreachable",
     "backlog_slug": ""
   },
   {
     "number": 451,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] awt-menubarinstaller-jvm-unused: desktop menu bar installer has no call site",
     "backlog_slug": ""
   },
@@ -2185,7 +2185,7 @@
   },
   {
     "number": 458,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] gradle-test-cache-silently-skips-the-suite: test task served FROM-CACHE with no execution",
     "backlog_slug": ""
   },
@@ -2223,6 +2223,48 @@
     "number": 464,
     "state": "OPEN",
     "title": "[deferred] editoroverflow-test-tag-unused",
+    "backlog_slug": ""
+  },
+  {
+    "number": 468,
+    "state": "OPEN",
+    "title": "refresh-issues-snapshot.py: --limit 300 skips older issues, breaking backlog gate",
+    "backlog_slug": ""
+  },
+  {
+    "number": 469,
+    "state": "OPEN",
+    "title": "check-backlog-issue-refs.py I4: 54 open issues lack Backlog: frontmatter field",
+    "backlog_slug": ""
+  },
+  {
+    "number": 471,
+    "state": "OPEN",
+    "title": "jvmTest batch: executor workers crash with EOFException in shared environment",
+    "backlog_slug": ""
+  },
+  {
+    "number": 475,
+    "state": "OPEN",
+    "title": "CI: duplicate runs on every PR commit due to push+pull_request triggers",
+    "backlog_slug": ""
+  },
+  {
+    "number": 476,
+    "state": "OPEN",
+    "title": "detekt-rules: kover branch coverage 65.1% with no floor, koverVerify not wired",
+    "backlog_slug": ""
+  },
+  {
+    "number": 477,
+    "state": "OPEN",
+    "title": "NoDirectClockSystemRule misses System.currentTimeMillis() - 14 live uses unbanned",
+    "backlog_slug": ""
+  },
+  {
+    "number": 478,
+    "state": "OPEN",
+    "title": "BackupPayload missing 8 tables: task_reminders, project_reminders, checklist_items, tag_groups, project_tag_groups, saved_searches, time_entries, profiles",
     "backlog_slug": ""
   }
 ]
