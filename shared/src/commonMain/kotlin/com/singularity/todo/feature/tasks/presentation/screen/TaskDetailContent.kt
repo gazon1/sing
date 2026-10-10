@@ -292,6 +292,7 @@ fun TaskDetailContent(
                                     onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleSubtask(it)) },
                                     onDelete = { coordinator.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
                                     onOpen = { navigator.openDetail(it.id) },
+                                    onAddSubtask = { coordinator.onIntent(TaskDetailIntent.Domain.AddSubtask(it)) },
                                 )
                                 // Always shown, not only when there is something to show: this row is also
                                 // how the user attaches the first file.
