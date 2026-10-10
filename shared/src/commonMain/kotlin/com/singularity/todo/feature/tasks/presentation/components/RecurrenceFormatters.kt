@@ -16,7 +16,6 @@ import kotlinx.datetime.LocalDate
  * Internal — called only from UI/component layer.
  * All strings are user-visible labels (English).
  *
- * @see RecurrenceParser for the inverse operation (string → spec).
  */
 object RecurrenceFormatters {
 
