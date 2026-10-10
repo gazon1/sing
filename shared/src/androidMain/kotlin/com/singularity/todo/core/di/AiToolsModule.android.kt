@@ -10,6 +10,7 @@ import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.chat.ChatViewModel
+import com.singularity.todo.feature.ai.chat.UsageRecordingTextGen
 import com.singularity.todo.feature.ai.tools.ClusterNotesTool
 import com.singularity.todo.feature.ai.tools.ClusterTasksTool
 import com.singularity.todo.feature.ai.tools.CreateNoteTool
@@ -97,13 +98,19 @@ actual fun aiToolsModule(): Module = module {
     // ─── AI Service ───
 
     single<TextGenPort> {
-        KoogAgentService(
+        val delegate = KoogAgentService(
             secureStorage = get<ProfileAwareSecureStorage>(),
             settings = get(),
             promptExecutor = get<PromptExecutorPort>().executor,
             streamingExecutor = get(),
             allTools = get(),
             remoteConfigPort = get(),
+        )
+        UsageRecordingTextGen(
+            delegate = delegate,
+            usageRecorder = get(),
+            currentUser = get<ProfileAwareCurrentUser>(),
+            clock = get<Clock>(),
         )
     }
 

@@ -71,6 +71,7 @@ import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsScreen
 import com.singularity.todo.feature.tags.TagsViewModel
 import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
@@ -79,6 +80,9 @@ import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.singularity.todo.feature.nav.AgendaStartRoute
+import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.NavCallbacks
 
 private enum class SettingsTab(val label: String) {
     Interface("Interface"),
@@ -112,7 +116,10 @@ private val SettingsTab.icon
     }
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+    navCallbacks: NavCallbacks? = null,
+) {
     val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
@@ -144,6 +151,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 onboarding = koinInject<OnboardingSettingsRepository>(),
                 modifier = Modifier.padding(paddingValues),
                 onTagsCountdownProgress = { tagsCountdownProgress = it },
+                navCallbacks = navCallbacks,
             )
         }
     }
@@ -176,6 +184,7 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
     previewOverrides: Map<SettingsTab, @Composable () -> Unit> = emptyMap(),
     onTagsCountdownProgress: (Float?) -> Unit = {},
+    navCallbacks: NavCallbacks? = null,
 ) {
     Row(modifier = modifier.fillMaxSize()) {
         SettingsNavRail(
@@ -214,6 +223,11 @@ private fun SettingsContent(
                         val tagsVm: TagsViewModel = koinViewModel()
                         TagsScreen(
                             viewModel = tagsVm,
+                            onOpenTag = { tagId ->
+                                navCallbacks?.navigate(
+                                    AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId.value))
+                                )
+                            },
                         )
                     }
 

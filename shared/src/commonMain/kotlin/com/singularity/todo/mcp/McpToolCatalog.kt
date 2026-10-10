@@ -9,7 +9,6 @@ package com.singularity.todo.mcp
  *
  * This object is the **single source of truth** for:
  * - The DI registration list in [aiToolsModule] (derived from [catalog])
- * - The annotation map [TOOL_ANNOTATIONS] (must match [catalog] entries)
  * - The MCP server's tool descriptors (derived from [catalog])
  *
  * Adding a tool: add it to [catalog] here, and it is automatically included
@@ -21,13 +20,6 @@ package com.singularity.todo.mcp
  * Names are snake_case as exposed to the MCP client.  They must match the
  * [ai.koog.agents.core.tools.Tool.descriptor.name] of the corresponding
  * Koog tool class.
- *
- * ## Annotations
- *
- * Every tool in [catalog] SHOULD have an entry in [TOOL_ANNOTATIONS].
- * A tool without an entry uses the default [ToolAnnotations] (all hints false).
- *
- * @see TOOL_ANNOTATIONS
  */
 object McpToolCatalog {
 
@@ -62,49 +54,49 @@ object McpToolCatalog {
             toolClass = "CreateTaskTool",
             domain = "tasks",
             description = "Creates a new task with the given properties",
-            annotations = TOOL_ANNOTATIONS["create_task"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "update_task",
             toolClass = "UpdateTaskTool",
             domain = "tasks",
             description = "Updates an existing task's properties",
-            annotations = TOOL_ANNOTATIONS["update_task"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_task",
             toolClass = "DeleteTaskTool",
             domain = "tasks",
             description = "Permanently deletes a task",
-            annotations = TOOL_ANNOTATIONS["delete_task"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "list_tasks",
             toolClass = "ListTasksTool",
             domain = "tasks",
             description = "Lists tasks matching optional filters",
-            annotations = TOOL_ANNOTATIONS["list_tasks"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "get_task",
             toolClass = "GetTaskTool",
             domain = "tasks",
             description = "Gets a single task by ID",
-            annotations = TOOL_ANNOTATIONS["get_task"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "search_tasks",
             toolClass = "SearchTasksTool",
             domain = "tasks",
             description = "Full-text search over tasks",
-            annotations = TOOL_ANNOTATIONS["search_tasks"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "decompose_and_create",
             toolClass = "DecomposeAndCreateTool",
             domain = "tasks",
             description = "Decomposes a task into sub-tasks and creates them all",
-            annotations = TOOL_ANNOTATIONS["decompose_and_create"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "list_linked_tasks",
@@ -120,35 +112,35 @@ object McpToolCatalog {
             toolClass = "CreateProjectTool",
             domain = "projects",
             description = "Creates a new project",
-            annotations = TOOL_ANNOTATIONS["create_project"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "update_project",
             toolClass = "UpdateProjectTool",
             domain = "projects",
             description = "Updates an existing project",
-            annotations = TOOL_ANNOTATIONS["update_project"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_project",
             toolClass = "DeleteProjectTool",
             domain = "projects",
             description = "Permanently deletes a project",
-            annotations = TOOL_ANNOTATIONS["delete_project"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "list_projects",
             toolClass = "ListProjectsTool",
             domain = "projects",
             description = "Lists all projects",
-            annotations = TOOL_ANNOTATIONS["list_projects"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "get_project",
             toolClass = "GetProjectTool",
             domain = "projects",
             description = "Gets a single project by ID",
-            annotations = TOOL_ANNOTATIONS["get_project"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
 
         // ── Notes ─────────────────────────────────────────────────────────────
@@ -157,28 +149,28 @@ object McpToolCatalog {
             toolClass = "CreateNoteTool",
             domain = "notes",
             description = "Creates a new note",
-            annotations = TOOL_ANNOTATIONS["create_note"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "update_note",
             toolClass = "UpdateNoteTool",
             domain = "notes",
             description = "Updates an existing note",
-            annotations = TOOL_ANNOTATIONS["update_note"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_note",
             toolClass = "DeleteNoteTool",
             domain = "notes",
             description = "Permanently deletes a note",
-            annotations = TOOL_ANNOTATIONS["delete_note"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "get_note",
             toolClass = "GetNoteTool",
             domain = "notes",
             description = "Gets a single note by ID",
-            annotations = TOOL_ANNOTATIONS["get_note"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
 
         // ── Tags ─────────────────────────────────────────────────────────────
@@ -187,14 +179,14 @@ object McpToolCatalog {
             toolClass = "CreateTagTool",
             domain = "tags",
             description = "Creates a new tag",
-            annotations = TOOL_ANNOTATIONS["create_tag"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_tag",
             toolClass = "DeleteTagTool",
             domain = "tags",
             description = "Permanently deletes a tag",
-            annotations = TOOL_ANNOTATIONS["delete_tag"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(destructiveHint = true),
         ),
 
         // ── ADR ──────────────────────────────────────────────────────────────
@@ -203,21 +195,21 @@ object McpToolCatalog {
             toolClass = "WriteAdrTool",
             domain = "adr",
             description = "Writes or updates an Architecture Decision Record",
-            annotations = TOOL_ANNOTATIONS["write_adr"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(openWorldHint = true),
         ),
         ToolEntry(
             name = "list_adrs",
             toolClass = "ListAdrsTool",
             domain = "adr",
             description = "Lists all ADR filenames",
-            annotations = TOOL_ANNOTATIONS["list_adrs"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "read_adr",
             toolClass = "ReadAdrTool",
             domain = "adr",
             description = "Reads the content of an ADR by filename",
-            annotations = TOOL_ANNOTATIONS["read_adr"] ?: ToolAnnotations(),
+            annotations = ToolAnnotations(readOnlyHint = true),
         ),
 
         // ── AI Write Tools ──────────────────────────────────────────────────

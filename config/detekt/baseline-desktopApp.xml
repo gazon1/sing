@@ -23,11 +23,5 @@
     <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$("ai", "AI Actions", children = buildMenuNodes { item("ai_refine", "Improve with SMART") {} item("ai_gen", "Generate description") {} })</ID>
     <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$("move", "Move to", children = buildMenuNodes { subMenu("project", "Project", children = buildMenuNodes { item("proj_a", "Project A") {} item("proj_b", "Project B") {} }) item("inbox", "Inbox") {} })</ID>
     <ID>Wrapping:ContextMenuTest.kt:ContextMenuTest$("project", "Project", children = buildMenuNodes { item("proj_a", "Project A") {} item("proj_b", "Project B") {} })</ID>
-    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$(</ID>
-    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("file", "File", children = buildMenuNodes { item("new_task", "New Task", shortcut = "Ctrl+N") {} item("settings", "Settings…", shortcut = "Ctrl+,") {} divider() item("quit", "Quit", shortcut = "Ctrl+Q") {} })</ID>
-    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("help", "Help", children = buildMenuNodes { item("about", "About") {} })</ID>
-    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("l1", "Level 1", children = buildMenuNodes { subMenu("l2", "Level 2", children = buildMenuNodes { subMenu("l3", "Level 3", children = buildMenuNodes { item("action", "Deep Action") {} }) }) })</ID>
-    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("l2", "Level 2", children = buildMenuNodes { subMenu("l3", "Level 3", children = buildMenuNodes { item("action", "Deep Action") {} }) })</ID>
-    <ID>Wrapping:MenuBarTest.kt:MenuBarTest$("l3", "Level 3", children = buildMenuNodes { item("action", "Deep Action") {} })</ID>
   </CurrentIssues>
 </SmellBaseline>

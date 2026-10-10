@@ -15,7 +15,6 @@ import kotlinx.datetime.plus
  * All methods are pure functions — no side effects, no  Clock.System.now()`, no I/O.
  * Thread-safe (no mutable state).
  *
- * @see RecurrenceParser for DSL parsing.
  */
 object RecurrenceCalculator {
 

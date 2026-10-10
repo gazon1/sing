@@ -309,9 +309,15 @@
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseRule: Pair&lt;RecurrenceSpec, Int&gt;</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseShortForm: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
     <ID>ReturnCount:RecurrenceParser.kt:RecurrenceParser$private fun parseYearlyDate: Pair&lt;RecurrenceSpec, Int&gt;?</ID>
+    <ID>RethrowCaughtException:EventBus.kt:EventBus$throw cancelled</ID>
+    <ID>ReturnCount:PullPhase.kt:PullPhase$internal suspend fun pull: PhaseResult&lt;PullSummary&gt;</ID>
+    <ID>ReturnCount:PushPhase.kt:PushPhase$internal suspend fun push: PhaseResult&lt;PushSummary&gt;</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:AgendaViewModel.kt:AgendaViewModel$/** Exposes countdown progress to the screen's snackbar progress bar. */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:CountdownStateMachine.kt:CountdownStateMachine$/** `null` when idle; `0f..1f` during countdown (1f = just started, 0f = expired). */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:TagsViewModel.kt:TagsViewModel$/** Exposes countdown progress to the screen's snackbar progress bar. */</ID>
+    <ID>StatementWrapping:ScriptedSyncApiClient.kt:ScriptedSyncApiClient${ _ignoreSinceLsn = value }</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
-    <ID>ThrowsCount:RecurrenceParser.kt:RecurrenceParser$fun parse: RecurrenceSpec</ID>
     <ID>TooGenericExceptionCaught:AiToolFilters.kt:e: Throwable</ID>
     <ID>TooGenericExceptionCaught:BackupImporter.kt:BackupImporter$e: Exception</ID>
     <ID>TooGenericExceptionCaught:CalendarSyncViewModel.kt:CalendarSyncViewModel$e: Exception</ID>
@@ -325,6 +331,8 @@
     <ID>TooGenericExceptionCaught:NoteEditor.kt:NoteEditor$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NotePreview.kt:NotePreview$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RecurrenceParser.kt:RecurrenceParser$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:PullPhase.kt:PullPhase$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PushPhase.kt:PushPhase$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigCacheRepositoryImpl.kt:RemoteConfigCacheRepositoryImpl$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RewriteNoteTool.kt:RewriteNoteTool$e: Exception</ID>
@@ -348,7 +356,6 @@
     <ID>TooManyFunctions:ProjectDetailActions.kt:ProjectDetailActions</ID>
     <ID>TooManyFunctions:ProjectsRepositoryImpl.kt:ProjectsRepositoryImpl : ProjectsRepository</ID>
     <ID>TooManyFunctions:Prompts.kt:Prompts</ID>
-    <ID>TooManyFunctions:RecurrenceParser.kt:RecurrenceParser</ID>
     <ID>TooManyFunctions:ReminderRepository.kt:ReminderRepository</ID>
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>

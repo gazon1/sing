@@ -21,9 +21,9 @@ class NotificationTest {
     }
 
     @Test
-    fun textNotificationTextCanBeNull() {
-        val n = Notification.Text(title = "Saved", text = null)
-        assertEquals(null, n.text)
+    fun textNotificationTextCanBeEmpty() {
+        val n = Notification.Text(title = "Saved", text = "")
+        assertEquals("", n.text)
     }
 
     @Test
