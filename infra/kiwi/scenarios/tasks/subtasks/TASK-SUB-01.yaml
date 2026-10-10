@@ -1,0 +1,43 @@
+# Scenario specification for TASK-SUB-01.
+
+# This spec covers the manual add/toggle/delete subtask UI path.
+#
+# The bug that motivated this scenario (#171): CreateTaskUseCase accepted a
+# parentTaskId parameter but silently dropped it at the use-case boundary, so
+# creating a subtask via the UI stored an orphan task with no parent. The fix
+# (TaskChildrenSlot.addSubtask, 2026-10) forwards parentTaskId through
+# CreateTaskInput and TaskDomain.buildTask to the repository. The scenario
+# verifies the fix works end-to-end.
+#
+# A second finding during implementation: SubtasksSection self-hid when empty
+# and had no "add subtask" input. The section was always shown (even when
+# empty) and gained an inline text row to trigger AddSubtask(title), wired to
+# TaskDetailIntent.Domain.AddSubtask.
+
+id: TASK-SUB-01
+title: Subtask lifecycle — add, toggle, delete
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists and its detail view is open. The SubtasksSection is shown
+  even when the task has no subtasks (the "add subtask" row is always present
+  when the section is visible).
+steps:
+  - In the SubtasksSection, type a subtask title in the "Add subtask" input.
+  - Submit the input (press Enter or tap Add).
+  - Verify the subtask appears in the list.
+  - Tap the subtask row to toggle its completed state.
+  - Verify the subtask's completed state changes.
+  - Tap the delete (×) button on the subtask row.
+  - Verify the subtask is removed from the list.
+expected: >-
+  The subtask survives add → toggle → delete. Its parentTaskId is set correctly
+  so it appears as a child in the SubtasksSection and nowhere else in the
+  agenda unless "Show subtasks" is enabled.
+
+# Claimed on `android` via Maestro flow. Desktop reachability is unknown —
+# SubtasksSection is in commonMain but the "add subtask" input row was added
+# as part of this slice. A desktop carrier can be written once the desktop
+# equivalent of the inline add-row is verified.

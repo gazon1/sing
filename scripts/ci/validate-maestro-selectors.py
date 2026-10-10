@@ -111,6 +111,9 @@ STATIC_IDS: Set[str] = {
     "task_editor_title_input",
     "checklist_sheet",
     "first_run_section",
+    "subtasks_section",
+    "subtask_add_input",
+    "subtask_add_button",
     "time_tracking_error",
     "time_tracking_start",
     "time_tracking_stop",
@@ -319,6 +322,12 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_grocery_run",
     # taskCheckbox(...) — from seed flows
     "task_checkbox_buy_milk",
+    # subtaskItem(...) — from TASK-SUB-01 flow
+    "subtask_item_child_task_one",
+    # subtaskDelete(...) — from TASK-SUB-01 flow
+    "subtask_delete_child_task_one",
+    # taskItem(...) — seeded via DebugSeedActivity for TASK-SUB-01
+    "task_item_parent_task",
     # pomodoroTaskChip(...) — from seed flows
     "pomodoro_task_chip_buy_milk",
     # savedAgendaCard(...) — used in flows
@@ -503,7 +512,8 @@ def main() -> int:
     for de_id in sorted(DYNAMIC_EXPANSIONS):
         if de_id not in ids_used_in_flows:
             # Skip seed-task entries — they are invoked via helpers, not directly.
-            if de_id.startswith("task_item_") or de_id.startswith("task_checkbox_"):
+            if (de_id.startswith("task_item_") or de_id.startswith("task_checkbox_")
+                    or de_id.startswith("subtask_item_") or de_id.startswith("subtask_delete_")):
                 continue
             # Skip pomodoroTaskChip seed entries.
             if de_id.startswith("pomodoro_task_chip_"):
