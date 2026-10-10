@@ -762,6 +762,10 @@ interface ReminderDao {
     @Query("SELECT * FROM task_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
     fun watchAll(userId: String): Flow<List<TaskReminderEntity>>
 
+    /** One-shot bulk read for backup export. */
+    @Query("SELECT * FROM task_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
+    suspend fun listAllForUser(userId: String): List<TaskReminderEntity>
+
     /**
      * Every reminder, across every profile.
      *
@@ -820,6 +824,10 @@ interface ProjectReminderDao {
     @Query("SELECT * FROM project_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
     fun watchAll(userId: String): Flow<List<ProjectReminderEntity>>
 
+    /** One-shot bulk read for backup export. */
+    @Query("SELECT * FROM project_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
+    suspend fun listAllForUser(userId: String): List<ProjectReminderEntity>
+
     @Query("SELECT * FROM project_reminders WHERE project_id = :projectId AND user_id = :userId ORDER BY fire_at ASC")
     fun watchByProject(projectId: String, userId: String): Flow<List<ProjectReminderEntity>>
 
@@ -856,6 +864,19 @@ interface ProjectReminderDao {
 interface ChecklistDao {
     @Query("SELECT * FROM checklist_items WHERE task_id = :taskId ORDER BY sort_order ASC")
     fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>>
+
+    /**
+     * One-shot bulk read for backup export.
+     * Scoped through `tasks.user_id` since `checklist_items` has no `user_id` column.
+     */
+    @Query(
+        """
+        SELECT ci.* FROM checklist_items ci
+        WHERE ci.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        ORDER BY ci.task_id, ci.sort_order
+        """,
+    )
+    suspend fun listAllForUser(userId: String): List<ChecklistItemEntity>
 
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)
@@ -1050,6 +1071,10 @@ interface TagGroupDao {
     @Query("SELECT * FROM tag_groups WHERE user_id = :userId ORDER BY name ASC")
     fun watchAll(userId: String): Flow<List<TagGroupEntity>>
 
+    /** One-shot bulk read for backup export. */
+    @Query("SELECT * FROM tag_groups WHERE user_id = :userId ORDER BY name ASC")
+    suspend fun listAllForUser(userId: String): List<TagGroupEntity>
+
     @Query("SELECT * FROM tag_groups WHERE id = :id")
     fun watchById(id: String): Flow<TagGroupEntity?>
 
@@ -1145,6 +1170,18 @@ interface ProjectInheritedTagGroupDao {
      */
     @Query("SELECT EXISTS(SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)")
     suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean
+
+    /**
+     * One-shot bulk read for backup export.
+     * Returns every tag-group inheritance row for every project owned by [userId].
+     */
+    @Query(
+        """
+        SELECT ptg.* FROM project_tag_groups ptg
+        WHERE ptg.project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun listAllForUser(userId: String): List<ProjectInheritedTagGroupCrossRef>
 
     /**
      * Drops every inheritance row for a tag group being deleted, across all of

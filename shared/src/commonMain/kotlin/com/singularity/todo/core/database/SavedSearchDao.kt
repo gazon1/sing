@@ -11,6 +11,10 @@ interface SavedSearchDao {
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId ORDER BY name ASC")
     fun watchAll(userId: String): Flow<List<SavedSearchEntity>>
 
+    /** One-shot bulk read for backup export. */
+    @Query("SELECT * FROM saved_searches WHERE user_id = :userId ORDER BY name ASC")
+    suspend fun listAllForUser(userId: String): List<SavedSearchEntity>
+
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId AND id = :id")
     fun watchById(userId: String, id: String): Flow<SavedSearchEntity?>
 

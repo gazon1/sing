@@ -3,15 +3,22 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import com.singularity.todo.core.database.AgendaViewEntity
+import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
+import com.singularity.todo.core.database.ProjectReminderEntity
+import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
+import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -378,4 +385,240 @@ fun AgendaViewDto.toEntity(userId: String): AgendaViewEntity = AgendaViewEntity(
     sectionsJson = sectionsJson,
     createdAt = createdAt,
     updatedAt = updatedAt,
+)
+
+// ─── TaskReminderDto ──────────────────────────────────────────────────────────
+
+@Serializable
+data class TaskReminderDto(
+    val id: String,
+    val taskId: String,
+    val type: String,
+    val offsetMinutes: Int,
+    val fireAt: Long,
+    val recurringPattern: String? = null,
+    val viewId: String? = null,
+    val lastFiredAt: Long? = null,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+fun TaskReminderEntity.toDto(): TaskReminderDto = TaskReminderDto(
+    id = id,
+    taskId = taskId,
+    type = type,
+    offsetMinutes = offsetMinutes,
+    fireAt = fireAt,
+    recurringPattern = recurringPattern,
+    viewId = viewId,
+    lastFiredAt = lastFiredAt,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun TaskReminderDto.toEntity(userId: String): TaskReminderEntity = TaskReminderEntity(
+    id = id,
+    taskId = taskId,
+    userId = userId,
+    type = type,
+    offsetMinutes = offsetMinutes,
+    fireAt = fireAt,
+    recurringPattern = recurringPattern,
+    viewId = viewId,
+    lastFiredAt = lastFiredAt,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+// ─── ProjectReminderDto ────────────────────────────────────────────────────────
+
+@Serializable
+data class ProjectReminderDto(
+    val id: String,
+    val projectId: String,
+    val fireAt: Long,
+    val lastFiredAt: Long? = null,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+fun ProjectReminderEntity.toDto(): ProjectReminderDto = ProjectReminderDto(
+    id = id,
+    projectId = projectId,
+    fireAt = fireAt,
+    lastFiredAt = lastFiredAt,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun ProjectReminderDto.toEntity(userId: String): ProjectReminderEntity = ProjectReminderEntity(
+    id = id,
+    projectId = projectId,
+    userId = userId,
+    fireAt = fireAt,
+    lastFiredAt = lastFiredAt,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+// ─── ChecklistItemDto ──────────────────────────────────────────────────────────
+
+@Serializable
+data class ChecklistItemDto(
+    val id: String,
+    val taskId: String,
+    val title: String,
+    val isCompleted: Boolean = false,
+    val sortOrder: Int = 0,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val checkedBy: String? = null,
+    val checkedAt: Long? = null,
+    val rowVersion: Int = 1,
+)
+
+fun ChecklistItemEntity.toDto(): ChecklistItemDto = ChecklistItemDto(
+    id = id,
+    taskId = taskId,
+    title = title,
+    isCompleted = isCompleted,
+    sortOrder = sortOrder,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    checkedBy = checkedBy,
+    checkedAt = checkedAt,
+    rowVersion = rowVersion,
+)
+
+fun ChecklistItemDto.toEntity(): ChecklistItemEntity = ChecklistItemEntity(
+    id = id,
+    taskId = taskId,
+    title = title,
+    isCompleted = isCompleted,
+    sortOrder = sortOrder,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    checkedBy = checkedBy,
+    checkedAt = checkedAt,
+    rowVersion = rowVersion,
+)
+
+// ─── TagGroupDto ───────────────────────────────────────────────────────────────
+
+@Serializable
+data class TagGroupDto(
+    val id: String,
+    val name: String,
+    val color: Int,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+fun TagGroupEntity.toDto(): TagGroupDto = TagGroupDto(
+    id = id,
+    name = name,
+    color = color,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+)
+
+fun TagGroupDto.toEntity(userId: String): TagGroupEntity = TagGroupEntity(
+    id = id,
+    userId = userId,
+    name = name,
+    color = color,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+)
+
+// ─── ProjectTagGroupDto (cross-ref) ───────────────────────────────────────────
+
+@Serializable
+data class ProjectTagGroupDto(
+    val projectId: String,
+    val tagGroupId: String,
+)
+
+fun ProjectInheritedTagGroupCrossRef.toDto(): ProjectTagGroupDto = ProjectTagGroupDto(
+    projectId = projectId,
+    tagGroupId = tagGroupId,
+)
+
+fun ProjectTagGroupDto.toEntity(): ProjectInheritedTagGroupCrossRef = ProjectInheritedTagGroupCrossRef(
+    projectId = projectId,
+    tagGroupId = tagGroupId,
+)
+
+// ─── SavedSearchDto ───────────────────────────────────────────────────────────
+
+@Serializable
+data class SavedSearchDto(
+    val id: String,
+    val name: String,
+    val queryString: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+fun SavedSearchEntity.toDto(): SavedSearchDto = SavedSearchDto(
+    id = id,
+    name = name,
+    queryString = queryString,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+fun SavedSearchDto.toEntity(userId: String): SavedSearchEntity = SavedSearchEntity(
+    id = id,
+    userId = userId,
+    name = name,
+    queryString = queryString,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+// ─── TimeEntryDto ─────────────────────────────────────────────────────────────
+
+@Serializable
+data class TimeEntryDto(
+    val id: String,
+    val taskId: String,
+    val startedAt: Long,
+    val endedAt: Long? = null,
+    val kind: String,
+    val source: String,
+    val note: String? = null,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+)
+
+fun TimeEntryEntity.toDto(): TimeEntryDto = TimeEntryDto(
+    id = id,
+    taskId = taskId,
+    startedAt = startedAt,
+    endedAt = endedAt,
+    kind = kind,
+    source = source,
+    note = note,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+)
+
+fun TimeEntryDto.toEntity(userId: String): TimeEntryEntity = TimeEntryEntity(
+    id = id,
+    taskId = taskId,
+    userId = userId,
+    startedAt = startedAt,
+    endedAt = endedAt,
+    kind = kind,
+    source = source,
+    note = note,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
 )

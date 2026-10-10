@@ -4,6 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.backup.BulkImportPort
+import com.singularity.todo.core.backup.BulkImportPortImpl
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
@@ -180,6 +182,28 @@ actual fun platformModule(): Module = module {
     single<FileSharePort> { JvmFileSharePort() }
 
     single<BackupCodec> { JvmBackupCodec() }
+
+    single<BulkImportPort> {
+        BulkImportPortImpl(
+            log = co.touchlab.kermit.Logger.withTag("BulkImportPort"),
+            taskDao = get(),
+            noteDao = get(),
+            projectDao = get(),
+            tagDao = get(),
+            agendaViewDao = get(),
+            attachmentDao = get(),
+            annotationDao = get(),
+            reminderDao = get(),
+            projectReminderDao = get(),
+            checklistDao = get(),
+            tagGroupDao = get(),
+            projectTagGroupDao = get(),
+            savedSearchDao = get(),
+            timeEntryDao = get(),
+            attachmentStorage = get(),
+            clock = get(),
+        )
+    }
 
     // NoOp on JVM — the definition must exist even though it is inert, or
     // injection throws inside composition and Compose retries every frame.

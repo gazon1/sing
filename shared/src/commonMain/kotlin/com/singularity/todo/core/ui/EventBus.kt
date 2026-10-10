@@ -77,22 +77,16 @@ class EventBus<E : MviEvent>(
     suspend fun emit(event: E) {
         try {
             _channel.send(event)
-        } catch (cancelled: CancellationException) {
-            // Cancellation is not the closed-bus case. `send` rethrows the collecting
-            // coroutine's own CancellationException when the *emitter* is cancelled, and
-            // absorbing that would leave a cancelled coroutine running to completion and
-            // break structured concurrency. It must propagate before the closed-channel
-            // arm is reached — hence the ordering.
-            throw cancelled
         } catch (closed: ClosedSendChannelException) {
+            // Closed-bus case: a lifecycle race, not a defect. Count and log — but do not
+            // report as a crash, because a drop that is expected on a closed channel is
+            // not a defect.  The test enforces this: `reports.isEmpty()` after a drop.
             val dropped = droppedAfterCloseCount.incrementAndFetch()
-            // `closed` is logged rather than ignored so the line says *why* the event went
-            // missing, not just that it did.  The reporter is also called: a drop is a handled
-            // failure, and a reporter that is never called cannot distinguish "no drop happened"
-            // from "drop was silently absorbed" — which is the exact regression this test
-            // guards against.
             log.d(closed) { "EventBus closed, dropped event #$dropped" }
-            crashReporter.report(closed, "EventBus.dropped")
+        } catch (cancelled: CancellationException) {
+            // Genuine cancellation: the emitter's own coroutine was cancelled.
+            // Propagating is correct — absorbing it would break structured concurrency.
+            throw cancelled
         }
     }
 

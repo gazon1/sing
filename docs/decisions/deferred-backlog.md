@@ -888,19 +888,22 @@ inside the snackbar, animated from 100% to 0% over 5 seconds using `animateFloat
 
 ## bulk-import-port
 
-**Status: OPEN**
+**Status: CLOSED**
 
-**Tracked as:** [#82](https://github.com/gazon1/sing/issues/82) · OpenSpec change `bulk-import-port` (proposed)
+**Tracked as:** [#82](https://github.com/gazon1/sing/issues/82)
 
 **Found in:** MR-1, `BackupImporter` class KDoc and architecture review.
 
-`BackupImporter` writes directly to DAOs to bypass `assertCanWrite` guards, targeting
-`options.targetUserId` without going through repositories. This is documented
+`BackupImporter` wrote directly to DAOs to bypass `assertCanWrite` guards, targeting
+`options.targetUserId` without going through repositories. This was documented
 technical debt.
 
-**Fix:** Create a `BulkImportPort` interface that takes an explicit `targetUserId: UserId`
-and routes writes through repositories. Replace DAO calls in `BackupImporter` with
-`BulkImportPort.import(payload, targetUserId)`. Track in `docs/decisions/2026-09-27-write-layer-soundness.md`.
+**Fix (2026-10-10):** `BulkImportPort` interface added in `core/backup/BulkImportPort.kt`
+with `restore(payload, manifest, targetUserId, attachmentData, overwriteExisting): Result<RestoreResult>`.
+Implementation in `BulkImportPortImpl.kt` (commonMain, used by both JVM and Android).
+`BackupImporter` slimmed to ~115 lines, now delegates to `BulkImportPort.restore()` after
+reading and validating the zip. Sync enqueue intentionally omitted — restored rows have
+`updatedAt = now` and are picked up naturally on the next sync cycle.
 
 ---
 

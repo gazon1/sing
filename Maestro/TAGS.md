@@ -43,7 +43,15 @@ non-alphanumeric characters with `_`.
 ### Navigation
 | Constant | Value | Where |
 |---|---|---|
+| `MENU_AI_CHAT` | `menu_aichat` | |
+| `MENU_ARCHIVE` | `menu_archive` | |
+| `MENU_NOTES` | `menu_notes` | |
+| `MENU_PROFILES` | `menu_profiles` | |
+| `MENU_QUICK_SEARCH` | `menu_quick_search` | |
+| `MENU_SEARCH` | `menu_search` | |
+| `MENU_SETTINGS` | `menu_settings` | |
 | `MENU_SHEET` | `menu_sheet` | |
+| `MENU_STATISTICS` | `menu_statistics` | |
 | `NAV_MENU_BUTTON` | `nav_menu_button` | |
 | `TOP_BAR_BACK_BUTTON` | `top_bar_back_button` | |
 
@@ -113,6 +121,7 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `Pomodoro.CYCLE_LABEL` | `pomodoro_cycle_label` | |
+| `Pomodoro.FOCUS_CHIP` | `pomodoro_focus_chip` | |
 | `Pomodoro.PAUSE_BUTTON` | `pomodoro_pause_button` | |
 | `Pomodoro.PHASE_LABEL` | `pomodoro_phase_label` | |
 | `Pomodoro.PLAY_BUTTON` | `pomodoro_play_button` | |
@@ -192,6 +201,7 @@ non-alphanumeric characters with `_`.
 | `DatePicker.OK` | `dialog_date_picker_ok` | |
 | `Dialog.CONFIRM` | `dialog_confirm` | |
 | `Dialog.DISMISS` | `dialog_dismiss` | |
+| `SHEET_CONFIRM` | `sheet_confirm` | |
 
 ### Editor Overflow menu
 | Constant | Value | Where |
@@ -257,13 +267,14 @@ use the expanded string directly).
 | Function | Input example | Expanded id | Used for |
 |---|---|---|---|
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
-| `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in appearance settings |
 | `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in Settings |
 | `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
+| `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode segmented button (System / Light / Dark) |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
-| `menuItem("Settings")` | `"Settings"` | `menu_settings` | Menu bottom sheet items |
 | `taskCheckbox("Buy milk")` | `"Buy milk"` | `task_checkbox_buy_milk` | Task checkboxes |
 | `taskItem("Buy milk")` | `"Buy milk"` | `task_item_buy_milk` | Task list rows |
+| `noteAction("archive")` | `"archive"` | `note_action_archive` | Action buttons in the notes list |
+| `noteFilterChip("my_chip")` | `"my_chip"` | `note_filter_chip_my_chip` | Filter chips in the notes list |
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
 | `agendaSection("Today")` | `"Today"` | `agenda_section_today` | Agenda section headers |
@@ -276,7 +287,6 @@ use the expanded string directly).
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
-| `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view mode tabs (month / day / 4_days) |
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |

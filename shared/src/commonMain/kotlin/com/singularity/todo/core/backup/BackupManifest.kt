@@ -37,4 +37,18 @@ data class EntityCounts(
     val taskDependencies: Int = 0,
     /** MR-1: saved agenda views. */
     val agendaViews: Int = 0,
+    /** MR-2: task-level reminders. */
+    val taskReminders: Int = 0,
+    /** MR-2: project-level reminders. */
+    val projectReminders: Int = 0,
+    /** MR-2: checklist items (subtasks). */
+    val checklistItems: Int = 0,
+    /** MR-2: tag groups. */
+    val tagGroups: Int = 0,
+    /** MR-2: project ↔ tag group edges. */
+    val projectTagGroups: Int = 0,
+    /** MR-2: saved searches. */
+    val savedSearches: Int = 0,
+    /** MR-2: time tracking entries. */
+    val timeEntries: Int = 0,
 )
