@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.reminders.ReminderOffset
@@ -72,22 +73,38 @@ fun NotificationSettingsScreen(
 }
 
 @Composable
-private fun ReminderDefaultsSection(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit) {
-    SettingsSection(title = "Default Reminder") {
+private fun ReminderDefaultsSection(
+    selected: ReminderOffset,
+    onSelect: (ReminderOffset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsSection(
+        title = "Default Reminder",
+        modifier = modifier.testTag(TestTags.Settings.REMINDER_DEFAULTS_SECTION),
+    ) {
         ReminderOffset.entries.forEach { offset ->
             ReminderRadioRow(
                 label = offset.label,
                 selected = selected == offset,
                 onClick = { onSelect(offset) },
+                testTag = TestTags.Settings.reminderOffsetRadioRow(offset),
             )
         }
     }
 }
 
 @Composable
-private fun ReminderRadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun ReminderRadioRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    testTag: String,
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+            .testTag(testTag)
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)

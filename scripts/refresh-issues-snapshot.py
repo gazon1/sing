@@ -32,7 +32,7 @@ DEFAULT_OUTPUT = ROOT / "config" / "docs" / "issues-snapshot.json"
 
 def run_gh(args: list[str]) -> list[dict]:
     """Call `gh issue list` and return parsed JSON, or exit with an error."""
-    cmd = ["gh", "issue", "list", "--state", "all", "--json", "number,state,title,body", "--limit", "300"]
+    cmd = ["gh", "issue", "list", "--state", "all", "--json", "number,state,title,body", "--limit", "500"]
     try:
         result = subprocess.run(
             cmd + args,
@@ -76,7 +76,7 @@ def main() -> int:
     if not output.is_absolute():
         output = ROOT / output
 
-    issues = run_gh(["--limit", "300"])
+    issues = run_gh(["--limit", "500"])
 
     # Normalise: keep only the fields the gate reads; drop large body content
     # beyond what the gate actually inspects (first 500 chars are enough for

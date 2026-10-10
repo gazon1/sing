@@ -1,0 +1,113 @@
+# Scenario TASK-CHECK-01 — the editor offers a checklist section and the checklist
+# sheet accepts input.
+#
+# Canonical spec: infra/kiwi/scenarios/tasks/checklist/TASK-CHECK-01.yaml
+#
+# The `scenario:TASK-CHECK-01` tag below is the linkage, matched by exact string
+# comparison in scripts/run-maestro.sh. The id is the first token after the
+# `scenario:` namespace prefix, for the same reason it is the first token in a
+# Kotlin @DisplayName: a reader — human or scanner — can tell an id from prose.
+#
+# ## Platform notes
+#
+# android: Maestro drives the real Android UI; the checklist entry is the
+# "Add checklist" chip in the FirstRunSection, shown for tasks < 5 min old with
+# no description, checklist items, or completed subtasks.
+#
+# desktop: JVM Compose UI test — see
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/
+# checklist/TaskCheck01ScenarioTest.kt
+#
+# ## What this flow covers
+#
+# 1. A fresh task (no checklist) is saved and immediately re-opened.
+#    The FirstRunSection appears because the task is within the 5-minute Offer window.
+# 2. Tapping "Add checklist" opens the ChecklistEditorSheet.
+# 3. Entering text and tapping Add persists the item.
+# 4. The item appears in the checklist.
+#
+# ## Gaps to close
+#
+# - The OutlinedTextField and FilledTonalButton in ChecklistEditorSheet have no
+#   testTag. This flow uses text-based selectors as a workaround. A follow-up
+#   should add testTag(TestTags.CHECKLIST_ADD_INPUT) and
+#   testTag(TestTags.CHECKLIST_ADD_BUTTON) to ChecklistEditorSheet and update
+#   this flow to use id: selectors.
+appId: com.singularity.todo
+name: tasks-checklist
+tags:
+  - scenario:TASK-CHECK-01
+  - smoke
+  - tasks
+---
+# ── Launch and create a task ────────────────────────────────────────
+- runFlow: ../../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 5000
+
+# Open composer via FAB
+- tapOn:
+    id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# Give the task a title so it can be saved and re-opened
+- tapOn:
+    id: task_editor_title_input
+- inputText: "Grocery run"
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+
+# ── Re-open the task to trigger FirstRunSection ─────────────────────
+# The task must be re-opened within the 5-minute FirstRun Offer window.
+- extendedWaitUntil:
+    visible:
+      id: task_item_grocery_run
+    timeout: 8000
+- tapOn:
+    id: task_item_grocery_run
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── FirstRunSection: tap "Add checklist" ───────────────────────────
+# The FirstRunSection appears for tasks < 5 min old with no content.
+# "Add checklist" is the chip that opens the ChecklistEditorSheet.
+- extendedWaitUntil:
+    visible:
+      id: first_run_section
+    timeout: 5000
+- tapOn: "Add checklist"
+
+# ── ChecklistEditorSheet: add an item ─────────────────────────────
+# The sheet title is "Checklist" (TaskEditorSheetHost).
+- extendedWaitUntil:
+    visible:
+      id: checklist_sheet
+    timeout: 5000
+
+# Type the first item. No testTag on the input field — using the
+# placeholder text as the selector. The follow-up that adds testTags
+# should replace this with:  id: checklist_add_input
+- tapOn: "Add item..."
+- inputText: "Milk"
+
+# Tap the Add button (Icon with contentDescription "Add", FilledTonalButton).
+# The follow-up that adds testTags should replace this with:
+#   id: checklist_add_button
+- tapOn: "Add"
+
+# ── Verify the item appears in the checklist ───────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Milk"
+    timeout: 5000
+- assertVisible: "Milk"

@@ -1,0 +1,50 @@
+# CAL-SYNC-SYSTEM-01: system calendar shows unavailability message on desktop/Android.
+#
+# preconditions: Settings → Calendar tab open, system calendar selected.
+# expected: when the platform cannot reach a calendar, the panel says so plainly
+#          rather than rendering controls over providers that were never asked.
+#
+# On Android this is reached when no calendar app is installed. On desktop the
+# same message is always shown (desktop has no system calendar provider).
+# This flow asserts the message is shown on the system-calendar path.
+#
+appId: com.singularity.todo
+name: calendar-sync-system-unavailable
+tags:
+  - regression
+  - calendar_sync
+  - CAL-SYNC-SYSTEM-01
+---
+- runFlow: ../helpers/launch-clean.yaml
+
+# Open Settings.
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+
+# Navigate to Calendar tab.
+- tapOn:
+    id: settings_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 8000
+
+# Select the system calendar provider.
+- tapOn:
+    id: calendar_sync_provider_system_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_enable_switch
+    timeout: 5000
+
+# The system calendar unavailable message is shown when the platform cannot
+# serve the system calendar. On desktop this is always the case; on Android
+# without a calendar app it is also the case.
+- extendedWaitUntil:
+    visible:
+      id: calendar_sync_system_unavailable
+    timeout: 5000

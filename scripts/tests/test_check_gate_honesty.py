@@ -42,6 +42,8 @@ class FakeDetekt:
     def __call__(self):
         self.calls += 1
         if self.write_report and self.report_rule_id:
+            # The directory may not exist in a clean CI checkout (no Gradle run yet).
+            _mod.REPORT.parent.mkdir(parents=True, exist_ok=True)
             _mod.REPORT.write_text(f"### app-error-code, {self.report_rule_id} (1)\n")
         return self.exit_code, "fake detekt output"
 

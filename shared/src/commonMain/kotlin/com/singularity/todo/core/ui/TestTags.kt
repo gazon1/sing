@@ -145,6 +145,50 @@ object TestTags {
     const val TASK_EDITOR_ESTIMATE_ROW = "task_editor_estimate_row"
 
     /**
+     * First-run suggestion card in the task detail view.
+     *
+     * Shown for tasks < 5 min old that have no description, checklist items, or
+     * completed subtasks. Contains "Write note", "Add checklist", and "Ask AI" chips.
+     */
+    const val FIRST_RUN_SECTION = "first_run_section"
+
+    /**
+     * The checklist bottom sheet (TaskEditorSheetHost with title "Checklist").
+     *
+     * Used in Maestro flows to wait for the sheet to appear before interacting
+     * with checklist items inside it.
+     */
+    const val CHECKLIST_SHEET = "checklist_sheet"
+
+    // ─── Subtasks ─────────────────────────────────────────────────────────────
+    /** The subtasks section container in the task detail view. */
+    const val SUBTASKS_SECTION = "subtasks_section"
+
+    /** Text input for entering a new subtask title in the subtasks section. */
+    const val SUBTASK_ADD_INPUT = "subtask_add_input"
+
+    /** Add/submit button for the subtask input row. */
+    const val SUBTASK_ADD_BUTTON = "subtask_add_button"
+
+    /**
+     * Dynamic tag of the form `subtask_item_<slug>` — one per subtask row.
+     * Derived from the subtask's title, slugified the same way as [taskItem].
+     */
+    fun subtaskItem(title: String) = "subtask_item_${slug(title)}"
+
+    /**
+     * Dynamic tag of the form `subtask_checkbox_<slug>` — the toggle/checkbox
+     * for each subtask row.
+     */
+    fun subtaskCheckbox(title: String) = "subtask_checkbox_${slug(title)}"
+
+    /**
+     * Dynamic tag of the form `subtask_delete_<slug>` — the delete (×) button
+     * for each subtask row.
+     */
+    fun subtaskDelete(title: String) = "subtask_delete_${slug(title)}"
+
+    /**
      * Priority options in the priority picker dialog — one per [TaskPriority].
      *
      * The enum has five values including `Urgent`, and the sheet renders
@@ -348,6 +392,13 @@ object TestTags {
         /** Per-event vibration toggle. Rendered only while notifications are enabled. */
         const val NOTIFICATIONS_VIBRATION_SWITCH = "settings_notifications_vibration_switch"
 
+        /** Section container for the "Default Reminder" radio group. */
+        const val REMINDER_DEFAULTS_SECTION = "reminder_defaults_section"
+
+        /** Dynamic tag for a reminder-offset radio row. Uses the locale-aware label as input. */
+        fun reminderOffsetRadioRow(offset: com.singularity.todo.core.reminders.ReminderOffset): String =
+            "reminder_offset_radio_${slug(offset.label)}"
+
         /** Weekend-day toggles on the work schedule screen. */
         const val WORK_SCHEDULE_SATURDAY_SWITCH = "settings_work_schedule_saturday_switch"
         const val WORK_SCHEDULE_SUNDAY_SWITCH = "settings_work_schedule_sunday_switch"
@@ -378,6 +429,17 @@ object TestTags {
     object SearchFilter {
         const val HAS_DESCRIPTION_SWITCH = "search_filter_has_description_switch"
         const val PINNED_SWITCH = "search_filter_pinned_switch"
+    }
+
+    /**
+     * Saved searches row — long-press context menu items.
+     *
+     * Desktop gap: `DropdownMenu` renders in a separate layer that the desktop
+     * Compose test API cannot reach. These tags are for Android/Maestro.
+     */
+    object SavedSearches {
+        const val SEARCH_MENU_RENAME = "search_menu_rename"
+        const val SEARCH_MENU_DELETE = "search_menu_delete"
     }
 
     // ─── Calendar sync ───────────────────────────────────────────────────────

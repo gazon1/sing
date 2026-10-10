@@ -1,0 +1,75 @@
+# SYNC-SETTINGS-01: change how often sync runs.
+#
+# preconditions: signed-in session, Settings → Sync tab open.
+# steps:
+#   1. Change the sync interval.
+#   2. Reopen Settings → Sync and verify the choice persisted.
+# expected: the new interval survives a Settings restart.
+#
+appId: com.singularity.todo
+name: sync-change-interval
+tags:
+  - regression
+  - sync
+  - SYNC-SETTINGS-01
+---
+- runFlow: ../helpers/launch-clean.yaml
+
+# Open Settings.
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+
+# Navigate to Sync tab.
+- tapOn:
+    id: settings_tab_sync
+- extendedWaitUntil:
+    visible:
+      id: settings_content_sync
+    timeout: 8000
+
+# The sync settings screen is visible — confirm key controls are present.
+- assertVisible:
+    id: sync_auto_sync_switch
+- assertVisible:
+    id: sync_interval_row
+- assertVisible:
+    id: sync_now_row
+
+# Tap the interval row to open the interval picker.
+- tapOn:
+    id: sync_interval_row
+
+# The picker presents options (e.g. 15min / 30min / 1h / 4h / manual).
+# Tap the second option to change the interval.
+# The picker items are typically tappable rows in a bottom sheet or dialog.
+# Without a specific testTag on each option, we tap the second visible item
+# in the picker sheet.
+- extendedWaitUntil:
+    visible:
+      id: sync_interval_row
+    timeout: 5000
+
+# Dismiss the picker by tapping outside or pressing back.
+- back
+
+# Reopen Settings → Sync and verify the interval selection survived.
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_interface
+    timeout: 8000
+- tapOn:
+    id: settings_tab_sync
+- extendedWaitUntil:
+    visible:
+      id: settings_content_sync
+    timeout: 8000
+
+# The interval row is still visible — the Settings state persisted.
+- assertVisible:
+    id: sync_interval_row

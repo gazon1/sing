@@ -27,6 +27,13 @@ from pathlib import Path
 from traceability import REPO_ROOT
 from traceability.spec import ScenarioSpec, SpecStatus
 
+# ``kiwi_client`` is a sibling of the ``traceability`` package in the same
+# directory.  Python resolves a relative import (``from .name``) by looking
+# for ``sys.modules["<parent>.<name>"]``; importing it with its full package
+# name first guarantees that entry exists and the relative lookup succeeds.
+import infra.kiwi.kiwi_client as kiwi_client
+from infra.kiwi.kiwi_client import KiwiClient, KiwiError
+
 __all__ = ["PLAN_NAME", "run_seed", "seed_specs", "SCENARIO_CATEGORY", "STATUS_TO_KIWI"]
 
 PLAN_NAME = "Scenarios"
@@ -43,17 +50,6 @@ STATUS_TO_KIWI = {
     SpecStatus.CONFIRMED: "CONFIRMED",
     SpecStatus.DEPRECATED: "DISABLED",
 }
-
-
-def _kiwi_module():
-    """Import the flat ``kiwi_client`` next to this package.
-
-    Imported lazily so the pure core stays importable — and testable — with no
-    stand, no TLS config and no XML-RPC stack in the process.
-    """
-    from traceability import kiwi_module
-
-    return kiwi_module()
 
 
 def _case_summary(spec: ScenarioSpec) -> str:
@@ -102,8 +98,7 @@ def seed_specs(specs: dict[str, ScenarioSpec], dry_run: bool = False, check: boo
     drifted". Collapsing them would mean a CI check that cannot tell an
     expected change from an unwanted one.
     """
-    kiwi_client = _kiwi_module()
-    client = kiwi_client.KiwiClient()
+    client = KiwiClient()
     client.login()
 
     product = client.get_product("Singularity Todo")
@@ -251,10 +246,9 @@ def run_seed(specs: dict[str, ScenarioSpec], dry_run: bool = False, check: bool 
     A stand outage is not a spec error, and conflating them would make a
     restarted container look like a broken repository.
     """
-    kiwi_client = _kiwi_module()
     try:
         return seed_specs(specs, dry_run=dry_run, check=check)
-    except kiwi_client.KiwiError as exc:
+    except KiwiError as exc:
         print(f"✗ стенд Kiwi недоступен: {exc}", file=sys.stderr)
         print("  покрытие и матрица результатов уже записаны; публикация не является гейтом", file=sys.stderr)
         return 3

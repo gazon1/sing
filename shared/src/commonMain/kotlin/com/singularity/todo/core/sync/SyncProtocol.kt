@@ -159,6 +159,34 @@ data class SyncEvent(
     val eventType: SyncEventType,
     val data: JsonElement? = null,
     val createdAt: Long,
+    /**
+     * Hybrid Logical Clock the server received from the client that pushed this event.
+     *
+     * ## Why this field exists
+     *
+     * `HlcFactory.tock()` — the half of a Hybrid Logical Clock that merges a received
+     * clock — is called in the pull loop so the local clock advances to meet remote
+     * clocks. Without it, a device whose wall clock is behind never catches up: every
+     * subsequent local edit loses field conflicts to the server because the local HLC
+     * is still behind.
+     *
+     * ## What it is NOT
+     *
+     * This is not a server clock. The server does not compute a merged clock and echo
+     * it back — it stores the clock the client sent. Per-field conflict resolution
+     * (`sync_hlc_newer`) uses per-row `field_versions`, not a global clock.
+     *
+     * ## What to do when the received clock is far ahead
+     *
+     * `tock()` adopts it (the HLC spec). A large jump is the correct response to a
+     * real clock difference, and the alternative (clamping) would leave the device
+     * in a permanently behind state.
+     *
+     * @see HlcFactory.tock()
+     * @see Hlc.tock()
+     * @see <a href="https://github.com/gazon1/sing/issues/179">GH #179</a>
+     */
+    val hlc: Hlc? = null,
     /** Protocol version of this event. Events from a newer protocol are skipped. */
     val protocolVersion: Int = 1,
     /**

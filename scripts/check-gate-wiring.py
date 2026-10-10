@@ -506,6 +506,19 @@ SCRIPT_GATES = [
         why="an import removed from a DI module silently breaks every consumer; "
              "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
     ),
+    ScriptGate(
+        name="apptracer-upload-policy-encoded",
+        cmd=[sys.executable, "scripts/check-apptracer-policy.py"],
+        sabotage_path="pro/build.gradle.kts",
+        sabotage=(
+            "content = p.read_text()\n"
+            "p.write_text(content.replace(\n"
+            "    'isDisabled = !tokensPresent || !isCi',\n"
+            "    'isDisabled = !tokensPresent'))"
+        ),
+        why="removing !isCi from release silently allows non-CI release uploads; "
+             "the structural gate catches the missing condition before a comment could be reverted",
+    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both
@@ -830,8 +843,8 @@ def run_gate(cmd: list[str]) -> int:
 def _kiwi_is_available() -> bool:
     """True when the Kiwi XML-RPC stand is reachable and login succeeds."""
     try:
-        sys.path.insert(0, str(ROOT / "infra" / "kiwi"))
-        from kiwi_client import KiwiClient
+        sys.path.insert(0, str(ROOT / "infra"))
+        from infra.kiwi.kiwi_client import KiwiClient
         client = KiwiClient()
         client.check_alive()
         return True
@@ -839,7 +852,7 @@ def _kiwi_is_available() -> bool:
         return False
     finally:
         # Clean up sys.path if we modified it
-        kiwi_path = str(ROOT / "infra" / "kiwi")
+        kiwi_path = str(ROOT / "infra")
         if kiwi_path in sys.path:
             sys.path.remove(kiwi_path)
 

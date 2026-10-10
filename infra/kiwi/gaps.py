@@ -49,7 +49,19 @@ from dataclasses import dataclass
 from dataclasses import field as dataclasses_field
 from pathlib import Path
 
-from kiwi_client import KiwiClient, KiwiError
+# ``infra/kiwi`` is a Python package.  Adding both ``infra/`` and
+# ``infra/kiwi/`` to ``sys.path`` lets the ``infra.kiwi`` prefix resolve
+# correctly while keeping the wider path last so that callers who insert
+# ``infra/kiwi`` explicitly (as this file's own callers do) still work.
+_INFRA_KIWI = str(Path(__file__).resolve().parent)
+_INFRA = str(Path(__file__).resolve().parents[1])
+if _INFRA not in sys.path:
+    sys.path.insert(0, _INFRA)
+if _INFRA_KIWI not in sys.path:
+    sys.path.insert(0, _INFRA_KIWI)
+
+from infra.kiwi.kiwi_client import KiwiClient, KiwiError
+from infra.kiwi import kiwi_client as _kiwi_client_module  # noqa: F401  (sys.modules entry for traceability)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PKG_PATH = "kotlin/com/singularity/todo"
@@ -244,7 +256,7 @@ def report_orphans(inventory: dict) -> list[tuple[str, str]]:
     Здесь они просто отделены от настоящих пробелов, чтобы их нельзя было
     спутать с реальной работой.
     """
-    from sync import scan_repository
+    from infra.kiwi.sync import scan_repository
 
     known = {t.rel_path for t in scan_repository()}
     out = []

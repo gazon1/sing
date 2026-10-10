@@ -76,6 +76,11 @@ Two options, because one of them is wrong in a way that only shows up locally:
   perfectly valid run as stale. Two consecutive `check.sh` invocations would fail the
   second one for having reused correct results.
 
+**`--gradle-log PATH`** — passes the Gradle build log. Any source set whose test
+task appears in it with `UP-TO-DATE` or `FROM-CACHE` has its XML from a *previous*
+run and is exempt from the freshness check. This prevents a cached task from being
+falsely flagged as stale on a second consecutive run.
+
 `./check.sh` uses `--max-age`; CI uses `--since`.
 
 ## Baseline
@@ -130,6 +135,44 @@ SOURCE_SETS = {
 }
 
 SUITE_RE = re.compile(r'tests="(\d+)"')
+
+# Reverse index: Gradle task path -> SOURCE_SETS label (built from SOURCE_SETS below).
+_TASK_PATH_TO_LABEL: dict[str, str] = {
+    ":shared:jvmTest": "shared:jvmTest",
+    ":shared:testAndroidHostTest": "shared:testAndroidHostTest",
+    ":desktopApp:test": "desktopApp:test",
+    ":mcp-server:test": "mcp-server:test",
+}
+
+#: Pattern matching a Gradle task outcome line in the build log.
+#: "> Task :shared:jvmTest UP-TO-DATE"
+#: "> Task :desktopApp:test FROM-CACHE"
+TASK_OUTCOME_RE = re.compile(r"^> Task (?P<path>:[\w:.-]+)\s+(?P<outcome>UP-TO-DATE|FROM-CACHE)\s*$")
+
+NOT_EXECUTED = {"UP-TO-DATE", "FROM-CACHE"}
+
+
+def parse_gradle_log_up_to_date(log_path: pathlib.Path) -> set[str]:
+    """Return the set of source-set labels whose test task went UP-TO-DATE or FROM-CACHE.
+
+    When a test task is served from Gradle's cache, it does not rewrite its output
+    directory. The XML on disk is therefore older than the job's start time, and a
+    freshness check that does not account for this would report every cached task as
+    stale — even though the cached result is valid and the staleness is expected.
+    """
+    up_to_date: set[str] = set()
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return up_to_date
+    for line in text.splitlines():
+        m = TASK_OUTCOME_RE.match(line)
+        if m:
+            label = _TASK_PATH_TO_LABEL.get(m.group("path"))
+            if label and m.group("outcome") in NOT_EXECUTED:
+                up_to_date.add(label)
+    return up_to_date
+
 
 #: Gradle writes suite names in two shapes and this gate has to read both:
 #:
@@ -445,6 +488,16 @@ def main() -> int:
         help="comma-separated source sets that MUST have produced results in this job "
              "(e.g. shared:jvmTest,desktopApp:test); others are skipped when absent",
     )
+    parser.add_argument(
+        "--gradle-log",
+        type=pathlib.Path,
+        default=None,
+        metavar="PATH",
+        help="path to the Gradle build log. When a source set's test task appears here "
+             "with UP-TO-DATE or FROM-CACHE, its JUnit XML is not rewritten and the "
+             "--since freshness check is skipped for that set. This prevents a cached "
+             "task from being incorrectly flagged as stale.",
+    )
     args = parser.parse_args()
 
     if args.since is not None and args.max_age is not None:
@@ -452,16 +505,27 @@ def main() -> int:
 
     required = {r.strip() for r in args.require.split(",") if r.strip()}
 
+    # Which source sets went UP-TO-DATE or FROM-CACHE in this Gradle run. Their XML
+    # on disk is from a previous run and is legitimately older — do not flag as stale.
+    up_to_date: set[str] = set()
+    if args.gradle_log:
+        up_to_date = parse_gradle_log_up_to_date(args.gradle_log)
+        if up_to_date:
+            print(f"  note: UP-TO-DATE in log: {', '.join(sorted(up_to_date))} — freshness check skipped for these")
+
     observed = {}
     stale = []
     for label, rel in SOURCE_SETS.items():
         detail_dir = ROOT / rel
         newest = newest_report(detail_dir)
         if newest is not None:
-            if args.since is not None and newest < args.since:
-                stale.append(label)
-            elif args.max_age is not None and newest < time.time() - args.max_age:
-                stale.append(label)
+            # A set that went UP-TO-DATE/FROM-CACHE in the log has a legitimately older
+            # XML file and must not be flagged as stale.
+            if label not in up_to_date:
+                if args.since is not None and newest < args.since:
+                    stale.append(label)
+                elif args.max_age is not None and newest < time.time() - args.max_age:
+                    stale.append(label)
         found = count(detail_dir, since=args.since, max_age=args.max_age)
         if found:
             observed[label] = found

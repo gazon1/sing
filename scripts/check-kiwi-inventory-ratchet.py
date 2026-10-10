@@ -40,6 +40,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import importlib.machinery
 import importlib.util
 import json
 import pathlib
@@ -68,6 +69,24 @@ def load_scanner():
     # time, so the entry must exist before exec_module — without it the load
     # dies with "'NoneType' object has no attribute '__dict__'".
     sys.modules[spec.name] = module
+    # Pre-load `infra` so that `sync.py`'s `import infra` (inside exec_module)
+    # finds it in sys.modules without needing to search sys.path.  Without this,
+    # `sync.py`'s own `sys.path_importer_cache.clear()` can leave Python unable
+    # to find infra/__init__.py on sys.path, causing
+    # "ModuleNotFoundError: No module named 'infra'" even though the file exists.
+    # See: https://github.com/gazon1/sing/issues/430 (notes section).
+    sys.path_importer_cache.clear()
+    infra_spec = importlib.util.find_spec("infra")
+    infra_mod = importlib.util.module_from_spec(infra_spec)
+    infra_spec.loader.exec_module(infra_mod)
+    sys.modules["infra"] = infra_mod
+    # Also pre-load infra.kiwi so that `import infra.kiwi.kiwi_client` inside
+    # sync.py finds it without a second filesystem search.
+    infra_kiwi_spec = importlib.util.find_spec("infra.kiwi")
+    infra_kiwi_mod = importlib.util.module_from_spec(infra_kiwi_spec)
+    infra_kiwi_spec.loader.exec_module(infra_kiwi_mod)
+    sys.modules["infra.kiwi"] = infra_kiwi_mod
+
     spec.loader.exec_module(module)
     return module
 

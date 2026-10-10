@@ -41,12 +41,19 @@ class Outcome(StrEnum):
     no result at this commit is a fact the matrix must state, because a target
     that silently produced nothing is exactly the "quietly green" failure this
     system exists to catch.
+
+    ``missing`` means the scenario was claimed, the CI job attempted the target,
+    but this specific scenario's flow was never executed (device unavailable,
+    tag filter, etc.). Unlike ``not-run`` (target never attempted) or
+    ``not-run`` (flow ran but produced no assertions), ``missing`` is a CI
+    integrity signal: every claimed scenario must have a run entry.
     """
 
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
     NOT_RUN = "not-run"
+    MISSING = "missing"
 
 
 class CellState(StrEnum):
@@ -262,6 +269,7 @@ class ResultCell:
             Outcome.FAILED: "❌",
             Outcome.SKIPPED: "⏭",
             Outcome.NOT_RUN: "⌛",
+            Outcome.MISSING: "❌",
         }[self.outcome]
 
 
@@ -291,6 +299,7 @@ def build_results(
     kept: int = 0,
     dropped: int = 0,
     unmapped: int = 0,
+    missing: set[tuple[str, Target]] | None = None,
 ) -> ResultMatrix:
     """Turn normalised (link, outcome, detail) triples into the matrix.
 
@@ -298,10 +307,17 @@ def build_results(
     ``not-run`` for its claimed targets, and not claimed for the rest, so the
     matrix can always render a complete grid.
 
+    ``missing`` is the set of (scenario, target) pairs that were claimed, the
+    target was attempted by CI, but this scenario's flow never executed. These
+    are rendered as ``Outcome.MISSING`` (glyph ``❌``) to distinguish them
+    from ``Outcome.NOT_RUN`` (glyph ``⌛``) which means the target was never
+    attempted at all.
+
     Two results for the same (scenario, target) is an error, raised by the
     normaliser before it gets here; the scan-wins shape below is a belt-and-
     braces guard so a future caller cannot silently keep the last one.
     """
+    missing = missing or set()
     cells: dict[str, dict[Target, ResultCell]] = {}
     for scenario_id, row in coverage.cells.items():
         cells[scenario_id] = {}
@@ -311,7 +327,10 @@ def build_results(
                 # produced a row here, showing the targets it used to cover as
                 # not-run. Dropping it would have changed the result matrix.
                 continue
-            cells[scenario_id][target] = ResultCell(Outcome.NOT_RUN)
+            if (scenario_id, target) in missing:
+                cells[scenario_id][target] = ResultCell(Outcome.MISSING)
+            else:
+                cells[scenario_id][target] = ResultCell(Outcome.NOT_RUN)
     for link, outcome, detail in results:
         cells.setdefault(link.scenario, {})[link.target] = ResultCell(Outcome(outcome), detail)
     return ResultMatrix(

@@ -1,0 +1,86 @@
+# Scenario TASK-SUB-01 — subtask add/toggle/delete.
+#
+# Canonical spec: infra/kiwi/scenarios/tasks/subtasks/TASK-SUB-01.yaml
+#
+# The `scenario:TASK-SUB-01` tag below is the linkage, matched by exact string
+# comparison in scripts/run-maestro.sh.
+#
+# ## Platform notes
+#
+# android: Maestro drives the real Android UI. The SubtasksSection is always
+# shown in the task detail view (even when empty) because the "add subtask"
+# input row is how a subtask is created. The section uses testTags for all
+# interactive elements.
+#
+# desktop: JVM Compose UI test — TBD.
+#
+# ## What this flow covers
+#
+# 1. Seed a parent task via DebugSeedActivity deep-link.
+# 2. Open the task detail view — SubtasksSection appears.
+# 3. Type a subtask title in the add-subtask input and submit.
+# 4. Verify the subtask appears in the list.
+# 5. Tap the subtask row to toggle its completed state.
+# 6. Verify the completed state changes.
+# 7. Tap the delete (×) button to remove the subtask.
+# 8. Verify the subtask is removed from the list.
+appId: com.singularity.todo
+name: tasks-subtasks
+tags:
+  - scenario:TASK-SUB-01
+  - smoke
+  - tasks
+---
+# ── Seed a parent task ─────────────────────────────────────────────
+- runFlow: ../../helpers/launch-clean.yaml
+- openLink: "todo-debug://seed?task=Parent%20Task"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# ── Open the task detail view ────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: task_item_parent_task
+    timeout: 8000
+- tapOn:
+    id: task_item_parent_task
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── SubtasksSection: add a subtask ───────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: subtasks_section
+    timeout: 5000
+- tapOn:
+    id: subtask_add_input
+- inputText: "Child task one"
+- tapOn:
+    id: subtask_add_button
+
+# ── Verify subtask appears ──────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: subtask_item_child_task_one
+    timeout: 5000
+
+# ── Toggle subtask completed state ───────────────────────────────
+- tapOn:
+    id: subtask_item_child_task_one
+- extendedWaitUntil:
+    visible:
+      text: "✓ Child task one"
+    timeout: 5000
+
+# ── Delete subtask ────────────────────────────────────────────────
+- tapOn:
+    id: subtask_delete_child_task_one
+- extendedWaitUntil:
+    absent:
+      id: subtask_item_child_task_one
+    timeout: 5000
+- assertAbsent: subtask_item_child_task_one

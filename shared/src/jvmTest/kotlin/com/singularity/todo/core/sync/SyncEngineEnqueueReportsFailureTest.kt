@@ -8,6 +8,7 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
@@ -93,6 +94,7 @@ class SyncEngineEnqueueReportsFailureTest {
         clock = clock,
         scope = testScope(scope.backgroundScope),
         crashReporter = crashReporter,
+            hlcFactory = FakeHlcFactory(),
     )
 
     @Test

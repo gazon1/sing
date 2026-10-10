@@ -8,6 +8,7 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -96,6 +97,7 @@ class SyncEnginePushIdentityTest {
             clock = clock,
             scope = testScope(scope.backgroundScope),
             crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
         )
         return Harness(engine, api, auth, outbox, shadow, scopes)
     }

@@ -5,6 +5,7 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -245,6 +246,7 @@ class SyncRunnerTest {
             clock = MutableClock(),
             scope = scope,
             crashReporter = NoOpCrashReportingPort(),
+            hlcFactory = FakeHlcFactory(),
         )
         return SyncRunner(
             engine = engine,

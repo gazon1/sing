@@ -187,12 +187,35 @@ jobs:
       # Uploaded unconditionally, and from build/maestro-results/ rather than only
       # ~/.maestro/tests/. A result set that exists solely when something broke
       # cannot answer "which flow passed on abc1234".
+      - name: Process Maestro results
+        run: |
+          # Run traceability to normalise JUnit XML and produce the result matrix.
+          # --maestro: include Maestro XML from build/maestro-results/
+          # --targets android: Maestro flows are Android-only
+          # --partial: smoke/regression tags mean this is a filtered run, not a full suite
+          # --commit: annotate the matrix with this SHA for traceability
+          PYTHONPATH=infra/kiwi python3 -m traceability results \
+            --maestro \
+            --targets android \
+            --partial \
+            --commit "${{ github.sha }}" \
+            --out-dir build/traceability
+
       - name: Upload JUnit results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: maestro-junit-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
           path: build/maestro-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload traceability result matrix
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: traceability-matrix-${{ needs.plan.outputs.suite }}-${{ matrix.shard }}-${{ github.run_id }}
+          path: build/traceability/
           if-no-files-found: warn
           retention-days: 14
 
@@ -212,8 +235,7 @@ jobs:
       - name: Post advisory warning on failure
         if: failure()
         run: |
-          echo "::warning::E2E smoke failed. This is an advisory gate — it does not block release.
-         ::warning::See https://github.com/gazon1/sing/issues/TBD (owner: gazon1, review: TBD)"
+          echo "::warning::E2E smoke failed. This is an advisory gate — it does not block release." && echo "::warning::See https://github.com/gazon1/sing/issues/TBD (owner: gazon1, review: TBD)"
 
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.

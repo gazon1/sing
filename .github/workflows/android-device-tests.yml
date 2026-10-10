@@ -59,8 +59,14 @@ jobs:
     steps:
       - id: p
         run: |
-          # When Free/Pro builds exist: for PR = free only, for main/nightly = both
-          flavors='["free"]'
+          # PRs get free only (fast).  main/nightly/tags get both flavors when the
+          # pro variant is available — this job matrix is the single control point.
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/tags/v*)
+              flavors='["free","pro"]' ;;
+            *)
+              flavors='["free"]' ;;
+          esac
           echo "flavors=$flavors" >> "$GITHUB_OUTPUT"
 
   instrumented:
@@ -102,7 +108,10 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64-v1
+          key: android-avd-api36-google_apis-x86_64-v2
+          restore-keys: |
+            android-avd-api36-google_apis-x86_64-v2
+            android-avd-api36-google_apis-x86_64-v1
 
       # Skipped on a cache hit. On cache miss, create the AVD from scratch — runners
       # are ephemeral so force-avd-creation: true is needed to actually create it.
@@ -128,7 +137,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64-v1
+          key: android-avd-api36-google_apis-x86_64-v2
 
       # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target). An
       # emulator below the app's targetSdk is a test of something nobody ships.
@@ -207,6 +216,29 @@ jobs:
 
       # A nightly that nobody reads is not a gate, it is a scrollback buffer. The nightly
       # Maestro failure opens an issue (e2e.yml); this one does the same.
+      # Guard against the app process crashing before any Espresso test could run.
+      # connectedDebugAndroidTest exits 0 even when the app under test崩溃ed — the
+      # test result XML then shows tests="0".  This step makes that condition fatal.
+      - name: Assert at least one test executed
+        run: |
+          results_dir="androidApp/build/outputs/androidTest-results/connected"
+          if [ ! -d "$results_dir" ]; then
+            echo "ERROR: No test results directory found at $results_dir — the app may have crashed on startup."
+            exit 1
+          fi
+          xml=$(find "$results_dir" -name "*.xml" -type f | head -1)
+          if [ -z "$xml" ]; then
+            echo "ERROR: No XML result file found in $results_dir — the app may have crashed on startup."
+            exit 1
+          fi
+          tests=$(grep -oP 'tests="\K[^"]+' "$xml" | head -1)
+          if [ -z "$tests" ] || [ "$tests" -eq 0 ]; then
+            echo "ERROR: Test run reports $tests tests — the app likely crashed on startup (StackOverflowError?)."
+            echo "See android-app-*.logcat artifact for the crash trace."
+            exit 1
+          fi
+          echo "PASS: $tests instrumented tests executed."
+
       - name: Open an issue when a nightly fails
         if: failure() && github.event_name == 'schedule'
         env:
