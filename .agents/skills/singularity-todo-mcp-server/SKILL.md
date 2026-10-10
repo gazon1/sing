@@ -266,9 +266,10 @@ val TOOL_ANNOTATIONS = mapOf(
     "notes.get" to ToolAnnotations(readOnlyHint = true),
     "tags.create" to ToolAnnotations(idempotentHint = true),
     "tags.assign" to ToolAnnotations(),
-    "adr.write" to ToolAnnotations(openWorldHint = true),
-    "adr.list" to ToolAnnotations(readOnlyHint = true),
-    "adr.read" to ToolAnnotations(readOnlyHint = true),
+    "write_adr" to ToolAnnotations(openWorldHint = true),
+    "list_adrs" to ToolAnnotations(readOnlyHint = true),
+    "read_adr" to ToolAnnotations(readOnlyHint = true),
+    "list_open_deferred" to ToolAnnotations(readOnlyHint = true),
     "decompose_and_create" to ToolAnnotations(),
 )
 ```

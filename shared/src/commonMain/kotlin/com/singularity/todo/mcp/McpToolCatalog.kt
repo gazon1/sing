@@ -211,6 +211,13 @@ object McpToolCatalog {
             description = "Reads the content of an ADR by filename",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
+        ToolEntry(
+            name = "list_open_deferred",
+            toolClass = "ListOpenDeferredTool",
+            domain = "adr",
+            description = "Lists deferred backlog entries with OPEN or PARTIAL status",
+            annotations = ToolAnnotations(readOnlyHint = true),
+        ),
 
         // ── AI Write Tools ──────────────────────────────────────────────────
         ToolEntry(

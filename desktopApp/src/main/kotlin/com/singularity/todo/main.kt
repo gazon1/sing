@@ -60,6 +60,12 @@ fun main(args: Array<String>) {
         return
     }
 
+    // `adr` subcommand — ADR CRUD and validation, no database required
+    if (args.firstOrNull() == "adr") {
+        AdrCommand.main(args.drop(1).toTypedArray())
+        return
+    }
+
     singleWindowApplication(title = "Singularity Todo") {
         // Ensure data directory exists
         prepareDataDirectory()

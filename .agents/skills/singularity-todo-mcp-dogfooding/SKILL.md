@@ -55,10 +55,14 @@ Notes:
   everything; default `title = ""` for empty notes.
 
 ADRs (decisions log):
-- `write_adr(slug, body, title?, tags?)` — slug already includes the
-  date prefix: `"2026-09-08-mcp-plan-tracking-via-mcp"`. Body is markdown,
-  `## Idea / ## Decision / ## Rationale / ## Consequences`.
-- `read_adr(slug)`, `list_adrs(limit?)`.
+- `write_adr(slug, title, tags?, body)` — slug is the filename stem
+  (e.g. `"2026-09-08-mcp-plan-tracking-via-mcp"`). `title` and `tags`
+  go into YAML frontmatter. Body is markdown (`## Idea / ## Decision / ##
+  Rationale / ## Consequences`). Writes `status: open` automatically.
+  Fails loudly if the slug already exists — use `read_adr` first to check.
+- `read_adr(slug)`, `list_adrs()` — list all ADRs; `read_adr` gets one.
+- `list_open_deferred()` — lists deferred backlog entries with OPEN/PARTIAL
+  status, from `docs/decisions/deferred/` directory (T2 split layout).
 
 ## Standard workflows
 

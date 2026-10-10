@@ -7,6 +7,7 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -18,6 +19,11 @@ import kotlin.time.Clock
 
 /** Directory name, relative to whichever root [AdrStorage] settles on. */
 private const val DECISIONS_DIR_NAME = "docs/decisions"
+
+/** Slug format: lowercase letters, digits, hyphens and underscores only. Guards against path traversal. */
+private val VALID_SLUG_REGEX = Regex("^[a-z][a-z0-9_-]*$")
+
+private const val MAX_DEPTH = 3 // Guards against unbounded filesystem walks
 
 /**
  * ADR (Architecture Decision Record) storage helper.
@@ -72,6 +78,23 @@ class AdrStorage(
 
     fun filePath(slug: String): String = "${decisionsDir()}/$slug.md"
 
+    /**
+     * Returns true if [slug] is a valid ADR filename slug.
+     * Guards against path traversal (`../`), absolute paths, and special characters.
+     */
+    fun isValidSlug(slug: String): Boolean =
+        slug.isNotBlank() && VALID_SLUG_REGEX.matches(slug) && slug != "." && slug != ".."
+
+    /**
+     * Throws [IllegalArgumentException] if [slug] is not valid.
+     * Use in every public method that accepts a slug before any filesystem operation.
+     */
+    private fun requireValidSlug(slug: String) {
+        require(isValidSlug(slug)) {
+            "Invalid slug: '$slug'. Use only lowercase letters, digits, hyphens and underscores, starting with a letter."
+        }
+    }
+
     // ─── Frontmatter parsing ───────────────────────────────────────────────────
 
     data class AdrFrontmatter(val title: String, val date: String, val tags: List<String>)
@@ -103,9 +126,11 @@ class AdrStorage(
     }
 
     fun readAdr(slug: String): AdrFile? {
+        requireValidSlug(slug)
         val path = Path(filePath(slug))
         return runCatching {
             if (!path.exists()) return@runCatching null
+            if (path.isDirectory()) return@runCatching null
             val content = path.readText(Charsets.UTF_8)
             val frontmatter = parseFrontmatter(content)
             val bodyStart = content.indexOf("---", 3)
@@ -124,27 +149,37 @@ class AdrStorage(
     fun listAdrs(): List<AdrSummary> {
         val dirPath = Path(decisionsDir)
         if (!dirPath.isDirectory()) return emptyList()
-        // Recursive: walks all subdirectories so that future per-entry splits
-        // (T2) are found without any further changes to this function.
+        // Recursive with depth limit (MAX_DEPTH) to guard against unbounded filesystem walks.
+        return listAdrsRecursive(dirPath, depth = 0)
+            .sortedByDescending { it.date }
+    }
+
+    private fun listAdrsRecursive(dirPath: Path, depth: Int): List<AdrSummary> {
+        if (depth > MAX_DEPTH) return emptyList()
         return dirPath.listDirectoryEntries()
             .filter { it.isDirectory() || it.fileName.toString().endsWith(".md") }
             .flatMap { entry ->
                 if (entry.isDirectory()) {
-                    entry.listDirectoryEntries("*.md")
+                    listAdrsRecursive(entry, depth + 1)
                 } else {
-                    listOf(entry)
+                    val slug = entry.fileName.toString().removeSuffix(".md")
+                    val adr = readAdr(slug)
+                    if (adr != null) { listOf(AdrSummary(adr.slug, adr.title, adr.date, adr.tags)) }
+                    else { emptyList() }
                 }
             }
-            .mapNotNull { filePath ->
-                val slug = filePath.fileName.toString().removeSuffix(".md")
-                readAdr(slug)?.let { AdrSummary(it.slug, it.title, it.date, it.tags) }
-            }
-            .sortedByDescending { it.date }
     }
 
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
+        requireValidSlug(slug)
         val dirPath = Path(decisionsDir)
         dirPath.createDirectories()
+        val path = Path(filePath(slug))
+        // Fail loudly on overwrite — the MCP tool is the system of record for ADRs,
+        // and silent clobbering would lose the decision trail.
+        if (path.exists()) {
+            error("ADR already exists: '$slug'. Use update instead of overwriting.")
+        }
         // The date in a new ADR's frontmatter is the day it was written, in the
         // writer's own zone — a property of the moment, not of the tool. It is now
         // read from an injected clock and zone so a test can assert the stamp
@@ -152,7 +187,6 @@ class AdrStorage(
         val date = todayAt(clock, timeZone.current()).toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
         val frontmatter = "---\ntitle: \"$title\"\ndate: $date\nstatus: open\ntags: $tagsStr\n---\n\n"
-        val path = Path(filePath(slug))
         path.writeText(frontmatter + body, Charsets.UTF_8)
         return path.toString()
     }
@@ -186,6 +220,32 @@ class AdrStorage(
 
     @Serializable
     data class WriteAdrOutput(val slug: String, val path: String, val title: String)
+
+    @Serializable
+    data class ListOpenDeferredOutput(val entries: List<AdrSummary>)
+
+    /**
+     * Lists deferred backlog entries with OPEN or PARTIAL status.
+     * Excludes resolved/closed entries.
+     */
+    fun listOpenDeferred(): List<AdrSummary> = listAdrs().filter { summary ->
+        // Read the frontmatter to get status — listAdrs doesn't parse it.
+        // We use the date-sorted list as input; status is checked per-entry.
+        val file = readAdr(summary.slug)
+        val status = file?.let { readAdrStatus(it.path) }
+        status in listOf("open", "partial", "OPEN", "PARTIAL", "PARTIALLY")
+    }
+
+    private fun readAdrStatus(filePath: String): String? {
+        val content = runCatching { Path(filePath).readText(Charsets.UTF_8) }.getOrNull() ?: return null
+        val fm = parseFrontmatter(content) ?: return null
+        // Status is stored as frontmatter field; currently writeAdr sets it to "open".
+        // Also check body for legacy entries that carry inline status.
+        val bodyStart = content.indexOf("---", 3)
+        val body = if (bodyStart != -1) content.substring(bodyStart + 3) else content
+        val statusRe = Regex("""^\*\*\s*Status[^:*]*:?\*?\*?:?\s*(.+?)\s*$""", RegexOption.MULTILINE)
+        return statusRe.find(body)?.groupValues?.get(1)?.trim()?.split(" ")?.firstOrNull()?.uppercase()
+    }
 }
 
 // ─── Tools ─────────────────────────────────────────────────────────────────────
@@ -260,5 +320,25 @@ class WriteAdrTool(private val storage: AdrStorage) :
     companion object {
         const val NAME = "write_adr"
         const val DESCRIPTION = "Create or update an Architecture Decision Record (ADR) as a Markdown file."
+    }
+}
+
+class ListOpenDeferredTool(private val storage: AdrStorage) :
+    SimpleTool<Unit>(
+        TypeToken.of(Unit::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
+    override suspend fun execute(args: Unit): String {
+        val entries = storage.listOpenDeferred()
+        return Json.encodeToString(
+            AdrStorage.ListOpenDeferredOutput.serializer(),
+            AdrStorage.ListOpenDeferredOutput(entries),
+        )
+    }
+
+    companion object {
+        const val NAME = "list_open_deferred"
+        const val DESCRIPTION = "List all deferred backlog entries with OPEN or PARTIAL status."
     }
 }

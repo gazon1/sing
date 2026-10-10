@@ -8,7 +8,7 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
   <a href="https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html"><img src="https://shieldcn.dev/badge/Kotlin-Multiplatform.svg?variant=branded&theme=violet&logo=kotlin" alt="Kotlin Multiplatform" /></a>
   <img src="https://shieldcn.dev/badge/Android-JVM%20Desktop.svg?variant=secondary&logo=android" alt="Android and JVM Desktop" />
   <img src="https://shieldcn.dev/badge/Compose%20Multiplatform.svg?variant=secondary&logo=jetbrainscompose" alt="Compose Multiplatform" />
-  <img src="https://shieldcn.dev/badge/MCP%20Server-37%20tools.svg?variant=secondary" alt="MCP server, 37 tools" />
+  <img src="https://shieldcn.dev/badge/MCP%20Server-38%20tools.svg?variant=secondary" alt="MCP server, 38 tools" />
 </p>
 
 <p align="center">

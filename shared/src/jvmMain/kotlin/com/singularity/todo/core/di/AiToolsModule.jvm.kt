@@ -33,6 +33,7 @@ import com.singularity.todo.feature.ai.tools.ImproveNoteTool
 import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.ai.tools.ListAdrsTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
+import com.singularity.todo.feature.ai.tools.ListOpenDeferredTool
 import com.singularity.todo.feature.ai.tools.ListProjectsTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.PickTimeTool
@@ -193,6 +194,7 @@ actual fun aiToolsModule(): Module = module {
     factory { ListAdrsTool(get()) }
     factory { ReadAdrTool(get()) }
     factory { WriteAdrTool(get()) }
+    factory { ListOpenDeferredTool(get()) }
 
     // ─── AI tools list for KoogAgentService ───
 
@@ -234,6 +236,7 @@ actual fun aiToolsModule(): Module = module {
             get<ListAdrsTool>(),
             get<ReadAdrTool>(),
             get<WriteAdrTool>(),
+            get<ListOpenDeferredTool>(),
             get<DecomposeAndCreateTool>(),
         )
     }
