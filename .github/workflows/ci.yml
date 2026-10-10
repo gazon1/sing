@@ -124,9 +124,16 @@ jobs:
       # -Dsingularity.test.steps=true fills the opt-in failure bundle.
       # -Dsingularity.test.a11y=fail makes accessibility findings fatal.
       # --continue: one red task must not hide the rest of the verdicts.
+      # --no-build-cache: ensures test tasks always execute and never serve FROM-CACHED,
+      # so the test-counts gate always measures a real run. The cache is still warm
+      # for configuration and compilation tasks that are not test tasks.
+      # The Gradle log is captured so check-test-runs.py can exempt UP-TO-DATE tasks
+      # from the freshness check (a second consecutive run would otherwise falsely flag
+      # a legitimately cached task as stale).
       - name: Gradle (tests + coverage + detekt)
         run: >
           ./gradlew --continue
+          --no-build-cache
           :mcp-server:jar
           koverReport
           :detekt-rules:test
@@ -134,16 +141,20 @@ jobs:
           -Ptest.tags=fast,slow
           -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail
           $RETRY_ARGS
+          2>&1 | tee build.log
 
       # Three separate invocations, not one comma-separated list. The parity table
       # in check-gate-wiring.py keys on the exact spelling of the argument, so
       # merging these would leave GATE_ARG_PARITY declaring comparisons it no longer
       # performs — a declaration that reads as enforced and is not.
+      # --gradle-log build.log: exempts any source set whose test task went UP-TO-DATE
+      # or FROM-CACHED from the freshness check. With --no-build-cache above, tasks
+      # should never be cached in CI, but the flag is also a backstop for local runs.
       - name: Executed test counts
         run: |
-          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED"
-          python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED"
-          python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED"
+          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log
+          python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log
+          python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED" --gradle-log build.log
 
       # Detekt passed before this point — if DI/import files changed in a rebase,
       # this catches a compile break that `jvmTest` (already green) might miss.

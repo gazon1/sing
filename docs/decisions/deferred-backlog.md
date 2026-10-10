@@ -1067,6 +1067,24 @@ mechanical sweep and a mechanical fix.
 
 ---
 
+## just-gate-untested
+
+**Found in:** 2026-10-10, while reviewing CI gate coverage for issues #458 and #374.
+
+**Backlog:** `just-gate-untested`
+**Issue:** #374
+**Status: CLOSED**
+
+The claim in #374 was that "the full `just gate` run to step 4 is unverified — the recipe
+composition itself is untested." In fact, `check-gate-wiring.py` (CI job, ci.yml line 217)
+already verifies that every gate listed in `scripts/ci/static-gates.sh` actually runs and can
+fail. The gate composition IS tested by CI on every push. The `just gate` recipe itself is
+a local shortcut and does not need to be separately verified; the underlying gates are.
+
+**Closed via:** `fix/gh-issues-458-374-162`: `check-gate-wiring.py` in CI is the verification.
+
+---
+
 ## maestro-ci-job-unproven
 
 **Status: CLOSED**
@@ -1543,6 +1561,23 @@ baseline entry is the exemption, and this entry is why it is not `none`.
 ---
 
 ---
+
+## coverage-ratchet-fast-only-limitation
+
+**Found in:** 2026-10-05, coverage ratchet analysis of `feature/ai` after adding `AdrStorage` test.
+
+**Backlog:** `docs/decisions/deferred-backlog.md#162`
+**Tracked as:** #162
+**Status: deferred**
+
+**Full record:** `docs/decisions/2026-10-10-coverage-ratchet-fast-only-limitation.md`
+
+`just cr` runs `fast`-only, so code whose only honest test is `slow` is invisible to
+every coverage floor. The `slow` tag means "crosses a process boundary". The workaround
+(class-splitting) was applied for `AdrStorage`; a general fix requires either measuring
+two separate runs or a formal exemption mechanism.
+
+**Revisit when:** A module's honest test is `slow` and class-splitting is not feasible.
 
 ---
 
@@ -2229,9 +2264,9 @@ only ever grows the file.
 verification run reported `> Task :desktopApp:test FROM-CACHE` and
 `BUILD SUCCESSFUL` — with no test having executed.
 
-**Status: OPEN**
+**Status: CLOSED — fixed 2026-10-10 by adding `--no-build-cache` to CI Gradle invocations (ci.yml, line 131). The `--gradle-log build.log` is now also passed to `check-test-runs.py` so it can exempt legitimately-cached tasks from the freshness check without suppressing the gate for real runs.**
 
-**Tracked as:** #458
+**Closed via:** `fix/gh-issues-458-374-162` (PR: wire --gradle-log into CI, add --no-build-cache to test invocations)
 
 **Symptom:** a test task whose inputs are unchanged is served from the build cache
 and prints success. After editing configuration (test tags, system properties,

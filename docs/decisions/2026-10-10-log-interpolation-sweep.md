@@ -1,4 +1,9 @@
-# Log interpolation sweep — user content classification
+---
+title: "Log interpolation sweep — user content classification"
+date: 2026-10-10
+status: accepted
+issue: "#43"
+---
 
 **Date:** 2026-10-10
 **Issue:** #43

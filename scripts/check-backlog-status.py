@@ -61,7 +61,7 @@ _TRACKING_WHY_RE = re.compile(r"^\*\*Tracking:?\*\*", re.M)
 # Deliberately a fixed vocabulary. "Any word followed by a colon" would classify
 # every entry in the file as resolved-or-not by accident, which is the mistake
 # two hand-written regexes made while writing this.
-OPEN_STATES = ("OPEN",)
+OPEN_STATES = ("OPEN", "DEFERRED")
 CLOSED_STATES = ("CLOSED", "RESOLVED", "SUPERSEDED")
 # Partly-done states are legitimate and must be spelled, not hidden: an entry
 # marked PARTIALLY CLOSED is a live commitment with a recorded part of it done,

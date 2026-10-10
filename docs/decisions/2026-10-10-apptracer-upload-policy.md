@@ -1,4 +1,9 @@
-# ADR: AppTracer upload policy — release builds must not upload from developer machines
+---
+title: "AppTracer upload policy — release builds must not upload from developer machines"
+date: 2026-10-10
+status: open
+issue: "#387"
+---
 
 **Date:** 2026-10-10
 **Status:** OPEN
