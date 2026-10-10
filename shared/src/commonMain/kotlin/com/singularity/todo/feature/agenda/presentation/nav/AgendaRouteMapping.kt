@@ -65,6 +65,11 @@ fun AgendaNavContent(
             contextMenuHost = contextMenuHost,
         )
 
+        is AgendaStartRoute.Tags -> AgendaScreen(
+            definition = AgendaPresets.byTags(route.ids),
+            contextMenuHost = contextMenuHost,
+        )
+
         is AgendaStartRoute.SavedAgendaList -> SavedAgendaListScreen()
 
         is AgendaStartRoute.SavedAgendaResults -> SavedAgendaScreen(
@@ -99,6 +104,8 @@ fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
     is AgendaStartRoute.Project -> AgendaPresets.byProject(id)
 
     is AgendaStartRoute.Tag -> AgendaPresets.byTag(id)
+
+    is AgendaStartRoute.Tags -> AgendaPresets.byTags(ids)
 
     is AgendaStartRoute.SavedAgendaList -> AgendaPresets.Inbox
 

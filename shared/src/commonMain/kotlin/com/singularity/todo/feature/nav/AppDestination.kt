@@ -256,6 +256,7 @@ sealed interface AppDestination : AppNavKey {
             AgendaStartRoute.Upcoming -> "Upcoming"
             is AgendaStartRoute.Project -> "Project"
             is AgendaStartRoute.Tag -> "Tag"
+            is AgendaStartRoute.Tags -> "Tags"
             AgendaStartRoute.SavedAgendaList -> "Saved views"
             is AgendaStartRoute.SavedAgendaResults -> "Saved view"
             is AgendaStartRoute.SavedAgendaEdit -> "Edit view"

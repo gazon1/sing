@@ -57,7 +57,7 @@ class ToolRegistrar(private val server: Server) {
         val name = descriptor.name
         val description = descriptor.description
         val inputSchema: ToolSchema = KoogJsonSchemaBuilder.build(descriptor)
-        val annotations = TOOL_ANNOTATIONS[name]
+        val annotations = McpToolCatalog.byName(name)?.annotations
 
         // Output schema: we pass an empty schema so the MCP client does not
         // validate structuredContent against the input schema. Koog does not

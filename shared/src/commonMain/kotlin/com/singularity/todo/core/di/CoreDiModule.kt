@@ -302,14 +302,63 @@ fun coreModule(): org.koin.core.module.Module = module {
     // as a constructor parameter. Its init {} runs during this call and registers all
     // pull handlers. Previously it was a standalone single {} that nobody retrieved, so
     // Koin never instantiated it and zero handlers were registered in production.
-    // STUBBED: SyncEngine is disabled — re-enable when sync boundary is stable.
-    // The full block will be restored with SyncEngine constructor and both phases.
-    // single {
-    //     val state = SyncEngineState(...)
-    //     val pushPhase = PushPhase(...)
-    //     val pullPhase = PullPhase(getHandlers = { get<SyncEngine>().handlers }, ...)
-    //     SyncEngine(..., pushPhase = pushPhase, pullPhase = pullPhase, ...)
-    // }
+    single {
+        val state = SyncEngineState(
+            log = Logger.withTag("SyncEngine"),
+            crashReporter = get(),
+        )
+        val pushPhase = PushPhase(
+            api = get(),
+            authRepository = get(),
+            outboxDao = get(),
+            deadLetterDao = get(),
+            shadowDao = get(),
+            idGenerator = get(),
+            scopeProvider = get(),
+            patchBuilder = get(),
+            monoNow = { monoClockMillis },
+            phases = state.phases,
+            writerProvider = { get<SyncDocumentWriter>() },
+            retryPolicy = get(),
+            scope = get(),
+        )
+        // getHandlers lambda uses get<SyncEngine>() — Koin resolves engine as a singleton,
+        // so this returns the same instance. The lambda is not invoked during construction.
+        val pullPhase = PullPhase(
+            api = get(),
+            authRepository = get(),
+            stateRepository = get(),
+            clock = get(),
+            scopeProvider = get(),
+            phases = state.phases,
+            getHandlers = { get<SyncEngine>().handlers },
+            scope = get(),
+            hlcFactory = get(),
+        )
+        SyncEngine(
+            log = Logger.withTag("SyncEngine"),
+            api = get(),
+            authRepository = get(),
+            outboxDao = get(),
+            deadLetterDao = get(),
+            idGenerator = get(),
+            stateRepository = get(),
+            scopeProvider = get(),
+            shadowDao = get(),
+            patchBuilder = get(),
+            writerProvider = { get<SyncDocumentWriter>() },
+            scheduler = get(),
+            retryPolicy = get(),
+            clock = get(),
+            scope = get(),
+            crashReporter = get(),
+            hlcFactory = get(),
+            state = state,
+            pushPhase = pushPhase,
+            pullPhase = pullPhase,
+            bootstrapper = null,
+        )
+    }
 
     // SyncBootstrapper registration is deferred until the engine is re-enabled.
     // When SyncEngine(...) is uncommented, also uncomment these two lines:
