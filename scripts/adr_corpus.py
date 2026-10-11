@@ -68,6 +68,7 @@ DEFAULT_FRONTMATTER_KEY_ORDER = (
 DEFAULT_SECTION_KEYS = ('Context', 'Decision', 'Rationale', 'Consequences', 'Links')
 DEFAULT_NEW_ADR_STATUS = 'open'
 DEFAULT_NEW_ADR_KEY_ORDER = ('title', 'date', 'status', 'tags')
+DEFAULT_DISCOVER_MAX_DEPTH = 3  # Guards against unbounded filesystem walks (#536)
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,7 @@ class AdrCorpusConfig:
     section_keys: frozenset[str] = frozenset(DEFAULT_SECTION_KEYS)
     new_adr_status: str = DEFAULT_NEW_ADR_STATUS
     new_adr_key_order: tuple[str, ...] = DEFAULT_NEW_ADR_KEY_ORDER
+    discover_max_depth: int = DEFAULT_DISCOVER_MAX_DEPTH  # filesystem walk depth limit (#536)
 
     # -- discovery ----------------------------------------------------------
 
@@ -211,6 +213,9 @@ def load(root: pathlib.Path | None = None) -> AdrCorpusConfig:
         section_keys=frozenset(fm.get('sectionKeys', DEFAULT_SECTION_KEYS)),
         new_adr_status=fm.get('newAdrStatus', DEFAULT_NEW_ADR_STATUS),
         new_adr_key_order=tuple(fm.get('newAdrKeyOrder', DEFAULT_NEW_ADR_KEY_ORDER)),
+        discover_max_depth=int(
+            raw.get('discover', {}).get('maxDepth', DEFAULT_DISCOVER_MAX_DEPTH)
+        ),
     )
 
 

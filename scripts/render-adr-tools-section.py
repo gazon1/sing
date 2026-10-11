@@ -68,9 +68,22 @@ SKILLS = (
     ROOT / ".agents/skills/singularity-todo-mcp-server/SKILL.md",
 )
 
-# One declaration per line. `AdrCommandSpec`/`AdrFlagSpec` are always written across a
-# single line each; anything else means the source changed shape and this parser has
-# to be taught the new shape rather than guess at it.
+# Parsing rules for `AdrSurface.kt` declarations:
+#
+# Rule 1: `ctor` (AdrCommandSpec or AdrFlagSpec) starts at column 0 of a line.
+#   Rationale: multiline declarations are rejected, not guessed at. If a developer
+#   reformats a long call across lines, the gate fires with a diagnostic rather than
+#   silently dropping the entry. See test_an_unreadable_declaration_is_an_error_not_a_skip.
+#
+# Rule 2: arguments are double-quoted strings only. Single quotes are not accepted.
+#   Rationale: Kotlin allows both, but the codebase uses double quotes consistently.
+#
+# Rule 3: the third argument (summary) is optional and captured via `(?:...)?`.
+#   Rationale: AdrFlagSpec has two args, AdrCommandSpec has three. The regex must
+#   not fail when the optional third arg is absent.
+#
+# Rule 4: a trailing comma before `)` is accepted and stripped by `\s*,?\s*`.
+#   Rationale: Kotlin trailing commas are legal and common in the codebase.
 CALL_RE = re.compile(
     r'^\s*(?P<ctor>AdrCommandSpec|AdrFlagSpec)\(\s*'
     r'"(?P<a>[^"]*)"\s*,\s*'

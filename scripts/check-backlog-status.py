@@ -176,47 +176,10 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 DEFAULT_MAX_ENTRIES = 129
 
 
-def parse_entries(text: str) -> list[dict[str, object]]:
-    """Split the file into entries and read each one's status.
-
-    The first `**Status…**` line anywhere in the entry wins.
-
-    There was a 12-line window here first, on the reasoning that a status buried
-    deep in the body is more likely to be prose about an earlier status. A test
-    caught it on a real shape — `Found in:` paragraphs run long, and an entry
-    whose status sat at line 14 was silently skipped, which is the exact
-    behaviour that made this file unclassifiable in the first place. A window
-    that quietly drops what it does not reach is the same defect as a rule that
-    matches nothing. Where a later status contradicts the first, the first wins
-    and the contradiction stays visible in the body.
-    """
-    matches = list(_ENTRY_RE.finditer(text))
-    out: list[dict[str, object]] = []
-    for i, m in enumerate(matches):
-        start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        body = text[start:end]
-        status_raw = None
-        for line in body.splitlines():
-            sm = _STATUS_RE.match(line.strip())
-            if sm:
-                # The closing bold markers come along with the value, so a raw
-                # read of `**Status: CLOSED**` is `CLOSED**`. Classification
-                # coped, but the "status reads: …" line in a failure report is
-                # meant for a human, and `CLOSED**` is not what the file says.
-                status_raw = sm.group(1).strip().strip("*_` ").strip()
-                break
-        tracked = bool(_TRACKED_RE.search(body)) or bool(_TRACKING_WHY_RE.search(body))
-        out.append(
-            {
-                "slug": m.group(1).strip(),
-                "line": text[: m.start()].count("\n") + 1,
-                "status": status_raw,
-                "tracked": tracked,
-                "body": body,
-            }
-        )
-    return out
+# Removed 2026-10-11: parse_entries and the combined deferred-backlog.md file format
+# were eliminated in #508 (T2). The corpus now uses per-file entries (parse_single_entry).
+# The tests for parse_entries and the RepositoryTest class over the combined file are
+# removed in the same commit. The combined-file format is no longer supported.
 
 
 _NON_WORD = " *_`.-—–:"
@@ -256,11 +219,8 @@ def parse_single_entry(path: Path) -> dict[str, object]:
     """Read one T2 file as one entry.
 
     T2 (PR #508) split the combined `deferred-backlog.md` into individual files and
-    deleted the combined file, so `parse_entries` above — which splits on `## slug`
-    headings — now returns nothing for every file. This reads the per-file shape.
-
-    `parse_entries` stays: it is still what the tests exercise, and it is the right
-    tool if a combined file ever comes back.
+    deleted the combined file. `parse_entries` (the combined-file parser) was removed
+    in #538. Only the per-file shape is supported now.
     """
     text = path.read_text(encoding="utf-8")
 
@@ -286,8 +246,8 @@ def main() -> int:
         "--backlog",
         default=None,
         help=(
-            "backlog file or directory to check. Defaults to the corpus root from "
-            "adr_corpus; a file path is accepted for the pre-T2 combined layout"
+            "directory to check. Defaults to the corpus root from adr_corpus. "
+            "The combined-layout file is no longer supported (removed #538)."
         ),
     )
     ap.add_argument(
@@ -308,9 +268,10 @@ def main() -> int:
     else:
         target = ROOT / args.backlog
         if target.is_file():
-            # Pre-T2 combined layout, kept working on purpose: the split is done,
-            # but the gate should not be the thing that broke when it happened.
-            entries = parse_entries(target.read_text(encoding="utf-8"))
+            # Combined file format removed in #508 (T2). Only the per-file corpus is
+            # supported now. The argument must be a directory.
+            print(f"ERROR: {args.backlog}: combined-backlog format is no longer supported")
+            return 1
         elif target.is_dir():
             # Accept either the corpus root or the backlog directory itself. Both are
             # natural things to pass and, before this, the second one produced

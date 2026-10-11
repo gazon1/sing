@@ -82,14 +82,10 @@ SLOW_NAMES = {
     "gate scripts' own unit tests",
 }
 
-# This script is itself a registered gate, so it must never probe itself.
-#
-# It is not a stylistic exclusion: probing "gates are alive" means launching a child
-# that launches 37 gates, one of which launches 37 more. The tree is finite but the
-# fan-out is not, and the first version of this gate died of its own timeout — which
-# is the exact failure it exists to detect, pointed inward. A liveness checker must
-# not be able to hang on liveness.
-SELF = pathlib.Path(__file__).name
+# Marker for gates that must not be probed. Declared in the registry (static-gates.sh)
+# rather than guessed from the script's own filename, so the rule is visible where
+# readers look and applies to any future meta-gate without code changes (#534).
+SELF_PROBE_SKIP = '# no-self-probe'
 
 # Seconds per probe. Generous, because a timeout is now reported as `slow` rather
 # than `dead` and a generous budget stops healthy gates from being reported at all.
@@ -197,7 +193,7 @@ def main() -> int:
                  'or the registry was truncated')
 
     targets = [g for g in gates
-               if SELF not in g[2]
+               if SELF_PROBE_SKIP not in g[2]
                and (args.include_slow or not is_slow(g[1], g[2]))]
     skipped = len(gates) - len(targets)
 

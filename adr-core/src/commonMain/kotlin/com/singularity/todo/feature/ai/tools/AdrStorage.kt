@@ -20,8 +20,6 @@ private val DECISIONS_DIR_NAME = AdrCorpusConfig.DEFAULT.root
 /** Slug format: lowercase letters, digits, hyphens and underscores only. Guards against path traversal. */
 private val VALID_SLUG_REGEX = Regex("^[a-z0-9][a-z0-9_-]*$")
 
-private const val MAX_DEPTH = 3 // Guards against unbounded filesystem walks
-
 /**
  * Backlog states that mean "still live". Normalized, so `OPEN` and `open` are the
  * same answer — before, this list carried five spellings and the policy gate
@@ -221,7 +219,7 @@ class AdrStorage(
     }.getOrNull()
 
     fun listAdrs(): List<AdrSummary> =
-        corpus.discover(decisionsDir, MAX_DEPTH)
+        corpus.discover(decisionsDir, corpus.discoverMaxDepth)
             .mapNotNull { readAdrAt(Path(it)) }
             .map { AdrSummary(it.slug, it.title, it.date, it.tags, it.status) }
             .sortedByDescending { it.date }
@@ -377,7 +375,7 @@ class AdrStorage(
         // archive and backlog — because a superseded ADR may point at any of them.
         val resolved = slugFromSupersededBy(supersededBy)
         if (resolved != null) {
-            val known = corpus.discover(decisionsDir, MAX_DEPTH)
+            val known = corpus.discover(decisionsDir, corpus.discoverMaxDepth)
                 .map { it.substringAfterLast('/').removeSuffix(".md") }
                 .toSet() + corpus.deferred(decisionsDir)
             require(resolved in known) {

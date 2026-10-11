@@ -57,7 +57,15 @@ KOTLIN_CONSUMER = 'adr-core/src/commonMain/kotlin/com/singularity/todo/feature/a
 # A glob/iterdir/rglob over the corpus root, in any consumer but adr_corpus itself.
 # `adr_corpus.py` is the owner and is exempt by construction.
 OWNER = 'scripts/adr_corpus.py'
+# GLOB_RE: catches `.glob(`, `.rglob(`, `.iterdir(`, and Kotlin's `listDirectoryEntries("`.
+# Each alternative is a distinct method name — do NOT merge with `|` unless you mean it.
+# Constraint: the pattern requires an opening paren or quote, so `.globX(` (no space, odd
+# name) would not match — intentionally conservative to avoid false positives (#535).
 GLOB_RE = re.compile(r"""\.(?:r?glob|iterdir)\(|listDirectoryEntries\(""")
+# CORPUS_LITERAL: matches single or double-quoted strings containing `docs/decisions`.
+# `[^'"]*` is greedy — for a string like `'foo'docs/decisions/bar'` the `"` closes
+# at the wrong place, leaving `foo'docs/decisions/bar` unclosed. This cannot happen with
+# well-formed Python/Kotlin string literals; the regex is a smell detector, not a parser.
 CORPUS_LITERAL = re.compile(r"""['"][^'"]*docs/decisions['"]""")
 
 
@@ -131,6 +139,11 @@ def check_kotlin_defaults(errors: list[str]) -> None:
 
     if str(cfg['staleDays']) not in kt:
         errors.append(f"AdrCorpusConfig.DEFAULT.staleDays should be {cfg['staleDays']}")
+
+    discover = cfg.get('discover', {})
+    max_depth = discover.get('maxDepth', 3)
+    if str(max_depth) not in kt:
+        errors.append(f"AdrCorpusConfig.DEFAULT.discoverMaxDepth should be {max_depth}")
 
 
 def main() -> int:
