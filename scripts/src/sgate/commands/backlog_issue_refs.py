@@ -20,7 +20,7 @@ KIWI_REQUIRED: ClassVar[bool] = False
 # ── output parser ──────────────────────────────────────────────────────────────
 
 
-def _parse_backlog_issue_refs(stdout: str) -> dict:
+def _parse_backlog_issue_refs(stdout: str | bytes) -> dict:
     """Parse human-readable output from check-backlog-issue-refs.py.
 
     Returns a dict with:
@@ -29,6 +29,8 @@ def _parse_backlog_issue_refs(stdout: str) -> dict:
       - warnings: list of {issue_num, message}
       - passed: bool
     """
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode("utf-8", errors="replace")
     lines = stdout.splitlines()
     entry_count = open_count = snapshot_issue_count = snapshot_open_count = 0
     blocking_errors: list[dict] = []
@@ -169,7 +171,7 @@ def backlog_issue_refs(check: bool, emit_json: bool) -> None:
         if emit_json:
             # Capture output and emit structured JSON
             result = run_capture(py_cmd, gate_name)
-            parsed = _parse_backlog_issue_refs(result.stdout.decode())
+            parsed = _parse_backlog_issue_refs(result.stdout)
             parsed["exit_code"] = result.returncode
 
             # Emit JSON to stdout; gate_fail still fires for CI annotations
