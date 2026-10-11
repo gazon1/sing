@@ -22,6 +22,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The runner's default JRE is 17; :adr-cli:installDist builds with the
+      # Gradle toolchain (21) and the installed script then dies with
+      # UnsupportedClassVersionError (class file 65 vs 61) on `validate`.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -68,6 +77,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Set up Python
         uses: actions/setup-python@v5
