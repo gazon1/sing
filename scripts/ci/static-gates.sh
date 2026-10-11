@@ -96,10 +96,10 @@ collect_and_report() {
         local total_lines
         total_lines=$(wc -l <"$out_file")
         echo "--- $name (exit $rc) ---"
-        if ((total_lines > 40)); then
-          head -20 "$out_file"
-          echo "… ($((total_lines - 40)) lines omitted) …"
-          tail -20 "$out_file"
+        if ((total_lines > 110)); then
+          head -30 "$out_file"
+          echo "… ($((total_lines - 110)) lines omitted) …"
+          tail -80 "$out_file"
         else
           cat "$out_file"
         fi
@@ -166,7 +166,10 @@ gate blocking "version catalog has no literals" python3 scripts/build-version-ca
 # -v: a failure prints its name the moment it happens, and a run that dies
 # without an epilogue (CI, 2026-10-11) still shows the last test it reached —
 # dots-only output ends mid-stream with no way to tell where.
-gate blocking "gate scripts' own unit tests" python3 -m unittest discover -s scripts/tests -v
+# The sentinel proves whether the interpreter reached normal termination;
+# unittest's epilogue goes to stderr while script print()s sit in the
+# block-buffered stdout, so the file's last lines can be stale stdout alone.
+gate blocking "gate scripts' own unit tests" bash -c 'python3 -m unittest discover -s scripts/tests -v; rc=$?; echo "__unittest_rc=$rc"; exit $rc'
 gate blocking "test-task external inputs declared" python3 scripts/check-test-task-inputs.py
 gate blocking "declared dependencies are used" python3 scripts/check-dependency-usage.py
 gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
