@@ -3,20 +3,13 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-import subprocess
-import sys
-
 import click
 from sgate.log import logger
 
 import sgate
 from sgate.output import gate_fail
-from sgate.commands.base import (
-    INTERNAL_ERROR,
-    IO_ERROR,
-    VALIDATION_FAILURE,
-    register,
-)
+from sgate.commands._runner import run
+from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 # Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = False
@@ -49,21 +42,10 @@ def test_task_external_inputs_declared(check: bool, json: bool) -> None:
         gate_fail(gate_name, None, None, None, None, "script not found")
         raise SystemExit(IO_ERROR)
 
+    import sys
     py_cmd = [sys.executable, str(script)]
-
     try:
-        result = subprocess.run(py_cmd, capture_output=True)
-        if result.stdout:
-            sys.stdout.write(result.stdout.decode())
-            sys.stdout.flush()
-        if result.returncode != 0:
-            gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
-            raise SystemExit(result.returncode)
-    except FileNotFoundError:
-        logger.error(f"python3 not found at {sys.executable}")
-        gate_fail(gate_name, None, None, None, None, "python3 not found")
-        raise SystemExit(IO_ERROR)
-
+        run(py_cmd, gate_name)
     except Exception:
         logger.exception("unexpected error")
         gate_fail(gate_name, None, None, None, None, "unexpected error")

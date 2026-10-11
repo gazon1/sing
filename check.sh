@@ -58,7 +58,7 @@ echo -e "${YELLOW}=== [2/$TOTAL] backlog entries are classifiable and within bud
 # is an entry nobody can triage, and the file's own
 # `an-open-backlog-entry-does-not-mean-the-work-is-still-open` records what
 # happens next: it stops being read.
-python3 scripts/check-backlog-status.py || {
+sgate backlog_status || {
     echo -e "${RED}a backlog entry has no readable status, or an open one is untracked${NC}"
     exit 1
 }

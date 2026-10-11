@@ -3,20 +3,13 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-import subprocess
-import sys
-
 import click
 from sgate.log import logger
 
 import sgate
 from sgate.output import gate_fail
-from sgate.commands.base import (
-    INTERNAL_ERROR,
-    IO_ERROR,
-    VALIDATION_FAILURE,
-    register,
-)
+from sgate.commands._runner import run
+from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 # Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = True
@@ -44,18 +37,7 @@ def coverage_matrix_current(check: bool, json: bool) -> None:
     gate_name = 'coverage_matrix_current'
 
     try:
-        result = subprocess.run(['traceability', 'coverage', '--check'], capture_output=True)
-        if result.stdout:
-            sys.stdout.write(result.stdout.decode())
-            sys.stdout.flush()
-        if result.returncode != 0:
-            gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
-            raise SystemExit(result.returncode)
-    except FileNotFoundError:
-        logger.error("traceability not found on PATH")
-        gate_fail(gate_name, None, None, None, None, "traceability not found on PATH")
-        raise SystemExit(IO_ERROR)
-
+        run(['traceability', 'coverage', '--check'], gate_name)
     except Exception:
         logger.exception("unexpected error")
         gate_fail(gate_name, None, None, None, None, "unexpected error")

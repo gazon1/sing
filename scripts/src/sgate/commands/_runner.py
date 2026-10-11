@@ -1,0 +1,110 @@
+"""sgate.commands._runner — shared gate execution logic.
+
+All 45+ shims use this to run their underlying command, so the runner
+is the single place where:
+  - capture_output=True + stdout forwarding
+  - gate_fail() on non-zero exit
+  - FileNotFoundError / Exception handling
+are implemented.
+"""
+from __future__ import annotations
+
+import subprocess
+import sys
+from typing import NoReturn
+
+from sgate.log import logger
+from sgate.output import gate_fail
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR
+
+
+def run(
+    cmd: list[str],
+    gate_name: str,
+    *,
+    repo_root_str: str | None = None,
+) -> None:
+    """Run a gate command, forwarding stdout and calling gate_fail on failure.
+
+    Args:
+        cmd: Command list to execute (e.g. [sys.executable, "script.py"] or
+            ["bash", "script.sh"] or ["traceability", "validate"])
+        gate_name: Display name used in gate_fail() annotation.
+        repo_root_str: Optional repo root override (for bash -c commands that
+            need to set ROOT before sourcing static-gates.sh).
+
+    Raises:
+        SystemExit: IO_ERROR (cmd/file not found), or the command's own exit code
+            on validation failure.
+    """
+    try:
+        result = subprocess.run(cmd, capture_output=True)
+        if result.stdout:
+            sys.stdout.write(result.stdout.decode())
+            sys.stdout.flush()
+        if result.returncode != 0:
+            gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
+            raise SystemExit(result.returncode)
+    except FileNotFoundError:
+        # Narrow exception: only catches the exec call, not the python3 above.
+        cmd_str = cmd[0] if cmd else "<unknown>"
+        logger.error(f"{cmd_str} not found")
+        gate_fail(gate_name, None, None, None, None, f"{cmd_str} not found")
+        raise SystemExit(IO_ERROR)
+    except OSError as exc:
+        # e.g. bash script not executable, python3 not found (different from
+        # FileNotFoundError which catches the exec call specifically).
+        cmd_str = cmd[0] if cmd else "<unknown>"
+        logger.error(f"OS error running {cmd_str}: {exc}")
+        gate_fail(gate_name, None, None, None, None, f"OS error: {exc}")
+        raise SystemExit(IO_ERROR)
+    except Exception:
+        logger.exception("unexpected error")
+        gate_fail(gate_name, None, None, None, None, "unexpected error")
+        raise SystemExit(INTERNAL_ERROR)
+
+
+def run_python_script(
+    script_path: str,
+    gate_name: str,
+    *,
+    repo_root: str,
+    extra_args: list[str] | None = None,
+) -> None:
+    """Convenience: run a Python script gate."""
+    from pathlib import Path
+
+    script = Path(script_path)
+    if not script.exists():
+        logger.error(f"{script} not found")
+        gate_fail(gate_name, None, None, None, None, "script not found")
+        raise SystemExit(IO_ERROR)
+
+    py_cmd = [sys.executable, str(script)]
+    if extra_args:
+        py_cmd.extend(extra_args)
+
+    run(py_cmd, gate_name)
+
+
+def run_bash_script(
+    script_path: str,
+    gate_name: str,
+    *,
+    repo_root: str,
+    extra_args: list[str] | None = None,
+) -> None:
+    """Convenience: run a bash script gate."""
+    from pathlib import Path
+
+    script = Path(script_path)
+    if not script.exists():
+        logger.error(f"{script} not found")
+        gate_fail(gate_name, None, None, None, None, "script not found")
+        raise SystemExit(IO_ERROR)
+
+    bash_cmd = [str(script)]
+    if extra_args:
+        bash_cmd.extend(extra_args)
+
+    run(["bash"] + bash_cmd, gate_name)
