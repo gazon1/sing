@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "workflows": {
+    "speckit": {
+      "name": "Full SDD Cycle",
+      "version": "1.0.1",
+      "description": "Runs specify → plan → tasks → implement with review gates",
+      "source": "bundled",
+      "installed_at": "2026-10-11T15:04:48.167441+00:00",
+      "updated_at": "2026-10-11T15:04:48.167452+00:00"
+    },
+    "adr-create": {
+      "name": "ADR Creation with Review",
+      "version": "1.0.0",
+      "description": "Create a single ADR via proposal → specs → design → adr → tasks → implement → converge",
+      "source": "local",
+      "path": ".specify/workflows/adr-create/workflow.yml",
+      "installed_at": "2026-10-11T15:04:48.167441+00:00",
+      "updated_at": "2026-10-11T15:04:48.167452+00:00"
+    },
+    "adr-ci": {
+      "name": "ADR CI Gate",
+      "version": "1.0.0",
+      "description": "Validate ADR corpus in CI — no human checkpoints, exit codes only",
+      "source": "local",
+      "path": ".specify/workflows/adr-ci/workflow.yml",
+      "installed_at": "2026-10-11T15:04:48.167441+00:00",
+      "updated_at": "2026-10-11T15:04:48.167452+00:00"
+    },
+    "adr-batch": {
+      "name": "Batch ADR Creation",
+      "version": "1.0.0",
+      "description": "Create multiple ADRs in sequence with validation after each",
+      "source": "local",
+      "path": ".specify/workflows/adr-batch/workflow.yml",
+      "installed_at": "2026-10-11T15:04:48.167441+00:00",
+      "updated_at": "2026-10-11T15:04:48.167452+00:00"
+    },
+    "openspec-change": {
+      "name": "OpenSpec Change Workflow",
+      "version": "1.0.0",
+      "description": "Full OpenSpec change workflow: proposal → specs → design → adr → tasks → implement → converge. Creates artifacts in openspec/changes/ and registers as a spec-kit issue.",
+      "source": "local",
+      "path": ".specify/workflows/openspec-change/workflow.yml",
+      "installed_at": "2026-10-11T18:00:00.000000+00:00",
+      "updated_at": "2026-10-11T18:00:00.000000+00:00"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+# Singularity Todo extensions.yml
+# Registers ADR validation hooks for spec-kit commands
+
+hooks:
+  # Run after tasks are generated — validate ADR corpus
+  after_tasks:
+    - id: adr-validate-tasks
+      command: singularity-adr validate
+      description: "Validate ADR corpus after tasks generation"
+      optional: false
+      enabled: true
+
+  # Run before implement — ensure ADR corpus is valid
+  before_implement:
+    - id: adr-validate-pre-implement
+      command: singularity-adr validate
+      description: "Validate ADR corpus before implementation"
+      optional: false
+      enabled: true
+
+  # Run after implement — final validation + DIGEST refresh
+  after_implement:
+    - id: adr-validate-post-implement
+      command: singularity-adr validate
+      description: "Validate ADR corpus after implementation"
+      optional: false
+      enabled: true
+    - id: refresh-digest
+      command: ./scripts/refresh-decisions-digest.sh
+      description: "Refresh DIGEST.md after ADR changes"
+      optional: true
+      enabled: true

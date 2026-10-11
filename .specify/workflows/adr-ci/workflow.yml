@@ -1,0 +1,51 @@
+schema_version: "1.0"
+workflow:
+  id: "adr-ci"
+  name: "ADR CI Gate"
+  version: "1.0.0"
+  author: "Singularity Todo"
+  description: "Validate ADR corpus in CI — no human checkpoints, exit codes only"
+
+inputs:
+  ci_mode:
+    type: boolean
+    default: true
+    prompt: "Enable CI mode (exit codes only, no interactive prompts)"
+
+steps:
+  - id: adr-validate
+    type: shell
+    description: "ADR corpus validation — non-zero exit = CI failure"
+    run: singularity-adr validate 2>&1
+    continue_on_error: false
+
+  - id: adr-stale
+    type: shell
+    description: "Check for stale ADRs (open > 30 days)"
+    run: singularity-adr stale --days 30 2>&1
+    continue_on_error: false
+
+  - id: openspec-validate
+    type: shell
+    description: "Validate OpenSpec changes"
+    run: openspec validate --changes 2>&1
+    continue_on_error: false
+
+  - id: digest-refresh
+    type: shell
+    description: "Conditionally refresh DIGEST.md if ADR files changed"
+    run: |
+      if git diff --quiet docs/decisions/ 2>/dev/null; then
+        echo "No ADR changes, skipping DIGEST refresh"
+      else
+        ./scripts/refresh-decisions-digest.sh 2>&1
+        git add docs/decisions/DIGEST.md 2>/dev/null || true
+      fi
+    continue_on_error: true
+
+  - id: ci-success
+    type: shell
+    description: "Exit with success"
+    run: |
+      echo "CI gate complete: all ADR checks passed"
+      exit 0

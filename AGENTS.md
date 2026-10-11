@@ -165,18 +165,65 @@ timestamps — `kotlin.time.Instant`; business errors → `isError:true`, intern
 Каждый AI-вызов пишет в `llm_usage` (tokens, `cost_usd_micros`, `duration_ms`, `profile_id`).
 Профили изолируют данные: `ai-agent` (🤖) для dogfooding, `personal` (🏠) для своих задач.
 
-## 🔄 OpenSpec
+## 🔄 spec-kit (Primary Workflow Automation)
 
-Spec-driven workflow: `proposal → specs → design → tasks → apply → verify → archive`.
-Use `singularity-todo-openspec-workflow` skill. `openspec/config.yaml` has project context
-(KMP conventions, DI rules, testing patterns) and artifact rules.
+spec-kit is the **primary** workflow engine. It automates multi-step processes
+with hooks, gates, and fan-out. Installed via `uv tool install specify-cli`.
 
-**When to use:** behavior changes. **When NOT:** bug fix, test-only, dependency update,
-doc-only, rename without contract change. Run `openspec list --specs` before proposing —
-existing spec → write a change to modify it, not a new proposal.
-Verify: `openspec validate --all --strict` — но **exit 0 при 62 WARNING'ах** («requirement
-длиннее 500 символов» и т.п.). Строка `Totals: N failed` в выводе означает не провал
-проверки, а число пунктов с предупреждениями; читай exit code, а не сводку.
+**Project registry:** `.specify/issues/<slug>.yaml` — one file per change (source of truth for AI agents).
+**Bulk import:** `python3 scripts/openspec-import-all.py [--dry-run] [--replace]` —
+imports all `openspec/changes/` stubs into `.specify/issues/`.
+
+### When to use spec-kit workflows
+
+- Behavior changes → `openspec-change` workflow
+- ADR-only change (no spec-level behavior change) → `adr-create` workflow
+- Bug fix, test-only, dep update, doc-only → skip spec-kit workflow
+
+### When NOT to use spec-kit
+
+Bug fix, test-only, dependency update, doc-only, rename without contract change.
+
+## 🤖 spec-kit Workflow Commands
+
+spec-kit provides **workflows** that automate multi-step processes with hooks, gates, and fan-out.
+Installed via `uv tool install specify-cli`. Project initialized with `specify init . --integration generic`.
+
+**Bundled commands** (run in AI agent chat):
+
+| Command | Purpose |
+|---------|---------|
+| `/speckit.specify` | Define requirements and user stories |
+| `/speckit.plan` | Create technical implementation plan |
+| `/speckit.tasks` | Generate actionable task list |
+| `/speckit.implement` | Execute tasks from tasks.md |
+| `/speckit.converge` | Verify implementation against spec |
+| `/speckit.checklist` | Quality gate — requirements checklist |
+| `/speckit.analyze` | Cross-artifact consistency check |
+
+**Full workflows** (terminal, not slash commands):
+
+```bash
+# Full OpenSpec change: proposal → specs → design → adr → tasks → implement → converge
+specify workflow run openspec-change --input slug=koin-4-migration,title="Koin 4.x migration"
+
+# ADR-only change (no spec-level behavior change)
+specify workflow run adr-create --input slug=koin-4-migration,title="Koin 4.x migration"
+
+# CI mode (no prompts, exit codes)
+specify workflow run adr-ci --input ci_mode=true
+
+# Batch ADR creation
+specify workflow run adr-batch --input csv_path=./adr-batch.csv,dry_run=false
+```
+
+**Hooks:** After implement, `singularity-adr validate` runs automatically via `.specify/extensions.yml`.
+After ADR changes, `./scripts/refresh-decisions-digest.sh` refreshes DIGEST.md.
+
+**Constitution:** `.specify/constitutions/singularity-todo.md` — project principles for spec-kit workflows.
+
+**Issue registry:** `.specify/issues/<slug>.yaml` — one record per change, maintained by the workflows.
+All 635 historical OpenSpec changes are already imported (run `python3 scripts/openspec-import-all.py --replace` to re-import).
 
 ## 🔧 Run-loop (UI-верификация)
 
