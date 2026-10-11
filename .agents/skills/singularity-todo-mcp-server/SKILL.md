@@ -447,6 +447,8 @@ machine-readable output; exit code `2` means the command line was wrong,
 | `singularity-adr stale [--days N] [--status S]` | what the gate will reject next (#521) |
 | `singularity-adr prune [--keep slug]` | uncited decisions, never deleted (#525) |
 | `singularity-adr validate` | run the repository's ADR status gate |
+| `singularity-adr version [--check]` | which build this is, and does it match the checkout |
+| `singularity-adr upgrade [--check|--force]` | rebuild this binary when it no longer matches |
 
 Global flags:
 

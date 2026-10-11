@@ -60,6 +60,8 @@ object AdrSurface {
         AdrCommandSpec("stale", "stale [--days N] [--status S]", "what the gate will reject next (#521)"),
         AdrCommandSpec("prune", "prune [--keep slug]", "uncited decisions, never deleted (#525)"),
         AdrCommandSpec("validate", "validate", "run the repository's ADR status gate"),
+        AdrCommandSpec("version", "version [--check]", "which build this is, and does it match the checkout"),
+        AdrCommandSpec("upgrade", "upgrade [--check|--force]", "rebuild this binary when it no longer matches"),
     )
 
     /** Flags that apply to every subcommand. One per line, for the same reason. */

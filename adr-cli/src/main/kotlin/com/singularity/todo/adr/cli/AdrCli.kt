@@ -40,12 +40,20 @@ data class ParsedArgs(
     val status: String?,
     val keep: List<String>,
     val reviewBy: String?,
+    // `version --check`. Boolean rather than a value flag: there is nothing to
+    // compare *against* to put here — the checkout sha is read from git by the
+    // command itself, so an argument spelling it would be a second way to be
+    // wrong.
+    val check: Boolean = false,
+    val force: Boolean = false,
 ) {
     companion object {
         private val VALUE_FLAGS = setOf("--days", "--status", "--keep", "--review-by")
 
         fun parse(argv: List<String>): ParsedArgs {
             var json = false
+            var check = false
+            var force = false
             var days: Int? = null
             var status: String? = null
             var reviewBy: String? = null
@@ -57,6 +65,10 @@ data class ParsedArgs(
                 val arg = argv[i]
                 when {
                     arg == "--json" -> json = true
+
+                    arg == "--check" -> check = true
+
+                    arg == "--force" -> force = true
 
                     // Accepted and ignored: `prune` has no delete path at all, so
                     // there is nothing for the flag to switch off.
@@ -86,6 +98,8 @@ data class ParsedArgs(
                 status = status,
                 keep = keep,
                 reviewBy = reviewBy,
+                check = check,
+                force = force,
             )
         }
     }
@@ -134,6 +148,10 @@ class AdrCli(
             "prune" -> prune(args)
 
             "validate" -> validate()
+
+            "version" -> version(args)
+
+            "upgrade" -> upgrade(args)
 
             "help", "--help", "-h" -> usage(ExitCode.OK)
 
@@ -334,6 +352,58 @@ class AdrCli(
     // ─── plumbing ────────────────────────────────────────────────────────────
 
     /**
+     * Which build this is — the question every other answer depends on.
+     *
+     * Without it, `adr stale` is a claim about the ADR corpus made by a binary
+     * of unknown origin: correct rules, possibly from last week. `--check` is the
+     * part meant for scripts and hooks, and it exits non-zero when the binary
+     * and the checkout disagree.
+     *
+     * The checkout sha comes from git, not from an argument. A caller who
+     * supplied it could pass a sha that agrees with the binary and learn
+     * nothing, which is worse than having no check at all.
+     */
+    private fun version(args: ParsedArgs): Int {
+        val checkout = ProcessBuilder("git", "rev-parse", "--short=12", "HEAD")
+            .directory(java.io.File(repoRoot))
+            .redirectErrorStream(true)
+            .start()
+            .let { process ->
+                val stdout = process.inputStream.bufferedReader().readText()
+                process.waitFor() to stdout.trim()
+            }
+        val headSha = if (checkout.first == 0) checkout.second else AdrProvenance.UNKNOWN
+
+        if (!args.check) {
+            if (args.json) {
+                emit(VersionResult(AdrProvenance.gitSha, AdrProvenance.gitDirty, headSha))
+            } else {
+                out.appendLine("built from: ${AdrProvenance.gitSha} (${AdrProvenance.gitDirty})")
+                out.appendLine("checkout:  $headSha")
+            }
+            return ExitCode.OK
+        }
+
+        // An unknown build compared with an unknown checkout is not a mismatch.
+        // Both sides failing to answer is the only state where "these agree" is
+        // the truthful answer, and refusing here would fail every build made
+        // without git — a supported build, per AdrProvenance's contract.
+        if (AdrProvenance.isKnown && !AdrProvenance.matches(headSha)) {
+            err.appendLine(
+                "adr: binary was built from ${AdrProvenance.gitSha}, checkout is at $headSha — " +
+                    "rebuild with ./gradlew :adr-cli:installDist",
+            )
+            return ExitCode.ERROR
+        }
+        if (args.json) {
+            emit(VersionResult(AdrProvenance.gitSha, AdrProvenance.gitDirty, headSha))
+        } else {
+            out.appendLine("ok: binary matches checkout ($headSha)")
+        }
+        return ExitCode.OK
+    }
+
+    /**
      * Business errors arrive from [AdrStorage] as exceptions — the same contract the
      * MCP tools get. Here they become a message and an exit code, because a CLI that
      * prints a stack trace for "that ADR already exists" is not a CLI.
@@ -360,9 +430,27 @@ class AdrCli(
         const val DEFAULT_STALE_DAYS = 30
         const val DEFAULT_STALE_STATUS = "open"
     }
+
+    /**
+     * Rebuild this binary when it no longer matches the checkout.
+     *
+     * The mechanism lives in [AdrUpgrade] — the isolation argument, the lock, and
+     * the corpus fingerprint all belong with the code that acts on the filesystem,
+     * not with the command surface that renders its result.
+     */
+    private fun upgrade(args: ParsedArgs): Int {
+        val report = AdrUpgrade.run(java.io.File(repoRoot), args.force, args.check)
+        if (args.json) {
+            emit(UpgradeResult(report.action, report.wasStale, report.sha, report.sha, report.seconds))
+        } else {
+            report.outcome?.let { out.appendLine(it) }
+            report.failure?.let { err.appendLine("adr upgrade: $it") }
+        }
+        return report.exitCode
+    }
 }
 
-private class CliFailure(message: String) : RuntimeException(message)
+internal class CliFailure(message: String) : RuntimeException(message)
 
 // ─── The `--json` contract ───────────────────────────────────────────────────
 //
@@ -372,6 +460,20 @@ private class CliFailure(message: String) : RuntimeException(message)
 
 @Serializable
 data class ListResult(val adrs: List<AdrSummary>)
+
+/** `singularity-adr version --json`. Both shas are 12 chars or `unknown`. */
+@Serializable
+data class VersionResult(val builtFrom: String, val gitDirty: String, val checkout: String)
+
+/** `singularity-adr upgrade --json`. `action` is one of the three values below. */
+@Serializable
+data class UpgradeResult(
+    val action: String,
+    val wasStale: Boolean,
+    val before: String,
+    val after: String,
+    val seconds: Double,
+)
 
 @Serializable
 data class WriteResult(val slug: String, val path: String, val title: String)
