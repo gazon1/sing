@@ -5,12 +5,22 @@ import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
 import com.singularity.todo.core.database.AgendaViewDao
+import com.singularity.todo.core.database.ChecklistDao
+import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.NoteDao
+import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProjectDao
+import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.SavedSearchDao
+import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.TagDao
+import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.feature.timetracking.data.TimeEntryDao
+import com.singularity.todo.core.database.ProjectReminderDao
+import com.singularity.todo.core.database.ReminderDao
 import kotlinx.serialization.json.jsonObject
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
@@ -22,6 +32,14 @@ class BackupImporter(
     private val noteDao: NoteDao,
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
+    private val reminderDao: ReminderDao,
+    private val projectReminderDao: ProjectReminderDao,
+    private val checklistDao: ChecklistDao,
+    private val tagGroupDao: TagGroupDao,
+    private val projectTagGroupDao: ProjectInheritedTagGroupDao,
+    private val savedSearchDao: SavedSearchDao,
+    private val timeEntryDao: TimeEntryDao,
+    private val profileDao: ProfileDao,
     private val agendaViewDao: AgendaViewDao,
     private val attachmentDao: AttachmentDao,
     private val annotationDao: AttachmentAnnotationDao,
@@ -138,6 +156,93 @@ class BackupImporter(
                 annotation.toEntity(options.targetUserId.value).copy(
                     updatedAt = now,
                     createdAt = annotation.createdAt,
+                ),
+            )
+        }
+
+        // MR-2: Restore 8 new entity types.
+        // Order matters: profiles first (standalone), then entities that reference them,
+        // then cross-ref tables, then attachments.
+
+        // Profiles: restored with their original userId intact (not stamped with targetUserId).
+        for (profile in migratedPayload.profiles) {
+            profileDao.upsert(profile.toEntity())
+        }
+
+        // Tag groups: restored before tags (tags.groupId references them) and projectTagGroups.
+        for (tagGroup in migratedPayload.tagGroups) {
+            tagGroupDao.upsert(
+                tagGroup.toEntity(options.targetUserId.value).copy(
+                    updatedAt = now,
+                    createdAt = tagGroup.createdAt,
+                ),
+            )
+        }
+
+        // Saved searches: standalone, no cross-entity references.
+        // SavedSearchEntity has no SyncColumns — construct with updatedAt explicitly.
+        for (search in migratedPayload.savedSearches) {
+            savedSearchDao.upsert(
+                SavedSearchEntity(
+                    id = search.id,
+                    userId = options.targetUserId.value,
+                    name = search.name,
+                    queryString = search.queryString,
+                    createdAt = search.createdAt,
+                    updatedAt = now,
+                ),
+            )
+        }
+
+        // Project tag groups: must land after tagGroups (tagGroupId reference) but
+        // projectId is the restoring user's own project, so upsert is safe.
+        for (ptg in migratedPayload.projectTagGroups) {
+            projectTagGroupDao.insert(ptg.toEntity())
+        }
+
+        // Task reminders and project reminders: no cross-entity foreign keys.
+        for (reminder in migratedPayload.taskReminders) {
+            reminderDao.upsert(
+                reminder.toEntity(options.targetUserId.value).copy(
+                    updatedAt = now,
+                    createdAt = reminder.createdAt,
+                ),
+            )
+        }
+        for (reminder in migratedPayload.projectReminders) {
+            projectReminderDao.upsert(
+                reminder.toEntity(options.targetUserId.value).copy(
+                    updatedAt = now,
+                    createdAt = reminder.createdAt,
+                ),
+            )
+        }
+
+        // Checklist items: taskId references the restoring user's tasks (upsert is safe).
+        // ChecklistItemEntity has no userId field — construct directly with updatedAt.
+        for (item in migratedPayload.checklistItems) {
+            checklistDao.upsert(
+                ChecklistItemEntity(
+                    id = item.id,
+                    taskId = item.taskId,
+                    title = item.title,
+                    isCompleted = item.isCompleted,
+                    sortOrder = item.sortOrder,
+                    createdAt = item.createdAt,
+                    updatedAt = now,
+                    checkedBy = item.checkedBy,
+                    checkedAt = item.checkedAt,
+                    rowVersion = item.rowVersion,
+                ),
+            )
+        }
+
+        // Time entries: taskId references the restoring user's tasks.
+        for (entry in migratedPayload.timeEntries) {
+            timeEntryDao.upsert(
+                entry.toEntity(options.targetUserId.value).copy(
+                    updatedAt = now,
+                    createdAt = entry.createdAt,
                 ),
             )
         }

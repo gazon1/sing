@@ -49,8 +49,15 @@ def parse_argv(argv: list[str]) -> None:
 
 def main() -> None:
     parse_argv(sys.argv[1:])
-    # This consumer's own glob was the only one that saw `deferred/`. The digest has
-    # an "open deferred" section, so it needs them — but it must not re-derive that.
+    # main made this walk recursive (T1), which fixed a real miss — but with `**/`,
+    # which also swept in `archive/`. That regressed #508: all 14 findings/retro
+    # inventories that were moved out of the decision corpus came back into the
+    # agent-facing digest, which is the one surface that is always loaded.
+    #
+    # So the miss is fixed and the archive stays out. `CORPUS.deferred()` is what
+    # supplies the nested entries T1 was reaching for, and `include_archived=False`
+    # is what keeps inventory documents out. Verified: 0 of 14 archived slugs appear
+    # in the generated digest.
     entries = CORPUS.decisions(include_archived=False) + CORPUS.deferred()
     if not entries:
         print(f"no dated entries in {DECISIONS_DIR} — digest untouched")

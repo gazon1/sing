@@ -3,12 +3,20 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
 import com.singularity.todo.core.database.AgendaViewDao
+import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.NoteDao
+import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProjectDao
+import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.TagDao
+import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.feature.timetracking.data.TimeEntryDao
+import com.singularity.todo.core.database.ProjectReminderDao
+import com.singularity.todo.core.database.ReminderDao
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
 
@@ -17,6 +25,14 @@ class BackupExporter(
     private val noteDao: NoteDao,
     private val projectDao: ProjectDao,
     private val tagDao: TagDao,
+    private val reminderDao: ReminderDao,
+    private val projectReminderDao: ProjectReminderDao,
+    private val checklistDao: ChecklistDao,
+    private val tagGroupDao: TagGroupDao,
+    private val projectTagGroupDao: ProjectInheritedTagGroupDao,
+    private val savedSearchDao: SavedSearchDao,
+    private val timeEntryDao: TimeEntryDao,
+    private val profileDao: ProfileDao,
     private val attachmentDao: AttachmentDao,
     private val annotationDao: AttachmentAnnotationDao,
     private val agendaViewDao: AgendaViewDao,
@@ -39,6 +55,15 @@ class BackupExporter(
         val taskDeps = taskDao.listAllDependenciesForUser(options.userId.value)
         val taskTagRefs = taskDao.listAllTagsForUser(options.userId.value)
         val agendaViews = agendaViewDao.listAllForUser(options.userId.value)
+        // MR-2: 8 new entity types
+        val taskReminders = reminderDao.listAllForUser(options.userId.value)
+        val projectReminders = projectReminderDao.listAllForUser(options.userId.value)
+        val checklistItems = checklistDao.listAllForUser(options.userId.value)
+        val tagGroups = tagGroupDao.listAllForUser(options.userId.value)
+        val projectTagGroups = projectTagGroupDao.listAllForUser(options.userId.value)
+        val savedSearches = savedSearchDao.listAllForUser(options.userId.value)
+        val timeEntries = timeEntryDao.listAllForUser(options.userId.value)
+        val profiles = profileDao.listAll()
 
         // 2. Map to DTOs
         val payload = BackupPayload(
@@ -52,6 +77,14 @@ class BackupExporter(
             taskTags = taskTagRefs.map { it.toDto() },
             taskDependencies = taskDeps.map { it.toDto() },
             agendaViews = agendaViews.map { it.toDto() },
+            taskReminders = taskReminders.map { it.toDto() },
+            projectReminders = projectReminders.map { it.toDto() },
+            checklistItems = checklistItems.map { it.toDto() },
+            tagGroups = tagGroups.map { it.toDto() },
+            projectTagGroups = projectTagGroups.map { it.toDto() },
+            savedSearches = savedSearches.map { it.toDto() },
+            timeEntries = timeEntries.map { it.toDto() },
+            profiles = profiles.map { it.toDto() },
         )
 
         // 3. Serialize payload
@@ -69,6 +102,14 @@ class BackupExporter(
             taskTags = taskTagRefs.size,
             taskDependencies = taskDeps.size,
             agendaViews = agendaViews.size,
+            taskReminders = taskReminders.size,
+            projectReminders = projectReminders.size,
+            checklistItems = checklistItems.size,
+            tagGroups = tagGroups.size,
+            projectTagGroups = projectTagGroups.size,
+            savedSearches = savedSearches.size,
+            timeEntries = timeEntries.size,
+            profiles = profiles.size,
         )
         val manifest = BackupDomain.buildManifest(
             appVersion = options.appVersion,

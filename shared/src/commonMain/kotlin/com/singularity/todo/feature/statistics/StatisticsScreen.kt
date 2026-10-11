@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.statistics
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,9 @@ import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.feature.nav.AgendaStartRoute
+import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import kotlinx.datetime.Instant
@@ -49,7 +53,10 @@ import org.koin.compose.viewmodel.koinViewModel
 private val TAB_TITLES = listOf("Tasks", "Time", "Health")
 
 @Composable
-fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
+fun StatisticsScreen(
+    viewModel: StatisticsViewModel = koinViewModel(),
+    navCallbacks: NavCallbacks? = null,
+) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
@@ -81,7 +88,21 @@ fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
         when (selectedTab) {
             0 -> TasksTabContent(state = state)
             1 -> InsightsTabContent(viewModel = viewModel, insightsState = state.insights, rangeDays = state.rangeDays)
-            2 -> HealthTabContent(health = state.health)
+            2 -> HealthTabContent(
+                health = state.health,
+                onBucketClick = { bucket ->
+                    when (bucket) {
+                        // OVERDUE navigates to Today, which surfaces overdue tasks at the top.
+                        TaskHealthBucket.OVERDUE -> {
+                            navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
+                        }
+                        // BLOCKED and STAGNANT have no stored filter equivalent yet — no-op.
+                        TaskHealthBucket.BLOCKED,
+                        TaskHealthBucket.STAGNANT,
+                        TaskHealthBucket.FINE -> { /* no stored filter path yet */ }
+                    }
+                },
+            )
         }
     }
 }
@@ -443,7 +464,10 @@ private fun StatCard(title: String, value: String, modifier: Modifier = Modifier
  * than the enum's declaration order, so the most actionable problem is the first card.
  */
 @Composable
-private fun HealthTabContent(health: TaskHealthSummary?) {
+private fun HealthTabContent(
+    health: TaskHealthSummary?,
+    onBucketClick: (TaskHealthBucket) -> Unit,
+) {
     if (health == null) {
         // Null means the query failed or has not landed — not "zero problems", which
         // would be a healthy-looking screen standing in for a broken one.
@@ -463,7 +487,16 @@ private fun HealthTabContent(health: TaskHealthSummary?) {
         StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())
 
         health.actionable.forEach { bucket ->
-            StatCard(bucket.displayLabel(), health[bucket].toString(), Modifier.fillMaxWidth())
+            val clickable = bucket == TaskHealthBucket.OVERDUE
+            StatCard(
+                title = bucket.displayLabel(),
+                value = health[bucket].toString(),
+                modifier = if (clickable) {
+                    Modifier.fillMaxWidth().clickable { onBucketClick(bucket) }
+                } else {
+                    Modifier.fillMaxWidth()
+                },
+            )
         }
 
         health.medianStalledFor?.let { stalled ->

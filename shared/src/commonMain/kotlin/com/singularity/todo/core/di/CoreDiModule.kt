@@ -513,6 +513,14 @@ fun coreModule(): org.koin.core.module.Module = module {
             get(), // noteDao
             get(), // projectDao
             get(), // tagDao
+            get(), // reminderDao
+            get(), // projectReminderDao
+            get(), // checklistDao
+            get(), // tagGroupDao
+            get(), // projectTagGroupDao
+            get(), // savedSearchDao
+            get(), // timeEntryDao
+            get(), // profileDao
             get(), // agendaViewDao
             get(), // attachmentDao
             get(), // annotationDao
@@ -530,6 +538,7 @@ fun coreModule(): org.koin.core.module.Module = module {
             fs = get(),
             backupDir = get<String>(),
             currentUser = get(),
+            clock = get(),
         )
     }
     // ─── Settings ────────────────────────────────────────────────────────

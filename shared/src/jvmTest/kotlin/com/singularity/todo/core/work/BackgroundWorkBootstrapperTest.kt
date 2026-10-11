@@ -2,12 +2,15 @@ package com.singularity.todo.core.work
 
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeBackupRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -15,8 +18,8 @@ import kotlin.test.assertTrue
  *
  * ## What is actually being tested
  *
- * [BackgroundWorkBootstrapper] has no logic of its own — it arms one job. So the risk is
- * not arithmetic, it is **the job never being armed**, which no test in this file can
+ * [BackgroundWorkBootstrapper] has no logic of its own — it arms three jobs. So the risk is
+ * not arithmetic, it is **a job never being armed**, which no test in this file can
  * observe by calling the bootstrapper and checking a return value.
  *
  * That is why the third test reads the catalogue. A bootstrapper that resolves a job id
@@ -56,35 +59,40 @@ class BackgroundWorkBootstrapperTest {
         }
 
         assertEquals(
-            3,
+            9, // 3 jobs × 3 launches
             scheduler.scheduled.size,
-            "each launch re-arms; the scheduler's KEEP policy is what stops that stacking",
+            "each launch re-arms all jobs; the scheduler's KEEP policy is what stops that stacking",
         )
         assertTrue(
-            scheduler.scheduled.all { it.first == PruneLlmUsageJob.ID },
-            "every launch must arm the same job",
+            scheduler.scheduled.all { it.first in listOf(
+                PruneLlmUsageJob.ID,
+                BackupJob.ID,
+                ArchiveJob.ID,
+            ) },
+            "every launch must arm the same three maintenance jobs",
         )
     }
 
-    /**
-     * The schedule is wall-clock, not an interval.
-     *
-     * `Periodic(24h)` on Android means "24h from enqueue", so a user who opens the app at
-     * 16:00 gets pruning at 16:00 daily forever. `Daily(4, 20)` says the same time every
-     * day, which is what "prune nightly" means to whoever wrote it.
-     */
     @Test
-    fun `prune is scheduled daily at a wall-clock time`() = runTest {
+    fun `prune and archive run at 04-20 and 04-35, backup at 04-30`() = runTest {
         val scheduler = RecordingScheduler()
 
         BackgroundWorkBootstrapper(scheduler).run()
 
-        val daily = assertIs<JobSchedule.Daily>(
-            scheduler.scheduled.single().second,
-            "an interval would drift with enqueue time",
-        )
-        assertEquals(4, daily.atHour)
-        assertEquals(20, daily.atMinute)
+        val byId = scheduler.scheduled.associate { it.first to it.second }
+        assertEquals(3, byId.size)
+
+        val pruneDaily = byId[PruneLlmUsageJob.ID] as? JobSchedule.Daily
+        assertEquals(4, pruneDaily?.atHour)
+        assertEquals(20, pruneDaily?.atMinute)
+
+        val backupDaily = byId[BackupJob.ID] as? JobSchedule.Daily
+        assertEquals(4, backupDaily?.atHour)
+        assertEquals(30, backupDaily?.atMinute)
+
+        val archiveDaily = byId[ArchiveJob.ID] as? JobSchedule.Daily
+        assertEquals(4, archiveDaily?.atHour)
+        assertEquals(35, archiveDaily?.atMinute)
     }
 
     /**
@@ -96,16 +104,29 @@ class BackgroundWorkBootstrapperTest {
      * resolve too.
      */
     @Test
-    fun `the armed job id resolves in a real catalogue`() = runTest {
+    fun `all armed job ids resolve in a real catalogue`() = runTest {
         val scheduler = RecordingScheduler()
         BackgroundWorkBootstrapper(scheduler).run()
 
-        val id = scheduler.scheduled.single().first
-        val catalogue = ListBackgroundJobCatalog(listOf(PruneLlmUsageJob(recorder())))
+        val db = FakeAppDatabase()
+        val settings = FakeSettingsRepository()
+        val currentUser = FakeProfileAwareCurrentUser()
+        val clock = FakeClock()
 
-        assertTrue(
-            catalogue.find(id) != null,
-            "$id is armed but absent from the catalogue — every launch would throw",
+        val catalogue = ListBackgroundJobCatalog(
+            listOf(
+                PruneLlmUsageJob(recorder()),
+                BackupJob(FakeBackupRepository(), settings),
+                ArchiveJob(db.taskDao(), settings, currentUser, clock),
+            ),
         )
+
+        for ((jobId, _) in scheduler.scheduled) {
+            assertContains(
+                catalogue.all().map { it.id },
+                jobId,
+                "$jobId is armed but absent from the catalogue — every launch would throw",
+            )
+        }
     }
 }

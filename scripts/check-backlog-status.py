@@ -283,6 +283,14 @@ def parse_single_entry(path: Path) -> dict[str, object]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
+        "--backlog",
+        default=None,
+        help=(
+            "backlog file or directory to check. Defaults to the corpus root from "
+            "adr_corpus; a file path is accepted for the pre-T2 combined layout"
+        ),
+    )
+    ap.add_argument(
         "--max-entries",
         type=int,
         default=DEFAULT_MAX_ENTRIES,
@@ -290,8 +298,40 @@ def main() -> int:
     )
     args = ap.parse_args()
 
+    # main's `--backlog` flag is kept, but its re-discovery is not: it globbed
+    # `deferred/*.md` and the legacy file itself, which is the fifth consumer
+    # re-deriving the corpus that #520 collapsed into adr_corpus. A path argument
+    # narrows *which* corpus, never how it is discovered.
     rel = f"{CORPUS.root.name}/{CORPUS.deferred_dir}"
-    entries: list[dict[str, object]] = [parse_single_entry(fp) for fp in CORPUS.deferred()]
+    if args.backlog is None:
+        entries: list[dict[str, object]] = [parse_single_entry(fp) for fp in CORPUS.deferred()]
+    else:
+        target = ROOT / args.backlog
+        if target.is_file():
+            # Pre-T2 combined layout, kept working on purpose: the split is done,
+            # but the gate should not be the thing that broke when it happened.
+            entries = parse_entries(target.read_text(encoding="utf-8"))
+        elif target.is_dir():
+            # Accept either the corpus root or the backlog directory itself. Both are
+            # natural things to pass and, before this, the second one produced
+            # "no backlog directory at .../deferred/deferred".
+            if (target / CORPUS.deferred_dir).is_dir():
+                root = target
+            else:
+                root = target.parent
+                if target.name != CORPUS.deferred_dir:
+                    print(f"ERROR: no backlog directory at "
+                          f"{target / CORPUS.deferred_dir}")
+                    return 1
+            # adr_corpus.deferred_in, not a local glob. The first version of this
+            # merge resolution wrote `sorted(deferred.glob("*.md"))` and
+            # check-adr-config-sync.py failed on it — correctly: that line is the
+            # sixth consumer growing its own discovery, which is the exact blind
+            # spot #520 exists to close.
+            entries = [parse_single_entry(fp) for fp in adr_corpus.deferred_in(root, CORPUS)]
+        else:
+            print(f"ERROR: backlog not found: {target}")
+            return 1
     if not entries:
         print(f"ERROR: no backlog entries found in {CORPUS.root}/{CORPUS.deferred_dir}")
         return 1

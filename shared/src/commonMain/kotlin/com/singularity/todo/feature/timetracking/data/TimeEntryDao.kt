@@ -60,6 +60,10 @@ interface TimeEntryDao {
 
     @Query("DELETE FROM time_entries WHERE id = :id AND user_id = :userId")
     suspend fun delete(id: String, userId: String): Int
+
+    /** Full-table export — all time entries for a user, including deleted ones. */
+    @Query("SELECT * FROM time_entries WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<TimeEntryEntity>
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.work
 
+import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.sync.SyncRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -19,12 +20,21 @@ import org.koin.dsl.module
 fun backgroundWorkModule(): Module = module {
     single { SyncPushJob(get<SyncRepository>()) }
     single { PruneLlmUsageJob(get()) }
+    single { BackupJob(get<BackupRepository>(), get()) }
+    single { ArchiveJob(get(), get(), get(), get()) }
 
     // `RoomUsageRecorder` rather than `LlmUsageDao`: the recorder owns the clock and the
     // day arithmetic, and re-deriving the cutoff here would put a second copy of the
     // retention rule in the file that decides when to run the job.
     single<BackgroundJobCatalog> {
-        ListBackgroundJobCatalog { listOf(get<SyncPushJob>(), get<PruneLlmUsageJob>()) }
+        ListBackgroundJobCatalog {
+            listOf(
+                get<SyncPushJob>(),
+                get<PruneLlmUsageJob>(),
+                get<BackupJob>(),
+                get<ArchiveJob>(),
+            )
+        }
     }
 
     single { BackgroundWorkBootstrapper(get<BackgroundWorkScheduler>()) }

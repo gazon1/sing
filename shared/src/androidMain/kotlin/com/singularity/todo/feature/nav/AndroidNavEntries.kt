@@ -70,7 +70,7 @@ fun createAppEntryProvider(
     }
 
     entry<AppDestination.Statistics> {
-        StatisticsScreen()
+        StatisticsScreen(navCallbacks = nav)
     }
 
     entry<AppDestination.Calendar> {

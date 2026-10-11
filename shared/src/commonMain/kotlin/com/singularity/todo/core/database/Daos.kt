@@ -1,6 +1,7 @@
 package com.singularity.todo.core.database
 
 import androidx.room3.Dao
+import androidx.room3.Insert
 import androidx.room3.Query
 import androidx.room3.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -813,6 +814,10 @@ interface ReminderDao {
         "UPDATE task_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
     )
     suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
+
+    /** Full-table export — all reminders for a user, including expired ones. */
+    @Query("SELECT * FROM task_reminders WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<TaskReminderEntity>
 }
 
 @Dao
@@ -850,6 +855,10 @@ interface ProjectReminderDao {
         "UPDATE project_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
     )
     suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
+
+    /** Full-table export — all project reminders for a user. */
+    @Query("SELECT * FROM project_reminders WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<ProjectReminderEntity>
 }
 
 @Dao
@@ -918,6 +927,10 @@ interface ChecklistDao {
         """,
     )
     suspend fun deleteByTaskForUser(taskId: String, userId: String): Int
+
+    /** Full-table export — all checklist items for all tasks owned by a user. */
+    @Query("SELECT * FROM checklist_items WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
+    suspend fun listAllForUser(userId: String): List<ChecklistItemEntity>
 }
 
 @Dao
@@ -1041,6 +1054,10 @@ interface ProfileDao {
      */
     @Query("UPDATE profiles SET user_id = :userId WHERE user_id IS NULL")
     suspend fun claimUnowned(userId: String): Int
+
+    /** Full-table export — all profiles. */
+    @Query("SELECT * FROM profiles")
+    suspend fun listAll(): List<ProfileEntity>
 }
 
 // ─── Tag Group DAO ─────────────────────────────────────────────────────────────
@@ -1064,6 +1081,10 @@ interface TagGroupDao {
 
     @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+
+    /** Full-table export — all tag groups for a user, including soft-deleted ones. */
+    @Query("SELECT * FROM tag_groups WHERE user_id = :userId")
+    suspend fun listAllForUser(userId: String): List<TagGroupEntity>
 }
 
 // ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────
@@ -1163,4 +1184,20 @@ interface ProjectInheritedTagGroupDao {
         """,
     )
     suspend fun deleteByGroupForUser(tagGroupId: String, userId: String): Int
+
+    /** Full-table export — all project↔tag-group associations for a user's projects. */
+    @Query(
+        """
+        SELECT * FROM project_tag_groups
+        WHERE project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun listAllForUser(userId: String): List<ProjectInheritedTagGroupCrossRef>
+
+    /**
+     * Unscoped upsert for the backup-restore path.
+     * The join table carries no `user_id`; the owning project scopes the write.
+     */
+    @Insert
+    suspend fun insert(ref: ProjectInheritedTagGroupCrossRef)
 }
