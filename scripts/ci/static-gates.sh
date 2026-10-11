@@ -163,7 +163,10 @@ export -f traceability
 
 # Build hygiene
 gate blocking "version catalog has no literals" python3 scripts/build-version-catalog-gate.py --quiet .
-gate blocking "gate scripts' own unit tests" python3 -m unittest discover -s scripts/tests
+# -v: a failure prints its name the moment it happens, and a run that dies
+# without an epilogue (CI, 2026-10-11) still shows the last test it reached —
+# dots-only output ends mid-stream with no way to tell where.
+gate blocking "gate scripts' own unit tests" python3 -m unittest discover -s scripts/tests -v
 gate blocking "test-task external inputs declared" python3 scripts/check-test-task-inputs.py
 gate blocking "declared dependencies are used" python3 scripts/check-dependency-usage.py
 gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
