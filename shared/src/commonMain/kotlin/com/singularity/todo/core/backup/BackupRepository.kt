@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -8,9 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
-import com.singularity.todo.core.error.runCatchingCancellable
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 /**
  * Repository for local backup management and remote backup push/pull.
@@ -50,7 +49,10 @@ interface BackupRepository {
      * Pulls a backup from remote storage to `destPath`.
      * The caller is responsible for importing it via [import].
      */
-    suspend fun pull(remoteRef: String, destPath: String): Result<Unit>
+    suspend fun pull(
+        remoteRef: String,
+        destPath: String,
+    ): Result<Unit>
 }
 
 class BackupRepositoryImpl(
@@ -62,13 +64,13 @@ class BackupRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : BackupRepository {
-
-    override fun observeAll(): Flow<List<BackupMetadata>> = flow {
-        while (currentCoroutineContext().isActive) {
-            emit(scanBackups())
-            delay(TimeConstants.BackupRefreshIntervalMs)
+    override fun observeAll(): Flow<List<BackupMetadata>> =
+        flow {
+            while (currentCoroutineContext().isActive) {
+                emit(scanBackups())
+                delay(TimeConstants.BackupRefreshIntervalMs)
+            }
         }
-    }
 
     override suspend fun createBackup(): Result<BackupResult> {
         val timestamp = clock.now().toEpochMilliseconds()
@@ -79,10 +81,12 @@ class BackupRepositoryImpl(
     }
 
     private suspend fun scanBackups(): List<BackupMetadata> {
-        val entries = fs.listDir(backupDir)
-            .mapNotNull { path -> fs.stat(path) }
-            .filter { !it.isDirectory && pathEndsWithZip(it.path) }
-            .sortedByDescending { it.lastModifiedEpochMillis }
+        val entries =
+            fs
+                .listDir(backupDir)
+                .mapNotNull { path -> fs.stat(path) }
+                .filter { !it.isDirectory && pathEndsWithZip(it.path) }
+                .sortedByDescending { it.lastModifiedEpochMillis }
         return entries.map { stat ->
             BackupMetadata(
                 id = BackupId.fromPath(stat.path),
@@ -96,27 +100,33 @@ class BackupRepositoryImpl(
 
     private fun pathEndsWithZip(path: String): Boolean = path.endsWith(".zip", ignoreCase = true)
 
-    override suspend fun export(options: ExportOptions): Result<BackupResult> = runCatchingCancellable {
-        fs.ensureDir(backupDir)
-        exporter.export(options).getOrThrow()
-    }
+    override suspend fun export(options: ExportOptions): Result<BackupResult> =
+        runCatchingCancellable {
+            fs.ensureDir(backupDir)
+            exporter.export(options).getOrThrow()
+        }
 
     override suspend fun import(options: ImportOptions): Result<RestoreResult> = importer.import(options)
 
-    override suspend fun delete(backupId: BackupId): Result<Unit> = runCatchingCancellable {
-        // Find by ID from backups list
-        val backup = scanBackups().find { it.id == backupId }
-        if (backup != null) {
-            fs.delete(backup.path)
+    override suspend fun delete(backupId: BackupId): Result<Unit> =
+        runCatchingCancellable {
+            // Find by ID from backups list
+            val backup = scanBackups().find { it.id == backupId }
+            if (backup != null) {
+                fs.delete(backup.path)
+            }
         }
-    }
 
-    override suspend fun push(backupId: BackupId): Result<String> = runCatchingCancellable {
-        val backup = scanBackups().find { it.id == backupId }
-            ?: throw BackupError.FileNotFound(backupId.value)
-        remoteService.upload(backup.path, currentUser.scopedUserId.value).getOrThrow()
-    }
+    override suspend fun push(backupId: BackupId): Result<String> =
+        runCatchingCancellable {
+            val backup =
+                scanBackups().find { it.id == backupId }
+                    ?: throw BackupError.FileNotFound(backupId.value)
+            remoteService.upload(backup.path, currentUser.scopedUserId.value).getOrThrow()
+        }
 
-    override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> =
-        remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
+    override suspend fun pull(
+        remoteRef: String,
+        destPath: String,
+    ): Result<Unit> = remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
 }

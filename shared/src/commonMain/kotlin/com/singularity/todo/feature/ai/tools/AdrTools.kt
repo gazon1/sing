@@ -40,11 +40,12 @@ class ReadAdrTool(private val storage: AdrStorage) :
         DESCRIPTION,
     ) {
     override suspend fun execute(args: ReadAdrInput): String {
-        val adr = storage.readAdr(args.slug)
-            ?: return Json.encodeToString(
-                AdrStorage.ReadAdrOutput.serializer(),
-                AdrStorage.ReadAdrOutput(args.slug, "(not found)", "", emptyList(), ""),
-            )
+        val adr =
+            storage.readAdr(args.slug)
+                ?: return Json.encodeToString(
+                    AdrStorage.ReadAdrOutput.serializer(),
+                    AdrStorage.ReadAdrOutput(args.slug, "(not found)", "", emptyList(), ""),
+                )
         return Json.encodeToString(
             AdrStorage.ReadAdrOutput.serializer(),
             AdrStorage.ReadAdrOutput(adr.slug, adr.title, adr.date, adr.tags, adr.body),
@@ -103,11 +104,7 @@ class WriteAdrTool(private val storage: AdrStorage) :
 }
 
 @Serializable
-data class UpdateAdrInput(
-    val slug: String,
-    val status: String,
-    val supersededBy: String? = null,
-)
+data class UpdateAdrInput(val slug: String, val status: String, val supersededBy: String? = null)
 
 /** The `update_adr` MCP tool — the write-side half of [AdrStorage.updateAdr] (#511). */
 class UpdateAdrTool(private val storage: AdrStorage) :

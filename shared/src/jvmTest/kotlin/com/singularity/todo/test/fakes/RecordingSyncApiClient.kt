@@ -2,7 +2,6 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.sync.BatchPushRequest
 import com.singularity.todo.core.sync.BatchPushResponse
-import com.singularity.todo.core.sync.PatchResult
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEvent
 import com.singularity.todo.core.sync.SyncOutboxEntity
@@ -26,7 +25,6 @@ class RecordingSyncApiClient(
     private val pullEvents: List<SyncEvent> = emptyList(),
     val authenticatedAs: String = "user-1",
 ) : SyncApiClient {
-
     /** All [BatchPushRequest] arguments passed to [batchPush], in call order. */
     val pushCalls = mutableListOf<BatchPushRequest>()
 
@@ -44,7 +42,10 @@ class RecordingSyncApiClient(
         return pushResponse
     }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> {
         pullCalls.add(authenticatedAs to sinceLsn)
         return pullEvents
             .filter { it.serverLsn > sinceLsn }

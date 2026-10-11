@@ -27,11 +27,8 @@ import kotlinx.serialization.json.JsonObject
  *   [failWith] and [onPushInFlight] are applied.
  * @param authenticatedAs The account this transport is authenticated as.
  */
-class InterceptableSyncApiClient(
-    private val delegate: SyncApiClient,
-    val authenticatedAs: String = "user-1",
-) : SyncApiClient {
-
+class InterceptableSyncApiClient(private val delegate: SyncApiClient, val authenticatedAs: String = "user-1") :
+    SyncApiClient {
     /** When set, [batchPush] throws this before calling the delegate. */
     var failWith: Throwable? = null
 
@@ -63,7 +60,10 @@ class InterceptableSyncApiClient(
         return response
     }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> {
         failWith?.let { throw it }
         return delegate.getEventsSince(sinceLsn, limit)
     }

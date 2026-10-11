@@ -5,13 +5,10 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.accountIdOrNull
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.AppError
-import com.singularity.todo.core.error.original
-import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
-import com.singularity.todo.core.platform.monoClockMillis
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.jsonObject
@@ -67,11 +64,12 @@ internal class PushPhase(
         // signed in or because the queue is empty. They are the same answer — an empty
         // summary over an untouched outbox — and splitting them across two returns cost
         // the budget the discard below needs.
-        val plan = if (signedIn) {
-            planPush().getOrElse { return PhaseResult.Failed(it.toAppError()) }
-        } else {
-            null
-        }
+        val plan =
+            if (signedIn) {
+                planPush().getOrElse { return PhaseResult.Failed(it.toAppError()) }
+            } else {
+                null
+            }
 
         if (plan == null) {
             phases.setPushStatus(isPushing = false)
@@ -80,13 +78,15 @@ internal class PushPhase(
 
         // Smart-cast does not work across method boundaries on a sealed type's
         // concrete subclass. Unpack explicitly so the compiler knows the type.
-        val ready = when (plan) {
-            is PushPlan.Ready -> plan
-            PushPlan.Empty -> {
-                phases.setPushStatus(isPushing = false)
-                return PhaseResult.Ok(PushSummary(0, 0, 0))
+        val ready =
+            when (plan) {
+                is PushPlan.Ready -> plan
+
+                PushPlan.Empty -> {
+                    phases.setPushStatus(isPushing = false)
+                    return PhaseResult.Ok(PushSummary(0, 0, 0))
+                }
             }
-        }
 
         val pending = ready.pending
         // D2 fix: use the scope captured at plan-building time, not a re-read.
@@ -166,13 +166,14 @@ internal class PushPhase(
                 }
             }
 
-            val summary = PushSummary(
-                processed = response.results.size,
-                succeeded = succeeded,
-                failed = failed,
-                lost = lost,
-                superseded = superseded,
-            )
+            val summary =
+                PushSummary(
+                    processed = response.results.size,
+                    succeeded = succeeded,
+                    failed = failed,
+                    lost = lost,
+                    superseded = superseded,
+                )
             phases.recordPushResult(Result.success(summary))
             phases.setPushStatus(isPushing = false)
             PhaseResult.Ok(summary)
@@ -194,26 +195,26 @@ internal class PushPhase(
         // Read the scope FIRST — it is captured and used throughout response processing.
         // Re-reading would let a profile switch put this cycle's patches under one
         // profile and their shadow under another.
-        val activeScope = phases
-            .localStorage("sync.scope.read", "read the active sync scope") {
-                scopeProvider.current.first()
-            }
-            .getOrElse { error ->
-                phases.pushFailed(error.toAppError(), 0)
-                return Result.failure(error)
-            }
-
-        val pending = activeScope
-            ?.let { s ->
-                phases.localStorage("sync.outbox.read", "read the pending changes") {
-                    outboxDao.getPending(nowMillis, s.ownerId)
+        val activeScope =
+            phases
+                .localStorage("sync.scope.read", "read the active sync scope") {
+                    scopeProvider.current.first()
+                }.getOrElse { error ->
+                    phases.pushFailed(error.toAppError(), 0)
+                    return Result.failure(error)
                 }
-            }
-            ?.getOrElse { error ->
-                phases.pushFailed(error.toAppError(), 0)
-                return Result.failure(error)
-            }
-            ?: emptyList()
+
+        val pending =
+            activeScope
+                ?.let { s ->
+                    phases.localStorage("sync.outbox.read", "read the pending changes") {
+                        outboxDao.getPending(nowMillis, s.ownerId)
+                    }
+                }?.getOrElse { error ->
+                    phases.pushFailed(error.toAppError(), 0)
+                    return Result.failure(error)
+                }
+                ?: emptyList()
 
         if (pending.isEmpty()) return Result.success(null)
 
@@ -224,14 +225,14 @@ internal class PushPhase(
                     scope = activeScope!!,
                     pending = pending,
                     patches = patches,
-                    request = BatchPushRequest(
-                        deviceId = idGenerator.next(),
-                        profileId = activeScope.profileId,
-                        patches = patches,
-                    ),
+                    request =
+                        BatchPushRequest(
+                            deviceId = idGenerator.next(),
+                            profileId = activeScope.profileId,
+                            patches = patches,
+                        ),
                 )
-            }
-            .fold(
+            }.fold(
                 onSuccess = { Result.success(it as PushPlan?) },
                 onFailure = { error ->
                     phases.pushFailed(error.toAppError(), pending.size)
@@ -316,23 +317,28 @@ internal class PushPhase(
      * `PatchResult.serverState` is never populated by the server. The state this
      * device already has is the shadow's `confirmedJson` — the server's last known state.
      */
-    private suspend fun resolveLostRace(patch: DeltaPatch, scope: SyncScope) {
+    private suspend fun resolveLostRace(
+        patch: DeltaPatch,
+        scope: SyncScope,
+    ) {
         val typeKey = patch.entityType.key
-        val confirmed = shadowDao
-            .get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
-            ?.confirmedJson
+        val confirmed =
+            shadowDao
+                .get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
+                ?.confirmedJson
 
-        val reverted = confirmed?.let { document ->
-            runCatchingCancellable {
-                val json = StableJson.parseToJsonElement(document).jsonObject
-                writerProvider().upsert(patch.entityType, json)
-            }.onFailure { e ->
-                log.e(e) {
-                    "Patch ${patch.patchId} lost its race and the row could not be " +
-                        "returned to the server's state; the edit is left un-sent"
-                }
-            }.isSuccess
-        } ?: true
+        val reverted =
+            confirmed?.let { document ->
+                runCatchingCancellable {
+                    val json = StableJson.parseToJsonElement(document).jsonObject
+                    writerProvider().upsert(patch.entityType, json)
+                }.onFailure { e ->
+                    log.e(e) {
+                        "Patch ${patch.patchId} lost its race and the row could not be " +
+                            "returned to the server's state; the edit is left un-sent"
+                    }
+                }.isSuccess
+            } ?: true
 
         if (reverted) {
             settleShadow(patch, applied = false, scope = scope)
@@ -353,8 +359,10 @@ internal class PushPhase(
                 entityType = typeKey,
                 entityId = patch.entityId,
                 patchId = patch.patchId,
-                json = shadowDao.get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
-                    ?.inFlightJson ?: return,
+                json =
+                    shadowDao
+                        .get(scope.ownerId, scope.profileId, typeKey, patch.entityId)
+                        ?.inFlightJson ?: return,
                 serverVersion = serverVersion,
             )
         } else {

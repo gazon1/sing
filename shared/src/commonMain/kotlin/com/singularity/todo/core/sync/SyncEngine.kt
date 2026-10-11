@@ -1,27 +1,21 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.auth.accountIdOrNull
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.original
-import com.singularity.todo.core.error.toAppError
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.runCatchingResult
+import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import kotlin.time.Clock
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.json.jsonObject
+import kotlin.time.Clock
 
 /**
  * Summary of a push operation.
@@ -138,9 +132,13 @@ sealed interface SyncOutcome {
  */
 sealed interface SyncEngineStatus {
     data object Idle : SyncEngineStatus
+
     data object Pushing : SyncEngineStatus
+
     data object Pulling : SyncEngineStatus
+
     data object NoConnection : SyncEngineStatus
+
     data class Failure(val error: AppError) : SyncEngineStatus
 
     fun isRunning(): Boolean = this is Pushing || this is Pulling
@@ -225,7 +223,7 @@ internal class SyncEngine(
      * separate `single {}` block in `CoreDiModule` — after the engine is cached —
      * so that its `init {}` (which registers the handlers) runs with a valid engine.
      */
-    @Suppress("UNUSED_PARAMETER")  // side-effect only: init {} in real Bootstrapper
+    @Suppress("UNUSED_PARAMETER") // side-effect only: init {} in real Bootstrapper
     private val bootstrapper: SyncBootstrapper? = null,
     private val shadowDao: SyncShadowDao,
     private val patchBuilder: SyncPatchBuilder,
@@ -290,38 +288,40 @@ internal class SyncEngine(
      * Default constructs a real instance so that test helpers that construct [SyncEngine]
      * without this parameter continue to work.
      */
-    private val pushPhase: PushPhase = PushPhase(
-        api = api,
-        authRepository = authRepository,
-        outboxDao = outboxDao,
-        deadLetterDao = deadLetterDao,
-        shadowDao = shadowDao,
-        idGenerator = idGenerator,
-        scopeProvider = scopeProvider,
-        patchBuilder = patchBuilder,
-        monoNow = { clock.now().toEpochMilliseconds() },
-        phases = state.phases,
-        writerProvider = writerProvider,
-        retryPolicy = retryPolicy,
-        scope = scope,
-    ),
+    private val pushPhase: PushPhase =
+        PushPhase(
+            api = api,
+            authRepository = authRepository,
+            outboxDao = outboxDao,
+            deadLetterDao = deadLetterDao,
+            shadowDao = shadowDao,
+            idGenerator = idGenerator,
+            scopeProvider = scopeProvider,
+            patchBuilder = patchBuilder,
+            monoNow = { clock.now().toEpochMilliseconds() },
+            phases = state.phases,
+            writerProvider = writerProvider,
+            retryPolicy = retryPolicy,
+            scope = scope,
+        ),
     /**
      * The pull phase. Uses [state] for status and result reporting.
      *
      * Default constructs a real instance so that test helpers that construct [SyncEngine]
      * without this parameter continue to work.
      */
-    private val pullPhase: PullPhase = PullPhase(
-        api = api,
-        authRepository = authRepository,
-        stateRepository = stateRepository,
-        clock = clock,
-        scopeProvider = scopeProvider,
-        phases = state.phases,
-        getHandlers = { handlerRegistry.handlers },
-        scope = scope,
-        hlcFactory = hlcFactory,
-    ),
+    private val pullPhase: PullPhase =
+        PullPhase(
+            api = api,
+            authRepository = authRepository,
+            stateRepository = stateRepository,
+            clock = clock,
+            scopeProvider = scopeProvider,
+            phases = state.phases,
+            getHandlers = { handlerRegistry.handlers },
+            scope = scope,
+            hlcFactory = hlcFactory,
+        ),
 ) : AutoCloseable by scope {
     private val json = StableJson
 
@@ -356,7 +356,10 @@ internal class SyncEngine(
     /**
      * Registers a handler for pull events of the given [DocType].
      */
-    fun registerHandler(docType: DocType, apply: EntityApply) {
+    fun registerHandler(
+        docType: DocType,
+        apply: EntityApply,
+    ) {
         handlerRegistry.registerHandler(docType, apply)
     }
 
@@ -391,97 +394,110 @@ internal class SyncEngine(
      *
      * @see REQ-OS-028
      */
-    suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
-        // D4 fix: wrap all storage access with localStorage so failures are classified
-        // as AppError.Persistence. getOrElse { throw it } propagates the classified error
-        // so runCatchingResult's catch block and the .also reporter both execute normally.
-        val active = state.phases
-            .localStorage("sync.scope.read", "read the active sync scope for enqueue") {
-                scopeProvider.current.first()
-            }
-            .getOrElse { throw it }
-            ?: return@runCatchingResult
+    suspend fun enqueue(entity: SyncableEntity): Result<Unit> =
+        runCatchingResult {
+            // D4 fix: wrap all storage access with localStorage so failures are classified
+            // as AppError.Persistence. getOrElse { throw it } propagates the classified error
+            // so runCatchingResult's catch block and the .also reporter both execute normally.
+            val active =
+                state.phases
+                    .localStorage("sync.scope.read", "read the active sync scope for enqueue") {
+                        scopeProvider.current.first()
+                    }.getOrElse { throw it }
+                    ?: return@runCatchingResult
 
-        val patch = patchBuilder.build(entity, active, clock.now().toEpochMilliseconds())
-        val payload = json.encodeToString(patch)
+            val patch = patchBuilder.build(entity, active, clock.now().toEpochMilliseconds())
+            val payload = json.encodeToString(patch)
 
-        // Coalesce per entity before inserting, so an entity has at most one patch
-        // in flight. The new patch is built against the previous in-flight state, so
-        // it carries every field the one it replaces carried — replacing loses
-        // nothing. Without this the outbox grows without bound under fast editing,
-        // and the shadow's "promote only if this patch still owns the marker" guard
-        // could never fire.
-        // The owner is the scope this patch was built under — not a scope read again
-        // here, which could be a different one if the profile moved between the two.
-        // The patch itself was diffed against that scope's shadow, so it belongs to it.
-        state.phases
-            .localStorage("sync.outbox.delete", "coalesce the outbox row before insert") {
-                outboxDao.deleteByEntity(active.ownerId, entity.syncId)
-            }
-            .getOrElse { throw it }
+            // Coalesce per entity before inserting, so an entity has at most one patch
+            // in flight. The new patch is built against the previous in-flight state, so
+            // it carries every field the one it replaces carried — replacing loses
+            // nothing. Without this the outbox grows without bound under fast editing,
+            // and the shadow's "promote only if this patch still owns the marker" guard
+            // could never fire.
+            // The owner is the scope this patch was built under — not a scope read again
+            // here, which could be a different one if the profile moved between the two.
+            // The patch itself was diffed against that scope's shadow, so it belongs to it.
+            state.phases
+                .localStorage("sync.outbox.delete", "coalesce the outbox row before insert") {
+                    outboxDao.deleteByEntity(active.ownerId, entity.syncId)
+                }.getOrElse { throw it }
 
-        state.phases
-            .localStorage("sync.outbox.insert", "insert the pending patch") {
-                outboxDao.insert(
-                    SyncOutboxEntity(
-                        patchId = patch.patchId,
-                        ownerId = active.ownerId,
-                        entityId = entity.syncId,
-                        entityType = entity.docType.key,
-                        payload = payload,
-                        createdAt = clock.now().toEpochMilliseconds(),
-                    ),
-                )
+            state.phases
+                .localStorage("sync.outbox.insert", "insert the pending patch") {
+                    outboxDao.insert(
+                        SyncOutboxEntity(
+                            patchId = patch.patchId,
+                            ownerId = active.ownerId,
+                            entityId = entity.syncId,
+                            entityType = entity.docType.key,
+                            payload = payload,
+                            createdAt = clock.now().toEpochMilliseconds(),
+                        ),
+                    )
+                }.getOrElse { throw it }
+        }.also { result ->
+            val error = result.exceptionOrNull() ?: return@also
+            val appError = error as? AppError ?: error.toAppError()
+            // `original()`, not the wrapper: runCatchingResult builds every AppError in a
+            // catch block, so reporting one hands over a stack that ends where it was
+            // constructed. This is the same pairing SyncPhaseReporter uses for every other
+            // sync failure — see AppError.original().
+            log.e(appError.original()) {
+                "enqueue failed for ${entity.docType.key} ${entity.syncId}: " +
+                    "the change is saved locally and will never be pushed"
             }
-            .getOrElse { throw it }
-    }.also { result ->
-        val error = result.exceptionOrNull() ?: return@also
-        val appError = error as? AppError ?: error.toAppError()
-        // `original()`, not the wrapper: runCatchingResult builds every AppError in a
-        // catch block, so reporting one hands over a stack that ends where it was
-        // constructed. This is the same pairing SyncPhaseReporter uses for every other
-        // sync failure — see AppError.original().
-        log.e(appError.original()) {
-            "enqueue failed for ${entity.docType.key} ${entity.syncId}: " +
-                "the change is saved locally and will never be pushed"
+            crashReporter.report(appError.original(), "sync.enqueue_failed")
         }
-        crashReporter.report(appError.original(), "sync.enqueue_failed")
-    }
 
     /**
      * Runs one push + pull cycle.
      */
     internal suspend fun syncOnce(): SyncOutcome {
-        val active = state.phases.localStorage("sync.scope.read", "read the active sync scope") {
-            scopeProvider.current.first()
-        }
-            .getOrElse { return state.phases.cycleFailed(it.toAppError()) }
-            ?: return SyncOutcome.NothingToDo
+        val active =
+            state.phases
+                .localStorage("sync.scope.read", "read the active sync scope") {
+                    scopeProvider.current.first()
+                }.getOrElse { return state.phases.cycleFailed(it.toAppError()) }
+                ?: return SyncOutcome.NothingToDo
 
-        val cursor = state.phases.localStorage("sync.cursor.read", "read the download cursor") {
-            stateRepository.get(active).lastLsn
-        }
-            .getOrElse { return state.phases.cycleFailed(it.toAppError()) }
+        val cursor =
+            state.phases
+                .localStorage("sync.cursor.read", "read the download cursor") {
+                    stateRepository.get(active).lastLsn
+                }.getOrElse { return state.phases.cycleFailed(it.toAppError()) }
 
         val pushResult = pushPhase.push()
         val pullResult = pullPhase.pull(active, sinceLsn = cursor)
-        val push = when (pushResult) {
-            is PhaseResult.Ok -> Result.success(pushResult.getOrThrow())
-            // NotRun is unreachable: push() returns Ok/Failed or throws; it never returns NotRun.
-            // Suppressed instead of removed so a future caller that adds NotRun gets a
-            // compile warning rather than a silent missing-arm crash.
-            is PhaseResult.NotRun -> @Suppress("UNREACHABLE_CODE") Result.failure(IllegalStateException("Phase did not run"))
-            is PhaseResult.Failed -> Result.failure(pushResult.error)
-            is PhaseResult.Superseded -> Result.success(PushSummary(0, 0, 0, superseded = 0))
-        }
-        val pull = when (pullResult) {
-            is PhaseResult.Ok -> Result.success(pullResult.getOrThrow())
-            // NotRun is unreachable: pull() returns NotRun only when !SignedIn, but
-            // `active ?: return NothingToDo` guards this call before it is reached.
-            is PhaseResult.NotRun -> @Suppress("UNREACHABLE_CODE") Result.success(PullSummary(0, 0, 0))
-            is PhaseResult.Failed -> Result.failure(pullResult.error)
-            is PhaseResult.Superseded -> Result.success(PullSummary(0, 0, 0))
-        }
+        val push =
+            when (pushResult) {
+                is PhaseResult.Ok -> Result.success(pushResult.getOrThrow())
+
+                // NotRun is unreachable: push() returns Ok/Failed or throws; it never returns NotRun.
+                // Suppressed instead of removed so a future caller that adds NotRun gets a
+                // compile warning rather than a silent missing-arm crash.
+                is PhaseResult.NotRun ->
+                    @Suppress("UNREACHABLE_CODE")
+                    Result.failure(IllegalStateException("Phase did not run"))
+
+                is PhaseResult.Failed -> Result.failure(pushResult.error)
+
+                is PhaseResult.Superseded -> Result.success(PushSummary(0, 0, 0, superseded = 0))
+            }
+        val pull =
+            when (pullResult) {
+                is PhaseResult.Ok -> Result.success(pullResult.getOrThrow())
+
+                // NotRun is unreachable: pull() returns NotRun only when !SignedIn, but
+                // `active ?: return NothingToDo` guards this call before it is reached.
+                is PhaseResult.NotRun ->
+                    @Suppress("UNREACHABLE_CODE")
+                    Result.success(PullSummary(0, 0, 0))
+
+                is PhaseResult.Failed -> Result.failure(pullResult.error)
+
+                is PhaseResult.Superseded -> Result.success(PullSummary(0, 0, 0))
+            }
         return SyncOutcome.Completed(push = push, pull = pull)
     }
 

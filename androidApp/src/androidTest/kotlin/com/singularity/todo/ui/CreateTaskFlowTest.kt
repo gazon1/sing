@@ -28,14 +28,15 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class CreateTaskFlowTest {
-
     private lateinit var device: UiDevice
 
     @Before
     fun setup() {
-        device = UiDevice.getInstance(
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        )
+        device =
+            UiDevice.getInstance(
+                androidx.test.platform.app.InstrumentationRegistry
+                    .getInstrumentation(),
+            )
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // unlock
     }
@@ -52,10 +53,11 @@ class CreateTaskFlowTest {
      */
     @Test
     fun create_task_via_fab_appears_in_list() {
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         navigateToToday()
 
@@ -63,10 +65,11 @@ class CreateTaskFlowTest {
         device.findObject(By.res("tasks_fab")).click()
 
         // The title input must appear in the editor.
-        val titleInput = device.wait(
-            Until.findObject(By.res("task_editor_title_input")),
-            3_000
-        )
+        val titleInput =
+            device.wait(
+                Until.findObject(By.res("task_editor_title_input")),
+                3_000,
+            )
         assertNotNull("Task editor title input should appear after FAB tap", titleInput)
 
         // Type the task title.
@@ -77,10 +80,11 @@ class CreateTaskFlowTest {
 
         // Editor closes. Wait for the created task to appear in the list.
         // Slug: "Test task UiAutomator" → "test_task_uiautomator"
-        val taskItem = device.wait(
-            Until.findObject(By.res("task_item_test_task_uiautomator")),
-            5_000
-        )
+        val taskItem =
+            device.wait(
+                Until.findObject(By.res("task_item_test_task_uiautomator")),
+                5_000,
+            )
         assertNotNull("Created task should appear in the list", taskItem)
 
         scenario.close()
@@ -91,10 +95,11 @@ class CreateTaskFlowTest {
      */
     @Test
     fun cancel_editor_dismisses_without_adding_task() {
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         navigateToToday()
 
@@ -103,7 +108,8 @@ class CreateTaskFlowTest {
         device.wait(Until.findObject(By.res("task_editor_title_input")), 3_000)
 
         // Type a title.
-        device.findObject(By.res("task_editor_title_input"))
+        device
+            .findObject(By.res("task_editor_title_input"))
             .setText("Do not save this task")
 
         // Press back to cancel.
@@ -111,13 +117,14 @@ class CreateTaskFlowTest {
 
         // The cancelled task should NOT appear in the list.
         // Slug: "Do not save this task" → "do_not_save_this_task"
-        val cancelledTask = device.wait(
-            Until.findObject(By.res("task_item_do_not_save_this_task")),
-            2_000
-        )
+        val cancelledTask =
+            device.wait(
+                Until.findObject(By.res("task_item_do_not_save_this_task")),
+                2_000,
+            )
         assertNull(
             "Cancelled task should not appear in the list",
-            cancelledTask
+            cancelledTask,
         )
 
         scenario.close()
@@ -128,10 +135,11 @@ class CreateTaskFlowTest {
      */
     @Test
     fun editor_opens_with_empty_title_and_accepts_input() {
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         navigateToToday()
 

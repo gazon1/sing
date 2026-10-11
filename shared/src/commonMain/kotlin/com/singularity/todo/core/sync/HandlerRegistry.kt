@@ -32,8 +32,10 @@ internal class HandlerRegistry {
      * Subsequent calls for the same [DocType] replace the previous handler.
      * Registration order is not significant.
      */
-    fun registerHandler(docType: DocType, apply: EntityApply) {
+    fun registerHandler(
+        docType: DocType,
+        apply: EntityApply,
+    ) {
         _handlers.value = _handlers.value + (docType to apply)
     }
 }
-

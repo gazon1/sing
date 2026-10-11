@@ -6,7 +6,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
@@ -26,7 +25,6 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class SearchPresentationUiTest {
-
     // ─── SaveSearchDialog ───────────────────────────────────────────────────────
 
     @Test
@@ -45,21 +43,22 @@ class SearchPresentationUiTest {
         }
 
     @Test
-    fun `SaveSearchDialog disabled Save when name is blank`() = runIsolatedComposeTest {
-        setContent {
-            SaveSearchDialog(
-                initialName = "some query",
-                onDismiss = {},
-                onSave = {},
-            )
+    fun `SaveSearchDialog disabled Save when name is blank`() =
+        runIsolatedComposeTest {
+            setContent {
+                SaveSearchDialog(
+                    initialName = "some query",
+                    onDismiss = {},
+                    onSave = {},
+                )
+            }
+
+            // Clear the pre-filled name
+            onNode(hasSetTextAction()).performTextClearance()
+
+            // Save button must be disabled for blank input
+            onNodeWithText("Save").assertIsNotEnabled()
         }
-
-        // Clear the pre-filled name
-        onNode(hasSetTextAction()).performTextClearance()
-
-        // Save button must be disabled for blank input
-        onNodeWithText("Save").assertIsNotEnabled()
-    }
 
     @Test
     fun `SaveSearchDialog calls onSave with trimmed name on confirm`() =

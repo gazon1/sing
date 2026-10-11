@@ -48,14 +48,13 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
             val initBody = block.body ?: continue
             val expressions = initBody.collectDescendantsOfType<KtExpression>()
             for (expr in expressions) {
-                checkExpression(expr, block, klass.name)
+                checkExpression(expr, klass.name)
             }
         }
     }
 
     private fun checkExpression(
         expression: KtExpression,
-        block: KtClassInitializer,
         className: String?,
     ) {
         val (receiver, call) = when (expression) {
@@ -80,10 +79,10 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
         val callee = call.calleeExpression as? KtNameReferenceExpression ?: return
         if (callee.text !in BLOCKED_METHODS) return
 
-        reportFinding(expression, className, block)
+        reportFinding(expression, className)
     }
 
-    private fun reportFinding(expr: KtExpression, className: String?, block: KtClassInitializer) {
+    private fun reportFinding(expr: KtExpression, className: String?) {
         val name = className ?: "anonymous class"
         report(
             Finding(

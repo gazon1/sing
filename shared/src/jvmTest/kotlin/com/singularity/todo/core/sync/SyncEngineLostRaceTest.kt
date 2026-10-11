@@ -8,8 +8,8 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
-import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.core.sync.work.FakeHlcFactory
+import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -57,7 +57,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class SyncEngineLostRaceTest {
-
     private val clock = MutableClock()
     private val log = Logger.withTag("SyncEngineLostRaceTest")
 
@@ -67,49 +66,53 @@ class SyncEngineLostRaceTest {
         tasks: TaskRepository,
         outbox: FakeSyncOutboxDao = FakeSyncOutboxDao(),
         shadow: FakeSyncShadowDao = FakeSyncShadowDao(),
-    ): SyncEngine = SyncEngine(
-        log = log,
-        api = api,
-        authRepository = FakeSyncAuthRepository(
-            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-        ),
-        outboxDao = outbox,
-        deadLetterDao = FakeSyncDeadLetterDao(),
-        idGenerator = SequentialIdGenerator(),
-        stateRepository = FakeSyncStateRepository(),
-        scopeProvider = FakeSyncScopeProvider(SCOPE),
-        shadowDao = shadow,
-        patchBuilder = fakeSyncPatchBuilder(shadow),
-        writerProvider = { fakeSyncDocumentWriter(tasks = tasks) },
-        scheduler = FakeSyncWorkScheduler(),
-        retryPolicy = PatchRetryPolicy(),
-        clock = clock,
-        scope = testScope(scope.backgroundScope),
-        crashReporter = NoOpCrashReportingPort(),
+    ): SyncEngine =
+        SyncEngine(
+            log = log,
+            api = api,
+            authRepository =
+                FakeSyncAuthRepository(
+                    Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+                ),
+            outboxDao = outbox,
+            deadLetterDao = FakeSyncDeadLetterDao(),
+            idGenerator = SequentialIdGenerator(),
+            stateRepository = FakeSyncStateRepository(),
+            scopeProvider = FakeSyncScopeProvider(SCOPE),
+            shadowDao = shadow,
+            patchBuilder = fakeSyncPatchBuilder(shadow),
+            writerProvider = { fakeSyncDocumentWriter(tasks = tasks) },
+            scheduler = FakeSyncWorkScheduler(),
+            retryPolicy = PatchRetryPolicy(),
+            clock = clock,
+            scope = testScope(scope.backgroundScope),
+            crashReporter = NoOpCrashReportingPort(),
             hlcFactory = FakeHlcFactory(),
-    )
+        )
 
     // ── fixtures ───────────────────────────────────────────────────────────────────
 
     /** The state the server holds: the last state it confirmed for this row. */
-    private fun serverTask(title: String): String = StableJson.encodeToString(
+    private fun serverTask(title: String): String =
+        StableJson.encodeToString(
+            Task(
+                id = ENTITY_ID,
+                title = title,
+                userId = TestUsers.DEFAULT,
+                createdAt = Instant.fromEpochMilliseconds(0),
+                updatedAt = Instant.fromEpochMilliseconds(0),
+            ),
+        )
+
+    /** The state the losing patch would have brought it to. */
+    private fun localTask(title: String): Task =
         Task(
             id = ENTITY_ID,
             title = title,
             userId = TestUsers.DEFAULT,
             createdAt = Instant.fromEpochMilliseconds(0),
             updatedAt = Instant.fromEpochMilliseconds(0),
-        ),
-    )
-
-    /** The state the losing patch would have brought it to. */
-    private fun localTask(title: String): Task = Task(
-        id = ENTITY_ID,
-        title = title,
-        userId = TestUsers.DEFAULT,
-        createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0),
-    )
+        )
 
     private fun storedTitle(tasks: FakeTaskRepository): String? = tasks.tasks.value[ENTITY_ID.value]?.title
 
@@ -142,135 +145,145 @@ class SyncEngineLostRaceTest {
                 ownerId = SCOPE.ownerId,
                 entityId = ENTITY_ID.value,
                 entityType = DocType.Task.key,
-                payload = StableJson.encodeToString(
-                    DeltaPatch(
-                        patchId = patchId,
-                        entityId = ENTITY_ID.value,
-                        entityType = DocType.Task,
-                        baseVersion = 1,
-                        ops = listOf(FieldChange("title", FieldOp.SET, JsonPrimitive(LOSING_TITLE))),
+                payload =
+                    StableJson.encodeToString(
+                        DeltaPatch(
+                            patchId = patchId,
+                            entityId = ENTITY_ID.value,
+                            entityType = DocType.Task,
+                            baseVersion = 1,
+                            ops = listOf(FieldChange("title", FieldOp.SET, JsonPrimitive(LOSING_TITLE))),
+                        ),
                     ),
-                ),
                 createdAt = 1L,
             ),
         )
     }
 
-    private fun losing(patchId: String = "p1") = PatchResult(
-        patchId = patchId,
-        ok = true,
-        lost = true,
-    )
+    private fun losing(patchId: String = "p1") =
+        PatchResult(
+            patchId = patchId,
+            ok = true,
+            lost = true,
+        )
 
-    private fun winning(patchId: String = "p1") = PatchResult(
-        patchId = patchId,
-        ok = true,
-        newVersion = 4,
-    )
+    private fun winning(patchId: String = "p1") =
+        PatchResult(
+            patchId = patchId,
+            ok = true,
+            newVersion = 4,
+        )
 
     // ── the requirement ────────────────────────────────────────────────────────────
 
     @Test
-    fun `a change that loses the race is not recorded as delivered`() = runTest {
-        val tasks = FakeTaskRepository()
-        val shadow = FakeSyncShadowDao()
-        val outbox = FakeSyncOutboxDao()
-        raceInProgress(tasks, shadow, outbox)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
-        val engine = engine(api, this, tasks, outbox, shadow)
+    fun `a change that loses the race is not recorded as delivered`() =
+        runTest {
+            val tasks = FakeTaskRepository()
+            val shadow = FakeSyncShadowDao()
+            val outbox = FakeSyncOutboxDao()
+            raceInProgress(tasks, shadow, outbox)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
+            val engine = engine(api, this, tasks, outbox, shadow)
 
-        val summary = engine.push().getOrThrow()
+            val summary = engine.push().getOrThrow()
 
-        assertEquals(1, summary.processed)
-        assertEquals(0, summary.succeeded, "a lost race is not a delivery")
-        assertEquals(1, summary.lost)
-        assertTrue(outbox.rows.isEmpty(), "the queued change must not stay as though still owed")
-    }
-
-    @Test
-    fun `the outcome is counted as neither delivered nor refused`() = runTest {
-        // The two readings a three-field summary would have forced: `ok: true` says the
-        // user has their edit somewhere the server agrees with, `ok: false` sends an
-        // operator hunting a rejection the server never made. Neither is true.
-        val tasks = FakeTaskRepository()
-        val shadow = FakeSyncShadowDao()
-        val outbox = FakeSyncOutboxDao()
-        raceInProgress(tasks, shadow, outbox)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
-        val engine = engine(api, this, tasks, outbox, shadow)
-
-        val summary = engine.push().getOrThrow()
-
-        assertEquals(0, summary.failed, "the server did not refuse this patch")
-        assertEquals(1, summary.lost)
-        assertEquals(summary.processed, summary.succeeded + summary.failed + summary.lost)
-    }
+            assertEquals(1, summary.processed)
+            assertEquals(0, summary.succeeded, "a lost race is not a delivery")
+            assertEquals(1, summary.lost)
+            assertTrue(outbox.rows.isEmpty(), "the queued change must not stay as though still owed")
+        }
 
     @Test
-    fun `the row returns to what the server holds`() = runTest {
-        val tasks = FakeTaskRepository()
-        val shadow = FakeSyncShadowDao()
-        val outbox = FakeSyncOutboxDao()
-        raceInProgress(tasks, shadow, outbox)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
-        val engine = engine(api, this, tasks, outbox, shadow)
+    fun `the outcome is counted as neither delivered nor refused`() =
+        runTest {
+            // The two readings a three-field summary would have forced: `ok: true` says the
+            // user has their edit somewhere the server agrees with, `ok: false` sends an
+            // operator hunting a rejection the server never made. Neither is true.
+            val tasks = FakeTaskRepository()
+            val shadow = FakeSyncShadowDao()
+            val outbox = FakeSyncOutboxDao()
+            raceInProgress(tasks, shadow, outbox)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
+            val engine = engine(api, this, tasks, outbox, shadow)
 
-        engine.push()
+            val summary = engine.push().getOrThrow()
 
-        assertEquals(
-            SERVER_TITLE,
-            storedTitle(tasks),
-            "the row kept the state of an edit the server refused",
-        )
-        assertTrue(
-            !shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!
-                .confirmedJson.contains(LOSING_TITLE),
-            "the confirmed state must not be promoted to the losing edit",
-        )
-    }
+            assertEquals(0, summary.failed, "the server did not refuse this patch")
+            assertEquals(1, summary.lost)
+            assertEquals(summary.processed, summary.succeeded + summary.failed + summary.lost)
+        }
 
     @Test
-    fun `the next change to that row is built on the server's state`() = runTest {
-        // This is what makes the resolution safe rather than a loop. The marker is
-        // released *after* the revert, so the diff that follows compares the row against
-        // confirmed state and finds nothing — the losing edit cannot regenerate itself.
-        val tasks = FakeTaskRepository()
-        val shadow = FakeSyncShadowDao()
-        val outbox = FakeSyncOutboxDao()
-        raceInProgress(tasks, shadow, outbox)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
-        val engine = engine(api, this, tasks, outbox, shadow)
-        engine.push()
+    fun `the row returns to what the server holds`() =
+        runTest {
+            val tasks = FakeTaskRepository()
+            val shadow = FakeSyncShadowDao()
+            val outbox = FakeSyncOutboxDao()
+            raceInProgress(tasks, shadow, outbox)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
+            val engine = engine(api, this, tasks, outbox, shadow)
 
-        val settled = shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!
-        assertNull(settled.inFlightPatchId, "the in-flight marker outlived the lost patch")
+            engine.push()
 
-        assertTrue(engine.enqueue(SyncableTask(localTask(SERVER_TITLE))).isSuccess)
-        val next = StableJson.decodeFromString<DeltaPatch>(outbox.rows.single().payload)
-        assertTrue(next.ops.isEmpty(), "the losing edit regenerated itself: ${next.ops}")
-    }
+            assertEquals(
+                SERVER_TITLE,
+                storedTitle(tasks),
+                "the row kept the state of an edit the server refused",
+            )
+            assertTrue(
+                !shadow
+                    .state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!
+                    .confirmedJson
+                    .contains(LOSING_TITLE),
+                "the confirmed state must not be promoted to the losing edit",
+            )
+        }
 
     @Test
-    fun `a change that wins is unaffected`() = runTest {
-        val tasks = FakeTaskRepository()
-        val shadow = FakeSyncShadowDao()
-        val outbox = FakeSyncOutboxDao()
-        raceInProgress(tasks, shadow, outbox)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(winning())))
-        val engine = engine(api, this, tasks, outbox, shadow)
+    fun `the next change to that row is built on the server's state`() =
+        runTest {
+            // This is what makes the resolution safe rather than a loop. The marker is
+            // released *after* the revert, so the diff that follows compares the row against
+            // confirmed state and finds nothing — the losing edit cannot regenerate itself.
+            val tasks = FakeTaskRepository()
+            val shadow = FakeSyncShadowDao()
+            val outbox = FakeSyncOutboxDao()
+            raceInProgress(tasks, shadow, outbox)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
+            val engine = engine(api, this, tasks, outbox, shadow)
+            engine.push()
 
-        val summary = engine.push().getOrThrow()
+            val settled = shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!
+            assertNull(settled.inFlightPatchId, "the in-flight marker outlived the lost patch")
 
-        assertEquals(1, summary.succeeded)
-        assertEquals(0, summary.lost)
-        val settled = shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!
-        assertTrue(
-            settled.confirmedJson.contains(LOSING_TITLE),
-            "a won race must still promote its own state",
-        )
-        assertEquals(LOSING_TITLE, storedTitle(tasks), "a won race must not revert the row")
-        assertEquals(4L, settled.serverVersion)
-    }
+            assertTrue(engine.enqueue(SyncableTask(localTask(SERVER_TITLE))).isSuccess)
+            val next = StableJson.decodeFromString<DeltaPatch>(outbox.rows.single().payload)
+            assertTrue(next.ops.isEmpty(), "the losing edit regenerated itself: ${next.ops}")
+        }
+
+    @Test
+    fun `a change that wins is unaffected`() =
+        runTest {
+            val tasks = FakeTaskRepository()
+            val shadow = FakeSyncShadowDao()
+            val outbox = FakeSyncOutboxDao()
+            raceInProgress(tasks, shadow, outbox)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(winning())))
+            val engine = engine(api, this, tasks, outbox, shadow)
+
+            val summary = engine.push().getOrThrow()
+
+            assertEquals(1, summary.succeeded)
+            assertEquals(0, summary.lost)
+            val settled = shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!
+            assertTrue(
+                settled.confirmedJson.contains(LOSING_TITLE),
+                "a won race must still promote its own state",
+            )
+            assertEquals(LOSING_TITLE, storedTitle(tasks), "a won race must not revert the row")
+            assertEquals(4L, settled.serverVersion)
+        }
 
     // ── the wire ────────────────────────────────────────────────────────────────────
 
@@ -279,9 +292,10 @@ class SyncEngineLostRaceTest {
         // The original defect at its narrowest: the field arrives and is dropped. The
         // live server emits exactly this object — note it carries neither `serverState`
         // nor `newState`, which is why the resolution reads the shadow instead.
-        val json = """
+        val json =
+            """
             {"patchId":"calib-2","ok":true,"cached":false,"lost":true,"legacy":false,"newVersion":1}
-        """.trimIndent()
+            """.trimIndent()
 
         val result = StableJson.decodeFromString<PatchResult>(json)
 
@@ -293,26 +307,27 @@ class SyncEngineLostRaceTest {
     // ── the failure the revert has to survive ───────────────────────────────────────
 
     @Test
-    fun `a revert that fails leaves the marker, so nothing regenerates the edit`() = runTest {
-        // Releasing the marker after a failed revert is the loop. Holding it is not a
-        // fix either — the edit stays owned by the shadow and the loss is logged — but
-        // it is the state that cannot spin.
-        val tasks = FakeTaskRepository()
-        val shadow = FakeSyncShadowDao()
-        val outbox = FakeSyncOutboxDao()
-        raceInProgress(tasks, shadow, outbox)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
-        val engine = engine(api, this, FailingTaskRepository(), outbox, shadow)
+    fun `a revert that fails leaves the marker, so nothing regenerates the edit`() =
+        runTest {
+            // Releasing the marker after a failed revert is the loop. Holding it is not a
+            // fix either — the edit stays owned by the shadow and the loss is logged — but
+            // it is the state that cannot spin.
+            val tasks = FakeTaskRepository()
+            val shadow = FakeSyncShadowDao()
+            val outbox = FakeSyncOutboxDao()
+            raceInProgress(tasks, shadow, outbox)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(losing())))
+            val engine = engine(api, this, FailingTaskRepository(), outbox, shadow)
 
-        engine.push()
+            engine.push()
 
-        assertEquals(
-            "p1",
-            shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!.inFlightPatchId,
-            "the marker was released although the row was never returned to the server",
-        )
-        assertTrue(outbox.rows.isEmpty(), "a lost patch must not be re-sent to lose again")
-    }
+            assertEquals(
+                "p1",
+                shadow.state(SCOPE.ownerId, SCOPE.profileId, DocType.Task.key, ENTITY_ID.value)!!.inFlightPatchId,
+                "the marker was released although the row was never returned to the server",
+            )
+            assertTrue(outbox.rows.isEmpty(), "a lost patch must not be re-sent to lose again")
+        }
 
     // ── fixtures ────────────────────────────────────────────────────────────────────
 
@@ -327,8 +342,8 @@ class SyncEngineLostRaceTest {
         override val docType: DocType get() = DocType.Task
         override val syncServerVersion: Long get() = 0
         override val syncHlc: Hlc? get() = null
-        override fun toJson(): JsonObject =
-            StableJson.encodeToJsonElement(Task.serializer(), task).jsonObject
+
+        override fun toJson(): JsonObject = StableJson.encodeToJsonElement(Task.serializer(), task).jsonObject
     }
 
     private companion object {
