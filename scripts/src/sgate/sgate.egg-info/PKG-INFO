@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: sgate
+Version: 0.1.0
+Summary: Unified CLI for singularity-todo gate scripts
+Requires-Python: >=3.12
+Requires-Dist: click>=8.0
+Requires-Dist: loguru>=0.7
+Requires-Dist: rich>=13.0

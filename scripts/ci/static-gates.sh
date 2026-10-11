@@ -278,7 +278,7 @@ gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-bo
 # Advisory — each needs an exit plan, or it is just a quieter blocking gate.
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.
-gate advisory "ADR frontmatter drift" adr_dry_run
+gate advisory "ADR frontmatter drift" sgate adr_frontmatter_drift
 gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
 gate advisory "spec-kit issue registry current" python3 scripts/check-speckit-issue-registry.py
 gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
@@ -287,7 +287,7 @@ gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-
 gate blocking "apptracer upload policy encoded" python3 scripts/check-apptracer-policy.py
 
 # Backlog
-gate advisory "backlog-issue-refs" python3 scripts/check-backlog-issue-refs.py
+gate advisory "backlog-issue-refs" sgate backlog_issue_refs
 
 # ─── Collect all results and report ─────────────────────────────────────────
 collect_and_report
