@@ -42,6 +42,15 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           uv tool install specify-cli
 
+      # The adr-ci workflow's openspec-validate step shells out to the
+      # `openspec` binary; without it the inner step exits 127 and the whole
+      # workflow reports "Shell command exited with code 127". Same pin
+      # convention as ci.yml's static job.
+      - name: Install openspec
+        env:
+          OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.0' }}
+        run: npm install --global "@fission-ai/openspec@${OPENSPEC_VERSION}"
+
       - name: Install singularity-adr
         run: |
           ./gradlew :adr-cli:installDist 2>&1 | tail -5
