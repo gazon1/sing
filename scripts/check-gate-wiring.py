@@ -301,8 +301,15 @@ SCRIPT_GATES = [
         # that expects it to fail proves nothing. The first version of this control
         # emptied one file, which the gate correctly ignored.
         sabotage_path=".githooks/pre-push",
+        # Set core.hooksPath as part of the sabotage: on a CI runner the config
+        # is unset, so the gate takes its "unset → advisory, exit 0" branch and
+        # passes no matter what — the control would prove nothing (and did, on
+        # the first CI run that reached it, 2026-10-11). Setting it to .githooks
+        # is what a correctly configured machine already has; the restore leaves
+        # it there, which is the value the gate itself recommends.
         sabotage=(
             "import subprocess as _sp\n"
+            "_sp.run(['git','config','core.hooksPath','.githooks'], cwd=p.parent.parent, check=True)\n"
             "_sp.run(['git','rm','-r','--cached','-q','.githooks'], cwd=p.parent.parent, check=True)"
         ),
         # Content restore alone cannot undo this one — see `sabotage_restore`.

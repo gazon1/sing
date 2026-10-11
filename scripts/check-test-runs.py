@@ -277,12 +277,18 @@ def _load_sync():
     sync_py = kiwi_dir / "sync.py"
     if not sync_py.is_file():
         raise ScannerUnavailable(f"no repository scanner at {sync_py}")
-    # sync.py imports its sibling kiwi_client, so its own directory has to be
-    # importable before it is executed — not just its file.
+    # sync.py imports its sibling kiwi_client (needs its own directory on
+    # sys.path) AND does a bare `import infra` (needs the repository ROOT —
+    # the parent of the infra/ package — which only exists on sys.path when
+    # the caller happened to start from the repo root, e.g. via `-c` or `-m`).
+    # The CI tests job runs `python3 scripts/check-test-runs.py`, whose
+    # sys.path[0] is scripts/, so without ROOT the import died with
+    # ModuleNotFoundError and the by-results check could not run (#563).
     kiwi_str = str(kiwi_dir)
-    added = kiwi_str not in sys.path
-    if added:
-        sys.path.insert(0, kiwi_str)
+    root_str = str(ROOT)
+    added_paths = [p for p in (kiwi_str, root_str) if p not in sys.path]
+    for p in reversed(added_paths):
+        sys.path.insert(0, p)
     try:
         spec = importlib.util.spec_from_file_location("check_test_runs_sync", sync_py)
         module = importlib.util.module_from_spec(spec)
@@ -296,8 +302,8 @@ def _load_sync():
         sys.modules.pop("check_test_runs_sync", None)
         raise ScannerUnavailable(f"{sync_py} did not import: {exc!r}") from exc
     finally:
-        if added:
-            sys.path.remove(kiwi_str)
+        for p in added_paths:
+            sys.path.remove(p)
     return module
 
 
