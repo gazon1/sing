@@ -1,7 +1,7 @@
 ---
 title: "A Stale Detekt Classpath Makes The Gate Green With No Custom Rules Running"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "detekt-tooling-honesty"]
 ---
 

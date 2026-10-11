@@ -1,7 +1,7 @@
 ---
 title: "The Generated Rule Inventory Enforces Nothing"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "detekt-tooling-honesty"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Task Detail Coordinator Graph Test Times Out Under Parallel Load"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

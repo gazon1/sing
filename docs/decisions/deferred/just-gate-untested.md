@@ -1,7 +1,7 @@
 ---
 title: "Just Gate Untested"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

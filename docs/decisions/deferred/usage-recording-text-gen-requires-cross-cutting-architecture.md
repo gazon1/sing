@@ -1,7 +1,7 @@
 ---
 title: "Usage Recording Text Gen Requires Cross Cutting Architecture"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "usage-recording-platform-parity"]
 ---
 

@@ -269,6 +269,7 @@ val TOOL_ANNOTATIONS = mapOf(
     "write_adr" to ToolAnnotations(openWorldHint = true),
     "list_adrs" to ToolAnnotations(readOnlyHint = true),
     "read_adr" to ToolAnnotations(readOnlyHint = true),
+    "update_adr" to ToolAnnotations(openWorldHint = true),
     "list_open_deferred" to ToolAnnotations(readOnlyHint = true),
     "decompose_and_create" to ToolAnnotations(),
 )
@@ -427,3 +428,52 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 - `singularity-todo-llm-usage-tracking` — `UsageRecorder` port injected into tools.
 - `singularity-todo-koin-dsl` — `domainModule()` is what the MCP server starts.
 - ADR `2026-09-07-dogfooding-mcp-server` — rationale and trade-offs.
+
+<!-- BEGIN GENERATED: adr-tools -->
+
+#### `singularity-adr` — the ADR command line
+
+Run it from the repository root. Every command takes `--json` for
+machine-readable output; exit code `2` means the command line was wrong,
+`1` means the operation failed.
+
+| Command | What it does |
+|---|---|
+| `singularity-adr new <slug> <title> [tag ...]` | write a new decision |
+| `singularity-adr list` | every decision in the corpus |
+| `singularity-adr list-open` | deferred backlog entries still open |
+| `singularity-adr read <slug>` | one decision, with its body |
+| `singularity-adr update <slug> <status> [by]` | change status, never the body (#509) |
+| `singularity-adr stale [--days N] [--status S]` | what the gate will reject next (#521) |
+| `singularity-adr prune [--keep slug]` | uncited decisions, never deleted (#525) |
+| `singularity-adr validate` | run the repository's ADR status gate |
+
+Global flags:
+
+- `--json` — machine-readable output on every command (#524)
+- `--review-by` — YYYY-MM-DD on update: when this is due to be revisited (#527)
+
+#### MCP tools — `adr` domain
+
+These are the tools an agent calls over the MCP server. The descriptions
+below are the same strings the server sends, so they cannot drift.
+
+| Tool | What it does |
+|---|---|
+| `write_adr` | Creates a NEW ADR. Fails if the slug exists - a decision is never overwritten. To close or revise one, use update_adr; to replace one, write a new ADR naming the old in `supersedes:` and then mark the old one superseded (do not invent a '-v2' slug). |
+| `list_adrs` | Lists all ADR filenames |
+| `update_adr` | Changes an existing ADR's status frontmatter; the body is never modified. status is one of accepted, deferred, superseded, open. status=superseded requires supersededBy naming an existing slug. |
+| `read_adr` | Reads the content of an ADR by filename |
+| `list_open_deferred` | Lists deferred backlog entries with OPEN or PARTIAL status |
+
+#### Before you push
+
+```bash
+singularity-adr validate   # what check_adr_status.py will enforce
+singularity-adr stale      # decisions the gate will reject next push
+```
+
+Both wrap the repository's own Python gates rather than reimplementing them, so a
+preview and the gate cannot disagree.
+
+<!-- END GENERATED: adr-tools -->

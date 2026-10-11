@@ -1,7 +1,7 @@
 ---
 title: "Savedsearchesrow Longpress Unreachable On Desktop"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

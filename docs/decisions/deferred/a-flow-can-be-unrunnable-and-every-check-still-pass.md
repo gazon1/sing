@@ -1,7 +1,7 @@
 ---
 title: "A Flow Can Be Unrunnable And Every Check Still Pass"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

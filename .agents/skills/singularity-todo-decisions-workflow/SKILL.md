@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-decisions-workflow
-description: Lightweight decision-log workflow for this project. Instead of a skill per refactor, write short structured entries to `docs/decisions/<date>-<slug>.md` capturing Idea / Decision / Rationale / Consequences, and keep an auto-generated `docs/decisions/DIGEST.md` as the single source of truth for the agent. Use when finishing a non-trivial refactor, choosing between two viable approaches, discovering a non-obvious workaround, or migrating a contract. Skip for trivial fixes (typos, single-line tweaks).
+description: Lightweight decision-log workflow for this project. Instead of a skill per refactor, write short structured entries to `docs/decisions/<date>-<slug>.md` capturing Idea / Decision / Rationale / Consequences, and keep an auto-generated `docs/decisions/DIGEST.md` as the agent's entry point. The dated entries are the source of truth; the digest is derived from them, is gitignored, and is rebuilt by a script — so treat it as a cache, never as a record. Use when finishing a non-trivial refactor, choosing between two viable approaches, discovering a non-obvious workaround, or migrating a contract. Skip for trivial fixes (typos, single-line tweaks).
 ---
 
 # Singularity TODO — Decision Log Workflow
@@ -11,7 +11,7 @@ This project captures architectural knowledge as **short dated entries** rather 
 
 ```
 docs/decisions/
-├── DIGEST.md                       # auto-generated, single source of truth for the agent
+├── DIGEST.md                       # auto-generated, gitignored, derived from the entries below — a cache, not a record
 ├── 2026-09-05-koog-both-platforms.md
 ├── 2026-09-05-koin-suspend-bridge.md
 ├── 2026-09-05-ai-provider-settings.md
@@ -86,7 +86,13 @@ If unsure, write a one-paragraph entry — small is fine. Missing a decision is 
 
 #### Refresh workflow
 
-1. **Add entries** to `docs/decisions/` as you make decisions (this skill). Commit each entry or group as you go.
+1. **Record the decision** as you make it — through a tool, not by writing `.md` by hand:
+   ```bash
+   singularity-adr new <slug> <title> [tag ...]   # or the write_adr MCP tool
+   ```
+   A hand-written file skips `AdrStorage`, and `AdrStorage` is what guarantees the
+   frontmatter contract (`config/docs/adr-corpus.json`) — which is exactly how a
+   corpus ends up with keys the normalizer rejects. Commit each entry as you go.
 2. **Refresh the digest** before any non-trivial agent task, or after a batch of new entries:
    ```bash
    ./scripts/refresh-decisions-digest.sh
@@ -169,7 +175,7 @@ The AI agent can create, list, and read ADR files through MCP tools. Tools live 
 | `read_adr` | Reads one ADR by slug |
 | `list_open_deferred` | Lists open/partial deferred backlog entries from `deferred/` |
 
-All four tools are read from `AdrStorage` (the single implementation), which
+All ADR tools are read from `AdrStorage` (the single implementation), which
 depends only on `(HostEnvironmentPort, Clock, TimeZoneProvider)` — no database required.
 
 ### Output format
@@ -194,19 +200,19 @@ tags: ["koog", "adr"]
 
 ### CLI alternative
 
-When not connected via MCP, the same ADR operations are available as a
-`desktopApp` subcommand:
+When not connected via MCP, the same ADR operations are available as the
+`singularity-adr` command line — its own Gradle module (`:adr-cli`), not a
+`desktopApp` subcommand. That move is #522: the ADR CLI used to boot a Swing
+application and resolve a database graph to list markdown files.
 
 ```
-singularity-todo adr new <slug> <title> [tag ...]
-singularity-todo adr list
-singularity-todo adr list-open
-singularity-todo adr read <slug>
-singularity-todo adr validate   # runs scripts/check_adr_status.py
+singularity-adr new <slug> <title> [tag ...]
+singularity-adr list
+singularity-adr validate   # runs scripts/check_adr_status.py
 ```
 
-The CLI and MCP must produce byte-identical output for the same operation —
-parity is enforced by `AdrStorageRoundTripTest`.
+The full command and flag list is the generated section at the end of this file,
+which `scripts/check-skill-drift.py` keeps equal to the code.
 
 ### Workflow
 
@@ -249,3 +255,52 @@ Each of those was a one-shot skill for one refactor. The information is preserve
 - `AGENTS.md` — the workflow says "refresh the digest before starting work". The session start hook (or a manual `./scripts/refresh-decisions-digest.sh`) ensures the agent sees the latest rules.
 - `docs/decisions/DIGEST.md` — the consolidated rules the agent reads.
 - Individual dated entries — the human-facing reasoning.
+
+<!-- BEGIN GENERATED: adr-tools -->
+
+#### `singularity-adr` — the ADR command line
+
+Run it from the repository root. Every command takes `--json` for
+machine-readable output; exit code `2` means the command line was wrong,
+`1` means the operation failed.
+
+| Command | What it does |
+|---|---|
+| `singularity-adr new <slug> <title> [tag ...]` | write a new decision |
+| `singularity-adr list` | every decision in the corpus |
+| `singularity-adr list-open` | deferred backlog entries still open |
+| `singularity-adr read <slug>` | one decision, with its body |
+| `singularity-adr update <slug> <status> [by]` | change status, never the body (#509) |
+| `singularity-adr stale [--days N] [--status S]` | what the gate will reject next (#521) |
+| `singularity-adr prune [--keep slug]` | uncited decisions, never deleted (#525) |
+| `singularity-adr validate` | run the repository's ADR status gate |
+
+Global flags:
+
+- `--json` — machine-readable output on every command (#524)
+- `--review-by` — YYYY-MM-DD on update: when this is due to be revisited (#527)
+
+#### MCP tools — `adr` domain
+
+These are the tools an agent calls over the MCP server. The descriptions
+below are the same strings the server sends, so they cannot drift.
+
+| Tool | What it does |
+|---|---|
+| `write_adr` | Creates a NEW ADR. Fails if the slug exists - a decision is never overwritten. To close or revise one, use update_adr; to replace one, write a new ADR naming the old in `supersedes:` and then mark the old one superseded (do not invent a '-v2' slug). |
+| `list_adrs` | Lists all ADR filenames |
+| `update_adr` | Changes an existing ADR's status frontmatter; the body is never modified. status is one of accepted, deferred, superseded, open. status=superseded requires supersededBy naming an existing slug. |
+| `read_adr` | Reads the content of an ADR by filename |
+| `list_open_deferred` | Lists deferred backlog entries with OPEN or PARTIAL status |
+
+#### Before you push
+
+```bash
+singularity-adr validate   # what check_adr_status.py will enforce
+singularity-adr stale      # decisions the gate will reject next push
+```
+
+Both wrap the repository's own Python gates rather than reimplementing them, so a
+preview and the gate cannot disagree.
+
+<!-- END GENERATED: adr-tools -->

@@ -1,7 +1,7 @@
 ---
 title: "Version Gate Breadcrumb Has No Test"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "failure-visibility", "failure-visibility"]
 ---
 

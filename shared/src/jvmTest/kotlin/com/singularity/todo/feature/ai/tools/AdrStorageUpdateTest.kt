@@ -63,6 +63,74 @@ class AdrStorageUpdateTest {
         return Path.of(filePath(slug))
     }
 
+    /**
+     * The frontmatter contract is read, not restated (#518).
+     *
+     * The Python normalizer treats a key outside its allowlist as a structural
+     * error, so a writer that emits one produces files the repository's own gate
+     * rejects. That already happened: `review-by` landed in [AdrStorage.updateAdr]
+     * in #527 and the normalizer rejected the output until both sides were pointed
+     * at `config/docs/adr-corpus.json`.
+     *
+     * This is the Kotlin half of that pair — the Python half asserts its allowlist
+     * *is* the contract's set rather than a copy of it.
+     */
+    @Test
+    fun `every key writeAdr emits is in the declared contract`() {
+        val storage = storage()
+        storage.writeAdr("2026-10-10-contract", "A title", listOf("adr"), "Body.")
+        val corpus = AdrCorpusConfig.DEFAULT
+        val block = Path.of(storage.filePath("2026-10-10-contract"))
+            .readText()
+            .lines()
+            .drop(1)
+            .takeWhile { it.trim() != "---" }
+        val keys = block.map { it.substringBefore(':') }.filter { it.isNotBlank() }
+        assertTrue(keys.isNotEmpty(), "no frontmatter was written at all")
+        val unknown = keys.filterNot { corpus.isKnownFrontmatterKey(it) }
+        assertEquals(
+            emptyList(),
+            unknown,
+            "writeAdr emitted frontmatter key(s) the normalizer's allowlist rejects",
+        )
+    }
+
+    @Test
+    fun `every key updateAdr emits is in the declared contract`() {
+        val storage = storage()
+        val slug = "2026-10-10-contract-update"
+        storage.seed(slug)
+        storage.updateAdr(slug, "accepted", null, "2027-01-01")
+        val corpus = AdrCorpusConfig.DEFAULT
+        val block = Path.of(storage.filePath(slug)).readText().lines()
+            .drop(1)
+            .takeWhile { it.trim() != "---" }
+        val keys = block.map { it.substringBefore(':') }.filter { it.isNotBlank() }
+        assertTrue(keys.contains("review-by"), "updateAdr did not write the review-by date")
+        val unknown = keys.filterNot { corpus.isKnownFrontmatterKey(it) }
+        assertEquals(
+            emptyList(),
+            unknown,
+            "updateAdr emitted frontmatter key(s) the normalizer's allowlist rejects",
+        )
+    }
+
+    /**
+     * A new decision is born `open`, and that is declared rather than hardcoded.
+     *
+     * It used to be a literal in [AdrStorage.writeAdr] and stated nowhere, so it was
+     * true by accident rather than by decision — and `doc-maintenance.md` could not
+     * point at it.
+     */
+    @Test
+    fun `a new ADR is born with the declared status`() {
+        val storage = storage()
+        val slug = "2026-10-10-born-open"
+        storage.writeAdr(slug, "A title", listOf("adr"), "Body.")
+        assertEquals(AdrCorpusConfig.DEFAULT.newAdrStatus, storage.field(slug, "status"))
+        assertEquals("open", AdrCorpusConfig.DEFAULT.newAdrStatus)
+    }
+
     private fun AdrStorage.field(slug: String, name: String): String? =
         Regex("""(?m)^${Regex.escape(name)}: (.*)$""")
             .find(Path.of(filePath(slug)).readText())

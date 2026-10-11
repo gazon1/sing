@@ -1,7 +1,7 @@
 ---
 title: "Release Apk Is Unsigned And Unminified"
 date: 2000-01-01
-status: PARTIALLY
+status: partial
 tags: ["deferred"]
 ---
 

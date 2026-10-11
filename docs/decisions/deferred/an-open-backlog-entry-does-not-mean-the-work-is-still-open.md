@@ -1,7 +1,7 @@
 ---
 title: "An Open Backlog Entry Does Not Mean The Work Is Still Open"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

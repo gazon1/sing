@@ -1,7 +1,7 @@
 ---
 title: "Just Name Value Args Are Not Interpreted"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

@@ -1,8 +1,9 @@
 ---
-status: open
-status-was: proposed
+title: SyncBootstrapper and SeedPlanner core→feature dependency [#258](https://github.com/gazon1/sing/issues/258)
 date: 2026-10-10
+status: open
 deciders: mavis
+status-was: proposed
 gh: https://github.com/gazon1/sing/issues/258
 ---
 

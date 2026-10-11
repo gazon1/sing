@@ -1,7 +1,7 @@
 ---
 title: "Gradle Test Cache Silently Skips The Suite"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

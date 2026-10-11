@@ -1,7 +1,7 @@
 ---
 title: "No Direct Dispatchers Rule One Whitelisted Case"
 date: 2000-01-01
-status: OPEN.
+status: open
 tags: ["deferred"]
 ---
 

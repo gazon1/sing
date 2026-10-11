@@ -324,7 +324,7 @@ tasks.withType<Test>().configureEach {
             // the build for a class in a tag-filtered source set that has no
             // @Tag; the finding and the reasoning behind that gate's scope are
             // under "an-untagged-test-class-is-invisible-to-a-tag-filtered-run"
-            // in `docs/decisions/deferred-backlog.md`.
+            // in `docs/decisions/deferred/an-untagged-test-class-is-invisible-to-a-tag-filtered-run.md`.
             tags == listOf("all") -> Unit
             else -> includeTags(*tags.toTypedArray())
         }
@@ -645,7 +645,7 @@ dependencies {
     // because the fix is a native library in `jniLibs`, not a build change; the finding,
     // and the smallest fix, are under
     // "the-android-graph-test-runs-but-cannot-open-a-database" in
-    // `docs/decisions/deferred-backlog.md`.
+    // `docs/decisions/deferred/the-android-graph-test-runs-but-cannot-open-a-database.md`.
     add("androidHostTestRuntimeOnly", libs.junit.vintage.engine)
     // The other three were described above as load-bearing and were not declared; the
     // Vintage engine alone puts JUnit4 on the Platform but supplies no Android runtime,

@@ -190,6 +190,15 @@ echo -e "${GREEN}=== [13/$TOTAL] mcp-server:detekt ===${NC}"
     exit 1
 }
 
+echo -e "${GREEN}=== [13b/$TOTAL] adr-cli:detekt ===${NC}"
+# `:adr-cli` declares `detekt` with `ignoreFailures = false`. A configured detekt task
+# that no surface invokes reports success forever, which is the exact defect the block
+# above was written for — applied one module over.
+./gw :adr-cli:detekt --quiet || {
+    echo -e "${RED}adr-cli:detekt reported violations${NC}"
+    exit 1
+}
+
 # Optional: Android instrumentation tests on real adb device
 if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
     echo ""

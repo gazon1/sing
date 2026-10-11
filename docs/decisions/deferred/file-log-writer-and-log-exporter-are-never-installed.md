@@ -1,7 +1,7 @@
 ---
 title: "File Log Writer And Log Exporter Are Never Installed"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

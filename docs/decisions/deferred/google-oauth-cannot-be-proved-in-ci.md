@@ -1,7 +1,7 @@
 ---
 title: "Google Oauth Cannot Be Proved In Ci"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "No Empty Onclick Lambda Rule Findings Sweep Pending"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

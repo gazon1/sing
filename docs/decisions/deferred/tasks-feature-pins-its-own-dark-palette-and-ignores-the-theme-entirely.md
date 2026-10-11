@@ -1,7 +1,7 @@
 ---
 title: "Tasks Feature Pins Its Own Dark Palette And Ignores The Theme Entirely"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "tasks-tokens-follows-the-theme"]
 ---
 

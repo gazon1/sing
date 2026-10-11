@@ -1,7 +1,7 @@
 ---
 title: "No Direct Clock System Kdoc Claims Tests Are Exempt"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

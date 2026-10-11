@@ -161,7 +161,19 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 # The headroom is now gone. That is deliberate discomfort rather than a comfortable
 # number: the next finding either closes an entry or raises this again, and both are
 # decisions somebody should be making on purpose.
-DEFAULT_MAX_ENTRIES = 94
+#
+# Raised 94 -> 129 on 2026-10-11, and the reason is a counting change rather than 35
+# new findings: T2 (PR #508) split the single combined `deferred-backlog.md` into one
+# file per entry under `deferred/`, and the split surfaces 129 entries where the
+# combined file parsed as 94. Nothing was added to fix a gate here — the corpus was
+# already this big, and the gate simply could not see it, because it was reading a
+# file that no longer existed and counting a shape that no longer applied.
+#
+# That is the same class as #520 (five consumers globbing the corpus five ways) and it
+# is why this number moved with a measurement rather than with a decision. 91 of the
+# 129 are `closed`; the 36 `open` and 2 `partial` are the queue anyone actually works
+# from, and those are unchanged.
+DEFAULT_MAX_ENTRIES = 129
 
 
 def parse_entries(text: str) -> list[dict[str, object]]:

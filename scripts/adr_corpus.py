@@ -45,6 +45,30 @@ from dataclasses import dataclass
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / 'config' / 'docs' / 'adr-corpus.json'
 
+# Fallbacks for a checkout whose config predates the backlog vocabulary (#516).
+DEFAULT_BACKLOG_STATUSES = ('open', 'partial', 'deferred', 'closed', 'resolved')
+DEFAULT_BACKLOG_OPEN = ('open', 'partial', 'deferred')
+
+# Fallbacks for a checkout whose config predates the frontmatter contract (#518).
+# Same reasoning as above: a fallback keeps a stale checkout working, and
+# check-adr-config-sync.py fails the moment these stop matching the file.
+DEFAULT_FRONTMATTER_KEYS = (
+    'title', 'date', 'created', 'updated', 'last_updated', 'status', 'tags', 'Tags',
+    'deciders', 'decider', 'authors', 'author', 'reviewedBy', 'review-by', 'owner',
+    'profile', 'epic', 'description', 'summary', 'id', 'slug', 'type', 'impact',
+    'review', 'supersedes', 'superseded-by', 'superseded_by', 'doesNotSupersede',
+    'replaces', 'follows', 'decides', 'adr', 'adr-number', 'end-date', 'labels',
+    'status-was', 'issuesRelated', 'related', 'references', 'skills', 'context',
+    'Context', 'Decision', 'Rationale', 'Consequences', 'Links', 'deprecated-by',
+    'gh', 'issue', 'backlog', 'tracked-as',
+)
+DEFAULT_FRONTMATTER_KEY_ORDER = (
+    'title', 'date', 'status', 'tags', 'deciders', 'supersedes', 'superseded-by', 'epic',
+)
+DEFAULT_SECTION_KEYS = ('Context', 'Decision', 'Rationale', 'Consequences', 'Links')
+DEFAULT_NEW_ADR_STATUS = 'open'
+DEFAULT_NEW_ADR_KEY_ORDER = ('title', 'date', 'status', 'tags')
+
 
 @dataclass(frozen=True)
 class AdrCorpusConfig:
@@ -56,6 +80,16 @@ class AdrCorpusConfig:
     statuses: frozenset[str]
     archived_status: str
     stale_days: int
+    immutable_since: str | None = None
+    review_by_field: str = 'review-by'
+    review_by_required: bool = False
+    backlog_statuses: frozenset[str] = frozenset(DEFAULT_BACKLOG_STATUSES)
+    backlog_open_states: frozenset[str] = frozenset(DEFAULT_BACKLOG_OPEN)
+    frontmatter_keys: frozenset[str] = frozenset(DEFAULT_FRONTMATTER_KEYS)
+    frontmatter_key_order: tuple[str, ...] = DEFAULT_FRONTMATTER_KEY_ORDER
+    section_keys: frozenset[str] = frozenset(DEFAULT_SECTION_KEYS)
+    new_adr_status: str = DEFAULT_NEW_ADR_STATUS
+    new_adr_key_order: tuple[str, ...] = DEFAULT_NEW_ADR_KEY_ORDER
 
     # -- discovery ----------------------------------------------------------
 
@@ -86,6 +120,15 @@ class AdrCorpusConfig:
 
     def is_valid_status(self, status: str) -> bool:
         return status in self.statuses or status == self.archived_status
+
+    def is_valid_backlog_status(self, status: str) -> bool:
+        """A backlog entry is held to the backlog vocabulary, not the decision one.
+
+        Two lifecycles, two vocabularies. Forcing them together would apply the
+        30-day staleness rule to entries dated 2000-01-01 that were never dated at
+        all (#516).
+        """
+        return status in self.backlog_statuses
 
     def normalize_status(self, raw: str | None) -> str:
         """Fold case and strip brackets. No value mapping — see docstring.
@@ -147,6 +190,8 @@ def load(root: pathlib.Path | None = None) -> AdrCorpusConfig:
     base = root or ROOT
     raw = json.loads((base / 'config' / 'docs' / 'adr-corpus.json').read_text(encoding='utf-8'))
     vocab = raw['vocabulary']
+    backlog = raw.get('backlogVocabulary', {})
+    fm = raw.get('frontmatter', {})
     return AdrCorpusConfig(
         root=base / raw['root'],
         decision_pattern=re.compile(raw['decisionPattern']),
@@ -156,7 +201,33 @@ def load(root: pathlib.Path | None = None) -> AdrCorpusConfig:
         statuses=frozenset(vocab['statuses']),
         archived_status=vocab['archivedStatus'],
         stale_days=int(raw['staleDays']),
+        immutable_since=(raw.get('immutableSince') or {}).get('date'),
+        review_by_field=(raw.get('reviewBy') or {}).get('field', 'review-by'),
+        review_by_required=bool((raw.get('reviewBy') or {}).get('required', False)),
+        backlog_statuses=frozenset(backlog.get('statuses', DEFAULT_BACKLOG_STATUSES)),
+        backlog_open_states=frozenset(backlog.get('openStates', DEFAULT_BACKLOG_OPEN)),
+        frontmatter_keys=frozenset(fm.get('knownKeys', DEFAULT_FRONTMATTER_KEYS)),
+        frontmatter_key_order=tuple(fm.get('keyOrder', DEFAULT_FRONTMATTER_KEY_ORDER)),
+        section_keys=frozenset(fm.get('sectionKeys', DEFAULT_SECTION_KEYS)),
+        new_adr_status=fm.get('newAdrStatus', DEFAULT_NEW_ADR_STATUS),
+        new_adr_key_order=tuple(fm.get('newAdrKeyOrder', DEFAULT_NEW_ADR_KEY_ORDER)),
     )
+
+
+def read_review_by(text: str, cfg: AdrCorpusConfig) -> str:
+    """The `review-by:` date an ADR commits to being revisited, or ''.
+
+    Empty means the decision expressed no intent, and the caller falls back to
+    `stale_days`. That fallback is the whole point of #527: 30 days was never a
+    decision anybody made, so it is a default rather than a rule.
+    """
+    front = frontmatter(text)
+    if front is None:
+        return ''
+    for line in front.splitlines():
+        if line.startswith(cfg.review_by_field + ':'):
+            return cfg.normalize_status(line.split(':', 1)[1])
+    return ''
 
 
 def read_status(text: str, cfg: AdrCorpusConfig) -> str:

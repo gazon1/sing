@@ -1,7 +1,7 @@
 ---
 title: "Skill Symbol Clusters Many Fixes Pending"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

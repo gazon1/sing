@@ -1,7 +1,7 @@
 ---
 title: "Desktop Flow Tests Share One Jvm And One Fails Only In The Batch"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Test Doubles In Commonmain Source"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "unwired-detector-test-double-exemption"]
 ---
 

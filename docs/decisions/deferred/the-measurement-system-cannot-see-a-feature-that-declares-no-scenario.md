@@ -1,7 +1,7 @@
 ---
 title: "The Measurement System Cannot See A Feature That Declares No Scenario"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

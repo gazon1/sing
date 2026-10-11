@@ -1,7 +1,7 @@
 ---
 title: "Agenda Reachability Bytags No Ui Entry"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

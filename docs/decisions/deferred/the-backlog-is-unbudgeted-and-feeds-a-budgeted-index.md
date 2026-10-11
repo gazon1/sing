@@ -1,7 +1,7 @@
 ---
 title: "The Backlog Is Unbudgeted And Feeds A Budgeted Index"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

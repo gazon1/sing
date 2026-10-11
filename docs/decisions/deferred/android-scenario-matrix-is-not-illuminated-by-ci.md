@@ -1,7 +1,7 @@
 ---
 title: "Android Scenario Matrix Is Not Illuminated By Ci"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

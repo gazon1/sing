@@ -1,7 +1,7 @@
 ---
 title: "A Koin Definition Body Stays Uncovered After Being Resolved"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "detekt-tooling-honesty"]
 ---
 

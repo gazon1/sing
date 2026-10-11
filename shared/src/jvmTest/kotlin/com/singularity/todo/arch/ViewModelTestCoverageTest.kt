@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Tag
  *
  * So the rule is deliberately blunt: a new ViewModel without a test fails the
  * build. The way to ship one without tests is to add it to [KNOWN_UNCOVERED]
- * *and* say why in `docs/decisions/deferred-backlog.md`, which is a visible,
+ * *and* say why in `docs/decisions/deferred/`, which is a visible,
  * reviewable act rather than a silent default.
  *
  * ## What "has a test" means here
@@ -109,7 +109,7 @@ class ViewModelTestCoverageTest {
                 uncovered.joinToString("\n") { "  - $it" } +
                 "\n\nWrite a test for it, or — if it genuinely cannot be tested yet —\n" +
                 "add it to KNOWN_UNCOVERED in this file *and* an entry to\n" +
-                "docs/decisions/deferred-backlog.md explaining why. An allowlist entry\n" +
+                "docs/decisions/deferred/<slug>.md explaining why. An allowlist entry\n" +
                 "without a backlog entry is a regression of the same kind this rule\n" +
                 "exists to prevent.",
         )

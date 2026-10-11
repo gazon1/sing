@@ -1,7 +1,7 @@
 ---
 title: "Nav Display Debug Border Not Found"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "An Untagged Test Class Is Invisible To A Tag Filtered Run"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

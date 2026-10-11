@@ -1,7 +1,7 @@
 ---
 title: "Dialog Testtags Do Not Reach Uiautomator"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

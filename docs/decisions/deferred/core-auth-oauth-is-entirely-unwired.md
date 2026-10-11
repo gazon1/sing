@@ -1,7 +1,7 @@
 ---
 title: "Core Auth Oauth Is Entirely Unwired"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

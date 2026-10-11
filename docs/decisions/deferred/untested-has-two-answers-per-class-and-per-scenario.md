@@ -1,7 +1,7 @@
 ---
 title: "Untested Has Two Answers Per Class And Per Scenario"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

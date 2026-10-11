@@ -1,7 +1,7 @@
 ---
 title: "Every Gate Is Reachable Was Measured Not Assumed"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

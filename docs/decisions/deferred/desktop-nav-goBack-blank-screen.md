@@ -1,7 +1,7 @@
 ---
 title: "Desktop Nav Goback Blank Screen"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

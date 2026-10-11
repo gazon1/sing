@@ -1,7 +1,7 @@
 ---
 title: "Two Line Length Authorities Detekt Default 120 Beats Editorconfig 140"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

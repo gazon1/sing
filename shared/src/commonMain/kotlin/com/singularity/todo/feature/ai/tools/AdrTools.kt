@@ -47,6 +47,9 @@ private const val CHAR_APOSTROPHE = '\u0027'
  */
 private val MD_LINK = Regex("""\[[^\]]*\]\(([^)]+)\)""")
 
+/** Legacy inline status line: `**Status: OPEN — tracked issue #123**`. */
+private val INLINE_STATUS = Regex("""^\*\*\s*Status[^:*]*:?\*?\*?:?\s*(.+?)\s*$""", RegexOption.MULTILINE)
+
 /**
  * ADR (Architecture Decision Record) storage helper.
  * Reads/writes Markdown files in the `docs/decisions/` directory.
@@ -72,46 +75,56 @@ class AdrStorage(
 ) {
 
     /**
-     * The absolute path to the decisions directory: the project root when
-     * `docs/decisions/` is there, otherwise a per-user copy.
+     * The nearest ancestor of the working directory that looks like a project checkout,
+     * or `null` if this process was not launched from one.
+     *
+     * **Walking up, not checking one directory** is the whole point (#513). The CLI used
+     * to look only at `user.dir`, and under Gradle that is the daemon's directory — so
+     * `adr new` wrote to `~/.singularity-todo/docs/decisions/`, where the ADR is real but
+     * outside git, and the next clone of the project has never heard of it.
+     *
+     * A checkout is recognised by either marker, because they fail independently: a
+     * repository can have decisions before it has corpus rules, and vice versa.
+     */
+    private val projectRoot: String? = ancestorsFromCwd()
+        .plus(host.homeDirectory())
+        .firstOrNull {
+            Path("$it/$DECISIONS_DIR_NAME").isDirectory() ||
+                Path("$it/$CORPUS_CONFIG_PATH").exists()
+        }
+
+    /**
+     * The absolute path to the decisions directory: the checkout's when there is one,
+     * otherwise a per-user copy.
      *
      * Resolved once, at construction. The answer cannot change under a running app —
      * a directory that appears after the tools are built would be a different process
      * — and resolving per call would re-stat the filesystem on every read.
      */
-    private val decisionsDir: String = resolveDecisionsDir()
+    private val decisionsDir: String = projectRoot
+        ?.let { Path("$it/$DECISIONS_DIR_NAME").toString() }
+        ?: Path(host.homeDirectory(), ".singularity-todo", DECISIONS_DIR_NAME).toString()
 
     /**
      * Corpus rules, read from `config/docs/adr-corpus.json` (#520).
      *
-     * Resolved next to [decisionsDir] so a checkout always gets its own rules and
-     * the `~/.singularity-todo` fallback gets the mirrored defaults.
+     * Resolved from the same [projectRoot] as [decisionsDir] so a checkout always gets
+     * its own rules and the `~/.singularity-todo` fallback gets the mirrored defaults.
      */
-    private val corpus: AdrCorpusConfig = AdrCorpusConfig.loadOrDefault(repoRoot())
+    private val corpus: AdrCorpusConfig = AdrCorpusConfig.loadOrDefault(projectRoot)
 
     /**
-     * Nearest ancestor of the working directory holding `config/docs/adr-corpus.json`.
+     * The working directory and every ancestor up to the filesystem root.
      *
-     * The walk has to *terminate at the filesystem root*. `"".substringBeforeLast('/', "")`
-     * is `""` — feeding it back into the sequence produces an infinite generator,
-     * which does not spin in a loop you can see: it burns a core in `Files.exists`
-     * forever and the test run simply never finishes.
+     * The walk has to *terminate at the root*. `"".substringBeforeLast('/', "")` is `""`
+     * — feeding it back into the sequence produces an infinite generator, which does not
+     * spin in a loop you can see: it burns a core in `Files.exists` forever and the test
+     * run simply never finishes. It cost a real day before anyone looked at a stack.
      */
-    private fun repoRoot(): String? =
+    private fun ancestorsFromCwd(): Sequence<String> =
         generateSequence(Path(host.workingDirectory()).toAbsolutePath().toString()) { current ->
             current.substringBeforeLast('/', "").takeIf { it.isNotEmpty() && it != current }
         }
-            .plus(host.homeDirectory())
-            .firstOrNull { Path("$it/config/docs/adr-corpus.json").exists() }
-
-    private fun resolveDecisionsDir(): String {
-        val projectAdrDir = Path("${host.workingDirectory()}/$DECISIONS_DIR_NAME")
-        return if (projectAdrDir.exists() && projectAdrDir.isDirectory()) {
-            projectAdrDir.toString()
-        } else {
-            Path(host.homeDirectory(), ".singularity-todo", DECISIONS_DIR_NAME).toString()
-        }
-    }
 
     /**
      * The resolved decisions directory.
@@ -211,15 +224,38 @@ class AdrStorage(
             tags = frontmatter?.tags ?: emptyList(),
             body = body,
             path = path.toString(),
+            status = frontmatter?.status?.takeIf { it.isNotBlank() }
+                ?: inlineStatusIn(content),
         )
     }.getOrNull()
 
     fun listAdrs(): List<AdrSummary> =
         corpus.discover(decisionsDir, MAX_DEPTH)
             .mapNotNull { readAdrAt(Path(it)) }
-            .map { AdrSummary(it.slug, it.title, it.date, it.tags) }
+            .map { AdrSummary(it.slug, it.title, it.date, it.tags, it.status) }
             .sortedByDescending { it.date }
 
+    /**
+     * Write a brand-new decision.
+     *
+     * The frontmatter it emits is assembled from [corpus]'s declared contract rather
+     * than from a literal in this function (#518). Three writers used to describe the
+     * same format — this one, `normalize-adr-frontmatter.py`'s key allowlist, and
+     * `resolve_stale_adr_status.py`'s regex — and they had already drifted far enough
+     * that the normalizer rejected output produced by this very tool.
+     *
+     * Two things are therefore read from `config/docs/adr-corpus.json`:
+     *
+     *  - **the birth status.** A new decision is `open`, and stays `open` until
+     *    someone records a resolution with [updateAdr]. That was hardcoded here and
+     *    stated nowhere, so it was true by accident rather than by decision.
+     *  - **the key order.** `title, date, status, tags` is what the digest and the
+     *    listings read as "the identifying keys"; it is data, not code.
+     *
+     * Every emitted key is checked against the allowlist before it is written, so a
+     * future field cannot be added here and silently break the normalizer — which is
+     * precisely how `review-by` did it in #527.
+     */
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
         requireValidSlug(slug)
         val dirPath = Path(decisionsDir)
@@ -236,7 +272,29 @@ class AdrStorage(
         // instead of accepting whatever day it happens to run on (#91).
         val date = todayAt(clock, timeZone.current()).toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
-        val frontmatter = "---\ntitle: \"$title\"\ndate: $date\nstatus: open\ntags: $tagsStr\n---\n\n"
+        val values = mapOf(
+            "title" to "\"$title\"",
+            "date" to date,
+            "status" to corpus.newAdrStatus,
+            "tags" to tagsStr,
+        )
+        // Refuse before writing, not after. A key outside the allowlist would be
+        // rejected by `normalize-adr-frontmatter.py` as `unknown frontmatter key`, and
+        // the failure would surface on some later run against a corpus the writer no
+        // longer remembers touching.
+        val order = corpus.newAdrKeyOrder
+        val unknown = (order + values.keys).filterNot { corpus.isKnownFrontmatterKey(it) }
+        check(unknown.isEmpty()) {
+            "refusing to write ADR '$slug': frontmatter key(s) ${unknown.distinct()} are not in " +
+                "${CORPUS_CONFIG_PATH} -> frontmatter.knownKeys, so the normalizer would reject " +
+                "this file as structurally broken"
+        }
+        val orderedKeys = order + values.keys.filterNot { it in order }
+        val frontmatter = buildString {
+            append("---\n")
+            orderedKeys.forEach { key -> append(key).append(": ").append(values.getValue(key)).append('\n') }
+            append("---\n\n")
+        }
         path.writeText(frontmatter + body, Charsets.UTF_8)
         return path.toString()
     }
@@ -288,6 +346,16 @@ class AdrStorage(
         slug: String,
         status: String,
         supersededBy: String? = null,
+        /**
+         * ISO date on which this decision is due to be revisited (#527).
+         *
+         * Optional, and that is the design. The 30-day staleness rule was a number
+         * nobody chose — no ADR ever said "we will revisit this in 30 days" — so it
+         * stays as the *fallback* for decisions that express no intent, and an
+         * explicit date overrides it. A decision that says when it will be looked at
+         * again is a decision; one that is merely old is not.
+         */
+        reviewBy: String? = null,
     ): String {
         requireValidSlug(slug)
         val path = Path(filePath(slug))
@@ -329,6 +397,15 @@ class AdrStorage(
         // indexOfFirst hands the lambda the *element*, not the index, so the closing
         // fence is searched in the tail after the opening one and shifted back.
         // A missing closing fence yields -1, which `end > start` rejects.
+        // An unparseable date is refused rather than written: a `review-by` the gate
+        // cannot compare against a date is a promise nobody can be held to.
+        val reviewed = reviewBy?.trim()?.takeIf { it.isNotEmpty() }?.also { candidate ->
+            val parsed = runCatching { kotlinx.datetime.LocalDate.parse(candidate) }
+            require(parsed.isSuccess) {
+                "reviewBy '$candidate' is not an ISO date (YYYY-MM-DD)."
+            }
+        }
+
         val start = lines.indexOfFirst { it.trim() == "---" }
         val closing = lines.drop(start + 1).indexOfFirst { it.trim() == "---" }
         val end = closing + start + 1
@@ -342,12 +419,30 @@ class AdrStorage(
         // and adding either one silently rewrites the decision's prose. The
         // "survives byte for byte" test exists because of exactly this.
         val body = lines.subList(end + 1, lines.size)
+        // Same guard as [writeAdr], and it exists because this line was the bug:
+        // `review-by` was added here in #527 without being added to the normalizer's
+        // allowlist, so `normalize-adr-frontmatter.py` rejected the repo's own output
+        // as `unknown frontmatter key`. All three keys below are known today; the
+        // check is what keeps the fourth one from repeating it.
+        val writtenKeys = buildList {
+            add("status")
+            if (resolved != null) add("superseded-by")
+            if (reviewed != null) add("review-by")
+        }
+        require(writtenKeys.all { corpus.isKnownFrontmatterKey(it) }) {
+            "refusing to update '$slug': frontmatter key(s) " +
+                "${writtenKeys.filterNot { corpus.isKnownFrontmatterKey(it) }} are not in " +
+                "${CORPUS_CONFIG_PATH} -> frontmatter.knownKeys, so the normalizer would " +
+                "reject this file as structurally broken"
+        }
         val rebuilt = buildList {
             add("status: $status")
             if (resolved != null) add("superseded-by: $resolved")
+            if (reviewed != null) add("review-by: $reviewed")
             addAll(lines.subList(1, end).filterNot { line ->
                 line.startsWith("status:") || line.startsWith("superseded-by:") ||
-                    line.startsWith("superseded_by:")
+                    line.startsWith("superseded_by:") || line.startsWith("review-by:") ||
+                    line.startsWith("review_by:")
             })
         }
         val out = buildString {
@@ -362,8 +457,22 @@ class AdrStorage(
 
     // ─── Data classes ─────────────────────────────────────────────────────────
 
+    /**
+     * One row of `adr list`.
+     *
+     * [status] is here rather than left to a second read because every consumer that
+     * filtered on it — `list-open`, and `adr stale` (#521) — was re-opening each file
+     * to find a value the summary already had. Kept last so the positional constructor
+     * call sites read in field order.
+     */
     @Serializable
-    data class AdrSummary(val slug: String, val title: String, val date: String, val tags: List<String>)
+    data class AdrSummary(
+        val slug: String,
+        val title: String,
+        val date: String,
+        val tags: List<String>,
+        val status: String = "",
+    )
 
     @Serializable
     data class AdrFile(
@@ -373,6 +482,8 @@ class AdrStorage(
         val tags: List<String>,
         val body: String,
         val path: String,
+        /** Raw frontmatter value, unfolded and un-normalised — see [AdrCorpusConfig.normalizeStatus]. */
+        val status: String = "",
     )
 
     @Serializable
@@ -391,31 +502,59 @@ class AdrStorage(
     data class WriteAdrOutput(val slug: String, val path: String, val title: String)
 
     @Serializable
+    data class UpdateAdrOutput(
+        val slug: String,
+        val status: String,
+        val supersededBy: String?,
+        val path: String,
+    )
+
+    @Serializable
     data class ListOpenDeferredOutput(val entries: List<AdrSummary>)
 
     /**
      * Lists deferred backlog entries with OPEN or PARTIAL status.
+     *
      * Excludes resolved/closed entries.
+     *
+     * Reads [AdrSummary.status] instead of re-opening every file. The old version
+     * called `readAdr(slug)` per entry, and since #520 `listAdrs` can return paths
+     * below `deferred/` — so each of those lookups resolved a *root* path that does
+     * not exist, returned null, and left the status blank. The filter then silently
+     * passed nothing through, which is why the backlog looked empty to every caller.
      */
-    fun listOpenDeferred(): List<AdrSummary> = listAdrs().filter { summary ->
-        // Read the frontmatter to get status — listAdrs doesn't parse it.
-        // We use the date-sorted list as input; status is checked per-entry.
-        val file = readAdr(summary.slug)
-        val status = file?.let { readAdrStatus(it.path) }
-        corpus.normalizeStatus(status) in OPEN_DEFERRED_STATES
+    fun listOpenDeferred(): List<AdrSummary> {
+        // Filter by *location* as well as status. The name says deferred, and until
+        // #520 it happened to agree because listAdrs() only walked the corpus root —
+        // every top-level ADR was invisible to it, so the status test was applied to
+        // the backlog alone. Once discovery became recursive the same filter started
+        // admitting every `open` decision in the corpus, and `adr list-open` reported
+        // 41 entries of which almost none were backlog.
+        val backlog = corpus.deferred(decisionsDir).toSet()
+        return listAdrs().filter { summary ->
+            summary.slug in backlog &&
+                corpus.normalizeStatus(summary.status) in OPEN_DEFERRED_STATES
+        }
     }
 
-    private fun readAdrStatus(filePath: String): String? {
-        val content = runCatching { Path(filePath).readText(Charsets.UTF_8) }.getOrNull() ?: return null
-        val fm = parseFrontmatter(content) ?: return null
-        // Frontmatter first — it is what writeAdr emits. The body scan is for legacy
-        // entries that carry an inline `**Status: X**` and no frontmatter field.
+    /**
+     * `**Status: X**` inside the body, for entries written before `status:` was a
+     * frontmatter field.
+     *
+     * Takes text, not a path: the caller already has the file open, and asking for a
+     * path here meant rebuilding one from a bare slug — which resolves to the corpus
+     * root and silently finds nothing for every file under `deferred/`.
+     */
+    private fun inlineStatusIn(content: String): String {
         val bodyStart = content.indexOf("---", 3)
         val body = if (bodyStart != -1) content.substring(bodyStart + 3) else content
-        val statusRe = Regex("""^\*\*\s*Status[^:*]*:?\*?\*?:?\s*(.+?)\s*$""", RegexOption.MULTILINE)
-        val raw = fm.status.takeIf { it.isNotBlank() }
-            ?: statusRe.find(body)?.groupValues?.get(1)?.trim()?.split(" ")?.firstOrNull()
-        return corpus.normalizeStatus(raw)
+        return INLINE_STATUS
+            .find(body)
+            ?.groupValues?.get(1)
+            ?.trim()
+            ?.split(" ")
+            ?.firstOrNull()
+            .orEmpty()
     }
 }
 
@@ -490,7 +629,71 @@ class WriteAdrTool(private val storage: AdrStorage) :
 
     companion object {
         const val NAME = "write_adr"
-        const val DESCRIPTION = "Create or update an Architecture Decision Record (ADR) as a Markdown file."
+
+        /**
+         * Says exactly what it does, which is not what it used to say (#511).
+         *
+         * This string reaches the tool *schema*, and an agent reads the schema before
+         * it acts. "Create or update" produced a reliable failure: the agent called
+         * `write_adr` on an existing slug, got `ADR already exists`, and worked
+         * around it by inventing `slug-v2` — leaving an orphaned predecessor with no
+         * `supersedes` edge, which is precisely the state the update path exists to
+         * prevent.
+         *
+         * The second paragraph is the part that changes behaviour: it names
+         * [UpdateAdrTool.NAME] and says what superseding means.
+         */
+        const val DESCRIPTION =
+            "Create a NEW Architecture Decision Record (ADR) as a Markdown file. Fails if " +
+                "the slug already exists — a decision is never overwritten. " +
+                "To close or revise an existing decision use update_adr, which changes its " +
+                "status and records the supersedes/superseded-by link. To say something new " +
+                "that replaces an old decision, write a new ADR naming the old one in its " +
+                "`supersedes:` frontmatter field, then call update_adr on the old one with " +
+                "status=superseded — do NOT invent a '-v2' slug, it leaves the predecessor " +
+                "unlinked."
+    }
+}
+
+@Serializable
+data class UpdateAdrInput(
+    val slug: String,
+    val status: String,
+    val supersededBy: String? = null,
+)
+
+/** The `update_adr` MCP tool — the write-side half of [AdrStorage.updateAdr] (#511). */
+class UpdateAdrTool(private val storage: AdrStorage) :
+    SimpleTool<UpdateAdrInput>(
+        TypeToken.of(UpdateAdrInput::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
+    override suspend fun execute(args: UpdateAdrInput): String {
+        val path = storage.updateAdr(args.slug, args.status, args.supersededBy)
+        return Json.encodeToString(
+            AdrStorage.UpdateAdrOutput.serializer(),
+            AdrStorage.UpdateAdrOutput(args.slug, args.status, args.supersededBy, path),
+        )
+    }
+
+    companion object {
+        const val NAME = "update_adr"
+
+        /**
+         * The contract, stated where an agent will read it before choosing.
+         *
+         * The body is never touched — that is the property that makes this safe to
+         * call on a decision somebody else wrote.
+         */
+        const val DESCRIPTION =
+            "Change an existing ADR's status frontmatter; the body is never modified. " +
+                "status must be one of: accepted, deferred, superseded, open. " +
+                "status=superseded additionally requires supersededBy, naming an existing " +
+                "slug (a markdown link is accepted). Use this to close a decision once " +
+                "it is settled, and to mark one as replaced after writing its successor — " +
+                "the replacement is a separate write_adr call, not a new '-v2' slug of " +
+                "this one."
     }
 }
 

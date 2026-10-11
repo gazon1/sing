@@ -1,7 +1,7 @@
 ---
 title: "Ci Push And Pull Request Both Fire Causing Duplicate Runs"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

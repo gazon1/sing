@@ -1,7 +1,7 @@
 ---
 title: "Billing Entitlement Is A Port Without A Caller"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "entitlement-belongs-to-a-sync-scope"]
 ---
 

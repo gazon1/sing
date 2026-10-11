@@ -137,7 +137,7 @@ jobs:
           :mcp-server:jar
           koverReport
           :detekt-rules:test
-          :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :detekt-rules:detekt
+          :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :detekt-rules:detekt
           -Ptest.tags=fast,slow
           -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail
           $RETRY_ARGS
@@ -164,7 +164,14 @@ jobs:
       - name: Coverage floors
         run: python3 scripts/check-coverage.py --since "$RUN_STARTED"
 
-      - name: Coverage report (CI summary)
+      # Advisory by construction, and declared so: this step only *renders* the two
+      # numbers into the job summary. Both are enforced as blocking steps elsewhere —
+      # `Coverage floors` above, `Kover verify (detekt-rules)` below — so the `|| true`
+      # on each pipeline cannot hide a real regression; it only stops a rendering
+      # hiccup from failing a run whose gates already ran. The name says "advisory"
+      # because a soft step nobody declared is a step that reads as a gate
+      # (scripts/check-gate-wiring.py, Part F).
+      - name: Coverage report (advisory, CI summary)
         if: ${{ !cancelled() }}
         run: |
           # Render the app coverage floors into the job summary.

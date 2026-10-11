@@ -1,7 +1,7 @@
 ---
 title: "Never Run Gradle While A Maestro Gate Is Running"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "The Dead Refs Gate Was Green Locally And Red In Ci"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

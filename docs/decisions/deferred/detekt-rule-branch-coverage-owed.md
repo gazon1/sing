@@ -1,7 +1,7 @@
 ---
 title: "Detekt Rule Branch Coverage Owed"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "detekt-rule-coverage-floor"]
 ---
 

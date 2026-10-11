@@ -1,7 +1,7 @@
 ---
 title: "A Filtered Test Run Is Indistinguishable From A Shrunken Suite"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

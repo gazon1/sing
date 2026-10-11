@@ -1,7 +1,7 @@
 ---
 title: "Maestro Results Are Produced And Discarded In Ci"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "scenario-results-are-authoritative-in-ci"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "A Viewmodel Scope And Its Reporter Can Be Different Ports"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "scope-reporter-agreement"]
 ---
 

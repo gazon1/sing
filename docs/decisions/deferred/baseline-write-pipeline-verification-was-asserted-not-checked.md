@@ -1,7 +1,7 @@
 ---
 title: "Baseline Write Pipeline Verification Was Asserted Not Checked"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred", "archive`"]
 ---
 

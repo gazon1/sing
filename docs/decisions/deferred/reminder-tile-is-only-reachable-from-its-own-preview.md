@@ -1,7 +1,7 @@
 ---
 title: "Reminder Tile Is Only Reachable From Its Own Preview"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

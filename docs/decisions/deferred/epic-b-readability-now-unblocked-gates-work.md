@@ -1,7 +1,7 @@
 ---
 title: "Epic B Readability Now Unblocked Gates Work"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

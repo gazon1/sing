@@ -1,7 +1,7 @@
 ---
 title: "Vm Without Unit Tests"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

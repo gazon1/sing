@@ -1,7 +1,7 @@
 ---
 title: "Class Body Scanning Is Not String Aware"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "A Green Gate Only Proves The Gates You Ran"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

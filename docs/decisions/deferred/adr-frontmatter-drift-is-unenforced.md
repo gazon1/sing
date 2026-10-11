@@ -1,7 +1,7 @@
 ---
 title: "Adr Frontmatter Drift Is Unenforced"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

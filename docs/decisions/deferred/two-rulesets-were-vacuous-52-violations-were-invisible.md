@@ -1,7 +1,7 @@
 ---
 title: "Two Rulesets Were Vacuous 52 Violations Were Invisible"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

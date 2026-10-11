@@ -1,7 +1,7 @@
 ---
 title: "Desktop Msi And Dmg Are Not Packaged"
 date: 2000-01-01
-status: PARTIALLY
+status: partial
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Forty Clock Reads Landed In Shared With The Lint Fix"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

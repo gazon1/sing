@@ -1,7 +1,7 @@
 ---
 title: "Direct Dispatchers Mostly Sit In Platform Ports Where They Are Correct"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

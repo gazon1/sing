@@ -1,7 +1,7 @@
 ---
 title: "Flow Has Tag Drops A Flow Whose Tag Has A Trailing Space"
 date: 2000-01-01
-status: CLOSED.
+status: closed
 tags: ["deferred"]
 ---
 

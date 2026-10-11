@@ -293,7 +293,7 @@ docs-audit:
     python3 scripts/check_adr_status.py || status=1
     echo ""
     echo "=== ADR frontmatter normalization (dry run) ==="
-    ./scripts/normalize-adr-frontmatter.sh --dry-run || status=1
+    ./scripts/normalize-adr-frontmatter.sh || status=1
     echo ""
     echo "=== DIGEST freshness ==="
     ./scripts/refresh-decisions-digest.sh

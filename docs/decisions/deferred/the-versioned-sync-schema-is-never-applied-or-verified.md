@@ -1,7 +1,7 @@
 ---
 title: "The Versioned Sync Schema Is Never Applied Or Verified"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

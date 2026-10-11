@@ -1,7 +1,7 @@
 ---
 title: "Task Detail View Screen Is Deliberately Unwired"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

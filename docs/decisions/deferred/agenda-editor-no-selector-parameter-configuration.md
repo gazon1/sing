@@ -1,7 +1,7 @@
 ---
 title: "Agenda Editor No Selector Parameter Configuration"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred", "selector-and-tag-identity"]
 ---
 

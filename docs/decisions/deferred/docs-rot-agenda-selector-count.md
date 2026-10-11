@@ -1,7 +1,7 @@
 ---
 title: "Docs Rot Agenda Selector Count"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

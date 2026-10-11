@@ -1,7 +1,7 @@
 ---
 title: "Maestro Smoke Cannot Run In This Environment"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

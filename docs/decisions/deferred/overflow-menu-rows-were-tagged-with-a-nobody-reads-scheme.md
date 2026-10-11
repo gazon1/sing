@@ -1,7 +1,7 @@
 ---
 title: "Overflow Menu Rows Were Tagged With A Nobody Reads Scheme"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

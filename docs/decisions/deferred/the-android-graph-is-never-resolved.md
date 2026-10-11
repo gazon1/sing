@@ -1,7 +1,7 @@
 ---
 title: "The Android Graph Is Never Resolved"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "No Consecutive Blank Lines Was Never Declared"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

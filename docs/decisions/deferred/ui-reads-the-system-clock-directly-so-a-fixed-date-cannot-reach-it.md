@@ -1,7 +1,7 @@
 ---
 title: "Ui Reads The System Clock Directly So A Fixed Date Cannot Reach It"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

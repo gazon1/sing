@@ -3,7 +3,6 @@ title: "NoteBody canonical HTML — single source of truth for note body"
 date: 2026-10-02
 tags: [tech-debt, notes, domain, encapsulation]
 status: accepted
-supersedes: [2026-09-07-rich-text-encoding]
 ---
 
 # NoteBody canonical HTML — single source of truth for note body
@@ -19,6 +18,14 @@ and backlinks (`outgoing_links` column, queried by `getBacklinkNotes`) are never
 The architecture intent (per ADR 2026-09-07) was: rich-editor stores HTML; markdown is
 derived on demand for AI and export. The implementation broke this invariant at the
 first keystroke after creation.
+
+> **No `supersedes` edge.** This ADR used to carry
+> `supersedes: [2026-09-07-rich-text-encoding]`, and no such file exists — it never
+> did, in any branch. The reference is real as prose above and stays there; as
+> frontmatter it was unverifiable, and `scripts/check_adr_status.py` now rejects
+> dangling `supersedes` for a reason worth keeping: the digest drops the *target's*
+> Consequences bullets for any slug named there, so an edge that cannot be resolved
+> is a mechanism for losing a real decision's guidance (#517).
 
 ## Decision
 

@@ -1,7 +1,7 @@
 ---
 title: "Taskdetailviewscreen Is 633 Lines Of Unreachable Composable"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Agenda Views Not In Backup"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

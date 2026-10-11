@@ -1,7 +1,7 @@
 ---
 title: "Two Largest Baseline Rules Contradict Documented Conventions"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

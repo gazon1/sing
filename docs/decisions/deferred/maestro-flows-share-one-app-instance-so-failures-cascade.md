@@ -1,7 +1,7 @@
 ---
 title: "Maestro Flows Share One App Instance So Failures Cascade"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

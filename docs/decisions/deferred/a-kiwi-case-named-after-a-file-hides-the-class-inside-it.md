@@ -1,7 +1,7 @@
 ---
 title: "A Kiwi Case Named After A File Hides The Class Inside It"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

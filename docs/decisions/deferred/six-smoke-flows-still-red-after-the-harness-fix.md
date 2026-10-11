@@ -1,7 +1,7 @@
 ---
 title: "Six Smoke Flows Still Red After The Harness Fix"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

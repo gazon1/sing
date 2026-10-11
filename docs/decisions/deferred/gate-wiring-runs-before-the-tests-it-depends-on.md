@@ -1,7 +1,7 @@
 ---
 title: "Gate Wiring Runs Before The Tests It Depends On"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

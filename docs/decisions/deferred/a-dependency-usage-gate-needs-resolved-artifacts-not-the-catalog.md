@@ -1,7 +1,7 @@
 ---
 title: "A Dependency Usage Gate Needs Resolved Artifacts Not The Catalog"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Mainactivity Anr Makes Every Instrumented Test Fail"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

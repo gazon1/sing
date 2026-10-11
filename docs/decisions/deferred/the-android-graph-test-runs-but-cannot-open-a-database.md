@@ -1,7 +1,7 @@
 ---
 title: "The Android Graph Test Runs But Cannot Open A Database"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

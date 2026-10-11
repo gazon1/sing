@@ -1,7 +1,7 @@
 ---
 title: "Coverage Ratchet Fast Only Limitation"
 date: 2000-01-01
-status: DEFERRED
+status: deferred
 tags: ["deferred"]
 ---
 

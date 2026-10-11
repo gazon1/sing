@@ -1,7 +1,7 @@
 ---
 title: "Maestro Gate Can Test A Stale Apk"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

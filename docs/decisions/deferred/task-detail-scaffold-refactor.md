@@ -1,7 +1,7 @@
 ---
 title: "Task Detail Scaffold Refactor"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

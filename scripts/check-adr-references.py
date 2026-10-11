@@ -136,16 +136,49 @@ def find_dangling(slugs: set[str]) -> list[str]:
     return sorted(dangling)
 
 
+def cited_slugs(slugs: set[str]) -> set[str]:
+    """Which of `slugs` are actually referenced from outside the decision corpus.
+
+    The inverse question of `find_dangling`: that one asks "which references have no
+    file", this one asks "which files have no reference". Same traversal, same
+    `iter_sources()` — so a citation counted here is exactly a citation the dangling
+    scan would have looked at, and the two cannot drift apart.
+
+    `adr prune` (#525) needs the answer, and it needs it from *this* traversal. A
+    second implementation of "where does a citation live" would be the exact failure
+    this gate was written to prevent.
+    """
+    cited: set[str] = set()
+    for path in iter_sources():
+        try:
+            text = path.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+        for line in text.splitlines():
+            for match in TOKEN_RE.finditer(line):
+                token = match.group(1).removesuffix('.md')
+                if token in slugs:
+                    cited.add(token)
+    return cited
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--update-baseline', action='store_true',
                         help='rewrite the baseline from current findings, then exit')
     parser.add_argument('--baseline', default=str(BASELINE))
+    parser.add_argument('--list-cited', action='store_true',
+                        help='print every cited slug, one per line, then exit (for `adr prune`)')
     args = parser.parse_args()
 
     slugs = existing_slugs()
     if not slugs:
         sys.exit(f'check_adr_references.py: no ADRs found under {DECISIONS_DIR}')
+
+    if args.list_cited:
+        for slug in sorted(cited_slugs(slugs)):
+            print(slug)
+        return
 
     dangling = find_dangling(slugs)
     # Sorted before any write. `find_dangling` returns in scan order, which walks

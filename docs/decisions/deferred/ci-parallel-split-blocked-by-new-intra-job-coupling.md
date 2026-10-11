@@ -1,7 +1,7 @@
 ---
 title: "Ci Parallel Split Blocked By New Intra Job Coupling"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "ci-checks-parallel-split"]
 ---
 

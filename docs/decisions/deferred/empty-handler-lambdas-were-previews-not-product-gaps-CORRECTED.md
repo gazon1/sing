@@ -1,7 +1,7 @@
 ---
 title: "Empty Handler Lambdas Were Previews Not Product Gaps Corrected"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

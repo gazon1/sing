@@ -1,7 +1,7 @@
 ---
 title: "Log Messages Need A User Content Sweep"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

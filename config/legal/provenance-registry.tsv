@@ -23,7 +23,6 @@ shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/QueryPars
 shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/Options.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
 shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/SortOrder.kt	REWRITTEN	Orgzly	GPL-3.0	reimplemented from docs/specs/search-query-grammar.md (A1); ported code removed
 shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/DaoAdapters.kt	REWRITTEN	Orgzly	GPL-3.0	over-classified before; wraps this project's own DAOs
-shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/RecurrenceParser.kt	SPEC-COMPATIBLE	Orgzly + Tasks.org	DSL spec	implements published recurrence syntax
 shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/RecurrenceSpec.kt	SPEC-COMPATIBLE	Orgzly + Tasks.org	DSL spec	implements published recurrence syntax
 shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/SingularityQueryParser.kt	SPEC-COMPATIBLE	orgmode.org + Tasks.org	DSL grammar	implements published query grammar
 shared/src/commonMain/kotlin/com/singularity/todo/core/billing/SubscriptionProvider.kt	ADAPTED	Tasks.org	GPL-3.0	interface shape; field names carried over

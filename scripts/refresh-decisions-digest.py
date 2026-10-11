@@ -29,7 +29,26 @@ MAX_ACTIVE_ENTRIES = 300
 MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
 
 
+def parse_argv(argv: list[str]) -> None:
+    """Reject every argument. This script takes none.
+
+    Both git hooks called it as `refresh-decisions-digest.sh --quiet` (#518), and the
+    flag was read by nobody — the script never looked at `sys.argv` at all. A dead
+    flag is a small lie: it reads as if output were being suppressed, so the next
+    person to add a real option here will assume there is an argument parser and
+    write around it. Failing loudly is cheaper than being wrong quietly.
+    """
+    for arg in argv:
+        if arg in ('-h', '--help'):
+            print(__doc__)
+            sys.exit(0)
+        print(f"refresh-decisions-digest: unknown argument {arg!r}\n"
+              "usage: refresh-decisions-digest.sh  (takes no arguments)", file=sys.stderr)
+        sys.exit(2)
+
+
 def main() -> None:
+    parse_argv(sys.argv[1:])
     # This consumer's own glob was the only one that saw `deferred/`. The digest has
     # an "open deferred" section, so it needs them — but it must not re-derive that.
     entries = CORPUS.decisions(include_archived=False) + CORPUS.deferred()

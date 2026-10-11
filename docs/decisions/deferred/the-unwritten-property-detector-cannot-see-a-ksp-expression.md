@@ -1,7 +1,7 @@
 ---
 title: "The Unwritten Property Detector Cannot See A Ksp Expression"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 

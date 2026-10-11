@@ -1,7 +1,7 @@
 ---
 title: "Detekt Rules Test Was Never Run By Any Gate"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

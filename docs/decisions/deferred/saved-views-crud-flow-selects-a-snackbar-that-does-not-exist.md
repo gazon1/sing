@@ -1,7 +1,7 @@
 ---
 title: "Saved Views Crud Flow Selects A Snackbar That Does Not Exist"
 date: 2000-01-01
-status: CLOSED.
+status: closed
 tags: ["deferred", "notification-routing-must-be-total"]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Sync Auth Repository Is Still A Stub"
 date: 2000-01-01
-status: RESOLVED
+status: resolved
 tags: ["deferred"]
 ---
 

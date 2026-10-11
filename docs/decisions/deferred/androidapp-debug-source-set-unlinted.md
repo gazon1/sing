@@ -1,7 +1,7 @@
 ---
 title: "Androidapp Debug Source Set Unlinted"
 date: 2000-01-01
-status: CLOSED.
+status: closed
 tags: ["deferred", "androidapp-debug-lint-policy", "androidapp-debug-lint-policy`"]
 ---
 

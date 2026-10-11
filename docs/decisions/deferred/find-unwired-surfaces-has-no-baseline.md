@@ -1,7 +1,7 @@
 ---
 title: "Find Unwired Surfaces Has No Baseline"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

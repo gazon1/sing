@@ -1,7 +1,7 @@
 ---
 title: "Fake Clock Unused In Desktop Harness"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "selector-and-tag-identity"]
 ---
 

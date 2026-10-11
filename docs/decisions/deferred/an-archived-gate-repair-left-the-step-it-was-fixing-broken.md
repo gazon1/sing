@@ -1,7 +1,7 @@
 ---
 title: "An Archived Gate Repair Left The Step It Was Fixing Broken"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

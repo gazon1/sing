@@ -55,7 +55,10 @@ manual-fix pass to freeze accepted debt.
 
 ### 4. Adding a new rule
 
-1. Write `XxxRule.kt` + `XxxProvider` in `detekt-rules/src/main/kotlin/com/singularity/todo/detekt/`.
+1. Write the rule and its provider in `detekt-rules/src/main/kotlin/com/singularity/todo/detekt/`,
+   named after the rule — e.g. `NoCombineSideEffectRule.kt` + `NoCombineSideEffectRuleProvider`.
+   Both names are built from the rule's own name — the placeholder above is not a
+   file to create, and `check-doc-dead-refs.py --skill-symbols` will say so.
 2. **Add the provider to `detekt-rules/src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider`.** A rule missing from this file never loads.
 3. Add the `xxx:` block to `config/detekt/detekt.yml` with `active: true`.
 4. Run `./gw :shared:detekt` and read the finding count.

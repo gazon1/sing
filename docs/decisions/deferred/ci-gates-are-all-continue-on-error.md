@@ -1,7 +1,7 @@
 ---
 title: "Ci Gates Are All Continue On Error"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred"]
 ---
 

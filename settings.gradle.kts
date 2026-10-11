@@ -102,6 +102,7 @@ include(":androidApp")
 include(":desktopApp")
 include(":shared")
 include(":mcp-server")
+include(":adr-cli")
 include(":detekt-rules")
 // A KSP processor, its own module: a detekt rule is handed one file at a
 // time and this question spans files. Not yet applied to :shared.

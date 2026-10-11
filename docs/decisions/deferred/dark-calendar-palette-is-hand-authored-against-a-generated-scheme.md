@@ -1,7 +1,7 @@
 ---
 title: "Dark Calendar Palette Is Hand Authored Against A Generated Scheme"
 date: 2000-01-01
-status: CLOSED
+status: closed
 tags: ["deferred", "calendar-palette-follows-the-theme"]
 ---
 

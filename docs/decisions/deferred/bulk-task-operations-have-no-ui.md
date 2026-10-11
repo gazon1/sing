@@ -1,7 +1,7 @@
 ---
 title: "Bulk Task Operations Have No Ui"
 date: 2000-01-01
-status: OPEN
+status: open
 tags: ["deferred"]
 ---
 
