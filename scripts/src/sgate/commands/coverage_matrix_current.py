@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = True
 
 @click.command("coverage_matrix_current")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def coverage_matrix_current(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def coverage_matrix_current(check: bool, emit_json: bool) -> None:
     """Run the "coverage matrix current" gate.
 
     Mode: blocking

@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("version_catalog_has_no_literals")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def version_catalog_has_no_literals(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def version_catalog_has_no_literals(check: bool, emit_json: bool) -> None:
     """Run the "version catalog has no literals" gate.
 
     Mode: blocking

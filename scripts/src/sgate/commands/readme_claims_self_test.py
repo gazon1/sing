@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("readme_claims_self_test")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def readme_claims_self_test(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def readme_claims_self_test(check: bool, emit_json: bool) -> None:
     """Run the "README claims self-test" gate.
 
     Mode: blocking

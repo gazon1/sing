@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = True
 
 @click.command("scenario_specs_valid")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def scenario_specs_valid(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def scenario_specs_valid(check: bool, emit_json: bool) -> None:
     """Run the "scenario specs valid" gate.
 
     Mode: blocking

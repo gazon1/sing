@@ -32,11 +32,11 @@ GATES = [
     ("gate scripts' own unit tests", "blocking",
      ["python3", "-m", "unittest", "discover", "-s", "scripts/tests"], {"no_shim": True}),
     ("test-task external inputs declared", "blocking",
-     ["python3", "scripts/check-test-task-inputs.py"]),
+     ["python3", "scripts/check-test-task-inputs.py"], {"custom": True}),
     ("declared dependencies are used", "blocking",
      ["python3", "scripts/check-dependency-usage.py"]),
     ("room schema integrity", "blocking",
-     ["python3", "scripts/check-room-schema-integrity.py"]),
+     ["python3", "scripts/check-room-schema-integrity.py"], {"custom": True}),
     ("gates are alive", "blocking",
      ["python3", "scripts/check-gate-liveness.py"]),
     ("closed ADRs keep their body", "blocking",
@@ -72,9 +72,9 @@ GATES = [
     ("coverage matrix current", "blocking",
      ["traceability", "coverage", "--check"], {"kiwi": True}),
     ("coverage holes did not grow", "blocking",
-     ["python3", "scripts/check-traceability-ratchet.py"]),
+     ["python3", "scripts/check-traceability-ratchet.py"], {"custom": True}),
     ("kiwi inventory did not regress", "advisory",
-     ["python3", "scripts/check-kiwi-inventory-ratchet.py"], {"kiwi": True}),
+     ["python3", "scripts/check-kiwi-inventory-ratchet.py"], {"kiwi": True, "custom": True}),
     # Server schema
     ("supabase schema is self-consistent", "blocking",
      ["python3", "scripts/check-supabase-schema-integrity.py"]),
@@ -164,8 +164,8 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     add("")
     add(f'@click.command("{name}")')
     add('@click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")')
-    add('@click.option("--json", is_flag=True, help="Emit JSON output to stdout")')
-    add(f"def {name}(check: bool, json: bool) -> None:")
+    add('@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")')
+    add(f"def {name}(check: bool, emit_json: bool) -> None:")
     add(f'    """{doc}')
     add("")
     add(f"    Mode: {mode}")

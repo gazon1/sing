@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("adr_corpus_rules_are_shared")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def adr_corpus_rules_are_shared(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def adr_corpus_rules_are_shared(check: bool, emit_json: bool) -> None:
     """Run the "ADR corpus rules are shared" gate.
 
     Mode: blocking

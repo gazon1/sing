@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("git_hooks_path_is_per_worktree")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def git_hooks_path_is_per_worktree(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def git_hooks_path_is_per_worktree(check: bool, emit_json: bool) -> None:
     """Run the "git hooks path is per-worktree" gate.
 
     Mode: advisory

@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("skills_catalog_current")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def skills_catalog_current(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def skills_catalog_current(check: bool, emit_json: bool) -> None:
     """Run the "skills catalog current" gate.
 
     Mode: advisory

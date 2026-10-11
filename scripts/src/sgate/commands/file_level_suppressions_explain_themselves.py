@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("file_level_suppressions_explain_themselves")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def file_level_suppressions_explain_themselves(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def file_level_suppressions_explain_themselves(check: bool, emit_json: bool) -> None:
     """Run the "file-level suppressions explain themselves" gate.
 
     Mode: blocking

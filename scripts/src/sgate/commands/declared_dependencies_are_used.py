@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("declared_dependencies_are_used")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def declared_dependencies_are_used(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def declared_dependencies_are_used(check: bool, emit_json: bool) -> None:
     """Run the "declared dependencies are used" gate.
 
     Mode: blocking

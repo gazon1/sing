@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("light_adr_modules_stay_light")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def light_adr_modules_stay_light(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def light_adr_modules_stay_light(check: bool, emit_json: bool) -> None:
     """Run the "light ADR modules stay light" gate.
 
     Mode: blocking

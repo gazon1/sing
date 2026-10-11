@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("no_dead_skill_symbols")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def no_dead_skill_symbols(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def no_dead_skill_symbols(check: bool, emit_json: bool) -> None:
     """Run the "no dead skill symbols" gate.
 
     Mode: blocking

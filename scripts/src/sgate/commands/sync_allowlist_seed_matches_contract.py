@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("sync_allowlist_seed_matches_contract")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def sync_allowlist_seed_matches_contract(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def sync_allowlist_seed_matches_contract(check: bool, emit_json: bool) -> None:
     """Run the "sync allowlist seed matches contract" gate.
 
     Mode: blocking

@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("adr_references_are_valid")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def adr_references_are_valid(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def adr_references_are_valid(check: bool, emit_json: bool) -> None:
     """Run the "ADR references are valid" gate.
 
     Mode: blocking

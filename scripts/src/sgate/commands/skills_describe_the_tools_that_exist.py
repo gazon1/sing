@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("skills_describe_the_tools_that_exist")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def skills_describe_the_tools_that_exist(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def skills_describe_the_tools_that_exist(check: bool, emit_json: bool) -> None:
     """Run the "skills describe the tools that exist" gate.
 
     Mode: blocking

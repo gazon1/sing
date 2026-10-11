@@ -17,8 +17,8 @@ KIWI_REQUIRED: ClassVar[bool] = False
 
 @click.command("lint_rules_are_declared_decisions")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
-@click.option("--json", is_flag=True, help="Emit JSON output to stdout")
-def lint_rules_are_declared_decisions(check: bool, json: bool) -> None:
+@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+def lint_rules_are_declared_decisions(check: bool, emit_json: bool) -> None:
     """Run the "lint rules are declared decisions" gate.
 
     Mode: blocking
