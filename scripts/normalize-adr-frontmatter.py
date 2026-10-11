@@ -45,6 +45,12 @@ DECISIONS_DIR = CORPUS.root
 # it. Emitting those "keys" is how a body gets duplicated into the file. An unknown
 # key is therefore a hard error here, which means every key a writer emits MUST be
 # in `frontmatter_keys` or the corpus breaks itself.
+#
+# Rules sourced from adr_corpus (config/docs/adr-corpus.json):
+#   frontmatter_keys, section_keys, frontmatter_key_order
+# Local rules (this module only, not in the config):
+#   slug_to_title() — derives a title from the filename slug
+#   first_word() — extracts the leading keyword from a status value
 KNOWN_KEYS = CORPUS.frontmatter_keys
 
 # Capitalized section names used as keys. These are the signature of a body written
@@ -68,7 +74,13 @@ class UnrepresentableValue(StructuralError):
 # From config/docs/adr-corpus.json, for the same reason as KNOWN_KEYS (#518).
 KEY_ORDER = list(CORPUS.frontmatter_key_order)
 
+# DATE_RE: anchors to line start; `\d{4}` is strict (no 3-digit year), so "2026-10-11"
+# in a code block or inline code is not matched — the leading `^` is load-bearing (#535).
 DATE_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})-')
+# H1_RE: multiline (`re.M`) so `^` matches after each newline, not just at the file start.
+# `.+?` is non-greedy; `\s+` after `#` consumes optional leading whitespace, and `\.+?` is
+# deliberately minimal so trailing `#` in a heading like "Architecture #1" is not consumed.
+# Constraint: the heading must be on its own line — a `#` mid-sentence is not captured.
 H1_RE = re.compile(r'^#\s+(.+?)\s*$', re.M)
 
 

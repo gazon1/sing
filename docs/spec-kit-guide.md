@@ -11,14 +11,14 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                     AI Agent / Human                            │
 │                                                                   │
-│   Chat: /speckit.specify  /speckit.plan  /speckit.implement …  │
+│   Chat: /speckit-specify  /speckit-plan  /speckit-implement …  │
 │   Terminal: specify workflow run openspec-change --input …      │
 └──────────┬──────────────────────────────────┬──────────────────┘
            │                                  │
            ▼                                  ▼
 ┌──────────────────────┐           ┌─────────────────────────────┐
 │  .specify/issues/    │           │   hooks (extensions.yml)    │
-│  633 issue records   │◄──────────│   singularity-adr validate   │
+│  issue records        │◄──────────│   singularity-adr validate   │
 │  (AI-регистратура)   │           │   refresh-decisions-digest   │
 └──────────┬──────────┘           └─────────────────────────────┘
            │
@@ -27,7 +27,6 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                     openspec/changes/                              │
 │  proposal.md · design.md · adr.md · tasks.md · specs/            │
-│  622 active stubs + 13 archived changes                           │
 │                                                                   │
 │  ADR-файлы НЕ здесь — они в docs/decisions/YYYY-MM-DD-<slug>.md  │
 └──────────────────────────────────────────────────────────────────┘
@@ -35,6 +34,8 @@
 
 **Ключевое:**
 
+- **AI-интеграция:** `mcode` (MiniMax Code CLI) — slash-команды живут в `.minimax/skills/`
+- **invoke_separator:** `-` (дефис) — `/speckit-specify`, `/speckit-plan`, etc.
 - **Issue registry** (`.specify/issues/`) — **регистратура для AI-агентов**, не хранилище документов
 - **OpenSpec документы** остаются в `openspec/changes/<slug>/` — никуда не перемещаются
 - **ADR-файлы** — в `docs/decisions/YYYY-MM-DD-<slug>.md`
@@ -44,13 +45,31 @@
 
 ## Когда что использовать
 
-| Ситуация | Workflow | Пример |
+### skip workflow — direct implementation (НЕ открывать spec-kit)
+
+Эти ситуации **не требуют** spec-kit workflow. Решения уже приняты — просто делай:
+
+| Ситуация | Почему не нужен spec-kit |
+|---|---|
+| Багфикс | Понятно что чинить, спеки нет |
+| Тесты | Регрессия, поведение не меняется |
+| Dep update | Версия библиотеки, решения нет |
+| Рефакторинг без контракта | Код换个写法, семантика та же |
+| Документация | Контент, не поведение |
+| Реализация готовых GH issues | Уже продумано, решения приняты — просто делай |
+
+### spec-kit workflow — для неизвестных решений
+
+workflow имеет смысл когда **ты или стейкхолдер не знаете «как»** — нужно пройти от «хочу X» через alternatives к решению:
+
+| Ситуация | Workflow | Почему нужен |
 |---|---|---|
-| Новая фича с поведенческими изменениями | `openspec-change` | Добавить sync-резолвер |
-| Рефакторинг архитектуры / ADR-only | `adr-create` | Koin 4.x миграция |
+| Новая фича с поведенческими изменениями | `openspec-change` | Неочевидные альтернанативы и trade-offs |
+| Архитектурное изменение | `openspec-change` | Важен ADR-трек для записи решений |
+| Изменение контракта между компонентами | `openspec-change` | Нужно document rationale |
+| Рефакторинг с новым ADR | `adr-create` | Только запись решения, без полного spec |
 | CI-прогон без вопросов | `adr-ci` | В CI/CD джобе |
 | Несколько ADR из CSV | `adr-batch` | Bulk-миграция |
-| Багфикс, тесты, dep update, doc-only | **skip workflow** | Исправить баг |
 | Спека уже есть в `openspec/specs/` | `openspec-change` с `has_existing_spec=true` | calendar-sync |
 | Анализ консистентности | `/speckit.analyze` | Чат-команда |
 
@@ -62,13 +81,15 @@
 
 | Команда | Фаза | Что делает |
 |---|---|---|
-| `/speckit.specify` | Requirements | Определить требования и user stories |
-| `/speckit.plan` | Design | Создать технический план |
-| `/speckit.tasks` | Tasks | Сгенерировать список задач |
-| `/speckit.implement` | Implementation | Выполнить задачи из tasks.md |
-| `/speckit.converge` | Verification | Проверить реализацию против спеки |
-| `/speckit.checklist` | Gate | Quality gate — чеклист требований |
-| `/speckit.analyze` | Any | Кросс-артефактная проверка консистентности |
+| `/speckit-specify` | Requirements | Определить требования и user stories |
+| `/speckit-plan` | Design | Создать технический план |
+| `/speckit-tasks` | Tasks | Сгенерировать список задач |
+| `/speckit-implement` | Implementation | Выполнить задачи из tasks.md |
+| `/speckit-converge` | Verification | Проверить реализацию против спеки |
+| `/speckit-checklist` | Gate | Quality gate — чеклист требований |
+| `/speckit-analyze` | Any | Кросс-артефактная проверка консистентности |
+
+> **Примечание:** команды используют `-` (дефис) как разделитель, а не `.` — это настроено в `integration.json` для `mcode`.
 
 Это **bundled commands** — идут из коробки spec-kit, не требуют аргументов.
 

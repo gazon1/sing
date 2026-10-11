@@ -56,6 +56,12 @@ data class AdrCorpusConfig(
      */
     val newAdrStatus: String = DEFAULT.newAdrStatus,
     val newAdrKeyOrder: List<String> = DEFAULT.newAdrKeyOrder,
+    /**
+     * Maximum depth for [discover]. Declared in `config/docs/adr-corpus.json` rather
+     * than hardcoded in [AdrStorage] so Python consumers can read the same value.
+     * See #536.
+     */
+    val discoverMaxDepth: Int = DEFAULT.discoverMaxDepth,
 ) {
     /**
      * The frontmatter contract, read from the same file as everything else (#518).
@@ -106,7 +112,7 @@ data class AdrCorpusConfig(
      * `status: archived` and a different vocabulary, and including them made
      * `list --status open` disagree with the policy gate.
      */
-    fun discover(root: String, maxDepth: Int = 3): List<String> =
+    fun discover(root: String, maxDepth: Int = discoverMaxDepth): List<String> =
         walk(Path(root), depth = 0, maxDepth = maxDepth).map { it.toString() }
 
     private fun walk(dir: java.nio.file.Path, depth: Int, maxDepth: Int): List<java.nio.file.Path> {
@@ -175,6 +181,7 @@ data class AdrCorpusConfig(
             ),
             newAdrStatus = "open",
             newAdrKeyOrder = listOf("title", "date", "status", "tags"),
+            discoverMaxDepth = 3,
         )
 
         private val json = Json { ignoreUnknownKeys = true }
@@ -217,6 +224,10 @@ data class AdrCorpusConfig(
                 ),
                 newAdrStatus = fm.string("newAdrStatus", DEFAULT.newAdrStatus),
                 newAdrKeyOrder = fm.orderedStringList("newAdrKeyOrder", DEFAULT.newAdrKeyOrder),
+                discoverMaxDepth = obj["discover"]
+                    ?.jsonObject?.get("maxDepth")
+                    ?.jsonPrimitive?.content?.toIntOrNull()
+                    ?: DEFAULT.discoverMaxDepth,
             )
         }
 
