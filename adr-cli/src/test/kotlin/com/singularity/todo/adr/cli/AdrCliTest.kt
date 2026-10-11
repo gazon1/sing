@@ -2,7 +2,7 @@ package com.singularity.todo.adr.cli
 
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.feature.ai.tools.AdrStorage
-import com.singularity.todo.test.fakes.TEST_TZ
+import com.singularity.todo.adr.cli.TEST_TZ
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject

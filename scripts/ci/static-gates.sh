@@ -238,6 +238,13 @@ gate blocking "ADR status policy" python3 scripts/check_adr_status.py
 # reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
 gate blocking "ADR corpus rules are shared" python3 scripts/check-adr-config-sync.py
 
+# `:adr-cli` shipped 127 MB and 0.30 s of startup to read markdown files, because
+# `adr-cli/build.gradle.kts` depended on `:shared` — Compose, Room, SQLite, Koin and
+# Koog. The rules moved to `:adr-core`; this keeps them there, transitively, so a
+# one-line dependency does not put the application runtime back on a 4.9 MB
+# distribution with every test still green.
+gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-boundary.py --quiet
+
 # Advisory — each needs an exit plan, or it is just a quieter blocking gate.
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.

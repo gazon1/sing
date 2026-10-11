@@ -48,7 +48,14 @@ distributions {
  * that this module can hand them over directly and skip the container.
  */
 dependencies {
-    implementation(project(":shared"))
+    // `:adr-core`, NOT `:shared`. That single edge is what this build file exists to
+    // enforce: `:shared` brings Compose Material3, `material-icons-extended`, Room,
+    // SQLite, Koin and Koog, so depending on it made `singularity-adr list` ship 127 MB
+    // and start in 0.30 s to read markdown files.
+    //
+    // If a subcommand ever needs something from `:shared`, that is the signal the
+    // thing belongs in `:adr-core` — or that it is not an ADR operation at all.
+    implementation(project(":adr-core"))
     implementation(libs.kotlinx.datetime)
     // The --json contract (#524) is kotlinx-serialization for the same reason the MCP
     // tools are: the shapes are declared once and encoded, never assembled by hand into

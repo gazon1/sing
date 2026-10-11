@@ -47,8 +47,12 @@ PYTHON_CONSUMERS = {
     'check-backlog-status.py': 'adr_corpus.load(',
 }
 
-KOTLIN_CONFIG = 'shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/AdrCorpus.kt'
-KOTLIN_CONSUMER = 'shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/AdrTools.kt'
+# The ADR rules live in `:adr-core` since the CLI was cut off from `:shared` (#542).
+# `AdrTools.kt` is the *MCP adapter* and deliberately does not read the config — it
+# delegates to `AdrStorage`. Pointing this at the adapter used to pass for the wrong
+# reason; it now names the file that actually resolves the rules.
+KOTLIN_CONFIG = 'adr-core/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/AdrCorpus.kt'
+KOTLIN_CONSUMER = 'adr-core/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/AdrStorage.kt'
 
 # A glob/iterdir/rglob over the corpus root, in any consumer but adr_corpus itself.
 # `adr_corpus.py` is the owner and is exempt by construction.

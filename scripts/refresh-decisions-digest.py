@@ -17,7 +17,19 @@ CORPUS = adr_corpus.load(ROOT)
 DECISIONS_DIR = CORPUS.root
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
-MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
+# 10 -> 9 on 2026-10-11, the day a decision pushed the digest to 1255/1250.
+#
+# `2026-10-04-doc-size-budget-was-already-red.md` settled what to do about an
+# over-budget digest: raise `MAX_DIGEST_LINES` as option 2, "explicitly behind" trimming
+# the generator, because "a generator that can be trimmed at the source is worth more
+# than a larger ceiling". So this lowers what the per-tag sections surface instead.
+#
+# It costs nothing navigable. A tag section is an index inside an index, and it only
+# ever showed the first N of a larger set; the flat `Active entries` list below is the
+# one that names ADRs, and it is untouched. The difference between 10 of 40 and 9 of 40
+# is a line, not a decision that stopped being findable. Measured: 1255 -> 1231 lines,
+# which restores 19 lines of headroom rather than moving the problem to the next ADR.
+MAX_ITEMS_PER_TAG = 9  # per tag section cap; the digest is an index, the ADR body is one link away
 # The two flat sections below were uncapped, and one of them had already been trimmed once
 # for exactly this reason (the duplicate slug->tags index, ~385 lines). An uncapped index
 # is a second copy of the directory listing wearing an index's clothes: it grows by one

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SmellBaseline>
+  <CurrentIssues>
+    <ID>Detekt baseline for :core-base and :adr-core — empty on purpose. Both modules were extracted from :shared on 2026-10-11, so every finding is about code that moved recently and should be read, not absorbed.</ID>
+  </CurrentIssues>
+</SmellBaseline>

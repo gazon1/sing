@@ -246,6 +246,22 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="adr-module-boundary",
+        cmd=[sys.executable, "scripts/check-adr-module-boundary.py"],
+        sabotage_path="adr-cli/build.gradle.kts",
+        # The regression this gate exists for, restored exactly: the one-line
+        # dependency that put the whole application — Compose, Room, SQLite, Koin,
+        # Koog — on the classpath of a markdown lister, making a 4.9 MB
+        # distribution 127 MB again with every test still green.
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'implementation(project(\":adr-core\"))', "
+            "'implementation(project(\":adr-core\"))\\n"
+            "    implementation(project(\":shared\"))'))"
+        ),
+        why="a direct `:adr-cli -> :shared` edge, which is the 127 MB",
+    ),
+    ScriptGate(
         name="detekt-registrations",
         cmd=["./scripts/check-detekt-registrations.sh"],
         sabotage_path="config/detekt/detekt.yml",
