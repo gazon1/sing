@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -50,7 +51,7 @@ fun ChecklistEditorSheet(
     TaskEditorSheetHost(
         title = "Checklist",
         onClose = onDismiss,
-        testTag = "checklist_sheet",
+        testTag = TestTags.CHECKLIST_SHEET,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Add new item

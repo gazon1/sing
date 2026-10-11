@@ -13,10 +13,12 @@ import java.nio.file.Paths
  * The subsection structure is derived from the comment headers in `TestTags.kt`:
  * each `// ─── Foo ────` line starts a new subsection.
  *
- * Run with `-Dupdate.goldens=true` to rewrite the generated section:
+ * Run with `-PupdateGoldens=true` to rewrite the generated section:
  * ```
- * ./gradlew :shared:jvmTest --tests "TagsMdGoldenTest" -Dupdate.goldens=true
+ * ./gradlew :shared:jvmTest --tests "TestTagsCatalogJvmTest" -PupdateGoldens=true
  * ```
+ * (The `-P` project property is what `shared/build.gradle.kts` reads; a `-D`
+ * system property of the same name is never forwarded to the test JVM.)
  */
 object TagsMd {
 
@@ -205,6 +207,11 @@ object TagsMd {
 
         "Settings.accentSwatch" -> DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in Settings")
 
+        "Settings.themeModeButton" -> DynamicMeta(fnName, "Settings", "Dark", "Theme-mode radio buttons")
+
+        "Settings.reminderOffsetRadioRow" ->
+            DynamicMeta(fnName, "Settings", "At due time", "Reminder-offset radio rows in notification settings")
+
         "CalendarSync.providerSegment" ->
             DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
 
@@ -221,9 +228,19 @@ object TagsMd {
 
         "taskCheckbox" -> DynamicMeta(fnName, "Tasks", "Buy milk", "Task checkboxes")
 
+        "subtaskItem" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask list rows")
+
+        "subtaskCheckbox" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask checkboxes")
+
+        "subtaskDelete" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask delete buttons")
+
         "noteItem" -> DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)")
 
         "noteItemByTitle" -> DynamicMeta(fnName, "Notes", "Meeting notes", "Note cards (automation)")
+
+        "noteFilterChip" -> DynamicMeta(fnName, "Notes", "pinned", "Note list filter chips")
+
+        "noteAction" -> DynamicMeta(fnName, "Notes", "edit", "Note editor action buttons")
 
         "savedAgendaCard" -> DynamicMeta(fnName, "Agenda", "Work", "Saved agenda cards")
 
@@ -242,6 +259,8 @@ object TagsMd {
         "genUi" -> DynamicMeta(fnName, "AI", "whatsnew", "GenUI surfaces")
 
         "tagRename" -> DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card")
+
+        "tagOpen" -> DynamicMeta(fnName, "Tags", "inbox", "Tag chips that navigate to the tag view")
 
         "taskAction" -> DynamicMeta(fnName, "Dialog", "Archive", "Long-press action rows")
 
@@ -291,6 +310,9 @@ object TagsMd {
         // "SETTINGS_": the sync screen is its own tab, and filing its rows under
         // Settings would make the catalog claim they belong to the settings screen.
         "Sync" to "Sync",
+        // Saved-views overflow menu on the search/agenda screens — filed under
+        // Search rather than Agenda: the rows live on the saved-searches screen.
+        "SavedSearches" to "Search",
     )
 
     /**
@@ -313,6 +335,13 @@ object TagsMd {
         // they belong with the other task-editor rows. Anchored like every other
         // entry: an unanchored match would also swallow unrelated names.
         "RECURRENCE_" to "Tasks",
+        // Task-editor sheet chrome and task-detail sections. All four are rows or
+        // containers of the task editor/detail, so they file with the TASK_* block
+        // rather than getting a heading each.
+        "SHEET_" to "Tasks",
+        "FIRST_RUN_" to "Tasks",
+        "CHECKLIST_" to "Tasks",
+        "SUBTASK" to "Tasks",
         "AGENDA_" to "Agenda",
         "SAVED_" to "Agenda",
         "POMODORO_" to "Pomodoro",

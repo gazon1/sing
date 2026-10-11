@@ -122,6 +122,8 @@ class HarnessConventionTest {
             "CelebrationTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
             "NotesScreenTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
             "TagsRenameUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
+            "SavedSearchesRowUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
+            "SearchPresentationUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
         )
 
         /**

@@ -1,19 +1,14 @@
 package com.singularity.todo.feature.agenda.presentation.screen
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,22 +17,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
+import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ListPickerSheet
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.ConfigurableSelector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorOption
@@ -50,8 +44,6 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaInt
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -278,121 +270,42 @@ private fun TemplateSheet(
     onDismiss: () -> Unit,
 ) {
     when (template) {
-        is SelectorTemplate.ByRegexp -> RegexpInputSheet(
-            initialPattern = template.pattern,
-            onConfirm = { pattern ->
-                onConfirmed(SelectorTemplate.ByRegexp(pattern), emptySet(), emptyList())
-            },
-            onDismiss = onDismiss,
-        )
+        is SelectorTemplate.ByRegexp ->
+            RegexpInputSheet(
+                initialPattern = template.pattern,
+                onConfirm = { pattern ->
+                    onConfirmed(SelectorTemplate.ByRegexp(pattern), emptySet(), emptyList())
+                },
+                onDismiss = onDismiss,
+            )
 
-        is SelectorTemplate.ByDateRange -> DateRangePickerSheet(
-            initialFrom = template.from,
-            initialTo = template.to,
-            onConfirm = { from, to ->
-                onConfirmed(SelectorTemplate.ByDateRange(from, to), emptySet(), emptyList())
-            },
-            onDismiss = onDismiss,
-        )
+        is SelectorTemplate.ByDateRange ->
+            DateRangePickerSheet(
+                initialFrom = template.from,
+                initialTo = template.to,
+                onConfirm = { from, to ->
+                    onConfirmed(SelectorTemplate.ByDateRange(from, to), emptySet(), emptyList())
+                },
+                onDismiss = onDismiss,
+            )
 
-        else -> MultiSelectTemplateSheet(
-            template = template,
-            onConfirm = { chosen, available, matchAll ->
-                val resolved = (template as? SelectorTemplate.ByTags)
-                    ?.copy(matchAll = matchAll) ?: template
-                onConfirmed(resolved, chosen, available)
-            },
-            onDismiss = onDismiss,
-        )
+        // SelectorParameterSheet reads tag/project options from their
+        // repositories via koinInject. The local MultiSelectTemplateSheet that
+        // used to live here returned emptyList() for ByTags/ByProjects — the
+        // second step rendered a sheet with no options and no way to choose
+        // one, so every parameterized template except priority/status was dead.
+        else ->
+            SelectorParameterSheet(
+                template = template,
+                onConfirm = { chosen, available, matchAll ->
+                    val resolved =
+                        (template as? SelectorTemplate.ByTags)
+                            ?.copy(matchAll = matchAll) ?: template
+                    onConfirmed(resolved, chosen, available)
+                },
+                onDismiss = onDismiss,
+            )
     }
-}
-
-// ─── Multi-select template sheet ─────────────────────────────────────────────
-
-@Composable
-private fun MultiSelectTemplateSheet(
-    template: SelectorTemplate,
-    onConfirm: (chosen: Set<String>, available: List<SelectorOption>, matchAll: Boolean) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val options = selectorOptionsFor(template)
-    var chosen by remember { mutableStateOf(emptySet<String>()) }
-    var matchAll by remember { mutableStateOf(false) }
-    val isRadio = template !is SelectorTemplate.ByTags
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(template.label) },
-        text = {
-            Column {
-                Text("Select ${template.label.lowercase()}:")
-                Spacer(Modifier.height(8.dp))
-                options.forEach { option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .selectable(
-                                selected = chosen.contains(option.id),
-                                onClick = {
-                                    chosen = if (isRadio) {
-                                        setOf(option.id)
-                                    } else {
-                                        if (chosen.contains(option.id)) chosen - option.id else chosen + option.id
-                                    }
-                                },
-                            ),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (isRadio) {
-                            RadioButton(
-                                selected = chosen.contains(option.id),
-                                onClick = null,
-                            )
-                        } else {
-                            Checkbox(
-                                checked = chosen.contains(option.id),
-                                onCheckedChange = { selected ->
-                                    chosen = if (selected) chosen + option.id else chosen - option.id
-                                },
-                            )
-                        }
-                        Text(option.label)
-                    }
-                }
-                if (template is SelectorTemplate.ByTags) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.selectable(
-                            selected = matchAll,
-                            onClick = { matchAll = !matchAll },
-                        ),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = matchAll,
-                            onCheckedChange = { matchAll = it },
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Match all selected tags")
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(chosen, options, matchAll) },
-                enabled = chosen.isNotEmpty(),
-            ) {
-                Text("Add")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        },
-    )
 }
 
 // ─── Regexp input sheet ──────────────────────────────────────────────────────
@@ -425,10 +338,11 @@ private fun RegexpInputSheet(
                     // AlertDialog is its own Android window — the app-root
                     // testTagsAsResourceId never reaches it. Without this the tag
                     // is invisible to Maestro and the flow has to select by label.
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(TestTags.AGENDA_REGEX_PATTERN_INPUT)
-                        .mapTestTagsAsResourceIds(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.AGENDA_REGEX_PATTERN_INPUT)
+                            .mapTestTagsAsResourceIds(),
                 )
             }
         },
@@ -463,27 +377,29 @@ private fun DateRangePickerSheet(
     var stage by remember { mutableStateOf("from") }
 
     when (stage) {
-        "from" -> DatePickerSheet(
-            initialDate = fromDate,
-            onDateSelected = { date ->
-                if (date != null) {
-                    fromDate = date
-                    stage = "to"
-                }
-            },
-            onDismiss = onDismiss,
-        )
+        "from" ->
+            DatePickerSheet(
+                initialDate = fromDate,
+                onDateSelected = { date ->
+                    if (date != null) {
+                        fromDate = date
+                        stage = "to"
+                    }
+                },
+                onDismiss = onDismiss,
+            )
 
-        "to" -> DatePickerSheet(
-            initialDate = toDate,
-            onDateSelected = { date ->
-                if (date != null) {
-                    toDate = date
-                    stage = "confirm"
-                }
-            },
-            onDismiss = { stage = "from" },
-        )
+        "to" ->
+            DatePickerSheet(
+                initialDate = toDate,
+                onDateSelected = { date ->
+                    if (date != null) {
+                        toDate = date
+                        stage = "confirm"
+                    }
+                },
+                onDismiss = { stage = "from" },
+            )
 
         "confirm" -> {
             val f = fromDate
@@ -541,17 +457,6 @@ private fun DateRangeConfirmDialog(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-private fun selectorOptionsFor(template: SelectorTemplate): List<SelectorOption> =
-    when (template) {
-        is SelectorTemplate.ByPriority ->
-            TaskPriority.entries.map { SelectorOption(it.name, it.name) }
-
-        is SelectorTemplate.ByStatus ->
-            TaskStatus.entries.map { SelectorOption(it.name, it.name) }
-
-        else -> emptyList()
-    }
-
 private fun addSection(
     viewModel: SavedAgendaViewModel,
     state: SavedAgendaViewState,
@@ -578,6 +483,8 @@ private fun addSection(
 /** Active overlay dialog. */
 private sealed interface ActiveDialog {
     data object ConfirmDelete : ActiveDialog
+
     data object ConfirmDiscard : ActiveDialog
+
     data object AddSection : ActiveDialog
 }

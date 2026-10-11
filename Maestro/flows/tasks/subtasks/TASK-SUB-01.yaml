@@ -32,7 +32,7 @@ tags:
   - tasks
 ---
 # ── Seed a parent task ─────────────────────────────────────────────
-- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../../helpers/launch-clean.yaml
 - openLink: "todo-debug://seed?task=Parent%20Task"
 - extendedWaitUntil:
     visible:

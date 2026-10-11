@@ -43,13 +43,23 @@ non-alphanumeric characters with `_`.
 ### Navigation
 | Constant | Value | Where |
 |---|---|---|
+| `MENU_AI_CHAT` | `menu_aichat` | |
+| `MENU_ARCHIVE` | `menu_archive` | |
+| `MENU_NOTES` | `menu_notes` | |
+| `MENU_PROFILES` | `menu_profiles` | |
+| `MENU_QUICK_SEARCH` | `menu_quick_search` | |
+| `MENU_SEARCH` | `menu_search` | |
+| `MENU_SETTINGS` | `menu_settings` | |
 | `MENU_SHEET` | `menu_sheet` | |
+| `MENU_STATISTICS` | `menu_statistics` | |
 | `NAV_MENU_BUTTON` | `nav_menu_button` | |
 | `TOP_BAR_BACK_BUTTON` | `top_bar_back_button` | |
 
 ### Tasks
 | Constant | Value | Where |
 |---|---|---|
+| `CHECKLIST_SHEET` | `checklist_sheet` | |
+| `FIRST_RUN_SECTION` | `first_run_section` | |
 | `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
 | `PRIORITY_OPTION_LOW` | `priority_option_low` | |
 | `PRIORITY_OPTION_MEDIUM` | `priority_option_medium` | |
@@ -66,6 +76,10 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_WEEKLY` | `recurrence_option_weekly` | |
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
+| `SHEET_CONFIRM` | `sheet_confirm` | |
+| `SUBTASKS_SECTION` | `subtasks_section` | |
+| `SUBTASK_ADD_BUTTON` | `subtask_add_button` | |
+| `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
 | `TASKS_FAB` | `tasks_fab` | |
 | `TASKS_LIST` | `tasks_list` | |
 | `TASK_CONTEXT_MENU_ARCHIVE` | `task_action_archive` | |
@@ -113,6 +127,7 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `Pomodoro.CYCLE_LABEL` | `pomodoro_cycle_label` | |
+| `Pomodoro.FOCUS_CHIP` | `pomodoro_focus_chip` | |
 | `Pomodoro.PAUSE_BUTTON` | `pomodoro_pause_button` | |
 | `Pomodoro.PHASE_LABEL` | `pomodoro_phase_label` | |
 | `Pomodoro.PLAY_BUTTON` | `pomodoro_play_button` | |
@@ -142,6 +157,8 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `SEARCH_INPUT` | `search_input` | |
+| `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
+| `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
 
 ### Projects
 | Constant | Value | Where |
@@ -162,6 +179,7 @@ non-alphanumeric characters with `_`.
 | `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
+| `Settings.REMINDER_DEFAULTS_SECTION` | `reminder_defaults_section` | |
 | `Settings.VALUE_ROW` | `settings_value_row` | |
 | `Settings.WORK_SCHEDULE_SATURDAY_SWITCH` | `settings_work_schedule_saturday_switch` | |
 | `Settings.WORK_SCHEDULE_SUNDAY_SWITCH` | `settings_work_schedule_sunday_switch` | |
@@ -257,13 +275,18 @@ use the expanded string directly).
 | Function | Input example | Expanded id | Used for |
 |---|---|---|---|
 | `navTab("Today")` | `"Today"` | `nav_tab_today` | Bottom nav tabs |
-| `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in appearance settings |
 | `Settings.accentSwatch("Blue")` | `"Blue"` | `settings_accent_swatch_blue` | Accent colour swatches in Settings |
 | `Settings.content("Interface")` | `"Interface"` | `settings_content_interface` | Settings tab content area |
+| `Settings.reminderOffsetRadioRow("At due time")` | `"At due time"` | `reminder_offset_radio_at_due_time` | Reminder-offset radio rows in notification settings |
+| `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
-| `menuItem("Settings")` | `"Settings"` | `menu_settings` | Menu bottom sheet items |
+| `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
+| `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |
+| `subtaskItem("Child task one")` | `"Child task one"` | `subtask_item_child_task_one` | Subtask list rows |
 | `taskCheckbox("Buy milk")` | `"Buy milk"` | `task_checkbox_buy_milk` | Task checkboxes |
 | `taskItem("Buy milk")` | `"Buy milk"` | `task_item_buy_milk` | Task list rows |
+| `noteAction("edit")` | `"edit"` | `note_action_edit` | Note editor action buttons |
+| `noteFilterChip("pinned")` | `"pinned"` | `note_filter_chip_pinned` | Note list filter chips |
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
 | `agendaSection("Today")` | `"Today"` | `agenda_section_today` | Agenda section headers |
@@ -276,7 +299,6 @@ use the expanded string directly).
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
-| `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view mode tabs (month / day / 4_days) |
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
