@@ -49,14 +49,28 @@ class SlowIsNotDeadTest(unittest.TestCase):
 
 
 class SelfProbeTest(unittest.TestCase):
-    """The liveness checker must not probe itself, and must say so rather than guess."""
+    """The liveness checker must not probe itself, and must say so rather than guess.
 
-    def test_it_excludes_its_own_file_from_the_target_list(self):
+    #534-538 replaced the old `SELF` path-attribute exclusion with an explicit
+    marker: a gate line carrying `# no-self-probe` in its command is skipped.
+    The marker is visible in the registry, so a reviewer can see the exclusion;
+    a path comparison hid it inside the script.
+    """
+
+    def test_the_marker_excludes_a_gate_from_the_target_list(self):
         gates = [('blocking', 'gates are alive',
-                  f'python3 {mod.SELF}'),
+                  'python3 scripts/check-gate-liveness.py  # no-self-probe'),
                  ('blocking', 'something else', 'python3 scripts/check-other.py')]
-        targets = [g for g in gates if mod.SELF not in g[2]]
+        targets = [g for g in gates if mod.SELF_PROBE_SKIP not in g[2]]
         self.assertEqual([g[1] for g in targets], ['something else'])
+
+    def test_the_real_registry_marks_the_liveness_gate(self):
+        """Without the marker in static-gates.sh the self-probe exclusion is dead:
+        the first version of this gate died of its own fan-out timeout (#529)."""
+        marked = [cmd for _, name, cmd in mod.registered_gates()
+                  if 'gates are alive' in name]
+        self.assertEqual(len(marked), 1, 'the liveness gate must be registered once')
+        self.assertIn(mod.SELF_PROBE_SKIP, marked[0])
 
 
 class StdinTest(unittest.TestCase):
