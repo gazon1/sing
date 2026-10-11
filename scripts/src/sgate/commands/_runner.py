@@ -18,6 +18,10 @@ from sgate.output import gate_fail
 from sgate.commands.base import INTERNAL_ERROR, IO_ERROR
 
 
+# Re-export CompletedProcess for callers who want to capture output
+Result = subprocess.CompletedProcess
+
+
 def run(
     cmd: list[str],
     gate_name: str,
@@ -54,6 +58,32 @@ def run(
     except OSError as exc:
         # e.g. bash script not executable, python3 not found (different from
         # FileNotFoundError which catches the exec call specifically).
+        cmd_str = cmd[0] if cmd else "<unknown>"
+        logger.error(f"OS error running {cmd_str}: {exc}")
+        gate_fail(gate_name, None, None, None, None, f"OS error: {exc}")
+        raise SystemExit(IO_ERROR)
+    except Exception:
+        logger.exception("unexpected error")
+        gate_fail(gate_name, None, None, None, None, "unexpected error")
+        raise SystemExit(INTERNAL_ERROR)
+
+
+def run_capture(cmd: list[str], gate_name: str) -> subprocess.CompletedProcess:
+    """Run a gate command and return the result without forwarding output.
+
+    Used by --json mode to capture output for structured parsing.
+
+    Raises:
+        SystemExit: IO_ERROR (cmd/file not found), or INTERNAL_ERROR.
+    """
+    try:
+        return subprocess.run(cmd, capture_output=True)
+    except FileNotFoundError:
+        cmd_str = cmd[0] if cmd else "<unknown>"
+        logger.error(f"{cmd_str} not found")
+        gate_fail(gate_name, None, None, None, None, f"{cmd_str} not found")
+        raise SystemExit(IO_ERROR)
+    except OSError as exc:
         cmd_str = cmd[0] if cmd else "<unknown>"
         logger.error(f"OS error running {cmd_str}: {exc}")
         gate_fail(gate_name, None, None, None, None, f"OS error: {exc}")
