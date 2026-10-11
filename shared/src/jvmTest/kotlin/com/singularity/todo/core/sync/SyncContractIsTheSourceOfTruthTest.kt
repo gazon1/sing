@@ -1,7 +1,5 @@
 package com.singularity.todo.core.sync
 
-import com.lemonappdev.konsist.api.Konsist
-import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
@@ -9,7 +7,6 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tags.Tag as SyncTagEntity
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
@@ -25,6 +22,7 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.util.UUID
 import kotlin.test.assertTrue
+import com.singularity.todo.feature.tags.Tag as SyncTagEntity
 
 /**
  * Verifies that [SyncContract] is the genuine single source of truth for the
@@ -40,7 +38,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncContractIsTheSourceOfTruthTest {
-
     companion object {
         /** Clock for deterministic test timestamps. */
         private val FIXED_INSTANT: kotlin.time.Instant = kotlin.time.Instant.parse("2026-01-01T00:00:00Z")
@@ -54,11 +51,12 @@ class SyncContractIsTheSourceOfTruthTest {
         // protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION.
         // We verify that the version string embedded in the serialised request
         // equals SyncContract.CURRENT_PROTOCOL_VERSION.
-        val request = BatchPushRequest(
-            deviceId = "test-device",
-            profileId = "test-profile",
-            patches = emptyList(),
-        )
+        val request =
+            BatchPushRequest(
+                deviceId = "test-device",
+                profileId = "test-profile",
+                patches = emptyList(),
+            )
         val json = StableJson.encodeToString(BatchPushRequest.serializer(), request)
         assertTrue(
             json.contains(""""protocolVersion":${SyncContract.CURRENT_PROTOCOL_VERSION}"""),
@@ -70,14 +68,15 @@ class SyncContractIsTheSourceOfTruthTest {
 
     @Test
     fun `every DocType in SYNCABLE_DOC_TYPES has a corresponding Kotlin entity`() {
-        val knownEntities = setOf(
-            DocType.Task to Task::class.java,
-            DocType.Note to Note::class.java,
-            DocType.Project to Project::class.java,
-            DocType.Tag to SyncTagEntity::class.java,
-            DocType.TagGroup to TagGroup::class.java,
-            DocType.TimeEntry to TimeEntry::class.java,
-        )
+        val knownEntities =
+            setOf(
+                DocType.Task to Task::class.java,
+                DocType.Note to Note::class.java,
+                DocType.Project to Project::class.java,
+                DocType.Tag to SyncTagEntity::class.java,
+                DocType.TagGroup to TagGroup::class.java,
+                DocType.TimeEntry to TimeEntry::class.java,
+            )
         val missing = SyncContract.SYNCABLE_DOC_TYPES.filter { dt -> knownEntities.none { it.first == dt } }
         assertTrue(missing.isEmpty(), "DocTypes with no Kotlin entity: $missing")
     }
@@ -127,8 +126,9 @@ class SyncContractIsTheSourceOfTruthTest {
     @Test
     fun `a field absent from the allowlist would cause the conformance test to fail`() {
         val allowlist = SyncContract.allowlistFor(DocType.Tag).toMutableSet()
-        val fieldToRemove = allowlist.firstOrNull()
-            ?: throw AssertionError("Tag allowlist is empty — cannot run probe")
+        val fieldToRemove =
+            allowlist.firstOrNull()
+                ?: throw AssertionError("Tag allowlist is empty — cannot run probe")
 
         // Shrink the allowlist to exclude a field that IS in the Tag JSON.
         // The conformance check MUST detect this and fire.
@@ -156,7 +156,10 @@ class SyncContractIsTheSourceOfTruthTest {
      * in the allowlist.  The field must either be added to the allowlist
      * (if intentional) or removed from the entity's serialised output.
      */
-    private fun assertAllowlistConformance(json: JsonObject, docType: DocType) {
+    private fun assertAllowlistConformance(
+        json: JsonObject,
+        docType: DocType,
+    ) {
         val allowlist = SyncContract.allowlistFor(docType)
         val unexpected = json.keys.filter { it !in allowlist }
         assertTrue(
@@ -168,7 +171,7 @@ class SyncContractIsTheSourceOfTruthTest {
                 }
                 append(
                     "Add these fields to SyncContract.FIELD_ALLOWLIST[DocType.$docType] " +
-                    "if intentional, or remove them from the entity's serialised output.",
+                        "if intentional, or remove them from the entity's serialised output.",
                 )
             },
         )
@@ -179,113 +182,119 @@ class SyncContractIsTheSourceOfTruthTest {
     // Minimum viable entities to produce a valid JSON for allowlist checking.
     // All non-nullable fields are filled with stable dummy values.
 
-    private fun minimalTask(): Task = Task(
-        id = TaskId("00000000-0000-0000-0000-000000000001"),
-        title = "Test task",
-        description = null,
-        priority = TaskPriority.None,
-        kind = TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = null,
-        dueTime = null,
-        startDate = null,
-        startTime = null,
-        endDate = null,
-        endTime = null,
-        accentColor = null,
-        emoji = null,
-        estimateMinutes = null,
-        completedAt = null,
-        someday = false,
-        archivedAt = null,
-        isPinned = false,
-        dependsOn = emptySet(),
-        aiSuppressedTagIds = emptySet(),
-        recurrence = null,
-        createdAt = FIXED_INSTANT,
-        updatedAt = FIXED_INSTANT,
-        userId = UserId("test-user"),
-    )
+    private fun minimalTask(): Task =
+        Task(
+            id = TaskId("00000000-0000-0000-0000-000000000001"),
+            title = "Test task",
+            description = null,
+            priority = TaskPriority.None,
+            kind = TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = null,
+            dueTime = null,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = null,
+            emoji = null,
+            estimateMinutes = null,
+            completedAt = null,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            dependsOn = emptySet(),
+            aiSuppressedTagIds = emptySet(),
+            recurrence = null,
+            createdAt = FIXED_INSTANT,
+            updatedAt = FIXED_INSTANT,
+            userId = UserId("test-user"),
+        )
 
-    private fun minimalNote(): Note = Note(
-        id = NoteId(UUID.randomUUID().toString()),
-        userId = UserId("test-user"),
-        title = "Test note",
-        bodyMarkdown = null,
-        bodyHtml = null,
-        isFolder = false,
-        kind = com.singularity.todo.feature.notes.NoteKind.Plain,
-        parentNoteId = null,
-        isPinned = false,
-        pinnedAt = null,
-        color = null,
-        sortOrder = 0,
-        wordCount = 0,
-        charCount = 0,
-        outgoingLinks = emptyList(),
-        taskId = null,
-        createdAt = FIXED_INSTANT,
-        updatedAt = FIXED_INSTANT,
-        deletedAt = null,
-        archivedAt = null,
-    )
+    private fun minimalNote(): Note =
+        Note(
+            id = NoteId(UUID.randomUUID().toString()),
+            userId = UserId("test-user"),
+            title = "Test note",
+            bodyMarkdown = null,
+            bodyHtml = null,
+            isFolder = false,
+            kind = com.singularity.todo.feature.notes.NoteKind.Plain,
+            parentNoteId = null,
+            isPinned = false,
+            pinnedAt = null,
+            color = null,
+            sortOrder = 0,
+            wordCount = 0,
+            charCount = 0,
+            outgoingLinks = emptyList(),
+            taskId = null,
+            createdAt = FIXED_INSTANT,
+            updatedAt = FIXED_INSTANT,
+            deletedAt = null,
+            archivedAt = null,
+        )
 
-    private fun minimalProject(): Project = Project(
-        id = ProjectId(UUID.randomUUID().toString()),
-        name = "Test project",
-        color = 0xFF000000.toInt(),
-        icon = null,
-        description = null,
-        createdAt = FIXED_INSTANT,
-        updatedAt = FIXED_INSTANT,
-        isDefault = false,
-        dueDate = null,
-        team = null,
-        isDeleted = false,
-        deletedAt = null,
-        parentId = null,
-        sortOrder = 0,
-        idempotencyKey = null,
-        externalId = null,
-        userId = UserId("test-user"),
-        inheritedTagGroupIds = emptySet(),
-    )
+    private fun minimalProject(): Project =
+        Project(
+            id = ProjectId(UUID.randomUUID().toString()),
+            name = "Test project",
+            color = 0xFF000000.toInt(),
+            icon = null,
+            description = null,
+            createdAt = FIXED_INSTANT,
+            updatedAt = FIXED_INSTANT,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            parentId = null,
+            sortOrder = 0,
+            idempotencyKey = null,
+            externalId = null,
+            userId = UserId("test-user"),
+            inheritedTagGroupIds = emptySet(),
+        )
 
-    private fun minimalTag(): SyncTagEntity = SyncTagEntity(
-        id = TagId(UUID.randomUUID().toString()),
-        name = "Test tag",
-        color = 0xFF000000.toInt(),
-        createdAt = FIXED_INSTANT,
-        updatedAt = FIXED_INSTANT,
-        groupId = null,
-        sortOrder = 0,
-        deletedAt = null,
-        userId = UserId("test-user"),
-    )
+    private fun minimalTag(): SyncTagEntity =
+        SyncTagEntity(
+            id = TagId(UUID.randomUUID().toString()),
+            name = "Test tag",
+            color = 0xFF000000.toInt(),
+            createdAt = FIXED_INSTANT,
+            updatedAt = FIXED_INSTANT,
+            groupId = null,
+            sortOrder = 0,
+            deletedAt = null,
+            userId = UserId("test-user"),
+        )
 
-    private fun minimalTagGroup(): TagGroup = TagGroup(
-        id = TagGroupId(UUID.randomUUID().toString()),
-        name = "Test tag group",
-        color = 0xFF000000.toInt(),
-        createdAt = FIXED_INSTANT,
-        updatedAt = FIXED_INSTANT,
-        userId = UserId("test-user"),
-        deletedAt = null,
-    )
+    private fun minimalTagGroup(): TagGroup =
+        TagGroup(
+            id = TagGroupId(UUID.randomUUID().toString()),
+            name = "Test tag group",
+            color = 0xFF000000.toInt(),
+            createdAt = FIXED_INSTANT,
+            updatedAt = FIXED_INSTANT,
+            userId = UserId("test-user"),
+            deletedAt = null,
+        )
 
-    private fun minimalTimeEntry(): TimeEntry = TimeEntry(
-        id = TimeEntryId(UUID.randomUUID().toString()),
-        taskId = TaskId("00000000-0000-0000-0000-000000000001"),
-        userId = UserId("test-user"),
-        startedAt = FIXED_INSTANT,
-        endedAt = FIXED_INSTANT,
-        kind = TimeEntryKind.Work,
-        source = TimeEntrySource.Manual,
-        note = null,
-        createdAt = FIXED_INSTANT,
-        updatedAt = FIXED_INSTANT,
-        deletedAt = null,
-    )
+    private fun minimalTimeEntry(): TimeEntry =
+        TimeEntry(
+            id = TimeEntryId(UUID.randomUUID().toString()),
+            taskId = TaskId("00000000-0000-0000-0000-000000000001"),
+            userId = UserId("test-user"),
+            startedAt = FIXED_INSTANT,
+            endedAt = FIXED_INSTANT,
+            kind = TimeEntryKind.Work,
+            source = TimeEntrySource.Manual,
+            note = null,
+            createdAt = FIXED_INSTANT,
+            updatedAt = FIXED_INSTANT,
+            deletedAt = null,
+        )
 }

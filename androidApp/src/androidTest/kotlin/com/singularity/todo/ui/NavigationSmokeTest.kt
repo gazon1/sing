@@ -32,14 +32,15 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class NavigationSmokeTest {
-
     private lateinit var device: UiDevice
 
     @Before
     fun setup() {
-        device = UiDevice.getInstance(
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        )
+        device =
+            UiDevice.getInstance(
+                androidx.test.platform.app.InstrumentationRegistry
+                    .getInstrumentation(),
+            )
         // Unlock the lock screen so ActivityScenario can land on the app.
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // KEYCODE_MENU = unlock
@@ -50,10 +51,11 @@ class NavigationSmokeTest {
      */
     @Test
     fun main_activity_launches_without_crash() {
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         scenario.onActivity { activity ->
             assertNotNull("Activity should be created", activity)
@@ -67,35 +69,38 @@ class NavigationSmokeTest {
      */
     @Test
     fun app_launches_and_all_tabs_are_reachable() {
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
 
         // Wait for the start destination to appear — Today is the start tab.
-        val todayTab = device.wait(
-            Until.findObject(By.res("nav_tab_today")),
-            8_000
-        )
+        val todayTab =
+            device.wait(
+                Until.findObject(By.res("nav_tab_today")),
+                8_000,
+            )
         assertNotNull("Today tab should be visible after cold start", todayTab)
 
         // Verify the shell FAB is present on agenda tabs (Today is an agenda tab).
         assertNotNull(
             "FAB should be present on Today tab",
-            device.findObject(By.res("tasks_fab"))
+            device.findObject(By.res("tasks_fab")),
         )
 
         // The six bottom-bar tabs, in display order from DestinationKind.tabs.
         // Slug is lower-cased from the AppDestination title.
-        val tabs = listOf(
-            "nav_tab_inbox",
-            "nav_tab_today",
-            "nav_tab_upcoming",
-            "nav_tab_plans",
-            "nav_tab_pomodoro",
-            "nav_tab_calendar",
-        )
+        val tabs =
+            listOf(
+                "nav_tab_inbox",
+                "nav_tab_today",
+                "nav_tab_upcoming",
+                "nav_tab_plans",
+                "nav_tab_pomodoro",
+                "nav_tab_calendar",
+            )
 
         tabs.forEach { tabId ->
             device.findObject(By.res(tabId)).click()
@@ -104,7 +109,7 @@ class NavigationSmokeTest {
             // Verify the tab item is still present (navigation succeeded, tab is visible).
             assertNotNull(
                 "Tab $tabId should be reachable after tap",
-                device.findObject(By.res(tabId))
+                device.findObject(By.res(tabId)),
             )
         }
 
@@ -120,10 +125,11 @@ class NavigationSmokeTest {
      */
     @Test
     fun fab_visibility_matches_tab_contract() {
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         device.wait(Until.findObject(By.res("nav_tab_today")), 8_000)
 
@@ -137,7 +143,7 @@ class NavigationSmokeTest {
         device.wait(Until.findObject(By.res("nav_tab_upcoming")), 3_000)
         assertNull(
             "FAB should NOT be on Upcoming tab",
-            device.findObject(By.res("tasks_fab"))
+            device.findObject(By.res("tasks_fab")),
         )
 
         // Plans — agenda tab, FAB present.
@@ -150,7 +156,7 @@ class NavigationSmokeTest {
         device.wait(Until.findObject(By.res("nav_tab_pomodoro")), 3_000)
         assertNull(
             "FAB should NOT be on Pomodoro tab",
-            device.findObject(By.res("tasks_fab"))
+            device.findObject(By.res("tasks_fab")),
         )
 
         scenario.close()

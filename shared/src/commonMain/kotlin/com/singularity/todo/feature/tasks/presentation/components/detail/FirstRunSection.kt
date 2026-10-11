@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * First-run suggestion banner shown on newly created tasks that have no content yet.
@@ -45,7 +46,7 @@ fun FirstRunSection(
     onAddChecklist: (() -> Unit)? = null,
     onAskAi: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    testTag: String = "first_run_section",
+    testTag: String = TestTags.FIRST_RUN_SECTION,
 ) {
     Card(
         modifier = modifier

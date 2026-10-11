@@ -13,7 +13,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoord
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.testPlatformModule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
@@ -39,9 +39,14 @@ import kotlin.test.assertTrue
  * harness uses (`domainModule()` + `testPlatformModule()`) and asserts the state
  * reaches a terminal state using virtual time. The coordinator's `scope` parameter
  * is injected with the test scope so all coroutines run on the test's virtual
- * scheduler — `advanceUntilIdle()` completes all work instantaneously regardless
+ * scheduler — `runCurrent()` completes all work instantaneously regardless
  * of host load. A genuine hang (coroutine that dies before its first emission)
  * is caught immediately: the state never reaches `Loaded` and the assertion fails.
+ *
+ * `runCurrent()`, not `advanceUntilIdle()`: the coordinator's collectors live on
+ * `backgroundScope`, and `advanceUntilIdle()` stops as soon as only background-scope
+ * events remain — the state would never leave `Loading` even when everything is
+ * healthy. `runCurrent()` has no such filter.
  */
 @Tag("fast")
 class TaskDetailCoordinatorGraphTest {
@@ -59,7 +64,7 @@ class TaskDetailCoordinatorGraphTest {
         try {
             val koin = app.koin
             // Pass the TestScope to the coordinator so all its coroutines run on
-            // the test's virtual scheduler. advanceUntilIdle() then completes all
+            // the test's virtual scheduler. runCurrent() then completes all
             // pending work instantaneously — no wall-clock budget needed.
             seedTask(koin, id = "graph-test-task-0", title = "Buy milk")
             val coordinator = TaskDetailCoordinator(
@@ -68,7 +73,7 @@ class TaskDetailCoordinatorGraphTest {
                 crashReporter = NoOpCrashReportingPort(),
                 scope = testScope(this.backgroundScope),
             )
-            advanceUntilIdle()
+            runCurrent()
             val state = coordinator.state.value
             assertIs<TaskDetailUiState.Loaded>(state)
             assertTrue(state.extras is TaskDetailExtras.Ready)

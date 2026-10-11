@@ -88,10 +88,22 @@ collect_and_report() {
       if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
         echo "::error title=Gate failed::$name (exit $rc)"
       fi
-      # Show failure output for blocking gates
+      # Show failure output for blocking gates.  Full output, not a window:
+      # unittest's epilogue (stderr) can sit thousands of lines above the
+      # block-buffered stdout flush that ends the file, and a head/tail
+      # window hid the failing test names in CI (#563).  The 5000-line cap
+      # is a runaway guard, not a diagnostic cut.
       if [[ -f "$out_file" ]]; then
+        local total_lines
+        total_lines=$(wc -l <"$out_file")
         echo "--- $name (exit $rc) ---"
-        cat "$out_file" | head -20
+        if ((total_lines > 5000)); then
+          head -100 "$out_file"
+          echo "… ($((total_lines - 500)) lines omitted) …"
+          tail -400 "$out_file"
+        else
+          cat "$out_file"
+        fi
         echo
       fi
     else
@@ -152,7 +164,13 @@ export -f traceability
 
 # Build hygiene
 gate blocking "version catalog has no literals" python3 scripts/build-version-catalog-gate.py --quiet .
-gate blocking "gate scripts' own unit tests" python3 -m unittest discover -s scripts/tests
+# -v: a failure prints its name the moment it happens, and a run that dies
+# without an epilogue (CI, 2026-10-11) still shows the last test it reached —
+# dots-only output ends mid-stream with no way to tell where.
+# The sentinel proves whether the interpreter reached normal termination;
+# unittest's epilogue goes to stderr while script print()s sit in the
+# block-buffered stdout, so the file's last lines can be stale stdout alone.
+gate blocking "gate scripts' own unit tests" bash -c 'python3 -m unittest discover -s scripts/tests -v; rc=$?; echo "__unittest_rc=$rc"; exit $rc'
 gate blocking "test-task external inputs declared" python3 scripts/check-test-task-inputs.py
 gate blocking "declared dependencies are used" python3 scripts/check-dependency-usage.py
 gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
@@ -234,10 +252,14 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 #
 # ADR reference integrity and status policy — these make ADR deletion safe (#116).
 gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
-# Replaced python3 -m scripts.adr with singularity-adr validate — same Python gate
-# underneath, but the gate now speaks the canonical CLI interface rather than
-# importing the Python package directly (#553).
-gate blocking "ADR status policy" singularity-adr validate
+# #553 switched this gate to `singularity-adr validate` (the canonical CLI
+# interface), but the static job is deliberately JVM-free (~1 min, no Gradle):
+# the installed CLI is not on a CI runner's PATH, so the gate died with exit
+# 127 and dragged "gates are alive" down with it (1 unrunnable).  Both surfaces
+# are kept where they can actually run: the Python gate here (the same code
+# the CLI wraps, per #553), the CLI itself in adr-gate.yml's "ADR validation"
+# step, which installs the distribution and runs on every docs/decisions PR.
+gate blocking "ADR status policy" python3 scripts/check_adr_status.py
 
 # Five consumers discovered docs/decisions/ five different ways and had already
 # drifted apart — three could not see deferred/, which is how the status gate
@@ -257,6 +279,7 @@ gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-bo
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.
 gate advisory "ADR frontmatter drift" adr_dry_run
+gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
 gate advisory "spec-kit issue registry current" python3 scripts/check-speckit-issue-registry.py
 gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
 

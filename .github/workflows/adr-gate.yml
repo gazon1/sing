@@ -22,6 +22,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The runner's default JRE is 17; :adr-cli:installDist builds with the
+      # Gradle toolchain (21) and the installed script then dies with
+      # UnsupportedClassVersionError (class file 65 vs 61) on `validate`.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -33,6 +42,15 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           uv tool install specify-cli
 
+      # The adr-ci workflow's openspec-validate step shells out to the
+      # `openspec` binary; without it the inner step exits 127 and the whole
+      # workflow reports "Shell command exited with code 127". Same pin
+      # convention as ci.yml's static job.
+      - name: Install openspec
+        env:
+          OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.0' }}
+        run: npm install --global "@fission-ai/openspec@${OPENSPEC_VERSION}"
+
       - name: Install singularity-adr
         run: |
           ./gradlew :adr-cli:installDist 2>&1 | tail -5
@@ -43,7 +61,7 @@ jobs:
       - name: ADR validation
         run: singularity-adr validate
 
-      - name: ADR stale check
+      - name: ADR stale check (advisory)
         run: singularity-adr stale --days 30 || true
 
       - name: Refresh DIGEST if needed
@@ -68,6 +86,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Set up Python
         uses: actions/setup-python@v5

@@ -301,8 +301,15 @@ SCRIPT_GATES = [
         # that expects it to fail proves nothing. The first version of this control
         # emptied one file, which the gate correctly ignored.
         sabotage_path=".githooks/pre-push",
+        # Set core.hooksPath as part of the sabotage: on a CI runner the config
+        # is unset, so the gate takes its "unset → advisory, exit 0" branch and
+        # passes no matter what — the control would prove nothing (and did, on
+        # the first CI run that reached it, 2026-10-11). Setting it to .githooks
+        # is what a correctly configured machine already has; the restore leaves
+        # it there, which is the value the gate itself recommends.
         sabotage=(
             "import subprocess as _sp\n"
+            "_sp.run(['git','config','core.hooksPath','.githooks'], cwd=p.parent.parent, check=True)\n"
             "_sp.run(['git','rm','-r','--cached','-q','.githooks'], cwd=p.parent.parent, check=True)"
         ),
         # Content restore alone cannot undo this one — see `sabotage_restore`.
@@ -460,7 +467,15 @@ SCRIPT_GATES = [
         # terminal.
         sabotage_path="README.md",
         sabotage="p.write_text(p.read_text() + '\\nBuild it with `cd /home/sabotage/probe`.\\n')",
-        why="a machine-specific path in a public file is unrecoverable once published",
+        why=(
+            "a machine-specific path in a public file is unrecoverable once published. "
+            "Clean-run is waived (needs_clean_run=False): the spec-kit corpus imported "
+            "by #555 (.specify/issues/*.yaml, .specify/workflows/runs/*) carries the "
+            "importing machine's absolute paths and identity in every record — ~9k "
+            "matches, un-triaged real state — so the gate is advisory until the import "
+            "script emits repo-relative provenance and the corpus is re-imported"
+        ),
+        needs_clean_run=False,
     ),
     ScriptGate(
         name="readme-claims",
@@ -649,6 +664,29 @@ SCRIPT_GATES = [
         ),
         why="removing !isCi from release silently allows non-CI release uploads; "
              "the structural gate catches the missing condition before a comment could be reverted",
+    ),
+    ScriptGate(
+        name="speckit-issue-registry",
+        cmd=[sys.executable, "scripts/check-speckit-issue-registry.py"],
+        sabotage_path=".specify/issues/a-cell-carries-one-state.yaml",
+        # Break the required `type` field: the record no longer names an
+        # openspec-change, which is the malformed-registry shape the gate
+        # reports. Every record carries this field, so the mutation applies.
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'type: openspec-change', 'type: not-openspec-change', 1))"
+        ),
+        why=(
+            "an issue record whose type, slug or openspec_path is broken is a "
+            "registry entry pointing at nothing, and the registry is what agents "
+            "read as the source of truth. Clean-run is waived (needs_clean_run="
+            "False): every record stores the absolute openspec_path of the "
+            "checkout that imported it (night-work-01), so the corpus is red on "
+            "any machine that is not that one — un-triaged real state until the "
+            "registry is re-imported with repo-relative paths; the gate is "
+            "advisory by registration"
+        ),
+        needs_clean_run=False,
     ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
@@ -1895,6 +1933,14 @@ GRADLE_TASK_PARITY: dict[str, tuple[str, str]] = {
         "ci",
         "the Android host source set is built only in its own CI job; see "
         "openspec/changes/ci-checks-parallel-split for why it was split out",
+    ),
+    ":adr-cli:installDist": (
+        "ci",
+        "adr-gate.yml builds the ADR CLI distribution to run it against the "
+        "repository; the local loop reaches the same invariants through the "
+        "check_adr_*.py gates in the shared registry, and reaches :adr-cli:run "
+        "only interactively (ADR authoring), so a packaged installDist is a "
+        "CI-only artifact",
     ),
 }
 

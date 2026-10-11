@@ -19,10 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * This avoids duplicating the `MutableStateFlow`s while keeping the public
  * `StateFlow` API on `SyncEngine` intact.
  */
-internal class SyncEngineState(
-    log: Logger,
-    crashReporter: CrashReportingPort,
-) {
+internal class SyncEngineState(log: Logger, crashReporter: CrashReportingPort) {
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
     val status: StateFlow<SyncEngineStatus> = _status.asStateFlow()
 
@@ -32,13 +29,14 @@ internal class SyncEngineState(
     private val _lastPull = MutableStateFlow<Result<PullSummary>?>(null)
     val lastPull: StateFlow<Result<PullSummary>?> = _lastPull.asStateFlow()
 
-    val phases = SyncPhaseReporter(
-        log = log,
-        crashReporter = crashReporter,
-        status = _status,
-        lastPush = _lastPush,
-        lastPull = _lastPull,
-    )
+    val phases =
+        SyncPhaseReporter(
+            log = log,
+            crashReporter = crashReporter,
+            status = _status,
+            lastPush = _lastPush,
+            lastPull = _lastPull,
+        )
 }
 
 /**
@@ -65,7 +63,6 @@ internal class SyncPhaseReporter(
     private val lastPush: MutableStateFlow<Result<PushSummary>?>,
     private val lastPull: MutableStateFlow<Result<PullSummary>?>,
 ) {
-
     /**
      * Runs [block] — a local database read or write — reporting a failure as
      * [AppError.Persistence].
@@ -94,13 +91,14 @@ internal class SyncPhaseReporter(
         code: String,
         what: String,
         block: suspend () -> T,
-    ): Result<T> = try {
-        Result.success(block())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Throwable) {
-        Result.failure(AppError.Persistence("Could not $what", code = code, cause = e))
-    }
+    ): Result<T> =
+        try {
+            Result.success(block())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            Result.failure(AppError.Persistence("Could not $what", code = code, cause = e))
+        }
 
     /**
      * Records a failed push and lands the status on a terminal value.
@@ -112,7 +110,10 @@ internal class SyncPhaseReporter(
      * as a [PhaseResult.Failed] return value. The reporting here (log + crashReporter)
      * is the internal seam; the external contract is [PhaseResult.Failed].
      */
-    fun pushFailed(error: AppError, pending: Int) {
+    fun pushFailed(
+        error: AppError,
+        pending: Int,
+    ) {
         lastPush.value = Result.failure(error)
         log.e(error.original()) { "Push failed [${error.code}, pending=$pending]" }
         crashReporter.report(error.original(), error.code)
@@ -126,7 +127,10 @@ internal class SyncPhaseReporter(
      * as a [PhaseResult.Failed] return value. The reporting here (log + crashReporter)
      * is the internal seam; the external contract is [PhaseResult.Failed].
      */
-    fun pullFailed(error: AppError, sinceLsn: Long) {
+    fun pullFailed(
+        error: AppError,
+        sinceLsn: Long,
+    ) {
         lastPull.value = Result.failure(error)
         log.e(error.original()) { "Pull failed [${error.code}, sinceLsn=$sinceLsn]" }
         crashReporter.report(error.original(), error.code)
@@ -201,35 +205,51 @@ internal class SyncPhaseReporter(
  */
 sealed interface PhaseResult<out T> {
     fun isSuccess(): Boolean
+
     fun isFailure(): Boolean
+
     fun exceptionOrNull(): Throwable?
+
     fun getOrNull(): T?
+
     fun getOrThrow(): T
 
     /** Wraps a successful phase with its summary value. */
     data class Ok<T>(val value: T) : PhaseResult<T> {
         override fun isSuccess() = true
+
         override fun isFailure() = false
+
         override fun exceptionOrNull(): Throwable? = null
+
         override fun getOrNull(): T? = value
+
         override fun getOrThrow(): T = value
     }
 
     /** The phase ended with a classified [error]. */
     data class Failed<T>(val error: Throwable) : PhaseResult<T> {
         override fun isSuccess() = false
+
         override fun isFailure() = true
+
         override fun exceptionOrNull(): Throwable? = error
+
         override fun getOrNull(): T? = null
+
         override fun getOrThrow(): T = throw error
     }
 
     /** The phase did not run (signed out or no active scope). */
     data object NotRun : PhaseResult<Nothing> {
-        override fun isSuccess() = true  // "did not run" is not a failure
+        override fun isSuccess() = true // "did not run" is not a failure
+
         override fun isFailure() = false
+
         override fun exceptionOrNull(): Throwable? = null
+
         override fun getOrNull(): Nothing? = null
+
         override fun getOrThrow(): Nothing = throw IllegalStateException("Phase did not run")
     }
 
@@ -242,9 +262,13 @@ sealed interface PhaseResult<out T> {
      */
     data object Superseded : PhaseResult<Nothing> {
         override fun isSuccess() = true
+
         override fun isFailure() = false
+
         override fun exceptionOrNull(): Throwable? = null
+
         override fun getOrNull(): Nothing? = null
+
         override fun getOrThrow(): Nothing = throw IllegalStateException("Phase was superseded")
     }
 }
@@ -257,9 +281,10 @@ sealed interface PhaseResult<out T> {
  * internally. The [Superseded] arm returns a zero-count [PushSummary]; no other `T`
  * has a meaningful value to construct here.
  */
-internal fun PhaseResult<PushSummary>.toResult(): Result<PushSummary> = when (this) {
-    is PhaseResult.Ok -> Result.success(value)
-    is PhaseResult.Failed -> Result.failure(error)
-    is PhaseResult.NotRun -> Result.success(PushSummary(0, 0, 0))
-    is PhaseResult.Superseded -> Result.success(PushSummary(0, 0, 0, superseded = 0))
-}
+internal fun PhaseResult<PushSummary>.toResult(): Result<PushSummary> =
+    when (this) {
+        is PhaseResult.Ok -> Result.success(value)
+        is PhaseResult.Failed -> Result.failure(error)
+        is PhaseResult.NotRun -> Result.success(PushSummary(0, 0, 0))
+        is PhaseResult.Superseded -> Result.success(PushSummary(0, 0, 0, superseded = 0))
+    }

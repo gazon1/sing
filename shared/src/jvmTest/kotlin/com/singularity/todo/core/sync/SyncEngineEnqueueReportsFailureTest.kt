@@ -7,8 +7,8 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.core.sync.work.FakeHlcFactory
+import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
@@ -55,7 +55,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncEngineEnqueueReportsFailureTest {
-
     private val clock = MutableClock()
     private val log = Logger.withTag("SyncEngineEnqueueReportsFailureTest")
 
@@ -63,6 +62,7 @@ class SyncEngineEnqueueReportsFailureTest {
         override val docType: DocType = DocType.Task
         override val syncServerVersion: Long = 0
         override val syncHlc: Hlc? = null
+
         override fun toJson() = buildJsonObject { put("title", JsonPrimitive("edited $syncId")) }
     }
 
@@ -76,72 +76,76 @@ class SyncEngineEnqueueReportsFailureTest {
         scope: TestScope,
         outbox: SyncOutboxDao,
         crashReporter: CrashReportingPort,
-    ): SyncEngine = SyncEngine(
-        log = log,
-        api = FakeSyncApiClient(),
-        authRepository = FakeSyncAuthRepository(
-            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-        ),
-        outboxDao = outbox,
-        deadLetterDao = FakeSyncDeadLetterDao(),
-        idGenerator = SequentialIdGenerator(),
-        stateRepository = FakeSyncStateRepository(),
-        shadowDao = FakeSyncShadowDao(),
-        patchBuilder = fakeSyncPatchBuilder(FakeSyncShadowDao()),
-        writerProvider = { fakeSyncDocumentWriter() },
-        scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
-        scheduler = FakeSyncWorkScheduler(),
-        clock = clock,
-        scope = testScope(scope.backgroundScope),
-        crashReporter = crashReporter,
+    ): SyncEngine =
+        SyncEngine(
+            log = log,
+            api = FakeSyncApiClient(),
+            authRepository =
+                FakeSyncAuthRepository(
+                    Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+                ),
+            outboxDao = outbox,
+            deadLetterDao = FakeSyncDeadLetterDao(),
+            idGenerator = SequentialIdGenerator(),
+            stateRepository = FakeSyncStateRepository(),
+            shadowDao = FakeSyncShadowDao(),
+            patchBuilder = fakeSyncPatchBuilder(FakeSyncShadowDao()),
+            writerProvider = { fakeSyncDocumentWriter() },
+            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
+            scheduler = FakeSyncWorkScheduler(),
+            clock = clock,
+            scope = testScope(scope.backgroundScope),
+            crashReporter = crashReporter,
             hlcFactory = FakeHlcFactory(),
-    )
+        )
 
     @Test
-    fun `a change that never reached the outbox is reported`() = runTest {
-        val diskFull = IllegalStateException("database or disk full")
-        val reporter = RecordingCrashReportingPort()
-        val outbox = FakeSyncOutboxDao()
-        val engine = engine(this, UnwritableOutbox(outbox, diskFull), reporter)
+    fun `a change that never reached the outbox is reported`() =
+        runTest {
+            val diskFull = IllegalStateException("database or disk full")
+            val reporter = RecordingCrashReportingPort()
+            val outbox = FakeSyncOutboxDao()
+            val engine = engine(this, UnwritableOutbox(outbox, diskFull), reporter)
 
-        val result = engine.enqueue(TestEntity("task-1"))
+            val result = engine.enqueue(TestEntity("task-1"))
 
-        assertTrue(result.isFailure, "the caller still gets a failure to react to")
-        assertEquals(
-            listOf("sync.enqueue_failed"),
-            reporter.reports.map { it.second },
-            "the issue key is the stable handle an operator greps for; an ad-hoc string " +
-                "would make the failure unfindable in a report store",
-        )
-        assertSame(
-            diskFull,
-            reporter.reports.single().first,
-            "the original throwable, not the AppError wrapper. runCatchingResult builds " +
-                "every AppError in a catch block, so handing the wrapper over would hand " +
-                "over a stack that ends where it was constructed — which is why " +
-                "SyncPhaseReporter reports error.original() and so does this.",
-        )
-        assertTrue(
-            outbox.rows.isEmpty(),
-            "and nothing was queued, which is the whole reason this needs reporting",
-        )
-    }
+            assertTrue(result.isFailure, "the caller still gets a failure to react to")
+            assertEquals(
+                listOf("sync.enqueue_failed"),
+                reporter.reports.map { it.second },
+                "the issue key is the stable handle an operator greps for; an ad-hoc string " +
+                    "would make the failure unfindable in a report store",
+            )
+            assertSame(
+                diskFull,
+                reporter.reports.single().first,
+                "the original throwable, not the AppError wrapper. runCatchingResult builds " +
+                    "every AppError in a catch block, so handing the wrapper over would hand " +
+                    "over a stack that ends where it was constructed — which is why " +
+                    "SyncPhaseReporter reports error.original() and so does this.",
+            )
+            assertTrue(
+                outbox.rows.isEmpty(),
+                "and nothing was queued, which is the whole reason this needs reporting",
+            )
+        }
 
     @Test
-    fun `a change that did reach the outbox reports nothing`() = runTest {
-        // The negative case. Without it, an enqueue that reported on every call
-        // would pass the test above and be pure noise in production.
-        val reporter = RecordingCrashReportingPort()
-        val engine = engine(this, FakeSyncOutboxDao(), reporter)
+    fun `a change that did reach the outbox reports nothing`() =
+        runTest {
+            // The negative case. Without it, an enqueue that reported on every call
+            // would pass the test above and be pure noise in production.
+            val reporter = RecordingCrashReportingPort()
+            val engine = engine(this, FakeSyncOutboxDao(), reporter)
 
-        val result = engine.enqueue(TestEntity("task-1"))
+            val result = engine.enqueue(TestEntity("task-1"))
 
-        assertTrue(result.isSuccess)
-        assertEquals(
-            emptyList(),
-            reporter.reports,
-            "the happy path is the overwhelming majority of calls; reporting it would bury " +
-                "the failures this requirement exists to surface",
-        )
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(
+                emptyList(),
+                reporter.reports,
+                "the happy path is the overwhelming majority of calls; reporting it would bury " +
+                    "the failures this requirement exists to surface",
+            )
+        }
 }

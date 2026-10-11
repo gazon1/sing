@@ -34,21 +34,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.theme.DataSeriesColors
-import com.singularity.todo.core.ui.theme.DataStatusColors
+import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
-import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.theme.DataSeriesColors
+import com.singularity.todo.core.ui.theme.DataStatusColors
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
+import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-import kotlin.time.Duration
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Duration
 
 private val TAB_TITLES = listOf("Tasks", "Time", "Health")
 
@@ -61,9 +61,10 @@ fun StatisticsScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(16.dp),
     ) {
         Text(
             text = "Statistics",
@@ -87,22 +88,27 @@ fun StatisticsScreen(
 
         when (selectedTab) {
             0 -> TasksTabContent(state = state)
+
             1 -> InsightsTabContent(viewModel = viewModel, insightsState = state.insights, rangeDays = state.rangeDays)
-            2 -> HealthTabContent(
-                health = state.health,
-                onBucketClick = { bucket ->
-                    when (bucket) {
-                        // OVERDUE navigates to Today, which surfaces overdue tasks at the top.
-                        TaskHealthBucket.OVERDUE -> {
-                            navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
+
+            2 ->
+                HealthTabContent(
+                    health = state.health,
+                    onBucketClick = { bucket ->
+                        when (bucket) {
+                            // OVERDUE navigates to Today, which surfaces overdue tasks at the top.
+                            TaskHealthBucket.OVERDUE -> {
+                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
+                            }
+
+                            // BLOCKED and STAGNANT have no stored filter equivalent yet — no-op.
+                            TaskHealthBucket.BLOCKED,
+                            TaskHealthBucket.STAGNANT,
+                            TaskHealthBucket.FINE,
+                            -> { /* no stored filter path yet */ }
                         }
-                        // BLOCKED and STAGNANT have no stored filter equivalent yet — no-op.
-                        TaskHealthBucket.BLOCKED,
-                        TaskHealthBucket.STAGNANT,
-                        TaskHealthBucket.FINE -> { /* no stored filter path yet */ }
-                    }
-                },
-            )
+                    },
+                )
         }
     }
 }
@@ -110,9 +116,10 @@ fun StatisticsScreen(
 @Composable
 private fun TasksTabContent(state: StatisticsUiState) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (state.loading) {
@@ -160,15 +167,17 @@ private fun TasksTabContent(state: StatisticsUiState) {
 
 @Composable
 private fun TasksBarChart(buckets: List<DayBucket>) {
-    val maxCount = (buckets.maxOfOrNull { it.completedCount } ?: 1)
-        .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
+    val maxCount =
+        (buckets.maxOfOrNull { it.completedCount } ?: 1)
+            .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .padding(16.dp),
         ) {
             val barCount = buckets.size
             if (barCount == 0) return@Canvas
@@ -193,10 +202,11 @@ private fun TasksBarChart(buckets: List<DayBucket>) {
                     if (overdueHeight > 0) {
                         drawRect(
                             color = DataStatusColors.Overdue,
-                            topLeft = Offset(
-                                index * (barWidth + spacing),
-                                chartHeight - completedHeight - overdueHeight,
-                            ),
+                            topLeft =
+                                Offset(
+                                    index * (barWidth + spacing),
+                                    chartHeight - completedHeight - overdueHeight,
+                                ),
                             size = Size(barWidth, overdueHeight),
                         )
                     }
@@ -234,9 +244,10 @@ private fun InsightsTabContent(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Total time header + range selector
@@ -335,13 +346,17 @@ private fun ProjectBreakdown(
 }
 
 @Composable
-private fun InsightsStackedBarChart(buckets: List<DayInsightsBucket>, modifier: Modifier = Modifier) {
+private fun InsightsStackedBarChart(
+    buckets: List<DayInsightsBucket>,
+    modifier: Modifier = Modifier,
+) {
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
             Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
             ) {
                 val barCount = buckets.size
                 if (barCount == 0) return@Canvas
@@ -355,11 +370,12 @@ private fun InsightsStackedBarChart(buckets: List<DayInsightsBucket>, modifier: 
                 val maxMs = buckets.maxOfOrNull { it.totalMs } ?: 1L
 
                 buckets.forEachIndexed { index, bucket ->
-                    val normalizedHeight = if (maxMs > 0) {
-                        (bucket.totalMs.toFloat() / maxMs) * chartHeight
-                    } else {
-                        0f
-                    }
+                    val normalizedHeight =
+                        if (maxMs > 0) {
+                            (bucket.totalMs.toFloat() / maxMs) * chartHeight
+                        } else {
+                            0f
+                        }
 
                     drawRect(
                         color = DataStatusColors.Completed,
@@ -396,9 +412,10 @@ private fun ProjectTimeRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Color swatch
@@ -430,7 +447,11 @@ private fun ProjectTimeRow(
  */
 
 @Composable
-private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+private fun StatCard(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
     Card(modifier = modifier) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -479,9 +500,10 @@ private fun HealthTabContent(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())
@@ -491,11 +513,12 @@ private fun HealthTabContent(
             StatCard(
                 title = bucket.displayLabel(),
                 value = health[bucket].toString(),
-                modifier = if (clickable) {
-                    Modifier.fillMaxWidth().clickable { onBucketClick(bucket) }
-                } else {
-                    Modifier.fillMaxWidth()
-                },
+                modifier =
+                    if (clickable) {
+                        Modifier.fillMaxWidth().clickable { onBucketClick(bucket) }
+                    } else {
+                        Modifier.fillMaxWidth()
+                    },
             )
         }
 
@@ -508,20 +531,22 @@ private fun HealthTabContent(
         }
 
         Text(
-            text = health.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
-                ?: "Completion rate: nothing created yet",
+            text =
+                health.completionRate?.let { "Completion rate: ${(it * 100).toInt()}%" }
+                    ?: "Completion rate: nothing created yet",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-private fun TaskHealthBucket.displayLabel(): String = when (this) {
-    TaskHealthBucket.OVERDUE -> "Overdue"
-    TaskHealthBucket.BLOCKED -> "Blocked"
-    TaskHealthBucket.STAGNANT -> "Not touched in a while"
-    TaskHealthBucket.FINE -> "On track"
-}
+private fun TaskHealthBucket.displayLabel(): String =
+    when (this) {
+        TaskHealthBucket.OVERDUE -> "Overdue"
+        TaskHealthBucket.BLOCKED -> "Blocked"
+        TaskHealthBucket.STAGNANT -> "Not touched in a while"
+        TaskHealthBucket.FINE -> "On track"
+    }
 
 /** Whole days, because a partial day is noise on a retention-scale number. */
 private fun Duration.formatDays(): String {
@@ -533,33 +558,37 @@ private fun Duration.formatDays(): String {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun StatisticsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "Statistics",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(16.dp))
-        TasksTabContent(
-            state = StatisticsUiState(
-                loading = false,
-                snapshot = StatisticsSnapshot(
-                    tasksPerDay = listOf(
-                        DayBucket("2026-08-31", 2, 0),
-                        DayBucket("2026-09-01", 5, 0),
-                        DayBucket("2026-09-02", 3, 1),
-                        DayBucket("2026-09-03", 7, 0),
-                        DayBucket("2026-09-04", 4, 0),
-                        DayBucket("2026-09-05", 6, 2),
-                        DayBucket("2026-09-06", 8, 0),
+private fun StatisticsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Text(
+                text = "Statistics",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(16.dp))
+            TasksTabContent(
+                state =
+                    StatisticsUiState(
+                        loading = false,
+                        snapshot =
+                            StatisticsSnapshot(
+                                tasksPerDay =
+                                    listOf(
+                                        DayBucket("2026-08-31", 2, 0),
+                                        DayBucket("2026-09-01", 5, 0),
+                                        DayBucket("2026-09-02", 3, 1),
+                                        DayBucket("2026-09-03", 7, 0),
+                                        DayBucket("2026-09-04", 4, 0),
+                                        DayBucket("2026-09-05", 6, 2),
+                                        DayBucket("2026-09-06", 8, 0),
+                                    ),
+                                totalCompleted = 35,
+                                totalOverdue = 3,
+                                averagePerDay = 5.0,
+                                computedAt = Instant.fromEpochMilliseconds(0).toEpochMilliseconds(),
+                            ),
                     ),
-                    totalCompleted = 35,
-                    totalOverdue = 3,
-                    averagePerDay = 5.0,
-                    computedAt = Instant.fromEpochMilliseconds(0).toEpochMilliseconds(),
-                ),
-            ),
-        )
+            )
+        }
     }
-}

@@ -12,6 +12,7 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
@@ -76,7 +77,9 @@ class OpenTaskFromAgendaFlowTest {
         awaitTag(TestTags.taskItem("Dated task")).performClick()
 
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        // Due date row shows ISO date, not the placeholder
+        // Due date row shows ISO date, not the placeholder. The attribute rows sit
+        // below the fold on a 1024x768 window, so scroll before asserting display.
+        scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
         assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
         assertTextDisplayed(today.toString())
         assertTextNotExists("Добавить дату")

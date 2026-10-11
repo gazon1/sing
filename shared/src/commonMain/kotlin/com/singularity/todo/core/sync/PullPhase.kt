@@ -6,7 +6,6 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toAppError
-import com.singularity.todo.core.sync.SyncPhaseReporter
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 
@@ -73,7 +72,10 @@ internal class PullPhase(
      * a global operation that belongs to the sync loop, not to individual entity handlers.
      * Merging here keeps every event on the same global clock timeline.
      */
-    private suspend fun applyEvent(event: SyncEvent, scope: SyncScope): PullStep {
+    private suspend fun applyEvent(
+        event: SyncEvent,
+        scope: SyncScope,
+    ): PullStep {
         if (!event.belongsTo(scope)) return PullStep.Skipped
         // Merge the received HLC into the local clock so the local device advances to
         // meet the remote clock. Without this, a device behind a day never catches up
@@ -94,7 +96,10 @@ internal class PullPhase(
      * re-reading inside would allow a profile switch between the read and write to store
      * one scope's position under another.
      */
-    internal suspend fun pull(scope: SyncScope, sinceLsn: Long): PhaseResult<PullSummary> {
+    internal suspend fun pull(
+        scope: SyncScope,
+        sinceLsn: Long,
+    ): PhaseResult<PullSummary> {
         val session = authRepository.currentSession.value
         if (session !is Session.SignedIn) {
             phases.setStatus(SyncEngineStatus.Idle)
@@ -155,11 +160,12 @@ internal class PullPhase(
             val summary = PullSummary(received, applied, dropped)
 
             if (stalled != null) {
-                val error = AppError.Persistence(
-                    "Sync stopped: $stalled. The events after it will keep arriving, " +
-                        "and this device will not apply them until that one can be.",
-                    code = "sync.pull_stalled",
-                )
+                val error =
+                    AppError.Persistence(
+                        "Sync stopped: $stalled. The events after it will keep arriving, " +
+                            "and this device will not apply them until that one can be.",
+                        code = "sync.pull_stalled",
+                    )
                 phases.recordPullResult(Result.failure(error))
                 phases.setStatus(SyncEngineStatus.Failure(error))
                 return PhaseResult.Failed(error)
@@ -180,7 +186,10 @@ internal class PullPhase(
     /**
      * One page of the feed, dealt with, and what it cost.
      */
-    private suspend fun applyPage(page: List<SyncEvent>, scope: SyncScope): PageOutcome {
+    private suspend fun applyPage(
+        page: List<SyncEvent>,
+        scope: SyncScope,
+    ): PageOutcome {
         var applied = 0
         var dropped = 0
         var maxLsn = 0L
@@ -222,10 +231,5 @@ internal class PullPhase(
     }
 
     /** What one page of the feed cost, and whether it stopped early. */
-    private data class PageOutcome(
-        val applied: Int,
-        val dropped: Int,
-        val maxLsn: Long,
-        val stalled: String?,
-    )
+    private data class PageOutcome(val applied: Int, val dropped: Int, val maxLsn: Long, val stalled: String?)
 }

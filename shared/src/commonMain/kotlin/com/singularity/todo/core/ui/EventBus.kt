@@ -24,10 +24,12 @@ import kotlin.concurrent.atomics.incrementAndFetch
  * For multi-subscriber broadcast scenarios, collect a shared flow directly.
  *
  * @param capacity Buffer capacity. Defaults to [Channel.BUFFERED].
- * @param crashReporter Called when an event is dropped after close. Defaults to
- *   [NoOpCrashReportingPort] so tests are silent without a global to reset; supply a
- *   [com.singularity.todo.test.fakes.RecordingCrashReportingPort] to assert no report
- *   was made.
+ * @param crashReporter Deliberately **never** called for the drop-after-close case
+ *   (#141: a discard is a lifecycle race, not a defect, and a report per teardown is
+ *   noise on a channel that must mean "something is wrong"). The parameter exists so a
+ *   test can inject a [com.singularity.todo.test.fakes.RecordingCrashReportingPort]
+ *   and assert `reports.isEmpty()` — the absence of a report is the contract, and only
+ *   an injectable reporter can prove it.
  * @see MviEvent
  */
 @Stable
@@ -40,6 +42,10 @@ import kotlin.concurrent.atomics.incrementAndFetch
 @OptIn(ExperimentalAtomicApi::class)
 class EventBus<E : MviEvent>(
     capacity: Int = Channel.BUFFERED,
+    // Never read in production on purpose: #141 makes "no report on drop-after-close"
+    // the contract, and only an injectable reporter lets a test prove an absence.
+    // The suppression is for that seam, not to hide a missed call site.
+    @Suppress("UnusedPrivateProperty") // see the line above: the unread property IS the guard
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     private val _channel = Channel<E>(capacity)
@@ -85,14 +91,11 @@ class EventBus<E : MviEvent>(
             // arm is reached — hence the ordering.
             throw cancelled
         } catch (closed: ClosedSendChannelException) {
+            // Closed-bus case: a lifecycle race, not a defect. Count and log — but do not
+            // report as a crash, because a drop that is expected on a closed channel is
+            // not a defect. The test enforces this: `reports.isEmpty()` after a drop.
             val dropped = droppedAfterCloseCount.incrementAndFetch()
-            // `closed` is logged rather than ignored so the line says *why* the event went
-            // missing, not just that it did.  The reporter is also called: a drop is a handled
-            // failure, and a reporter that is never called cannot distinguish "no drop happened"
-            // from "drop was silently absorbed" — which is the exact regression this test
-            // guards against.
             log.d(closed) { "EventBus closed, dropped event #$dropped" }
-            crashReporter.report(closed, "EventBus.dropped")
         }
     }
 

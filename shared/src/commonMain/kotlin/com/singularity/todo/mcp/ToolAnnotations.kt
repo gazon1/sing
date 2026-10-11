@@ -14,5 +14,3 @@ data class ToolAnnotations(
     val idempotentHint: Boolean = false,
     val openWorldHint: Boolean = false,
 )
-
-

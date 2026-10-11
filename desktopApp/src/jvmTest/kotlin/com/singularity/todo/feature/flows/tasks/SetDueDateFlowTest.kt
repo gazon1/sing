@@ -10,6 +10,7 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -54,6 +55,10 @@ class SetDueDateFlowTest {
         awaitTag(TestTags.taskItem("Buy milk")).performClick()
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
+        // The attribute rows live below the fold on a 1024x768 window — the priority
+        // row alone lands at y=715 — so the due row is composed at (0,0) w=0 h=0
+        // until scrolled into view, and assertIsDisplayed fails on a zero-size node.
+        scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
         assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
         // The row renders the ISO date, not the placeholder.
         assertTextDisplayed(today.toString())

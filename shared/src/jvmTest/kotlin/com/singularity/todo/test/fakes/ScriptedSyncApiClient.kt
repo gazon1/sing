@@ -30,14 +30,15 @@ class ScriptedSyncApiClient(
     val authenticatedAs: String = "user-1",
     ignoreSinceLsn: Boolean = false,
 ) : SyncApiClient {
-
     private val _pushResponses = ArrayDeque<BatchPushResponse>()
     val pushResponses: ArrayDeque<BatchPushResponse> get() = _pushResponses
 
     private var _ignoreSinceLsn = ignoreSinceLsn
     var ignoreSinceLsn: Boolean
         get() = _ignoreSinceLsn
-        set(value) { _ignoreSinceLsn = value }
+        set(value) {
+            _ignoreSinceLsn = value
+        }
 
     /**
      * Adds a [BatchPushResponse] to the end of the response queue.
@@ -54,20 +55,21 @@ class ScriptedSyncApiClient(
         enqueuePushResponse(BatchPushResponse(results.toList()))
     }
 
-    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
-        return if (_pushResponses.isNotEmpty()) {
+    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse =
+        if (_pushResponses.isNotEmpty()) {
             _pushResponses.removeFirst()
         } else {
             defaultPushResponse
         }
-    }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
-        return pullEvents
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> =
+        pullEvents
             .filter { _ignoreSinceLsn || it.serverLsn > sinceLsn }
             .sortedBy { it.serverLsn }
             .take(limit)
-    }
 
     override suspend fun testConnection(): Result<Unit> = Result.success(Unit)
 

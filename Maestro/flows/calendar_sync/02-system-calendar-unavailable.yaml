@@ -15,7 +15,7 @@ tags:
   - calendar_sync
   - CAL-SYNC-SYSTEM-01
 ---
-- runFlow: ../helpers/launch-clean.yaml
+- runFlow: ../../helpers/launch-clean.yaml
 
 # Open Settings.
 - tapOn:

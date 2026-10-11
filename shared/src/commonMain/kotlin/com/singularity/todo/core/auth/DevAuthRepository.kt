@@ -38,10 +38,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * repo.signOutCalled      // true if signOut() was invoked
  * ```
  */
-class DevAuthRepository private constructor(
-    initialSession: Session,
-) : AuthRepository {
-
+class DevAuthRepository private constructor(initialSession: Session) : AuthRepository {
     private val _currentSession = MutableStateFlow(initialSession)
     override val currentSession: StateFlow<Session> = _currentSession.asStateFlow()
 
@@ -78,19 +75,26 @@ class DevAuthRepository private constructor(
 
     // ─── AuthRepository implementation ────────────────────────────────────
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> {
+    override suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         signUpCalls += email to password
         return Result.success(Unit)
     }
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> {
+    override suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         signInCalls += email to password
-        _currentSession.value = Session.SignedIn(
-            userId = UserId.anonymous,
-            email = email,
-            accessToken = "dev-access-token",
-            refreshToken = "dev-refresh-token",
-        )
+        _currentSession.value =
+            Session.SignedIn(
+                userId = UserId.anonymous,
+                email = email,
+                accessToken = "dev-access-token",
+                refreshToken = "dev-refresh-token",
+            )
         return Result.success(Unit)
     }
 
@@ -106,14 +110,18 @@ class DevAuthRepository private constructor(
         return Result.success(Unit)
     }
 
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> {
+    override suspend fun migrateAnonymousTo(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         signInCalls += email to password
-        _currentSession.value = Session.SignedIn(
-            userId = UserId.anonymous,
-            email = email,
-            accessToken = "dev-access-token",
-            refreshToken = "dev-refresh-token",
-        )
+        _currentSession.value =
+            Session.SignedIn(
+                userId = UserId.anonymous,
+                email = email,
+                accessToken = "dev-access-token",
+                refreshToken = "dev-refresh-token",
+            )
         return Result.success(Unit)
     }
 
@@ -143,14 +151,16 @@ class DevAuthRepository private constructor(
 
     /** Creates a repository that starts as [Session.Anonymous]. */
     companion object {
-        fun anonymous(): DevAuthRepository =
-            DevAuthRepository(Session.Anonymous(UserId.anonymous))
+        fun anonymous(): DevAuthRepository = DevAuthRepository(Session.Anonymous(UserId.anonymous))
 
         /**
          * Creates a repository that starts as [Session.SignedIn].
          * No Supabase or any other backend is contacted.
          */
-        fun signedIn(email: String, userId: UserId = UserId.anonymous): DevAuthRepository =
+        fun signedIn(
+            email: String,
+            userId: UserId = UserId.anonymous,
+        ): DevAuthRepository =
             DevAuthRepository(
                 Session.SignedIn(
                     userId = userId,

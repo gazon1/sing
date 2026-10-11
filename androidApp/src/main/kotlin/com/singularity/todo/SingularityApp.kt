@@ -117,7 +117,8 @@ open class SingularityApp : Application() {
             version = version,
             logDirectory = filesDir.absolutePath.toPath() / "logs",
         )
-        @Suppress("KoinCompilationForInternal") // KOIN-W003: dynamically-computed list is intentional — documented in the comment below
+        // KOIN-W003: dynamically-computed list is intentional — documented in the comment below.
+        @Suppress("KoinCompilationForInternal")
         startKoin {
             androidContext(this@SingularityApp)
             @Suppress("KoinCompilationForInternal") // same: spread of concatenated lists, not a module list literal

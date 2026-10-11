@@ -2,7 +2,7 @@
 title: "ADR Storage Outlives The Application"
 date: 2026-10-11
 status: open
-tags: ["adr-tooling", "architecture"]
+tags: [adr-tooling, architecture]
 ---
 
 ## Context

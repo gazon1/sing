@@ -6,7 +6,7 @@ tags:
   - TASK-TIME-01
 ---
 # Seed an undated task so it appears in Inbox.
-- runFlow: ../helpers/seed-task.yaml
+- runFlow: ../../helpers/seed-task.yaml
 
 # Open the task detail screen.
 - tapOn:

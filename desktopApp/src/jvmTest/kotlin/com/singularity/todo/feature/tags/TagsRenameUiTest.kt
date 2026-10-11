@@ -2,6 +2,7 @@
 
 package com.singularity.todo.feature.tags
 
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -66,6 +67,17 @@ class TagsRenameUiTest {
         )
     }
 
+    /**
+     * A dialog-opening click followed by an immediate node lookup flaked twice on a
+     * loaded CI runner (2026-10-11: two different tests in this class, both "dialog
+     * did not open"). waitForIdle alone can return before the local `showAddDialog`
+     * state has recomposed the dialog, so wait for the node itself.
+     */
+    private fun ComposeUiTest.waitForText(text: String) =
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
+
     @Test
     fun `tapping the pencil opens the rename dialog pre-filled with the current name`() =
         runIsolatedComposeTest {
@@ -76,6 +88,7 @@ class TagsRenameUiTest {
 
             onNodeWithTag(TestTags.tagRename("work")).performClick()
 
+            waitForText("Rename Tag")
             onNodeWithText("Rename Tag").assertIsDisplayed()
             onNodeWithText("Save").assertIsDisplayed()
             // The field is pre-filled, not empty: the rename starts from the current name.
@@ -90,6 +103,7 @@ class TagsRenameUiTest {
         }
 
         onNodeWithTag(TestTags.tagRename("work")).performClick()
+        waitForText("Rename Tag")
         onNode(hasSetTextAction()).performTextClearance()
         onNode(hasSetTextAction()).performTextInput("office")
         onNodeWithText("Save").performClick()
@@ -107,6 +121,7 @@ class TagsRenameUiTest {
         }
 
         onNodeWithTag(TestTags.tagRename("work")).performClick()
+        waitForText("Rename Tag")
         onNode(hasSetTextAction()).performTextClearance()
         // "Save" is disabled while the field is empty, so the click is a no-op.
         onNodeWithText("Save").performClick()
@@ -126,6 +141,7 @@ class TagsRenameUiTest {
 
         onNodeWithTag(TestTags.TAGS_FAB).performClick()
 
+        waitForText("New Tag")
         onNodeWithText("New Tag").assertIsDisplayed()
         onNodeWithText("Create").assertIsDisplayed()
     }
