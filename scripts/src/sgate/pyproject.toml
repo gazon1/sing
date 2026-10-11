@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sgate"
+version = "0.1.0"
+description = "Unified CLI for singularity-todo gate scripts"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.0",
+    "structlog>=24.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+sgate = "sgate.cli:main"
+
+# scripts/sgate/ is both project root and package directory.
+# A .pth file appends this directory to sys.path so Python finds the package.
+[tool.setuptools]
+packages = []

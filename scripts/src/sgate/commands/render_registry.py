@@ -1,0 +1,185 @@
+"""sgate.commands.render_registry — generate docs/scripts/gate-registry.md from Click command docstrings."""
+from __future__ import annotations
+
+import ast
+import re
+from pathlib import Path
+
+import click
+
+import sgate
+from sgate.commands.base import CLEAN, CONFIG_ERROR, INTERNAL_ERROR, register
+
+
+EXIT_CODES_RE = re.compile(r"Exit codes:\s*(?:\n\s*\d+\s*=\s*[^\n]+)+", re.MULTILINE)
+_GATE_NAME_RE = re.compile(r"^@click\.command\(['\"]([^'\"]+)['\"]")
+
+
+def _extract_docstring(path: Path) -> tuple[str | None, dict[int, str], str | None]:
+    """Extract purpose, exit codes, and ADR link from a Click command module.
+
+    Returns (purpose, exit_codes_dict, adr_link)
+    """
+    try:
+        content = path.read_text(encoding="utf-8")
+        tree = ast.parse(content)
+    except (SyntaxError, ValueError):
+        return None, {}, None
+
+    # Get module docstring
+    docstring = ast.get_docstring(tree)
+
+    # Find the Click command decorator and gate name
+    gate_name = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "command":
+                if node.args and isinstance(node.args[0], ast.Constant):
+                    gate_name = node.args[0].value
+            elif isinstance(func, ast.Name) and func.id == "command":
+                if node.args and isinstance(node.args[0], ast.Constant):
+                    gate_name = node.args[0].value
+
+    # Extract exit codes block
+    exit_codes: dict[int, str] = {}
+    adr_link: str | None = None
+
+    if docstring:
+        # Find ADR link
+        adr_match = re.search(r"ADR[-_ ](\d+)", docstring)
+        if adr_match:
+            adr_link = f"adr-{adr_match.group(1)}"
+
+        # Find exit codes block
+        ec_match = EXIT_CODES_RE.search(docstring)
+        if ec_match:
+            ec_block = ec_match.group()
+            for line in ec_block.splitlines():
+                m = re.match(r"\s*(\d+)\s*=\s*(\w+)\s*(.*)", line)
+                if m:
+                    code = int(m.group(1))
+                    meaning = m.group(3).strip()
+                    exit_codes[code] = f"{m.group(2)}: {meaning}"
+
+        # First paragraph = purpose
+        paragraphs = [p.strip() for p in docstring.split("\n\n") if p.strip()]
+        purpose = paragraphs[0] if paragraphs else None
+    else:
+        purpose = None
+
+    return purpose, exit_codes, adr_link
+
+
+def _generate_table(commands_dir: Path) -> str:
+    """Generate the gate-registry.md table content."""
+    lines = [
+        "| Gate | Mode | Purpose | Exit Codes | ADR |",
+        "|------|------|---------|------------|-----|",
+    ]
+
+    gates = sgate.gates.load_gates()
+    gate_map = {g.name: g for g in gates}
+
+    # Import all command modules to discover them
+    commands_path = Path(__file__).parent
+    for cmd_file in sorted(commands_path.glob("*.py")):
+        if cmd_file.stem in ("base", "__init__"):
+            continue
+
+        purpose, exit_codes, adr_link = _extract_docstring(cmd_file)
+        gate_name = cmd_file.stem.replace("_", "-")
+
+        # Check if this gate is in the registry
+        matching_gate = None
+        for g in gates:
+            if g.name.replace(" ", "-") == gate_name or g.name.replace(" ", "_") == gate_name:
+                matching_gate = g
+                break
+
+        mode = matching_gate.mode if matching_gate else "unknown"
+        cmd_short = matching_gate.command[:50] + "…" if matching_gate and len(matching_gate.command) > 50 else (matching_gate.command if matching_gate else "")
+
+        ec_str = ", ".join(f"{k}={v}" for k, v in sorted(exit_codes.items())) if exit_codes else "—"
+        adr_str = adr_link if adr_link else "—"
+
+        purpose_str = purpose if purpose else cmd_short
+        if len(purpose_str) > 80:
+            purpose_str = purpose_str[:77] + "..."
+
+        lines.append(f"| {gate_name} | {mode} | {purpose_str} | {ec_str} | {adr_str} |")
+
+    return "\n".join(lines)
+
+
+@click.command("render-registry")
+@click.option("--check", is_flag=True, help="Fail if gate-registry.md is outdated")
+@click.option("--json", is_flag=True, help="Emit machine-readable output to stdout")
+def render_registry(check: bool, json: bool) -> None:
+    """Generate docs/scripts/gate-registry.md from sgate command docstrings.
+
+    Reads all sgate/commands/*.py files, extracts first-paragraph purpose,
+    Exit codes block, and ADR reference, then writes a Markdown table.
+
+    Exit codes:
+      0 = clean (generated successfully or --check passed)
+      1 = --check: file is outdated or missing
+      3 = configuration error (docs dir not writable)
+      5 = internal error
+    """
+    registry_md = sgate.repo.GATE_REGISTRY_MD
+    commands_dir = Path(__file__).parent
+
+    table_content = _generate_table(commands_dir)
+
+    header = """<!-- AUTO-GENERATED by sgate render-registry — do not edit manually -->
+
+# Gate Registry
+
+Generated from `sgate/commands/*.py` docstrings.
+
+| Gate | Mode | Purpose | Exit Codes | ADR |
+|------|------|---------|------------|-----|"""
+
+    full_content = header + "\n" + table_content + "\n"
+
+    if check:
+        if not registry_md.exists():
+            if json:
+                click.echo('{"status": "missing", "path": "' + str(registry_md) + '"}')
+            else:
+                click.echo(f"gate-registry.md is missing — run sgate render-registry to generate", err=True)
+            raise SystemExit(CONFIG_ERROR)
+
+        current = registry_md.read_text()
+        if current != full_content:
+            if json:
+                click.echo('{"status": "outdated", "path": "' + str(registry_md) + '"}')
+            else:
+                click.echo("gate-registry.md is outdated — run sgate render-registry to update", err=True)
+            raise SystemExit(CONFIG_ERROR)
+
+        if json:
+            click.echo('{"status": "current", "path": "' + str(registry_md) + '"}')
+        else:
+            click.echo("gate-registry.md is current.")
+        raise SystemExit(CLEAN)
+
+    # Write
+    try:
+        registry_md.parent.mkdir(parents=True, exist_ok=True)
+        registry_md.write_text(full_content, encoding="utf-8")
+    except OSError as exc:
+        click.echo(f"Failed to write {registry_md}: {exc}", err=True)
+        raise SystemExit(CONFIG_ERROR)
+
+    if json:
+        import json as _json
+        click.echo(_json.dumps({"status": "generated", "path": str(registry_md)}))
+    else:
+        click.echo(f"Generated {registry_md}")
+    raise SystemExit(CLEAN)
+
+
+# Register with the CLI group
+register(render_registry)
