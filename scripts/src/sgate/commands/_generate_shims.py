@@ -9,12 +9,18 @@ from pathlib import Path
 
 SRC = Path(__file__).parent
 
+# ── helpers ────────────────────────────────────────────────────────────────────
 
 def module_name(display_name: str) -> str:
     """Convert gate display name to Python module filename."""
     s = re.sub(r"[^a-z0-9]+", "_", display_name.lower())
     return re.sub(r"_+", "_", s).strip("_")
 
+
+# ── Gate registry ─────────────────────────────────────────────────────────────
+# (display_name, mode, command_parts, *extra)
+# extra can include {"kiwi": True} to mark KIWI_REQUIRED
+# ──────────────────────────────────────────────────────────────────────────────
 
 GATES = [
     # Build hygiene
@@ -135,32 +141,28 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     def add(content: str = "") -> None:
         lines.append(content)
 
-    def block(dedent_s: str) -> None:
-        """Append each line of dedented_s, stripping the leading newline."""
-        s = dedent_s.strip("\n")
-        for ln in s.splitlines():
-            add(ln)
-
-    # Header
+    # ── header ───────────────────────────────────────────────────────────────
     add(f'"""sgate.commands.{name} — shim for: {display_name}."""')
     add("from __future__ import annotations")
     add("")
     add("from typing import ClassVar")
     add("")
-    add("import click")
     add("import subprocess")
     add("import sys")
     add("")
+    add("import click")
+    add("from sgate.log import logger")
+    add("")
     add("import sgate")
+    add("from sgate.output import gate_fail")
     add("from sgate.commands.base import (")
-    add("    CLEAN,")
     add("    INTERNAL_ERROR,")
     add("    IO_ERROR,")
     add("    VALIDATION_FAILURE,")
     add("    register,")
     add(")")
     add("")
-    add("# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)")
+    add(f"# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)")
     add(f"KIWI_REQUIRED: ClassVar[bool] = {kiwi_bool}")
     add("")
     add("")
@@ -183,15 +185,17 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     add(f"    KIWI_REQUIRED: {kiwi_required}")
     add('    """')
     add("    repo_root = sgate.repo.ROOT")
-    add("    scripts_dir = repo_root / 'scripts'")
+    add(f"    gate_name = '{name}'")
     add("")
 
+    # ── python3 script.py ... ────────────────────────────────────────────────
     if first == "python3":
         script_rel = cmd[1]
         script_args = cmd[2:]
         add(f"{INDENT}script = repo_root / {script_rel!r}")
         add(f"{INDENT}if not script.exists():")
-        add(f'{INDENT}    click.echo(f"{{script}} not found", err=True)')
+        add(f"{INDENT}    logger.error(f\"{{script}} not found\")")
+        add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"script not found\")")
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
         add("")
         add(f"{INDENT}py_cmd = [sys.executable, str(script)]")
@@ -200,18 +204,26 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
             add(f"{INDENT}py_cmd.extend([{args_repr}])")
         add("")
         add(f"{INDENT}try:")
-        add(f"{INDENT}    result = subprocess.run(py_cmd, capture_output=False)")
-        add(f"{INDENT}    raise SystemExit(result.returncode)")
+        add(f"{INDENT}    result = subprocess.run(py_cmd, capture_output=True)")
+        add(f"{INDENT}    if result.stdout:")
+        add(f"{INDENT}        sys.stdout.write(result.stdout.decode())")
+        add(f"{INDENT}        sys.stdout.flush()")
+        add(f"{INDENT}    if result.returncode != 0:")
+        add(f"{INDENT}        gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}except FileNotFoundError:")
-        add(f'{INDENT}    click.echo(f"python3 not found at {{sys.executable}}", err=True)')
+        add(f"{INDENT}    logger.error(f\"python3 not found at {{sys.executable}}\")")
+        add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"python3 not found\")")
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
 
+    # ── ./scripts/foo.sh ... ─────────────────────────────────────────────────
     elif first == "./":
-        script_rel = first[2:]  # e.g. "scripts/check-detekt-registrations.sh"
-        script_args = cmd[1:]
+        script_rel = cmd[1]
+        script_args = cmd[2:]
         add(f"{INDENT}script = repo_root / {script_rel!r}")
         add(f"{INDENT}if not script.exists():")
-        add(f'{INDENT}    click.echo(f"{{script}} not found", err=True)')
+        add(f"{INDENT}    logger.error(f\"{{script}} not found\")")
+        add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"script not found\")")
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
         add("")
         add(f"{INDENT}sh_cmd = ['bash', str(script)]")
@@ -220,46 +232,63 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
             add(f"{INDENT}sh_cmd.extend([{args_repr}])")
         add("")
         add(f"{INDENT}try:")
-        add(f"{INDENT}    result = subprocess.run(sh_cmd, capture_output=False)")
-        add(f"{INDENT}    raise SystemExit(result.returncode)")
+        add(f"{INDENT}    result = subprocess.run(sh_cmd, capture_output=True)")
+        add(f"{INDENT}    if result.stdout:")
+        add(f"{INDENT}        sys.stdout.write(result.stdout.decode())")
+        add(f"{INDENT}        sys.stdout.flush()")
+        add(f"{INDENT}    if result.returncode != 0:")
+        add(f"{INDENT}        gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}except FileNotFoundError:")
-        add(f'{INDENT}    click.echo("bash not found", err=True)')
+        add(f"{INDENT}    logger.error(\"bash not found\")")
+        add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"bash not found\")")
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
 
+    # ── bash -c "funcname" ──────────────────────────────────────────────────
     elif first == "bash":
-        # cmd = ["bash", "-c", "funcname"]
         func_name = cmd[2]
-        add(f"{INDENT}static_sh = scripts_dir / 'ci' / 'static-gates.sh'")
+        add(f"{INDENT}static_sh = repo_root / 'scripts' / 'ci' / 'static-gates.sh'")
         add(f"{INDENT}if not static_sh.exists():")
-        add(f'{INDENT}    click.echo(f"{{static_sh}} not found", err=True)')
+        add(f"{INDENT}    logger.error(f\"{{static_sh}} not found\")")
+        add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"static-gates.sh not found\")")
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
         add("")
-        # Build the bash -c command string
-        # Need to source static-gates.sh and call func_name
-        # We use repr() for the final string to avoid quote issues
-        bash_c_str = f". {{{{static_sh}}}} && {func_name}"
         add(f"{INDENT}bash_cmd = ['bash', '-c', f'. {{static_sh}} && {func_name}']")
         add("")
         add(f"{INDENT}try:")
-        add(f"{INDENT}    result = subprocess.run(bash_cmd, capture_output=False)")
-        add(f"{INDENT}    raise SystemExit(result.returncode)")
+        add(f"{INDENT}    result = subprocess.run(bash_cmd, capture_output=True)")
+        add(f"{INDENT}    if result.stdout:")
+        add(f"{INDENT}        sys.stdout.write(result.stdout.decode())")
+        add(f"{INDENT}        sys.stdout.flush()")
+        add(f"{INDENT}    if result.returncode != 0:")
+        add(f"{INDENT}        gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}except FileNotFoundError:")
-        add(f'{INDENT}    click.echo("bash not found", err=True)')
+        add(f"{INDENT}    logger.error(\"bash not found\")")
+        add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"bash not found\")")
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
 
+    # ── PATH command (singularity-adr, etc.) ──────────────────────────────────
     else:
-        # PATH command: singularity-adr, etc.
         cmd_repr = repr(cmd)
         add(f"{INDENT}try:")
-        add(f"{INDENT}    result = subprocess.run({cmd_repr}, capture_output=False)")
-        add(f"{INDENT}    raise SystemExit(result.returncode)")
+        add(f"{INDENT}    result = subprocess.run({cmd_repr}, capture_output=True)")
+        add(f"{INDENT}    if result.stdout:")
+        add(f"{INDENT}        sys.stdout.write(result.stdout.decode())")
+        add(f"{INDENT}        sys.stdout.flush()")
+        add(f"{INDENT}    if result.returncode != 0:")
+        add(f"{INDENT}        gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}except FileNotFoundError:")
-        add(f'{INDENT}    click.echo("{first} not found on PATH", err=True)')
+        add(f'{INDENT}    logger.error("{first} not found on PATH")')
+        add(f'{INDENT}    gate_fail(gate_name, None, None, None, None, "{first} not found on PATH")')
         add(f"{INDENT}    raise SystemExit(IO_ERROR)")
 
+    # ── unexpected exception ─────────────────────────────────────────────────
     add("")
-    add(f"{INDENT}except Exception as exc:")
-    add(f'{INDENT}    click.echo(f"Unexpected error: {{exc}}", err=True)')
+    add(f"{INDENT}except Exception:")
+    add(f"{INDENT}    logger.exception(\"unexpected error\")")
+    add(f"{INDENT}    gate_fail(gate_name, None, None, None, None, \"unexpected error\")")
     add(f"{INDENT}    raise SystemExit(INTERNAL_ERROR)")
     add("")
     add(f"register({name})")

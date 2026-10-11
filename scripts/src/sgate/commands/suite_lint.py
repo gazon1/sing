@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import concurrent.futures
+import json as _json
 import sys
 
 import click
+from rich.console import Console
+from rich.rule import Rule
+from rich.table import Table
 
 import sgate
 from sgate.commands.base import CLEAN, INTERNAL_ERROR, register
+from sgate.log import logger
+from sgate.output import gate_fail
 
 # Gates that belong to the "lint" suite (from spec/sgate-cli.md)
 LINT_GATES = [
@@ -58,13 +64,13 @@ def lint(check: bool, json: bool) -> None:
                 results.append((name, rc))
             except Exception as exc:
                 name = futures[future]
-                click.echo(f"Error running {name}: {exc}", err=True)
+                logger.error(f"gate {name} raised exception: {exc}")
+                gate_fail(name, None, None, None, None, f"exception: {exc}")
                 results.append((name, 5))
 
     failed = [(n, rc) for n, rc in results if rc != 0]
 
     if json:
-        import json as _json
         click.echo(_json.dumps({
             "suite": "lint",
             "total": len(LINT_GATES),
@@ -72,11 +78,32 @@ def lint(check: bool, json: bool) -> None:
             "failed": len(failed),
             "results": [{"gate": n, "exit_code": rc} for n, rc in results],
         }))
+        raise SystemExit(CLEAN if not failed else 1)
+
+    console = Console()
+    console.print(Rule("[bold]lint gates[/bold]"))
+
+    table = Table(show_header=True, header_style="bold cyan", expand=False)
+    table.add_column("Gate", style="cyan")
+    table.add_column("Result", justify="center", width=8)
+    table.add_column("Exit", justify="right", width=5)
+
+    for name, rc in results:
+        if rc == 0:
+            status_label = "[green]PASS[/green]"
+        else:
+            status_label = f"[red]FAIL[/red]"
+            gate_fail(name, None, None, None, None, f"exit {rc}")
+        table.add_row(name, status_label, str(rc) if rc != 0 else "—")
+
+    console.print(table)
+
+    passed = len(results) - len(failed)
+    total = len(results)
+    if failed:
+        console.print(f"\n  [red]✗ {passed}/{total} passed[/red]")
     else:
-        for name, rc in results:
-            status = "PASS" if rc == 0 else f"FAIL({rc})"
-            click.echo(f"  {status}  {name}")
-        click.echo(f"\n{len(results) - len(failed)}/{len(results)} passed")
+        console.print(f"\n  [green]✓ {passed}/{total} passed[/green]")
 
     raise SystemExit(CLEAN if not failed else 1)
 

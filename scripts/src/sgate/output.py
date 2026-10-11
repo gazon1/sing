@@ -30,26 +30,16 @@ def _github_error(file: Optional[str], line: Optional[int], body: str) -> None:
         parts.append(f"file={file}")
     if line is not None:
         parts.append(f"line={line}")
+    # error if body starts with '[' (i.e. "[gate-name] rule: message")
+    is_error = body.startswith("[")
+    tag = "error" if is_error else "warning"
     if parts:
-        header = f"::{'error' if body.startswith('[') else 'warning'} {','.join(parts)}::"
+        header = f"::{tag} {','.join(parts)}::{body}"
     else:
-        header = f"::{'error' if body.startswith('[') else 'warning'}::"
-    print(header + body, flush=True)
-
-
-def _write_violation(
-    file: Optional[str],
-    line: Optional[int],
-    rule: Optional[str],
-    message: str,
-) -> None:
-    """Write one violation line to stdout (human format)."""
-    if file and line is not None:
-        print(f"{file}:{line}: {rule or 'violation'}: {message}", flush=True)
-    elif file:
-        print(f"{file}: {rule or 'violation'}: {message}", flush=True)
-    else:
-        print(f"{rule or 'violation'}: {message}", flush=True)
+        header = f"::{tag}::{body}"
+    # GitHub annotations always go to stdout so Actions picks them up
+    sys.stdout.write(header + "\n")
+    sys.stdout.flush()
 
 
 # ── public API ───────────────────────────────────────────────────────────────
@@ -76,12 +66,22 @@ def gate_fail(
             parts.append(f"got {actual}")
         message = ", ".join(parts) if parts else "violation"
 
-    # Human output → stdout
-    _write_violation(file, line, rule, message)
+    rule_label = rule or "violation"
+
+    # Human output → stdout (structured, parseable)
+    if file and line is not None:
+        out_line = f"{file}:{line}: {rule_label}: {message}"
+    elif file:
+        out_line = f"{file}: {rule_label}: {message}"
+    else:
+        out_line = f"{rule_label}: {message}"
+
+    sys.stdout.write(out_line + "\n")
+    sys.stdout.flush()
 
     # CI annotation
     if is_ci():
-        github_msg = f"[{gate_name}] {rule or 'violation'}: {message}"
+        github_msg = f"[{gate_name}] {rule_label}: {message}"
         _github_error(file, line, github_msg)
 
 
@@ -91,11 +91,14 @@ def gate_warn(message: str, file: Optional[str] = None, line: Optional[int] = No
     In CI mode also emits a GitHub Actions ::warning annotation.
     """
     if file and line is not None:
-        print(f"{file}:{line}: warning: {message}", flush=True)
+        out_line = f"{file}:{line}: warning: {message}"
     elif file:
-        print(f"{file}: warning: {message}", flush=True)
+        out_line = f"{file}: warning: {message}"
     else:
-        print(f"warning: {message}", flush=True)
+        out_line = f"warning: {message}"
+
+    sys.stdout.write(out_line + "\n")
+    sys.stdout.flush()
 
     if is_ci():
         _github_error(file, line, message)

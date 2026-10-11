@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import json as _json
 import re
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import click
 
 import sgate
 from sgate.commands.base import CLEAN, CONFIG_ERROR, INTERNAL_ERROR, register
+from sgate.log import logger
 
 
 EXIT_CODES_RE = re.compile(r"Exit codes:\s*(?:\n\s*\d+\s*=\s*[^\n]+)+", re.MULTILINE)
@@ -146,23 +148,23 @@ Generated from `sgate/commands/*.py` docstrings.
     if check:
         if not registry_md.exists():
             if json:
-                click.echo('{"status": "missing", "path": "' + str(registry_md) + '"}')
+                click.echo(_json.dumps({"status": "missing", "path": str(registry_md)}))
             else:
-                click.echo(f"gate-registry.md is missing — run sgate render-registry to generate", err=True)
+                logger.error("gate-registry.md is missing — run sgate render-registry to generate")
             raise SystemExit(CONFIG_ERROR)
 
         current = registry_md.read_text()
         if current != full_content:
             if json:
-                click.echo('{"status": "outdated", "path": "' + str(registry_md) + '"}')
+                click.echo(_json.dumps({"status": "outdated", "path": str(registry_md)}))
             else:
-                click.echo("gate-registry.md is outdated — run sgate render-registry to update", err=True)
+                logger.warning("gate-registry.md is outdated — run sgate render-registry to update")
             raise SystemExit(CONFIG_ERROR)
 
         if json:
-            click.echo('{"status": "current", "path": "' + str(registry_md) + '"}')
+            click.echo(_json.dumps({"status": "current", "path": str(registry_md)}))
         else:
-            click.echo("gate-registry.md is current.")
+            logger.info("gate-registry.md is current")
         raise SystemExit(CLEAN)
 
     # Write
@@ -170,14 +172,13 @@ Generated from `sgate/commands/*.py` docstrings.
         registry_md.parent.mkdir(parents=True, exist_ok=True)
         registry_md.write_text(full_content, encoding="utf-8")
     except OSError as exc:
-        click.echo(f"Failed to write {registry_md}: {exc}", err=True)
+        logger.error(f"failed to write {registry_md}: {exc}")
         raise SystemExit(CONFIG_ERROR)
 
     if json:
-        import json as _json
         click.echo(_json.dumps({"status": "generated", "path": str(registry_md)}))
     else:
-        click.echo(f"Generated {registry_md}")
+        logger.info(f"generated {registry_md}")
     raise SystemExit(CLEAN)
 
 

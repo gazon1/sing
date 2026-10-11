@@ -8,9 +8,14 @@ import time
 from pathlib import Path
 
 import click
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 import sgate
 from sgate.commands.base import CLEAN, INTERNAL_ERROR, IO_ERROR, VALIDATION_FAILURE, register
+from sgate.log import logger
+from sgate.output import gate_fail
 
 
 REGRESSION_THRESHOLD = 3  # 3× warm baseline = failure
@@ -40,13 +45,14 @@ def check_benchmarks(gate_name: str | None, gate_name_opt: str | None, json: boo
         if json:
             click.echo(json.dumps({"error": f"benchmarks file not found: {benchmarks_path}"}))
         else:
-            click.echo(f"Benchmarks file not found: {benchmarks_path}", err=True)
+            logger.error(f"benchmarks file not found: {benchmarks_path}")
+        gate_fail("check-benchmarks", None, None, None, None, "benchmarks file not found")
         raise SystemExit(IO_ERROR)
 
     try:
         baselines = json.loads(benchmarks_path.read_text())
     except Exception as exc:
-        click.echo(f"Failed to read benchmarks file: {exc}", err=True)
+        logger.error(f"failed to read benchmarks file: {exc}")
         raise SystemExit(IO_ERROR)
 
     if name is None:
@@ -54,15 +60,22 @@ def check_benchmarks(gate_name: str | None, gate_name_opt: str | None, json: boo
         if json:
             click.echo(json.dumps({"benchmarks": baselines}))
         else:
-            for gname, rec in baselines.items():
-                click.echo(f"  {gname}: {rec.get('warm_ms', '?')} ms")
+            console = Console()
+            console.print("[bold cyan]Recorded benchmarks[/bold cyan]")
+            table = Table(show_header=True, header_style="bold cyan", expand=False)
+            table.add_column("Gate", style="cyan")
+            table.add_column("Warm time (ms)", justify="right", style="dim")
+            for gname, rec in sorted(baselines.items()):
+                table.add_row(gname, f"{rec.get('warm_ms', '?')} ms")
+            console.print(table)
         raise SystemExit(CLEAN)
 
     if name not in baselines:
         if json:
             click.echo(json.dumps({"gate": name, "status": "no_baseline", "baseline": None}))
         else:
-            click.echo(f"No baseline for '{name}' — run the gate to establish one.", err=True)
+            logger.warning(f"no baseline for '{name}' — run the gate to establish one")
+        gate_fail("check-benchmarks", None, None, None, None, f"no baseline for '{name}'")
         raise SystemExit(IO_ERROR)
 
     # Run the gate and time it
@@ -87,15 +100,19 @@ def check_benchmarks(gate_name: str | None, gate_name_opt: str | None, json: boo
         }))
 
     if elapsed_ms > threshold_ms:
-        click.echo(
-            f"REGRESSION: {name} took {elapsed_ms} ms (baseline {baseline_ms} ms, "
-            f"threshold {threshold_ms} ms)",
-            err=True,
+        logger.error(
+            f"REGRESSION: {name} took {elapsed_ms} ms "
+            f"(baseline {baseline_ms} ms, threshold {threshold_ms} ms)"
+        )
+        gate_fail(
+            f"check-benchmarks:{name}", None, None,
+            f"≤{threshold_ms}ms", f"{elapsed_ms}ms",
+            "benchmark regression"
         )
         raise SystemExit(VALIDATION_FAILURE if not check else CLEAN)
 
     if not json:
-        click.echo(f"OK: {name} {elapsed_ms} ms (baseline {baseline_ms} ms)")
+        logger.info(f"{name}: {elapsed_ms} ms (baseline {baseline_ms} ms)")
 
     raise SystemExit(CLEAN)
 

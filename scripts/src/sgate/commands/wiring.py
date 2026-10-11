@@ -8,6 +8,8 @@ import click
 
 import sgate
 from sgate.commands.base import CLEAN, INTERNAL_ERROR, IO_ERROR, register
+from sgate.log import logger
+from sgate.output import gate_fail
 
 
 @click.command("wiring")
@@ -26,10 +28,15 @@ def wiring(wiring: bool, can_fail: bool) -> None:
       5 = internal error (unexpected exception)
     """
     repo_root = sgate.repo.ROOT
+    try:
+        gate_name = click.get_current_context().command.name or "wiring"
+    except RuntimeError:
+        gate_name = "wiring"
     script = repo_root / "scripts" / "check-gate-wiring.py"
 
     if not script.exists():
-        click.echo(f"check-gate-wiring.py not found at {script}", err=True)
+        logger.error(f"check-gate-wiring.py not found at {script}")
+        gate_fail(gate_name, None, None, None, None, "script not found")
         raise SystemExit(IO_ERROR)
 
     parts = [sys.executable, str(script)]
@@ -39,13 +46,20 @@ def wiring(wiring: bool, can_fail: bool) -> None:
         parts.append("--can-fail")
 
     try:
-        result = subprocess.run(parts, capture_output=False)
-        raise SystemExit(result.returncode)
+        result = subprocess.run(parts, capture_output=True)
+        if result.stdout:
+            sys.stdout.write(result.stdout.decode())
+            sys.stdout.flush()
+        if result.returncode != 0:
+            gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
+            raise SystemExit(result.returncode)
     except FileNotFoundError:
-        click.echo(f"python3 not found at {sys.executable}", err=True)
+        logger.error(f"python3 not found at {sys.executable}")
+        gate_fail(gate_name, None, None, None, None, "python3 not found")
         raise SystemExit(IO_ERROR)
-    except Exception as exc:
-        click.echo(f"Unexpected error running wiring check: {exc}", err=True)
+    except Exception:
+        logger.exception("unexpected error running wiring check")
+        gate_fail(gate_name, None, None, None, None, "unexpected error")
         raise SystemExit(INTERNAL_ERROR)
 
 

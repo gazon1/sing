@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-import click
 import subprocess
 import sys
 
+import click
+from sgate.log import logger
+
 import sgate
+from sgate.output import gate_fail
 from sgate.commands.base import (
-    CLEAN,
     INTERNAL_ERROR,
     IO_ERROR,
     VALIDATION_FAILURE,
@@ -39,24 +41,32 @@ def decisions_digest_within_budget(check: bool, json: bool) -> None:
     KIWI_REQUIRED: False
     """
     repo_root = sgate.repo.ROOT
-    scripts_dir = repo_root / 'scripts'
+    gate_name = 'decisions_digest_within_budget'
 
-    static_sh = scripts_dir / 'ci' / 'static-gates.sh'
+    static_sh = repo_root / 'scripts' / 'ci' / 'static-gates.sh'
     if not static_sh.exists():
-        click.echo(f"{static_sh} not found", err=True)
+        logger.error(f"{static_sh} not found")
+        gate_fail(gate_name, None, None, None, None, "static-gates.sh not found")
         raise SystemExit(IO_ERROR)
 
     bash_cmd = ['bash', '-c', f'. {static_sh} && digest_and_sizes']
 
     try:
-        result = subprocess.run(bash_cmd, capture_output=False)
-        raise SystemExit(result.returncode)
+        result = subprocess.run(bash_cmd, capture_output=True)
+        if result.stdout:
+            sys.stdout.write(result.stdout.decode())
+            sys.stdout.flush()
+        if result.returncode != 0:
+            gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
+            raise SystemExit(result.returncode)
     except FileNotFoundError:
-        click.echo("bash not found", err=True)
+        logger.error("bash not found")
+        gate_fail(gate_name, None, None, None, None, "bash not found")
         raise SystemExit(IO_ERROR)
 
-    except Exception as exc:
-        click.echo(f"Unexpected error: {exc}", err=True)
+    except Exception:
+        logger.exception("unexpected error")
+        gate_fail(gate_name, None, None, None, None, "unexpected error")
         raise SystemExit(INTERNAL_ERROR)
 
 register(decisions_digest_within_budget)

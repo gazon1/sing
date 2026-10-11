@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-import click
 import subprocess
 import sys
 
+import click
+from sgate.log import logger
+
 import sgate
+from sgate.output import gate_fail
 from sgate.commands.base import (
-    CLEAN,
     INTERNAL_ERROR,
     IO_ERROR,
     VALIDATION_FAILURE,
@@ -39,17 +41,24 @@ def adr_status_policy(check: bool, json: bool) -> None:
     KIWI_REQUIRED: False
     """
     repo_root = sgate.repo.ROOT
-    scripts_dir = repo_root / 'scripts'
+    gate_name = 'adr_status_policy'
 
     try:
-        result = subprocess.run(['singularity-adr', 'validate'], capture_output=False)
-        raise SystemExit(result.returncode)
+        result = subprocess.run(['singularity-adr', 'validate'], capture_output=True)
+        if result.stdout:
+            sys.stdout.write(result.stdout.decode())
+            sys.stdout.flush()
+        if result.returncode != 0:
+            gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
+            raise SystemExit(result.returncode)
     except FileNotFoundError:
-        click.echo("singularity-adr not found on PATH", err=True)
+        logger.error("singularity-adr not found on PATH")
+        gate_fail(gate_name, None, None, None, None, "singularity-adr not found on PATH")
         raise SystemExit(IO_ERROR)
 
-    except Exception as exc:
-        click.echo(f"Unexpected error: {exc}", err=True)
+    except Exception:
+        logger.exception("unexpected error")
+        gate_fail(gate_name, None, None, None, None, "unexpected error")
         raise SystemExit(INTERNAL_ERROR)
 
 register(adr_status_policy)

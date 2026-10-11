@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 import importlib
-import inspect
 import pkgutil
 from pathlib import Path
 
 import click
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
 
 import sgate
 import sgate.gates
 from sgate.commands.base import CLEAN
+from sgate.log import logger
 
 
 @click.group()
@@ -27,7 +31,8 @@ def main():
 # ── Meta commands (always available) ─────────────────────────────────────────
 
 @main.command("gates")
-def cmd_gates():
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON to stdout")
+def cmd_gates(json_output: bool):
     """List all registered gates from static-gates.sh.
 
     Exit codes:
@@ -38,27 +43,40 @@ def cmd_gates():
         click.echo("No gates found in static-gates.sh")
         return
 
-    # Use rich if available, plain text otherwise
-    try:
-        from rich.console import Console
-        from rich.table import Table
+    if json_output:
+        import json
+        click.echo(json.dumps([
+            {"name": g.name, "mode": g.mode, "command": g.command}
+            for g in gates
+        ]))
+        raise SystemExit(CLEAN)
 
-        console = Console()
-        table = Table(title="Registered Gates")
-        table.add_column("Gate", style="cyan")
-        table.add_column("Mode", style="magenta")
-        table.add_column("Command", style="dim")
+    console = Console()
+    total = len(gates)
+    blocking = sum(1 for g in gates if g.mode == "blocking")
+    advisory = sum(1 for g in gates if g.mode == "advisory")
 
-        for g in gates:
-            table.add_row(g.name, g.mode, g.command[:60] + ("…" if len(g.command) > 60 else ""))
+    # Summary panel
+    summary = Text.assemble(
+        f"  {total} gates total  ·  ",
+        f"[bold cyan]{blocking}[/bold cyan] blocking  ·  ",
+        f"[bold yellow]{advisory}[/bold yellow] advisory",
+    )
+    console.print(summary)
+    console.print()
 
-        console.print(table)
-    except Exception:
-        click.echo(f"{'Gate':<40} {'Mode':<12} Command")
-        click.echo("-" * 100)
-        for g in gates:
-            cmd_short = g.command[:57] + ("…" if len(g.command) > 60 else "")
-            click.echo(f"{g.name:<40} {g.mode:<12} {cmd_short}")
+    table = Table(show_header=True, header_style="bold cyan", expand=False)
+    table.add_column("Gate", style="cyan", no_wrap=False)
+    table.add_column("Mode", style="magenta", width=10)
+    table.add_column("Command", style="dim", no_wrap=False)
+
+    for g in gates:
+        mode_style = "cyan" if g.mode == "blocking" else "yellow"
+        mode_label = f"[{mode_style}]{g.mode}[/{mode_style}]"
+        cmd_short = g.command[:65] + ("…" if len(g.command) > 65 else "")
+        table.add_row(g.name, mode_label, cmd_short)
+
+    console.print(table)
 
 
 # Lazy-load all command modules from sgate/commands/ and register them.
@@ -74,17 +92,13 @@ def _register_gate_commands():
         if module_name.startswith("_"):
             continue
 
-        # Import the module (side-effect: it registers its @main.command)
         try:
             importlib.import_module(f"sgate.commands.{module_name}")
+            logger.debug(f"loaded sgate.commands.{module_name}")
         except Exception:
-            # Gate commands must be loadable; if one crashes on import that's a
-            # real problem. Print and continue so other gates still register.
             import traceback
-
-            click.echo(
-                f"Warning: could not load sgate.commands.{module_name}: {traceback.format_exc()}",
-                err=True,
+            logger.error(
+                f"failed to load sgate.commands.{module_name}: {traceback.format_exc()}"
             )
 
 
