@@ -88,18 +88,19 @@ collect_and_report() {
       if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
         echo "::error title=Gate failed::$name (exit $rc)"
       fi
-      # Show failure output for blocking gates.  The progress/dots and early
-      # prints live at the top, but the summary a failing run actually needs
-      # ("FAILED (failures=N)", the failing test names) is at the *end* — a
-      # head-only cut once hid the cause of a red unit-test gate in CI (#563).
+      # Show failure output for blocking gates.  Full output, not a window:
+      # unittest's epilogue (stderr) can sit thousands of lines above the
+      # block-buffered stdout flush that ends the file, and a head/tail
+      # window hid the failing test names in CI (#563).  The 5000-line cap
+      # is a runaway guard, not a diagnostic cut.
       if [[ -f "$out_file" ]]; then
         local total_lines
         total_lines=$(wc -l <"$out_file")
         echo "--- $name (exit $rc) ---"
-        if ((total_lines > 110)); then
-          head -30 "$out_file"
-          echo "… ($((total_lines - 110)) lines omitted) …"
-          tail -80 "$out_file"
+        if ((total_lines > 5000)); then
+          head -100 "$out_file"
+          echo "… ($((total_lines - 500)) lines omitted) …"
+          tail -400 "$out_file"
         else
           cat "$out_file"
         fi
