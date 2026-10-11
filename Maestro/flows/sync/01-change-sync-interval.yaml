@@ -13,7 +13,7 @@ tags:
   - sync
   - SYNC-SETTINGS-01
 ---
-- runFlow: ../helpers/launch-clean.yaml
+- runFlow: ../../helpers/launch-clean.yaml
 
 # Open Settings.
 - tapOn:

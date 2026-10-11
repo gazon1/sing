@@ -1,5 +1,7 @@
 package com.singularity.todo.core.ui
 
+import com.singularity.todo.core.reminders.ReminderOffset
+
 /**
  * Test tag constants for UI test identification.
  *
@@ -35,7 +37,6 @@ package com.singularity.todo.core.ui
 // function-count rule would break every existing call site and flow for no gain.
 @Suppress("TooManyFunctions")
 object TestTags {
-
     // ─── Auth ────────────────────────────────────────────────────────────────
     const val AUTH_EMAIL_INPUT = "auth_email_input"
     const val AUTH_PASSWORD_INPUT = "auth_password_input"
@@ -161,6 +162,7 @@ object TestTags {
     const val CHECKLIST_SHEET = "checklist_sheet"
 
     // ─── Subtasks ─────────────────────────────────────────────────────────────
+
     /** The subtasks section container in the task detail view. */
     const val SUBTASKS_SECTION = "subtasks_section"
 
@@ -297,9 +299,8 @@ object TestTags {
         const val TASKS_UNSUPPORTED = "pomodoro_tasks_unsupported"
 
         /**
-         * The static "Focus" mode chip — always labelled "Focus" regardless of which
-         * task is focused. Use this for tapping the Focus chip by id in Maestro flows,
-         * instead of the locale-sensitive `text: "Focus"`.
+         * The focused-task label. Its **text** varies (`"Focus: Buy milk"`), so
+         * select it by id — `[tag]` — instead of a locale-sensitive `visible:`.
          */
         const val FOCUS_CHIP = "pomodoro_focus_chip"
     }
@@ -399,8 +400,7 @@ object TestTags {
         const val REMINDER_DEFAULTS_SECTION = "reminder_defaults_section"
 
         /** Dynamic tag for a reminder-offset radio row. Uses the locale-aware label as input. */
-        fun reminderOffsetRadioRow(offset: com.singularity.todo.core.reminders.ReminderOffset): String =
-            "reminder_offset_radio_${slug(offset.label)}"
+        fun reminderOffsetRadioRow(offset: ReminderOffset): String = "reminder_offset_radio_${slug(offset.label)}"
 
         /** Weekend-day toggles on the work schedule screen. */
         const val WORK_SCHEDULE_SATURDAY_SWITCH = "settings_work_schedule_saturday_switch"
@@ -686,25 +686,26 @@ object TestTags {
  * `.agents/skills/singularity-todo-maestro-flows/SKILL.md`. This function is the
  * safety net, not an invitation to type Cyrillic into flows.
  */
-internal fun slug(input: String): String = buildString {
-    var pendingSeparator = false
-    input.trim().lowercase().forEach { char ->
-        if (char.isLetterOrDigit()) {
-            if (pendingSeparator && isNotEmpty()) {
-                append('_')
+internal fun slug(input: String): String =
+    buildString {
+        var pendingSeparator = false
+        input.trim().lowercase().forEach { char ->
+            if (char.isLetterOrDigit()) {
+                if (pendingSeparator && isNotEmpty()) {
+                    append('_')
+                }
+                append(char)
+                pendingSeparator = false
+            } else {
+                pendingSeparator = true
             }
-            append(char)
-            pendingSeparator = false
-        } else {
-            pendingSeparator = true
         }
+        // Trim leading and trailing separators (runs of non-alphanumeric chars at either end).
+        while (isNotEmpty() && last().let { !it.isLetterOrDigit() }) {
+            deleteCharAt(lastIndex)
+        }
+        while (isNotEmpty() && first().let { !it.isLetterOrDigit() }) {
+            deleteCharAt(0)
+        }
+        if (isEmpty()) append("untitled")
     }
-    // Trim leading and trailing separators (runs of non-alphanumeric chars at either end).
-    while (isNotEmpty() && last().let { !it.isLetterOrDigit() }) {
-        deleteCharAt(lastIndex)
-    }
-    while (isNotEmpty() && first().let { !it.isLetterOrDigit() }) {
-        deleteCharAt(0)
-    }
-    if (isEmpty()) append("untitled")
-}

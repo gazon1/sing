@@ -110,6 +110,7 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
                 text = "Focus: ${selectedTask.title}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TestTags.Pomodoro.FOCUS_CHIP),
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -279,6 +280,7 @@ private fun PomodoroContentPreview(
                 text = "Focus: ${selectedTask.title}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TestTags.Pomodoro.FOCUS_CHIP),
             )
             Spacer(Modifier.height(8.dp))
         }

@@ -5,6 +5,12 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.work.FakeHlcFactory
+import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -12,12 +18,6 @@ import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
-import com.singularity.todo.feature.notes.domain.port.NotesRepository
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.tags.TagsRepository
-import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,13 +47,15 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
      * test that put two accounts' work in one table — which is the whole thing
      * REQ-UA-019 says must not happen.
      */
-    override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+    override suspend fun getPending(
+        now: Long,
+        ownerId: String,
+    ): List<SyncOutboxEntity> =
         snapshot()
             .filter { it.ownerId == ownerId }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
 
-    override suspend fun countPendingFor(ownerId: String): Int =
-        rows.count { it.ownerId == ownerId }
+    override suspend fun countPendingFor(ownerId: String): Int = rows.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
         rows.removeAll { it.patchId == entity.patchId }
@@ -64,20 +66,28 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         rows.removeAll { it.patchId == id }
     }
 
-    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long) {
+    override suspend fun markFailed(
+        id: String,
+        error: String,
+        nextAttemptAt: Long,
+    ) {
         val index = rows.indexOfFirst { it.patchId == id }
         if (index >= 0) {
-            rows[index] = rows[index].copy(
-                attempts = rows[index].attempts + 1,
-                lastError = error,
-                nextAttemptAt = nextAttemptAt,
-            )
+            rows[index] =
+                rows[index].copy(
+                    attempts = rows[index].attempts + 1,
+                    lastError = error,
+                    nextAttemptAt = nextAttemptAt,
+                )
         }
     }
 
     override suspend fun attemptsOf(id: String): Int? = rows.firstOrNull { it.patchId == id }?.attempts
 
-    override suspend fun deleteByEntity(ownerId: String, entityId: String) {
+    override suspend fun deleteByEntity(
+        ownerId: String,
+        entityId: String,
+    ) {
         rows.removeAll { it.ownerId == ownerId && it.entityId == entityId }
     }
 
@@ -108,15 +118,24 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
      *  assert on the session instead. */
     override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = notImplemented()
+    override suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<Unit> = notImplemented()
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> = notImplemented()
+    override suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<Unit> = notImplemented()
 
     override suspend fun signInAnonymously(): Result<Unit> = notImplemented()
 
     override suspend fun signOut(): Result<Unit> = notImplemented()
 
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> = notImplemented()
+    override suspend fun migrateAnonymousTo(
+        email: String,
+        password: String,
+    ): Result<Unit> = notImplemented()
 
     private fun notImplemented(): Result<Unit> =
         Result.failure(UnsupportedOperationException("not used by sync engine tests"))
@@ -159,6 +178,7 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
  */
 class SequentialIdGenerator(private val prefix: String = "id") : IdGenerator {
     private var counter = 0
+
     override fun next(): String = "$prefix-${counter++}"
 }
 
@@ -203,42 +223,58 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
  * the question the interface refuses to answer.
  */
 open class FakeSyncStateRepository : SyncStateRepository {
-
     private val states = MutableStateFlow<Map<SyncScope, SyncState>>(emptyMap())
 
-    override fun observe(scope: SyncScope): Flow<SyncState> =
-        states.map { it[scope] ?: SyncState() }
+    override fun observe(scope: SyncScope): Flow<SyncState> = states.map { it[scope] ?: SyncState() }
 
     override suspend fun get(scope: SyncScope): SyncState = states.value[scope] ?: SyncState()
 
-    override suspend fun setLastLsn(scope: SyncScope, lsn: Long) = update(scope) { it.copy(lastLsn = lsn) }
+    override suspend fun setLastLsn(
+        scope: SyncScope,
+        lsn: Long,
+    ) = update(scope) { it.copy(lastLsn = lsn) }
 
-    override suspend fun recordSuccessfulSync(scope: SyncScope, at: Long) =
-        update(scope) { it.copy(lastSuccessfulSyncAt = at) }
+    override suspend fun recordSuccessfulSync(
+        scope: SyncScope,
+        at: Long,
+    ) = update(scope) { it.copy(lastSuccessfulSyncAt = at) }
 
-    override suspend fun setAutoSyncEnabled(scope: SyncScope, enabled: Boolean) =
-        update(scope) { it.copy(autoSyncEnabled = enabled) }
+    override suspend fun setAutoSyncEnabled(
+        scope: SyncScope,
+        enabled: Boolean,
+    ) = update(scope) { it.copy(autoSyncEnabled = enabled) }
 
-    override suspend fun setScheduledInterval(scope: SyncScope, interval: Duration) =
-        update(scope) { it.copy(scheduledInterval = interval) }
+    override suspend fun setScheduledInterval(
+        scope: SyncScope,
+        interval: Duration,
+    ) = update(scope) { it.copy(scheduledInterval = interval) }
 
-    override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) =
-        update(scope) { it.copy(enabledTriggers = triggers) }
+    override suspend fun setEnabledTriggers(
+        scope: SyncScope,
+        triggers: Set<SyncTrigger>,
+    ) = update(scope) { it.copy(enabledTriggers = triggers) }
 
-    override suspend fun setAttachmentsSyncEnabled(scope: SyncScope, enabled: Boolean) =
-        update(scope) { it.copy(attachmentsSyncEnabled = enabled) }
+    override suspend fun setAttachmentsSyncEnabled(
+        scope: SyncScope,
+        enabled: Boolean,
+    ) = update(scope) { it.copy(attachmentsSyncEnabled = enabled) }
 
     override suspend fun isSeedCompleted(scope: SyncScope): Boolean = get(scope).seedCompleted
 
-    override suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean) =
-        update(scope) { it.copy(seedCompleted = completed) }
+    override suspend fun setSeedCompleted(
+        scope: SyncScope,
+        completed: Boolean,
+    ) = update(scope) { it.copy(seedCompleted = completed) }
 
     override suspend fun clearAll() {
         states.value = emptyMap()
     }
 
     /** Seeds a row without going through a setter — "the user already had this". */
-    fun seed(scope: SyncScope, state: SyncState) {
+    fun seed(
+        scope: SyncScope,
+        state: SyncState,
+    ) {
         states.value = states.value + (scope to state)
     }
 
@@ -246,7 +282,10 @@ open class FakeSyncStateRepository : SyncStateRepository {
 
     fun snapshot(): Map<SyncScope, SyncState> = states.value
 
-    private fun update(scope: SyncScope, transform: (SyncState) -> SyncState) {
+    private fun update(
+        scope: SyncScope,
+        transform: (SyncState) -> SyncState,
+    ) {
         states.value = states.value + (scope to transform(states.value[scope] ?: SyncState()))
     }
 }
@@ -269,12 +308,12 @@ open class FakeSyncScopeProvider(scope: SyncScope? = null) : SyncScopeProvider {
  *
  * Used to simulate a scope read failure in tests of error paths.
  */
-class ThrowingSyncScopeProvider(
-    private val cause: Throwable = IllegalStateException("scope unavailable"),
-) : SyncScopeProvider {
-    override val current: Flow<SyncScope?> = kotlinx.coroutines.flow.flow {
-        throw cause
-    }
+class ThrowingSyncScopeProvider(private val cause: Throwable = IllegalStateException("scope unavailable")) :
+    SyncScopeProvider {
+    override val current: Flow<SyncScope?> =
+        kotlinx.coroutines.flow.flow {
+            throw cause
+        }
 }
 
 /**
@@ -286,13 +325,16 @@ class ThrowingSyncScopeProvider(
  * a handle on rather than only asserting through.
  */
 class FakeSyncShadowDao : SyncShadowDao {
-
     private data class Key(val ownerId: String, val profileId: String, val entityType: String, val entityId: String)
 
     private val rows = mutableMapOf<Key, SyncShadowEntity>()
 
-    fun state(ownerId: String, profileId: String, entityType: String, entityId: String): SyncShadowEntity? =
-        rows[Key(ownerId, profileId, entityType, entityId)]
+    fun state(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+    ): SyncShadowEntity? = rows[Key(ownerId, profileId, entityType, entityId)]
 
     override suspend fun get(
         ownerId: String,
@@ -313,16 +355,17 @@ class FakeSyncShadowDao : SyncShadowDao {
         patchId: String,
         json: String,
         serverVersion: Long?,
-    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
-        // The COALESCE of the real query, reproduced: a response carrying no version
-        // must leave the stored one alone rather than reset it to 0.
-        it.copy(
-            confirmedJson = json,
-            inFlightJson = null,
-            inFlightPatchId = null,
-            serverVersion = serverVersion ?: it.serverVersion,
-        )
-    }
+    ): Int =
+        mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
+            // The COALESCE of the real query, reproduced: a response carrying no version
+            // must leave the stored one alone rather than reset it to 0.
+            it.copy(
+                confirmedJson = json,
+                inFlightJson = null,
+                inFlightPatchId = null,
+                serverVersion = serverVersion ?: it.serverVersion,
+            )
+        }
 
     override suspend fun release(
         ownerId: String,
@@ -330,9 +373,10 @@ class FakeSyncShadowDao : SyncShadowDao {
         entityType: String,
         entityId: String,
         patchId: String,
-    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
-        it.copy(inFlightJson = null, inFlightPatchId = null)
-    }
+    ): Int =
+        mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) {
+            it.copy(inFlightJson = null, inFlightPatchId = null)
+        }
 
     override suspend fun deleteForOwner(ownerId: String): Int {
         val keys = rows.keys.filter { it.ownerId == ownerId }
@@ -340,7 +384,10 @@ class FakeSyncShadowDao : SyncShadowDao {
         return keys.size
     }
 
-    override suspend fun clearScope(ownerId: String, profileId: String) {
+    override suspend fun clearScope(
+        ownerId: String,
+        profileId: String,
+    ) {
         rows.keys.filter { it.ownerId == ownerId && it.profileId == profileId }.forEach(rows::remove)
     }
 
@@ -372,11 +419,12 @@ class FakeSyncShadowDao : SyncShadowDao {
  * broken diff — the same rule as the deleted `SyncRepositoryCoalescingTest`, in its
  * second form.
  */
-internal fun fakeSyncPatchBuilder(shadowDao: SyncShadowDao = FakeSyncShadowDao()): SyncPatchBuilder = SyncPatchBuilder(
-    shadowDao = shadowDao,
-    hlcFactory = FakeHlcFactory(),
-    idGenerator = SequentialIdGenerator(),
-)
+internal fun fakeSyncPatchBuilder(shadowDao: SyncShadowDao = FakeSyncShadowDao()): SyncPatchBuilder =
+    SyncPatchBuilder(
+        shadowDao = shadowDao,
+        hlcFactory = FakeHlcFactory(),
+        idGenerator = SequentialIdGenerator(),
+    )
 
 /**
  * A [SyncDocumentWriter] over the shared in-memory repositories.
@@ -397,11 +445,12 @@ internal fun fakeSyncDocumentWriter(
     tags: TagsRepository = FakeTagsRepository(),
     tagGroups: TagGroupRepository = FakeTagGroupRepository(),
     timeTracking: TimeTrackingRepository = FakeTimeTrackingRepository(FakeClock()),
-): SyncDocumentWriter = SyncDocumentWriter(
-    taskRepo = tasks,
-    noteRepo = notes,
-    projectRepo = projects,
-    tagRepo = tags,
-    tagGroupRepo = tagGroups,
-    timeTrackingRepo = timeTracking,
-)
+): SyncDocumentWriter =
+    SyncDocumentWriter(
+        taskRepo = tasks,
+        noteRepo = notes,
+        projectRepo = projects,
+        tagRepo = tags,
+        tagGroupRepo = tagGroups,
+        timeTrackingRepo = timeTracking,
+    )

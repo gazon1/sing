@@ -28,12 +28,14 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackgroundWorkBootstrapperTest {
-
     /** Records `schedule` calls instead of arming anything. */
     private class RecordingScheduler : BackgroundWorkScheduler {
         val scheduled = mutableListOf<Triple<String, JobSchedule, String>>()
 
-        override fun schedule(jobId: String, schedule: JobSchedule) {
+        override fun schedule(
+            jobId: String,
+            schedule: JobSchedule,
+        ) {
             scheduled += Triple(jobId, schedule, "scheduled")
         }
 
@@ -48,52 +50,57 @@ class BackgroundWorkBootstrapperTest {
     private fun recorder(): RoomUsageRecorder = RoomUsageRecorder(FakeAppDatabase().llmUsageDao(), FakeClock())
 
     @Test
-    fun `arming is idempotent across launches`() = runTest {
-        val scheduler = RecordingScheduler()
+    fun `arming is idempotent across launches`() =
+        runTest {
+            val scheduler = RecordingScheduler()
 
-        // A desktop that suspends overnight, or an Android process killed by Doze, calls
-        // this again on the next launch. Re-arming must not stack a second schedule —
-        // `BackgroundWorkScheduler.schedule` is KEEP, so each call is absorbed.
-        repeat(3) {
-            BackgroundWorkBootstrapper(scheduler).run()
+            // A desktop that suspends overnight, or an Android process killed by Doze, calls
+            // this again on the next launch. Re-arming must not stack a second schedule —
+            // `BackgroundWorkScheduler.schedule` is KEEP, so each call is absorbed.
+            repeat(3) {
+                BackgroundWorkBootstrapper(scheduler).run()
+            }
+
+            assertEquals(
+                9, // 3 jobs × 3 launches
+                scheduler.scheduled.size,
+                "each launch re-arms all jobs; the scheduler's KEEP policy is what stops that stacking",
+            )
+            assertTrue(
+                scheduler.scheduled.all {
+                    it.first in
+                        listOf(
+                            PruneLlmUsageJob.ID,
+                            BackupJob.ID,
+                            ArchiveJob.ID,
+                        )
+                },
+                "every launch must arm the same three maintenance jobs",
+            )
         }
 
-        assertEquals(
-            9, // 3 jobs × 3 launches
-            scheduler.scheduled.size,
-            "each launch re-arms all jobs; the scheduler's KEEP policy is what stops that stacking",
-        )
-        assertTrue(
-            scheduler.scheduled.all { it.first in listOf(
-                PruneLlmUsageJob.ID,
-                BackupJob.ID,
-                ArchiveJob.ID,
-            ) },
-            "every launch must arm the same three maintenance jobs",
-        )
-    }
-
     @Test
-    fun `prune and archive run at 04-20 and 04-35, backup at 04-30`() = runTest {
-        val scheduler = RecordingScheduler()
+    fun `prune and archive run at 04-20 and 04-35, backup at 04-30`() =
+        runTest {
+            val scheduler = RecordingScheduler()
 
-        BackgroundWorkBootstrapper(scheduler).run()
+            BackgroundWorkBootstrapper(scheduler).run()
 
-        val byId = scheduler.scheduled.associate { it.first to it.second }
-        assertEquals(3, byId.size)
+            val byId = scheduler.scheduled.associate { it.first to it.second }
+            assertEquals(3, byId.size)
 
-        val pruneDaily = byId[PruneLlmUsageJob.ID] as? JobSchedule.Daily
-        assertEquals(4, pruneDaily?.atHour)
-        assertEquals(20, pruneDaily?.atMinute)
+            val pruneDaily = byId[PruneLlmUsageJob.ID] as? JobSchedule.Daily
+            assertEquals(4, pruneDaily?.atHour)
+            assertEquals(20, pruneDaily?.atMinute)
 
-        val backupDaily = byId[BackupJob.ID] as? JobSchedule.Daily
-        assertEquals(4, backupDaily?.atHour)
-        assertEquals(30, backupDaily?.atMinute)
+            val backupDaily = byId[BackupJob.ID] as? JobSchedule.Daily
+            assertEquals(4, backupDaily?.atHour)
+            assertEquals(30, backupDaily?.atMinute)
 
-        val archiveDaily = byId[ArchiveJob.ID] as? JobSchedule.Daily
-        assertEquals(4, archiveDaily?.atHour)
-        assertEquals(35, archiveDaily?.atMinute)
-    }
+            val archiveDaily = byId[ArchiveJob.ID] as? JobSchedule.Daily
+            assertEquals(4, archiveDaily?.atHour)
+            assertEquals(35, archiveDaily?.atMinute)
+        }
 
     /**
      * The armed id must resolve, or every launch throws.
@@ -104,29 +111,31 @@ class BackgroundWorkBootstrapperTest {
      * resolve too.
      */
     @Test
-    fun `all armed job ids resolve in a real catalogue`() = runTest {
-        val scheduler = RecordingScheduler()
-        BackgroundWorkBootstrapper(scheduler).run()
+    fun `all armed job ids resolve in a real catalogue`() =
+        runTest {
+            val scheduler = RecordingScheduler()
+            BackgroundWorkBootstrapper(scheduler).run()
 
-        val db = FakeAppDatabase()
-        val settings = FakeSettingsRepository()
-        val currentUser = FakeProfileAwareCurrentUser()
-        val clock = FakeClock()
+            val db = FakeAppDatabase()
+            val settings = FakeSettingsRepository()
+            val currentUser = FakeProfileAwareCurrentUser()
+            val clock = FakeClock()
 
-        val catalogue = ListBackgroundJobCatalog(
-            listOf(
-                PruneLlmUsageJob(recorder()),
-                BackupJob(FakeBackupRepository(), settings),
-                ArchiveJob(db.taskDao(), settings, currentUser, clock),
-            ),
-        )
+            val catalogue =
+                ListBackgroundJobCatalog(
+                    listOf(
+                        PruneLlmUsageJob(recorder()),
+                        BackupJob(FakeBackupRepository(), settings),
+                        ArchiveJob(db.taskDao(), settings, currentUser, clock),
+                    ),
+                )
 
-        for ((jobId, _) in scheduler.scheduled) {
-            assertContains(
-                catalogue.all().map { it.id },
-                jobId,
-                "$jobId is armed but absent from the catalogue — every launch would throw",
-            )
+            for ((jobId, _) in scheduler.scheduled) {
+                assertContains(
+                    catalogue.all().map { it.id },
+                    jobId,
+                    "$jobId is armed but absent from the catalogue — every launch would throw",
+                )
+            }
         }
-    }
 }

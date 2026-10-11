@@ -55,14 +55,20 @@ import kotlin.time.Instant
  *
  * ## What this probe measures
  *
- * The desktop harness runs as `Anonymous`. `startEntry` cannot succeed in an
- * anonymous session — the write is refused at the repository layer. Before
- * the fix for #196 the refusal was silent: the chip sat on Start and a click
- * that did nothing was indistinguishable from a control that was never wired.
- * The `Error` state now surfaces the refusal, so the probe asserts the
- * `ERROR` node is reachable after clicking Start. A successful swap
- * (Start → Stop) requires a signed-in session, which is a harness capability,
- * not a test.
+ * Click Start on the time-tracking chip and assert the surface reacted. The
+ * reaction is the Start → Stop swap: the write succeeds under the harness's
+ * anonymous session (its `scopedUserId` is a real id the DAO accepts, so
+ * `startEntry` upserts and the slot goes Running).
+ *
+ * An earlier version of this probe asserted the `ERROR` node instead, on the
+ * premise that "the desktop harness session is Anonymous, startEntry cannot
+ * succeed there" (e7866d15). The repository has never had an anonymous guard —
+ * nothing in `TimeTrackingRepositoryImpl` looks at the session — so the write
+ * succeeded, the chip swapped to Stop, and the probe timed out waiting for a
+ * refusal that was never going to come. The refusal path it was really after
+ * is covered by `TaskTimeSlotFailureTest` (a failing repo fake → Error state),
+ * which is where a write failure belongs: the desktop probe answers "is the
+ * surface reachable and wired", not "does a database error render".
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -85,15 +91,16 @@ class TaskTime01ScenarioTest {
         awaitTag(TestTags.taskItem(TASK_TITLE)).performClick()
 
         // The time-tracking section renders in Idle (no entries yet) and shows
-        // a Start chip. Click it — the anonymous session refuses the write,
-        // and the Error state renders the refusal in place of the chip.
+        // a Start chip. Click it — the write succeeds under the harness session,
+        // and the slot swaps the chip to Stop.
         awaitTag(TestTags.TimeTracking.START).assertIsDisplayed()
         awaitTag(TestTags.TimeTracking.START).performClick()
 
-        // The refusal must surface as a state, not silence (#196).
-        // Without the fix the chip simply stays on Start; with the fix the
-        // ERROR node appears and this assertion passes.
-        awaitTag(TestTags.TimeTracking.ERROR).assertIsDisplayed()
+        // The click must reach the repository, not vanish: a swallowed write
+        // leaves the chip on Start forever (#196's original finding, which the
+        // Error state exists to prevent — here the write succeeds, so the
+        // evidence is the swap).
+        awaitTag(TestTags.TimeTracking.STOP).assertIsDisplayed()
     }
 
     private companion object {

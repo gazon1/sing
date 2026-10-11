@@ -5,7 +5,6 @@ package com.singularity.todo.feature.search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
@@ -28,7 +27,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalTestApi::class, ExperimentalFoundationApi::class)
 @Tag("slow")
 class SavedSearchesRowUiTest {
-
     private val epoch = Instant.fromEpochMilliseconds(0L)
     private val testUserId = UserId("test-user")
 
@@ -36,70 +34,75 @@ class SavedSearchesRowUiTest {
         id: String,
         name: String,
         query: String = "query:$id",
-    ): SavedSearch = SavedSearch(
-        id = SavedSearchId(id),
-        userId = testUserId,
-        name = name,
-        queryString = query,
-        createdAt = epoch,
-        updatedAt = epoch,
-    )
-
-    @Test
-    fun `renders the Save chip`() = runIsolatedComposeTest {
-        setContent {
-            SavedSearchesRow(
-                savedSearches = emptyList(),
-                activeSavedSearchId = null,
-                onLoadSearch = {},
-                onSaveClick = {},
-                onRename = { _, _ -> },
-                onDelete = {},
-            )
-        }
-
-        onNodeWithText("Save").assertIsDisplayed()
-    }
-
-    @Test
-    fun `renders each saved search chip with its name`() = runIsolatedComposeTest {
-        val searches = listOf(
-            makeSavedSearch("ss1", "Work tasks"),
-            makeSavedSearch("ss2", "Tomorrow"),
+    ): SavedSearch =
+        SavedSearch(
+            id = SavedSearchId(id),
+            userId = testUserId,
+            name = name,
+            queryString = query,
+            createdAt = epoch,
+            updatedAt = epoch,
         )
-        setContent {
-            SavedSearchesRow(
-                savedSearches = searches,
-                activeSavedSearchId = null,
-                onLoadSearch = {},
-                onSaveClick = {},
-                onRename = { _, _ -> },
-                onDelete = {},
-            )
-        }
-
-        onNodeWithText("Work tasks").assertIsDisplayed()
-        onNodeWithText("Tomorrow").assertIsDisplayed()
-    }
 
     @Test
-    fun `clicking Save chip calls onSaveClick`() = runIsolatedComposeTest {
-        var saveClicked = false
-        setContent {
-            SavedSearchesRow(
-                savedSearches = emptyList(),
-                activeSavedSearchId = null,
-                onLoadSearch = {},
-                onSaveClick = { saveClicked = true },
-                onRename = { _, _ -> },
-                onDelete = {},
-            )
+    fun `renders the Save chip`() =
+        runIsolatedComposeTest {
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = emptyList(),
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
+
+            onNodeWithText("Save").assertIsDisplayed()
         }
 
-        onNodeWithText("Save").performClick()
+    @Test
+    fun `renders each saved search chip with its name`() =
+        runIsolatedComposeTest {
+            val searches =
+                listOf(
+                    makeSavedSearch("ss1", "Work tasks"),
+                    makeSavedSearch("ss2", "Tomorrow"),
+                )
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = searches,
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
 
-        assert(saveClicked) { "expected onSaveClick to be called" }
-    }
+            onNodeWithText("Work tasks").assertIsDisplayed()
+            onNodeWithText("Tomorrow").assertIsDisplayed()
+        }
+
+    @Test
+    fun `clicking Save chip calls onSaveClick`() =
+        runIsolatedComposeTest {
+            var saveClicked = false
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = emptyList(),
+                    activeSavedSearchId = null,
+                    onLoadSearch = {},
+                    onSaveClick = { saveClicked = true },
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
+
+            onNodeWithText("Save").performClick()
+
+            assert(saveClicked) { "expected onSaveClick to be called" }
+        }
 
     @Test
     fun `clicking a saved search chip calls onLoadSearch with the correct id`() =
@@ -125,22 +128,22 @@ class SavedSearchesRowUiTest {
         }
 
     @Test
-    fun `active saved search shows filled star icon`() = runIsolatedComposeTest {
-        val searches = listOf(makeSavedSearch("ss1", "Active search"))
-        setContent {
-            SavedSearchesRow(
-                savedSearches = searches,
-                activeSavedSearchId = searches[0].id,
-                onLoadSearch = {},
-                onSaveClick = {},
-                onRename = { _, _ -> },
-                onDelete = {},
-            )
+    fun `active saved search shows filled star icon`() =
+        runIsolatedComposeTest {
+            val searches = listOf(makeSavedSearch("ss1", "Active search"))
+            setContent {
+                SavedSearchesRow(
+                    savedSearches = searches,
+                    activeSavedSearchId = searches[0].id,
+                    onLoadSearch = {},
+                    onSaveClick = {},
+                    onRename = { _, _ -> },
+                    onDelete = {},
+                )
+            }
+
+            // The chip for the active search is rendered as selected.
+            // The star icon is part of the chip's merged semantics.
+            onNodeWithText("Active search").assertIsDisplayed()
         }
-
-        // The chip for the active search is rendered as selected.
-        // The star icon is part of the chip's merged semantics.
-        onNodeWithText("Active search").assertIsDisplayed()
-    }
-
 }

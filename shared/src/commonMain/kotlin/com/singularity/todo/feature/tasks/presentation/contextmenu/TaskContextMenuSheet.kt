@@ -57,22 +57,29 @@ fun TaskContextMenuSheet(
         // testTagsAsResourceId does not reach it, so the sheet's own tag and
         // every taskAction tag inside would be invisible to Maestro.
         // See Modifier.mapTestTagsAsResourceIds.
-        modifier = modifier
-            .testTag(TestTags.TASK_CONTEXT_MENU_SHEET)
-            .mapTestTagsAsResourceIds(),
+        modifier =
+            modifier
+                .testTag(TestTags.TASK_CONTEXT_MENU_SHEET)
+                .mapTestTagsAsResourceIds(),
     ) {
         Column {
             Text(
                 text = task.title,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
             )
 
             HorizontalDivider()
 
-            SheetRow(label = "Open", actionId = TestTags.TASK_CONTEXT_MENU_OPEN, onClick = onOpen, onDismiss = onDismiss)
+            SheetRow(
+                label = "Open",
+                actionId = TestTags.TASK_CONTEXT_MENU_OPEN,
+                onClick = onOpen,
+                onDismiss = onDismiss,
+            )
             SheetRow(
                 label = if (task.isCompleted) "Mark as uncompleted" else "Mark as completed",
                 actionId = TestTags.TASK_CONTEXT_MENU_COMPLETE,
@@ -88,7 +95,12 @@ fun TaskContextMenuSheet(
 
             HorizontalDivider()
 
-            SheetRow(label = "Archive", actionId = TestTags.TASK_CONTEXT_MENU_ARCHIVE, onClick = onArchive, onDismiss = onDismiss)
+            SheetRow(
+                label = "Archive",
+                actionId = TestTags.TASK_CONTEXT_MENU_ARCHIVE,
+                onClick = onArchive,
+                onDismiss = onDismiss,
+            )
         }
     }
 }
@@ -102,12 +114,13 @@ private fun SheetRow(
 ) {
     ListItem(
         headlineContent = { Text(label) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(actionId)
-            .clickable {
-                onClick()
-                onDismiss()
-            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(actionId)
+                .clickable {
+                    onClick()
+                    onDismiss()
+                },
     )
 }

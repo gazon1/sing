@@ -7,13 +7,17 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.hasScrollAction
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
+import com.singularity.todo.feature.agenda.domain.selector.SelectorTemplate
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
@@ -99,6 +103,23 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         clickText("Add first section")
     }
 
+    /**
+     * Picks a section template by its stable tag, scrolling it into the *window*.
+     *
+     * The sheet renders its 480dp LazyColumn starting at y≈478, so the list's
+     * own viewport ends at y=958 — past the 768px harness window. A mid-list
+     * row like "By tag" (y=807) is therefore "visible" to `performScrollTo`
+     * (it is inside the scrollable's bounds) yet outside the window, and a
+     * click on it starts a mouse gesture the harness refuses. `scrollToIndex`
+     * parks the row at the viewport top (y≈478), which is inside the window.
+     */
+    private fun androidx.compose.ui.test.DesktopComposeUiTest.pickSectionTemplate(label: String) {
+        val index = SelectorTemplate.catalogue.indexOfFirst { it.label == label }
+        require(index >= 0) { "no SelectorTemplate labelled \"$label\"" }
+        onAllNodes(hasScrollAction()).onLast().performScrollToIndex(index)
+        awaitTag(TestTags.agendaSectionTemplate(label)).performClick()
+    }
+
     @Test
     fun `a parameterless type is added in one step`() = runDesktopAppTest(checkA11y = true) { koin ->
         createView(koin)
@@ -107,7 +128,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
 
         // "Due today" needs no values, so picking it adds the section directly —
         // no second sheet.
-        onAllNodes(hasText("Due today") and hasClickAction()).onFirst().performClick()
+        pickSectionTemplate("Due today")
 
         awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).assertIsDisplayed().performClick()
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
@@ -121,7 +142,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
             openEditorForConfigurable()
             openAddSectionSheet()
 
-            onAllNodes(hasText("By tag") and hasClickAction()).onFirst().performClick()
+            pickSectionTemplate("By tag")
 
             // Step 2. The confirm button is disabled rather than silently doing
             // nothing — that was the failure this step exists to prevent.
@@ -139,7 +160,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         openEditorForConfigurable()
         openAddSectionSheet()
 
-        onAllNodes(hasText("By tag") and hasClickAction()).onFirst().performClick()
+        pickSectionTemplate("By tag")
         awaitTag(TestTags.agendaSelectorOption("tag-work")).performClick()
         awaitTag(TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM).performClick()
 

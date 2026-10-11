@@ -50,6 +50,7 @@ class CountdownStateMachine(
     }
 
     private val _progress = MutableStateFlow<Float?>(null)
+
     /** `null` when idle; `0f..1f` during countdown (1f = just started, 0f = expired). */
     val progress: StateFlow<Float?> = _progress.asStateFlow()
 
@@ -65,33 +66,34 @@ class CountdownStateMachine(
      */
     fun start(currentGeneration: () -> Boolean) {
         job?.cancel()
-        job = scope.launch {
-            if (!currentGeneration()) return@launch
+        job =
+            scope.launch {
+                if (!currentGeneration()) return@launch
 
-            // Total ticks needed to fill the window. Using tick counting (not wall-clock
-            // time) ensures this is fully virtual-time compatible: advanceTimeBy() in
-            // tests advances the delay() clock, so the loop exits after the correct
-            // virtual tick count regardless of real elapsed time.
-            val totalTicks = (windowMs + TICK_MS - 1) / TICK_MS
-            var ticksElapsed = 0
+                // Total ticks needed to fill the window. Using tick counting (not wall-clock
+                // time) ensures this is fully virtual-time compatible: advanceTimeBy() in
+                // tests advances the delay() clock, so the loop exits after the correct
+                // virtual tick count regardless of real elapsed time.
+                val totalTicks = (windowMs + TICK_MS - 1) / TICK_MS
+                var ticksElapsed = 0
 
-            while (true) {
-                delay(TICK_MS)
-                ticksElapsed++
+                while (true) {
+                    delay(TICK_MS)
+                    ticksElapsed++
 
-                if (!currentGeneration()) break
+                    if (!currentGeneration()) break
 
-                if (ticksElapsed >= totalTicks) {
-                    _progress.value = null
-                    onExpired()
-                    break
+                    if (ticksElapsed >= totalTicks) {
+                        _progress.value = null
+                        onExpired()
+                        break
+                    }
+
+                    // progress: 1f at start, 0f at expiry
+                    val remaining = totalTicks - ticksElapsed
+                    _progress.value = remaining.toFloat() / totalTicks
                 }
-
-                // progress: 1f at start, 0f at expiry
-                val remaining = totalTicks - ticksElapsed
-                _progress.value = remaining.toFloat() / totalTicks
             }
-        }
     }
 
     /** Cancels any running countdown without calling [onExpired]. */

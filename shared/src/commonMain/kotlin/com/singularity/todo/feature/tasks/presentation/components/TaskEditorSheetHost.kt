@@ -25,8 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 
 /**
  * Reusable bottom sheet wrapper for the Task Editor.
@@ -62,13 +62,17 @@ fun TaskEditorSheetHost(
         sheetState = sheetState,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .then(
-                    if (testTag != null) Modifier.testTag(testTag)
-                    else Modifier,
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .then(
+                        if (testTag != null) {
+                            Modifier.testTag(testTag)
+                        } else {
+                            Modifier
+                        },
+                    ),
         ) {
             // Header: close | title | confirm
             Row(
@@ -91,9 +95,10 @@ fun TaskEditorSheetHost(
                 if (onConfirm != null) {
                     IconButton(
                         onClick = onConfirm,
-                        modifier = testTagConfirm?.let {
-                            Modifier.testTag(it).mapTestTagsAsResourceIds()
-                        } ?: Modifier,
+                        modifier =
+                            testTagConfirm?.let {
+                                Modifier.testTag(it).mapTestTagsAsResourceIds()
+                            } ?: Modifier,
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Check,

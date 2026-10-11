@@ -194,7 +194,7 @@ status: accepted               # proposed | accepted | implemented | rejected
 change_type: active            # active | archived | stub
 speckit_imported: true
 adr_refs:                     # ссылки на ADR в docs/decisions/
-  - 2026-09-15-add-log-export
+  - 2026-09-23-file-logging-and-exporter
 tags: []
 documents:                    # пути к OpenSpec-документам
   proposal: .../proposal.md

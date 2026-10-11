@@ -253,7 +253,8 @@ class MaestroFlowTagsTest {
          * without adding it here fails the build and asks the question.
          */
         val KNOWN_COMMANDS = setOf(
-            "assertNotVisible", "assertVisible", "assertTrue", "back", "clearState",
+            "assertAbsent", "assertNotVisible", "assertVisible", "assertTrue", "back",
+            "clearState",
             "copyTextFrom", "doubleTapOn", "eraseText", "extendedWaitUntil", "hideKeyboard",
             "inputRandomText", "inputText", "killApp", "launchApp", "longPressOn",
             "openLink", "openNotifications", "pasteText", "pressKey", "repeat",
