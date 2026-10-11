@@ -257,6 +257,7 @@ gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-bo
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.
 gate advisory "ADR frontmatter drift" adr_dry_run
+gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
 gate advisory "spec-kit issue registry current" python3 scripts/check-speckit-issue-registry.py
 gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
 

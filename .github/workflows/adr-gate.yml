@@ -43,7 +43,7 @@ jobs:
       - name: ADR validation
         run: singularity-adr validate
 
-      - name: ADR stale check
+      - name: ADR stale check (advisory)
         run: singularity-adr stale --days 30 || true
 
       - name: Refresh DIGEST if needed
