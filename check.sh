@@ -37,13 +37,12 @@ TOTAL=13
 echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
 # Every script gate that needs no JVM and no build output lives in
 # scripts/ci/static-gates.sh, which the `static` job of ci.yml also runs.
-#
-# Delegating here is the point of that file, not a convenience. The two failures
-# this repository had were a gate that lived only in ci.yml and a gate that lived
-# only in check.sh — each real, each green, each invisible to the other surface.
-# One registry, two callers, is the only arrangement where that class cannot recur.
-bash scripts/ci/static-gates.sh || {
-    echo -e "${RED}a static gate failed — see scripts/ci/static-gates.sh${NC}"
+# sgate run-all reads that registry and dispatches each gate to its native
+# command (sgate <name>), inline shell, or inline Python — running all gates
+# in the registry in parallel. One registry, one interface, is the only
+# arrangement where a gate cannot silently vanish between surfaces.
+sgate run-all || {
+    echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
     exit 1
 }
 

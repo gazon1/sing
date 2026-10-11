@@ -1,56 +1,98 @@
-"""sgate.commands.light_adr_modules_stay_light — shim for: light ADR modules stay light."""
+"""sgate.commands.adr_module_boundary — custom gate: light ADR modules must stay light."""
 from __future__ import annotations
 
-from typing import ClassVar
+import re
+import sys
+from typing import Any
 
 import click
-from sgate.log import logger
 
 import sgate
-from sgate.output import gate_fail
-from sgate.commands._runner import run
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
+from sgate.commands._runner import run_capture
+from sgate.output import gate_fail, gate_warn
+from sgate.commands.base import register
 
-# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
-KIWI_REQUIRED: ClassVar[bool] = False
+
+# "light ADR modules reach no application module"
+_OK_PATTERN = re.compile(r"light ADR modules reach no application module")
+# "  :adr-cli -> :shared, :androidApp"
+_DEPS_PATTERN = re.compile(r"^\s+(\S+)\s+->\s+(.+)$", re.MULTILINE)
+# "light ADR modules reach the application runtime:" (stderr header)
+_RUNTIME_HEADER = re.compile(r"light ADR modules reach the application runtime:")
+
+
+def _parse_adr_module_boundary(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> dict[str, Any]:
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode("utf-8", errors="replace")
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", errors="replace")
+
+    passed = exit_code == 0
+    findings: list[dict[str, str]] = []
+    errors: list[str] = []
+
+    if _OK_PATTERN.search(stdout):
+        pass  # no findings
+    elif _RUNTIME_HEADER.search(stderr):
+        # Parse "  {light} -> {app}" from stderr
+        for m in _DEPS_PATTERN.finditer(stderr):
+            light = m.group(1).strip()
+            apps = m.group(2).strip()
+            findings.append({"light_module": light, "reaches": apps})
+            errors.append(f"{light} -> {apps}")
+
+    return {
+        "passed": passed,
+        "findings": findings,
+        "blocking_errors": errors,
+        "warnings": [],
+    }
 
 
 @click.command("light_adr_modules_stay_light")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 def light_adr_modules_stay_light(check: bool, emit_json: bool) -> None:
-    """Run the "light ADR modules stay light" gate.
+    """Run the "ADR module boundary" gate.
 
-    Mode: blocking
-
-    Exit codes:
-      0 = clean (gate passed)
-      1 = validation failure (gate detected an issue)
-      2 = I/O error (script not found)
-      3 = config error
-      4 = kiwi unavailable (KIWI_REQUIRED gate; skip is expected)
-      5 = internal error (unexpected exception)
-
-    KIWI_REQUIRED: False
+    Calls: python3 scripts/check-adr-module-boundary.py
+    Output pass: "light ADR modules reach no application module"
+    Output fail: "light ADR modules reach the application runtime:" + "  :adr-cli -> :shared" lines (to stderr)
+    Exit 0: clean; Exit 1: boundary violation; Exit 2: parse failure
     """
     repo_root = sgate.repo.ROOT
-    gate_name = 'light_adr_modules_stay_light'
+    gate_name = "light ADR modules stay light"
+    script = repo_root / "scripts/check-adr-module-boundary.py"
 
-    script = repo_root / 'scripts/check-adr-module-boundary.py'
-    if not script.exists():
-        logger.error(f"{script} not found")
-        gate_fail(gate_name, None, None, None, None, "script not found")
-        raise SystemExit(IO_ERROR)
+    result = run_capture([sys.executable, str(script)], gate_name)
+    parsed = _parse_adr_module_boundary(result.stdout, result.stderr, result.returncode)
 
-    import sys
-    py_cmd = [sys.executable, str(script)]
-    py_cmd.extend(['--quiet'])
-    try:
-        run(py_cmd, gate_name)
-    except Exception:
-        logger.exception("unexpected error")
-        gate_fail(gate_name, None, None, None, None, "unexpected error")
-        raise SystemExit(INTERNAL_ERROR)
+    if emit_json:
+        import json
+
+        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+    elif check:
+        if parsed["passed"]:
+            gate_warn(gate_name, None, None, None, None, "ADR module boundary OK — no light module reaches application runtime")
+        else:
+            print(f"adr_module_boundary: {len(parsed['findings'])} boundary violation(s)")
+            for f in parsed["findings"]:
+                print(f"  {f['light_module']} -> {f['reaches']}")
+    else:
+        if not parsed["passed"]:
+            finding_str = "; ".join(parsed["blocking_errors"])
+            gate_fail(
+                gate_name,
+                None,
+                None,
+                None,
+                None,
+                f"light module reaches application runtime: {finding_str}",
+            )
+            raise SystemExit(1)
+
+    if parsed["passed"] and not emit_json:
+        click.echo("adr_module_boundary: no light ADR module reaches application runtime — PASS")
+
 
 register(light_adr_modules_stay_light)
-

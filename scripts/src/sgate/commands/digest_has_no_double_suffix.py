@@ -1,6 +1,7 @@
 """sgate.commands.digest_has_no_double_suffix — shim for: digest has no double suffix."""
 from __future__ import annotations
 
+import json
 from typing import ClassVar
 
 import click
@@ -8,7 +9,7 @@ from sgate.log import logger
 
 import sgate
 from sgate.output import gate_fail
-from sgate.commands._runner import run
+from sgate.commands._runner import run, run_capture
 from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 # Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
@@ -44,6 +45,14 @@ def digest_has_no_double_suffix(check: bool, emit_json: bool) -> None:
 
     bash_cmd = ['bash', '-c', f'. {static_sh} && digest_no_double_suffix']
     try:
+        if emit_json:
+            result = run_capture(bash_cmd, gate_name)
+            out = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+            data = {"gate": gate_name, "passed": result.returncode == 0, "exit_code": result.returncode, "output": out}
+            if result.returncode != 0:
+                gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
+            print(json.dumps(data))
+            raise SystemExit(result.returncode)
         run(bash_cmd, gate_name)
     except Exception:
         logger.exception("unexpected error")

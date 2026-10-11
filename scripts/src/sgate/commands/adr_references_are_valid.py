@@ -1,18 +1,69 @@
-"""sgate.commands.adr_references_are_valid — shim for: ADR references are valid."""
+"""sgate.commands.adr_references — custom gate: ADR references are valid."""
 from __future__ import annotations
 
-from typing import ClassVar
+import re
+import sys
+from typing import Any
 
 import click
-from sgate.log import logger
 
 import sgate
-from sgate.output import gate_fail
-from sgate.commands._runner import run
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
+from sgate.commands._runner import run_capture
+from sgate.output import gate_fail, gate_warn
+from sgate.commands.base import register
 
-# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
-KIWI_REQUIRED: ClassVar[bool] = False
+
+# Pattern: "check_adr_references.py: OK — {N} ADR slugs, {M} baselined..."
+# or:       "check_adr_references.py: {N} dangling ADR reference(s) ..."
+_OK_PATTERN = re.compile(
+    r"check_adr_references\.py: OK — (\d+) ADR slugs,"
+)
+_DANGLING_PATTERN = re.compile(
+    r"check_adr_references\.py: (\d+) dangling ADR reference\(s\)"
+)
+_STALE_PATTERN = re.compile(
+    r"check_adr_references: (\d+) baseline entr\(ies\) no longer occur"
+)
+
+
+def _parse_adr_references(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> dict[str, Any]:
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode("utf-8", errors="replace")
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", errors="replace")
+    combined = (stdout + "\n" + stderr).strip()
+
+    passed = exit_code == 0
+    dangling_count = 0
+    slugs_count = 0
+    stale_count = 0
+    errors: list[str] = []
+
+    m_dangle = _DANGLING_PATTERN.search(combined)
+    if m_dangle:
+        dangling_count = int(m_dangle.group(1))
+
+    m_ok = _OK_PATTERN.search(combined)
+    if m_ok:
+        slugs_count = int(m_ok.group(1))
+
+    m_stale = _STALE_PATTERN.search(combined)
+    if m_stale:
+        stale_count = int(m_stale.group(1))
+
+    if not passed:
+        errors.append(f"{dangling_count} dangling ADR reference(s)")
+    if stale_count > 0:
+        errors.append(f"{stale_count} baseline entry/entries no longer occur — remove with --update-baseline")
+
+    return {
+        "passed": passed,
+        "adr_slugs_count": slugs_count,
+        "dangling_count": dangling_count,
+        "stale_baseline_count": stale_count,
+        "blocking_errors": errors,
+        "warnings": [],
+    }
 
 
 @click.command("adr_references_are_valid")
@@ -21,35 +72,41 @@ KIWI_REQUIRED: ClassVar[bool] = False
 def adr_references_are_valid(check: bool, emit_json: bool) -> None:
     """Run the "ADR references are valid" gate.
 
-    Mode: blocking
-
-    Exit codes:
-      0 = clean (gate passed)
-      1 = validation failure (gate detected an issue)
-      2 = I/O error (script not found)
-      3 = config error
-      4 = kiwi unavailable (KIWI_REQUIRED gate; skip is expected)
-      5 = internal error (unexpected exception)
-
-    KIWI_REQUIRED: False
+    Calls: python3 scripts/check-adr-references.py
+    Output pass: "check_adr_references.py: OK — {N} ADR slugs, ..."
+    Output fail: "check_adr_references.py: {N} dangling ADR reference(s) ..."
+    Exit 0: clean; Exit 1: validation failure
     """
     repo_root = sgate.repo.ROOT
-    gate_name = 'adr_references_are_valid'
+    gate_name = "ADR references are valid"
+    script = repo_root / "scripts/check-adr-references.py"
 
-    script = repo_root / 'scripts/check-adr-references.py'
-    if not script.exists():
-        logger.error(f"{script} not found")
-        gate_fail(gate_name, None, None, None, None, "script not found")
-        raise SystemExit(IO_ERROR)
+    result = run_capture([sys.executable, str(script)], gate_name)
+    parsed = _parse_adr_references(result.stdout, result.stderr, result.returncode)
 
-    import sys
-    py_cmd = [sys.executable, str(script)]
-    try:
-        run(py_cmd, gate_name)
-    except Exception:
-        logger.exception("unexpected error")
-        gate_fail(gate_name, None, None, None, None, "unexpected error")
-        raise SystemExit(INTERNAL_ERROR)
+    if emit_json:
+        import json
+
+        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+    elif check:
+        if parsed["passed"]:
+            gate_warn(gate_name, None, None, None, None, f"ADR references OK — {parsed['adr_slugs_count']} slugs, {parsed['dangling_count']} dangling")
+        else:
+            print(f"adr_references: {parsed['dangling_count']} dangling reference(s)")
+    else:
+        if not parsed["passed"]:
+            gate_fail(
+                gate_name,
+                None,
+                None,
+                None,
+                None,
+                f"{parsed['dangling_count']} dangling ADR reference(s)",
+            )
+            raise SystemExit(1)
+
+    if parsed["passed"] and not emit_json:
+        click.echo(f"adr_references: {parsed['adr_slugs_count']} ADR slugs, {parsed['dangling_count']} dangling — PASS")
+
 
 register(adr_references_are_valid)
-

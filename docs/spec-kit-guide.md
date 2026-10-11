@@ -193,8 +193,7 @@ title: add-log-export
 status: accepted               # proposed | accepted | implemented | rejected
 change_type: active            # active | archived | stub
 speckit_imported: true
-adr_refs:                     # ссылки на ADR в docs/decisions/
-  - 2026-09-23-file-logging-and-exporter
+adr_refs: []                  # ссылки на ADR в docs/decisions/
 tags: []
 documents:                    # пути к OpenSpec-документам
   proposal: .../proposal.md

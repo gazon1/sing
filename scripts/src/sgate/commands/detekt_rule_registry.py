@@ -1,6 +1,7 @@
 """sgate.commands.detekt_rule_registry — shim for: detekt rule registry."""
 from __future__ import annotations
 
+import json
 from typing import ClassVar
 
 import click
@@ -8,7 +9,7 @@ from sgate.log import logger
 
 import sgate
 from sgate.output import gate_fail
-from sgate.commands._runner import run
+from sgate.commands._runner import run, run_capture
 from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 # Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
@@ -37,6 +38,14 @@ def detekt_rule_registry(check: bool, emit_json: bool) -> None:
     gate_name = 'detekt_rule_registry'
 
     try:
+        if emit_json:
+            result = run_capture(['./scripts/check-detekt-registrations.sh'], gate_name)
+            out = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+            data = {"gate": gate_name, "passed": result.returncode == 0, "exit_code": result.returncode, "output": out}
+            if result.returncode != 0:
+                gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
+            print(json.dumps(data))
+            raise SystemExit(result.returncode)
         run(['./scripts/check-detekt-registrations.sh'], gate_name)
     except Exception:
         logger.exception("unexpected error")

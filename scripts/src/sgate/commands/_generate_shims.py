@@ -40,9 +40,9 @@ GATES = [
     ("gates are alive", "blocking",
      ["python3", "scripts/check-gate-liveness.py"]),
     ("closed ADRs keep their body", "blocking",
-     ["python3", "scripts/check-adr-immutable.py"]),
+     ["python3", "scripts/check-adr-immutable.py"], {"custom": True}),
     ("skills describe the tools that exist", "blocking",
-     ["python3", "scripts/check-skill-drift.py"]),
+     ["python3", "scripts/check-skill-drift.py"], {"custom": True}),
     ("git hooks path is per-worktree", "advisory",
      ["python3", "scripts/check-hooks-path.py", "--quiet"]),
     ("unwired surfaces", "advisory",
@@ -50,7 +50,7 @@ GATES = [
     ("unwired backlog refs", "blocking",
      ["python3", "scripts/check-unwired-backlog-refs.py"], {"custom": True}),
     ("settings read by a feature", "blocking",
-     ["python3", "scripts/check-dead-settings.py", "--quiet"]),
+     ["python3", "scripts/check-dead-settings.py", "--quiet"], {"custom": True}),
     ("YAML has no duplicate keys", "blocking",
      ["python3", "scripts/check-yaml-duplicate-keys.py", "--quiet"], {"custom": True}),
     # Lint-rule governance
@@ -87,9 +87,9 @@ GATES = [
     ("skills catalog current", "advisory",
      ["./scripts/regen-skills-catalog.sh", "--check"]),
     ("skill frontmatter", "blocking",
-     ["./scripts/check-skill-frontmatter.sh"]),
+     ["./scripts/check-skill-frontmatter.sh"], {"custom": True}),
     ("decisions digest within budget", "blocking",
-     ["bash", "-c", "digest_and_sizes"]),
+     ["bash", "-c", "digest_and_sizes"], {"custom": True}),
     ("digest has no double suffix", "blocking",
      ["bash", "-c", "digest_no_double_suffix"]),
     ("no dead doc refs", "advisory",
@@ -106,13 +106,13 @@ GATES = [
      ["python3", "scripts/check-readme-claims.py", "--self-test"]),
     # ADR governance
     ("ADR references are valid", "blocking",
-     ["python3", "scripts/check-adr-references.py"]),
+     ["python3", "scripts/check-adr-references.py"], {"custom": True}),
     ("ADR status policy", "blocking",
      ["singularity-adr", "validate"]),
     ("ADR corpus rules are shared", "blocking",
      ["python3", "scripts/check-adr-config-sync.py"]),
     ("light ADR modules stay light", "blocking",
-     ["python3", "scripts/check-adr-module-boundary.py", "--quiet"]),
+     ["python3", "scripts/check-adr-module-boundary.py", "--quiet"], {"custom": True}),
     ("ADR frontmatter drift", "advisory",
      ["bash", "-c", "adr_dry_run"], {"custom": True}),
     # spec-kit
@@ -148,6 +148,7 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     add(f'"""sgate.commands.{name} — shim for: {display_name}."""')
     add("from __future__ import annotations")
     add("")
+    add("import json")
     add("from typing import ClassVar")
     add("")
     add("import click")
@@ -155,7 +156,7 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     add("")
     add("import sgate")
     add("from sgate.output import gate_fail")
-    add("from sgate.commands._runner import run")
+    add("from sgate.commands._runner import run, run_capture")
     add("from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register")
     add("")
     add(f"# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)")
@@ -200,6 +201,14 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
             args_repr = ", ".join(repr(a) for a in script_args)
             add(f"{INDENT}py_cmd.extend([{args_repr}])")
         add(f"{INDENT}try:")
+        add(f"{INDENT}    if emit_json:")
+        add(f"{INDENT}        result = run_capture(py_cmd, gate_name)")
+        add(f"{INDENT}        out = result.stdout.decode(\"utf-8\", errors=\"replace\") if result.stdout else \"\"")
+        add(f"{INDENT}        data = {{\"gate\": gate_name, \"passed\": result.returncode == 0, \"exit_code\": result.returncode, \"output\": out}}")
+        add(f"{INDENT}        if result.returncode != 0:")
+        add(f"{INDENT}            gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        print(json.dumps(data))")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}    run(py_cmd, gate_name)")
         add(f"{INDENT}except Exception:")
         add(f"{INDENT}    logger.exception(\"unexpected error\")")
@@ -221,6 +230,14 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
             args_repr = ", ".join(repr(a) for a in script_args)
             add(f"{INDENT}sh_cmd.extend([{args_repr}])")
         add(f"{INDENT}try:")
+        add(f"{INDENT}    if emit_json:")
+        add(f"{INDENT}        result = run_capture(sh_cmd, gate_name)")
+        add(f"{INDENT}        out = result.stdout.decode(\"utf-8\", errors=\"replace\") if result.stdout else \"\"")
+        add(f"{INDENT}        data = {{\"gate\": gate_name, \"passed\": result.returncode == 0, \"exit_code\": result.returncode, \"output\": out}}")
+        add(f"{INDENT}        if result.returncode != 0:")
+        add(f"{INDENT}            gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        print(json.dumps(data))")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}    run(sh_cmd, gate_name)")
         add(f"{INDENT}except Exception:")
         add(f"{INDENT}    logger.exception(\"unexpected error\")")
@@ -238,6 +255,14 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
         add("")
         add(f"{INDENT}bash_cmd = ['bash', '-c', f'. {{static_sh}} && {func_name}']")
         add(f"{INDENT}try:")
+        add(f"{INDENT}    if emit_json:")
+        add(f"{INDENT}        result = run_capture(bash_cmd, gate_name)")
+        add(f"{INDENT}        out = result.stdout.decode(\"utf-8\", errors=\"replace\") if result.stdout else \"\"")
+        add(f"{INDENT}        data = {{\"gate\": gate_name, \"passed\": result.returncode == 0, \"exit_code\": result.returncode, \"output\": out}}")
+        add(f"{INDENT}        if result.returncode != 0:")
+        add(f"{INDENT}            gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        print(json.dumps(data))")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}    run(bash_cmd, gate_name)")
         add(f"{INDENT}except Exception:")
         add(f"{INDENT}    logger.exception(\"unexpected error\")")
@@ -248,6 +273,14 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     else:
         cmd_repr = repr(cmd)
         add(f"{INDENT}try:")
+        add(f"{INDENT}    if emit_json:")
+        add(f"{INDENT}        result = run_capture({cmd_repr}, gate_name)")
+        add(f"{INDENT}        out = result.stdout.decode(\"utf-8\", errors=\"replace\") if result.stdout else \"\"")
+        add(f"{INDENT}        data = {{\"gate\": gate_name, \"passed\": result.returncode == 0, \"exit_code\": result.returncode, \"output\": out}}")
+        add(f"{INDENT}        if result.returncode != 0:")
+        add(f"{INDENT}            gate_fail(gate_name, None, None, None, None, f\"exit {{result.returncode}}\")")
+        add(f"{INDENT}        print(json.dumps(data))")
+        add(f"{INDENT}        raise SystemExit(result.returncode)")
         add(f"{INDENT}    run({cmd_repr}, gate_name)")
         add(f"{INDENT}except Exception:")
         add(f"{INDENT}    logger.exception(\"unexpected error\")")
