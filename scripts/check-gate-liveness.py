@@ -91,6 +91,10 @@ SLOW_NAMES = {
 # not be able to hang on liveness.
 SELF = pathlib.Path(__file__).name
 
+# Seconds per probe. Generous, because a timeout is now reported as `slow` rather
+# than `dead` and a generous budget stops healthy gates from being reported at all.
+PROBE_TIMEOUT = 300
+
 
 def registered_gates() -> list[tuple[str, str, str]]:
     """(level, name, command) for every gate in the registry."""
@@ -126,10 +130,21 @@ def is_registry_function(cmd: str, functions: set[str]) -> bool:
     return bool(cmd.split()[:1] and cmd.split()[0] in functions)
 
 
-def probe(name: str, cmd: str) -> tuple[str, str]:
+def probe(name: str, cmd: str, budget: int = PROBE_TIMEOUT) -> tuple[str, str]:
     """Run one gate. Returns (verdict, detail).
 
-    verdict is one of: ok, finding, dead, unrunnable.
+    verdict is one of: ok, finding, slow, dead, unrunnable.
+
+    **`slow` is not `dead`, and keeping them apart is the whole point.** The first
+    version called a timeout a death, so one gate that shells out to Gradle when its
+    cache file is absent — `declared dependencies are used`, which reads
+    `/tmp/_resolved.tsv` and otherwise runs `:shared:printResolvedArtifacts` — reddened
+    the whole CI job on a GitHub runner. Locally the file existed and the gate took
+    1.9 s; in CI it did not, and a cold daemon took longer than the probe budget. The
+    gate was healthy. The verdict was wrong.
+
+    A meta-gate that cannot tell "crashed" from "slow" will eventually report a dead
+    gate for a live one, and the first thing anyone does then is ignore it.
     """
     argv = shlex.split(cmd)
     if not argv:
@@ -144,12 +159,15 @@ def probe(name: str, cmd: str) -> tuple[str, str]:
 
     try:
         proc = subprocess.run(
-            argv, cwd=ROOT, capture_output=True, text=True, timeout=120,
+            argv, cwd=ROOT, capture_output=True, text=True, timeout=budget,
+            # Never inherit the runner's stdin. A gate that reads stdin blocks
+            # forever in Actions, where stdin is an open pipe with no writer.
+            stdin=subprocess.DEVNULL,
         )
     except FileNotFoundError:
         return 'unrunnable', f'{argv[0]} not found'
     except subprocess.TimeoutExpired:
-        return 'dead', 'timed out after 120s without reaching a verdict'
+        return 'slow', f'no verdict after {budget}s'
     except PermissionError:
         return 'unrunnable', f'{argv[0]} is not executable'
 
@@ -192,6 +210,7 @@ def main() -> int:
     functions = registry_functions()
     dead: list[tuple[str, str]] = []
     unrunnable: list[tuple[str, str]] = []
+    slow: list[tuple[str, str]] = []
     findings: list[str] = []
     via_function: list[str] = []
 
@@ -204,6 +223,8 @@ def main() -> int:
             dead.append((name, detail))
         elif verdict == 'unrunnable':
             unrunnable.append((name, detail))
+        elif verdict == 'slow':
+            slow.append((name, detail))
         elif verdict == 'finding':
             findings.append(name)
 
@@ -214,13 +235,19 @@ def main() -> int:
         print(f'note: {name} — reported a finding (non-zero, no crash); that is the gate working')
     for name, detail in unrunnable:
         print(f'ERROR: gate "{name}" cannot run: {detail}')
+    for name, detail in slow:
+        # Reported, not fatal. A gate that is merely slow is a different problem from
+        # one that cannot answer at all, and merging the two verdicts is what turned a
+        # healthy Gradle-calling gate into a red CI job.
+        print(f'note: {name} — {detail}; slow is not dead, so this is not a failure')
     for name, detail in dead:
         print(f'ERROR: gate "{name}" died instead of reporting: {detail}')
 
     print('')
     probed = len(targets) - len(via_function)
     print(f'check-gate-liveness.py: {probed} gate(s) probed, '
-          f'{len(dead)} died, {len(unrunnable)} unrunnable, {len(findings)} reported findings, '
+          f'{len(dead)} died, {len(unrunnable)} unrunnable, {len(slow)} slow, '
+          f'{len(findings)} reported findings, '
           f'{len(via_function)} shell-function gates, '
           + (f'{skipped} skipped as slow' if skipped else '0 skipped as slow'))
 
