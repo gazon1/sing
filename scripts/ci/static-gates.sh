@@ -156,6 +156,22 @@ gate blocking "gate scripts' own unit tests" python3 -m unittest discover -s scr
 gate blocking "test-task external inputs declared" python3 scripts/check-test-task-inputs.py
 gate blocking "declared dependencies are used" python3 scripts/check-dependency-usage.py
 gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
+# A gate that dies instead of reporting is indistinguishable from a gate that
+# passes, for every consumer that reads only the exit code. This found a real
+# one on its first run: check-kiwi-inventory-ratchet.py crashed with
+# "NoneType has no attribute loader" and had been dead since #430 (#529).
+gate blocking "gates are alive" python3 scripts/check-gate-liveness.py
+# A closed decision is a record of what was decided. Its body must stop changing;
+# a new decision supersedes it instead of rewriting it (#528).
+gate blocking "closed ADRs keep their body" python3 scripts/check-adr-immutable.py
+# A skill is a hand-written description of code nobody diffs against it, so it is
+# always the stale one and always reads like documentation rather than like a bug.
+# The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
+# this compares the committed text with what the code says today (#526).
+gate blocking "skills describe the tools that exist" python3 scripts/check-skill-drift.py
+# An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
+# every worktree, and git config does not travel with the repo (#519).
+gate advisory "git hooks path is per-worktree" python3 scripts/check-hooks-path.py --quiet
 gate advisory "unwired surfaces" python3 scripts/find-unwired-surfaces.py --quiet
 gate blocking "unwired backlog refs" python3 scripts/check-unwired-backlog-refs.py
 gate blocking "settings read by a feature" python3 scripts/check-dead-settings.py --quiet
@@ -214,6 +230,20 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 # ADR reference integrity and status policy — these make ADR deletion safe (#116).
 gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
 gate blocking "ADR status policy" python3 scripts/check_adr_status.py
+
+# Five consumers discovered docs/decisions/ five different ways and had already
+# drifted apart — three could not see deferred/, which is how the status gate
+# reported "all statuses in vocabulary" while 129 files used a vocabulary of their
+# own. The rules live in config/docs/adr-corpus.json; this gate keeps every consumer
+# reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
+gate blocking "ADR corpus rules are shared" python3 scripts/check-adr-config-sync.py
+
+# `:adr-cli` shipped 127 MB and 0.30 s of startup to read markdown files, because
+# `adr-cli/build.gradle.kts` depended on `:shared` — Compose, Room, SQLite, Koin and
+# Koog. The rules moved to `:adr-core`; this keeps them there, transitively, so a
+# one-line dependency does not put the application runtime back on a 4.9 MB
+# distribution with every test still green.
+gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-boundary.py --quiet
 
 # Advisory — each needs an exit plan, or it is just a quieter blocking gate.
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,

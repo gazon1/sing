@@ -10,7 +10,9 @@ The rule the fix encodes: a file whose frontmatter cannot be trusted is reported
 and left byte-identical, never rewritten.
 """
 
+import contextlib
 import importlib.util
+import io
 import pathlib
 import sys
 import tempfile
@@ -344,7 +346,7 @@ class ExitCodeTest(unittest.TestCase):
             corpus = pathlib.Path(tmp)
             (corpus / '2026-10-03-list-valued.md').write_text(
                 '---\ntitle: T\ndate: 2026-10-03\ndeciders:\n  - Someone\n---\n\n# Body\n')
-            code, out = self._run(corpus, ['--dry-run'])
+            code, out = self._run(corpus, [])
         self.assertEqual(code, 0, out)
         self.assertIn('not normalizable', out)
         self.assertIn('0 structurally broken', out)
@@ -353,9 +355,101 @@ class ExitCodeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             corpus = pathlib.Path(tmp)
             (corpus / '2026-10-03-broken.md').write_text(UNTERMINATED)
-            code, out = self._run(corpus, ['--dry-run'])
+            code, out = self._run(corpus, [])
         self.assertEqual(code, 3, out)
         self.assertIn('1 structurally broken', out)
+
+
+class FrontmatterContractTest(unittest.TestCase):
+    """The frontmatter contract is declared once (#518), and both sides read it.
+
+    The drift this locks down was real, not hypothetical: `updateAdr` began emitting
+    `review-by:` in #527, the normalizer's own `KNOWN_KEYS` never heard about it, and
+    the repository's own tool produced files that the repository's own gate then
+    rejected as structurally broken.
+    """
+
+    def test_known_keys_is_the_corpus_contract_not_a_second_copy(self):
+        """Identity, not equality — a restated list would drift the moment it was typed."""
+        self.assertIs(mod.KNOWN_KEYS, mod.CORPUS.frontmatter_keys)
+
+    def test_review_by_is_accepted(self):
+        """The exact regression: a key the writer emits must not be an unknown key."""
+        self.assertIn('review-by', mod.KNOWN_KEYS)
+        fm, _, _ = mod.parse_frontmatter([
+            '---', 'title: T', 'date: 2026-10-11', 'status: accepted',
+            'tags: ["a"]', 'review-by: 2027-01-01', '---', '', 'body',
+        ])
+        self.assertEqual(fm['review-by'], '2027-01-01')
+
+    def test_every_declared_key_parses(self):
+        """Each key the contract promises is a key the parser will accept.
+
+        One file carrying all of them, so a single StructuralError names the offender
+        instead of the test reporting 47 separate opaque failures.
+        """
+        keys = sorted(mod.KNOWN_KEYS)
+        lines = ['---']
+        lines += [f'{k}: v' for k in keys if k not in mod.SECTION_KEYS]
+        lines += ['---', '', 'body']
+        fm, _, _ = mod.parse_frontmatter(lines)
+        self.assertEqual(len(fm), len(keys) - len(mod.SECTION_KEYS))
+
+    def test_a_key_outside_the_contract_is_still_refused(self):
+        """Adding a key must be a deliberate edit to the contract, not a free-for-all."""
+        with self.assertRaises(mod.StructuralError):
+            mod.parse_frontmatter(['---', 'not-a-real-key: v', '---', '', 'body'])
+
+    def test_new_adr_keys_are_all_known(self):
+        """The key order a new ADR is born with must survive the normalizer."""
+        for key in mod.CORPUS.new_adr_key_order:
+            self.assertIn(key, mod.KNOWN_KEYS,
+                          f'new ADR frontmatter key {key!r} is not in the declared contract')
+
+    def test_new_adr_status_is_in_the_decision_vocabulary(self):
+        """`status: open` is what a new decision is born with, and `open` must be legal."""
+        self.assertEqual(mod.CORPUS.new_adr_status, 'open')
+        self.assertIn(mod.CORPUS.new_adr_status, mod.CORPUS.statuses)
+
+
+class ArgvTest(unittest.TestCase):
+    """`--dry-run` was passed by two callers and read by nobody (#518).
+
+    A dead flag is not cosmetic: it looks like it is doing something, so nobody
+    notices when an invocation stops matching the script. These lock down that an
+    argument the script does not implement is now an error rather than a shrug.
+    """
+
+    def _argv(self, args):
+        saved = sys.argv
+        buf = io.StringIO()
+        code = 0
+        try:
+            sys.argv = ['normalize-adr-frontmatter.py'] + args
+            with contextlib.redirect_stdout(buf):
+                try:
+                    mod.parse_argv(args)
+                except SystemExit as exc:
+                    code = exc.code or 0
+        finally:
+            sys.argv = saved
+        return code
+
+    def test_no_arguments_means_report_only(self):
+        self.assertFalse(mod.parse_argv([]))
+
+    def test_apply_means_write(self):
+        self.assertTrue(mod.parse_argv(['--apply']))
+
+    def test_the_old_dead_flag_is_now_a_usage_error(self):
+        """The flag `.just/tests/mod.just` used to pass."""
+        self.assertEqual(self._argv(['--dry-run']), 2)
+
+    def test_an_unrelated_flag_is_also_refused(self):
+        self.assertEqual(self._argv(['--quiet']), 2)
+
+    def test_help_exits_zero(self):
+        self.assertEqual(self._argv(['--help']), 0)
 
 
 if __name__ == '__main__':

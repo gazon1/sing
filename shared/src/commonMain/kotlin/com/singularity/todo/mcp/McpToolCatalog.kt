@@ -194,7 +194,10 @@ object McpToolCatalog {
             name = "write_adr",
             toolClass = "WriteAdrTool",
             domain = "adr",
-            description = "Writes or updates an Architecture Decision Record",
+            description = "Creates a NEW ADR. Fails if the slug exists - a decision is " +
+                "never overwritten. To close or revise one, use update_adr; to replace " +
+                "one, write a new ADR naming the old in `supersedes:` and then mark the " +
+                "old one superseded (do not invent a '-v2' slug).",
             annotations = ToolAnnotations(openWorldHint = true),
         ),
         ToolEntry(
@@ -205,10 +208,26 @@ object McpToolCatalog {
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
+            name = "update_adr",
+            toolClass = "UpdateAdrTool",
+            domain = "adr",
+            description = "Changes an existing ADR's status frontmatter; the body is never " +
+                "modified. status is one of accepted, deferred, superseded, open. " +
+                "status=superseded requires supersededBy naming an existing slug.",
+            annotations = ToolAnnotations(openWorldHint = true),
+        ),
+        ToolEntry(
             name = "read_adr",
             toolClass = "ReadAdrTool",
             domain = "adr",
             description = "Reads the content of an ADR by filename",
+            annotations = ToolAnnotations(readOnlyHint = true),
+        ),
+        ToolEntry(
+            name = "list_open_deferred",
+            toolClass = "ListOpenDeferredTool",
+            domain = "adr",
+            description = "Lists deferred backlog entries with OPEN or PARTIAL status",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
 

@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-decisions-workflow
-description: Lightweight decision-log workflow for this project. Instead of a skill per refactor, write short structured entries to `docs/decisions/<date>-<slug>.md` capturing Idea / Decision / Rationale / Consequences, and keep an auto-generated `docs/decisions/DIGEST.md` as the single source of truth for the agent. Use when finishing a non-trivial refactor, choosing between two viable approaches, discovering a non-obvious workaround, or migrating a contract. Skip for trivial fixes (typos, single-line tweaks).
+description: Lightweight decision-log workflow for this project. Instead of a skill per refactor, write short structured entries to `docs/decisions/<date>-<slug>.md` capturing Idea / Decision / Rationale / Consequences, and keep an auto-generated `docs/decisions/DIGEST.md` as the agent's entry point. The dated entries are the source of truth; the digest is derived from them, is gitignored, and is rebuilt by a script — so treat it as a cache, never as a record. Use when finishing a non-trivial refactor, choosing between two viable approaches, discovering a non-obvious workaround, or migrating a contract. Skip for trivial fixes (typos, single-line tweaks).
 ---
 
 # Singularity TODO — Decision Log Workflow
@@ -11,7 +11,7 @@ This project captures architectural knowledge as **short dated entries** rather 
 
 ```
 docs/decisions/
-├── DIGEST.md                       # auto-generated, single source of truth for the agent
+├── DIGEST.md                       # auto-generated, gitignored, derived from the entries below — a cache, not a record
 ├── 2026-09-05-koog-both-platforms.md
 ├── 2026-09-05-koin-suspend-bridge.md
 ├── 2026-09-05-ai-provider-settings.md
@@ -86,7 +86,13 @@ If unsure, write a one-paragraph entry — small is fine. Missing a decision is 
 
 #### Refresh workflow
 
-1. **Add entries** to `docs/decisions/` as you make decisions (this skill). Commit each entry or group as you go.
+1. **Record the decision** as you make it — through a tool, not by writing `.md` by hand:
+   ```bash
+   singularity-adr new <slug> <title> [tag ...]   # or the write_adr MCP tool
+   ```
+   A hand-written file skips `AdrStorage`, and `AdrStorage` is what guarantees the
+   frontmatter contract (`config/docs/adr-corpus.json`) — which is exactly how a
+   corpus ends up with keys the normalizer rejects. Commit each entry as you go.
 2. **Refresh the digest** before any non-trivial agent task, or after a batch of new entries:
    ```bash
    ./scripts/refresh-decisions-digest.sh
@@ -156,150 +162,63 @@ touch the decision log:
 
 ## ADR Tools — Automated Writing and Reading via AI
 
-The AI agent can create, list, and read ADR files directly through MCP tools. This automates the workflow: instead of manually creating `.md` files, the agent calls `write_adr`, `list_adrs`, and `read_adr` tools.
+The AI agent can create, list, and read ADR files through MCP tools. Tools live in
+`shared/src/commonMain/.../feature/ai/tools/AdrTools.kt` and are registered via
+`McpToolCatalog` — adding a tool there wires it to both DI and the MCP registry.
 
-### Template
+### Tool names
 
-ADR files are created from this template (same as the human workflow):
-
-```kotlin
-// shared/src/commonMain/.../core/adr/AdrTemplate.kt
-object AdrTemplate {
-    private const val FRONTMATTER = """
-        |---
-        |title: "%s"
-        |date: %s
-        |tags: [%s]
-        |---
-        |
-        |## Context
-        |
-        |%s
-        |
-        |## Decision
-        |
-        |%s
-        |
-        |## Rationale
-        |
-        |%s
-        |
-        |## Consequences
-        |
-        |%s
-    """.trimMargin()
-
-    fun render(
-        title: String,
-        date: String,          // "YYYY-MM-DD"
-        tags: List<String>,
-        context: String,
-        decision: String,
-        rationale: String,
-        consequences: String,
-    ): String = FRONTMATTER.format(
-        title,
-        date,
-        tags.joinToString(", "),
-        context,
-        decision,
-        rationale,
-        consequences,
-    )
-}
-```
-
-### WriteAdrTool
-
-```kotlin
-// shared/src/commonMain/.../feature/ai/tools/WriteAdrTool.kt
-class WriteAdrTool(
-    private val notesRepo: NotesRepository,
-    private val markdownHtmlPort: MarkdownHtmlPort,
-    private val currentUser: CurrentUser,
-) : SimpleTool<WriteAdrInput>(...) {
-
-    override suspend fun execute(args: WriteAdrInput): String {
-        val content = AdrTemplate.render(
-            title = args.title,
-            date = LocalDate.now().toString(),
-            tags = listOf("adr"),
-            context = args.context,
-            decision = args.decision,
-            rationale = args.rationale,
-            consequences = args.consequences ?: "—",
-        )
-
-        // Write to docs/decisions/<date>-<slug>.md
-        val fileName = "${LocalDate.now()}-${args.slug}.md"
-        val filePath = docsDir.resolve(fileName)
-        filePath.writeText(content)
-
-        // Optionally create a linked note
-        val noteId = if (args.createNote) {
-            val html = markdownHtmlPort.toHtml(content)
-            notesRepo.createWithContent(
-                userId = currentUser.userId,
-                id = NoteId.fromString(UUID.randomUUID().toString()),
-                title = "ADR: ${args.title}",
-                bodyMarkdown = content,
-                bodyHtml = html,
-            ).getOrNull()?.value
-        } else null
-
-        return WriteAdrOutput(filePath = filePath.absolutePath, noteId = noteId).toJson()
-    }
-
-    companion object {
-        const val NAME = "adr.write"
-        const val DESCRIPTION = "Write a new ADR file to docs/decisions/. Optionally creates a linked note."
-    }
-}
-```
-
-### ListAdrsTool and ReadAdrTool
-
-```kotlin
-// shared/src/commonMain/.../feature/ai/tools/ListAdrsTool.kt
-class ListAdrsTool(private val docsDir: Path) : SimpleTool<ListAdrsInput>(...) {
-    override suspend fun execute(args: ListAdrsInput): String {
-        val files = docsDir.listDirectoryEntries("*.md")
-            .sortedDescending()
-            .map { it.nameWithoutExtension }
-        return ListAdrsOutput(slugs = files).toJson()
-    }
-    companion object { const val NAME = "adr.list" }
-}
-
-// shared/src/commonMain/.../feature/ai/tools/ReadAdrTool.kt
-class ReadAdrTool(private val docsDir: Path) : SimpleTool<ReadAdrInput>(...) {
-    override suspend fun execute(args: ReadAdrInput): String {
-        val file = docsDir.resolve("${args.slug}.md")
-        if (!file.exists()) {
-            return McpToolError.NotFound("ADR", args.slug).format(isError = true)
-        }
-        return ReadAdrOutput(content = file.readText(), slug = args.slug).toJson()
-    }
-    companion object { const val NAME = "adr.read" }
-}
-```
-
-### MCP Tool Annotations
-
-| Tool | Annotation |
+| Tool | What it does |
 |---|---|
-| `adr.write` | `openWorldHint = true` (creates external file) |
-| `adr.list` | `readOnlyHint = true` |
-| `adr.read` | `readOnlyHint = true` |
+| `write_adr` | Creates an ADR file — slug, title, tags, body; writes `status: open` |
+| `list_adrs` | Lists all ADR filenames recursively (walks subdirectories) |
+| `read_adr` | Reads one ADR by slug |
+| `list_open_deferred` | Lists open/partial deferred backlog entries from `deferred/` |
 
-### Workflow Example
+All ADR tools are read from `AdrStorage` (the single implementation), which
+depends only on `(HostEnvironmentPort, Clock, TimeZoneProvider)` — no database required.
 
-An AI agent can now:
-1. Call `adr.list` → see all existing ADRs
-2. Call `adr.read("2026-09-05-koog-both-platforms")` → read the full content
-3. Call `adr.write(context="...", decision="...", ...)` → create a new ADR file
+### Output format
 
-This closes the loop: the agent decides architecturally AND records the decision automatically, in the same format humans use.
+`write_adr` returns:
+```json
+{"slug":"2026-09-05-koog-both-platforms","path":"/abs/path/docs/decisions/2026-09-05-koog-both-platforms.md","title":"Koog on both platforms"}
+```
+
+Frontmatter written (includes `status: open`):
+```yaml
+---
+title: "Koog on both platforms"
+date: 2026-09-05
+status: open
+tags: ["koog", "adr"]
+---
+
+## Context
+...
+```
+
+### CLI alternative
+
+When not connected via MCP, the same ADR operations are available as the
+`singularity-adr` command line — its own Gradle module (`:adr-cli`), not a
+`desktopApp` subcommand. That move is #522: the ADR CLI used to boot a Swing
+application and resolve a database graph to list markdown files.
+
+```
+singularity-adr new <slug> <title> [tag ...]
+singularity-adr list
+singularity-adr validate   # runs scripts/check_adr_status.py
+```
+
+The full command and flag list is the generated section at the end of this file,
+which `scripts/check-skill-drift.py` keeps equal to the code.
+
+### Workflow
+
+1. `write_adr(slug, title, tags, body)` → creates the file
+2. `scripts/refresh-decisions-digest.sh` → picks up the new entry
+3. Commit the ADR file + refreshed DIGEST.md together
 
 See `singularity-todo-cli-tool-surface` for the tool contract (error mapping, authorization).
 
@@ -336,3 +255,54 @@ Each of those was a one-shot skill for one refactor. The information is preserve
 - `AGENTS.md` — the workflow says "refresh the digest before starting work". The session start hook (or a manual `./scripts/refresh-decisions-digest.sh`) ensures the agent sees the latest rules.
 - `docs/decisions/DIGEST.md` — the consolidated rules the agent reads.
 - Individual dated entries — the human-facing reasoning.
+
+<!-- BEGIN GENERATED: adr-tools -->
+
+#### `singularity-adr` — the ADR command line
+
+Run it from the repository root. Every command takes `--json` for
+machine-readable output; exit code `2` means the command line was wrong,
+`1` means the operation failed.
+
+| Command | What it does |
+|---|---|
+| `singularity-adr new <slug> <title> [tag ...]` | write a new decision |
+| `singularity-adr list` | every decision in the corpus |
+| `singularity-adr list-open` | deferred backlog entries still open |
+| `singularity-adr read <slug>` | one decision, with its body |
+| `singularity-adr update <slug> <status> [by]` | change status, never the body (#509) |
+| `singularity-adr stale [--days N] [--status S]` | what the gate will reject next (#521) |
+| `singularity-adr prune [--keep slug]` | uncited decisions, never deleted (#525) |
+| `singularity-adr validate` | run the repository's ADR status gate |
+| `singularity-adr version [--check]` | which build this is, and does it match the checkout |
+| `singularity-adr upgrade [--check|--force]` | rebuild this binary when it no longer matches |
+
+Global flags:
+
+- `--json` — machine-readable output on every command (#524)
+- `--review-by` — YYYY-MM-DD on update: when this is due to be revisited (#527)
+
+#### MCP tools — `adr` domain
+
+These are the tools an agent calls over the MCP server. The descriptions
+below are the same strings the server sends, so they cannot drift.
+
+| Tool | What it does |
+|---|---|
+| `write_adr` | Creates a NEW ADR. Fails if the slug exists - a decision is never overwritten. To close or revise one, use update_adr; to replace one, write a new ADR naming the old in `supersedes:` and then mark the old one superseded (do not invent a '-v2' slug). |
+| `list_adrs` | Lists all ADR filenames |
+| `update_adr` | Changes an existing ADR's status frontmatter; the body is never modified. status is one of accepted, deferred, superseded, open. status=superseded requires supersededBy naming an existing slug. |
+| `read_adr` | Reads the content of an ADR by filename |
+| `list_open_deferred` | Lists deferred backlog entries with OPEN or PARTIAL status |
+
+#### Before you push
+
+```bash
+singularity-adr validate   # what check_adr_status.py will enforce
+singularity-adr stale      # decisions the gate will reject next push
+```
+
+Both wrap the repository's own Python gates rather than reimplementing them, so a
+preview and the gate cannot disagree.
+
+<!-- END GENERATED: adr-tools -->

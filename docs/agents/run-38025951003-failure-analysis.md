@@ -23,7 +23,7 @@ gates: 28 passed, 1 failed, 7 advisory-failed
 
 ## Root Cause 1 — `test_check_gate_honesty.py`
 
-**Symptom:** `FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/sing/sing/shared/build/reports/detekt/detekt.md'`
+**Symptom:** `FileNotFoundError: [Errno 2] No such file or directory: '<runner-home>/shared/build/reports/detekt/detekt.md'`
 
 **What happened:**
 

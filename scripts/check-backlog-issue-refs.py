@@ -42,6 +42,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
+CORPUS = adr_corpus.load(ROOT)
 
 # ── regexes (mirrors check-backlog-status.py conventions) ────────────────────
 
@@ -160,12 +164,37 @@ def _load_snapshot(path: Path) -> dict[int, dict]:
 # ── gate logic ───────────────────────────────────────────────────────────────
 
 
+def _backlog_text() -> str:
+    """The per-entry files under `deferred/`, assembled into the combined shape.
+
+    T2 (PR #508) split the combined `deferred-backlog.md` into one file per entry and
+    deleted it. This gate still pointed at the deleted path, so it had been failing with
+    "backlog not found" since then — silently, because it is registered advisory.
+
+    Entries are rebuilt as `## <slug>` headings because that is the shape
+    `_parse_backlog_entries` reads, and it is the shape the tests exercise.
+    """
+    return "\n".join(
+        f"## {p.stem}\n{p.read_text(encoding='utf-8')}"
+        for p in CORPUS.deferred()
+    )
+
+
 def check_invariants(
     backlog_path: Path,
     snapshot_path: Path,
 ) -> list[str]:
-    """Return a list of finding lines; empty means all invariants pass."""
-    backlog_text = backlog_path.read_text(encoding="utf-8")
+    """Return a list of finding lines; empty means all invariants pass.
+
+    Takes the combined-file shape, as it always has. `main` builds that shape out
+    of the per-entry files (below) rather than this function reaching into the
+    corpus itself, so the fixtures in the tests keep working unchanged.
+    """
+    return check_text(backlog_path.read_text(encoding="utf-8"), snapshot_path, backlog_path)
+
+
+def check_text(backlog_text: str, snapshot_path: Path, label: Path | str = "backlog") -> list[str]:
+    """The invariants, over already-assembled backlog text."""
     entries = _parse_backlog_entries(backlog_text)
     snapshot = _load_snapshot(snapshot_path)
 
@@ -189,7 +218,7 @@ def check_invariants(
             # I3: OPEN/PARTIAL entries must have Tracked as: or Tracking: none
             if classification in ("open", "partial") and not e["tracked"]:
                 findings.append(
-                    f"{backlog_path}:{e['line']}  {e['slug']}"
+                    f"{label}:{e['line']}  {e['slug']}"
                     f"  [I3] open entry has no Tracked as: and no Tracking: — "
                     f"open entries must cite an issue or explain why they don't"
                 )
@@ -198,14 +227,14 @@ def check_invariants(
         issue = snapshot.get(issue_num)
         if issue is None:
             findings.append(
-                f"{backlog_path}:{e['line']}  {e['slug']}"
+                f"{label}:{e['line']}  {e['slug']}"
                 f"  [I1] tracked as #{issue_num} but issue does not exist in snapshot"
             )
         else:
             # I2: OPEN/PARTIAL entry tracking a CLOSED issue
             if classification in ("open", "partial") and issue["state"] == "CLOSED":
                 findings.append(
-                    f"{backlog_path}:{e['line']}  {e['slug']}"
+                    f"{label}:{e['line']}  {e['slug']}"
                     f"  [I2] tracks CLOSED issue #{issue_num} ({issue['title'][:50]})"
                     f" — entry should be closed or re-tracked"
                 )
@@ -240,8 +269,8 @@ def main() -> int:
     ap.add_argument(
         "--backlog",
         type=Path,
-        default=ROOT / "docs" / "decisions" / "deferred-backlog.md",
-        help="backlog file (default: deferred-backlog.md)",
+        default=CORPUS.root,
+        help="corpus root; entries are read from its deferred/ subdirectory",
     )
     ap.add_argument(
         "--snapshot",
@@ -254,9 +283,11 @@ def main() -> int:
     backlog_path: Path = args.backlog
     snapshot_path: Path = args.snapshot
 
-    if not backlog_path.is_file():
-        print(f"ERROR: backlog not found: {backlog_path}", file=sys.stderr)
-        return 1
+    if not CORPUS.deferred():
+        print(
+            f'ERROR: no backlog entries under {CORPUS.root}/{CORPUS.deferred_dir}',
+            file=sys.stderr,
+        )
 
     # Resolve relative to ROOT
     if not snapshot_path.is_absolute():
@@ -264,10 +295,16 @@ def main() -> int:
     if not backlog_path.is_absolute():
         backlog_path = ROOT / backlog_path
 
-    findings = check_invariants(backlog_path, snapshot_path)
+    findings = check_text(_backlog_text(), snapshot_path, backlog_path)
 
     # Collect summary stats
-    backlog_text = backlog_path.read_text(encoding="utf-8")
+    # T2 (PR #508) split the combined file into one file per entry and deleted it.
+    # This gate still pointed at `deferred-backlog.md`, so it had been failing with
+    # "backlog not found" since then — silently, because it is registered advisory.
+    backlog_text = "\n".join(
+        f"## {p.stem}\n{p.read_text(encoding='utf-8')}"
+        for p in CORPUS.deferred()
+    )
     entries = _parse_backlog_entries(backlog_text)
     snapshot = _load_snapshot(snapshot_path)
 

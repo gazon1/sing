@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""resolve_stale_adr_status.py — one-shot resolution of the 24 stale open/deferred ADRs.
+"""resolve_stale_adr_status.py — verify the one-shot stale-status migration of 2026-10-05.
+
+**This script writes nothing.** It is now a check, not a writer (#518).
 
 Phase 2 of the spec-governance sweep (2026-10-05). doc-maintenance.md rule 3 says
-"No `open` ADRs older than 30 days: if `open`, either resolve or defer it." All 24 were
-older than 30 days and the shared gate registry now enforces the rule, so they
-are a red gate.
+"No `open` ADRs older than 30 days: if `open`, either resolve or defer it." 24 were
+older than 30 days and the shared gate registry enforced the rule, so they were a red
+gate. The migration resolved 10 of them and archived 14 findings/retro documents that
+were not decisions at all — 24 slugs in total, and the two tables below are the record
+of which was which.
 
-Each ADR is classified from evidence gathered in the repo, not from its own claims:
+Each ADR was classified from evidence gathered in the repo, not from its own claims:
 
   RESOLVED-COMPLETED  the decision was made and the work shipped -> status: accepted,
                       with a dated resolution note recording the evidence. Most of
@@ -19,14 +23,13 @@ Each ADR is classified from evidence gathered in the repo, not from its own clai
   ARCHIVED            findings/retro documents, which are not decisions at all ->
                       moved to docs/decisions/archive/ with status: archived.
 
-Every entry below records what was checked. An ADR is never silently relabelled: if the
-evidence were ambiguous the entry would say so rather than guess.
+Every entry below records what was checked. An ADR was never silently relabelled: if
+the evidence were ambiguous the entry said so rather than guess.
 """
 
 from __future__ import annotations
 
 import pathlib
-import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -140,7 +143,7 @@ ARCHIVE: dict[str, str] = {
     '2026-10-01-remaining-tech-debt': 'post-v4 tech-debt inventory',
 }
 
-ALL = set(RESOLUTIONS) | set(ARCHIVE)
+ALL = set(RESOLUTIONS) | set(ARCHIVE)  # provenance: every slug this migration touched
 
 
 def frontmatter_end(lines: list[str]) -> int | None:
@@ -149,53 +152,76 @@ def frontmatter_end(lines: list[str]) -> int | None:
     return next((i for i, l in enumerate(lines[1:], 1) if l.strip() == '---'), None)
 
 
-def set_status(text: str, new: str) -> str:
-    """Replace the status value in the frontmatter, leaving everything else alone."""
-    return re.sub(r'(?m)^(status:).*$', rf'\1 {new}', text, count=1)
+def read_status(text: str) -> str:
+    """`status:` from the file's own frontmatter, normalized. '' when absent."""
+    lines = text.splitlines()
+    end = frontmatter_end(lines)
+    if end is None:
+        return ''
+    for line in lines[1:end]:
+        if line.startswith('status:'):
+            return line.split(':', 1)[1].strip().strip('[]"\'').lower()
+    return ''
 
 
 def main() -> None:
-    if '--apply' not in sys.argv:
-        print(f'Would resolve {len(RESOLUTIONS)} and archive {len(ARCHIVE)} ADRs.')
-        print('Run with --apply to write.')
-        return
+    """Report on the applied migration. Writes nothing (#518).
 
-    missing = [s for s in ALL if not (DECISIONS / f'{s}.md').exists()]
-    if missing:
-        sys.exit(f'Slug(s) not found, refusing to proceed: {missing}')
+    This used to be the third writer of ADR frontmatter: `set_status()` did regex
+    surgery on `^status:` with a vocabulary of its own, in a file whose `--apply`
+    path nobody had run since 2026-10-05. Three writers of one contract meant three
+    places for a rule to drift, and they had — see `normalize-adr-frontmatter.py`,
+    whose key allowlist rejected `review-by` because `updateAdr` had started emitting
+    it and the normalizer was never told.
 
-    # 1. Resolve status + append the evidence note.
+    The migration is finished, so the remaining question is not "what would it do"
+    but "is it still applied". That is a check, not a write, and the difference is
+    the whole point: a script that can still relabel a decision is a fourth thing
+    that can disagree with the writer about what a status means.
+
+    Status *drift* is reported, not failed on. An ADR resolved to `accepted` on
+    2026-10-05 may legitimately be `superseded` today; failing on that would make
+    this script a gate against history, which is the exact failure mode the gate
+    registry forbids. What is failed on is a migration that did not finish: a slug
+    that is nowhere, or an archived file still sitting in the decision corpus.
+    """
+    resolved = archived = drifted = incomplete = 0
+    missing: list[str] = []
+
     for slug, (status, note) in RESOLUTIONS.items():
         path = DECISIONS / f'{slug}.md'
+        if not path.exists():
+            missing.append(slug)
+            incomplete += 1
+            continue
         text = path.read_text()
-        if f'## Resolution ({status})' in text:
-            print(f'  already resolved: {slug}')
-            continue
-        text = set_status(text, status)
-        text = text.rstrip('\n') + f'\n\n## Resolution ({status})\n\n{note}\n'
-        path.write_text(text)
-        print(f'  {status}: {slug}')
+        resolved += 1
+        if f'## Resolution ({status})' not in text:
+            print(f'  note missing: {slug} has no "## Resolution ({status})" section')
+            incomplete += 1
+        if read_status(text) != status:
+            print(f'  moved on since: {slug} is now "{read_status(text) or "<none>"}" '
+                  f'(resolved to "{status}" on 2026-10-05) — expected, not a failure')
+            drifted += 1
+        del note  # the evidence text stays in the ADR body; here it is only provenance
 
-    # 2. Archive findings/retro documents.
     archive_dir = DECISIONS / 'archive'
-    archive_dir.mkdir(exist_ok=True)
     for slug, why in ARCHIVE.items():
-        src = DECISIONS / f'{slug}.md'
-        dst = archive_dir / f'{slug}.md'
-        if dst.exists():
-            print(f'  already archived: {slug}')
-            continue
-        text = set_status(src.read_text(), 'archived')
-        # Record why it left the decision corpus, at the top of the body.
-        lines = text.splitlines()
-        end = frontmatter_end(lines)
-        note = ['', f'**Archived 2026-10-05.** This is a {why}, not an architectural',
-                'decision. It left the decision corpus because its content is inventory',
-                'that nothing will migrate into a spec, and keeping it in `docs/decisions/`',
-                'made findings files look like decisions with pending status.', '']
-        dst.write_text('\n'.join(lines[:end + 1] + note + lines[end + 1:]).rstrip('\n') + '\n')
-        src.unlink()
-        print(f'  archived: {slug}')
+        archived += 1
+        if not (archive_dir / f'{slug}.md').exists():
+            print(f'  NOT archived: {slug} ({why}) — still in the decision corpus? '
+                  f'{"yes" if (DECISIONS / f"{slug}.md").exists() else "no"}')
+            incomplete += 1
+        elif (DECISIONS / f'{slug}.md').exists():
+            print(f'  duplicated: {slug} exists both at the top level and in archive/')
+            incomplete += 1
+
+    print(f'migration of 2026-10-05: {resolved} resolved, {archived} archived, '
+          f'{drifted} legitimately moved on since, {incomplete} incomplete')
+    if missing:
+        print(f'  absent entirely: {sorted(missing)}')
+    if incomplete:
+        sys.exit(1)
 
 
 if __name__ == '__main__':

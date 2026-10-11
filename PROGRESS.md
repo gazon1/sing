@@ -96,7 +96,9 @@ documentation defect:
 - The ADR normalizer cannot round-trip 6 ADRs whose frontmatter uses YAML list or
   block-scalar values. They are reported and skipped, not corrupted.
 
-Tracked in `docs/decisions/deferred-backlog.md`.
+The last item is now a property of the corpus rather than a documentation gap: a YAML
+list or block scalar cannot survive this normalizer's flat `str -> str` round-trip,
+so those 6 files are reported and left byte-identical instead of being rewritten.
 
 ## Adding an epic here
 

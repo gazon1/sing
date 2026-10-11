@@ -101,7 +101,14 @@ kover {
 include(":androidApp")
 include(":desktopApp")
 include(":shared")
+// The ADR toolchain's dependency chain, innermost first. `:adr-cli` depends on
+// `:adr-core` and never on `:shared` — that edge is what made a markdown lister ship
+// Compose, Room, SQLite and Koog (#522 follow-up). See ADR
+// 2026-10-11-adr-storage-outlives-the-application.
+include(":core-base")
+include(":adr-core")
 include(":mcp-server")
+include(":adr-cli")
 include(":detekt-rules")
 // A KSP processor, its own module: a detekt rule is handed one file at a
 // time and this question spans files. Not yet applied to :shared.

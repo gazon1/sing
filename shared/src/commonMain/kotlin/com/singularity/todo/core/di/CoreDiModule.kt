@@ -354,9 +354,18 @@ fun coreModule(): org.koin.core.module.Module = module {
     }
 
     // Force bootstrapper instantiation so its init {} runs and registers handlers.
-    // The engine single {} has executed above, so get<SyncEngine>() returns the cached engine.
-    // Koin resolves get() at call-time, not definition-time.
-    single { get<SyncEngine>() }
+    //
+    // There is deliberately **no** `single { get<SyncEngine>() }` here. There used to
+    // be, and it was a second definition of the same type: in Koin the last
+    // definition wins, so this one replaced the real engine binding — and then the
+    // bootstrapper's `get<SyncEngine>()` resolved *this* binding, which resolves
+    // itself. The result was a `StackOverflowError` on the first MCP tool call,
+    // after `singularity-todo MCP server started` had already been printed (#512).
+    //
+    // The comment that used to sit here claimed "the engine single {} has executed
+    // above, so get<SyncEngine>() returns the cached engine". That was true only if
+    // something had already forced the engine; nothing had, because every binding is
+    // lazy until something asks for it.
     single {
         SyncBootstrapper(engine = get<SyncEngine>(), writer = get())
     }

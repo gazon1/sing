@@ -9,10 +9,27 @@ import re
 import sys
 from pathlib import Path
 
-DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
+ROOT = Path(__file__).resolve().parent.parent
+CORPUS = adr_corpus.load(ROOT)
+DECISIONS_DIR = CORPUS.root
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
 MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
-MAX_ITEMS_PER_TAG = 10  # per tag section cap; the digest is an index, the ADR body is one link away
+# 10 -> 9 on 2026-10-11, the day a decision pushed the digest to 1255/1250.
+#
+# `2026-10-04-doc-size-budget-was-already-red.md` settled what to do about an
+# over-budget digest: raise `MAX_DIGEST_LINES` as option 2, "explicitly behind" trimming
+# the generator, because "a generator that can be trimmed at the source is worth more
+# than a larger ceiling". So this lowers what the per-tag sections surface instead.
+#
+# It costs nothing navigable. A tag section is an index inside an index, and it only
+# ever showed the first N of a larger set; the flat `Active entries` list below is the
+# one that names ADRs, and it is untouched. The difference between 10 of 40 and 9 of 40
+# is a line, not a decision that stopped being findable. Measured: 1255 -> 1231 lines,
+# which restores 19 lines of headroom rather than moving the problem to the next ADR.
+MAX_ITEMS_PER_TAG = 9  # per tag section cap; the digest is an index, the ADR body is one link away
 # The two flat sections below were uncapped, and one of them had already been trimmed once
 # for exactly this reason (the duplicate slug->tags index, ~385 lines). An uncapped index
 # is a second copy of the directory listing wearing an index's clothes: it grows by one
@@ -24,8 +41,36 @@ MAX_ACTIVE_ENTRIES = 300
 MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
 
 
+def parse_argv(argv: list[str]) -> None:
+    """Reject every argument. This script takes none.
+
+    Both git hooks called it as `refresh-decisions-digest.sh --quiet` (#518), and the
+    flag was read by nobody — the script never looked at `sys.argv` at all. A dead
+    flag is a small lie: it reads as if output were being suppressed, so the next
+    person to add a real option here will assume there is an argument parser and
+    write around it. Failing loudly is cheaper than being wrong quietly.
+    """
+    for arg in argv:
+        if arg in ('-h', '--help'):
+            print(__doc__)
+            sys.exit(0)
+        print(f"refresh-decisions-digest: unknown argument {arg!r}\n"
+              "usage: refresh-decisions-digest.sh  (takes no arguments)", file=sys.stderr)
+        sys.exit(2)
+
+
 def main() -> None:
-    entries = sorted(DECISIONS_DIR.glob('**/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
+    parse_argv(sys.argv[1:])
+    # main made this walk recursive (T1), which fixed a real miss — but with `**/`,
+    # which also swept in `archive/`. That regressed #508: all 14 findings/retro
+    # inventories that were moved out of the decision corpus came back into the
+    # agent-facing digest, which is the one surface that is always loaded.
+    #
+    # So the miss is fixed and the archive stays out. `CORPUS.deferred()` is what
+    # supplies the nested entries T1 was reaching for, and `include_archived=False`
+    # is what keeps inventory documents out. Verified: 0 of 14 archived slugs appear
+    # in the generated digest.
+    entries = CORPUS.decisions(include_archived=False) + CORPUS.deferred()
     if not entries:
         print(f"no dated entries in {DECISIONS_DIR} — digest untouched")
         return
@@ -49,9 +94,10 @@ def main() -> None:
                 fm[key.strip()] = val.strip().strip('"').strip("'")
         titles[slug] = fm.get('title', '')
         tags_raw[slug] = fm.get('tags', '')
-        statuses[slug] = fm.get('status', '')
+        statuses[slug] = CORPUS.normalize_status(fm.get('status', ''))
         if fm.get('supersedes'):
-            superseded[fm['supersedes']] = slug
+            # Strip brackets: `[slug]` was being stored verbatim and never resolved.
+            superseded[fm['supersedes'].strip('[]').removesuffix('.md')] = slug
 
     CRITICAL_RE = re.compile(r'\*\*Always\*\*|\*\*Never\*\*|\*\*MUST\*\*')
     CRIT_SUFFIX_RE = re.compile(r'\s*_\(from\s+`([^`]+)`\)_\s*$')

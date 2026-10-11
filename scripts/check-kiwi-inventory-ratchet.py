@@ -49,6 +49,15 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = "config/docs/kiwi-inventory-ratchet.json"
 
+# `find_spec("infra")` below needs `infra` to be *importable*, and running
+# `python3 scripts/check-kiwi-inventory-ratchet.py` puts `scripts/` on sys.path,
+# not the repository root. Without this line `find_spec` returns None and the gate
+# dies with `AttributeError: 'NoneType' object has no attribute 'loader'` — a crash
+# rather than a verdict, from an `advisory` gate nobody reads the output of.
+# Found by scripts/check-gate-liveness.py (#529).
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 #: Metric key -> whether a larger number is worse. Both are "cap", so neither
 #: ratchets downward the way `holes` does.
 METRICS = ("inventory", "skipped")

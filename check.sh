@@ -190,6 +190,24 @@ echo -e "${GREEN}=== [13/$TOTAL] mcp-server:detekt ===${NC}"
     exit 1
 }
 
+echo -e "${GREEN}=== [13b/$TOTAL] adr-cli:detekt ===${NC}"
+# `:adr-cli` declares `detekt` with `ignoreFailures = false`. A configured detekt task
+# that no surface invokes reports success forever, which is the exact defect the block
+# above was written for — applied one module over.
+./gw :adr-cli:detekt --quiet || {
+    echo -e "${RED}adr-cli:detekt reported violations${NC}"
+    exit 1
+}
+
+echo -e "${GREEN}=== [13c/$TOTAL] adr-core + core-base:detekt ===${NC}"
+# The two modules the CLI was refactored onto (#542). Their baselines are empty, so a
+# finding here is a finding about code written today — which is the only state a new
+# module should ever be in. Left uninvoked they would report success forever.
+./gw :adr-core:detekt :core-base:detekt --quiet || {
+    echo -e "${RED}adr-core/core-base detekt reported violations${NC}"
+    exit 1
+}
+
 # Optional: Android instrumentation tests on real adb device
 if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
     echo ""

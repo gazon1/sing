@@ -1,8 +1,9 @@
 ---
-status: open
-status-was: proposed
+title: SyncEngineState.phases exposed as internal val [#257](https://github.com/gazon1/sing/issues/257)
 date: 2026-10-10
+status: open
 deciders: mavis
+status-was: proposed
 gh: https://github.com/gazon1/sing/issues/257
 ---
 

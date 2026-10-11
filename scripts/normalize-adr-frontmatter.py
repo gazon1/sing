@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""normalize-adr-frontmatter.py — normalize YAML frontmatter in all ADR files.
+"""normalize-adr-frontmatter.py — report (or repair) YAML frontmatter in all ADR files.
 
 Operations:
   - Add `status: accepted` if status is missing
@@ -10,37 +10,47 @@ Operations:
   - Backfill `title:` from the first H1 heading, or from the filename slug
   - Preserve all other frontmatter keys
 
+The frontmatter *contract* — which keys exist, their order, and the status a new ADR
+is born with — is declared in `config/docs/adr-corpus.json` and read through
+`adr_corpus` (#518). This file does not restate it.
+
 Usage:
-  ./scripts/normalize-adr-frontmatter.sh          # in-place, dry-run first
-  ./scripts/normalize-adr-frontmatter.sh --apply  # actually write changes
+  ./scripts/normalize-adr-frontmatter.sh          # report only, writes nothing
+  ./scripts/normalize-adr-frontmatter.sh --apply  # write the changes
+
+Any other argument is a usage error (exit 2), not a silently ignored flag.
 """
 
 import re
 import sys
 from pathlib import Path
 
-DECISIONS_DIR = Path(__file__).parent.parent / 'docs' / 'decisions'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
 
-# The only keys this script is allowed to carry through. Derived from the keys actually
-# present in well-formed ADRs under docs/decisions, not invented. Anything else inside
-# the frontmatter block means the block is not frontmatter at all — the usual cause is a
-# body that was never closed, so prose containing ':' parses as a key. Emitting those
-# keys is how a body gets duplicated into the file, so unknown keys are a hard error
-# rather than something to round-trip. See scripts/tests/test_normalize_adr_frontmatter.py.
-KNOWN_KEYS = frozenset({
-    'title', 'date', 'created', 'updated', 'last_updated', 'status', 'tags', 'Tags',
-    'deciders', 'decider', 'authors', 'author', 'reviewedBy', 'owner', 'profile',
-    'epic', 'description', 'summary', 'id', 'slug', 'type', 'impact', 'review',
-    'supersedes', 'superseded-by', 'superseded_by', 'doesNotSupersede', 'replaces',
-    'follows', 'decides', 'adr', 'adr-number', 'end-date', 'labels', 'status-was',
-    'issuesRelated', 'related', 'references', 'skills', 'context', 'Context',
-    'Decision', 'Rationale', 'Consequences', 'Links', 'deprecated-by',
-})
+ROOT = Path(__file__).resolve().parent.parent
+CORPUS = adr_corpus.load(ROOT)
+DECISIONS_DIR = CORPUS.root
+
+# The frontmatter contract lives in config/docs/adr-corpus.json and is read from
+# there, not restated here (#518). This module used to carry its own KNOWN_KEYS,
+# KEY_ORDER and SECTION_KEYS next to AdrStorage.writeAdr's implicit rules, and the
+# two had already drifted: updateAdr started writing `review-by` in #527 and this
+# script rejected the repo's own tool output as `unknown frontmatter key`. Binding
+# them to one object is what makes that class of drift impossible — there is no
+# second copy left to fall behind.
+#
+# The allowlist is not a passthrough, and the reason is specific: a body written
+# INSIDE the frontmatter block still parses as valid YAML, so nothing else catches
+# it. Emitting those "keys" is how a body gets duplicated into the file. An unknown
+# key is therefore a hard error here, which means every key a writer emits MUST be
+# in `frontmatter_keys` or the corpus breaks itself.
+KNOWN_KEYS = CORPUS.frontmatter_keys
 
 # Capitalized section names used as keys. These are the signature of a body written
 # *inside* the frontmatter block: the block parses as valid YAML, so nothing else
 # catches it, but the file has no real body and cannot be rendered.
-SECTION_KEYS = frozenset({'Context', 'Decision', 'Rationale', 'Consequences', 'Links'})
+SECTION_KEYS = CORPUS.section_keys
 
 
 class StructuralError(Exception):
@@ -55,8 +65,8 @@ class UnrepresentableValue(StructuralError):
     """
 
 # Frontmatter key order — `title` first so the digest and listings read naturally.
-KEY_ORDER = ['title', 'date', 'status', 'tags', 'deciders', 'supersedes',
-             'superseded-by', 'epic', 'deciders']
+# From config/docs/adr-corpus.json, for the same reason as KNOWN_KEYS (#518).
+KEY_ORDER = list(CORPUS.frontmatter_key_order)
 
 DATE_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})-')
 H1_RE = re.compile(r'^#\s+(.+?)\s*$', re.M)
@@ -222,10 +232,35 @@ def process_file(path: Path, dry_run: bool = True) -> tuple[bool, str]:
     return True, '; '.join(changes)
 
 
-def main() -> None:
-    dry_run = '--apply' not in sys.argv
+def parse_argv(argv: list[str]) -> bool:
+    """Parse this script's flags. Returns True for `--apply` (write), False for report.
 
-    entries = sorted(DECISIONS_DIR.glob('[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md'))
+    Strict on purpose (#518). This script used to decide with `'--apply' not in
+    sys.argv`, which silently ignores everything else — and two callers were already
+    passing `--dry-run`, a flag no code had ever read. A dead flag is not cosmetic:
+    it looks like it is doing something, so nobody notices when the invocation stops
+    matching the script. An unknown flag is now a usage error (exit 2), which is the
+    same contract `singularity-adr` gives for a mistyped subcommand.
+    """
+    for arg in argv:
+        if arg == '--apply':
+            continue
+        if arg in ('-h', '--help'):
+            print(__doc__)
+            sys.exit(0)
+        print(f"normalize-adr-frontmatter: unknown argument {arg!r}\n"
+              "usage: normalize-adr-frontmatter.py [--apply]", file=sys.stderr)
+        sys.exit(2)
+    return '--apply' in argv
+
+
+def main() -> None:
+    dry_run = not parse_argv(sys.argv[1:])
+
+    # Scope is unchanged (dated, top level, no archive) — widening it is #516's
+    # decision. What changes is that this script stops guessing its own glob and
+    # asks adr_corpus, so the next scope change is one edit in one file.
+    entries = adr_corpus.decisions_in(DECISIONS_DIR, CORPUS)
 
     changed = []
     unchanged = 0

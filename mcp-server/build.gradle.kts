@@ -25,6 +25,20 @@ application {
     mainClass.set("com.singularity.todo.mcp.MainKt")
 }
 
+/**
+ * Compose Multiplatform reaches `savedstate-compose-desktop` by two routes on the
+ * runtime classpath, and Gradle refuses to install a distribution that lists the
+ * same jar twice. One copy is the right outcome — two paths to one artefact is not a
+ * version conflict — so `installDist` never had a chance to work before this.
+ */
+distributions {
+    main {
+        contents {
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
+    }
+}
+
 dependencies {
     implementation(libs.kotlin.sdk)
     implementation(project(":shared"))

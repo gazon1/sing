@@ -1,6 +1,7 @@
 ---
-status: accepted
+title: Emulator device-sharing between e2e and instrumented test workflows [#364](https://github.com/gazon1/sing/issues/364)
 date: 2026-10-10
+status: accepted
 deciders: mavis
 gh: https://github.com/gazon1/sing/issues/364
 ---

@@ -318,12 +318,31 @@ class PlatformSeamGuardTest {
             "com/singularity/todo/core/di/PlatformModule.jvm.kt",
         )
         val commonRoot = sourceRoot("commonMain.root")
-        val bodies = commonRoot.walkTopDown()
+        val sharedBodies = commonRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .filterNot { it.toString().substring(commonRoot.path.length).removePrefix("/") in boundOnlyIn }
             .filterNot { it.name.contains("Test") }
             .map { it.readText() }
             .toList()
+
+        // `:adr-core` is scanned too, and not because the seam registry grew a second
+        // module to be sorry about. `HostEnvironmentPort`'s only production consumer is
+        // `AdrStorage`, which moved out of `:shared` when `:adr-cli` was cut off from
+        // it (#542). The registry says "something injects this seam"; the answer stopped
+        // being "something in `:shared`" while staying true of the repository. Excluding
+        // this root reported an injected seam as an orphan, which is the one thing a
+        // guard must never report.
+        //
+        // `boundOnlyIn` holds paths relative to `:shared`'s commonMain, so it applies to
+        // that root only — applied to another root it would filter nothing.
+        val adrCoreBodies = sourceRoot("adrCoreCommonMain.root")
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filterNot { it.name.contains("Test") }
+            .map { it.readText() }
+            .toList()
+
+        val bodies = sharedBodies + adrCoreBodies
 
         val orphans = registry()
             .filterNot { it.isInfra }

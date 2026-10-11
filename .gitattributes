@@ -2,3 +2,14 @@
 # A rebase that regenerates TAGS should not discard tags the other branch added.
 Maestro/TAGS.md merge=union
 docs/TAGS.md   merge=union
+
+# Baseline files that accumulate detector findings during CI/ratchet runs.
+# A rebase that re-measures should not discard counts the other branch added.
+config/docs/test-runs-baseline.txt         merge=union
+config/docs/kiwi-gaps-baseline.txt         merge=union
+config/docs/skill-symbol-baseline.txt      merge=union
+config/docs/dead-refs-baseline.txt         merge=union
+config/docs/coverage-baseline.txt         merge=union
+config/docs/adr-refs-baseline.txt         merge=union
+scripts/find-unwired-surfaces-baseline.txt merge=union
+scripts/check-dead-settings-baseline.txt  merge=union

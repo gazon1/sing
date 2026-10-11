@@ -1,0 +1,201 @@
+"""Tests for the generated "ADR tools" skill section (#526).
+
+The point of the generator is that a skill cannot describe tools the code does not
+have. That property is worth nothing unless it is demonstrated, so the central test
+here edits a generated block by hand and asserts the gate turns red — a generator
+that is never seen failing is indistinguishable from a generator that is not wired up.
+"""
+
+import importlib.util
+import pathlib
+import shutil
+import sys
+import tempfile
+import unittest
+
+SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
+ROOT = SCRIPTS.parent
+
+
+def _load(name: str, filename: str):
+    spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+renderer = _load('render_adr_tools_section', 'render-adr-tools-section.py')
+drift = _load('check_skill_drift', 'check-skill-drift.py')
+
+
+class RenderTest(unittest.TestCase):
+    """What the renderer reads out of the code."""
+
+    def test_every_command_is_read(self):
+        commands = renderer.commands()
+        names = [c[0] for c in commands]
+        for expected in ('new', 'list', 'list-open', 'read', 'update', 'stale',
+                         'prune', 'validate'):
+            self.assertIn(expected, names)
+
+    def test_every_adr_domain_mcp_tool_is_read(self):
+        names = [n for n, _ in renderer.mcp_adr_tools()]
+        self.assertEqual(
+            names,
+            ['write_adr', 'list_adrs', 'update_adr', 'read_adr', 'list_open_deferred'],
+        )
+
+    def test_a_description_belongs_to_its_own_tool(self):
+        """The off-by-one this parser originally had.
+
+        `write_adr`'s description is built by string concatenation, which pushes the
+        `annotations` argument onto a later line. A single regex matching
+        `name = ... .*? description = ...` therefore fails to close and walks on to the
+        *next* entry — rendering `write_adr` with `list_adrs`'s description. Plausible,
+        confident, and wrong.
+        """
+        descriptions = dict(renderer.mcp_adr_tools())
+        self.assertIn('Creates a NEW ADR', descriptions['write_adr'])
+        self.assertIn('Lists all ADR filenames', descriptions['list_adrs'])
+        self.assertIn('Reads the content of an ADR', descriptions['read_adr'])
+        self.assertNotEqual(descriptions['write_adr'], descriptions['list_adrs'])
+
+    def test_a_concatenated_description_is_read_whole(self):
+        """Not just its first string literal."""
+        descriptions = dict(renderer.mcp_adr_tools())
+        self.assertIn('do not invent a', descriptions['write_adr'])
+
+    def test_flags_have_summaries(self):
+        """`AdrFlagSpec` has two arguments; reading three renders "--json — None"."""
+        for flag, summary in renderer.global_flags():
+            self.assertTrue(summary and summary != 'None', f'{flag} has no summary')
+
+    def test_render_is_deterministic(self):
+        self.assertEqual(renderer.render(), renderer.render())
+
+    def test_render_carries_both_ends_of_the_markers(self):
+        block = renderer.render()
+        self.assertTrue(block.startswith(renderer.BEGIN))
+        self.assertTrue(block.endswith(renderer.END))
+
+    def test_an_unreadable_declaration_is_an_error_not_a_skip(self):
+        """Skipping would drop a command while the section still looked complete."""
+        with tempfile.TemporaryDirectory() as tmp:
+            broken = pathlib.Path(tmp) / 'AdrSurface.kt'
+            text = renderer.SURFACE_KT.read_text(encoding='utf-8')
+            # Wrap the first declaration across lines — the exact reformatting a
+            # developer would plausibly apply to a long line.
+            text = text.replace(
+                'AdrCommandSpec("new", "new <slug> <title> [tag ...]", "write a new decision"),',
+                'AdrCommandSpec(\n            "new", "new <slug> <title> [tag ...]",\n'
+                '            "write a new decision",\n        ),',
+                1,
+            )
+            broken.write_text(text, encoding='utf-8')
+            saved = renderer.SURFACE_KT
+            renderer.SURFACE_KT = broken
+            try:
+                with self.assertRaises(renderer.ParseError):
+                    renderer.commands()
+            finally:
+                renderer.SURFACE_KT = saved
+
+
+class DriftGateTest(unittest.TestCase):
+    """The gate turns red on a hand-edited skill and green after regeneration."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = pathlib.Path(self._tmp.name)
+        self._saved = renderer.SKILLS
+        self.copies = []
+        for skill in self._saved:
+            copy = self.tmp / skill.name
+            shutil.copy(skill, copy)
+            self.copies.append((skill, copy))
+        renderer.SKILLS = tuple(c for _, c in self.copies)
+        drift.renderer.SKILLS = renderer.SKILLS
+
+    def tearDown(self):
+        renderer.SKILLS = self._saved
+        drift.renderer.SKILLS = self._saved
+
+    def _gate(self):
+        """Run the gate's comparison against the copies, not the repository."""
+        drifted = []
+        expected = renderer.render()
+        for skill in renderer.SKILLS:
+            if renderer.current_block(skill) != expected:
+                drifted.append(skill)
+        return drifted
+
+    def test_committed_skills_are_in_sync(self):
+        self.assertEqual(self._gate(), [],
+                         'run: python3 scripts/render-adr-tools-section.py')
+
+    def test_a_hand_edit_turns_the_gate_red(self):
+        """The positive control: without this, the gate has never been seen to fire."""
+        skill = renderer.SKILLS[0]
+        text = skill.read_text(encoding='utf-8')
+        skill.write_text(
+            text.replace('| `singularity-adr validate` | run the repository',
+                         '| `singularity-adr verifai` | run the repository', 1),
+            encoding='utf-8',
+        )
+        self.assertIn(skill, self._gate())
+
+    def test_text_after_the_block_is_hand_written_and_stays_green(self):
+        """Appending prose below the markers is the author writing, not drift.
+
+        Worth its own test because it is the boundary the whole design rests on: if
+        touching anything outside the markers counted as drift, nobody would ever run
+        the generator a second time.
+        """
+        skill = renderer.SKILLS[0]
+        skill.write_text(skill.read_text(encoding='utf-8')
+                         + '\nA hand-written trailing paragraph.\n', encoding='utf-8')
+        self.assertEqual(self._gate(), [])
+
+    def test_regenerating_restores_sync_and_keeps_the_hand_writing(self):
+        skill = renderer.SKILLS[0]
+        # Drift *inside* the block, plus hand-written prose appended after it. The
+        # generator must repair the first and not touch the second.
+        skill.write_text(
+            skill.read_text(encoding='utf-8')
+            .replace('| Command | What it does |', '| Wrong | Header |', 1)
+            + '\nA hand-written trailing paragraph.\n',
+            encoding='utf-8',
+        )
+        self.assertIn(skill, self._gate())
+
+        skill.write_text(renderer.splice(skill.read_text(encoding='utf-8'),
+                                         renderer.render()), encoding='utf-8')
+        self.assertEqual(self._gate(), [])
+        self.assertIn('A hand-written trailing paragraph.',
+                      skill.read_text(encoding='utf-8'))
+
+    def test_text_outside_the_markers_is_never_touched(self):
+        """The generator is a dashboard bolted onto a hand-written document."""
+        skill = renderer.SKILLS[0]
+        original = skill.read_text(encoding='utf-8')
+        block = renderer.render()
+        skill.write_text(renderer.splice(original, block), encoding='utf-8')
+        after = skill.read_text(encoding='utf-8')
+
+        before_head = original[:original.index(renderer.BEGIN)]
+        after_head = after[:after.index(renderer.BEGIN)]
+        self.assertEqual(before_head, after_head)
+
+    def test_a_skill_with_no_block_is_reported_not_passed(self):
+        skill = renderer.SKILLS[0]
+        text = skill.read_text(encoding='utf-8')
+        start = text.index(renderer.BEGIN)
+        end = text.index(renderer.END, start) + len(renderer.END)
+        skill.write_text(text[:start] + text[end:], encoding='utf-8')
+        self.assertIsNone(renderer.current_block(skill))
+        self.assertIn(skill, self._gate())
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

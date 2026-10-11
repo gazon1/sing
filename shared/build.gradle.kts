@@ -60,6 +60,11 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // ADR rules live in `:adr-core` so that `:adr-cli` can use them without
+            // depending on this module. `api` because the Koog adapters in
+            // `feature/ai/tools/AdrTools.kt` hand `AdrStorage.AdrFile` back to callers.
+            api(project(":adr-core"))
+
             // Compose
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -324,7 +329,7 @@ tasks.withType<Test>().configureEach {
             // the build for a class in a tag-filtered source set that has no
             // @Tag; the finding and the reasoning behind that gate's scope are
             // under "an-untagged-test-class-is-invisible-to-a-tag-filtered-run"
-            // in `docs/decisions/deferred-backlog.md`.
+            // in `docs/decisions/deferred/an-untagged-test-class-is-invisible-to-a-tag-filtered-run.md`.
             tags == listOf("all") -> Unit
             else -> includeTags(*tags.toTypedArray())
         }
@@ -428,6 +433,16 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     systemProperty(
         "commonMain.root",
         layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
+    )
+    // `PlatformSeamGuardTest` answers "is this seam injected anywhere?", and the seam
+    // registry is a project-wide declaration — so the scan has to be project-wide too.
+    // `HostEnvironmentPort`'s only production consumer is `AdrStorage`, which moved to
+    // `:adr-core` when `:adr-cli` was cut off from `:shared` (#542). Without this the
+    // guard reported an injected seam as an orphan: true for `:shared`, false for the
+    // repository.
+    systemProperty(
+        "adrCoreCommonMain.root",
+        rootProject.layout.projectDirectory.dir("adr-core/src/commonMain/kotlin").asFile.absolutePath,
     )
     // Absolute path to desktopApp jvmTest sources for ViewModelTestCoverageTest, which
     // aggregates test roots across modules and so cannot be written relatively.
@@ -645,7 +660,7 @@ dependencies {
     // because the fix is a native library in `jniLibs`, not a build change; the finding,
     // and the smallest fix, are under
     // "the-android-graph-test-runs-but-cannot-open-a-database" in
-    // `docs/decisions/deferred-backlog.md`.
+    // `docs/decisions/deferred/the-android-graph-test-runs-but-cannot-open-a-database.md`.
     add("androidHostTestRuntimeOnly", libs.junit.vintage.engine)
     // The other three were described above as load-bearing and were not declared; the
     // Vintage engine alone puts JUnit4 on the Platform but supplies no Android runtime,

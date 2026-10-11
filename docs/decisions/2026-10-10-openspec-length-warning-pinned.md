@@ -1,9 +1,10 @@
 ---
-created: 2026-10-10
+title: ADR: OpenSpec length-warning не является ошибкой в 1.14.0
+date: 2026-10-10
 status: accepted
 deciders: mavis
 impact: medium
-review_after: 2026-11-01
+review-by: 2026-11-01
 ---
 
 # ADR: OpenSpec length-warning не является ошибкой в 1.14.0

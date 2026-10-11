@@ -8,7 +8,7 @@ description: Android release build workflow for Singularity Todo — signing con
 > **Current state (2026-10-09):** signing is implemented (env-driven, fail-closed);
 > minification is NOT yet enabled (`isMinifyEnabled = false`). Until R8 rules are
 > written, shipping a minified build is blocked. See
-> `docs/decisions/deferred-backlog.md` → `release-apk-is-unsigned-and-unminified`.
+> `docs/decisions/deferred/release-apk-is-unsigned-and-unminified.md`.
 
 ## Prerequisites
 
@@ -109,7 +109,7 @@ The `versionName` must match the tag exactly. `release.yml` fails the build if
 ## R8/ProGuard — NOT YET ENABLED
 
 Minification is blocked on writing the rules. See
-`docs/decisions/deferred-backlog.md` → `release-apk-is-unsigned-and-unminified`.
+`docs/decisions/deferred/release-apk-is-unsigned-and-unminified.md`.
 
 **Order matters:** minification before signing. A minified APK that crashes is worse
 than an unsigned APK that installs cleanly. The rules must be written and exercised
@@ -220,6 +220,6 @@ included in the release variant.
 ## See Also
 
 - `singularity-todo-quality-tools` — detekt, ktlint, kover tooling
-- `docs/decisions/deferred-backlog.md` — `release-apk-is-unsigned-and-unminified`
+- `docs/decisions/deferred/release-apk-is-unsigned-and-unminified.md`
 - `.github/workflows/release.yml` — the release pipeline
 - `android-dev` skill — Android-specific development workflow

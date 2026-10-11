@@ -184,9 +184,53 @@ class ScriptGate:
     # clean-tree guard is waived — use for gates that are known to fail on a clean
     # tree due to un-triaged real state (e.g. open entries tracking closed issues).
     needs_clean_run: bool = True
+    # Extra restoration, evaluated after the content is put back, with `p` bound to
+    # the same target.
+    #
+    # The default restore is `write_text(original)` and that restores *content* only.
+    # A sabotage that also changes git state — `git rm --cached` is the one that
+    # mattered — therefore left the index describing a different tree than the files
+    # on disk, and the residue survived into the next run: `.githooks/pre-push` came
+    # back as "deleted in index, present untracked", which is exactly the condition
+    # check-hooks-path.py is supposed to report. The control was breaking the gate it
+    # was proving.
+    #
+    # So a sabotage that touches anything but file content must say how to put it
+    # back. Leaving this empty for such a sabotage is the bug this field exists for.
+    sabotage_restore: str = ""
 
 
 SCRIPT_GATES = [
+    ScriptGate(
+        name="adr-config-sync",
+        cmd=[sys.executable, "scripts/check-adr-config-sync.py"],
+        sabotage_path="scripts/check_adr_status.py",
+        # Appending a module-level glob to a consumer is exactly the regression this
+        # gate exists to catch.
+        #
+        # Written as ONE string, not two concatenated ones. The previous form split
+        # after `p.read_text() + `, which produced a literal whose first line is a
+        # bare expression and whose second line is an assignment:
+        #
+        #     p.write_text(p.read_text() +
+        #     _SABOTAGE = sorted(Path('docs/decisions').glob('*.md'))
+        #
+        # `exec()` raises SyntaxError on that, and because `check_can_fail()` aborts
+        # on the first exception, this entry took every control *below* it in the
+        # list down with it — Part B had been reporting nothing at all. Found by
+        # running the control suite rather than reading it (#529).
+        sabotage=(
+            "p.write_text(p.read_text() + "
+            "'\\n_SABOTAGE = sorted(Path(\\\"docs/decisions\\\").glob(\\\"*.md\\\"))\\n')"
+        ),
+        why=(
+            "the gate's whole claim is that no consumer grows its own glob. "
+            "Appending one to a consumer is exactly the regression it exists to "
+            "catch, and nothing else in the registry fails when that happens: the "
+            "status gate would keep reporting 'all statuses in vocabulary' while "
+            "reading a different corpus than the other four consumers"
+        ),
+    ),
     ScriptGate(
         name="yaml-duplicate-keys",
         cmd=[sys.executable, "scripts/check-yaml-duplicate-keys.py", "--quiet"],
@@ -200,6 +244,22 @@ SCRIPT_GATES = [
             "file, and :shared/:desktopApp keep their own configs, so the two most-used "
             "lint targets still pass while this module's config is unreachable."
         ),
+    ),
+    ScriptGate(
+        name="adr-module-boundary",
+        cmd=[sys.executable, "scripts/check-adr-module-boundary.py"],
+        sabotage_path="adr-cli/build.gradle.kts",
+        # The regression this gate exists for, restored exactly: the one-line
+        # dependency that put the whole application — Compose, Room, SQLite, Koin,
+        # Koog — on the classpath of a markdown lister, making a 4.9 MB
+        # distribution 127 MB again with every test still green.
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'implementation(project(\":adr-core\"))', "
+            "'implementation(project(\":adr-core\"))\\n"
+            "    implementation(project(\":shared\"))'))"
+        ),
+        why="a direct `:adr-cli -> :shared` edge, which is the 127 MB",
     ),
     ScriptGate(
         name="detekt-registrations",
@@ -216,13 +276,113 @@ SCRIPT_GATES = [
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
     ScriptGate(
+        name="gate-liveness",
+        cmd=[sys.executable, "scripts/check-gate-liveness.py"],
+        sabotage_path="scripts/check-kiwi-inventory-ratchet.py",
+        # Remove the sys.path line the fix added. The gate then dies with
+        # `AttributeError: 'NoneType' object has no attribute 'loader'` — which is
+        # exactly the failure mode the gate exists to catch, so the control is the
+        # same defect rather than a synthetic one.
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "\"if str(ROOT) not in sys.path:\\n    sys.path.insert(0, str(ROOT))\", ''))"
+        ),
+        why=(
+            "a gate that raises instead of reporting has no opinion at all, and an "
+            "advisory gate whose output nobody reads will stay that way indefinitely"
+        ),
+    ),
+    ScriptGate(
+        name="hooks-path",
+        cmd=[sys.executable, "scripts/check-hooks-path.py", "--quiet"],
+        # Untrack *every* hook, not one. The gate asks "does the configured hooks
+        # directory contain tracked files?", so removing a single hook while three
+        # others stay tracked is a state the gate is right to accept — and a control
+        # that expects it to fail proves nothing. The first version of this control
+        # emptied one file, which the gate correctly ignored.
+        sabotage_path=".githooks/pre-push",
+        sabotage=(
+            "import subprocess as _sp\n"
+            "_sp.run(['git','rm','-r','--cached','-q','.githooks'], cwd=p.parent.parent, check=True)"
+        ),
+        # Content restore alone cannot undo this one — see `sabotage_restore`.
+        sabotage_restore=(
+            "import subprocess as _sp\n"
+            "_sp.run(['git','add','--','.githooks'], cwd=p.parent.parent, check=True)"
+        ),
+        why=(
+            "hooks travel with the repository; local git config does not. A configured "
+            "hooks path with nothing tracked under it is a gate that reports success "
+            "because nothing ever asked it a question"
+        ),
+    ),
+    ScriptGate(
+        name="skill-drift",
+        cmd=[sys.executable, "scripts/check-skill-drift.py"],
+        # A wrong command name *inside* the generated block. Editing it by hand is
+        # exactly the mistake the gate exists to catch, and it is a content change
+        # the default restore puts back — no index games, no custom restore.
+        sabotage_path=".agents/skills/singularity-todo-decisions-workflow/SKILL.md",
+        sabotage=(
+            "p.write_text(p.read_text().replace('"
+            "`singularity-adr validate`', '`singularity-adr verifai`', 1))"
+        ),
+        why=(
+            "a skill that lists commands the tool does not have sends an agent to run "
+            "something that does not exist"
+        ),
+    ),
+    ScriptGate(
+        name="adr-immutable",
+        cmd=[sys.executable, "scripts/check-adr-immutable.py"],
+        # The one decision closed *after* `immutableSince`, so the sabotage lands
+        # inside the window. An older one would be grandfathered and the control
+        # would pass on a gate that had checked nothing — which is exactly what the
+        # first version of this control did.
+        sabotage_path="docs/decisions/2026-10-10-adr-file-local-rules-live-in-the-writer.md",
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'## Consequences', '## Consequences\\n\\nSABOTAGE', 1))"
+        ),
+        why=(
+            "a closed decision's body is a record of what was decided; rewriting it is "
+            "how a decision trail disappears without any field the gate watches changing"
+        ),
+    ),
+    ScriptGate(
+        name="adr-status-drift",
+        cmd=[sys.executable, "scripts/check_adr_status.py"],
+        sabotage_path="docs/decisions/deferred/log-export-has-no-surface.md",
+        # The backlog has its own vocabulary, so an out-of-vocabulary value has to be
+        # introduced where only the backlog check can see it. Sabotaging a dated
+        # decision instead would prove the old rule still works and nothing about
+        # the blind spot #516 closed.
+        #
+        # `CLOSED` would NOT work as the probe: `closed` is a legitimate backlog
+        # status, so the gate would correctly pass and the control would report the
+        # gate as unable to fail. `superseded` is a decision-vocabulary value and has
+        # no place in the backlog.
+        sabotage=(
+            "p.write_text(p.read_text().replace('status: open', 'status: superseded', 1))"
+        ),
+        why=(
+            "backlog entries are held to a different vocabulary from decisions, so a "
+            "gate that only knows the decision vocabulary cannot see 129 files"
+        ),
+    ),
+    ScriptGate(
         name="backlog-status",
         cmd=[sys.executable, "scripts/check-backlog-status.py"],
-        sabotage_path="docs/decisions/deferred-backlog.md",
-        # Strip the status line from the first entry, which is what 42 of them
-        # looked like before 2026-10-05. A gate that only ever sees a file where
-        # every entry is annotated has never been shown to catch the case it
-        # exists for.
+        # A real entry under deferred/. This control still named the combined
+        # `deferred-backlog.md`, which T2 (PR #508) split into one file per entry and
+        # deleted — so the control had been pointing at a file that no longer exists
+        # and the harness could not even read it to restore what it changed.
+        sabotage_path="docs/decisions/deferred/log-export-has-no-surface.md",
+        # Strip the annotated status line, which is what 42 entries looked like
+        # before 2026-10-05. `parse_single_entry` reads `**Status: X**`, not the
+        # frontmatter, so removing this line is what actually leaves an entry
+        # unclassifiable. A gate that only ever sees annotated files has never been
+        # shown to catch the case it exists for.
         sabotage="p.write_text(p.read_text().replace('**Status: OPEN**', '', 1))",
         why="an entry with no readable status cannot be triaged, and a queue nobody can triage is not a queue",
     ),
@@ -230,7 +390,9 @@ SCRIPT_GATES = [
         name="unwired-backlog-refs",
         cmd=[sys.executable, "scripts/check-unwired-backlog-refs.py"],
         sabotage_path="scripts/find-unwired-surfaces-baseline.txt",
-        sabotage="p.write_text(p.read_text().replace('deferred-backlog.md:recurrence-parser-is-unwired', 'deferred-backlog.md:no-such-anchor'))",
+        # The anchor named here was inside the deleted combined backlog file, so the
+        # replacement was a no-op and the control passed a sabotage it never applied.
+        sabotage="p.write_text(p.read_text().replace('deferred/editoroverflow-test-tag-unused.md:editoroverflow-test-tag-unused', 'deferred/editoroverflow-test-tag-unused.md:no-such-anchor'))",
         why="an exemption pointing at a heading that does not exist is not an exemption",
     ),
     ScriptGate(
@@ -367,8 +529,10 @@ SCRIPT_GATES = [
         sabotage=(
             "import re\n"
             "_t = p.read_text()\n"
-            "_t2, _n = re.subn(r'^targets: \\[desktop\\]$', 'targets: [desktop, android]', _t, count=1, flags=re.M)\n"
-            "assert _n == 1, 'targets line not found — the control would be a no-op'\n"
+            "_t2, _n = re.subn(\n"
+            "    r'^targets: \\[android\\]$', 'targets: [android, desktop]', _t,\n"
+            "    count=1, flags=re.M)\n"
+            "assert _n == 1, 'targets line not found - the control would be a no-op'\n"
             "p.write_text(_t2)\n"
         ),
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
@@ -456,11 +620,19 @@ SCRIPT_GATES = [
         name="rebase-compiles",
         cmd=[sys.executable, "scripts/check-rebase-compiles.py"],
         sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
+        # The old target here was a `single { get<SyncEngine>() }` binding that #512
+        # removed as a duplicate, so the replacement matched nothing and the control
+        # proved only that a no-op can make a gate look tested. `SessionStore` is a
+        # real binding that consumers resolve.
+        #
+        # The assert matters as much as the replacement: a sabotage that quietly stops
+        # matching is the exact failure this whole file exists to report, so it must
+        # refuse to run rather than pass.
         sabotage=(
             "content = p.read_text()\n"
-            "p.write_text(content.replace(\n"
-            "    '        SyncEngine(',"
-            "    '        // SyncEngine('))"
+            "_needle = '    single<SessionStore> { get<SecureSessionStore>() }'\n"
+            "assert _needle in content, 'sabotage target no longer exists in CoreDiModule.kt'\n"
+            "p.write_text(content.replace(_needle, '    // ' + _needle.strip()))"
         ),
         why="an import removed from a DI module silently breaks every consumer; "
              "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
@@ -772,7 +944,13 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="backlog-issue-refs",
         cmd=[sys.executable, "scripts/check-backlog-issue-refs.py"],
-        sabotage_path="docs/decisions/deferred-backlog.md",
+        # Same dead target as `backlog-status` above, and for the same reason. This
+        # one needs a file whose `**Tracked as:**` is a markdown link, because the
+        # substitution below matches `[#NNN]` — most entries carry a bare `#NNN`.
+        sabotage_path=(
+            "docs/decisions/deferred/"
+            "a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog.md"
+        ),
         # Introduce a cite to a non-existent issue — I1 violation: the cited issue
         # does not exist in the snapshot. A gate that cannot detect a broken link
         # is a gate that lets broken links accumulate.
@@ -926,6 +1104,10 @@ def check_can_fail() -> list[str]:
                 sabotaged_rc = run_gate(gate.cmd)
             finally:
                 target.write_text(original, encoding="utf-8")
+                if gate.sabotage_restore:
+                    exec(  # noqa: S102 — a fixed literal from the registry
+                        gate.sabotage_restore, {"p": target},
+                    )
 
             restored = target.read_text(encoding="utf-8")
             if restored != original:

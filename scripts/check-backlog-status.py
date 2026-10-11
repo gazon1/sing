@@ -52,6 +52,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+
+CORPUS = adr_corpus.load(ROOT)
 
 _ENTRY_RE = re.compile(r"^## (.+)$", re.M)
 _STATUS_RE = re.compile(r"^\*\*\s*Status[^:*]*:?\*?\*?:?\s*(.+?)\s*$")
@@ -157,7 +161,19 @@ PARTIAL_STATES = ("PARTIALLY", "HALF", "MEASURED")
 # The headroom is now gone. That is deliberate discomfort rather than a comfortable
 # number: the next finding either closes an entry or raises this again, and both are
 # decisions somebody should be making on purpose.
-DEFAULT_MAX_ENTRIES = 94
+#
+# Raised 94 -> 129 on 2026-10-11, and the reason is a counting change rather than 35
+# new findings: T2 (PR #508) split the single combined `deferred-backlog.md` into one
+# file per entry under `deferred/`, and the split surfaces 129 entries where the
+# combined file parsed as 94. Nothing was added to fix a gate here — the corpus was
+# already this big, and the gate simply could not see it, because it was reading a
+# file that no longer existed and counting a shape that no longer applied.
+#
+# That is the same class as #520 (five consumers globbing the corpus five ways) and it
+# is why this number moved with a measurement rather than with a decision. 91 of the
+# 129 are `closed`; the 36 `open` and 2 `partial` are the queue anyone actually works
+# from, and those are unchanged.
+DEFAULT_MAX_ENTRIES = 129
 
 
 def parse_entries(text: str) -> list[dict[str, object]]:
@@ -236,12 +252,43 @@ def classify(status: str | None) -> str:
     return "unclassifiable"
 
 
+def parse_single_entry(path: Path) -> dict[str, object]:
+    """Read one T2 file as one entry.
+
+    T2 (PR #508) split the combined `deferred-backlog.md` into individual files and
+    deleted the combined file, so `parse_entries` above — which splits on `## slug`
+    headings — now returns nothing for every file. This reads the per-file shape.
+
+    `parse_entries` stays: it is still what the tests exercise, and it is the right
+    tool if a combined file ever comes back.
+    """
+    text = path.read_text(encoding="utf-8")
+
+    status_raw: str | None = None
+    for line in text.splitlines():
+        sm = _STATUS_RE.match(line.strip())
+        if sm:
+            status_raw = sm.group(1).strip().strip("*_` ").strip()
+            break
+
+    return {
+        "slug": path.stem,
+        "line": 1,
+        "status": status_raw,
+        "tracked": bool(_TRACKED_RE.search(text)) or bool(_TRACKING_WHY_RE.search(text)),
+        "body": text,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--backlog",
-        default="docs/decisions",
-        help="backlog file or directory to check (default: docs/decisions/)",
+        default=None,
+        help=(
+            "backlog file or directory to check. Defaults to the corpus root from "
+            "adr_corpus; a file path is accepted for the pre-T2 combined layout"
+        ),
     )
     ap.add_argument(
         "--max-entries",
@@ -251,32 +298,42 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    backlog_path = ROOT / args.backlog
-
-    # After T2 (per-entry split), entries live as individual .md files. Before T2
-    # (or when checking the legacy combined file), it's a single file. Support both.
-    if backlog_path.is_dir():
-        # Glob the deferred/ subdirectory (T2 layout) and the legacy file itself
-        # so this script works before and after the split without flag changes.
-        entries: list[dict[str, object]] = []
-        if (backlog_path / "deferred").is_dir():
-            for fp in sorted((backlog_path / "deferred").glob("*.md")):
-                text = fp.read_text(encoding="utf-8")
-                entries.extend(parse_entries(text))
-        legacy = backlog_path / "deferred-backlog.md"
-        if legacy.is_file():
-            text = legacy.read_text(encoding="utf-8")
-            entries.extend(parse_entries(text))
-        rel = args.backlog
-    elif backlog_path.is_file():
-        text = backlog_path.read_text(encoding="utf-8")
-        entries = parse_entries(text)
-        rel = args.backlog
+    # main's `--backlog` flag is kept, but its re-discovery is not: it globbed
+    # `deferred/*.md` and the legacy file itself, which is the fifth consumer
+    # re-deriving the corpus that #520 collapsed into adr_corpus. A path argument
+    # narrows *which* corpus, never how it is discovered.
+    rel = f"{CORPUS.root.name}/{CORPUS.deferred_dir}"
+    if args.backlog is None:
+        entries: list[dict[str, object]] = [parse_single_entry(fp) for fp in CORPUS.deferred()]
     else:
-        print(f"ERROR: backlog not found: {backlog_path}")
-        return 1
+        target = ROOT / args.backlog
+        if target.is_file():
+            # Pre-T2 combined layout, kept working on purpose: the split is done,
+            # but the gate should not be the thing that broke when it happened.
+            entries = parse_entries(target.read_text(encoding="utf-8"))
+        elif target.is_dir():
+            # Accept either the corpus root or the backlog directory itself. Both are
+            # natural things to pass and, before this, the second one produced
+            # "no backlog directory at .../deferred/deferred".
+            if (target / CORPUS.deferred_dir).is_dir():
+                root = target
+            else:
+                root = target.parent
+                if target.name != CORPUS.deferred_dir:
+                    print(f"ERROR: no backlog directory at "
+                          f"{target / CORPUS.deferred_dir}")
+                    return 1
+            # adr_corpus.deferred_in, not a local glob. The first version of this
+            # merge resolution wrote `sorted(deferred.glob("*.md"))` and
+            # check-adr-config-sync.py failed on it — correctly: that line is the
+            # sixth consumer growing its own discovery, which is the exact blind
+            # spot #520 exists to close.
+            entries = [parse_single_entry(fp) for fp in adr_corpus.deferred_in(root, CORPUS)]
+        else:
+            print(f"ERROR: backlog not found: {target}")
+            return 1
     if not entries:
-        print(f"ERROR: no `## slug` entries found in {path}")
+        print(f"ERROR: no backlog entries found in {CORPUS.root}/{CORPUS.deferred_dir}")
         return 1
 
     errors: list[str] = []
@@ -293,7 +350,7 @@ def main() -> int:
     for e in entries:
         counts[classify(e["status"])] = counts.get(classify(e["status"]), 0) + 1
 
-    rel = args.backlog
+    rel = f"{CORPUS.root.name}/{CORPUS.deferred_dir}"
     print(f"{rel}: {len(entries)} entries (budget {args.max_entries})")
     for state in ("open", "partial", "closed", "unclassifiable"):
         if state in counts:
