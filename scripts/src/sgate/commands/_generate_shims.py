@@ -27,7 +27,7 @@ GATES = [
     ("version catalog has no literals", "blocking",
      ["python3", "scripts/build-version-catalog-gate.py", "--quiet", "."]),
     ("gate scripts' own unit tests", "blocking",
-     ["python3", "-m", "unittest", "discover", "-s", "scripts/tests"]),
+     ["python3", "-m", "unittest", "discover", "-s", "scripts/tests"], {"no_shim": True}),
     ("test-task external inputs declared", "blocking",
      ["python3", "scripts/check-test-task-inputs.py"]),
     ("declared dependencies are used", "blocking",
@@ -264,8 +264,16 @@ def main() -> None:
         mode = entry[1]
         cmd = entry[2]
         kiwi_required = False
-        if len(entry) > 3 and entry[3].get("kiwi"):
-            kiwi_required = True
+        opts = {}
+        if len(entry) > 3:
+            opts = entry[3]
+            kiwi_required = opts.get("kiwi", False)
+
+        # Gates with no_shim=True are registered in static-gates.sh but have
+        # commands that the generator cannot turn into a Click shim (e.g.
+        # `python3 -m unittest discover`). They still run as plain script gates.
+        if opts.get("no_shim"):
+            continue
 
         name = module_name(display_name)
         content = generate_shim(display_name, mode, cmd, kiwi_required)
