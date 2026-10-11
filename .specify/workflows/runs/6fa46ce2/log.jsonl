@@ -1,0 +1,11 @@
+{"event": "step_started", "step_id": "adr-validate", "type": "shell", "timestamp": "2026-10-11T15:14:27.295152+00:00"}
+{"event": "step_completed", "step_id": "adr-validate", "status": "completed", "timestamp": "2026-10-11T15:14:27.555493+00:00"}
+{"event": "step_started", "step_id": "adr-stale", "type": "shell", "timestamp": "2026-10-11T15:14:27.556125+00:00"}
+{"event": "step_completed", "step_id": "adr-stale", "status": "completed", "timestamp": "2026-10-11T15:14:27.849478+00:00"}
+{"event": "step_started", "step_id": "openspec-validate", "type": "shell", "timestamp": "2026-10-11T15:14:27.850099+00:00"}
+{"event": "step_completed", "step_id": "openspec-validate", "status": "completed", "timestamp": "2026-10-11T15:14:29.888705+00:00"}
+{"event": "step_started", "step_id": "digest-refresh", "type": "shell", "timestamp": "2026-10-11T15:14:29.890452+00:00"}
+{"event": "step_completed", "step_id": "digest-refresh", "status": "completed", "timestamp": "2026-10-11T15:14:29.898141+00:00"}
+{"event": "step_started", "step_id": "ci-success", "type": "shell", "timestamp": "2026-10-11T15:14:29.900128+00:00"}
+{"event": "step_completed", "step_id": "ci-success", "status": "completed", "timestamp": "2026-10-11T15:14:29.904611+00:00"}
+{"event": "workflow_finished", "status": "completed", "timestamp": "2026-10-11T15:14:29.906543+00:00"}

@@ -1,0 +1,107 @@
+schema_version: "1.0"
+workflow:
+  id: "adr-create"
+  name: "ADR Creation with Review"
+  version: "1.0.0"
+  author: "Singularity Todo"
+  description: "Create a single ADR via proposal → specs → design → adr → tasks → implement → converge"
+
+inputs:
+  slug:
+    type: string
+    required: true
+    prompt: "ADR slug (kebab-case, e.g. koin-4-migration)"
+  title:
+    type: string
+    required: true
+    prompt: "ADR title (e.g. Koin 4.x migration)"
+  spec_text:
+    type: string
+    required: false
+    prompt: "Optional: additional spec context"
+
+steps:
+  # Phase 1: Planning artifacts
+  - id: specify
+    command: speckit.specify
+    input:
+      args: "{{ inputs.title }} {{ inputs.spec_text }}"
+
+  - id: review-proposal
+    type: gate
+    message: |
+      ## Review proposal.md
+
+      - [ ] Why is clear, scope is bounded
+      - [ ] Capabilities listed (new or modified)
+      - [ ] Impact assessed
+    options: [approve, reject]
+    on_reject: abort
+
+  - id: plan
+    command: speckit.plan
+    input:
+      args: "KMP project: Android + JVM only. Koin 4.x DI, KSP validation."
+
+  - id: review-plan
+    type: gate
+    message: |
+      ## Review plan.md
+
+      - [ ] Technical decisions have rationale
+      - [ ] Alternatives considered
+      - [ ] Risks identified
+    options: [approve, reject]
+    on_reject: abort
+
+  - id: tasks
+    command: speckit.tasks
+    input:
+      args: "{{ inputs.title }}"
+
+  # Phase 2: ADR creation
+  - id: adr-create
+    type: shell
+    description: "Create ADR file"
+    run: singularity-adr new "{{ inputs.slug }}" "{{ inputs.title }}" 2>&1
+    continue_on_error: false
+
+  - id: adr-validate-pre
+    type: shell
+    description: "Validate ADR corpus before implementation"
+    run: singularity-adr validate 2>&1
+    continue_on_error: false
+
+  # Phase 3: Implementation
+  - id: implement
+    command: speckit.implement
+    input:
+      args: "{{ inputs.title }}"
+
+  # Phase 4: Post-implementation hooks
+  - id: adr-validate-post
+    type: shell
+    description: "Validate ADR corpus after implementation"
+    run: singularity-adr validate 2>&1
+    continue_on_error: false
+
+  - id: digest-refresh
+    type: shell
+    description: "Refresh DIGEST.md after ADR changes"
+    run: ./scripts/refresh-decisions-digest.sh 2>&1
+    continue_on_error: true
+
+  - id: converge
+    command: speckit.converge
+    input:
+      args: "{{ inputs.title }}"
+
+  - id: git-commit
+    type: shell
+    description: "Commit ADR artifacts"
+    run: |
+      SLUG_FILE=$(singularity-adr list --format=json 2>/dev/null | grep -o '[0-9]*-{{ inputs.slug }}' | head -1 || echo '{{ inputs.slug }}')
+      git add "docs/decisions/$SLUG_FILE" 2>/dev/null || true
+      git add openspec/changes/ 2>/dev/null || true
+      git status --short 2>&1
+    continue_on_error: true

@@ -1,0 +1,276 @@
+schema_version: "1.0"
+workflow:
+  id: "openspec-change"
+  name: "OpenSpec Change Workflow"
+  version: "1.0.0"
+  author: "Singularity Todo"
+  description: |
+    Full OpenSpec change workflow: proposal → specs → design → adr → tasks → implement → converge.
+    Creates artifacts in openspec/changes/<date>-<slug>/ (OpenSpec structure) AND registers
+    the change as a spec-kit issue for tracking and AI-agent context.
+    Use when a change requires new or modified capability specs.
+    For pure ADR-only changes (no spec-level behavior change), use adr-create instead.
+
+inputs:
+  slug:
+    type: string
+    required: true
+    prompt: "Change slug (kebab-case, e.g. koin-4-migration)"
+  title:
+    type: string
+    required: true
+    prompt: "Change title (e.g. Koin 4.x migration)"
+  spec_text:
+    type: string
+    required: false
+    prompt: "Optional: additional spec context for the feature spec"
+
+steps:
+  # ─── Phase 1: Proposal ────────────────────────────────────────────────────
+  - id: setup-change-dir
+    type: shell
+    description: "Create OpenSpec change directory structure"
+    run: |
+      DATE=$(date +%Y-%m-%d)
+      CHANGE_DIR="openspec/changes/${DATE}-{{ inputs.slug }}"
+      mkdir -p "$CHANGE_DIR/specs"
+
+      # Write .openspec.yaml marker
+      cat > "$CHANGE_DIR/.openspec.yaml" << EOF
+      schema: adr-workflow
+      slug: {{ inputs.slug }}
+      created_by: spec-kit openspec-change workflow
+      EOF
+
+      # Write proposal.md (OpenSpec format)
+      cat > "$CHANGE_DIR/proposal.md" << 'PROPOSAL'
+      # {{ inputs.title }}
+
+      ## Why
+
+      _Describe the problem or opportunity here. Why does this change matter? Why now?_
+
+      ## What Changes
+
+      - _(bullet list of specific changes)_
+      - Mark **BREAKING** for breaking changes
+
+      ## Capabilities
+
+      ### New Capabilities
+      _(list capabilities being introduced, each becomes specs/<capability>/spec.md)_
+
+      ### Modified Capabilities
+      _(list existing capabilities whose requirements are changing)_
+
+      ## Impact
+
+      - Affected code/APIs/dependencies: _(describe)_
+      - No spec-level behavior change — pure refactor/tooling/docs: _(mark skip_specs)_
+      PROPOSAL
+
+      echo "Created change directory: $CHANGE_DIR"
+      echo "CHANGE_DIR=$CHANGE_DIR"
+    continue_on_error: false
+
+  - id: review-proposal
+    type: gate
+    message: |
+      ## Review proposal.md
+
+      Location: `openspec/changes/<date>-{{ inputs.slug }}/proposal.md`
+
+      - [ ] Why is clear and compelling — scope is bounded
+      - [ ] Capabilities listed: new and/or modified
+      - [ ] Impact assessed (affected code, breaking changes marked)
+      - [ ] If no spec-level behavior change: set `skip_specs: true` in `.openspec.yaml`
+    options: [approve, reject]
+    on_reject: abort
+
+  # ─── Phase 2: Specs ──────────────────────────────────────────────────────
+  - id: specify
+    command: speckit.specify
+    input:
+      args: "{{ inputs.title }} {{ inputs.spec_text }}"
+
+  - id: review-spec
+    type: gate
+    message: |
+      ## Review spec.md
+
+      Location: `.specify/issues/<date>-{{ inputs.slug }}/spec.md`
+
+      - [ ] User stories are ordered by priority (P1, P2, P3)
+      - [ ] Each story is independently testable
+      - [ ] Functional requirements use SHALL/MUST
+      - [ ] Edge cases and success criteria defined
+      - [ ] No implementation details (those go in design.md)
+    options: [approve, reject]
+    on_reject: abort
+
+  # ─── Phase 3: Design ───────────────────────────────────────────────────────
+  - id: plan
+    command: speckit.plan
+    input:
+      args: "KMP project: Android + JVM Desktop only. Koin 4.x DI, Room persistence, Nav3, Kotlin Flow. No iOS."
+
+  - id: review-design
+    type: gate
+    message: |
+      ## Review plan.md / design.md
+
+      Location: `.specify/issues/<date>-{{ inputs.slug }}/plan.md`
+
+      - [ ] Technical decisions have rationale (why X over Y)
+      - [ ] Alternatives considered for key decisions
+      - [ ] Risks and trade-offs identified
+      - [ ] Migration plan if needed
+      - [ ] Open questions are genuinely deferrable
+      - [ ] Architecture decisions that warrant an ADR identified
+    options: [approve, reject]
+    on_reject: abort
+
+  # ─── Phase 4: ADR ─────────────────────────────────────────────────────────
+  - id: write-adr-manifest
+    type: shell
+    description: "Create ADR review manifest"
+    run: |
+      CHANGE_DIR="openspec/changes/$(date +%Y-%m-%d)-{{ inputs.slug }}"
+
+      cat > "$CHANGE_DIR/adr.md" << 'MANIFEST'
+      # ADR Review Manifest — {{ inputs.title }}
+
+      ## ADRs Created
+
+      _(list ADRs created by this change, e.g.:)_
+      | Sequence | Slug | Title | Status | Notes |
+      |----------|------|-------|--------|-------|
+      | NNNN | my-decision | My decision title | proposed | New decision |
+
+      ## ADRs Reviewed (No Action)
+
+      _(list existing ADRs reviewed but not changed by this change)_
+      | Sequence | Slug | Title | Status | Notes |
+      |----------|------|-------|--------|-------|
+
+      ## Decisions That Did Not Meet the Bar
+
+      _(list decisions considered but rejected with rationale)_
+      MANIFEST
+
+      echo "ADR manifest written to $CHANGE_DIR/adr.md"
+    continue_on_error: false
+
+  - id: adr-create
+    type: shell
+    description: "Create new ADR files via singularity-adr"
+    run: |
+      echo "If design.md identified architectural decisions needing ADRs:"
+      echo "  singularity-adr new <slug> '<title>' [tags...]"
+      echo "Run 'singularity-adr list' first to see existing sequence numbers."
+      echo "After creating ADRs, run 'singularity-adr validate'."
+    continue_on_error: true
+
+  - id: adr-validate-pre
+    type: shell
+    description: "Validate ADR corpus before implementation"
+    run: singularity-adr validate 2>&1
+    continue_on_error: false
+
+  # ─── Phase 5: Tasks ───────────────────────────────────────────────────────
+  - id: tasks
+    command: speckit.tasks
+    input:
+      args: "{{ inputs.title }}"
+
+  - id: review-tasks
+    type: gate
+    message: |
+      ## Review tasks.md
+
+      Location: `.specify/issues/<date>-{{ inputs.slug }}/tasks.md`
+
+      - [ ] Tasks grouped by user story (independent testability)
+      - [ ] Each task has a checkbox and verification method
+      - [ ] Dependency order respected (foundation before user stories)
+      - [ ] ADR files listed as deliverables
+      - [ ] Tests written before implementation (TDD if applicable)
+    options: [approve, reject]
+    on_reject: abort
+
+  # ─── Phase 6: Implement ──────────────────────────────────────────────────
+  - id: implement
+    command: speckit.implement
+    input:
+      args: "{{ inputs.title }}"
+
+  # ─── Phase 7: Converge ───────────────────────────────────────────────────
+  - id: adr-validate-post
+    type: shell
+    description: "Validate ADR corpus after implementation"
+    run: singularity-adr validate 2>&1
+    continue_on_error: false
+
+  - id: digest-refresh
+    type: shell
+    description: "Refresh DIGEST.md after ADR changes"
+    run: ./scripts/refresh-decisions-digest.sh 2>&1
+    continue_on_error: true
+
+  - id: converge
+    command: speckit.converge
+    input:
+      args: "{{ inputs.title }}"
+
+  - id: register-issue
+    type: shell
+    description: "Register the completed change as a spec-kit issue"
+    run: |
+      # Create the spec-kit issue record
+      DATE=$(date +%Y-%m-%d)
+      SLUG="{{ inputs.slug }}"
+      ISSUE_FILE=".specify/issues/${SLUG}.yaml"
+
+      # Determine change_type
+      if [ -d "openspec/changes/${DATE}-${SLUG}/specs" ] && [ -n "$(ls openspec/changes/${DATE}-${SLUG}/specs/ 2>/dev/null)" ]; then
+        CHANGE_TYPE="active-with-specs"
+      else
+        CHANGE_TYPE="active-stub"
+      fi
+
+      cat > "$ISSUE_FILE" << EOF
+      # spec-kit issue record — created by openspec-change workflow
+      # Source: openspec/changes/${DATE}-${SLUG}/
+      ---
+      version: '1.0'
+      type: openspec-change
+      slug: ${SLUG}
+      date: '${DATE}'
+      title: {{ inputs.title }}
+      status: completed
+      change_type: ${CHANGE_TYPE}
+      speckit_workflow: openspec-change
+      documents:
+        proposal: openspec/changes/${DATE}-${SLUG}/proposal.md
+        design: openspec/changes/${DATE}-${SLUG}/design.md
+        adr: openspec/changes/${DATE}-${SLUG}/adr.md
+        tasks: openspec/changes/${DATE}-${SLUG}/tasks.md
+      specs_dir: openspec/changes/${DATE}-${SLUG}/specs
+      openspec_path: openspec/changes/${DATE}-${SLUG}
+      EOF
+
+      echo "Issue registered: $ISSUE_FILE"
+    continue_on_error: true
+
+  - id: git-status
+    type: shell
+    description: "Show changed files for review"
+    run: |
+      echo "=== Changed files ==="
+      git status --short 2>&1 | head -30
+      echo ""
+      echo "=== Next steps ==="
+      echo "1. Review all generated artifacts"
+      echo "2. Ensure ADR files are created and validated: singularity-adr validate"
+      echo "3. Commit: git add && git commit -m 'feat(openspec): {{ inputs.slug }} — {{ inputs.title }}'"
+    continue_on_error: true

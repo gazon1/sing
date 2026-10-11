@@ -160,7 +160,12 @@ gate blocking "room schema integrity" python3 scripts/check-room-schema-integrit
 # passes, for every consumer that reads only the exit code. This found a real
 # one on its first run: check-kiwi-inventory-ratchet.py crashed with
 # "NoneType has no attribute loader" and had been dead since #430 (#529).
-gate blocking "gates are alive" python3 scripts/check-gate-liveness.py
+# A gate that probes all registered gates must not probe itself — doing so would
+# launch 37 gates, one of which launches 37 more, and the first version of this
+# gate died of its own timeout (#529). The `# no-self-probe` comment marks gates
+# that must not be probed; the filter is applied in check-gate-liveness.py, not
+# in the filename heuristic that previously lived there (#534).
+gate blocking "gates are alive" python3 scripts/check-gate-liveness.py  # no-self-probe
 # A closed decision is a record of what was decided. Its body must stop changing;
 # a new decision supersedes it instead of rewriting it (#528).
 gate blocking "closed ADRs keep their body" python3 scripts/check-adr-immutable.py
@@ -229,7 +234,10 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 #
 # ADR reference integrity and status policy — these make ADR deletion safe (#116).
 gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
-gate blocking "ADR status policy" python3 scripts/check_adr_status.py
+# Replaced python3 -m scripts.adr with singularity-adr validate — same Python gate
+# underneath, but the gate now speaks the canonical CLI interface rather than
+# importing the Python package directly (#553).
+gate blocking "ADR status policy" singularity-adr validate
 
 # Five consumers discovered docs/decisions/ five different ways and had already
 # drifted apart — three could not see deferred/, which is how the status gate
@@ -249,7 +257,7 @@ gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-bo
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.
 gate advisory "ADR frontmatter drift" adr_dry_run
-gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
+gate advisory "spec-kit issue registry current" python3 scripts/check-speckit-issue-registry.py
 gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
 
 # AppTracer

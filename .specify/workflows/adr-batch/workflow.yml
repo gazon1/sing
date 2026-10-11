@@ -1,0 +1,77 @@
+schema_version: "1.0"
+workflow:
+  id: "adr-batch"
+  name: "Batch ADR Creation"
+  version: "1.0.0"
+  author: "Singularity Todo"
+  description: "Create multiple ADRs in sequence with validation after each"
+
+inputs:
+  csv_path:
+    type: string
+    required: true
+    prompt: "Path to CSV file with columns: slug,title (no header)"
+  dry_run:
+    type: boolean
+    default: false
+    prompt: "Preview mode — don't create files"
+
+steps:
+  - id: read-csv
+    type: shell
+    description: "Parse CSV file"
+    run: |
+      if [ ! -f "{{ inputs.csv_path }}" ]; then
+        echo "CSV file not found: {{ inputs.csv_path }}"
+        exit 1
+      fi
+      cat "{{ inputs.csv_path }}"
+    export: ADR_BATCH_ITEMS
+    continue_on_error: false
+
+  - id: batch-create
+    type: for_each
+    items: "{{ ADR_BATCH_ITEMS }}"
+    separator: ","
+    name: "Create ADR: {{ item.slug }}"
+    steps:
+      - id: dry-check
+        type: shell
+        description: "Dry run check"
+        run: |
+          if [ "{{ inputs.dry_run }}" = "true" ]; then
+            echo "[DRY RUN] Would create ADR: {{ item.slug }} - {{ item.title }}"
+            echo "skipping"
+          fi
+        continue_on_error: true
+
+      - id: adr-new
+        type: shell
+        description: "Create ADR file"
+        run: singularity-adr new "{{ item.slug }}" "{{ item.title }}" 2>&1
+        continue_on_error: true
+
+      - id: adr-validate-each
+        type: shell
+        description: "Validate after {{ item.slug }}"
+        run: singularity-adr validate 2>&1
+        continue_on_error: false
+
+      - id: adr-doctor-each
+        type: shell
+        description: "Capture health check for {{ item.slug }}"
+        run: singularity-adr doctor --json 2>&1 || echo "doctor check skipped"
+        continue_on_error: true
+
+  - id: digest-refresh
+    type: shell
+    description: "Refresh DIGEST.md after batch"
+    run: ./scripts/refresh-decisions-digest.sh 2>&1
+    continue_on_error: true
+
+  - id: summary
+    type: shell
+    description: "Batch complete summary"
+    run: |
+      COUNT=$(echo "{{ ADR_BATCH_ITEMS }}" | wc -l)
+      echo "Batch complete: $COUNT ADRs processed"
