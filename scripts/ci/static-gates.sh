@@ -88,10 +88,21 @@ collect_and_report() {
       if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
         echo "::error title=Gate failed::$name (exit $rc)"
       fi
-      # Show failure output for blocking gates
+      # Show failure output for blocking gates.  The progress/dots and early
+      # prints live at the top, but the summary a failing run actually needs
+      # ("FAILED (failures=N)", the failing test names) is at the *end* — a
+      # head-only cut once hid the cause of a red unit-test gate in CI (#563).
       if [[ -f "$out_file" ]]; then
+        local total_lines
+        total_lines=$(wc -l <"$out_file")
         echo "--- $name (exit $rc) ---"
-        cat "$out_file" | head -20
+        if ((total_lines > 40)); then
+          head -20 "$out_file"
+          echo "… ($((total_lines - 40)) lines omitted) …"
+          tail -20 "$out_file"
+        else
+          cat "$out_file"
+        fi
         echo
       fi
     else
@@ -234,10 +245,14 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 #
 # ADR reference integrity and status policy — these make ADR deletion safe (#116).
 gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
-# Replaced python3 -m scripts.adr with singularity-adr validate — same Python gate
-# underneath, but the gate now speaks the canonical CLI interface rather than
-# importing the Python package directly (#553).
-gate blocking "ADR status policy" singularity-adr validate
+# #553 switched this gate to `singularity-adr validate` (the canonical CLI
+# interface), but the static job is deliberately JVM-free (~1 min, no Gradle):
+# the installed CLI is not on a CI runner's PATH, so the gate died with exit
+# 127 and dragged "gates are alive" down with it (1 unrunnable).  Both surfaces
+# are kept where they can actually run: the Python gate here (the same code
+# the CLI wraps, per #553), the CLI itself in adr-gate.yml's "ADR validation"
+# step, which installs the distribution and runs on every docs/decisions PR.
+gate blocking "ADR status policy" python3 scripts/check_adr_status.py
 
 # Five consumers discovered docs/decisions/ five different ways and had already
 # drifted apart — three could not see deferred/, which is how the status gate
