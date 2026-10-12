@@ -50,6 +50,10 @@ launched from a shell call that stays alive a few seconds, then verified by a
 after a crash and crash triage by signature:
 the `singularity-todo-emulator-launch` skill.
 
+The command above is recorded here as the definition of the recipe. Do not run it
+by hand: `scripts/ensure-emulator.sh` executes exactly these flags and is the way
+to obtain a device.
+
 ## Rationale
 
 The camera flags are the only non-obvious part. The evidence: uptime ~533 s,
@@ -65,7 +69,8 @@ desktop, and "I don't see the emulator" means it was launched headless.
 
 ## Consequences
 
-- Launch the emulator only via the recipe in `singularity-todo-emulator-launch`;
+- Launch the emulator only via `scripts/ensure-emulator.sh`, which runs this
+  recipe (see the `singularity-todo-emulator-launch` skill);
   never add `-gpu`/`-no-window` flags to "fix" a startup failure, and never run
   long sessions without the camera disabled.
 - Aliveness is determined by the `/proc` exe scan and `adb devices`; `pgrep -f`
@@ -79,5 +84,6 @@ desktop, and "I don't see the emulator" means it was launched headless.
 ## Links
 
 - `.agents/skills/singularity-todo-emulator-launch/SKILL.md` — the operational recipe
+- `scripts/ensure-emulator.sh` — the script that executes this recipe
 - `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` — GPU dead ends (in force)
 - `scripts/run-maestro.sh` — device prep steps the recipe complements

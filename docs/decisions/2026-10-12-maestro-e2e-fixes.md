@@ -1,4 +1,9 @@
-# ADR 2026-10-12 — Maestro E2E fixes: scrollUntilVisible, timeouts, seed cascade
+---
+title: "Maestro E2E fixes — scrollUntilVisible, timeouts, seed cascade, fixture isolation"
+date: 2026-10-12
+status: accepted
+tags: [maestro, e2e, testing, emulator]
+---
 
 ## Context
 
@@ -282,6 +287,40 @@ and cannot delete another run's data under concurrency.
 
 **Decision**: Deleted `helpers/pick-date.yaml` (zero consumers) and the unused
 `firstOfMonth` / `stamp` exports from `helpers/scripts/date.js`.
+
+### 20. Device selection goes through `ensure-emulator.sh` only
+
+**Decision**: `scripts/ensure-emulator.sh` is the single device-recovery
+primitive. Hand-rolled `adb devices | awk` discovery is removed from the runner
+and from `scripts/run-android-ui-tests.sh`.
+
+**Rationale**: a local `adb | awk` can only ever find a device that is *already*
+up. On this host the emulator crashes regularly (§ the gfxstream ADR), so every
+crash surfaced as "no device found — connect one", advice that points away from
+the actual remedy. The script already knows the flags that boot this AVD and
+waits for readiness.
+
+### 21. A caller-supplied pin must not switch recovery off
+
+**Decision**: `run-maestro.sh` runs `export -n SERIAL`, and
+`ensure-emulator.sh` restarts the AVD when the pinned serial is an `emulator-*`
+that is not ready. Only a pinned *physical* device remains a hard error.
+
+**Rationale**: a bash variable that arrives through the environment keeps its
+export attribute when reassigned, so `SERIAL=emulator-5554 ./scripts/run-maestro.sh`
+was leaking the pin into `ensure-emulator.sh`, which then took its
+pinned-serial branch and hard-failed — refusing to resurrect the very device it
+exists to resurrect. The failure mode is worse than the crash it papers over:
+every subsequent flow fails as if the infrastructure were flaky, and the
+diagnosis points at the emulator rather than at the runner.
+
+The distinction that makes this safe: a pinned emulator is *recoverable* (start
+the AVD); a pinned physical device is not (starting an AVD would land on
+`emulator-5554` and not match), so only that case still errors.
+
+Verified by killing the emulator and re-running the pinned path: recovery now
+starts the AVD and the flow passes, where it previously reported "Could not
+obtain a device".
 
 ## Consequences
 

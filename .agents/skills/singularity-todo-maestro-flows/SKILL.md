@@ -15,11 +15,12 @@ All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
 
-Flows need a booted emulator. Getting one up on this host has host-specific
-traps (GPU dead ends, camera-thread crash, process-verification gotchas) —
-delegate to `singularity-todo-emulator-launch`. Device prep (wake, unlock, IME
-workaround, install, logcat) is `singularity-todo-adb-workflow` /
-`scripts/run-maestro.sh`.
+Flows need a booted emulator. `./scripts/ensure-emulator.sh` is the one way to get
+one — it prints a ready serial, or starts the AVD and waits for boot. Getting one up
+on this host has host-specific traps (GPU dead ends, camera-thread crash,
+process-verification gotchas) — delegate to `singularity-todo-emulator-launch`.
+Device prep (wake, unlock, IME workaround, install, logcat) is
+`singularity-todo-adb-workflow` / `scripts/run-maestro.sh`.
 
 ## Running
 
@@ -50,7 +51,8 @@ Maestro never rebuilds anything. After touching any composable or `TestTags.kt`:
 
 ```bash
 ./gradlew :androidApp:assembleDebug
-adb -s emulator-5554 install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
+SERIAL=$(./scripts/ensure-emulator.sh)
+adb -s "$SERIAL" install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 maestro test Maestro/flows/<sub>/<file>.yaml
 ```
 
@@ -167,7 +169,7 @@ alone and cannot touch another run's data.
 virgin device state — it costs you the authenticated session:
 
 ```bash
-adb -s emulator-5554 shell pm clear com.singularity.todo
+adb -s "$(./scripts/ensure-emulator.sh)" shell pm clear com.singularity.todo
 ```
 
 Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
