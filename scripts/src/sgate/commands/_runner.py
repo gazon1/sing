@@ -73,16 +73,25 @@ def run_capture(cmd: list[str], gate_name: str) -> subprocess.CompletedProcess:
 
     Used by --json mode to capture output for structured parsing.
 
+    FileNotFoundError is returned as CompletedProcess with returncode=127 so
+    callers in --json mode can emit structured JSON even when the command
+    is missing.
+
     Raises:
-        SystemExit: IO_ERROR (cmd/file not found), or INTERNAL_ERROR.
+        SystemExit: INTERNAL_ERROR only (unexpected exceptions).
     """
     try:
         return subprocess.run(cmd, capture_output=True)
     except FileNotFoundError:
         cmd_str = cmd[0] if cmd else "<unknown>"
         logger.error(f"{cmd_str} not found")
-        gate_fail(gate_name, None, None, None, None, f"{cmd_str} not found")
-        raise SystemExit(IO_ERROR)
+        # Return a CompletedProcess with exit 127 instead of raising,
+        # so --json callers can emit structured output.
+        # Mark it so callers (especially KIWI_REQUIRED gates) can distinguish
+        # "command not found" from "command ran and failed".
+        result = subprocess.CompletedProcess(cmd, 127, b"", f"{cmd_str}: not found".encode())
+        result._cmd_not_found = True  # type: ignore[attr-defined]
+        return result
     except OSError as exc:
         cmd_str = cmd[0] if cmd else "<unknown>"
         logger.error(f"OS error running {cmd_str}: {exc}")

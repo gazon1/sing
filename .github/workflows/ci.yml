@@ -63,8 +63,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Script gates
-        run: bash scripts/ci/static-gates.sh
+      # Replaced gate() function + collect_and_report() from static-gates.sh with
+      # sgate run-all: single CLI entry point, parallel execution, aggregate exit,
+      # unified JSON for CI parsers.  static-gates.sh is now a pure registry (source
+      # of truth for gate names and commands — both sgate run-all and check.sh read it).
+      - name: Script gates (sgate run-all)
+        run: sgate run-all || exit 1
 
       - name: OpenSpec validate
         env:

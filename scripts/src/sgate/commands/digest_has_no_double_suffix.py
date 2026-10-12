@@ -9,11 +9,19 @@ from sgate.log import logger
 
 import sgate
 from sgate.output import gate_fail
-from sgate.commands._runner import run, run_capture
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
+from sgate.commands._runner import run, run_capture, Result
+from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, KIWI_UNAVAILABLE, register
 
-# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = False
+
+def _handle_result(result: Result, gate_name: str, *, emit_json: bool) -> None:
+    """Handle run_capture result for non-Kiwi gates."""
+    out = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+    data = {"gate": gate_name, "passed": result.returncode == 0, "exit_code": result.returncode, "output": out}
+    if result.returncode != 0:
+        gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}", to_stderr=True)
+    print(json.dumps(data))
+    raise SystemExit(result.returncode)
 
 
 @click.command("digest_has_no_double_suffix")
@@ -47,13 +55,10 @@ def digest_has_no_double_suffix(check: bool, emit_json: bool) -> None:
     try:
         if emit_json:
             result = run_capture(bash_cmd, gate_name)
-            out = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
-            data = {"gate": gate_name, "passed": result.returncode == 0, "exit_code": result.returncode, "output": out}
-            if result.returncode != 0:
-                gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
-            print(json.dumps(data))
-            raise SystemExit(result.returncode)
+            _handle_result(result, gate_name, emit_json=True)
         run(bash_cmd, gate_name)
+    except SystemExit:
+        raise  # propagate deliberate exits from run()/run_capture()
     except Exception:
         logger.exception("unexpected error")
         gate_fail(gate_name, None, None, None, None, "unexpected error")
