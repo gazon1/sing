@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
@@ -8,10 +8,10 @@ description: Author and run Maestro UI flows for the Android app. Covers selecto
 Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
 subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
-Status (run 38223116125): 12 flows fixed across classes A–D (hardcoded swipe,
-missing nav menu openers, menu item scroll, animation timing). Class E (27 flows)
-is undiagnosed — seed/state leakage, selector mismatches, and agenda timing issues
-require live device or detailed device logs to resolve.
+Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
+openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
+— see "Seed fixtures, never type them" and `diagnosing-failures.md`.
+All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
 
@@ -80,6 +80,75 @@ than falling back to visible text.
 
 `menuItem()` is keyed by the **visible label**, not the destination title, so
 `Profile & sync` and `Settings` do not collide.
+
+## Seed fixtures, never type them
+
+**Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
+Typing a fixture into the editor does not work in this app.**
+
+`TaskTitleRow` uses Compose's *controlled* field:
+
+```kotlin
+BasicTextField(value = title, onValueChange = { title = it; isDirty = true })
+```
+
+Neither Maestro `inputText` nor `adb shell input text` can fill it. Injected text
+lands in the wrapped `EditText`, then the next composition writes the still-empty
+`value` back over it. `onValueChange` never fires, `isDirty` stays false, and Save
+never enables — the flow hangs on a title that looks filled in but is not in state.
+
+The probe that settles it: type, reopen the editor, assert the text. Gone, so the
+value never reached state. An `ImeAction` patch was tried and reverted — it removed
+the action `inputText` depends on and broke entry outright.
+
+`helpers/seed.yaml` takes a URL-encoded `QUERY`:
+
+```yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Buy%20milk&due=today"
+```
+
+| Query key | Creates |
+|---|---|
+| `task=<title>` | a task |
+| `task=<title>&due=…` | task due `today` / `tomorrow` / `-1d` / `2026-10-01` |
+| `note=<title>` | a note |
+| `project=<name>` | a project |
+| `profile=<name>` | a project profile and switches to it |
+
+**An undated fixture lands in Inbox's "No Date" bucket, not Today.** A flow that
+seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — tap
+`nav_tab_inbox`.
+
+**Why `seed.yaml` ends with an inbox→today tab round-trip:** the deep link brings
+MainActivity up with `CLEAR_TOP|SINGLE_TOP`. On a cold start the seed commits while
+MainActivity is still composing, so the agenda's first query reads pre-seed state and
+the new row never appears. The row *is* in the database — a tab switch forces a
+re-query and it shows up. The symptom is a seed helper that timed out on a row it
+had already written. Keep the round-trip; it is load-bearing.
+
+### `launch-clean` does not clear the database
+
+`launchApp` with `clearState: false` resets AMS state only. Room persists across
+runs on the same emulator, so **fixtures accumulate**. For a true clean slate:
+
+```bash
+adb -s emulator-5554 shell pm clear com.singularity.todo
+```
+
+Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
+its fixture and then asserts the mutated-away state — the previous run's already-dated
+copy satisfies the selector. Two responses:
+
+- **Stamp the title** with `${output.stamp}` from `helpers/scripts/date.js` when the
+  flow mutates its own fixture (`agenda-smart-lists`, `auth-first-run-anonymous`).
+- **Or `pm clear` first**, then assert freely.
+
+`seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows address
+its row by the stable `task_item_buy_milk` id, so a per-run stamp would break every
+one of them. That constraint is recorded in the helper's own header.
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 
@@ -150,10 +219,11 @@ step time, not at authoring time:
   content-desc`. Select by `id:` (add a testTag if one is missing) or `text:`.
 - **`gone:` does not exist** — use `notVisible:` inside `extendedWaitUntil`.
 - **`scrollUntilVisible` scrolls the screen centre.** It works for the
-  centre-screen Menu bottom sheet. For edge-pinned elements (nav rail on phone,
-  where the SettingsNavRail is the leftmost 80dp), a `direction: UP` swipe from
-  below the element may be needed — but only as a fallback, and only with
-  coords that are within the element's bounds.
+  centre-screen Menu bottom sheet. It cannot reach an element **clipped by a
+  sibling layout** — on a phone viewport the `SettingsNavRail` is the leftmost
+  80dp and its lower tabs are cut off by the window, so no scroll direction
+  brings them into view. Switch to the bottom nav or the menu sheet; there is no
+  scroll that fixes a clipped element.
 - `index:` disambiguates duplicate `text:` matches (two buttons both reading
   "Удалить" in one dialog). A bare `text:` (no index) is often the right choice —
   an index that no longer resolves fails the step outright.
@@ -198,10 +268,11 @@ step time, not at authoring time:
   UI state will flake on CI with 2 000 ms.
 - **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
   genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
-- **Hide the keyboard before tapping a trailing action** — `hideKeyboard` after
-  `inputText`, or the save button sits under the IME.
-- After `inputText`, assert the field's value before tapping save, so a dropped
-  keystroke fails at the real cause.
+- **`hideKeyboard` is a commit, not a dismiss.** In this app it triggers the
+  editor's autosave-on-dismiss and closes the screen. Never place it before the
+  `task_editor_save` tap — it saves and navigates away, and the following step
+  fails on a screen that is already gone. Use it only when leaving an editor is
+  the intent, and assert on the destination.
 
 ## Test data: ASCII only
 
@@ -215,9 +286,8 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 | Helper | What it does |
 |---|---|
 | `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
-| `seed-task.yaml` | Creates "Buy milk" on Today via UI (not deep-link), asserts `task_item_buy_milk`; 10s timeout + `waitForAnimationToEnd` |
-| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link; supports `{{title}}`, `{{due}}` via `QUERY` env var |
-| `retry-3x.yaml` | Runs `TARGET_FLOW` up to 3 times; use only for confirmed device-variance issues, not selector bugs |
+| `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
+| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); ends with an inbox→today tab round-trip that forces a re-query |
 | `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |
 | `pick-date.yaml` | Date picker helper using `scripts/date.js` |
 
@@ -227,10 +297,10 @@ its selectors — `adb devices` is the check. When running flows by hand, prefer
 emulator when the device dies, so a single crash costs one flow instead of the
 suite. See `singularity-todo-emulator-launch`.
 
-Start from `launch-clean` unless the flow needs pre-existing data. `seed-task`
-hardcodes its title on purpose — see the comment in the file. Make new flows
-self-seeding (create their own fixture) rather than inheriting state from an
-earlier flow.
+Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
+flows self-seeding rather than inheriting state from an earlier flow. Note that
+`launch-clean` does not clear Room, so a fixture written by a previous run is
+still there — see "Seed fixtures, never type them".
 
 ## App behaviour facts flows encode
 
@@ -252,22 +322,25 @@ by a flow failing on it:
 - **Archive -> restore round trip works**: archive via the context menu, open the
   task from the Archive screen, overflow menu -> Восстановить, the screen pops
   back and the task reappears in Inbox.
-- **An undated task lands in Inbox, not Today** — `create-task` taps to Inbox to
-  find its row.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
 
-## Root causes of known failures (run 38223116125)
+## When a flow fails
 
-| Class | Root cause | Flows | Fix |
-|---|---|---|---|
-| A | Hardcoded swipe coords out-of-bounds on phone AVD | `backup-round-trip`, `smoke-settings-cycle-tabs` | `scrollUntilVisible direction: UP` |
-| B | Missing `nav_menu_button` + `scrollUntilVisible` before `menu_settings` | `calendar-sync-provider-toggle`, `calendar-sync-system-toggle`, `calendar-sync-system-unavailable`, `sync-change-interval`, `negative-empty-tags` | `scrollUntilVisible element.id: menu_settings direction: DOWN timeout: 10000` |
-| C | `menu_notes` below fold + 5 s timeout | `notes-edit-body`, `notes-filter-chips`, `notes-create-note`, `negative-empty-notes` | Same pattern as class B |
-| D | `waitForAnimationToEnd` 2000 ms after PORTRAIT rotation | `lifecycle-rotate-in-editor` | 2000 ms → 5000 ms |
-| E | Seed/state leakage, wrong testTag, agenda section timing | 27 flows (undiagnosed) | Requires live device or detailed device logs |
+Open [`diagnosing-failures.md`](diagnosing-failures.md) — the failure-class table
+for the last CI run, the logcat/hierarchy triage steps, when a selector is
+unreachable because the element is laid out off-screen, the retry policy, and the
+CI-vs-local timeout multipliers.
 
 ## Recon before writing a flow — the probe trick
+
+**Probe the mechanism before changing product code.** A test failure names a
+symptom; a product change guessed from a symptom is as likely to break the real
+path as to fix it. A failing test is evidence about the test until a probe shows
+otherwise — the defect is in the product only when you have *seen* the
+user-visible behaviour, not inferred it from a step failing. This session wrote
+and reverted two speculative changes to `TaskCreateScreen` before a probe (type,
+reopen, assert the text) settled the actual mechanism.
 
 Do not write a flow against selectors you inferred from the source. Drive the
 screen first and read what is actually there. The cheapest way is a **probe
@@ -303,87 +376,6 @@ predates the tag" or "this row does nothing" than a bug in the selector.
 Delete the probe once the real flow replaces it — probes are scaffolding, and a
 stale one left in the tree is noise.
 
-## Debugging a failure
-
-1. **Crash or assertion?** `adb -s emulator-5554 logcat -d -b crash | grep -A30
-   "FATAL EXCEPTION"`. An app crash surfaces as the system "keeps stopping"
-   dialog on screen and every later step failing — the exception names the real
-   bug (three shipped crashes were found exactly this way).
-2. **Assertion failure:** read the captured hierarchy —
-   `~/.maestro/tests/<timestamp>/<flow-name>/screen-hierarchy/<step>.json`.
-   Extract what was actually on screen:
-   ```bash
-   grep -o '"resource-id" : "[^"]*"' <step>.json | sort -u
-   grep -o '"text" : "[^"]*"' <step>.json | sort -u
-   ```
-   Compare against `Maestro/TAGS.md` — usually the id is mis-cased, below the
-   fold, or on a screen the previous step never opened.
-3. **Nothing on screen but the home screen** — the app crashed earlier in the
-   flow; go back to step 1.
-4. **Class E failures (27 flows):** The Maestro XML has no per-step detail.
-   Re-run with Maestro's `--debug` flag and capture device logcat at failure
-   time. The CI artifact `maestro-failures-*/maestro.log` shows only Maestro's
-   own polling output; the actual Compose/hierarchy state requires logcat.
-
-## Troubleshooting
-
-### Retry strategy: when to fix vs when to retry
-
-**Fix the root cause, not the symptom.** A flow that fails because an element
-was not visible after 5 s is telling you the element needs 5+ s on that device
-— the retry just delays that signal.
-
-Use `Maestro/helpers/retry-3x.yaml` only when:
-- The flow is confirmed to need > 2 script-level retries (`MAX_RETRIES=2` in
-  `run-maestro.sh` covers CI device disconnects).
-- The element timing has genuine variance (e.g. cold-start variance, not a
-  broken selector).
-- A `known-bug` tag is applied and the retry is a temporary measure while the
-  bug is tracked.
-
-Do NOT use retry when:
-- Multiple flows fail simultaneously with the same selector — this is a cascade,
-  not independent variance. Check `seed-task.yaml` first.
-- The failure is `Not found` rather than `Not visible` — retry does not help.
-
-### Seed cascade detection
-
-The most common cascade failure mode in this suite: `seed-task.yaml` times out
-(5 s was insufficient), `task_item_buy_milk` never appears, and 14 flows fail
-in the same CI run with `task_item_buy_milk not visible` — but only the first
-failure is in `seed-task.yaml`. Every other flow just used that fixture.
-
-**How to recognise it:**
-- 14 flows all failing with the same `Not visible: task_item_buy_milk` at the
-  same step position (immediately after seed).
-- The failure appeared after a CI runner was under load (seed takes longer when
-  the host is busy).
-- The seed-task itself passed on a previous run.
-
-**Correct fix:** Increase the timeout in `seed-task.yaml` — do NOT add retry
-wrappers to each consumer flow.
-
-### CI vs local timing
-
-The CI emulator runs on a shared host where gradle daemons, sandbox processes,
-and the emulator itself compete for CPU. A flow that takes 8 s to seed a task
-locally can take 25 s on CI. All hard timeouts should be calibrated against
-CI, not local dev speed.
-
-Practical multipliers observed on this CI host:
-
-| Operation | Local (fast) | CI (loaded) | Safe timeout |
-|---|---|---|---|
-| App cold start | ~5 s | ~20 s | 30 000 ms |
-| `waitForAnimationToEnd` after PORTRAIT | ~1 500 ms | ~4 500 ms | 5 000 ms |
-| `extendedWaitUntil` for a visible element | < 2 s | < 8 s | 10 000 ms |
-| Menu sheet scroll + tap | < 1 s | < 4 s | 10 000 ms |
-
-When in doubt, use the CI-safe value. A timeout that is slightly too long
-costs at most the duration of the wait; a timeout that is slightly too short
-produces a cascade of failures that requires a full re-run to diagnose.
-
-## Tags
 
 `smoke` = the fast must-pass subset. Domain tags (`tasks`, `notes`, `settings`,
 `archive`, `calendar_sync`, `sync`, `negative`, `lifecycle`, `smoke` — see
@@ -400,14 +392,21 @@ split for flows — the split is `smoke` vs domain.
 ## Adding a flow
 
 1. Subdirectory matching the feature (mirrors `feature/` in shared).
-2. `runFlow: ../../helpers/launch-clean.yaml`, or a seed helper for existing data.
-3. Follow the menu navigation pattern: `tapOn id: nav_menu_button` →
+2. **Paths are relative to the flow file, not the repo root.** A flow in
+   `Maestro/flows/<sub>/` references a helper as `../../helpers/<name>.yaml`.
+   The helpers' own internal `runFlow` calls use a bare filename, because they
+   sit next to each other.
+3. `runFlow: ../../helpers/launch-clean.yaml`, then `runFlow: ../../helpers/seed.yaml`
+   with a `QUERY` env var if the flow needs data. Seed rather than type.
+4. Follow the menu navigation pattern: `tapOn id: nav_menu_button` →
    `scrollUntilVisible element.id: <target> direction: DOWN timeout: 10000` →
    `tapOn id: <target>`.
-4. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
+5. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
    (then the rebuild loop).
-5. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
-6. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
-7. On failure, follow "Debugging a failure" above.
+6. Stamp the fixture title with `${output.stamp}` if the flow mutates it, unless
+   it consumes `seed-task.yaml`'s fixed title.
+7. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
+8. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
+9. On failure, open `diagnosing-failures.md`.
 
 Fuller guidance, including the tag table: `Maestro/README.md`.

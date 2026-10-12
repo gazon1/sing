@@ -21,8 +21,24 @@ Primitives in `core/ui/components/` that every screen consumes.
 | `Formatters.kt` (`priorityColorByIndex`, `hexColor`) | Pure color helpers, testable without Compose | `when (priority) { … Color(0xFF…) … }` blocks duplicated across screens |
 | `OverlayState<S>` (`show`, `dismissSheet`, `toggleOverflow`, `dismissAll`, `snackbarHostState`) | Coordinates sheet + overflow menu + snackbar in one place | 3 independent `remember { mutableStateOf(false/true) }` flags per screen |
 | `FormState<T>` (abstract base) | Immutable form data with `update { copy() }`; concrete subclass provides `Saver` | Mutable `var` fields + manual `rememberSaveable` in each screen |
+| `SheetScaffold(actions, content)` | Body + actions row for every picker sheet | Per-sheet `Column { body; Row { buttons } }` in each picker |
 
 All of these live at `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/`.
+
+### `SheetScaffold`: the actions row must stay reachable
+
+`SheetScaffold`'s column is `verticalScroll(rememberScrollState())`. That is
+load-bearing, not decoration. A picker body can be taller than the space the
+bottom sheet gets — `DatePickerSheet`'s body alone caps at 600 dp — and in a
+non-scrolling column the actions row lands **below the screen edge**.
+
+The consequence reaches past layout: an element laid out past the edge is dropped
+from the **accessibility tree**, so it is untappable for a user *and* unreachable
+by any UI test. A flow failing on "the OK button does not exist" while the source
+plainly wires it is usually this, not a selector bug.
+
+When adding a sheet, give the body a bounded height and confirm the actions row is
+on screen at the smallest supported viewport (320x640 dp is the CI phone AVD).
 
 ### When to add a new component here
 
@@ -178,6 +194,9 @@ Always use `CollectEvents(flow) { … }` instead of `LaunchedEffect(Unit) { vm.e
 - **A `ButtonSpinner` that calls `LoadingIndicator` from inside a Button** — wrong size; use `ButtonSpinner`.
 - **Feature-specific widget in `core/ui/components/`** — `TaskCard` doesn't belong here; only generic primitives do.
 - **Compose-`@Composable` helper that's actually pure** (e.g. maps enum → color) — make it a plain `internal fun`.
+- **An actions row laid out past the screen edge.** Unreachable to touch, and
+  dropped from the accessibility tree — invisible to users and to UI tests alike.
+  Bound the body and let the sheet scroll.
 
 ### Architecture Rule: `core/` Must Not Import Feature Types
 
