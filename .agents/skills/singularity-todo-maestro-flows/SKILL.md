@@ -140,15 +140,38 @@ adb -s emulator-5554 shell pm clear com.singularity.todo
 
 Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
 its fixture and then asserts the mutated-away state — the previous run's already-dated
-copy satisfies the selector. Two responses:
+copy satisfies the selector. **Prefix the title with `${RUN_ID}`** and the runner
+sweeps it for you:
 
-- **Stamp the title** with `${output.stamp}` from `helpers/scripts/date.js` when the
-  flow mutates its own fixture (`agenda-smart-lists`, `auth-first-run-anonymous`).
-- **Or `pm clear` first**, then assert freely.
+```yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20My%20fixture"
+- scrollUntilVisible:
+    element:
+      id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
+```
 
-`seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows address
-its row by the stable `task_item_buy_milk` id, so a per-run stamp would break every
-one of them. That constraint is recorded in the helper's own header.
+`scripts/run-maestro.sh` mints `RUN_ID` on **every attempt** and, after a
+successful flow, deep-links `todo-debug://seed?cleanup=<RUN_ID>` to delete every
+task, note and project whose title starts with that prefix. A retry after a lost
+device gets a *new* id, so it cannot collide with the attempt it replaces.
+
+**Prefix, not substring** — cleanup matches `startsWith`, so a leaked fixture
+names the run that made it and real data is never caught by it.
+
+`seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows
+address its row by the stable `task_item_buy_milk` id, so a per-run stamp would
+break every one of them. The runner sweeps it by its own literal prefix instead,
+so it cannot accumulate into an ambiguous `tapOn`.
+
+**Cleanup runs on success only** — a failed flow keeps its fixtures, because they
+are the evidence. Same reason failure screenshots exist.
+
+**A manual `maestro test <flow>` has no runner**: `RUN_ID` falls back to `manual`
+from `Maestro/config.yaml` and nothing is swept. Debug from a `pm clear` slate;
+set `MAESTRO_CLEANUP=0` to keep a run's fixtures for inspection.
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 

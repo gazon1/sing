@@ -54,7 +54,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 411 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 434 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 206 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-mcp-server` | 480 | MCP server pattern for Singularity Todo KMP. |

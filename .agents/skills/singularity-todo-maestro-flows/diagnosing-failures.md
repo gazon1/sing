@@ -48,6 +48,25 @@ before rewriting the selector.
 
 ## Debugging a failure
 
+### Check the runner's verdict against Maestro's own
+
+**A flow can pass in Maestro and still be reported failed by
+`run-maestro.sh`.** Both happened here, and both made the suite's exit code
+lie about reality:
+
+- Maestro's report write (`--format=JUNIT --output`) threw *after* the flow
+  passed, and that post-hoc exception became the process exit status.
+- The APK provenance gate compared `versionName` (`<base>+g<sha>`, which
+  already carries the `g`) against a bare `git rev-parse` sha, so every
+  correctly built APK read as a mismatch.
+
+So read Maestro's own `[Passed] … / N/N Flows Passed` line before believing the
+script's summary. When the two disagree, the disagreement is in the harness, not
+the flow — and reproducing with a direct `maestro test <flow>` is what
+separates them.
+
+### Then triage
+
 1. **Crash or assertion?** `adb -s emulator-5554 logcat -d -b crash | grep -A30
    "FATAL EXCEPTION"`. An app crash surfaces as the system "keeps stopping"
    dialog on screen and every later step failing — the exception names the real

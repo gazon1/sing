@@ -38,3 +38,17 @@ screenMetrics:
   width: 320
   height: 640
   density: 2.0
+
+# Per-attempt fixture identity.
+#
+# scripts/run-maestro.sh overrides this with a fresh id on every attempt and
+# sweeps the fixtures stamped with it once the flow passes. Flows that seed a
+# fixture they later mutate should prefix the title with ${RUN_ID} so the
+# cleanup can find exactly their own rows.
+#
+# The `manual` default is for `maestro test <flow>` run directly against a
+# device: there is no runner to mint an id or to clean up afterwards, so a
+# manual run is a debugging session, not an isolated one — start it from a
+# `pm clear` slate.
+env:
+  RUN_ID: manual

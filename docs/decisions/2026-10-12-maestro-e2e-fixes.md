@@ -152,6 +152,68 @@ NOT be stamped: 17 flows address its row by the stable `task_item_buy_milk` id,
 and a moving id would break every one of them. That constraint is recorded in the
 helper's header so the next person does not "fix" it the obvious way.
 
+## Per-run fixture identity and success-only cleanup (2026-10-12)
+
+Room survives between Maestro runs, so fixtures accumulate and a flow can
+assert against its own predecessor's leftovers. Decision 10 introduced
+`${output.stamp}` as a per-flow workaround; this generalises it into a runner
+contract.
+
+### 11. The runner mints a run id per attempt, not per flow
+
+**Decision**: `scripts/run-maestro.sh` generates `RUN_ID` on **every attempt**
+and passes it with `--env RUN_ID=…`. Flows that mutate their own fixture prefix
+the seeded title with it. On success the runner sweeps every title carrying that
+prefix plus the fixed seed titles.
+
+**Rationale**: per-*attempt*, because a retry after a lost device re-seeds the
+same titles — reusing one id across attempts leaves two rows with the same
+prefix, which is the ambiguity the mechanism exists to prevent.
+
+The prefix is matched, not searched: a run's leaked fixtures name the run that
+created them, and a substring match could not distinguish a fixture from real
+data that merely contains the id.
+
+### 12. Cleanup happens on success only
+
+**Decision**: sweep after a pass; leave fixtures in place after a failure.
+
+**Rationale**: a failed flow's fixtures are the evidence. This is the same
+reason failure screenshots and logcat are captured only in the failure branch.
+Cleanup is best-effort — a sweep that cannot run must not turn a green flow red
+for a housekeeping problem.
+
+### 13. `seed-task.yaml`'s stable title is swept by literal prefix
+
+**Decision**: the success sweep covers `$RUN_ID` **and** the literal `Buy milk`.
+
+**Rationale**: decision 10's constraint stands — 17 flows address that row by
+the constant `task_item_buy_milk`, so it cannot be run-scoped. But a stable
+title plus a persistent database is exactly the accumulation case: one copy per
+run, after which a `tapOn` on the id matches several rows and fails. Sweeping it
+by its own literal removes the accumulation without touching the stable id that
+its consumers depend on.
+
+### Two pre-existing runner bugs found while verifying this
+
+Both made `run-maestro.sh` report results that did not match reality; both are
+fixed here.
+
+- **APK provenance gate rejected correct builds.** `versionName` is
+  `<base>+g<sha>`, so the substring after `+` already carries the `g`, but the
+  check compared it against a bare `git rev-parse` sha. Every correctly built
+  APK read as a mismatch. Fixed by stripping the leading `g` before comparing.
+- **JUnit `--output` was a directory.** Maestro 2.10 treats it as a *file*
+  path; `saveReport` threw `FileNotFoundException … (Is a directory)` *after*
+  the flow had passed, and that post-hoc exception became the exit status — so
+  every flow came back red regardless of result. Fixed by writing
+  `<dir>/<flow_name>.xml`.
+
+Consequence worth stating plainly: **a flow can pass in Maestro and still be
+reported failed by the runner.** Before these fixes the suite's own exit code
+could not be trusted, which is why the earlier verification in this ADR cites
+direct `maestro test` runs.
+
 ## Consequences
 
 - All 27 Class A–D failures are expected to pass on the next CI run.
@@ -165,6 +227,22 @@ helper's header so the next person does not "fix" it the obvious way.
 - Text-based selectors (26 remaining) cannot be replaced until the relevant
   `TestTags` IDs are added to the product code. These are tracked as open
   issues in `.specify/issues/`.
+- **Concurrent runs are safe only for run-scoped fixtures.** A flow that seeds
+  through `${RUN_ID}` cannot collide with another run. The 17 flows addressing
+  the fixed `Buy milk` still share one title and therefore still require those
+  runs to be serialised; their success sweep removes the accumulation, not the
+  collision.
+- A manual `maestro test <flow>` has no runner, so `RUN_ID` falls back to
+  `manual` from `Maestro/config.yaml` and nothing is swept. Manual runs are
+  debugging sessions: start them from a `pm clear` slate. `MAESTRO_CLEANUP=0`
+  disables the sweep when a run's fixtures must be inspected afterwards.
+- Three `seed-task.yaml` consumers were sampled and **fail independently of
+  this work**: `tasks/01-set-priority` (`priority_option_none`),
+  `tasks/02-set-due-date` (`dialog_date_picker_ok` — annotated in the flow as a
+  known Compose a11y quirk), `tasks/16-return-to-source-tab`
+  (`agenda_section_today`). They reference no `RUN_ID` and fail identically with
+  `MAESTRO_CLEANUP=0`. This is the previously unverified consumer set, and it is
+  not yet green.
 
 ## Links
 

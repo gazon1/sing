@@ -25,22 +25,22 @@ tags:
 # `inputText` nor `adb shell input text` reaches `onValueChange` and the editor's
 # Save button never enables.
 #
-# The stamp keeps the title unique per run — Room survives between runs on one
+# ${RUN_ID} keeps the title unique per run — Room survives between runs on one
 # emulator, and the offline restart below has to find this run's task, not a
-# leftover from an earlier one.
-- runScript: ../../helpers/scripts/date.js
+# leftover from an earlier one. The runner mints the id per attempt and sweeps
+# every title carrying it once this flow passes.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=Anonymous%20task%20${output.stamp}"
+      QUERY: "task=${RUN_ID}%20Anonymous%20task"
 - waitForAnimationToEnd
 
-# The task appears in Inbox. Scroll to it: earlier runs' tasks may sit above it.
+# The task appears in Inbox. Scroll to it: tasks from other runs may sit above it.
 - tapOn:
     id: nav_tab_inbox
 - scrollUntilVisible:
     element:
-      id: "task_item_anonymous_task_${output.stamp}"
+      id: "task_item_${RUN_ID}_anonymous_task"
     direction: DOWN
     timeout: 15000
 
@@ -60,10 +60,10 @@ tags:
     id: nav_tab_inbox
 - scrollUntilVisible:
     element:
-      id: "task_item_anonymous_task_${output.stamp}"
+      id: "task_item_${RUN_ID}_anonymous_task"
     direction: DOWN
     timeout: 15000
 
 # No error was shown (the anonymous path has no sync guard to trip).
 # The task survived the offline restart.
-- assertVisible: "Anonymous task ${output.stamp}"
+- assertVisible: "${RUN_ID} Anonymous task"
