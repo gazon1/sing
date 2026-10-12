@@ -1,0 +1,18 @@
+# Scenario specification for SEARCH-02.
+
+id: SEARCH-02
+title: Cyrillic query text is rendered and matched correctly
+area: feature.search
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task with a Cyrillic title exists in the database.
+steps:
+  - Open the quick search from the menu sheet.
+  - Type the task's Cyrillic title using the ASCII-equivalent keystrokes.
+  - Observe the task with the Cyrillic title in the results.
+expected: >-
+  The task with the Cyrillic title appears correctly in the results with its
+  Cyrillic characters rendered as Cyrillic, not as replacement characters or
+  garbled text.

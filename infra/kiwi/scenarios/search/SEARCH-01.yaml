@@ -1,0 +1,17 @@
+# Scenario specification for SEARCH-01.
+
+id: SEARCH-01
+title: Searching for a task's title finds the task
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists with a distinctive title nothing else shares, so the result is
+  unambiguously the seeded task.
+steps:
+  - Open the quick search from the menu sheet.
+  - Type the task's title.
+expected: >-
+  The seeded task appears in the results, so the user can get back to something
+  they stopped thinking about weeks ago without opening every list in the app.

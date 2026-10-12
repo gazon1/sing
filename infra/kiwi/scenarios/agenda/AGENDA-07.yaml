@@ -1,0 +1,32 @@
+# Scenario specification for AGENDA-07.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/07-copy-to-profile.yaml` (`scenario:AGENDA-07`).
+#
+# The flow copies to the *same* profile, and its header says why that is the
+# deterministic path: the app is freshly launched, so "Personal" always exists
+# and the duplicate lands in the same list. That is a deliberate trade — it
+# makes the result observable without depending on a second seeded profile.
+#
+# It is recorded here because "copy works" and "copy works across profiles" are
+# different claims and only the first is verified. `feature.profile`'s isolation
+# scenarios cover the other half.
+
+id: AGENDA-07
+title: "A saved view can be copied to another profile"
+area: feature.agenda
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved view exists, and a freshly launched app whose default profile
+  ("Personal") is therefore always present.
+steps:
+  - Open the saved view's overflow menu and choose to copy it.
+  - Select a profile in the picker.
+expected: >-
+  The copy appears in the destination profile's saved-views list as a distinct
+  entry from the source, so a view can be handed to a profile without being
+  moved out of the one it came from. The destination here is the default
+  profile, so this verifies the copy path rather than isolation between two
+  distinct profiles.

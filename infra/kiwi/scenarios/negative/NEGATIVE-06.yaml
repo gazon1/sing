@@ -1,0 +1,24 @@
+# Scenario specification for NEGATIVE-06.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/negative/06-empty-tags.yaml` (`scenario:NEGATIVE-06`).
+#
+# The flow's header notes that `tags_list` is applied to the list container but
+# does not surface in the semantics tree, so the flow addresses the screen
+# rather than the list. Asserting on that selector would make this scenario
+# depend on a tag that does not exist where the assertion thinks it does.
+
+id: NEGATIVE-06
+title: "The Tags tab shows an empty state"
+area: feature.negative
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No tags exist.
+steps:
+  - Open the Tags tab of Settings with nothing in it.
+expected: >-
+  The tab shows its empty state. The assertion is on the screen rather than on
+  the list container, because the container's test tag does not surface where a
+  selector-based assertion would look for it.

@@ -1,0 +1,24 @@
+# Scenario specification for CALENDAR-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/calendar/01-month-view.yaml` (`scenario:CALENDAR-01`).
+#
+# Day cells carry no testTag and no contentDescription — only their number as
+# text, which is what every assertion here reads. Recorded because it explains
+# why the flow is shaped the way it is, and because a future accessibility
+# improvement could change what is *addressable* without changing what is true.
+
+id: CALENDAR-01
+title: "The Month view renders the current month with weekday columns"
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The Calendar tab is open.
+steps:
+  - Open the Calendar tab.
+expected: >-
+  The current month renders as weekday columns of numbered days, from the first
+  of the month to the last — so the grid is complete rather than showing a
+  partial page. The mode control reads Month.

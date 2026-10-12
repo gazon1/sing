@@ -1,0 +1,24 @@
+# Scenario specification for PROJECTS-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/projects/02-add-task.yaml` (`scenario:PROJECTS-02`).
+#
+# Asserting on the row by its title rather than on the empty state disappearing
+# is the point: a screen that hides its empty state but drops the task would
+# pass the weaker form.
+
+id: PROJECTS-02
+title: "A task added from a project's detail is listed under it"
+area: feature.projects
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A project's detail screen is open with no tasks.
+steps:
+  - Type into the quick-add field and submit it with the keyboard's Done action.
+  - Look at the list.
+expected: >-
+  The empty state is left and the new task appears under that project, addressed
+  by its own title — so a task added here belongs to this project rather than
+  landing in an ungrouped list.

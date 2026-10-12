@@ -1,0 +1,19 @@
+# Scenario specification for SEARCH-04.
+
+id: SEARCH-04
+title: Filter by has-description toggles task results
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Two tasks exist: one with a description field set, one without.
+steps:
+  - Open quick search and type a query that matches both tasks.
+  - Both tasks appear in results.
+  - Open the filter sheet and enable the "Has description" filter.
+  - Apply the filter.
+  - Observe the results.
+expected: >-
+  Only the task that has a description is shown; the task without a description
+  is filtered out. Toggling the filter off restores all results.

@@ -1,0 +1,18 @@
+# Scenario specification for ATTACH-04.
+
+id: ATTACH-04
+title: An attachment persists after app restart
+area: feature.attachments
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved task with one URL attachment already exists.
+steps:
+  - Open the task's detail screen and note the attachment is present.
+  - Force-stop the app and relaunch it.
+  - Navigate to the same task's detail screen.
+  - Observe the attachment list.
+expected: >-
+  The attachment is still in the list after restart, so the user's attached
+  links are not lost when the process is killed.

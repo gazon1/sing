@@ -1,0 +1,26 @@
+# Scenario specification for LIFECYCLE-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/lifecycle/03-rotate-in-editor.yaml` (`scenario:LIFECYCLE-02`).
+#
+# Shares LIFECYCLE-01's failure mode — silent loss of typed work — but a
+# different trigger. A configuration change recreates the editor, and a Compose
+# screen that reads its field state from the ViewModel survives; one that hoists
+# it locally does not. The assertion is therefore about the *editor*, not just
+# the title: "the title survived" alone would pass for a screen that reopened
+# behind a dialog.
+
+id: LIFECYCLE-02
+title: "The task editor stays open and keeps its content through rotation"
+area: feature.lifecycle
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task editor is open with a title entered.
+steps:
+  - Rotate the device while the editor is open.
+  - Look at the editor afterwards.
+expected: >-
+  The editor is still open and still usable, and the title is still in it — so a
+  configuration change did not discard what the user was typing.

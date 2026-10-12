@@ -1,0 +1,16 @@
+# Scenario specification for TASK-08.
+
+id: TASK-08
+title: Set task due date from the editor attribute row
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists and its detail/editor screen is open.
+steps:
+  - Scroll to and tap the Due date row.
+  - Pick a day from the date picker and confirm.
+expected: >-
+  The row label changes from "Add date" to the ISO date string of the
+  selected day. The task moves to the matching date bucket in the agenda.

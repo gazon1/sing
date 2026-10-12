@@ -1,0 +1,29 @@
+# Scenario specification for POMODORO-02.
+#
+# Claimed on `android` and carried by Maestro flow
+# `Maestro/flows/pomodoro/02-start-focus-task.yaml` (`scenario:POMODORO-02`).
+#
+# The load-bearing word in `expected` is "already". Selecting a chip both binds
+# the focus task and starts the timer, and the flow asserts the phase is running
+# with no second tap. Splitting those into two steps would have made this
+# scenario pass against a two-step implementation that users would read as a
+# separate "start" button that is not there.
+
+id: POMODORO-02
+title: "Selecting a task chip starts the timer on that task"
+area: feature.pomodoro
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  At least one task exists, so the chip list is non-empty. The flow seeds one
+  task via `Maestro/helpers/seed-task.yaml`; without a seed the tab renders and
+  this scenario would pass for the wrong reason, asserting nothing about
+  selection at all.
+steps:
+  - Open the Pomodoro tab.
+  - Select the chip labelled with the seeded task.
+expected: >-
+  The timer names the selected task as the focus, and the work phase is already
+  running — selection starts the timer, so no separate play action is needed or
+  offered for this path.

@@ -1,0 +1,30 @@
+# Scenario specification for AGENDA-08.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/08-persistence-restart.yaml` (`scenario:AGENDA-08`).
+#
+# Restart without clearState, per the flow's header: `stopApp` then `launchApp`
+# reloads the process but keeps the Room database, unlike `launch-clean.yaml`
+# which wipes it. That distinction is the whole scenario — a restart test that
+# used a clean launch would assert nothing about persistence, and a view held in
+# memory would look identical from inside the app.
+#
+# This is the plain-restart half of a larger persistence concern. It does not
+# cover backup and restore, where `agenda_views` was added to `BackupPayload`;
+# that is a separate question and belongs to `feature.backup`.
+
+id: AGENDA-08
+title: "A saved view survives an app restart"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved view named "Persistent View" exists.
+steps:
+  - Stop the app without clearing its data.
+  - Launch it again and open the saved-views list.
+expected: >-
+  The saved view is still listed and still opens, so it was persisted rather
+  than held in memory. Restarting without clearing data is what makes this a
+  persistence check. Backup and restore are not exercised here.

@@ -1,0 +1,23 @@
+# Scenario specification for PROJECTS-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/projects/01-open-detail.yaml` (`scenario:PROJECTS-01`).
+#
+# Narrow by nature: it asserts that a project's detail screen opens and lists
+# that project's tasks. With no tasks, "lists its own tasks" is satisfied by an
+# empty state — so the non-empty half of this claim is carried by PROJECTS-02,
+# and this scenario is the reachability half.
+
+id: PROJECTS-01
+title: "A project's detail screen shows its own task list"
+area: feature.projects
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A project exists.
+steps:
+  - Open the project from the Plans tab.
+expected: >-
+  The project's detail screen opens and shows a task list belonging to that
+  project, initially empty.

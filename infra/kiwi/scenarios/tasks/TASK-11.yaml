@@ -1,0 +1,16 @@
+# Scenario specification for TASK-11.
+
+id: TASK-11
+title: Cyrillic task title is created, saved, and displayed correctly
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  An empty task database.
+steps:
+  - Seed a task with a Cyrillic title and a due date of today.
+  - Navigate to the Today agenda tab.
+expected: >-
+  The task appears with its Cyrillic title intact (no mojibake or replacement
+  character) and in the correct agenda section.

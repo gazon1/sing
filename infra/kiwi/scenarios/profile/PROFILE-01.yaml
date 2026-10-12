@@ -1,0 +1,23 @@
+# Scenario specification for PROFILE-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/profile/01-create-profile.yaml` (`scenario:PROFILE-01`).
+#
+# The dialog pre-fills an emoji, so only the name has to be supplied. The
+# scenario deliberately does not assert the emoji: a default nobody relies on
+# should not be pinned by a test that will fail the day the default changes.
+
+id: PROFILE-01
+title: "A second profile is created and listed"
+area: feature.profile
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The Menu sheet is open and only the default profile exists.
+steps:
+  - Choose to create a profile from the Menu sheet.
+  - Supply a name and confirm.
+expected: >-
+  The new profile is listed alongside the default, so a user can reach the
+  second profile the moment they have made it.

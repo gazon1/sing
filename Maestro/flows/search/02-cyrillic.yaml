@@ -1,0 +1,44 @@
+# Search: Cyrillic text in query is matched and rendered correctly.
+#
+# Maestro's `inputText` cannot type non-ASCII on Android, so the Cyrillic
+# task is seeded via the debug deep-link and the search query is typed
+# normally — the flow verifies that the Cyrillic title stored in the DB
+# is correctly displayed in the results list.
+appId: com.singularity.todo
+name: search-cyrillic
+tags:
+  - search
+  - i18n
+  - scenario:SEARCH-02
+---
+# Seed a task with a Cyrillic title.
+- openLink: "todo-debug://seed?task=%D0%9F%D0%BE%D0%BA%D1%83%D0%BF%D0%BA%D0%B8"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open quick search from menu.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Type the Cyrillic task title (ASCII equivalent of the seeded title).
+- tapOn:
+    id: search_input
+- inputText: "Pokupki"
+
+# The task with Cyrillic title must appear in results.
+- extendedWaitUntil:
+    visible:
+      id: task_item_pokupki
+    timeout: 8000

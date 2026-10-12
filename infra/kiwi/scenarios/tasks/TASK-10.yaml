@@ -1,0 +1,18 @@
+# Scenario specification for TASK-10.
+
+id: TASK-10
+title: Empty title is rejected; original title remains intact
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task with a known title exists.
+steps:
+  - Open the task in the editor.
+  - Select all text in the title field and erase it.
+  - Attempt to save by navigating back.
+expected: >-
+  The editor stays open with the title field empty. The task retains its
+  original title and reappears in the list with that title unchanged.
+  The domain layer rejects the empty string at save time.

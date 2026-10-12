@@ -1,0 +1,26 @@
+# Scenario specification for CALENDAR-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/calendar/02-view-mode.yaml` (`scenario:CALENDAR-02`).
+#
+# The header is asserted on the **control**, not on the screen title, per the
+# flow's own note: the control is labelled with the current mode, whereas Week
+# shows a date range rather than a month title. Asserting "Month" somewhere on
+# screen would have passed on a view that never switched.
+
+id: CALENDAR-02
+title: "The view-mode control switches modes and reports the selection"
+area: feature.calendar
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  The Calendar tab is open in Month view.
+steps:
+  - Open the mode control.
+  - Choose a different mode.
+expected: >-
+  The view changes and the control reports the mode now selected, so a user can
+  tell where they are without counting the shape of the grid. The control carries
+  the mode label — the screen title does not, and does not reliably do so in
+  every mode.

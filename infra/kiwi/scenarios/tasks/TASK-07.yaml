@@ -1,0 +1,16 @@
+# Scenario specification for TASK-07.
+
+id: TASK-07
+title: Set task priority from the editor attribute row
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists and its detail/editor screen is open.
+steps:
+  - Scroll to and tap the Priority row.
+  - Choose High priority from the picker.
+expected: >-
+  The row label changes to "High priority" and the task row in the agenda
+  shows the high-priority badge. The change persists after closing the editor.

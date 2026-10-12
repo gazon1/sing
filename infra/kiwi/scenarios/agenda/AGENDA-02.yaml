@@ -1,0 +1,24 @@
+# Scenario specification for AGENDA-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/02-saved-views-open.yaml` (`scenario:AGENDA-02`).
+#
+# This is the scenario that stops the other seven from passing for the wrong
+# reason. Four of them depend on a seeded task, and an empty agenda is a valid
+# state: without an explicit empty-state claim, a dropped seed and a working
+# feature produce identical results.
+
+id: AGENDA-02
+title: "The saved-views list shows its empty state"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No saved view exists yet — the first-run state of the feature.
+steps:
+  - Open the agenda and navigate to the saved-views list.
+expected: >-
+  The list says that there are no saved views yet, rather than rendering as a
+  blank screen or an error. A user who has never saved anything is told what
+  the feature is for and where to start.

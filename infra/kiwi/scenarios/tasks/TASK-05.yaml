@@ -1,0 +1,18 @@
+# Scenario specification for TASK-05.
+
+id: TASK-05
+title: Deleting a task shows an Undo snackbar and Undo restores it
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists in the Inbox.
+steps:
+  - Tap the task to open its detail screen.
+  - Open the overflow menu and tap Delete.
+  - Tap the Undo action on the snackbar.
+  - Navigate back to the agenda.
+expected: >-
+  The Undo snackbar appears immediately after deletion. Tapping Undo
+  restores the task to its original position in the list.

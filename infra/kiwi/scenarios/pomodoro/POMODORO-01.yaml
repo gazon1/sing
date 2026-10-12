@@ -1,0 +1,29 @@
+# Scenario specification for POMODORO-01.
+#
+# Claimed on `android` and carried by Maestro flow
+# `Maestro/flows/pomodoro/01-open-tab.yaml` (`scenario:POMODORO-01`).
+#
+# The only Pomodoro surface is the timer — there is no history or stats screen,
+# which the flow's header states and this scenario relies on. Asserting that a
+# history screen is absent would pin a boundary the product has not drawn; the
+# useful claim is that the timer is legible on first open, because every later
+# control is meaningless if the initial state cannot be read.
+
+id: POMODORO-01
+title: "A fresh Pomodoro timer sits paused on work cycle 1"
+area: feature.pomodoro
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A clean install with an empty task list. The chips are populated by the task
+  provider, so no chip exists here — this scenario deliberately covers the
+  no-task case, which is the first thing a new user sees.
+steps:
+  - Open the Pomodoro tab.
+  - Look at the timer and its controls without touching them.
+expected: >-
+  The phase reads Work, the cycle counter reads Cycle 1, and the remaining
+  duration shows the full work block — the timer starts paused, not running.
+  Stop, play and skip are all present, so every control is reachable before the
+  user has decided anything.

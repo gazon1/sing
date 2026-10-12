@@ -1,0 +1,19 @@
+# Scenario specification for SEARCH-05.
+
+id: SEARCH-05
+title: Filter by pinned toggles task results
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Two tasks exist: one pinned, one not.
+steps:
+  - Open quick search and type a query that matches both tasks.
+  - Both tasks appear in results.
+  - Open the filter sheet and enable the "Pinned" filter.
+  - Apply the filter.
+  - Observe the results.
+expected: >-
+  Only the pinned task is shown; the unpinned task is filtered out.
+  Toggling the filter off restores all results.

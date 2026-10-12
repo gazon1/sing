@@ -1,0 +1,50 @@
+# Scenario specification for CAL-SYNC-SYSTEM-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml` (`scenario:CAL-SYNC-SYSTEM-02`).
+#
+# ## Why this scenario exists
+#
+# `Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml` and
+# `Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml` both carried
+# the id `CAL-SYNC-SYSTEM-01` in their headers, while asserting *opposite*
+# behaviours:
+#
+#   * `02` asserts the **unavailable** message — the panel saying it cannot
+#     reach a calendar provider.
+#   * `03` asserts the **available** path — the enable switch working, which
+#     only exists where a provider *is* reachable.
+#
+# One id cannot honestly mean both. Tagging `03` as `CAL-SYNC-SYSTEM-01` would
+# have made the coverage matrix print `●` for a scenario it never verified: the
+# cell would claim the "platform cannot do it" branch was checked by a flow that
+# proved the opposite branch. So `03` got its own id, and the flow's header now
+# names it.
+#
+# ## Why the two are worth separating
+#
+# They fail independently. A build that hides the switch on an unreachable
+# provider and never enables sync on a reachable one passes neither; a build that
+# enables sync but renders a dead switch over an absent provider passes `03` and
+# fails `02`. Folded into one scenario, the first would have been a failure and
+# the second a pass — and neither would have been caught by the other.
+
+id: CAL-SYNC-SYSTEM-02
+title: "System calendar sync can be switched on where a provider exists"
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Settings → Calendar is open and the system calendar is the selected provider,
+  on a platform where a system calendar provider is actually reachable. This is
+  the complement of CAL-SYNC-SYSTEM-01, which covers the case where it is not.
+steps:
+  - Look at the system-calendar panel.
+  - Switch system calendar sync on and read the status.
+  - Switch it off and read the status again.
+expected: >-
+  When a provider exists the panel offers a working enable switch rather than the
+  unavailable message, and the status follows the switch in both directions — so
+  turning sync on actually turns it on. The Google half stays usable throughout;
+  the two providers are alternatives, and neither may hide the other.

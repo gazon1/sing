@@ -1,0 +1,37 @@
+# Scenario specification for SYNC-LOCAL-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/sync/01-offline-create-survives-reconnect.yaml` (`scenario:SYNC-LOCAL-01`).
+#
+# ## Why this is not SYNC-OFFLINE-01
+#
+# `maestro-suggest` offered `SYNC-OFFLINE-01` ("Work with no network and watch
+# the queue drain") as the nearest scenario at a low score, and it is wrong. That
+# scenario is about the queue reaching the server; this flow's own header says it
+# "asserts the user's data survives being offline, not that a server round-trip
+# happened". Tagging it there would have made the matrix print `●` for a scenario
+# whose subject — draining a queue against a server — the flow never touches.
+#
+# They fail independently: an app that keeps local writes but never syncs passes
+# this and fails SYNC-OFFLINE-01; an app that syncs but drops offline writes
+# passes that and fails this. The app is local-first — Room is the source of
+# truth and the sync engine is a background concern — so the weaker guarantee is
+# the one worth pinning first.
+
+id: SYNC-LOCAL-01
+title: "A task created with no connectivity is kept and appears once back online"
+area: feature.sync
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The device has no connectivity.
+steps:
+  - Create a task while offline.
+  - Restore connectivity.
+  - Look for the task.
+expected: >-
+  The task is still there, so work done without a network was written to local
+  storage rather than queued in memory and lost. This claims the local
+  guarantee only — nothing here says the task reached a server, which is
+  SYNC-OFFLINE-01's separate subject.

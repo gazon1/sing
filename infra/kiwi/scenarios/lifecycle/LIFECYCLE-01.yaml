@@ -1,0 +1,27 @@
+# Scenario specification for LIFECYCLE-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/lifecycle/01-kill-restart-persist.yaml` (`scenario:LIFECYCLE-01`).
+#
+# The distinguishing detail, from the flow's own header: the relaunch does **not**
+# clear state. Every other relaunch in this repository is a clean exit, so an
+# implementation that persisted on exit but held data in memory otherwise would
+# pass all of them. Only a kill distinguishes the two.
+
+id: LIFECYCLE-01
+title: "Data survives a process kill and a relaunch that does not clear state"
+area: feature.lifecycle
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Data has been created in the app.
+steps:
+  - Kill the app's process.
+  - Relaunch it without clearing state.
+  - Look for the data that was there before the kill.
+expected: >-
+  The data is still present, so it was written to storage rather than held in
+  memory. Reopening after a kill looks the same as reopening after a normal
+  exit — an app that saved only on clean exit would show an empty screen here and
+  no other flow in this repository would notice.

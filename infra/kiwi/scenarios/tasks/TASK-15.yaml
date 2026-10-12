@@ -1,0 +1,17 @@
+# Scenario specification for TASK-15.
+
+id: TASK-15
+title: FAB from Inbox tab does NOT pre-fill a due date
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is on the Inbox agenda tab.
+steps:
+  - Tap the FAB to open the task composer.
+  - Verify the Due date row shows no date (placeholder "Add date").
+  - Enter a title and save.
+expected: >-
+  The task is saved with no due date and appears in the No Date section.
+  After saving, the user is returned to the Inbox tab.

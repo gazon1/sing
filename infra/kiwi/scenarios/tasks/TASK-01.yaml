@@ -1,0 +1,16 @@
+# Scenario specification for TASK-01.
+
+id: TASK-01
+title: Create a task from the FAB and see it in the Inbox
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  An empty task database, app on the Inbox tab.
+steps:
+  - Tap the FAB to open the task composer.
+  - Enter a title and save.
+expected: >-
+  The task appears in the Inbox list. A task saved without a due date
+  lands in the Inbox (No Date section), not in any date-based section.

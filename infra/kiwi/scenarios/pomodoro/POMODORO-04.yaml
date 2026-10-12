@@ -1,0 +1,29 @@
+# Scenario specification for POMODORO-04.
+#
+# Claimed on `android` and carried by Maestro flow
+# `Maestro/flows/pomodoro/04-skip-to-break.yaml` (`scenario:POMODORO-04`).
+#
+# Skip is what makes a Pomodoro testable at all: waiting out a 25-minute work
+# block to reach a break is not a thing a test run can do, so skip is the only
+# route to the second half of the cycle.
+#
+# Both counters are asserted because they are separate facts. `Cycle 2` proves
+# the cycle advanced; "Pomodoro: 1 completed" proves a *work* block was
+# completed. A build that incremented only the cycle would pass on the first and
+# fail on the second, which is the split this scenario exists to catch.
+
+id: POMODORO-04
+title: "Skipping a work block starts a break and advances the cycle"
+area: feature.pomodoro
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  At least one task exists and the Pomodoro tab is open, on cycle 1.
+steps:
+  - Select the seeded task's chip to start the work block.
+  - Skip the running work block.
+expected: >-
+  A break phase begins, the cycle counter advances from Cycle 1 to Cycle 2, and
+  the completed-work count reads one — skipping counts as a completed work
+  block, not as an abandoned one.

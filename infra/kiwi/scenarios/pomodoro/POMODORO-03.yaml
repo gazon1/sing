@@ -1,0 +1,31 @@
+# Scenario specification for POMODORO-03.
+#
+# Claimed on `android` and carried by Maestro flow
+# `Maestro/flows/pomodoro/03-pause-resume.yaml` (`scenario:POMODORO-03`).
+#
+# Play and pause are one control whose icon depends on whether the timer is
+# running, which is why the flow drives it twice. The scenario therefore
+# asserts a transition, not a button: a build that showed a play icon while
+# running would satisfy "the control is visible" and still be wrong.
+#
+# The cycle counter is deliberately not asserted. Pausing is not a completed
+# block, and a build that advanced the cycle on pause would need the counter to
+# prove it — that assertion is added when the bug it would catch is worth
+# pinning, not here.
+
+id: POMODORO-03
+title: "Pause and resume survive the phase and cycle state"
+area: feature.pomodoro
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  At least one task exists and the Pomodoro tab is open.
+steps:
+  - Select the seeded task's chip to start the timer.
+  - Pause the running timer.
+  - Resume it.
+expected: >-
+  The timer and the Work phase are still shown after both transitions, so a
+  pause suspends the countdown rather than discarding it or resetting the
+  phase.

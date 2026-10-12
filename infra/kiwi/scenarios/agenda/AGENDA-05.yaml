@@ -1,0 +1,27 @@
+# Scenario specification for AGENDA-05.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/05-reachability.yaml` (`scenario:AGENDA-05`).
+#
+# Complements desktop's `AgendaReachabilityFlowTest`, and the split is a
+# deliberate difference rather than duplicated coverage: on Android the shell is
+# a bottom bar addressed by `nav_tab_*` tags, so this flow walks the three
+# agenda tabs. Plans, Pomodoro and Calendar are non-agenda destinations and are
+# excluded — claiming reachability from them would assert a requirement the
+# product has never stated.
+
+id: AGENDA-05
+title: "Saved views are reachable from every agenda bottom tab"
+area: feature.agenda
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is running with the bottom navigation bar visible.
+steps:
+  - From each of the Inbox, Today and Upcoming tabs in turn, open the agenda.
+  - Reach the saved-views entry.
+expected: >-
+  The agenda and its saved-views entry are reachable from all three
+  agenda-carrying tabs, so the feature does not depend on which tab the user
+  happened to be on. The non-agenda tabs are not exercised and make no claim.

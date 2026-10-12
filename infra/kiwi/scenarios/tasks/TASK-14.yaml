@@ -1,0 +1,17 @@
+# Scenario specification for TASK-14.
+
+id: TASK-14
+title: FAB from Today tab pre-fills the due date to Today
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is on the Today agenda tab.
+steps:
+  - Tap the FAB to open the task composer.
+  - Verify the Due date row shows today's date pre-filled.
+  - Enter a title and save.
+expected: >-
+  The task is saved with today's date and appears in the Today section.
+  After saving, the user is returned to the Today tab.

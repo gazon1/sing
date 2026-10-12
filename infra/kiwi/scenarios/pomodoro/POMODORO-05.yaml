@@ -1,0 +1,27 @@
+# Scenario specification for POMODORO-05.
+#
+# Claimed on `android` and carried by Maestro flow
+# `Maestro/flows/pomodoro/05-stop-resets.yaml` (`scenario:POMODORO-05`).
+#
+# Two assertions, two different claims, and the second is the one that matters.
+# The play button reappearing proves the timer is idle again. "Focus: Buy milk"
+# disappearing proves the task was *released* — a stop that reset the timer but
+# kept the binding would satisfy the first and fail the second, and the user
+# would go back to work on a task the timer no longer thinks they are on.
+
+id: POMODORO-05
+title: "Stopping the session releases the focus task"
+area: feature.pomodoro
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  At least one task exists. The flow seeds two and starts a session on one of
+  them, because "stop" only has something to release once a chip is bound.
+steps:
+  - Select a task's chip and skip past the work block into a break.
+  - Stop the session.
+expected: >-
+  The timer returns to an idle, paused state with the play control showing
+  again, and the previously focused task is no longer named as the focus —
+  stopping ends the session rather than just pausing it.

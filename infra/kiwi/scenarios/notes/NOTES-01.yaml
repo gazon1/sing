@@ -1,0 +1,26 @@
+# Scenario specification for NOTES-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/notes/create-note.yaml` (`scenario:NOTES-01`).
+#
+# The flow's header calls this "Smoke", but it asserts creation, so the scenario
+# claims creation. Two paths are worth knowing: notes live behind the Menu sheet
+# rather than a bottom-bar tab, and there is no FAB — creation goes through the
+# quick-add row, which submits on the IME "Done" action.
+
+id: NOTES-01
+title: "A note is created from the notes list"
+area: feature.notes
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No notes exist yet, so the created note is unambiguously the one that was just
+  made.
+steps:
+  - Open the Menu sheet and go to Notes.
+  - Type into the quick-add row and submit it with the keyboard's Done action.
+expected: >-
+  The note exists in the list and can be opened, so creation is reachable from
+  the notes list itself — a user is never asked to leave the screen to write
+  something down.

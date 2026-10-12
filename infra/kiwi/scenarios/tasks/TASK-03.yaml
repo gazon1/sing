@@ -1,0 +1,17 @@
+# Scenario specification for TASK-03.
+
+id: TASK-03
+title: Tapping a task row opens its detail screen with the correct title
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task with a known title exists in the Inbox.
+steps:
+  - Tap the task row.
+  - Verify the editor shows the task's title (proving the correct task opened).
+  - Press back.
+expected: >-
+  The editor opens for the correct task. After navigating back, the task
+  row is still present and the agenda is displayed.

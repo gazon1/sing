@@ -1,0 +1,20 @@
+# Scenario specification for ATTACH-01.
+
+id: ATTACH-01
+title: Adding a URL attachment makes it appear on the task
+area: feature.attachments
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved task exists, its detail screen is reachable.
+steps:
+  - Open the task's detail screen.
+  - Locate the Attachments section and tap "+ Add file" to open the sheet.
+  - In the URL field, enter a valid URL.
+  - In the Title field, enter a display title.
+  - Tap "Add URL".
+  - Verify the attachment appears in the list.
+expected: >-
+  The URL attachment appears in the task's attachment list with the given title
+  and a link icon, so the user can revisit the URL later without re-typing it.

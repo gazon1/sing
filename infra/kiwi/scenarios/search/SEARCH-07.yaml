@@ -1,0 +1,23 @@
+# Scenario specification for SEARCH-07.
+
+id: SEARCH-07
+title: A saved search persists and can be loaded
+area: feature.search
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  The Search screen is open with a query that has produced results.
+steps:
+  - With results visible, tap the save/search icon in the top bar.
+  - Name the saved search and confirm.
+  - Verify the "Search saved" snackbar appears.
+  - Verify the saved search chip appears in the saved searches row.
+  - Navigate away to the Today tab.
+  - Open quick search again.
+  - Tap the saved search chip.
+  - Observe the restored query and results.
+expected: >-
+  The saved search persists across navigation. Tapping it restores the query
+  text and the matching results, so the user does not have to re-type a
+  frequently-used search.
