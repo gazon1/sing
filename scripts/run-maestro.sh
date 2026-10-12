@@ -37,6 +37,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FLOW="${FLOW:-Maestro/flows}"
 TAGS="${TAGS:-}"
 SERIAL="${SERIAL:-}"
+# De-export SERIAL. Assigning a variable that came in through the environment
+# keeps its export attribute, so without this every child process inherited the
+# caller's pin — including scripts/ensure-emulator.sh, which then took its
+# pinned-serial branch and hard-failed instead of restarting a crashed AVD.
+# Recovery must depend on what this script discovers, not on what the caller
+# happened to export.
+export -n SERIAL 2>/dev/null || true
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[0;33m'; NC=$'\033[0m'
 
