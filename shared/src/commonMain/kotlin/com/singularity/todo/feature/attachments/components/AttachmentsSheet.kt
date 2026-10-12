@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 
@@ -74,7 +75,7 @@ fun AttachmentsSheet(
                 OutlinedTextField(
                     value = urlText,
                     onValueChange = { urlText = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.ATTACHMENTS_URL_INPUT),
                     placeholder = { Text("URL") },
                     singleLine = true,
                     leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
@@ -83,7 +84,7 @@ fun AttachmentsSheet(
                 OutlinedTextField(
                     value = titleText,
                     onValueChange = { titleText = it },
-                    modifier = Modifier.weight(0.6f),
+                    modifier = Modifier.weight(0.6f).testTag(TestTags.ATTACHMENTS_TITLE_INPUT),
                     placeholder = { Text("Title (opt)") },
                     singleLine = true,
                 )
@@ -97,7 +98,10 @@ fun AttachmentsSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (onAttachFile != null) {
-                    OutlinedButton(onClick = onAttachFile) {
+                    OutlinedButton(
+                        onClick = onAttachFile,
+                        modifier = Modifier.testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
+                    ) {
                         Icon(Icons.Default.UploadFile, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Add file")
@@ -112,6 +116,7 @@ fun AttachmentsSheet(
                         }
                     },
                     enabled = urlText.isNotBlank(),
+                    modifier = Modifier.testTag(TestTags.ATTACHMENTS_ADD_URL_BUTTON),
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))

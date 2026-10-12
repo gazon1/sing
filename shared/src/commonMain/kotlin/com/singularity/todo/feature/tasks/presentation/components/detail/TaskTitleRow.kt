@@ -84,7 +84,8 @@ fun TaskTitleRow(
             singleLine = true,
             modifier = Modifier
                 .weight(1f)
-                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT),
+                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+                .testTag(TestTags.TASK_DETAIL_TITLE),
             decorationBox = { innerTextField ->
                 if (title.isEmpty()) {
                     Text(
