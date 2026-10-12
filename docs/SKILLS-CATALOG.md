@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-115 skills: 87 project-specific, 28 generic/meta.
+116 skills: 88 project-specific, 28 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -21,6 +21,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-agenda-section-design` | 77 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 308 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
+| `singularity-todo-android-cli` | 164 | Use when working with Android CLI commands, Android Studio integration, or Journeys for Android app development. |
 | `singularity-todo-android-release-workflow` | 224 | Android release build workflow for Singularity Todo — signing configuration, version injection, R8/ProGuard minification (not yet enabled), iterative rule fixing, APK verification, and the release checklist. |
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-backup` | 175 | Backup/restore pattern for the Singularity Todo KMP app. |

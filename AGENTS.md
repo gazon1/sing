@@ -181,6 +181,12 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 `android_logs` для крашей. **Desktop:** `./gradlew :desktopApp:test` или
 `xvfb-run -a ./gradlew :desktopApp:run`.
 
+**Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` ·
+`find-usages` · `render-compose-preview` · `version-lookup` · `open-file` для
+семантического анализа, рендеринга Compose Preview и навигации по коду. **Journeys:**
+`android journey create <name>` · `android journey run <name>` для автоматизации
+user flow. Подробности: `singularity-todo-android-cli` skill.
+
 **DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/` + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android); desktop — `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"`.
 
 > **Эмулятор**: `./scripts/ensure-emulator.sh` → serial или AVD; `scripts/run-maestro.sh`
@@ -224,7 +230,8 @@ Consequences / Links`; policy — `docs/doc-maintenance.md`.
 Каталог — `docs/SKILLS-CATALOG.md` (auto-generated, не редактировать). Правила написания —
 `writing-for-agents`; навигация по темам — `find-skills` / `wayfinder`. Ключевые:
 `singularity-todo-testable-vm` (canonical VM) · `feature-scaffold` · `test-helpers` ·
-`koin-di` · `mcp-server` · `quality-tools` · `maestro-flows`.
+`koin-di` · `mcp-server` · `quality-tools` · `maestro-flows` · `singularity-todo-android-cli`
+(Android Studio integration + Journeys).
 
 > **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется, покрыт
 > тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`.
