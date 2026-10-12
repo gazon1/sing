@@ -4,6 +4,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 
@@ -20,6 +24,12 @@ fun ResultDialog(title: String, text: String, onDismiss: () -> Unit) {
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        // Flows assert the dialog is present, not what it says: these messages are
+        // user-facing copy that changes with the feature and is translated on this
+        // device, so matching the text rots.
+        modifier = Modifier
+            .testTag(TestTags.RESULT_DIALOG)
+            .mapTestTagsAsResourceIds(),
     )
 }
 

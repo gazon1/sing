@@ -24,11 +24,13 @@ tags:
       id: search_input
     timeout: 8000
 # Nothing typed yet -> a prompt, not a blank screen.
-- assertVisible: "Enter a search query"
+- assertVisible:
+    id: search_empty_placeholder
 # A query that cannot match -> an explicit no-results state.
 - tapOn:
     id: search_input
 - inputText: "zzzznomatchzzzz"
 - extendedWaitUntil:
-    visible: "No results found"
+    visible:
+      id: search_empty_results
     timeout: 8000

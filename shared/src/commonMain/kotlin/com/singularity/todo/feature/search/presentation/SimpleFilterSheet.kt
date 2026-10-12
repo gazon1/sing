@@ -32,8 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -105,7 +107,12 @@ fun SimpleFilterSheet(
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Row {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .testTag(TestTags.SearchFilter.CANCEL_BUTTON)
+                            .mapTestTagsAsResourceIds(),
+                    ) {
                         Text("Cancel")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -134,6 +141,9 @@ fun SimpleFilterSheet(
                                 },
                             )
                         },
+                        modifier = Modifier
+                            .testTag(TestTags.SearchFilter.APPLY_BUTTON)
+                            .mapTestTagsAsResourceIds(),
                     ) {
                         Text("Apply")
                     }

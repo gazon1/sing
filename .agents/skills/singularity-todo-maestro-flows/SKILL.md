@@ -81,6 +81,28 @@ than falling back to visible text.
 `menuItem()` is keyed by the **visible label**, not the destination title, so
 `Profile & sync` and `Settings` do not collide.
 
+### Before converting a `text:` selector to an `id:`
+
+Three traps, each of which turns a passing flow red:
+
+- **Check the tag actually exists.** More often than not it does — several chrome
+  selectors (`search_empty_placeholder`, `project_detail_empty`,
+  `calendar_weekday_*`) were declared and wired long before any flow used them.
+  Grep `TestTags.kt` before adding one.
+- **Check what is on screen at that step.** A title asserted while the editor is
+  open is *not* a list row: `task_item_*` is only mounted once the editor
+  closes. Five `assertVisible: "Buy milk"` lines sit in this position and must
+  stay text. Read the two steps above the one you are changing.
+- **Check the copy exists at all.** `backup/01-round-trip` asserted
+  `"Backup created successfully"` while the ViewModel emits `"Backup created"` —
+  an assertion that could never pass, and nobody noticed because the flow was
+  already failing for other reasons.
+
+Text that is *typed* (`inputText:` with an email or password) is data, not a
+selector — leave it. So are calendar day numbers (unique within a month) and
+the Material3 `contentDescription` regexes: Maestro 2.10 has no `content-desc`
+selector to fall back on.
+
 ## Seed fixtures, never type them
 
 **Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
@@ -122,17 +144,27 @@ the action `inputText` depends on and broke entry outright.
 seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — tap
 `nav_tab_inbox`.
 
-**Why `seed.yaml` ends with an inbox→today tab round-trip:** the deep link brings
-MainActivity up with `CLEAR_TOP|SINGLE_TOP`. On a cold start the seed commits while
-MainActivity is still composing, so the agenda's first query reads pre-seed state and
-the new row never appears. The row *is* in the database — a tab switch forces a
-re-query and it shows up. The symptom is a seed helper that timed out on a row it
-had already written. Keep the round-trip; it is load-bearing.
+**`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
+round-trip was added here on 2026-10-12 because a deep-link seed appeared not to
+reach an already-composed agenda. Once the runner began sweeping each run's
+fixtures on success, that stopped reproducing: what looked like "the row never
+arrived" was the row arriving *below* rows earlier runs had left behind. So
+before blaming the agenda, check for leftovers — a stale fixture masquerades as a
+missing one.
 
-### `launch-clean` does not clear the database
+### `launch-clean` does not clear the database — on purpose
 
 `launchApp` with `clearState: false` resets AMS state only. Room persists across
-runs on the same emulator, so **fixtures accumulate**. For a true clean slate:
+runs on the same emulator, so **fixtures accumulate**.
+
+Do not "fix" this with `clearState: true` or a blanket `pm clear`: both destroy
+the pre-authenticated session the emulator snapshot carries, so every flow would
+land on the auth screen. The accumulation is handled by the runner's selective
+success sweep instead (see below), which leaves session, profile and auth state
+alone and cannot touch another run's data.
+
+`pm clear` remains available as a manual escape hatch when you want a genuinely
+virgin device state — it costs you the authenticated session:
 
 ```bash
 adb -s emulator-5554 shell pm clear com.singularity.todo
@@ -310,7 +342,7 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 |---|---|
 | `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
 | `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
-| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); ends with an inbox→today tab round-trip that forces a re-query |
+| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); waits for the shell and leaves the app on Today |
 | `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |
 | `pick-date.yaml` | Date picker helper using `scripts/date.js` |
 

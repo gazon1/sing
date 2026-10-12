@@ -37,4 +37,5 @@ tags:
       id: profile_create_name_input
     timeout: 8000
 # The new profile is listed.
-- assertVisible: "Work"
+- assertVisible:
+    id: profile_item_work

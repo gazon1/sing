@@ -1,13 +1,21 @@
 # Launches the app and waits for the agenda shell to be interactive.
 #
-# Does NOT use clearState: the emulator retains a pre-authenticated session
-# from the snapshot, so the app lands directly on the agenda without any
-# sign-in step. This is the right behaviour for a smoke test: it verifies
-# the app boots, composes the shell, and the nav bar is visible.
+# "Clean" here means AMS state only. The database is deliberately NOT wiped:
+# `clearState: true` (or `pm clear`) would destroy the pre-authenticated session
+# the emulator snapshot carries, and every flow would then land on the auth
+# screen instead of the agenda — which is not what a flow that merely wants a
+# fresh process is asking for.
 #
-# A test that needs to exercise the auth screen (e.g. to verify the auth
-# guard is shown after a fresh install) should use a separate flow that
-# explicitly clears state and handles the sign-in step with real credentials.
+# The fixture-accumulation problem that `clearState` would have solved is solved
+# instead by the runner: `scripts/run-maestro.sh` stamps each attempt's title
+# with a per-run id and, on success, sweeps exactly those rows plus the fixed
+# seed titles via `todo-debug://seed?cleanup=…`. That is selective — it leaves
+# the session, the profile and the auth state alone — and it keeps one run's
+# cleanup from touching another run's data, which a blanket `pm clear` between
+# flows would do under concurrency.
+#
+# To exercise the auth screen (auth guard after a fresh install), use a flow
+# that clears state explicitly and drives the sign-in step with real credentials.
 appId: com.singularity.todo
 name: launch-clean
 onFlowComplete:

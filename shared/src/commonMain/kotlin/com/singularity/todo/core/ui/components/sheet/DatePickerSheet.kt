@@ -7,8 +7,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -45,7 +47,11 @@ fun DatePickerSheet(initialDate: LocalDate?, onDateSelected: (LocalDate?) -> Uni
         ) {
             // Constrain height so the VLazyColumn inside DatePicker scrolls internally
             // and the action buttons remain visible in the bottom sheet.
-            Box(modifier = Modifier.heightIn(max = 600.dp)) {
+            Box(
+                modifier = Modifier.heightIn(max = 600.dp)
+                    .testTag(TestTags.DatePicker.SHEET)
+                    .mapTestTagsAsResourceIds(),
+            ) {
                 DatePicker(state = datePickerState)
             }
         }

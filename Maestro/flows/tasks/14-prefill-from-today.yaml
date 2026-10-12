@@ -52,4 +52,5 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_item_task_from_today_tab
-- assertVisible: "Task from Today tab"
+- assertVisible:
+    id: task_item_task_from_today_tab

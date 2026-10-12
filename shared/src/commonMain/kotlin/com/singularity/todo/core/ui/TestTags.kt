@@ -380,6 +380,15 @@ object TestTags {
     /** "No results found" empty state in the search screen (shown when query has no matches). */
     const val SEARCH_EMPTY_RESULTS = "search_empty_results"
 
+    /**
+     * The shared result/error dialog raised by `NotificationHost`.
+     *
+     * Assert the dialog is present rather than matching its copy: the messages are
+     * user-facing strings that change with the feature (and are translated on this
+     * device), so a flow matching the text either rots or silently stops matching.
+     */
+    const val RESULT_DIALOG = "result_dialog"
+
     /** "Archive is empty" empty state title on the archive list screen. */
     const val ARCHIVE_EMPTY = "archive_empty"
 
@@ -474,6 +483,12 @@ object TestTags {
     object SearchFilter {
         const val HAS_DESCRIPTION_SWITCH = "search_filter_has_description_switch"
         const val PINNED_SWITCH = "search_filter_pinned_switch"
+
+        /** Confirm button of the filter sheet — commits the pending filter. */
+        const val APPLY_BUTTON = "search_filter_apply_button"
+
+        /** Cancel button of the filter sheet — discards the pending filter. */
+        const val CANCEL_BUTTON = "search_filter_cancel_button"
     }
 
     /**
@@ -599,6 +614,17 @@ object TestTags {
         const val OK = "dialog_date_picker_ok"
         const val CANCEL = "dialog_date_picker_cancel"
         const val CLEAR = "dialog_date_picker_clear"
+
+        /**
+         * The sheet body itself, as opposed to its action row.
+         *
+         * The OK/CANCEL/CLEAR tags sit at the bottom of a scrolling column and can
+         * be below the fold on a phone, so they prove nothing about whether the
+         * picker opened. This tag marks the body, which is what a flow wants to
+         * assert first. (The "Select date" heading is Material3's own and carries
+         * no app testTag.)
+         */
+        const val SHEET = "dialog_date_picker_sheet"
     }
 
     // ─── Editor Overflow menu ─────────────────────────────────────────────

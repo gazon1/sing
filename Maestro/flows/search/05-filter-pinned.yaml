@@ -78,7 +78,7 @@ tags:
 - tapOn:
     id: search_filter_pinned_switch
 - tapOn:
-    text: "Apply"
+    id: search_filter_apply_button
 
 # Only the pinned task remains visible.
 - extendedWaitUntil:
