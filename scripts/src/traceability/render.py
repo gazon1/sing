@@ -15,7 +15,7 @@ from __future__ import annotations
 from traceability.coverage import ALL_TARGETS, Coverage, Outcome, ResultMatrix
 from traceability.spec import ScenarioSpec
 
-__all__ = ["render_coverage_matrix", "render_result_matrix", "GENERATED_BANNER"]
+__all__ = ["render_coverage_matrix", "render_result_matrix", "render_details", "GENERATED_BANNER"]
 
 GENERATED_BANNER = (
     "<!-- GENERATED — do not edit by hand. -->\n"
@@ -141,8 +141,8 @@ def render_coverage_matrix(coverage: Coverage) -> str:
         "Derived from `scripts/src/traceability/scenarios/**` and the `@DisplayName` / `scenario:`",
         "tags in code. It changes only when code or specs change.",
         "",
-        "Full steps and preconditions are in the [scenario details](#scenario-details)",
-        "below; the table carries the one-line version so a row is readable in a diff.",
+        "Full steps and preconditions are in [scenario-details.md](./scenario-details.md);",
+        "the table carries the one-line version so a row is readable in a diff.",
         "",
         *_legend_coverage(),
         "",
@@ -183,19 +183,25 @@ def render_coverage_matrix(coverage: Coverage) -> str:
         lines += [f"- `{scenario_id}` / {target.value}" for scenario_id, target in holes]
         lines.append("")
 
-    lines += _render_details(coverage)
-
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _render_details(coverage: Coverage) -> list[str]:
-    """Preconditions, steps and expected result, per scenario.
+def render_details(coverage: Coverage) -> str:
+    """Preconditions, steps and expected result, per scenario — the long prose.
 
     Deterministic, and the reason it is safe to commit: the matrix is compared
     byte-for-byte in CI, so anything time-, order- or environment-derived here
     would be a diff on every run. Everything here comes from the spec files.
     """
-    lines = ["## Scenario details", ""]
+    lines: list[str] = [
+        GENERATED_BANNER,
+        "",
+        "## Scenario details",
+        "",
+        "Full preconditions, steps and expected result for every scenario, "
+        "with stable anchors so the index can link into it.",
+        "",
+    ]
     for area, scenario_ids in coverage.areas.items():
         lines += [f"### {area}", ""]
         for scenario_id in scenario_ids:
@@ -213,7 +219,7 @@ def _render_details(coverage: Coverage) -> list[str]:
                 lines += [f"{i}. {_inline(step)}" for i, step in enumerate(spec.steps, 1)]
                 lines.append("")
             lines += [_paragraph("Expected", spec.expected), ""]
-    return lines
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _paragraph(label: str, text: str) -> str:

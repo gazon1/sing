@@ -25,6 +25,7 @@ import click
 
 from traceability import (
     COVERAGE_MATRIX_PATH,
+    DETAILS_PATH,
     REPO_ROOT,
     SCENARIOS_DIR,
     ValidationError,
@@ -37,7 +38,7 @@ from traceability.normalize import (
     normalise,
     write_results,
 )
-from traceability.render import render_coverage_matrix, render_result_matrix
+from traceability.render import render_coverage_matrix, render_details, render_result_matrix
 from traceability.spec import Target, load_specs
 
 __all__ = ["main", "cli"]
@@ -149,16 +150,30 @@ def cmd_validate(specs_dir: Path | None, quiet: bool) -> int:
 def cmd_coverage(specs_dir: Path | None, out_path: Path | None, check: bool) -> int:
     """Сгенерировать или проверить матрицу покрытия."""
     specs, links = _load(specs_dir)
-    rendered = render_coverage_matrix(build_coverage(specs, links))
+    coverage = build_coverage(specs, links)
+    index = render_coverage_matrix(coverage)
+    details = render_details(coverage)
     path = out_path if out_path else COVERAGE_MATRIX_PATH
+    details_path = DETAILS_PATH
     if check:
         if not path.exists():
             print(f"✗ матрица покрытия отсутствует: {path}", file=sys.stderr)
             return 1
         current = path.read_text(encoding="utf-8")
-        if current != rendered:
+        if current != index:
             print(
                 f"✗ закоммиченная матрица покрытия устарела: {path}\n"
+                f"  обновите: just trace-coverage",
+                file=sys.stderr,
+            )
+            return 1
+        if not details_path.exists():
+            print(f"✗ сценарии детализация отсутствует: {details_path}", file=sys.stderr)
+            return 1
+        current_details = details_path.read_text(encoding="utf-8")
+        if current_details != details:
+            print(
+                f"✗ закоммиченная детализация сценариев устарела: {details_path}\n"
                 f"  обновите: just trace-coverage",
                 file=sys.stderr,
             )
@@ -166,8 +181,11 @@ def cmd_coverage(specs_dir: Path | None, out_path: Path | None, check: bool) -> 
         print(f"✓ матрица покрытия актуальна: {path}")
         return 0
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(rendered, encoding="utf-8")
+    path.write_text(index, encoding="utf-8")
+    details_path.parent.mkdir(parents=True, exist_ok=True)
+    details_path.write_text(details, encoding="utf-8")
     print(f"✓ матрица покрытия записана: {path}")
+    print(f"✓ детализация сценариев записана: {details_path}")
     return 0
 
 
