@@ -21,7 +21,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-agenda-section-design` | 77 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 308 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
-| `singularity-todo-android-release-workflow` | 230 | Android release build workflow for Singularity Todo — signing configuration, R8/ProGuard minification, iterative rule fixing, APK verification, and the release checklist. |
+| `singularity-todo-android-release-workflow` | 224 | Android release build workflow for Singularity Todo — signing configuration, version injection, R8/ProGuard minification (not yet enabled), iterative rule fixing, APK verification, and the release checklist. |
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-backup` | 175 | Backup/restore pattern for the Singularity Todo KMP app. |
 | `singularity-todo-clean-architecture-audit` | 213 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
@@ -30,13 +30,13 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-coroutine-scopes` | 211 | Canonical patterns for CoroutineScope ownership in this KMP project — where scopes live, anti-patterns to avoid, and how to fix hanging tests caused by repository-owned scopes. |
 | `singularity-todo-cross-feature-navigation` | 234 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
-| `singularity-todo-decisions-workflow` | 336 | Lightweight decision-log workflow for this project. |
+| `singularity-todo-decisions-workflow` | 307 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-desktop-compose-ui-tests` | 346 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 489 | How to write and register custom detekt rules in the Singularity Todo project. |
-| `singularity-todo-detekt-workflow` | 82 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
+| `singularity-todo-detekt-workflow` | 85 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
-| `singularity-todo-domain-logic-pattern` | 203 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
+| `singularity-todo-domain-logic-pattern` | 176 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
 | `singularity-todo-draft-restoration` | 427 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
 | `singularity-todo-emulator-launch` | 147 | Launch and recover the Android emulator on this dev host. |
@@ -54,9 +54,9 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
 | `singularity-todo-maestro-flows` | 273 | Author and run Maestro UI flows for the Android app. |
-| `singularity-todo-mcp-dogfooding` | 202 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
+| `singularity-todo-mcp-dogfooding` | 206 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 261 | MCP init command pattern for Singularity Todo KMP. |
-| `singularity-todo-mcp-server` | 427 | MCP server pattern for Singularity Todo KMP. |
+| `singularity-todo-mcp-server` | 480 | MCP server pattern for Singularity Todo KMP. |
 | `singularity-todo-monthly-doc-audit` | 112 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 401 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 325 | Long-press multi-selection pattern for Compose Multiplatform list screens. |

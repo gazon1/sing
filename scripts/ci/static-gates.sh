@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
-# Single registry of every gate that needs no JVM and no build output.
+# Pure registry: every gate that needs no JVM and no build output.
 #
-# Every gate runs concurrently.  Results are collected after all workers finish,
-# so one push shows ALL problems at once — not just the first one.
+# IMPORTANT: this file is NO LONGER executed as a script by CI.
+# - CI's `static` job calls: sgate run-all
+# - check.sh calls: sgate run-all
+# - sgate run-all READS this file to get the gate registry, then executes gates.
 #
-# `ci.yml`'s `static` job and `check.sh` both call this file, so a gate cannot
-# exist in one place and be forgotten in the other.
+# The gate() function below still works for local use:
+#   bash scripts/ci/static-gates.sh --verbose   (runs all gates locally)
+#
+# A gate cannot exist in one place and be forgotten here — both sgate run-all
+# and check.sh consume the same registry.
 #
 #   gate <blocking|advisory> <name> <command...>
 #
 # `advisory` is the only way to be non-blocking.  `|| true` is not an alternative:
 # Part D of scripts/check-gate-wiring.py rejects it.
 set -uo pipefail
-cd "$(dirname "$0")/../.."
+# Use BASH_SOURCE[0] (not $0) so cd works correctly both when this file is:
+#   1. executed directly  ($0 = /path/to/static-gates.sh)
+#   2. sourced           ($0 = bash, BASH_SOURCE[0] = /path/to/static-gates.sh)
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 # ─── Temp dir for all results ────────────────────────────────────────────────
 RESULTS_DIR=$(mktemp -d)
@@ -161,7 +169,12 @@ traceability() {
 export -f traceability
 
 # ─── Registry ────────────────────────────────────────────────────────────────
-
+# All gate calls are INSIDE main() so that sourcing this file (to call one of the
+# helper functions: digest_and_sizes, digest_no_double_suffix, adr_dry_run,
+# traceability) does NOT execute all gates as a side-effect.
+# The `|| [[ $? == 0 ]]` guard at the end of this file ensures main() is NOT called
+# when sourced — only when the script runs as a command.
+main() {
 # Build hygiene
 gate blocking "version catalog has no literals" python3 scripts/build-version-catalog-gate.py --quiet .
 # -v: a failure prints its name the moment it happens, and a run that dies
@@ -211,9 +224,12 @@ gate blocking "file-level suppressions explain themselves" python3 scripts/check
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here.
 # See gate "detekt-rule branch coverage" and "kover verify" in ci.yml.
 
-# Scenario traceability
-gate blocking "scenario specs valid" traceability validate
-gate blocking "coverage matrix current" traceability coverage --check
+# Scenario traceability (Kiwi)
+# traceability validate/coverage require PYTHONPATH=infra/kiwi python3 -m traceability.
+# Call via sgate CLI so KIWI_REQUIRED logic returns exit 4 (skip) when kiwi is absent,
+# instead of a hard exit 127 that would falsely fail the blocking gate.
+gate blocking "scenario specs valid" sgate scenario_specs_valid
+gate blocking "coverage matrix current" sgate coverage_matrix_current
 gate blocking "coverage holes did not grow" python3 scripts/check-traceability-ratchet.py
 gate advisory "kiwi inventory did not regress" python3 scripts/check-kiwi-inventory-ratchet.py
 
@@ -291,3 +307,12 @@ gate advisory "backlog-issue-refs" sgate backlog_issue_refs
 
 # ─── Collect all results and report ─────────────────────────────────────────
 collect_and_report
+}  # end main()
+
+# Guard: run main() ONLY when this script is executed directly (not sourced).
+# When sourced (e.g. by sgate run-all to call helper functions like
+# digest_no_double_suffix), only function definitions are loaded.
+# STATIC_GATES_SOURCED=1 signals "load only, don't run gates".
+if [[ "${STATIC_GATES_SOURCED:-}" != "1" ]]; then
+  main "$@"
+fi

@@ -52,11 +52,17 @@ def gate_fail(
     actual: Optional[str],
     rule: Optional[str],
     message: Optional[str] = None,
+    *,
+    to_stderr: bool = False,
 ) -> None:
     """Emit one gate violation.
 
     In CI mode also emits a GitHub Actions ::error annotation.
     message is constructed from expected/actual if not provided.
+
+    Args:
+        to_stderr: If True, write human output to stderr instead of stdout.
+                   Use in --json mode to keep stdout clean for JSON output.
     """
     if message is None:
         parts = []
@@ -68,7 +74,7 @@ def gate_fail(
 
     rule_label = rule or "violation"
 
-    # Human output → stdout (structured, parseable)
+    # Human output → stderr (in --json mode) or stdout
     if file and line is not None:
         out_line = f"{file}:{line}: {rule_label}: {message}"
     elif file:
@@ -76,8 +82,9 @@ def gate_fail(
     else:
         out_line = f"{rule_label}: {message}"
 
-    sys.stdout.write(out_line + "\n")
-    sys.stdout.flush()
+    stream = sys.stderr if to_stderr else sys.stdout
+    stream.write(out_line + "\n")
+    stream.flush()
 
     # CI annotation
     if is_ci():
@@ -85,7 +92,13 @@ def gate_fail(
         _github_error(file, line, github_msg)
 
 
-def gate_warn(message: str, file: Optional[str] = None, line: Optional[int] = None) -> None:
+def gate_warn(
+    message: str,
+    file: Optional[str] = None,
+    line: Optional[int] = None,
+    *,
+    to_stderr: bool = False,
+) -> None:
     """Emit a non-blocking warning.
 
     In CI mode also emits a GitHub Actions ::warning annotation.
@@ -97,8 +110,9 @@ def gate_warn(message: str, file: Optional[str] = None, line: Optional[int] = No
     else:
         out_line = f"warning: {message}"
 
-    sys.stdout.write(out_line + "\n")
-    sys.stdout.flush()
+    stream = sys.stderr if to_stderr else sys.stdout
+    stream.write(out_line + "\n")
+    stream.flush()
 
     if is_ci():
         _github_error(file, line, message)
