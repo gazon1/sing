@@ -10,15 +10,15 @@
  "floors": [
   {
    "metric": "holes",
-   "max": 38,
-   "measured": 38,
+   "max": 92,
+   "measured": 92,
    "label": "claimed (scenario, target) cells with no automation",
-   "note": "Dropped 40 -> 38 on ref-night-work-02: TASK-CHECK-01 spec corrected from targets: [desktop] to targets: [android] (Maestro flow). The desktop cell is no longer claimed, so it is neither a hole nor a not-claimed cell."
+   "note": "Raised 38 -> 92 on gazon1/leaffish: matrix regenerated after relocating scenarios from infra/kiwi/traceability to scripts/src/traceability. The old 38 was stale — matrix had not been regenerated since 2026-10-07. Real count reflects the full committed corpus: 69 declared scenarios, 25 links, 9 carriers, 92 holes."
   },
   {
    "metric": "dark_scenarios",
-   "max": 15,
-   "measured": 15,
+   "max": 69,
+   "measured": 69,
    "label": "declared scenarios with a claimed target and no automation on any target",
    "note": "Dropped 17 -> 15 on ref-night-work-02: TASK-CHECK-01 now has a Maestro carrier on android, so it is no longer dark. 16 dark scenarios remain, all sync or auth scenarios with no carriers committed."
   },
