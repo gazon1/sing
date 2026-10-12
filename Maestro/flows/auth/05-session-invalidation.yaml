@@ -1,0 +1,43 @@
+# AUTH-SESSION-01: carry on working after the session stops being valid.
+#
+# BLOCKED — structural: there is no sign-out button in the UI on Android.
+# AccountSettingsScreen has only "Switch profile", no sign-out control.
+# Without a testTag on a sign-out button, this flow cannot be automated.
+#
+# android:  unreachable — no sign-out button with testTag in the UI.
+# desktop:  unreachable — FakeAuthRepository.signOut() always succeeds,
+#           behavioural assertion is impossible without a configurable fake.
+#
+# To unblock: add a sign-out button with a testTag (e.g. AUTH_SIGN_OUT_BUTTON)
+# to AccountSettingsScreen, then implement this flow:
+#   1. Sign in.
+#   2. Navigate to Account Settings.
+#   3. Tap sign-out.
+#   4. Verify local data survived and the auth guard is shown.
+#
+appId: com.singularity.todo
+name: auth-session-invalidation
+tags:
+  - blocked
+  - auth
+  - scenario:AUTH-SESSION-01
+  - blocked:no_sign_out_button
+---
+# Intentional no-op: the flow cannot proceed past this point without UI changes.
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+
+# -----------------------------------------------------------------
+# AUTH-SESSION-01 is documented as blocked above.
+# The app reached the agenda (pre-authenticated snapshot).
+# A real implementation would now:
+#   1. Open the menu → Account Settings.
+#   2. Tap the sign-out button (testTag: AUTH_SIGN_OUT_BUTTON — does not exist yet).
+#   3. Verify the auth guard appears.
+#   4. Verify local tasks are still visible (local-first guarantee).
+# -----------------------------------------------------------------
