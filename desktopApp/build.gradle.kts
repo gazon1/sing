@@ -180,6 +180,11 @@ tasks.withType<Test>().configureEach {
         systemProperty(key, providers.systemProperty(key).orElse("").get())
     }
 
+    // mergeReruns=true: retry attempts are merged into one <testcase> element with a
+    // <flakyFailure> child. This prevents check-test-runs.py from double-counting retries
+    // and ensures the annotation script sees one entry per test method.
+    reports.junitXml.mergeReruns.set(true)
+
     // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
     // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
     // parallel test runs don't overwrite each other's dumps.

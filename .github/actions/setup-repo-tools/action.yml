@@ -1,0 +1,65 @@
+name: "Setup Repo Tools (Preflight)"
+description: >
+  Validates that required CI tools are present on PATH before gate execution.
+  Fails fast (within 5 seconds) with a descriptive ::error annotation if any
+  tool is missing or fails its version check. Designed to be path-gated from
+  the calling workflow via `needs.changes.outputs.scripts`.
+runs:
+  using: "composite"
+  steps:
+    - name: Check singularity-adr
+      shell: bash
+      run: |
+        set -e
+        if ! command -v singularity-adr >/dev/null 2>&1; then
+          echo "::error ::Missing tool: singularity-adr — not found on PATH"
+          exit 1
+        fi
+        echo "singularity-adr: $(singularity-adr --version 2>&1 || echo 'version check failed')"
+
+    - name: Check speckit (via uv)
+      shell: bash
+      run: |
+        set -e
+        # speckit is installed as `specify-cli` via uv tool
+        if command -v speckit >/dev/null 2>&1; then
+          echo "speckit: $(speckit --version 2>&1 || echo 'version check failed')"
+        elif command -v specify >/dev/null 2>&1; then
+          echo "specify-cli: $(specify --version 2>&1 || echo 'version check failed')"
+        else
+          echo "::error ::Missing tool: speckit/specify-cli — not found on PATH"
+          echo "::error ::Install with: uv tool install specify-cli"
+          exit 1
+        fi
+
+    - name: Check Python version
+      shell: bash
+      run: |
+        set -e
+        PYTHON_VERSION=$(python3 --version 2>&1)
+        echo "Python: $PYTHON_VERSION"
+        # Require 3.12+
+        python3 -c "
+        import sys
+        if sys.version_info < (3, 12):
+            print(f'::error ::Python 3.12+ required, found {sys.version_info.major}.{sys.version_info.minor}')
+            sys.exit(1)
+        print(f'Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} — OK')
+        "
+
+    - name: Check junitparser (required for CI annotation step)
+      shell: bash
+      run: |
+        set -e
+        # junitparser is a pip package, not a command-line tool, so we check via Python import.
+        # This prevents the CI annotation step from silently producing zero annotations.
+        python3 -c "
+        try:
+            import junitparser
+            print(f'junitparser {junitparser.__version__} — OK')
+        except ImportError:
+            print('::error ::Missing Python package: junitparser — not installed')
+            print('::error ::Install with: pip install junitparser')
+            print('::error ::Required by: scripts/junit-annotations.py (CI annotation step)')
+            sys.exit(1)
+        " || exit 1

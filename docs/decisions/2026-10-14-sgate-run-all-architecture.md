@@ -1,6 +1,7 @@
 ---
 title: "sgate run-all vs static-gates.sh — architecture and relationship"
 date: 2026-10-14
+status: accepted
 tags: [sgate, cli, ci, architecture]
 ---
 

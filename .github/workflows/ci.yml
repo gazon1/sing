@@ -41,14 +41,61 @@ env:
     || '-Dretry.failOnPassedAfterRetry=true' }}
 
 jobs:
+  # Path-filter detection — always runs so ci-gate can wait for it; downstream jobs
+  # use its outputs to decide whether to run.
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      scripts: ${{ steps.filter.outputs.scripts }}
+      android: ${{ steps.filter.outputs.android }}
+      shared: ${{ steps.filter.outputs.shared }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      all: ${{ steps.filter.outputs.all }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            scripts:
+              - 'scripts/**'
+              - '.github/**'
+              - 'docs/**'
+            android:
+              - 'androidApp/**'
+              - 'shared/src/android*/**'
+              - 'gradle.properties'
+            shared:
+              - 'shared/src/commonMain/**'
+              - 'shared/src/androidMain/**'
+              - 'shared/src/jvmMain/**'
+            desktop:
+              - 'desktopApp/**'
+              - 'shared/src/jvmMain/**'
+            all:
+              - '**'
+
   # ~1 min, no JVM, no Gradle. Runs every script gate and reports ALL of their
   # failures, not the first one.
   static:
     name: Static gates
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    needs: [changes]
+    # Run when scripts/docs changed, or when anything changed on main (always), or on
+    # workflow_dispatch (manual trigger).
+    if: >
+      needs.changes.outputs.scripts == 'true'
+      || needs.changes.outputs.all == 'true'
+      || github.ref == 'refs/heads/main'
+      || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
+
+      # Path-gated preflight: only validate tools when the PR touches CI tooling.
+      # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
+      - name: Preflight environment check
+        uses: ./.github/actions/setup-repo-tools
 
       # No workflow used setup-python before, which meant it was relying on the
       # runner image's system Python happening to carry PyYAML. Stated as a
@@ -57,7 +104,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install sgate CLI and its dependencies
-        run: python -m pip install --disable-pip-version-check -e scripts/src/ pyyaml
+        run: python -m pip install --disable-pip-version-check -e scripts/src/ pyyaml junitparser
 
       - uses: actions/setup-node@v6
         with:
@@ -70,15 +117,15 @@ jobs:
       - name: Script gates (sgate run-all)
         run: sgate run-all || exit 1
 
-      - name: OpenSpec validate
+      - name: Speckit validate
         env:
           # Pinned, with a working default: an unpinned `npx` makes the gate change
           # under you, but requiring a repository variable before the first run
           # lands turns a safety pin into a day-one outage. Override by setting the
           # variable when the pin needs to move.
-          OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.0' }}
+          SPECKIT_VERSION: ${{ vars.SPECKIT_VERSION || vars.OPENSPEC_VERSION || '1.14.0' }}
         run: >
-          npx --yes "@fission-ai/openspec@${OPENSPEC_VERSION}" validate --all --json --strict
+          npx --yes "@fission-ai/openspec@${SPECKIT_VERSION}" validate --all --json --strict
 
   # One Gradle invocation => one JVM start, one configuration phase, and the
   # tests run ONCE. The previous shape ran jvmTest twice (this job and
@@ -95,6 +142,16 @@ jobs:
     name: JVM tests, detekt, coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    needs: [changes]
+    # Run when any app code changed (android/shared/desktop), or always on main,
+    # or on workflow_dispatch.
+    if: >
+      needs.changes.outputs.android == 'true'
+      || needs.changes.outputs.shared == 'true'
+      || needs.changes.outputs.desktop == 'true'
+      || needs.changes.outputs.all == 'true'
+      || github.ref == 'refs/heads/main'
+      || github.event_name == 'workflow_dispatch'
     permissions:
       actions: read # flake analysis downloads the previous run's results
       contents: read
@@ -146,6 +203,21 @@ jobs:
           -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail
           $RETRY_ARGS
           2>&1 | tee build.log
+
+      # Install junitparser before the annotation step. Blocking: if this fails,
+      # the annotation step would silently produce zero annotations (no junitparser
+      # on PATH). Separated from the static job's pip install so it only runs
+      # when the tests job actually runs.
+      - name: Install junitparser for annotations
+        run: python3 -m pip install --disable-pip-version-check junitparser
+
+      # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
+      # Parses desktop JUnit XML with junitparser and emits ::error / ::notice commands.
+      # continue-on-error: annotation failures are advisory and must not crash CI.
+      - name: Per-test GitHub annotations (advisory)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python3 scripts/junit-annotations.py desktopApp/build/test-results/test/
 
       # Three separate invocations, not one comma-separated list. The parity table
       # in check-gate-wiring.py keys on the exact spelling of the argument, so
@@ -297,11 +369,30 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Upload HTML test reports as a separate artifact for direct link access
+      # in the PR check summary (FR-002).
+      - name: Upload HTML test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: html-reports-${{ github.run_id }}
+          path: desktopApp/build/reports/tests/test/**/*.html
+          if-no-files-found: warn
+          retention-days: 14
+
   # free and pro are two different Gradle graphs (-PwithPro), so two matrix legs.
   android:
     name: Android (${{ matrix.variant }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    needs: [changes]
+    # Run when android/shared code changed, or always on main, or on workflow_dispatch.
+    if: >
+      needs.changes.outputs.android == 'true'
+      || needs.changes.outputs.shared == 'true'
+      || needs.changes.outputs.all == 'true'
+      || github.ref == 'refs/heads/main'
+      || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -341,10 +432,15 @@ jobs:
   # without it this job is skipped when a leaf fails, and a skipped job reads as
   # neutral. The assertion is load-bearing too: a failed leaf leaves its siblings
   # `skipped`, so checking only for "no failures" would pass on a skipped job.
+  #
+  # Needs [static, tests, android, changes]. When a PR touches only scripts/:
+  # - static runs (scripts changed), tests/android are skipped by their if: condition.
+  # - ci-gate still runs (always()) and waits for static + changes to complete.
+  # - The success check below allows skipped (tests/android) as valid outcomes.
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [static, tests, android]
+    needs: [static, tests, android, changes]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -353,4 +449,11 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "job results: $RESULTS"
-          for r in $RESULTS; do [ "$r" = success ] || exit 1; done
+          # static must pass; tests/android may be skipped (path-filtered).
+          # A skipped job has result "skipped" — not a failure.
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "FAILED: $r"; exit 1 ;;
+            esac
+          done
