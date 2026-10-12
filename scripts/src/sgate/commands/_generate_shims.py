@@ -66,15 +66,18 @@ GATES = [
      ["python3", "scripts/check-rule-intent.py"]),
     ("file-level suppressions explain themselves", "blocking",
      ["python3", "scripts/check-suppression-intent.py"]),
-    # Scenario traceability (Kiwi)
+    # Scenario traceability. None of these is Kiwi-dependent, and declaring them
+    # so was a naming artefact: the package lived at `infra/kiwi/traceability`,
+    # so `{"kiwi": True}` was copy-paste from the gate next door. It cost a real
+    # failure mode — a `KIWI_REQUIRED` gate soft-skips with exit 4 when its
+    # command is unresolvable, and `run-all` counts exit 4 as passed. A
+    # traceability gate that stopped running therefore read as green.
     ("scenario specs valid", "blocking",
-     ["traceability", "validate"], {"kiwi": True}),
+     ["traceability", "validate"]),
     ("coverage matrix current", "blocking",
-     ["traceability", "coverage", "--check"], {"kiwi": True}),
+     ["traceability", "coverage", "--check"]),
     ("coverage holes did not grow", "blocking",
      ["python3", "scripts/check-traceability-ratchet.py"], {"custom": True}),
-    ("kiwi inventory did not regress", "advisory",
-     ["python3", "scripts/check-kiwi-inventory-ratchet.py"], {"kiwi": True, "custom": True}),
     # Server schema
     ("supabase schema is self-consistent", "blocking",
      ["python3", "scripts/check-supabase-schema-integrity.py"]),
@@ -92,23 +95,47 @@ GATES = [
      ["bash", "-c", "digest_and_sizes"], {"custom": True}),
     ("digest has no double suffix", "blocking",
      ["bash", "-c", "digest_no_double_suffix"]),
+    # `extra_flags` is how a gate that backs MORE THAN ONE registry entry takes
+    # its own options. The registry drives `sgate no_dead_doc_refs --skill-symbols`
+    # from a *different* display name, so the flag has to exist on this module —
+    # and when it was hand-added here, the next `generate-shims` run silently
+    # removed it and click rejected the unknown option. Generated shims are only
+    # as trustworthy as the generator, so anything hand-patched must be
+    # expressed in GATES instead.
     ("no dead doc refs", "advisory",
-     ["python3", "scripts/check-doc-dead-refs.py"]),
+     ["python3", "scripts/check-doc-dead-refs.py"],
+     {"extra_flags": [{"param": "skill_symbols", "flag": "--skill-symbols",
+                       "help": "Check Kotlin symbol references in skills",
+                       "script_arg": "--skill-symbols"}]}),
     ("no dead skill symbols", "blocking",
      ["python3", "scripts/check-doc-dead-refs.py", "--skill-symbols"]),
     ("publication hygiene", "advisory",
-     ["python3", "scripts/check-publication-hygiene.py"]),
+     ["python3", "scripts/check-publication-hygiene.py"],
+     {"extra_flags": [{"param": "self_test", "flag": "--self-test",
+                       "help": "Prove the rules fire on a known-bad corpus",
+                       "script_arg": "--self-test"}]}),
     ("publication hygiene self-test", "blocking",
      ["python3", "scripts/check-publication-hygiene.py", "--self-test"]),
     ("README claims", "blocking",
-     ["python3", "scripts/check-readme-claims.py"]),
+     ["python3", "scripts/check-readme-claims.py"],
+     {"extra_flags": [{"param": "self_test", "flag": "--self-test",
+                       "help": "Prove the rules fire on a known-bad corpus",
+                       "script_arg": "--self-test"}]}),
     ("README claims self-test", "blocking",
      ["python3", "scripts/check-readme-claims.py", "--self-test"]),
     # ADR governance
     ("ADR references are valid", "blocking",
      ["python3", "scripts/check-adr-references.py"], {"custom": True}),
+    # The Python gate, not the CLI. `singularity-adr` is a Gradle-built JVM
+    # distribution, and the static job is deliberately JVM-free (~1 min, no
+    # Gradle). Pointing this at the CLI made the gate die with exit 127 here
+    # while the same rule ran correctly in adr-gate.yml — and the CI preflight
+    # then demanded `singularity-adr` on PATH, which killed the whole static
+    # job at step 3, before sgate was even installed. `check_adr_status.py` is
+    # the Python implementation the CLI wraps; see the note in
+    # scripts/ci/static-gates.sh (#553).
     ("ADR status policy", "blocking",
-     ["singularity-adr", "validate"]),
+     ["python3", "scripts/check_adr_status.py"]),
     ("ADR corpus rules are shared", "blocking",
      ["python3", "scripts/check-adr-config-sync.py"]),
     ("light ADR modules stay light", "blocking",
@@ -132,8 +159,17 @@ INDENT = "    "  # 4 spaces
 
 
 def generate_shim(display_name: str, mode: str, cmd: list[str],
-                  kiwi_required: bool = False) -> str:
-    """Generate a complete Python shim module for a single gate."""
+                  kiwi_required: bool = False,
+                  extra_flags: list[dict[str, str]] | None = None) -> str:
+    """Generate a complete Python shim module for a single gate.
+
+    ``extra_flags`` declares boolean options this gate accepts on top of
+    ``--check``/``--json``. A gate that backs several registry display names
+    needs them (the registry calls ``sgate publication_hygiene --self-test``),
+    and expressing them here is what stops the next regeneration from deleting
+    them again. Each entry: ``param``, ``flag``, ``help``, ``script_arg``.
+    """
+    extra_flags = extra_flags or []
     name = module_name(display_name)
     kiwi_bool = "True" if kiwi_required else "False"
     doc = f'Run the "{display_name}" gate.'
@@ -200,8 +236,12 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
     add("")
     add(f'@click.command("{name}")')
     add('@click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")')
+    for flag in extra_flags:
+        add(f'@click.option("{flag["flag"]}", is_flag=True, help="{flag["help"]}")')
     add('@click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")')
-    add(f"def {name}(check: bool, emit_json: bool) -> None:")
+    extra_params = ", ".join(f'{flag["param"]}: bool' for flag in extra_flags)
+    signature = f"check: bool, {extra_params}, emit_json: bool" if extra_params else "check: bool, emit_json: bool"
+    add(f"def {name}({signature}) -> None:")
     add(f'    """{doc}')
     add("")
     add(f"    Mode: {mode}")
@@ -235,6 +275,9 @@ def generate_shim(display_name: str, mode: str, cmd: list[str],
         if script_args:
             args_repr = ", ".join(repr(a) for a in script_args)
             add(f"{INDENT}py_cmd.extend([{args_repr}])")
+        for flag in extra_flags:
+            add(f"{INDENT}if {flag['param']}:")
+            add(f'{INDENT}    py_cmd.append("{flag["script_arg"]}")')
         add(f"{INDENT}try:")
         add(f"{INDENT}    if emit_json:")
         add(f"{INDENT}        result = run_capture(py_cmd, gate_name)")
@@ -335,7 +378,8 @@ def main() -> None:
             continue
 
         name = module_name(display_name)
-        content = generate_shim(display_name, mode, cmd, kiwi_required)
+        content = generate_shim(display_name, mode, cmd, kiwi_required,
+                                opts.get("extra_flags"))
         out_path = SRC / f"{name}.py"
         out_path.write_text(content)
         print(f"  {name}.py")

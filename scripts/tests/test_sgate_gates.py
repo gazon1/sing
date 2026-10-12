@@ -41,7 +41,7 @@ class TestParseGateLine(unittest.TestCase):
         g = gates[0]
         self.assertEqual(g.name, "version catalog has no literals")
         self.assertEqual(g.mode, "blocking")
-        self.assertIn("python3", g.command)
+        self.assertIn("sgate", g.command)
         self.assertIsInstance(g.kiwi_required, bool)
 
     def test_sabotage_test_default_is_name(self):
@@ -55,11 +55,24 @@ class TestGateRegistryHasExpectedGates(unittest.TestCase):
     """Sanity-check that specific important gates are present."""
 
     def test_kiwi_availability_gate_exists(self):
-        """'kiwi-availability' is not in static-gates.sh — it is a meta gate."""
+        """Kiwi gates were removed in the TCMS stand retirement.
+
+        The stand (infra/kiwi/) was deleted; all kiwi_* gates are gone.
+        This test now verifies the opposite: no gate with 'kiwi' in its name.
+        """
         gates = sgate.gates.load_gates()
         names = [g.name for g in gates]
-        # The hard-availability check is a native Click command, not a registry entry
-        self.assertIn("kiwi inventory did not regress", names)
+        kiwi_gates = [n for n in names if "kiwi" in n.lower()]
+        self.assertEqual(
+            kiwi_gates, [],
+            f"unexpected Kiwi gates still registered: {kiwi_gates}",
+        )
+
+    def test_traceability_gate_exists(self):
+        """The traceability bridge gate is registered."""
+        gates = sgate.gates.load_gates()
+        names = [g.name for g in gates]
+        self.assertIn("speckit scenarios current", names)
 
     def test_adr_config_sync_gate_exists(self):
         """ADR corpus rules gate is registered."""

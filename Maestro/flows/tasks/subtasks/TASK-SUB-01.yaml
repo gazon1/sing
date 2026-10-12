@@ -1,6 +1,6 @@
 # Scenario TASK-SUB-01 — subtask add/toggle/delete.
 #
-# Canonical spec: infra/kiwi/scenarios/tasks/subtasks/TASK-SUB-01.yaml
+# Canonical spec: scripts/src/traceability/scenarios/tasks/subtasks/TASK-SUB-01.yaml
 #
 # The `scenario:TASK-SUB-01` tag below is the linkage, matched by exact string
 # comparison in scripts/run-maestro.sh.

@@ -194,7 +194,7 @@ jobs:
           # --targets android: Maestro flows are Android-only
           # --partial: smoke/regression tags mean this is a filtered run, not a full suite
           # --commit: annotate the matrix with this SHA for traceability
-          PYTHONPATH=infra/kiwi python3 -m traceability results \
+          python3 -m traceability results \
             --maestro \
             --targets android \
             --partial \

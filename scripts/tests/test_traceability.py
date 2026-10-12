@@ -5,10 +5,9 @@ this layer is testable in milliseconds. Run with::
 
     python3 -m unittest discover -s scripts/tests
 
-The traceability package lives in ``infra/kiwi/traceability``, which is imported
-by name rather than as a path-relative package: ``infra/kiwi`` is a flat script
-directory, so there is no installed package to resolve against. The bootstrap
-below mirrors what ``test_kiwi_sync.py`` does for ``sync.py``.
+The traceability package is installed from ``scripts/src/pyproject.toml``; the
+bootstrap below puts ``scripts/src`` on the path so the suite also runs from a
+bare checkout where the editable install has not been run.
 """
 
 from __future__ import annotations
@@ -20,9 +19,9 @@ import tempfile
 import unittest
 from dataclasses import asdict
 
-_KIWI_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "infra" / "kiwi"
-if str(_KIWI_DIR) not in sys.path:
-    sys.path.insert(0, str(_KIWI_DIR))
+_SRC = pathlib.Path(__file__).resolve().parent.parent.parent / "scripts" / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 from traceability import ValidationError  # noqa: E402
 from traceability.coverage import (  # noqa: E402
@@ -35,7 +34,6 @@ from traceability.coverage import (  # noqa: E402
     classify,
 )
 from traceability.junit_xml import parse_junit  # noqa: E402
-from traceability.kiwi_publish import OUTCOME_TO_KIWI, build_runs, run_publish  # noqa: E402
 from traceability.normalize import (  # noqa: E402
     NoResultsError,
     NormalisedResult,
@@ -224,7 +222,7 @@ class SpecValidation(unittest.TestCase):
     """Specs are the source of truth, so their rules are hard errors."""
 
     def _parse(self, data, path="tasks/recurrence/TASK-REC-01.yaml"):
-        scenarios = REPO_ROOT / "infra/kiwi/scenarios"
+        scenarios = REPO_ROOT / "scripts/src/traceability/scenarios"
         return parse_spec(data, scenarios / path, scenarios)
 
     def _minimal(self, **overrides):
@@ -592,7 +590,7 @@ class RealRepositoryInvariants(unittest.TestCase):
     """Assertions about the actual repo, so drift is caught rather than assumed."""
 
     def test_the_committed_specs_load(self):
-        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        specs = load_specs(REPO_ROOT / "scripts/src/traceability/scenarios")
         self.assertIn("TASK-REC-01", specs)
 
     def test_coverage_matrix_is_committed_and_current(self):
@@ -601,7 +599,7 @@ class RealRepositoryInvariants(unittest.TestCase):
         from traceability import COVERAGE_MATRIX_PATH
         from traceability.links import scan_all
 
-        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        specs = load_specs(REPO_ROOT / "scripts/src/traceability/scenarios")
         links = scan_all(specs, REPO_ROOT)
         self.assertEqual(
             COVERAGE_MATRIX_PATH.read_text(encoding="utf-8"),
@@ -612,7 +610,7 @@ class RealRepositoryInvariants(unittest.TestCase):
     def test_task_rec_01_is_automated_on_both_targets(self):
         from traceability.links import scan_all
 
-        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        specs = load_specs(REPO_ROOT / "scripts/src/traceability/scenarios")
         links = scan_all(specs, REPO_ROOT)
         claimed = {(link.scenario, link.target) for link in links}
         for target in (Target.ANDROID, Target.DESKTOP):
@@ -766,73 +764,6 @@ class MaestroFlowJoin(unittest.TestCase):
             )
         self.assertEqual(report.kept, 0)
         self.assertEqual(report.unmapped, 1)
-
-
-class PublishGrouping(unittest.TestCase):
-    """One run per (commit, target) — the rule the whole Kiwi model rests on."""
-
-    def _row(self, target: str, outcome: str, commit: str = "abc") -> NormalisedResult:
-        return NormalisedResult(
-            scenario="TASK-REC-01",
-            target=target,
-            level="e2e",
-            outcome=outcome,
-            commit=commit,
-            carrier="kotlin",
-            source="x.kt",
-        )
-
-    def test_android_and_desktop_become_two_runs(self):
-        # Two executions in ONE run would be one observation reported twice, and
-        # a "last execution wins" reader would lose the per-tier status.
-        batches = build_runs(
-            [self._row("android", "passed"), self._row("desktop", "failed")], "abc"
-        )
-        self.assertEqual(len(batches), 2)
-        self.assertEqual({b.target.value for b in batches}, {"android", "desktop"})
-
-    def test_run_summary_names_the_commit_and_target(self):
-        batch = build_runs([self._row("android", "passed", "deadbee")], "deadbee")[0]
-        self.assertIn("deadbee", batch.summary)
-        self.assertIn("android", batch.summary)
-
-    def test_different_commits_are_different_runs(self):
-        # Grouped separately, each on its own commit.
-        self.assertEqual(len(build_runs([self._row("android", "passed", "one")], "one")), 1)
-        self.assertEqual(len(build_runs([self._row("android", "failed", "two")], "two")), 1)
-
-    def test_mixed_commit_file_is_rejected(self):
-        # Publishing a mixed-vintage file under one name would make the run
-        # summary lie about half its executions.
-        with self.assertRaises(ValueError):
-            build_runs([self._row("android", "passed", "one"), self._row("desktop", "passed", "two")], "one")
-
-    def test_not_run_is_never_published(self):
-        # Absence in Kiwi is the honest representation; a missing run must not
-        # be written as a pass.
-        self.assertEqual(build_runs([self._row("android", "not-run")], "abc"), [])
-
-    def test_skipped_maps_to_waived(self):
-        # The one recorded divergence: the official plugin says WAIVED, sync.py
-        # says IDLE. It lives in exactly one table so a reader can see it.
-        self.assertEqual(OUTCOME_TO_KIWI[Outcome.SKIPPED.value], "WAIVED")
-
-    def test_failure_maps_to_failed(self):
-        self.assertEqual(OUTCOME_TO_KIWI[Outcome.FAILED.value], "FAILED")
-
-    def test_rejected_commit_stops_publication(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = pathlib.Path(tmp) / "results.json"
-            path.write_text(
-                json.dumps({"commit": "aaa", "results": [asdict(self._row("android", "passed"))]}),
-                encoding="utf-8",
-            )
-            self.assertEqual(run_publish(path, commit="bbb"), 1)
-
-    def test_missing_results_file_is_reported(self):
-        self.assertEqual(run_publish(pathlib.Path("/nonexistent/results.json")), 1)
-
-
 class ExitCodeContract(unittest.TestCase):
     """CI acts on these codes, so they are a contract, not an implementation detail."""
 
@@ -888,87 +819,8 @@ class MalformedResultsFile(unittest.TestCase):
         self.assertEqual(commit, "abc")
         self.assertEqual(rows, [row])
 
-
-class RetestAtTheSameCommit(unittest.TestCase):
-    """Regression: a re-tested commit must not keep its old PASSED.
-
-    This is the most dangerous failure mode in the whole system, because it is
-    silent in the one direction that matters: Kiwi holds PASSED, the result
-    matrix honestly holds FAILED, and nothing reports a conflict. The obvious
-    implementation (skip a case that already has an execution in the run) is
-    exactly the wrong one.
-    """
-
-    def _row(self, outcome: str) -> NormalisedResult:
-        return NormalisedResult(
-            scenario="TASK-REC-01",
-            target="desktop",
-            level="e2e",
-            outcome=outcome,
-            commit="same123",
-            carrier="kotlin",
-            source="x.kt",
-        )
-
-    def test_pass_then_fail_at_one_commit_is_one_run_not_two(self):
-        from traceability.kiwi_publish import RunBatch
-
-        batch = RunBatch(commit="same123", target=Target.DESKTOP, rows=(self._row("failed"),))
-        self.assertEqual(batch.summary, "traceability same123 desktop")
-
-    def test_unknown_outcome_is_rejected_not_silently_skipped(self):
-        # A typo, a renamed Outcome member or a hand-edited results.json used
-        # to publish nothing and still report success.
-        with self.assertRaises(ValueError) as ctx:
-            build_runs([self._row("flaky")], "same123")
-        self.assertIn("неизвестный исход", str(ctx.exception))
-
-    def test_wrong_case_is_rejected(self):
-        row = NormalisedResult(
-            scenario="TASK-REC-01",
-            target="desktop",
-            level="e2e",
-            outcome="PASSED",
-            commit="same123",
-            carrier="kotlin",
-            source="x.kt",
-        )
-        with self.assertRaises(ValueError):
-            build_runs([row], "same123")
-
-
-class SeedDriftDetection(unittest.TestCase):
-    """`--check` must detect what a person can actually change in the UI."""
-
-    def test_status_table_covers_the_lifecycle(self):
-        from traceability.kiwi_seed import STATUS_TO_KIWI
-
-        self.assertEqual(STATUS_TO_KIWI[SpecStatus.PROPOSED], "PROPOSED")
-        self.assertEqual(STATUS_TO_KIWI[SpecStatus.CONFIRMED], "CONFIRMED")
-        # A deprecated scenario is disabled in Kiwi, not deleted — the history
-        # stays readable.
-        self.assertEqual(STATUS_TO_KIWI[SpecStatus.DEPRECATED], "DISABLED")
-
-    def test_case_summary_leads_with_the_immutable_id(self):
-        from traceability.kiwi_seed import _case_summary
-
-        summary = _case_summary(_spec("TASK-REC-01", title="Create a daily recurring task"))
-        self.assertTrue(summary.startswith("TASK-REC-01 "), summary)
-
-    def test_spec_path_is_repo_relative(self):
-        # An absolute path would make the stand describe one developer's
-        # checkout and render the link useless for the next person.
-        from traceability.kiwi_seed import _spec_path
-
-        spec = load_specs(REPO_ROOT / "infra/kiwi/scenarios")["TASK-REC-01"]
-        self.assertEqual(_spec_path(spec), "infra/kiwi/scenarios/tasks/recurrence/TASK-REC-01.yaml")
-
-
-class SpecReportsEveryProblem(unittest.TestCase):
-    """One error per run turns a five-line fix into a five-run loop."""
-
     def _parse(self, data, path="tasks/recurrence/TASK-REC-01.yaml"):
-        scenarios = REPO_ROOT / "infra/kiwi/scenarios"
+        scenarios = REPO_ROOT / "scripts/src/traceability/scenarios"
         return parse_spec(data, scenarios / path, scenarios)
 
     def test_missing_title_is_reported_with_the_others(self):
@@ -1262,7 +1114,7 @@ class PartialRunScope(unittest.TestCase):
 
     def _workflow_and_recipe(self):
         ci = REPO_ROOT / ".github/workflows/ci.yml"
-        recipe = REPO_ROOT / ".just/kiwi/mod.just"
+        recipe = REPO_ROOT / ".just/traceability/mod.just"
         return ci.read_text(encoding="utf-8"), recipe.read_text(encoding="utf-8")
 
     def test_ci_does_not_pass_partial(self):
@@ -1575,7 +1427,7 @@ class UnreachableCellsTest(unittest.TestCase):
     """
 
     def _corpus(self):
-        specs = load_specs(REPO_ROOT / "infra/kiwi/scenarios")
+        specs = load_specs(REPO_ROOT / "scripts/src/traceability/scenarios")
         return specs, build_coverage(specs, scan_all(specs, REPO_ROOT))
 
     def test_an_unreachable_cell_is_still_a_hole(self):
@@ -1654,7 +1506,11 @@ class CarrierRefusesUnreachableTest(unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=REPO_ROOT,
-            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            # PYTHONPATH mirrors what `pip install -e scripts/src/` provides, so
+            # the suite does not depend on whether the editable install has been
+            # run on this machine. CI installs it; a fresh clone that has not
+            # still exercises the CLI.
+            env={**os.environ, "PYTHONPATH": str(_SRC)},
             check=False,
         )
         self.assertEqual(result.returncode, 1)
@@ -1672,7 +1528,11 @@ class CarrierRefusesUnreachableTest(unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=REPO_ROOT,
-            env={**os.environ, "PYTHONPATH": str(_KIWI_DIR)},
+            # PYTHONPATH mirrors what `pip install -e scripts/src/` provides, so
+            # the suite does not depend on whether the editable install has been
+            # run on this machine. CI installs it; a fresh clone that has not
+            # still exercises the CLI.
+            env={**os.environ, "PYTHONPATH": str(_SRC)},
             check=False,
         )
         self.assertEqual(result.returncode, 0)

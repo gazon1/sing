@@ -92,11 +92,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Path-gated preflight: only validate tools when the PR touches CI tooling.
-      # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
-      - name: Preflight environment check
-        uses: ./.github/actions/setup-repo-tools
-
       # No workflow used setup-python before, which meant it was relying on the
       # runner image's system Python happening to carry PyYAML. Stated as a
       # dependency instead of an accident.
@@ -105,6 +100,18 @@ jobs:
           python-version: "3.12"
       - name: Install sgate CLI and its dependencies
         run: python -m pip install --disable-pip-version-check -e scripts/src/ pyyaml junitparser
+
+      # Path-gated preflight: only validate tools when the PR touches CI tooling.
+      # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
+      #
+      # AFTER the install, deliberately. It used to sit at step 3, ahead of the
+      # Python setup at step 5, so it asserted `junitparser` was missing on every
+      # run and `sgate run-all` (step 7) never ran — every static gate in
+      # scripts/ci/static-gates.sh went unexecuted and a stale committed coverage
+      # matrix merged unnoticed. A preflight that checks for tools before they
+      # are installed can only ever fail.
+      - name: Preflight environment check
+        uses: ./.github/actions/setup-repo-tools
 
       - uses: actions/setup-node@v6
         with:
@@ -284,7 +291,7 @@ jobs:
       # continue-on-error.
       - name: Normalise desktop results into the scenario matrix
         run: >
-          PYTHONPATH=infra/kiwi python3 -m traceability results
+          python3 -m traceability results
           --targets desktop --out-dir build/traceability
 
       - name: Render result matrix into the job summary

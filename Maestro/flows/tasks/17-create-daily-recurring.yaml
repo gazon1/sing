@@ -1,6 +1,6 @@
 # Scenario TASK-REC-01 — create a daily recurring task.
 #
-# Canonical spec: infra/kiwi/scenarios/tasks/recurrence/TASK-REC-01.yaml
+# Canonical spec: scripts/src/traceability/scenarios/tasks/recurrence/TASK-REC-01.yaml
 #
 # The `scenario:TASK-REC-01` tag below is the linkage. It is matched by exact
 # string comparison in scripts/run-maestro.sh, so `just gm scenario:TASK-REC-01`

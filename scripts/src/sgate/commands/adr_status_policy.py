@@ -45,11 +45,19 @@ def adr_status_policy(check: bool, emit_json: bool) -> None:
     repo_root = sgate.repo.ROOT
     gate_name = 'adr_status_policy'
 
+    script = repo_root / 'scripts/check_adr_status.py'
+    if not script.exists():
+        logger.error(f"{script} not found")
+        gate_fail(gate_name, None, None, None, None, "script not found")
+        raise SystemExit(IO_ERROR)
+
+    import sys
+    py_cmd = [sys.executable, str(script)]
     try:
         if emit_json:
-            result = run_capture(['singularity-adr', 'validate'], gate_name)
+            result = run_capture(py_cmd, gate_name)
             _handle_result(result, gate_name, emit_json=True)
-        run(['singularity-adr', 'validate'], gate_name)
+        run(py_cmd, gate_name)
     except SystemExit:
         raise  # propagate deliberate exits from run()/run_capture()
     except Exception:

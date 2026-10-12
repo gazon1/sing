@@ -385,14 +385,14 @@ class ExpectedFastClassesTest(unittest.TestCase):
     """The source half, against the real repository.
 
     This is the assertion that keeps the sentinel from decaying into a no-op: it
-    depends on `infra/kiwi/sync.py` loading, and a scanner that fails to import
+    depends on `scripts/scanning.py` loading, and a scanner that fails to import
     must be a failure rather than a check that quietly stops running.
     """
 
     def test_scanner_loads_for_the_real_repo(self):
         self.assertIsNotNone(
             ctr._load_sync(),  # noqa: SLF001
-            "infra/kiwi/sync.py did not load",
+            "scripts/scanning.py did not load",
         )
 
     def test_shared_jvmtest_declares_a_non_trivial_set_of_fast_classes(self):
@@ -419,23 +419,35 @@ class ExpectedFastClassesTest(unittest.TestCase):
 class ScannerFailureIsLoudTest(unittest.TestCase):
     """A scanner that will not import must fail the gate, not disable it.
 
-    Measured, not hypothetical: appending a failing import to `infra/kiwi/sync.py`
+    Measured, not hypothetical: appending a failing import to the scanner module
     made the gate print "Test run floors met" and exit 0 while the by-results
     check was not running at all. The gate was reporting a verdict on a check it
     had stopped performing — the same failure it exists to catch, one level down.
+
+    The scanner is reached through `import scanning`, so unavailability is
+    simulated by making that import fail. `sys.modules[name] = None` is the
+    documented way to do it: `import` finds the entry and raises ImportError
+    rather than falling through to a real load, which is exactly the state a
+    broken install leaves behind.
     """
 
     def setUp(self):
         self._saved = (ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv)
+        self._saved_mod = sys.modules.get("scanning", ...)
         self.tmp = pathlib.Path(tempfile.mkdtemp())
         ctr.ROOT = self.tmp
         ctr.BASELINE = self.tmp / "baseline.txt"
         ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
         sys.argv = ["check-test-runs.py"]
+        sys.modules["scanning"] = None  # type: ignore[assignment]
         self.addCleanup(self._restore)
 
     def _restore(self):
         ctr.ROOT, ctr.BASELINE, ctr.SOURCE_SETS, sys.argv = self._saved
+        if self._saved_mod is ...:
+            sys.modules.pop("scanning", None)
+        else:
+            sys.modules["scanning"] = self._saved_mod
 
     def test_missing_scanner_raises_rather_than_returning_none(self):
         with self.assertRaises(ctr.ScannerUnavailable):

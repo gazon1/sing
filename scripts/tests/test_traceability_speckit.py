@@ -22,7 +22,7 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(ROOT / "infra" / "kiwi"))
+sys.path.insert(0, str(ROOT / "scripts" / "src"))
 
 from traceability import ValidationError  # noqa: E402  (needs the path above)
 
@@ -408,7 +408,7 @@ class CliTest(unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=ROOT,
-            env={**os.environ, "PYTHONPATH": str(ROOT / "infra" / "kiwi")},
+            env={**os.environ, "PYTHONPATH": str(ROOT / "scripts" / "src")},
             check=False,
         )
 

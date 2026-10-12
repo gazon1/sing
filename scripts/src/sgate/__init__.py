@@ -6,20 +6,23 @@ click            : the Click library used for all CLI commands
 gate_fail        : emit one gate violation (structured + GitHub Actions annotation)
 gate_warn        : emit a non-blocking warning
 logger           : loguru logger — structured logging for CI (stderr output)
-KiwiUnavailable  : raised when Kiwi TCMS cannot be loaded
-KiwiResult       : NamedTuple returned on successful Kiwi load
 GateCommand      : base Click command class for all gate commands
-CLEAN, VALIDATION_FAILURE, IO_ERROR, CONFIG_ERROR, KIWI_UNAVAILABLE, INTERNAL_ERROR
+CLEAN, VALIDATION_FAILURE, IO_ERROR, CONFIG_ERROR, INTERNAL_ERROR
                   : standard exit codes
 
+`KIWI_UNAVAILABLE` (4) is still defined for compatibility with the generated
+gate shims, but no gate emits it: the Kiwi TCMS stand is gone, and the three
+traceability gates that used to declare themselves Kiwi-dependent never needed
+it. A soft skip that reads as a pass is worse than a hard failure, so `run-all`
+no longer treats a non-zero exit as green.
+
 Internal modules (not published as public API):
-    kiwi, log, output, repo, gates, cli, commands.base
+    log, output, repo, gates, cli, commands.base
 """
 from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from sgate import kiwi
 from sgate import log
 from sgate import output
 from sgate import repo
@@ -42,9 +45,6 @@ gate_fail = output.gate_fail
 gate_warn = output.gate_warn
 is_ci = output.is_ci
 
-KiwiUnavailable = kiwi.KiwiUnavailable
-KiwiResult = kiwi.KiwiResult
-
 __all__ = [
     "__version__",
     "click",
@@ -52,8 +52,6 @@ __all__ = [
     "gate_fail",
     "gate_warn",
     "is_ci",
-    "KiwiUnavailable",
-    "KiwiResult",
     "GateCommand",
     "CLEAN",
     "VALIDATION_FAILURE",
@@ -61,7 +59,6 @@ __all__ = [
     "CONFIG_ERROR",
     "KIWI_UNAVAILABLE",
     "INTERNAL_ERROR",
-    "kiwi",
     "log",
     "output",
     "repo",

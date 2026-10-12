@@ -1,7 +1,7 @@
 # Scenario TASK-CHECK-01 — the editor offers a checklist section and the checklist
 # sheet accepts input.
 #
-# Canonical spec: infra/kiwi/scenarios/tasks/checklist/TASK-CHECK-01.yaml
+# Canonical spec: scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml
 #
 # The `scenario:TASK-CHECK-01` tag below is the linkage, matched by exact string
 # comparison in scripts/run-maestro.sh. The id is the first token after the

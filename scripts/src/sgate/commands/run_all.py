@@ -139,8 +139,12 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
 
         duration_ms = int((time.monotonic() - start) * 1000)
         rc = result.returncode
-        # Exit 4 = kiwi unavailable (skip), treated as passed
-        passed = rc in (CLEAN, 4)
+        # A skip is not a pass. `rc in (CLEAN, 4)` used to treat exit 4 — the
+        # "kiwi unavailable, skipping" code — as green, which is how a gate
+        # that could not run at all reported success. No gate declares a
+        # Kiwi dependency any more, so nothing emits 4; if something did, it
+        # would now be red, which is the honest reading.
+        passed = rc == CLEAN
 
         return GateResult(
             name=display_name,

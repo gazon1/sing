@@ -47,9 +47,11 @@ distinction was previously written down here as the opposite ("the default runs
 exactly the fast classes, and CI is a superset") and it was wrong; the
 correction is in ADR `2026-10-05-gate-audit-text-shape-vs-fact`.
 
-The class list is produced by `infra/kiwi/sync.py` — the same scanner that
-backs the Kiwi stand — because "is this class runnable" had already been
-implemented three times and the copies had drifted apart twice.
+The class list is produced by `scripts/src/scanners/test_classes.py` — one
+scanner, shared, because "is this class runnable" had already been implemented
+three times and the copies had drifted apart twice. It used to live in
+`infra/kiwi/sync.py`, which made deleting the Kiwi TCMS stand look like it would
+take the run floors with it.
 
 The point is that "tests passed" and "the tests ran" are different claims, and
 only the second one is worth recording. A verification step that reports
@@ -116,7 +118,6 @@ fine). Investigate before regenerating whenever they go *down* — a drop means 
 class stopped being selected, which is the defect.
 """
 import argparse
-import importlib.util
 import pathlib
 import re
 import sys
@@ -253,18 +254,18 @@ EXPECTED_CLASS_SOURCES = {
 
 
 class ScannerUnavailable(RuntimeError):
-    """`infra/kiwi/sync.py` could not be loaded, so the by-results check cannot run.
+    """The repository scanner could not be loaded, so the by-results check cannot run.
 
     A dedicated type so the caller can fail loudly instead of skipping. Returning
     None here and treating it as "nothing to check" is the vacuous green this
-    gate exists to prevent: measured by appending a failing import to sync.py,
-    the gate reported "Test run floors met" and exit 0 while the by-results half
-    was not running at all.
+    gate exists to prevent: measured by appending a failing import to the
+    scanner, the gate reported "Test run floors met" and exit 0 while the
+    by-results half was not running at all.
     """
 
 
 def _load_sync():
-    """The repository scanner from `infra/kiwi/sync.py`.
+    """The repository scanner, from `scripts/scanning.py`.
 
     Reusing the one implementation that already answers "is this class runnable"
     is the point. This gate previously asked the same question a third time, and
@@ -273,38 +274,20 @@ def _load_sync():
     Raises [ScannerUnavailable] rather than returning None. The caller has results
     to check, so "could not check" must be a failure, not an absence.
     """
-    kiwi_dir = ROOT / "infra" / "kiwi"
-    sync_py = kiwi_dir / "sync.py"
-    if not sync_py.is_file():
-        raise ScannerUnavailable(f"no repository scanner at {sync_py}")
-    # sync.py imports its sibling kiwi_client (needs its own directory on
-    # sys.path) AND does a bare `import infra` (needs the repository ROOT —
-    # the parent of the infra/ package — which only exists on sys.path when
-    # the caller happened to start from the repo root, e.g. via `-c` or `-m`).
-    # The CI tests job runs `python3 scripts/check-test-runs.py`, whose
-    # sys.path[0] is scripts/, so without ROOT the import died with
-    # ModuleNotFoundError and the by-results check could not run (#563).
-    kiwi_str = str(kiwi_dir)
-    root_str = str(ROOT)
-    added_paths = [p for p in (kiwi_str, root_str) if p not in sys.path]
-    for p in reversed(added_paths):
-        sys.path.insert(0, p)
+    # `scripts/`, not ROOT: ROOT is monkeypatched by the tests that prove this
+    # raises, and sys.path[0] is `scripts/tests` when this file is loaded by path.
+    scripts_dir = str(pathlib.Path(__file__).resolve().parent)
+    added = scripts_dir not in sys.path
+    if added:
+        sys.path.insert(0, scripts_dir)
     try:
-        spec = importlib.util.spec_from_file_location("check_test_runs_sync", sync_py)
-        module = importlib.util.module_from_spec(spec)
-        module.__name__ = "check_test_runs_sync"
-        module.__file__ = str(sync_py)
-        # Must precede exec_module: the @dataclass defined there resolves its
-        # module through sys.modules[cls.__module__] and fails without this.
-        sys.modules["check_test_runs_sync"] = module
-        spec.loader.exec_module(module)
-    except Exception as exc:  # noqa: BLE001 — any import failure is disqualifying
-        sys.modules.pop("check_test_runs_sync", None)
-        raise ScannerUnavailable(f"{sync_py} did not import: {exc!r}") from exc
+        import scanning
+    except ImportError as exc:
+        raise ScannerUnavailable(f"scanning.py could not be imported: {exc!r}") from exc
     finally:
-        for p in added_paths:
-            sys.path.remove(p)
-    return module
+        if added:
+            sys.path.remove(scripts_dir)
+    return scanning
 
 
 def expected_fast_classes(label: str):
@@ -326,8 +309,8 @@ def expected_fast_classes(label: str):
             continue
         for kt in root.rglob("*Test.kt"):
             source = kt.read_text(encoding="utf-8", errors="replace")
-            for name in sync._test_classes_in(source):  # noqa: SLF001 — one repo, one scanner
-                if sync._read_tag(source, name) == "fast":  # noqa: SLF001
+            for name in sync.test_classes_in(source):
+                if sync.read_tag(source, name) == "fast":
                     names.add(name)
     return names
 

@@ -6,11 +6,11 @@
 #   <Kotlin source, verbatim, until the next === line or EOF>
 #
 # `expected` is the verdict BOTH implementations must give:
-#   - sync.py            (infra/kiwi/sync.py — has_runnable_test)
+#   - test_classes.py    (scripts/src/scanners/test_classes.py — has_runnable_test)
 #   - TestTagCoverageTest (shared/src/jvmTest — the @Tag coverage gate)
 #
 # They are two implementations of one concept, and they diverged once already:
-# the Kotlin gate matched only `startsWith("@Test")` while sync.py matched the
+# the Kotlin gate matched only `startsWith("@Test")` while test_classes.py matched the
 # full JUnit set, so RecurrenceRuleMapperTest / RruleGeneratorTest were
 # reported clean by the gate that exists to report them. A table is what makes
 # the next divergence a failing test instead of a review comment.
@@ -28,14 +28,15 @@
 # Two conventions the records below follow on purpose, so the table measures the
 # ANNOTATION predicate and not a neighbouring rule:
 #
-#   * every class name ends in `Test`. `sync.py` drops a class whose name does
-#     not (it keys Kiwi cases by class name, see `_test_classes_in`); the Kotlin
-#     gate has no such rule. Without the suffix, a `runnable` record would be
-#     answering "is the name acceptable" on one side and "is there a test" on
-#     the other. That rule is exercised where it lives, in test_kiwi_sync.py.
+#   * every class name ends in `Test`. `test_classes.py` drops a class whose
+#     name does not (see `_test_classes_in`); the Kotlin gate has no such rule.
+#     Without the suffix, a `runnable` record would be answering "is the name
+#     acceptable" on one side and "is there a test" on the other. That rule is
+#     exercised where it lives, in test_runnable_test_members.py and
+#     test_scanner_inventory.py.
 #   * the question is "does this class body contain a member JUnit executes".
 #     Whether the *file* is runnable — abstract bases, helpers — is a second
-#     question with its own fixtures in test_kiwi_sync.py.
+#     question, covered by the scanner's own SKIPPED_NON_TESTS set.
 
 
 === plain_kotlin_test | runnable

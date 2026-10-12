@@ -159,7 +159,7 @@ adr_dry_run() {
 export -f adr_dry_run
 
 traceability() {
-  PYTHONPATH=infra/kiwi python3 -m traceability "$@"
+  python3 -m traceability "$@"
 }
 export -f traceability
 
@@ -219,14 +219,14 @@ gate blocking "file-level suppressions explain themselves" sgate file_level_supp
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here.
 # See gate "detekt-rule branch coverage" and "kover verify" in ci.yml.
 
-# Scenario traceability (Kiwi)
-# traceability validate/coverage require PYTHONPATH=infra/kiwi python3 -m traceability.
-# Call via sgate CLI so KIWI_REQUIRED logic returns exit 4 (skip) when kiwi is absent,
-# instead of a hard exit 127 that would falsely fail the blocking gate.
+# Scenario traceability
+# traceability validate/coverage resolve the installed `traceability` package from
+# scripts/src/ (installed by `pip install -e scripts/src/`), so there is no
+# PYTHONPATH to set and no stand to start.
 gate blocking "scenario specs valid" sgate scenario_specs_valid
 gate blocking "coverage matrix current" sgate coverage_matrix_current
 gate blocking "coverage holes did not grow" sgate coverage_holes_did_not_grow
-gate advisory "kiwi inventory did not regress" sgate kiwi_inventory_did_not_regress
+gate blocking "speckit scenarios current" sgate speckit_scenarios_current
 
 # Server schema
 gate blocking "supabase schema is self-consistent" sgate supabase_schema_is_self_consistent

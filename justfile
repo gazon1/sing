@@ -16,7 +16,7 @@ mod android  '.just/android'
 mod desktop  '.just/desktop'
 mod tests    '.just/tests'
 mod scripts  '.just/scripts'
-mod kiwi     '.just/kiwi'
+mod traceability '.just/traceability'
 mod wt       '.just/worktree'
 
 set shell := ["bash", "-uc"]
@@ -90,29 +90,19 @@ alias cr       := tests::coverage-ratchet
 alias db-a   := android::db-schema
 alias db-d   := desktop::db-schema
 
-# ----- Kiwi TCMS shortcuts (DEACTIVATED 2026-10-09) -----
-# Kiwi TCMS integration is paused. The kfloor recipe below works without the stand.
-# Re-enable: uncomment the aliases in .just/kiwi/mod.just and restore this section.
-kfloor:
-    #!/bin/bash
-    set -euo pipefail
-    PYTHONPATH=. python3 scripts/check-kiwi-gaps.py --if-present
-
 # ----- Spec-first traceability (scenarios → coverage/result matrices) -----
 # Coverage is committed and CI-checked; results are a per-commit CI artifact.
-# The long forms (`just kiwi::trace-coverage-check`) stay available; the check
-# variant is deliberately not aliased, so "did you check or just regenerate?"
-# is visible in the command rather than in the diff.
-alias trace-validate := kiwi::trace-validate
-alias trace-coverage := kiwi::trace-coverage
-alias trace-results  := kiwi::trace-results
+# The long forms (`just traceability::trace-coverage-check`) stay available; the
+# check variant is deliberately not aliased, so "did you check or just
+# regenerate?" is visible in the command rather than in the diff.
+alias trace-validate := traceability::trace-validate
+alias trace-coverage := traceability::trace-coverage
+alias trace-results  := traceability::trace-results
 # Probe first, test second. Passing the scenario through as an argument rather
 # than reading it from a file keeps the id in the shell history: a carrier queue
 # walked id by id is then legible after the fact, and the generated probe's own
 # header repeats it anyway.
-alias trace-carrier  := kiwi::trace-carrier
-alias kiwi-seed      := kiwi::kiwi-seed
-alias kiwi-publish   := kiwi::kiwi-publish
+alias trace-carrier  := traceability::trace-carrier
 
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench
