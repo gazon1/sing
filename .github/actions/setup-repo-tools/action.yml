@@ -69,14 +69,25 @@ runs:
         set -e
         # junitparser is a pip package, not a command-line tool, so we check via Python import.
         # This prevents the CI annotation step from silently producing zero annotations.
+        #
+        # The version comes from importlib.metadata, not `junitparser.__version__`:
+        # current junitparser releases do not export `__version__`, so the
+        # attribute access raised AttributeError — which the ImportError-only
+        # handler did not catch. Being step 3, that killed the job before
+        # `sgate run-all`, leaving every static gate unexecuted.
         python3 -c "
         import sys
+        from importlib.metadata import version, PackageNotFoundError
         try:
             import junitparser
-            print(f'junitparser {junitparser.__version__} — OK')
         except ImportError:
             print('::error ::Missing Python package: junitparser — not installed')
             print('::error ::Install with: pip install junitparser')
             print('::error ::Required by: scripts/junit-annotations.py (CI annotation step)')
             sys.exit(1)
+        try:
+            v = version('junitparser')
+        except PackageNotFoundError:
+            v = 'unknown'
+        print(f'junitparser {v} — OK')
         " || exit 1
