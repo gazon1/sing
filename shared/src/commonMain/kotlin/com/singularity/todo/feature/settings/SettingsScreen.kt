@@ -310,7 +310,8 @@ private fun SettingsNavRail(
             modifier
                 .width(80.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = 8.dp),
+                .padding(vertical = 8.dp)
+                .testTag(TestTags.Settings.NAV_RAIL_SCROLL),
     ) {
         SettingsTab.entries.forEach { tab ->
             val isSelected = tab == selectedTab

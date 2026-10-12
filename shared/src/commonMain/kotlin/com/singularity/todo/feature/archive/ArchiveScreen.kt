@@ -51,10 +51,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                 title = { Text("Archive") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -88,6 +85,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                         EmptyState(
                             title = "Archive is empty",
                             subtitle = "Tap the button above to archive completed tasks",
+                            testTag = TestTags.ARCHIVE_EMPTY,
                         )
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -158,6 +156,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                         EmptyState(
                             title = "Archive is empty",
                             subtitle = "Tap the button above to archive completed tasks",
+                            testTag = TestTags.ARCHIVE_EMPTY,
                         )
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

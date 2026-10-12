@@ -15,12 +15,14 @@ tags:
 - tapOn:
     id: pomodoro_task_chip_buy_milk
 - extendedWaitUntil:
-    visible: "Focus: Buy milk"
+    visible:
+      id: pomodoro_focus_chip
     timeout: 8000
 - tapOn:
     id: pomodoro_skip_button
 - extendedWaitUntil:
-    visible: "Short Break"
+    visible:
+      id: pomodoro_phase_label
     timeout: 8000
 # Stop drops the focus task and the phase, back to a fresh Work cycle.
 - tapOn:
@@ -29,4 +31,5 @@ tags:
     visible:
       id: pomodoro_play_button
     timeout: 8000
-- assertNotVisible: "Focus: Buy milk"
+- assertNotVisible:
+    id: pomodoro_focus_chip

@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -36,6 +37,10 @@ import kotlinx.datetime.toLocalDateTime
  * - `project=<name>`         — creates a project
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
+ * - `cleanup=<prefix>[,<prefix>…]` — deletes instead of seeding: removes every
+ *   task, note and project in the active profile whose title/name starts with
+ *   any of the given prefixes. Comma-separated so one link can sweep several
+ *   fixture families.
  *
  * Examples:
  * ```
@@ -43,7 +48,17 @@ import kotlinx.datetime.toLocalDateTime
  * todo-debug://seed?note=Meeting%20notes
  * todo-debug://seed?project=Work
  * todo-debug://seed?profile=Personal
+ * todo-debug://seed?cleanup=r1a2b3c,Buy%20milk
  * ```
+ *
+ * `cleanup` is how a flow's fixtures are tied to the run that created them:
+ * the runner stamps a per-flow id into the seeded titles and passes the same id
+ * back here once the flow passes, so one run can never delete another run's data
+ * and nothing is left behind to collide with the next run. Cleaning on *success*
+ * only is deliberate — a failing flow keeps its fixtures for triage.
+ *
+ * Cleanup and seeding are mutually exclusive: `cleanup` short-circuits the
+ * entity-creating branches below.
  *
  * Lives in `src/debug/` — excluded from release APKs.
  * Works warm or cold: Koin is started by the Application onCreate, and after
@@ -86,6 +101,18 @@ class DebugSeedActivity :
         val projectsRepo: ProjectsRepository by inject()
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
+
+        // Cleanup wins over seeding: a cleanup link carries no entity params, and
+        // honouring both would mean a link that deletes the fixture it just made.
+        params["cleanup"]?.let { prefixes ->
+            cleanup(
+                prefixes = prefixes.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                taskRepo = taskRepo,
+                notesRepo = notesRepo,
+                projectsRepo = projectsRepo,
+            )
+            return
+        }
 
         // Ensure default profile exists so repositories are functional.
         profileRepo.ensureDefaults()
@@ -175,6 +202,44 @@ class DebugSeedActivity :
                 // Profile creation and switch already handled above.
             }
         }
+    }
+
+    /**
+     * Removes every task, note and project in the active profile whose
+     * title/name starts with one of [prefixes].
+     *
+     * Matching is a prefix test rather than an exact-title test on purpose: a
+     * run stamps its id onto the *start* of each seeded title ("r1a2b3 Buy
+     * milk"), so one prefix sweep catches the run's whole fixture set and its
+     * variants in a single pass.
+     *
+     * Scoped to the active profile by construction — all three repositories
+     * resolve against the current user, so a cleanup can never reach another
+     * profile's data. That also means a flow that switched profiles via
+     * `profile=` must be cleaned while that profile is still active.
+     */
+    private suspend fun cleanup(
+        prefixes: List<String>,
+        taskRepo: TaskRepository,
+        notesRepo: NotesRepository,
+        projectsRepo: ProjectsRepository,
+    ) {
+        if (prefixes.isEmpty()) return
+        fun matches(candidate: String) = prefixes.any { candidate.startsWith(it) }
+
+        // observeAll() is user-scoped and drops deleted rows, so a single
+        // first() gives exactly the live fixture set for the active profile.
+        var removed = 0
+        taskRepo.observeAll().first().filter { matches(it.title) }.forEach {
+            taskRepo.delete(it.id).onSuccess { removed++ }
+        }
+        notesRepo.observeAll().first().filter { matches(it.title) }.forEach {
+            notesRepo.delete(it.id).onSuccess { removed++ }
+        }
+        projectsRepo.observeAll().first().filter { matches(it.name) }.forEach {
+            projectsRepo.delete(it.id).onSuccess { removed++ }
+        }
+        android.util.Log.i("DebugSeedActivity", "cleanup($prefixes) removed $removed entities")
     }
 
     private fun parseParams(uri: Uri): Map<String, String> = uri.encodedQuery

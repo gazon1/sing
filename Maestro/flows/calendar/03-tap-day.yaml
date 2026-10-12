@@ -22,5 +22,7 @@ tags:
     visible: ${output.day15Title}
     timeout: 8000
 # The mode control followed the navigation into the single-day view.
-- assertVisible: "Day"
-- assertNotVisible: "Mon"
+- assertVisible:
+    id: calendar_view_mode_day
+- assertNotVisible:
+    text: "Mon"

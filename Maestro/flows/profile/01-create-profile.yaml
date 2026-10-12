@@ -17,7 +17,8 @@ tags:
 - tapOn:
     id: menu_profiles
 - extendedWaitUntil:
-    visible: "Profiles"
+    visible:
+      id: profile_create_button
     timeout: 8000
 - tapOn:
     id: profile_create_button

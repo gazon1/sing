@@ -15,16 +15,25 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
+# The due-date row is below the fold on phone; scroll it into view first.
+- scrollUntilVisible:
+    element:
+      id: task_editor_due_row
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: task_editor_due_row
 - extendedWaitUntil:
-    visible: "Select date"
+    visible:
+      id: dialog_date_picker_ok
     timeout: 8000
 - tapOn:
     text: ".* 1, 20[0-9][0-9]"
 - tapOn:
     id: dialog_date_picker_cancel
 - extendedWaitUntil:
-    visible: "Добавить дату"
+    visible:
+      id: task_editor_due_date_row_label
     timeout: 8000
-- assertVisible: "No priority"
+- assertVisible:
+    id: priority_option_none

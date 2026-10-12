@@ -39,7 +39,6 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_item_return_to_today
-- assertVisible: "Return to Today"
 
 # ── Case 2: Inbox → FAB → save → still on Inbox ──────────────────────
 # Switch to Inbox explicitly to verify we're not stuck on Today
@@ -67,4 +66,3 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_item_return_to_inbox
-- assertVisible: "Return to Inbox"

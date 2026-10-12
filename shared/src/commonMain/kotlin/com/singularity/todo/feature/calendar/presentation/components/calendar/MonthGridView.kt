@@ -92,8 +92,10 @@ fun MonthGridView(
                     text = label,
                     color = palette.textSecondary,
                     fontSize = 13.sp,
-                    modifier = Modifier.weight(1f)
-                        .padding(start = 12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                        .testTag(TestTags.calendarWeekdayHeader(label)),
                 )
             }
         }

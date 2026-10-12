@@ -112,7 +112,12 @@ if [[ "${ALLOW_STALE_APK:-0}" != "1" ]]; then
     INSTALLED_VERSION="$(adb -s "$SERIAL" shell dumpsys package com.singularity.todo 2>/dev/null \
         | grep -m1 'versionName=' | sed 's/.*versionName=//' | tr -d '\r' || true)"
     INSTALLED_SHA="none"
+    # versionName is `<base>+g<sha>` (androidApp/build.gradle.kts sets
+    # versionNameSuffix = "+g${gitSha}"), so the substring after '+' already
+    # carries the 'g'. Strip it here so the comparison below is sha-to-sha;
+    # leaving it in made every correctly built APK read as a mismatch.
     [[ "$INSTALLED_VERSION" == *"+"* ]] && INSTALLED_SHA="${INSTALLED_VERSION##*+}"
+    INSTALLED_SHA="${INSTALLED_SHA#g}"
 
     if [[ "$INSTALLED_SHA" == "none" ]]; then
         echo -e "${RED}Cannot read a build id from the installed APK (versionName='${INSTALLED_VERSION:-<empty>}').${NC}" >&2
@@ -273,18 +278,63 @@ reset_adb_server() {
     sleep 2
 }
 
+# Per-attempt fixture identity. Every attempt at a flow mints a fresh id, not
+# every flow: a retry after a lost device re-seeds the same fixture titles, and
+# reusing one id across attempts would leave two rows with the same prefix — the
+# ambiguity this whole mechanism exists to prevent. The id is stamped into the
+# titles a flow seeds (`${RUN_ID}`) and swept by cleanup_run_fixtures once the
+# attempt passes.
+new_run_id() {
+    printf 'r%s%s' "$(date +%s%N | tail -c 7)" "${RANDOM}${RANDOM}"
+}
+
+# Removes the fixtures the run that just passed created.
+#
+# Two prefix families are swept:
+#   * $RUN_ID          — this attempt's own stamped fixtures.
+#   * the fixed seed titles — helpers/seed-task.yaml seeds "Buy milk" with a
+#     deliberate *stable* title, because 17 flows address its row by the
+#     constant testTag task_item_buy_milk. That stability means the row cannot
+#     be run-scoped, so it is swept by its own literal prefix instead; without
+#     this it accumulates one copy per run and a later tap becomes ambiguous.
+#
+# Only on success. A failed flow keeps its fixtures so the failure can be
+# triaged on device — that is the same reason the failure artifacts are only
+# captured in the failure branch.
+#
+# Best-effort: a cleanup that cannot run must not fail the suite, or a green
+# flow would be reported red for a housekeeping problem.
+cleanup_run_fixtures() {
+    local run_id="$1"
+    [[ "${MAESTRO_CLEANUP:-1}" == "1" ]] || return 0
+    device_alive || return 0
+
+    # Prefix literals are URL-encoded here; ',' separates families in one link.
+    local cleanup="'$run_id,Buy%20milk'"
+    adb -s "$SERIAL" shell am start -a android.intent.action.VIEW \
+        -d "todo-debug://seed?cleanup=$cleanup" >/dev/null 2>&1 || true
+    sleep 1
+}
+
 run_one_flow() {
     local flow="$1" attempt=0 log
     log="$(mktemp)"
     while (( attempt <= MAX_RETRIES )); do
+        RUN_ID="$(new_run_id)"
+        echo -e "  run id: $RUN_ID"
         set +e
         # --format=JUNIT --output is what makes a flow's result joinable to a
         # scenario. It is additive: the exit status and the log are unchanged,
         # so the pass/fail and device-recovery logic below is untouched.
         mkdir -p "$MAESTRO_JUNIT_DIR"
+        # --output is a FILE path for --format=JUNIT, not a directory: passing
+        # the directory made saveReport throw FileNotFoundException *after* the
+        # flow had already passed, and that post-hoc exception became the
+        # process exit status — so every flow came back red regardless of result.
         (cd "$REPO_ROOT" && maestro test "$flow" \
+            --env "RUN_ID=$RUN_ID" \
             --format=JUNIT \
-            --output="$MAESTRO_JUNIT_DIR") >"$log" 2>&1
+            --output="$MAESTRO_JUNIT_DIR/$flow_name.xml") >"$log" 2>&1
         local status=$?
         set -e
         cat "$log"
@@ -332,6 +382,7 @@ run_one_flow() {
                     | grep -m1 'versionName=' | sed 's/.*versionName=//' | tr -d '\r' || true)"
                 REINSTALLED_SHA="none"
                 [[ "$REINSTALLED_VERSION" == *"+"* ]] && REINSTALLED_SHA="${REINSTALLED_VERSION##*+}"
+                REINSTALLED_SHA="${REINSTALLED_SHA#g}"
                 if [[ "$REINSTALLED_SHA" == "none" || "$REINSTALLED_SHA" != "$EXPECTED_SHA" ]]; then
                     echo -e "${RED}Relaunched device holds g${REINSTALLED_SHA} (${REINSTALLED_VERSION:-<empty>}), not g${EXPECTED_SHA}.${NC}" >&2
                     echo -e "${RED}These results would describe the wrong binary. Reinstall, or set${NC}" >&2
@@ -381,11 +432,31 @@ for flow_file in "${FLOW_FILES[@]}"; do
     fi
     if run_one_flow "$flow_file"; then
         PASSED+=("$flow_name")
+        cleanup_run_fixtures "$RUN_ID"
     else
         if ! device_alive; then
             echo -e "${YELLOW}(device is gone after retries)${NC}"
         fi
         FAILED+=("$flow_name")
+
+        # ── 5c. Capture failure artifacts ─────────────────────────────────
+        # Per-flow screenshot + logcat for post-run triage, stored alongside
+        # the JUnit XML for the same flow so everything for one flow is in one
+        # directory. Maestro's own screen.png (from --report-on-failure) lands
+        # in ~/.maestro/tests/; we additionally capture a raw adb screenshot
+        # and a logcat dump so we have both the Maestro view hierarchy and the
+        # raw device framebuffer + system log.
+        if device_alive; then
+            ARTIFACT_DIR="$MAESTRO_JUNIT_DIR/$flow_name"
+            mkdir -p "$ARTIFACT_DIR"
+            # Raw framebuffer screenshot (always available regardless of app state)
+            adb -s "$SERIAL" shell screencap -p /sdcard/"$flow_name"_screen.png 2>/dev/null \
+                && adb -s "$SERIAL" pull /sdcard/"$flow_name"_screen.png "$ARTIFACT_DIR/" 2>/dev/null \
+                && echo "Screenshot: $ARTIFACT_DIR/${flow_name}_screen.png" || true
+            # Logcat buffer at the moment of failure (cleared at start of suite)
+            adb -s "$SERIAL" logcat -d > "$ARTIFACT_DIR/${flow_name}_logcat.txt" 2>/dev/null \
+                && echo "Logcat: $ARTIFACT_DIR/${flow_name}_logcat.txt" || true
+        fi
     fi
 done
 

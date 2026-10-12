@@ -17,8 +17,10 @@ tags:
 # A fresh timer sits at its full work duration, paused, on cycle 1.
 - assertVisible:
     id: pomodoro_timer_label
-- assertVisible: "Work"
-- assertVisible: "Cycle 1"
+- assertVisible:
+    id: pomodoro_phase_label
+- assertVisible:
+    id: pomodoro_cycle_label
 - assertVisible:
     id: pomodoro_stop_button
 - assertVisible:

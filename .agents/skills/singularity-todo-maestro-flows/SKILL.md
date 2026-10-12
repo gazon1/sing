@@ -1,13 +1,17 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers selector conventions (TestTags over text), Maestro 2.10 syntax quirks (no content-desc, notVisible over gone, rail scrolling), the edit-build-install-run loop, dynamic-id casing, artifacts debugging, and app behaviour facts flows encode (delete is undo-only, archive has no restore, long-press opens the editor). Use when writing or debugging Maestro YAML under Maestro/, when asked to "add a UI test" or "test this user flow", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
 
-Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/`, with
-shared setup in `Maestro/helpers/`. Status: **green** — 10/10 smoke flows pass in
-~3.5 min on the emulator (verified 2026-09-29), zero app crashes.
+Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
+subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
+
+Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
+openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
+— see "Seed fixtures, never type them" and `diagnosing-failures.md`.
+All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
 
@@ -77,6 +81,158 @@ than falling back to visible text.
 `menuItem()` is keyed by the **visible label**, not the destination title, so
 `Profile & sync` and `Settings` do not collide.
 
+## Seed fixtures, never type them
+
+**Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
+Typing a fixture into the editor does not work in this app.**
+
+`TaskTitleRow` uses Compose's *controlled* field:
+
+```kotlin
+BasicTextField(value = title, onValueChange = { title = it; isDirty = true })
+```
+
+Neither Maestro `inputText` nor `adb shell input text` can fill it. Injected text
+lands in the wrapped `EditText`, then the next composition writes the still-empty
+`value` back over it. `onValueChange` never fires, `isDirty` stays false, and Save
+never enables — the flow hangs on a title that looks filled in but is not in state.
+
+The probe that settles it: type, reopen the editor, assert the text. Gone, so the
+value never reached state. An `ImeAction` patch was tried and reverted — it removed
+the action `inputText` depends on and broke entry outright.
+
+`helpers/seed.yaml` takes a URL-encoded `QUERY`:
+
+```yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Buy%20milk&due=today"
+```
+
+| Query key | Creates |
+|---|---|
+| `task=<title>` | a task |
+| `task=<title>&due=…` | task due `today` / `tomorrow` / `-1d` / `2026-10-01` |
+| `note=<title>` | a note |
+| `project=<name>` | a project |
+| `profile=<name>` | a project profile and switches to it |
+
+**An undated fixture lands in Inbox's "No Date" bucket, not Today.** A flow that
+seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — tap
+`nav_tab_inbox`.
+
+**Why `seed.yaml` ends with an inbox→today tab round-trip:** the deep link brings
+MainActivity up with `CLEAR_TOP|SINGLE_TOP`. On a cold start the seed commits while
+MainActivity is still composing, so the agenda's first query reads pre-seed state and
+the new row never appears. The row *is* in the database — a tab switch forces a
+re-query and it shows up. The symptom is a seed helper that timed out on a row it
+had already written. Keep the round-trip; it is load-bearing.
+
+### `launch-clean` does not clear the database
+
+`launchApp` with `clearState: false` resets AMS state only. Room persists across
+runs on the same emulator, so **fixtures accumulate**. For a true clean slate:
+
+```bash
+adb -s emulator-5554 shell pm clear com.singularity.todo
+```
+
+Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
+its fixture and then asserts the mutated-away state — the previous run's already-dated
+copy satisfies the selector. **Prefix the title with `${RUN_ID}`** and the runner
+sweeps it for you:
+
+```yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20My%20fixture"
+- scrollUntilVisible:
+    element:
+      id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
+```
+
+`scripts/run-maestro.sh` mints `RUN_ID` on **every attempt** and, after a
+successful flow, deep-links `todo-debug://seed?cleanup=<RUN_ID>` to delete every
+task, note and project whose title starts with that prefix. A retry after a lost
+device gets a *new* id, so it cannot collide with the attempt it replaces.
+
+**Prefix, not substring** — cleanup matches `startsWith`, so a leaked fixture
+names the run that made it and real data is never caught by it.
+
+`seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows
+address its row by the stable `task_item_buy_milk` id, so a per-run stamp would
+break every one of them. The runner sweeps it by its own literal prefix instead,
+so it cannot accumulate into an ambiguous `tapOn`.
+
+**Cleanup runs on success only** — a failed flow keeps its fixtures, because they
+are the evidence. Same reason failure screenshots exist.
+
+**A manual `maestro test <flow>` has no runner**: `RUN_ID` falls back to `manual`
+from `Maestro/config.yaml` and nothing is swept. Debug from a `pm clear` slate;
+set `MAESTRO_CLEANUP=0` to keep a run's fixtures for inspection.
+
+## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
+
+**Never use fixed swipe coordinates.** The phone AVD viewport is 320×640px
+physical (~420dpi), giving ~1680dp vertical. A swipe from y=1600 to y=800 is
+already at the edge of the usable area on a short screen, and goes off-screen
+entirely on 640px-height phones. It only "worked" on wider 1280×720 AVDs because
+y=1600 was 2/3 down the screen there.
+
+Use `scrollUntilVisible` with a direction for anything that might be below the fold:
+
+```yaml
+# Always open the hamburger menu first — the sheet is centre-screen.
+- tapOn:
+    id: nav_menu_button
+# Then scroll the item into view.
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN        # DOWN for items near the bottom of the sheet
+    timeout: 10000         # 10 s — phone AVD has 5+ items + section headers + dividers
+- tapOn:
+    id: menu_settings
+```
+
+**Direction convention:**
+- `direction: DOWN` — target item is near the bottom of the sheet (most menu items)
+- `direction: UP` — target item is at the top; Maestro scrolls from the centre,
+  so UP works for items that are above the centre but below the visible top
+
+**Timeout:** always 10 000 ms for menu items. The phone AVD sheet has
+5+ items + section header + dividers; 5 000 ms is insufficient under emulator
+load.
+
+The old hardcoded swipe pattern is retired:
+```yaml
+# OLD — do not use. Breaks on phone viewports (y=1600 is out-of-bounds on 640px height).
+- swipe:
+    start: 105, 1600
+    end: 105, 800
+```
+
+### Menu navigation patterns
+
+Every flow that opens the nav drawer follows this sequence:
+
+```
+tapOn id: nav_menu_button
+scrollUntilVisible element.id: <target_item> direction: DOWN timeout: 10000
+tapOn id: <target_item>
+```
+
+**Items requiring scroll on phone viewport** (below the fold on 320×640):
+- `menu_notes`, `menu_statistics`, `menu_ai_chat` — Destinations section, below fold
+- `menu_settings`, `menu_profiles`, `menu_quick_search` — Account section, visible
+  without scroll on most screens BUT `menu_settings` still uses scrollUntilVisible
+  in existing flows for consistency and robustness
+
+**Items that are always visible without scrolling:**
+- `menu_archive`, `menu_search` — visible on most phone screens
+
 ## Maestro 2.10 syntax quirks
 
 Verified against the installed CLI (2.10.0) — these fail at flow-parse or
@@ -85,15 +241,12 @@ step time, not at authoring time:
 - **`content-desc:` is not a supported selector property** — `Unknown Property:
   content-desc`. Select by `id:` (add a testTag if one is missing) or `text:`.
 - **`gone:` does not exist** — use `notVisible:` inside `extendedWaitUntil`.
-- **`scrollUntilVisible` swipes the screen centre.** It works for the
-  centre-screen Menu bottom sheet, and fails for anything pinned to an edge —
-  the Settings nav rail is the leftmost 80dp (~210px at 420dpi), so scrolling it
-  needs an explicit swipe:
-  ```yaml
-  - swipe:
-      start: 105, 1600
-      end: 105, 800
-  ```
+- **`scrollUntilVisible` scrolls the screen centre.** It works for the
+  centre-screen Menu bottom sheet. It cannot reach an element **clipped by a
+  sibling layout** — on a phone viewport the `SettingsNavRail` is the leftmost
+  80dp and its lower tabs are cut off by the window, so no scroll direction
+  brings them into view. Switch to the bottom nav or the menu sheet; there is no
+  scroll that fixes a clipped element.
 - `index:` disambiguates duplicate `text:` matches (two buttons both reading
   "Удалить" in one dialog). A bare `text:` (no index) is often the right choice —
   an index that no longer resolves fails the step outright.
@@ -121,11 +274,7 @@ step time, not at authoring time:
   mini-calendar controls, and the whole Sync configuration screen
   (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
   with no control that dispatches them, and long-press on a note row does
-  nothing. Before writing a flow, check it is reachable. The three ADRs named
-  below list the current gaps.
-- **Menu-sheet items below the fold are not tappable without a scroll.**
-  `tapOn: id: menu_ai_chat` fails on an off-screen item; `scrollUntilVisible`
-  first is required, exactly as for `menu_settings` and `menu_archive`.
+  nothing. Before writing a flow, check it is reachable.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -133,6 +282,20 @@ step time, not at authoring time:
 - **A failing batch run right after the first flow usually means the device died.**
   Check `adb devices` before debugging selectors; the emulator on this host dies
   after a few minutes of use and every later flow then fails in ~10 ms.
+
+## Animation and timing
+
+- **`waitForAnimationToEnd` after PORTRAIT rotation: use 5 000 ms, not 2 000 ms.**
+  The CI emulator is slower to complete the LANDSCAPE→PORTRAIT transition than a
+  local machine. Flows that rotate back to portrait and immediately assert
+  UI state will flake on CI with 2 000 ms.
+- **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
+  genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
+- **`hideKeyboard` is a commit, not a dismiss.** In this app it triggers the
+  editor's autosave-on-dismiss and closes the screen. Never place it before the
+  `task_editor_save` tap — it saves and navigates away, and the following step
+  fails on a screen that is already gone. Use it only when leaving an editor is
+  the intent, and assert on the destination.
 
 ## Test data: ASCII only
 
@@ -145,8 +308,11 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 
 | Helper | What it does |
 |---|---|
-| `launch-clean.yaml` | `launchApp` with `clearState: true`, waits 8s for `nav_tab_today` |
-| `seed-task.yaml` | Creates "Buy milk" on Today and asserts `task_item_buy_milk` |
+| `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
+| `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
+| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); ends with an inbox→today tab round-trip that forces a re-query |
+| `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |
+| `pick-date.yaml` | Date picker helper using `scripts/date.js` |
 
 A flow failing right after the previous one has usually lost the *device*, not
 its selectors — `adb devices` is the check. When running flows by hand, prefer
@@ -154,10 +320,10 @@ its selectors — `adb devices` is the check. When running flows by hand, prefer
 emulator when the device dies, so a single crash costs one flow instead of the
 suite. See `singularity-todo-emulator-launch`.
 
-Start from `launch-clean` unless the flow needs pre-existing data. `seed-task`
-hardcodes its title on purpose — see the comment in the file. Make new flows
-self-seeding (create their own fixture) rather than inheriting state from an
-earlier flow — see `docs/decisions/2026-09-29-maestro-archive-seed-strategy.md`.
+Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
+flows self-seeding rather than inheriting state from an earlier flow. Note that
+`launch-clean` does not clear Room, so a fixture written by a previous run is
+still there — see "Seed fixtures, never type them".
 
 ## App behaviour facts flows encode
 
@@ -169,7 +335,7 @@ by a flow failing on it:
   Mark as completed/uncompleted, Pin/Unpin, Archive. Use
   `longPressOn: id: task_item_<slug>` then `tapOn: id: sheet_item_Archive`.
   Before the fix long-press fell through to the click handler and opened the
-  editor — see `docs/decisions/2026-09-29-task-longpress-menu-and-archive-restore.md`.
+  editor.
 - **The detail overflow menu is state-dependent.** An active task shows
   Архивировать / Удалить; an archived (trashed) task shows Восстановить alone.
   A flow that archives and then expects Удалить will not find it.
@@ -179,23 +345,25 @@ by a flow failing on it:
 - **Archive -> restore round trip works**: archive via the context menu, open the
   task from the Archive screen, overflow menu -> Восстановить, the screen pops
   back and the task reappears in Inbox.
-- **An undated task lands in Inbox, not Today** — `create-task` taps to Inbox to
-  find its row.
-- Menu-sheet items below the fold (`menu_settings`, `menu_archive`) need
-  `scrollUntilVisible` — the sheet is centre-screen, so the command works there.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
 
-## Timing and input
+## When a flow fails
 
-- **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
-  genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
-- **Hide the keyboard before tapping a trailing action** — `hideKeyboard` after
-  `inputText`, or the save button sits under the IME.
-- After `inputText`, assert the field's value before tapping save, so a dropped
-  keystroke fails at the real cause.
+Open [`diagnosing-failures.md`](diagnosing-failures.md) — the failure-class table
+for the last CI run, the logcat/hierarchy triage steps, when a selector is
+unreachable because the element is laid out off-screen, the retry policy, and the
+CI-vs-local timeout multipliers.
 
 ## Recon before writing a flow — the probe trick
+
+**Probe the mechanism before changing product code.** A test failure names a
+symptom; a product change guessed from a symptom is as likely to break the real
+path as to fix it. A failing test is evidence about the test until a probe shows
+otherwise — the defect is in the product only when you have *seen* the
+user-visible behaviour, not inferred it from a step failing. This session wrote
+and reverted two speculative changes to `TaskCreateScreen` before a probe (type,
+reopen, assert the text) settled the actual mechanism.
 
 Do not write a flow against selectors you inferred from the source. Drive the
 screen first and read what is actually there. The cheapest way is a **probe
@@ -231,29 +399,12 @@ predates the tag" or "this row does nothing" than a bug in the selector.
 Delete the probe once the real flow replaces it — probes are scaffolding, and a
 stale one left in the tree is noise.
 
-## Debugging a failure
-
-1. **Crash or assertion?** `adb -s emulator-5554 logcat -d -b crash | grep -A30
-   "FATAL EXCEPTION"`. An app crash surfaces as the system "keeps stopping"
-   dialog on screen and every later step failing — the exception names the real
-   bug (three shipped crashes were found exactly this way).
-2. **Assertion failure:** read the captured hierarchy —
-   `~/.maestro/tests/<timestamp>/<flow-name>/screen-hierarchy/<step>.json`.
-   Extract what was actually on screen:
-   ```bash
-   grep -o '"resource-id" : "[^"]*"' <step>.json | sort -u
-   grep -o '"text" : "[^"]*"' <step>.json | sort -u
-   ```
-   Compare against `Maestro/TAGS.md` — usually the id is mis-cased, below the
-   fold, or on a screen the previous step never opened.
-3. **Nothing on screen but the home screen** — the app crashed earlier in the
-   flow; go back to step 1.
-
-## Tags
 
 `smoke` = the fast must-pass subset. Domain tags (`tasks`, `notes`, `settings`,
-`archive`, …) drive feature-scoped reruns. Add `smoke` when a failure should be
-loud. Make every smoke flow earn the tag: it runs on every suite invocation.
+`archive`, `calendar_sync`, `sync`, `negative`, `lifecycle`, `smoke` — see
+`Maestro/TAGS.md`) drive feature-scoped reruns. Add `smoke` when a failure
+should be loud. Make every smoke flow earn the tag: it runs on every suite
+invocation.
 
 ## Do not confuse with `singularity-todo-test-tag-strategy`
 
@@ -264,11 +415,21 @@ split for flows — the split is `smoke` vs domain.
 ## Adding a flow
 
 1. Subdirectory matching the feature (mirrors `feature/` in shared).
-2. `runFlow: ../../helpers/launch-clean.yaml`, or a seed helper for existing data.
-3. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
+2. **Paths are relative to the flow file, not the repo root.** A flow in
+   `Maestro/flows/<sub>/` references a helper as `../../helpers/<name>.yaml`.
+   The helpers' own internal `runFlow` calls use a bare filename, because they
+   sit next to each other.
+3. `runFlow: ../../helpers/launch-clean.yaml`, then `runFlow: ../../helpers/seed.yaml`
+   with a `QUERY` env var if the flow needs data. Seed rather than type.
+4. Follow the menu navigation pattern: `tapOn id: nav_menu_button` →
+   `scrollUntilVisible element.id: <target> direction: DOWN timeout: 10000` →
+   `tapOn id: <target>`.
+5. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
    (then the rebuild loop).
-4. Tag it.
-5. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
-6. On failure, follow "Debugging a failure" above.
+6. Stamp the fixture title with `${output.stamp}` if the flow mutates it, unless
+   it consumes `seed-task.yaml`'s fixed title.
+7. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
+8. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
+9. On failure, open `diagnosing-failures.md`.
 
 Fuller guidance, including the tag table: `Maestro/README.md`.

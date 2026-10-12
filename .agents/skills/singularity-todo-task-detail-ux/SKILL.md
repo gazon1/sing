@@ -75,6 +75,10 @@ Checkbox (large, left) + Column {
 - Placeholder: `"Add description..."` in `onSurfaceVariant` colour.
 - Save is implicit: focus lost or IME action Done → `viewModel.onTitleChange(draft)`.
 - Completion toggle via the checkbox — the **only** way to mark complete on this screen.
+- Because the field is *controlled* (`value = title, onValueChange = …`), externally
+  injected text never reaches state — the next composition overwrites it. E2E tests
+  therefore cannot type into it and must seed fixtures through `DebugSeedActivity`;
+  see `singularity-todo-maestro-flows`.
 
 ### Meta chips row (`FlowRow`)
 

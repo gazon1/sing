@@ -43,9 +43,13 @@ tags:
     visible:
       id: settings_tab_interface
     timeout: 5000
-- swipe:
-    start: 105, 1600
-    end: 105, 800
+# scrollUntilVisible scrolls the nav-rail container upward to expose settings_tab_backup.
+# Unlike hardcoded swipe coordinates, this is viewport-relative and works on any screen size.
+- scrollUntilVisible:
+    element:
+      id: settings_tab_backup
+    direction: UP
+    timeout: 10000
 - tapOn:
     id: settings_tab_backup
 - extendedWaitUntil:
@@ -102,9 +106,12 @@ tags:
     visible:
       id: settings_tab_interface
     timeout: 5000
-- swipe:
-    start: 105, 1600
-    end: 105, 800
+# Same adaptive scroll for the second Settings→Backup navigation (after restore).
+- scrollUntilVisible:
+    element:
+      id: settings_tab_backup
+    direction: UP
+    timeout: 10000
 - tapOn:
     id: settings_tab_backup
 - extendedWaitUntil:

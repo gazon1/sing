@@ -1,6 +1,6 @@
 # Smoke: open Settings from the menu and cycle through all 11 tabs without crash.
 #
-# Covers: menu sheet -> Settings entry -> SettingsNavRail (11 tabs).
+# Covers: menu sheet -> Settings entry -> SettingsNavRail (12 tabs).
 #
 # This flow is the regression guard for a crash that shipped: the screen used to
 # die with `subclassesOfSealed only supports automatic adding of subclasses of
@@ -36,8 +36,9 @@ tags:
       id: settings_tab_interface
     timeout: 5000
 
-# Cycle all 11 tabs. A crash or hang on any tab fails the flow.
-# The rail is a fixed-height column, so scroll it before the lower entries.
+# Cycle all 12 tabs. A crash or hang on any tab fails the flow.
+# The NavRail is a fixed 80dp column with a private ScrollView — scroll each
+# tab into view before tapping so it is guaranteed to be in the viewport.
 - tapOn:
     id: settings_tab_interface
 - tapOn:
@@ -51,20 +52,43 @@ tags:
 - tapOn:
     id: settings_tab_calendar
 - tapOn:
+    id: settings_tab_sync
+- tapOn:
     id: settings_tab_tags
 - tapOn:
     id: settings_tab_taggroups
+# Files, Backup, Account are below the fold on a phone viewport.
+# Files sits at y≈2239 — 175dp beyond the NavRail visible bottom (≈y=2064).
+# Swipe UP from the bottom of the NavRail (point [105, 2000]) — this pulls
+# the content below upward, which scrolls the NavRail ScrollView DOWN to bring
+# Files into the visible area. Maestro's scrollUntilVisible uses swipeFromCenter
+# which scrolls the WRONG scrollable (full-screen), so we use explicit swipes.
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
 - tapOn:
     id: settings_tab_files
-# The rail is the leftmost 80dp (210px at 420dpi), so scroll it explicitly —
-# scrollUntilVisible swipes the screen centre, which is the content pane.
 - swipe:
-    start: 105, 1600
-    end: 105, 800
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
 - tapOn:
     id: settings_tab_backup
 - swipe:
-    start: 105, 1600
-    end: 105, 800
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
 - tapOn:
     id: settings_tab_account

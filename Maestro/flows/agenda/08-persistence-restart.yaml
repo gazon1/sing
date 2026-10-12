@@ -37,7 +37,8 @@ tags:
       id: saved_agenda_name_input
     timeout: 8000
 - extendedWaitUntil:
-    visible: "Persistent View"
+    visible:
+      id: saved_agenda_card_persistent_view
     timeout: 8000
 
 # ── 2. Kill the process (state preserved) and relaunch ──────────────────
@@ -57,5 +58,6 @@ tags:
 - tapOn:
     id: agenda_saved_views_button
 - extendedWaitUntil:
-    visible: "Persistent View"
+    visible:
+      id: saved_agenda_card_persistent_view
     timeout: 8000

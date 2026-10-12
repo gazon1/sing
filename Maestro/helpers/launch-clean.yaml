@@ -18,6 +18,12 @@ onFlowComplete:
     clearState: false
     permissions:
       notifications: allow
+# Wait for the agenda shell to be interactive AND for the initial composition
+# to settle before the next flow step tries to interact with UI elements.
+# Without this, the first tapAfterAnimation or scrollUntilVisible can fire
+# while the shell is still animating into place, which is a race the CI
+# emulator loses more often than a local dev machine.
+- waitForAnimationToEnd
 # Wait for the agenda shell to be interactive.
 # After `adb install -r -t` in e2e-shard.sh the app is force-stopped and must cold-
 # start. 8 s is not always enough on a loaded CI runner; 20 s covers cold-start

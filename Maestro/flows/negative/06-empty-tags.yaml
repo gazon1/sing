@@ -12,10 +12,11 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: nav_menu_button
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: menu_settings
-    timeout: 5000
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:

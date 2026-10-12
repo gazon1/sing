@@ -167,6 +167,7 @@ private fun ProjectsContent(
         // "No projects yet" would push the user to create one they do not need.
         is ProjectsUiState.Empty -> EmptyState(
             title = if (searchQuery.isBlank()) "No projects yet" else "No projects match \"$searchQuery\"",
+            testTag = TestTags.PROJECTS_LIST_EMPTY,
             modifier = modifier,
         )
 

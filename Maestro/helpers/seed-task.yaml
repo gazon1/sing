@@ -1,37 +1,32 @@
 # Creates one task with no due date and leaves the app on the Inbox agenda, where
 # that task actually appears.
 #
-# The title is fixed rather than parameterized on purpose: the assertion below
-# addresses the row by its generated testTag (`TestTags.taskItem("Buy milk")` ->
-# `task_item_buy_milk`), and a caller that needs a different title would have to
-# duplicate that slug arithmetic anyway. Flows needing a second, differently
-# named task create it inline.
+# The task is seeded through the DebugSeedActivity deep-link rather than typed into
+# the editor. Compose's controlled BasicTextField discards externally injected text —
+# neither Maestro `inputText` nor `adb shell input text` reaches `onValueChange` — so
+# the draft title stays empty and the Save button never enables. Seeding is the
+# project's sanctioned fixture mechanism (see helpers/seed.yaml).
 #
-# ASCII title: Maestro's `inputText` cannot type non-ASCII on Android.
+# The title is fixed rather than parameterized on purpose: callers address the row by
+# its generated testTag (`TestTags.taskItem("Buy milk")` -> `task_item_buy_milk`), and
+# 17 flows depend on that stable id. Do not add a per-run stamp here — a moving id
+# would break every one of them. Flows needing a differently named task seed their
+# own.
+#
 # This helper runs launch-clean internally.
 appId: com.singularity.todo
 name: seed-task
 ---
 - runFlow: launch-clean.yaml
-# The FAB is tab-sensitive: on the Today tab it pre-fills dueDate = today
-# (FabActionResolver), on Inbox it pre-fills no date. An undated fixture must
-# therefore be created FROM Inbox, before any tab switch.
+# No due= parameter: an undated fixture must land in Inbox's "No Date" bucket.
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "task=Buy%20milk"
 - tapOn:
     id: nav_tab_inbox
-- tapOn:
-    id: tasks_fab
-- tapOn:
-    id: task_editor_title_input
-- inputText: "Buy milk"
-- assertVisible: "Buy milk"
-- hideKeyboard
-- tapOn:
-    id: task_editor_save
-# The task was saved without a due date and Inbox buckets by date, so it sits
-# under "No Date". Return to source tab (16-return-to-source-tab) and assert.
-- tapOn:
-    id: nav_tab_inbox
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: task_item_buy_milk
-    timeout: 5000
+    direction: DOWN
+    timeout: 15000

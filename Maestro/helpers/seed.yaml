@@ -15,6 +15,13 @@
 #   profile=<name>           — create and switch to a profile
 #
 # This helper does NOT run launch-clean — the caller decides.
+#
+# Leaves the app on the Today tab with the seeded entity visible. The tab
+# round-trip at the end is not cosmetic: the deep link brings MainActivity up with
+# CLEAR_TOP|SINGLE_TOP, and on a cold start the seed commits while MainActivity is
+# still being created, so the agenda's first composition reads a pre-seed query.
+# The seeded row then does not appear until something forces a re-query — a tab
+# switch does exactly that.
 appId: com.singularity.todo
 name: seed
 ---
@@ -23,3 +30,8 @@ name: seed
     visible:
       id: nav_tab_today
     timeout: 8000
+- tapOn:
+    id: nav_tab_inbox
+- tapOn:
+    id: nav_tab_today
+- waitForAnimationToEnd

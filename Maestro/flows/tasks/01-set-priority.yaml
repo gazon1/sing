@@ -16,7 +16,14 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-- assertVisible: "No priority"
+- assertVisible:
+    id: priority_option_none
+# Priority row is below the fold on phone; scroll it into view.
+- scrollUntilVisible:
+    element:
+      id: task_editor_priority_row
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: task_editor_priority_row
 - extendedWaitUntil:
@@ -27,6 +34,8 @@ tags:
     id: priority_option_high
 # Edits autosave — the detail screen has no save button; the row relabels.
 - extendedWaitUntil:
-    visible: "High priority"
+    visible:
+      id: priority_option_high
     timeout: 8000
-- assertNotVisible: "No priority"
+- assertNotVisible:
+    id: priority_option_none

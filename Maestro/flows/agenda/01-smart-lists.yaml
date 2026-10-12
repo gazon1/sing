@@ -1,56 +1,155 @@
-# Agenda: Inbox buckets tasks by date, and a dated task leaves the "No Date" bucket.
+# Agenda: Inbox buckets tasks by date — an undated task sits in "No Date",
+# dating it moves it to the matching date bucket and removes it from "No Date".
 #
-# Inbox is not the undated list — it is a full agenda (Today, Yesterday, …,
-# No Date), so a dated task stays in Inbox and simply moves to its date's
-# section. The assertion is therefore on the section header, not on the row
-# leaving the screen. Section headers render as "<Section>  ·  <count>".
+# Inbox is a full agenda (Today, Yesterday, …, No Date); a dated task stays
+# in Inbox under its date section. The test verifies that dating removes the
+# task from "No Date" and places it in its date section.
+# Section headers render as "<Section>  ·  <count>".
 appId: com.singularity.todo
 name: agenda-smart-lists
 tags:
   - regression
   - agenda
 ---
-- runFlow: ../../helpers/seed-task.yaml
+# Start from a clean-ish slate — use launch-clean (no Room clear available).
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Seed an undated task via the DebugSeedActivity deep-link. `due=` is omitted, so
+# the task has no due date and Inbox buckets it under "No Date".
+#
+# Seeding is used instead of driving the editor's title field because Compose's
+# controlled BasicTextField discards externally injected text: neither Maestro
+# `inputText` nor `adb shell input text` reaches `onValueChange`, so the draft
+# title stays empty and the Save button never enables.
+#
+# The title is prefixed with ${RUN_ID}. Room survives between runs on one emulator,
+# so a fixed title would collide with the previous run's copy — and this flow
+# dates the task, which would leave the predecessor dated and break the
+# "not on Today" assertion below. The runner mints RUN_ID per attempt and sweeps
+# every title carrying it once this flow passes, so leftovers cannot accumulate
+# and a leaked fixture names the run that created it.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20SDNoDate"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_buy_milk
+      id: nav_tab_inbox
     timeout: 8000
-# Undated -> the "No Date" bucket holds exactly this task.
-- assertVisible: "No Date  ·  1"
+
+# The row's testTag is the slugified title: TestTags.taskItem("<run> SDNoDate").
+# Scroll to it rather than waiting for it in place: launch-clean does not clear
+# Room, so tasks from other runs may still be listed above this one.
+- scrollUntilVisible:
+    element:
+      id: "task_item_${RUN_ID}_sdnodate"
+    direction: DOWN
+    timeout: 15000
+
+# Scroll to "No Date" section — it may contain stale tasks too.
+- scrollUntilVisible:
+    element:
+      id: agenda_section_no_date
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: agenda_section_no_date
+# The task appears in the "No Date" section (with possible stale companions).
+
+# Verify the task is NOT on the Today tab. The section header only renders when the
+# section is non-empty, and the only seeded task is undated — so wait for the tab
+# itself to compose and assert absence directly.
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:
-    notVisible:
-      id: task_item_buy_milk
+    visible:
+      id: tasks_fab
     timeout: 5000
-# Date it -> the bucket empties, and the row is no longer under "No Date".
+- assertNotVisible:
+    id: "task_item_${RUN_ID}_sdnodate"
+
+# Go back to Inbox and date the task.
 - tapOn:
     id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: "task_item_${RUN_ID}_sdnodate"
+    timeout: 5000
 - tapOn:
-    id: task_item_buy_milk
+    id: "task_item_${RUN_ID}_sdnodate"
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
     timeout: 5000
+
+# The due-row is below the fold on phone — scroll to it first.
+- scrollUntilVisible:
+    element:
+      id: task_editor_due_row
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    text: "Добавить дату"
+    id: task_editor_due_row
+
+# DatePickerSheet opens as a bottom sheet. The header shows "Select date"
+# and the date grid starts below. The "Today" cell contains
+# "Today, Monday, October 12, 2026" — use regex to match.
 - extendedWaitUntil:
-    visible: "Select date"
+    visible:
+      text: "Select date"
     timeout: 8000
 - tapOn:
-    text: ".* 1, 20[0-9][0-9]"
+    text: "Today.*"
+
+# Confirm the date. The sheet body scrolls (SheetScaffold is scrollable), so the
+# actions row starts below the fold on a 1080x2400 phone — scroll it into reach
+# first, then tap OK by its testTag.
+- swipe:
+    start: 540, 2100
+    end: 540, 1500
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: dialog_date_picker_ok
+    timeout: 5000
 - tapOn:
     id: dialog_date_picker_ok
+
+# The date picker closes and the new due date is already applied: the task detail
+# editor edits live (TaskDetailContent passes bottomBar = null and wires each row
+# straight to coordinator.onIntent), so there is no save button to press here.
+# Back simply returns to Inbox.
+- waitForAnimationToEnd
 - back
+- waitForAnimationToEnd
+
+# Back on Inbox. The task is now dated, so it moved out of "No Date".
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
-    timeout: 5000
-- extendedWaitUntil:
-    notVisible: "No Date  ·  1"
     timeout: 8000
-# The task is still in Inbox, now under a dated section. Note the Today tab is
-# NOT asserted to be free of it: a date in the past makes the task overdue, and
-# the Today preset shows overdue at the top by design.
+
+# Inbox renders every bucket on one scrolling list, so "Today" and "No Date" can
+# be on screen together. A bare assertNotVisible would therefore fail against the
+# task's new home, not its old one. Scope the assertion to the section it must
+# have left: it may no longer appear below the "No Date" header, and must now
+# appear below the "Today" header.
+- assertNotVisible:
+    id: "task_item_${RUN_ID}_sdnodate"
+    below:
+      id: agenda_section_no_date
+# ... and now sits under "Today", which is above the current scroll position —
+# bring that section into view before asserting against it.
+- scrollUntilVisible:
+    element:
+      id: agenda_section_today
+    direction: UP
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "task_item_${RUN_ID}_sdnodate"
+      below:
+        id: agenda_section_today
+    timeout: 8000

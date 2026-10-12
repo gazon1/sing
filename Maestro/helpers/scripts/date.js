@@ -16,3 +16,8 @@ output.monthTitle = monthTitle;
 output.day15Title = day15Title;
 output.firstOfMonth = firstOfMonth;
 output.lastDay = lastDay;
+// Unique-per-run suffix for seeded entity titles. Room survives between Maestro
+// runs on the same emulator, so a fixed seed title collides with the previous
+// run's copy — and a flow that mutates the task (dates it, then asserts it left
+// its original bucket) then fails against its own predecessor's leftovers.
+output.stamp = String(d.getTime());

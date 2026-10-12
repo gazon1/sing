@@ -22,4 +22,5 @@ tags:
 - assertVisible: "1"
 - assertVisible: ${output.lastDay}
 # The view-mode control reports the current mode.
-- assertVisible: "Month"
+- assertVisible:
+    id: calendar_view_mode_month

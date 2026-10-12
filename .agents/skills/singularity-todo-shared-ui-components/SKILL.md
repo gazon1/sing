@@ -29,6 +29,10 @@ Two rules that apply to every one of them:
 
 - **A component with 4+ separate callback parameters is a decomposition problem.** Give it
   a content slot instead of a longer parameter list — see `content-slot-api.md`.
+- **A sheet body can outgrow the space its sheet gets.** Bound it and let the column
+  scroll, or the actions row lands past the screen edge — untappable, and dropped from
+  the accessibility tree, so no UI test can reach it either. See `SheetScaffold` in
+  `widget-library.md`.
 - **Tests follow the composable, not the screen.** A sub-composable extracted from a
   screen gets its own test file next to the feature; the screen keeps only a smoke test
   that it renders.
