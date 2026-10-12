@@ -1,5 +1,5 @@
 {
- "measurement": "PYTHONPATH=infra/kiwi python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
+ "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
  "measured_at": "2026-10-07",
  "commit": "(this commit)",
  "corpus": {

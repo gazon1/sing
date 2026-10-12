@@ -3,8 +3,9 @@
 Run with: python3 -m unittest discover -s scripts/tests
 
 `config/test-fixtures/runnable-test-members.txt` is the single definition of
-what makes a class runnable. This suite proves `infra/kiwi/sync.py` agrees with
-it; `TestTagCoverageTest` (Kotlin, shared/src/jvmTest) proves the other half.
+what makes a class runnable. This suite proves `scripts/src/scanners/
+test_classes.py` agrees with it; `TestTagCoverageTest` (Kotlin,
+shared/src/jvmTest) proves the other half.
 
 The two implementations diverged once: the Kotlin gate matched only
 `startsWith("@Test")` and therefore reported the two `@ParameterizedTest`
@@ -14,25 +15,16 @@ the only way "they agree" stays true without a human reading two regexes
 side by side.
 """
 
-import importlib.util
 import pathlib
 import sys
 import unittest
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-_kiwi_dir = _ROOT / "infra" / "kiwi"
-sys.path.insert(0, str(_kiwi_dir))
+sys.path.insert(0, str(_ROOT / "scripts"))
 
-_spec = importlib.util.spec_from_file_location("kiwi_sync", _kiwi_dir / "sync.py")
-_sync = importlib.util.module_from_spec(_spec)
-_sync.__name__ = "kiwi_sync"
-_sync.__file__ = str(_kiwi_dir / "sync.py")
-# Must precede exec_module: the @dataclass at class-definition time looks the
-# module up in sys.modules[cls.__module__] and fails without this record.
-sys.modules["kiwi_sync"] = _sync
-_spec.loader.exec_module(_sync)
+import scanning  # noqa: E402 — needs the sys.path entry above
 
-sync = _sync
+sync = scanning
 
 FIXTURE_FILE = _ROOT / "config" / "test-fixtures" / "runnable-test-members.txt"
 
@@ -82,7 +74,7 @@ def load_fixtures() -> list[tuple[str, bool, str]]:
 
 
 class SharedRunnableMemberFixtures(unittest.TestCase):
-    """sync.py must give every shared fixture the agreed verdict."""
+    """scanners/test_classes.py must give every shared fixture the agreed verdict."""
 
     def test_table_is_not_empty_and_covers_both_verdicts(self):
         records = load_fixtures()
@@ -112,8 +104,8 @@ class SharedRunnableMemberFixtures(unittest.TestCase):
         self.assertEqual(
             failures,
             [],
-            "sync.py disagrees with the shared runnable-test fixture table:\n"
-            + "\n".join(failures),
+            "scanners/test_classes.py disagrees with the shared runnable-test "
+            "fixture table:\n" + "\n".join(failures),
         )
 
 

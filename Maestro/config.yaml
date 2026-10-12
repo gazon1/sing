@@ -7,7 +7,7 @@
 # Selector source of truth: shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt
 #
 # Canonical tags (used in flow `tags:` headers):
-#   scenario:<ID>  — traceability linkage to a spec in infra/kiwi/scenarios/
+#   scenario:<ID>  — traceability linkage to a spec in scripts/src/traceability/scenarios/
 #                    (e.g. scenario:TASK-REC-01). The only value-carrying tag;
 #                    the others below are bare words. Matched by exact string
 #                    comparison, so filtering needs no code change. This is the

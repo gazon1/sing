@@ -9,7 +9,7 @@ recurrence, pin) as rows.
 ## Scenario Matrix
 
 <!-- MACHINE-READ. `python -m traceability scenarios --check` сверяет этот
-     блок с `infra/kiwi/scenarios/**`: объявление без YAML, расхождение по
+     блок с `scripts/src/traceability/scenarios/**`: объявление без YAML, расхождение по
      title/priority/status/targets и незаполненный TODO — ошибки.
      Поведение (steps/expected) здесь объявлять нельзя — оно принадлежит
      YAML-сценарию. -->

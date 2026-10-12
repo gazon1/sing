@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import ClassVar
 
 import click
@@ -52,10 +53,11 @@ def speckit_scenarios_current(check: bool, emit_json: bool) -> None:
     gate_name = 'speckit_scenarios_current'
 
     try:
+        cmd = [sys.executable, '-m', 'traceability', 'scenarios', '--check']
         if emit_json:
-            result = run_capture(['traceability', 'scenarios', '--check'], gate_name)
+            result = run_capture(cmd, gate_name)
             _handle_result(result, gate_name, emit_json=True)
-        run(['traceability', 'scenarios', '--check'], gate_name)
+        run(cmd, gate_name)
     except SystemExit:
         raise  # propagate deliberate exits from run()/run_capture()
     except Exception:

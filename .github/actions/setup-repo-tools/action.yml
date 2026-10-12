@@ -4,34 +4,31 @@ description: >
   Fails fast (within 5 seconds) with a descriptive ::error annotation if any
   tool is missing or fails its version check. Designed to be path-gated from
   the calling workflow via `needs.changes.outputs.scripts`.
+
+  MUST run after `actions/setup-python` and the `pip install` of this job. A
+  preflight that checks for tools before they are installed can only ever fail,
+  and did: this action sat at step 3 of `Static gates`, ahead of the install
+  at step 5, so `junitparser` was reported missing on every run and `sgate
+  run-all` (step 7) was skipped. That failure masked every gate in
+  scripts/ci/static-gates.sh — 40+ blocking gates that had not executed once.
+
+  Only checks what the calling job actually needs are kept here. Two were
+  removed on 2026-10-12 after verifying that no static gate invokes them:
+
+    singularity-adr — a Gradle-built JVM distribution. `adr_status_policy`
+      invoked it, but only because its generated shim pointed at the CLI; the
+      static job is deliberately JVM-free (~1 min, no Gradle) and the registry
+      says the Python gate belongs here. The shim now calls
+      scripts/check_adr_status.py, which is the same rule the CLI wraps. The
+      CLI itself still runs, in adr-gate.yml, where it is installed on purpose.
+      Requiring it here made the static job pay a JVM build it cannot afford.
+
+    speckit / specify — `sgate speckit_stale` runs scripts/check-openspec-stale.py
+      in Python; no binary is involved. The separate "Speckit validate" step
+      uses npx and does not need a global install.
 runs:
   using: "composite"
   steps:
-    - name: Check singularity-adr
-      shell: bash
-      run: |
-        set -e
-        if ! command -v singularity-adr >/dev/null 2>&1; then
-          echo "::error ::Missing tool: singularity-adr — not found on PATH"
-          exit 1
-        fi
-        echo "singularity-adr: $(singularity-adr --version 2>&1 || echo 'version check failed')"
-
-    - name: Check speckit (via uv)
-      shell: bash
-      run: |
-        set -e
-        # speckit is installed as `specify-cli` via uv tool
-        if command -v speckit >/dev/null 2>&1; then
-          echo "speckit: $(speckit --version 2>&1 || echo 'version check failed')"
-        elif command -v specify >/dev/null 2>&1; then
-          echo "specify-cli: $(specify --version 2>&1 || echo 'version check failed')"
-        else
-          echo "::error ::Missing tool: speckit/specify-cli — not found on PATH"
-          echo "::error ::Install with: uv tool install specify-cli"
-          exit 1
-        fi
-
     - name: Check Python version
       shell: bash
       run: |
@@ -47,6 +44,25 @@ runs:
         print(f'Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} — OK')
         "
 
+    - name: Check repo tools importable
+      shell: bash
+      run: |
+        set -e
+        # sgate and traceability are installed from scripts/src/ by a single
+        # editable install; a failure here means that pyproject.toml is wrong
+        # and every gate below would fail with a confusing 127 instead.
+        python3 -c "import sgate" || {
+          echo "::error ::sgate is not importable — is scripts/src/ installed?"
+          echo "::error ::Run: python -m pip install -e scripts/src/ pyyaml junitparser"
+          exit 1
+        }
+        python3 -c "import traceability" || {
+          echo "::error ::traceability is not importable — is scripts/src/ installed?"
+          echo "::error ::Run: python -m pip install -e scripts/src/ pyyaml junitparser"
+          exit 1
+        }
+        echo "sgate + traceability: importable"
+
     - name: Check junitparser (required for CI annotation step)
       shell: bash
       run: |
@@ -54,6 +70,7 @@ runs:
         # junitparser is a pip package, not a command-line tool, so we check via Python import.
         # This prevents the CI annotation step from silently producing zero annotations.
         python3 -c "
+        import sys
         try:
             import junitparser
             print(f'junitparser {junitparser.__version__} — OK')

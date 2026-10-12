@@ -1,7 +1,0 @@
-pyproject.toml
-sgate.egg-info/PKG-INFO
-sgate.egg-info/SOURCES.txt
-sgate.egg-info/dependency_links.txt
-sgate.egg-info/entry_points.txt
-sgate.egg-info/requires.txt
-sgate.egg-info/top_level.txt

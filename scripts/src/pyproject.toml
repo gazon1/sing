@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "singularity-repo-tools"
+version = "0.1.0"
+description = "Repository tooling for singularity-todo: the sgate gate CLI and the traceability scenario layer"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.0",
+    "loguru>=0.7",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+sgate = "sgate.cli:main"
+
+# `scripts/src/` is the project root and the two packages are siblings inside it.
+#
+# This file used to live at `scripts/src/sgate/pyproject.toml` with an empty
+# `packages = []` and a comment claiming `scripts/src/sgate/` was the project
+# root — while CI ran `pip install -e scripts/src/`, a directory with no
+# pyproject.toml at all. That line had never executed: the preflight ahead of it
+# killed the `Static gates` job, so the mismatch went unnoticed. Declaring the
+# packages here makes the install CI actually performs install both of them, and
+# makes `python3 -m traceability` work from a bare checkout with no PYTHONPATH.
+#
+# `traceability.scenarios/` is package data rather than a package. It is not
+# listed in `packages` and is reached through `traceability.SCENARIOS_DIR`.
+# `traceability` joins this list when the scenario layer moves out of
+# `infra/kiwi/`. Listing a package before it exists fails the whole install, so
+# the two land in separate steps.
+[tool.setuptools]
+packages = [
+    "scanners",
+    "sgate",
+    "sgate.commands",
+    "traceability",
+]

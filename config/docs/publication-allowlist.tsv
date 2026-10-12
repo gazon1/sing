@@ -25,8 +25,8 @@
 #
 # NOT allowlisted, on purpose:
 #
-# infra/kiwi/scenarios/ — these carried the same `Source:` header, and they were
-#   cleaned instead. The difference is that a Kiwi scenario is a living
+# scripts/src/traceability/scenarios/ — these carried the same `Source:` header,
+#   and they were cleaned instead. The difference is that a Kiwi scenario is a living
 #   specification someone reads to write a test, not a record of a past
 #   decision, so the path carried no lasting value.
 #

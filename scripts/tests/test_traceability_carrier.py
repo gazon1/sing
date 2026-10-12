@@ -25,16 +25,16 @@ import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-# The traceability package is a source-tree package, not an installed one, so
-# the in-process tests below have to put it on the path themselves. The CLI
-# tests pass it through PYTHONPATH instead.
-sys.path.insert(0, str(ROOT / "infra" / "kiwi"))
+# The package is installed from `scripts/src/pyproject.toml`; the path insert
+# below keeps the suite runnable from a checkout where the editable install has
+# not been run. The CLI tests pass the same directory through PYTHONPATH.
+sys.path.insert(0, str(ROOT / "scripts" / "src"))
 
 
 def _run(*args):
     import os
 
-    env = {**os.environ, "PYTHONPATH": str(ROOT / "infra" / "kiwi")}
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "scripts" / "src")}
     return subprocess.run(
         [sys.executable, "-m", "traceability", *args],
         capture_output=True,

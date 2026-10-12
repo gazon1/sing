@@ -26,7 +26,7 @@ in this project. All contributors must follow these rules.
 - Flow `name:` field: lowercase-kebab, e.g. `tasks-set-due-date`.
 - Tag values: lowercase alphanumeric with hyphens, e.g. `smoke`, `regression`.
   One namespace is exempt: `scenario:<ID>`, the traceability linkage to a
-  scenario spec in `infra/kiwi/scenarios/`. See [Tags](#tags).
+  scenario spec in `scripts/src/traceability/scenarios/`. See [Tags](#tags).
 
 ---
 
@@ -150,7 +150,7 @@ Canonical tags (add new ones to `Maestro/config.yaml` comment block):
 
 | Tag | Meaning |
 |---|---|
-| `scenario:<ID>` | **Traceability linkage.** Links this flow to a scenario spec (`TASK-REC-01`) in `infra/kiwi/scenarios/`. The only tag that is not lowercase-hyphen, and the only one carrying a value: `scripts/run-maestro.sh` matches tags by exact string, so no code change is needed to filter on it. Validate with `just trace-validate`. |
+| `scenario:<ID>` | **Traceability linkage.** Links this flow to a scenario spec (`TASK-REC-01`) in `scripts/src/traceability/scenarios/`. The only tag that is not lowercase-hyphen, and the only one carrying a value: `scripts/run-maestro.sh` matches tags by exact string, so no code change is needed to filter on it. Validate with `just trace-validate`. |
 | `smoke` | Minimal regression suite, run on every PR |
 | `regression` | Guards a specific fixed bug |
 | `known-bug` | Tracks a confirmed bug; failure is expected |

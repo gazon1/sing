@@ -31,7 +31,7 @@ ratchet = importlib.util.module_from_spec(_spec)
 sys.modules['check_traceability_ratchet'] = ratchet
 _spec.loader.exec_module(ratchet)
 
-sys.path.insert(0, str(ROOT / 'infra' / 'kiwi'))
+sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
 
 from traceability import SCENARIOS_DIR  # noqa: E402
 from traceability.coverage import build_coverage  # noqa: E402

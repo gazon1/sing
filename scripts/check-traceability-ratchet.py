@@ -77,12 +77,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# The traceability package is a source-tree package under `infra/kiwi`, run as
-# `python3 -m traceability` with PYTHONPATH set. Importing it here rather than
-# shelling out to the CLI means the numbers this gate compares were produced by
-# the same code the matrix was rendered from — a subprocess that failed to
-# import would otherwise be indistinguishable from a clean run.
-sys.path.insert(0, str(ROOT / "infra" / "kiwi"))
+# The traceability package is installed from `scripts/src/pyproject.toml` and
+# imported here rather than shelled out to the CLI, so the numbers this gate
+# compares were produced by the same code the matrix was rendered from — a
+# subprocess that failed to import would otherwise be indistinguishable from a
+# clean run. The path insert covers the case where the repo tools are not
+# installed (a bare `python3 scripts/check-traceability-ratchet.py`).
+_SRC = ROOT / "scripts" / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 DEFAULT_CONFIG = "config/docs/traceability-ratchet.json"
 
@@ -251,7 +254,7 @@ def main() -> int:
                 print(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
     print("")
     print("Either attach a carrier (the cheapest path is a reachability probe")
-    print("first — see .agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md), or")
+    print("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
     print("state the growth in the commit message and re-run with --accept-growth.")
     print("Note that the spec's own comment header is the only place the plan is")
     print("recorded, so a hole opened here can be opened without anyone noticing.")

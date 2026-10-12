@@ -170,12 +170,6 @@ class ScriptGate:
     # reads staleness from `stat().st_mtime`, so a content comparison would report
     # a failed restore for a mutation that was correct.
     target_is_dir: bool = False
-    # When True, the harness skips this gate's sabotage control when the Kiwi
-    # stand is unreachable, rather than reporting a false "already fails on a
-    # clean tree" error. The gate itself may use --if-present in its registered
-    # invocation (check.sh / ci.yml); this field is only about the harness
-    # running its own sabotage proof.
-    kiwi_required: bool = False
     # When True, this control is skipped on a dirty tree (partial test results
     # on disk from a filtered --tests run). The sabotage raises the floor above
     # any plausible count, so it can only fail on a tree with a full-suite XML.
@@ -278,14 +272,15 @@ SCRIPT_GATES = [
     ScriptGate(
         name="gate-liveness",
         cmd=[sys.executable, "scripts/check-gate-liveness.py"],
-        sabotage_path="scripts/check-kiwi-inventory-ratchet.py",
-        # Remove the sys.path line the fix added. The gate then dies with
-        # `AttributeError: 'NoneType' object has no attribute 'loader'` — which is
-        # exactly the failure mode the gate exists to catch, so the control is the
-        # same defect rather than a synthetic one.
+        sabotage_path="scripts/check-backlog-issue-refs.py",
+        # Make the gate raise instead of report. That is exactly the failure
+        # mode the gate exists to catch (#529), so the control is the same
+        # defect rather than a synthetic one. This target was
+        # check-kiwi-inventory-ratchet.py until the Kiwi stand was retired; the
+        # control outlived its subject, so it moved to another registered gate.
         sabotage=(
-            "p.write_text(p.read_text().replace("
-            "\"if str(ROOT) not in sys.path:\\n    sys.path.insert(0, str(ROOT))\", ''))"
+            "p.write_text(p.read_text().replace('import sys', "
+            "'import sys\\nraise AttributeError(\"'NoneType' object has no attribute 'loader'\")', 1))"
         ),
         why=(
             "a gate that raises instead of reporting has no opinion at all, and an "
@@ -540,7 +535,7 @@ SCRIPT_GATES = [
         # stops the control silently becoming a no-op if the spec is ever
         # reformatted — the failure this file was written for, and it already
         # happened once to the test-runs control.
-        sabotage_path="infra/kiwi/scenarios/tasks/checklist/TASK-CHECK-01.yaml",
+        sabotage_path="scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml",
         sabotage=(
             "import re\n"
             "_t = p.read_text()\n"
@@ -551,25 +546,6 @@ SCRIPT_GATES = [
             "p.write_text(_t2)\n"
         ),
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
-    ),
-    ScriptGate(
-        name="kiwi-inventory-ratchet",
-        cmd=[sys.executable, "scripts/check-kiwi-inventory-ratchet.py"],
-        # The floor file, not a source file. Lowering a ceiling is the gate working, and a
-        # control that raises one would be testing the opposite of the failure. The
-        # `measured` field is the better target: leaving it stale is exactly the state
-        # where the file describes a commit other than the one in the tree, and that is a
-        # silent drift the gate exists to name.
-        sabotage_path="config/docs/kiwi-inventory-ratchet.json",
-        sabotage=(
-            "import json\n"
-            "_d = json.loads(p.read_text())\n"
-            "_f = [f for f in _d['floors'] if f['metric'] == 'inventory']\n"
-            "assert len(_f) == 1, 'inventory floor not found — the control would be a no-op'\n"
-            "_f[0]['measured'] = _f[0]['measured'] - 1\n"
-            "p.write_text(json.dumps(_d, indent=2) + '\\n')"
-        ),
-        why="a floor file whose recorded measurement no longer matches the tree describes a different commit, and nothing else would say so",
     ),
     ScriptGate(
         name="room-schema-integrity",
@@ -860,10 +836,6 @@ GATE_EXEMPTIONS: dict[str, str] = {
         "test_check_gate_honesty.py, including "
         "`test_a_probe_that_does_not_fire_is_a_failure_not_a_pass`."
     ),
-    "scripts/check-kiwi-gaps.py": (
-        "the Kiwi TCMS stand is currently unused; the recipe is commented out "
-        "in .just/kiwi/mod.just. An exempted gate that nobody runs cannot fail."
-    ),
 }
 
 
@@ -897,19 +869,6 @@ SABOTAGE_ONLY_GATES = [
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
         sabotage_requires_clean_tree=True,
     ),
-    # REMOVED — kiwi-gaps gate deleted 2026-10-09.
-    # Kiwi is not currently used; the gate is kept in static-gates.sh with --if-present
-    # so it skips when the stand is down. Removing it from the sabotage registry
-    # eliminates the false "already fails on a clean tree" report from the harness.
-    # Restore by copying the block back from git history if Kiwi is re-adopted.
-    # ScriptGate(
-    #     name="kiwi-gaps",
-    #     cmd=[sys.executable, "scripts/check-kiwi-gaps.py"],
-    #     sabotage_path="config/docs/kiwi-gaps-baseline.txt",
-    #     sabotage="p.write_text(p.read_text().replace('Automated — mcp-server 1', 'Automated — mcp-server 0'))",
-    #     why="a plan whose never-run cases rise above its floor means the plan is not being run",
-    #     kiwi_required=True,
-    # ),
     ScriptGate(
         name="adr-references",
         cmd=[sys.executable, "scripts/check-adr-references.py"],
@@ -1015,23 +974,6 @@ def run_gate(cmd: list[str]) -> int:
     return proc.returncode
 
 
-def _kiwi_is_available() -> bool:
-    """True when the Kiwi XML-RPC stand is reachable and login succeeds."""
-    try:
-        sys.path.insert(0, str(ROOT / "infra"))
-        from infra.kiwi.kiwi_client import KiwiClient
-        client = KiwiClient()
-        client.check_alive()
-        return True
-    except Exception:
-        return False
-    finally:
-        # Clean up sys.path if we modified it
-        kiwi_path = str(ROOT / "infra")
-        if kiwi_path in sys.path:
-            sys.path.remove(kiwi_path)
-
-
 def _tree_is_dirty() -> bool:
     """
     True when a partial Gradle test run has left stale XML on disk.
@@ -1103,10 +1045,6 @@ def check_can_fail() -> list[str]:
 
         # Verify the gate passes on the real tree first. A gate that is already red
         # proves nothing about the sabotage, and would mask the result.
-        if gate.kiwi_required and not _kiwi_is_available():
-            print(f"  skip  {gate.name}: Kiwi stand unreachable — sabotage control "
-                  f"not verifiable in this environment (gate requires Kiwi to be live)")
-            continue
         if gate.sabotage_requires_clean_tree and _tree_is_dirty():
             print(f"  skip  {gate.name}: tree has partial test results on disk — "
                   f"sabotage control requires a clean full-suite run to verify")
@@ -1653,7 +1591,7 @@ def registered_gate_scripts() -> dict[str, list[str]]:
         # `scripts/check-tags.sh`, a path that does not exist, and the registry
         # then demanded a control for a gate it had invented.
         for match in re.finditer(
-            r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?((?:scripts|infra/kiwi)/check-[\w.-]+\.(?:py|sh))",
+            r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?(scripts/check-[\w.-]+\.(?:py|sh))",
             text,
             re.MULTILINE,
         ):
@@ -1798,9 +1736,9 @@ _SHIM_DELEGATION = re.compile(
 
 
 def gate_candidate_scripts() -> list[str]:
-    """Every `scripts/check*` / `infra/kiwi/check*` script that exists on disk."""
+    """Every `scripts/check*` script that exists on disk."""
     out: list[str] = []
-    for pattern in ("scripts/check*.*", "infra/kiwi/check*.*"):
+    for pattern in ("scripts/check*.*",):
         for path in sorted(ROOT.glob(pattern)):
             name = path.name
             # `scripts/check-dead-settings-baseline.txt` matches the glob but is a
@@ -1816,7 +1754,7 @@ def reachable_gate_scripts() -> set[str]:
     invoked: set[str] = set()
     pattern = re.compile(
         r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?"
-        r"((?:scripts|infra/kiwi)/check[-_][\w.-]+\.(?:py|sh))"
+        r"(scripts/check[-_][\w.-]+\.(?:py|sh))"
     )
     for surface in _REACH_SURFACES:
         try:
@@ -1839,7 +1777,7 @@ def reachable_gate_scripts() -> set[str]:
             except (OSError, UnicodeDecodeError):
                 continue
             for match in _SHIM_DELEGATION.finditer(body):
-                for candidate in (f"scripts/{match.group(1)}", f"infra/kiwi/{match.group(1)}"):
+                for candidate in (f"scripts/{match.group(1)}",):
                     if (ROOT / candidate).is_file() and candidate not in invoked:
                         found.add(candidate)
         if not found:
